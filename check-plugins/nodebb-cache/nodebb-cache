@@ -23,7 +23,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Get NodeBB system cache info."""
 
@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -177,25 +177,24 @@ def main():
         if not result[cache]['enabled']:
             cache_enabled_state = lib.base.str2state(args.SEVERITY)
             state = lib.base.get_worst(state, cache_enabled_state)
-            result[cache]['enabled'] = '{}{}'.format(
-                str(result[cache]['enabled']),
-                lib.base.state2str(cache_enabled_state, prefix=' '),
+            result[cache]['enabled'] = (
+                f'{result[cache]["enabled"]}'
+                f'{lib.base.state2str(cache_enabled_state, prefix=" ")}'
             )
         cache_usage_state = lib.base.get_state(result[cache]['percentFull'], args.WARN, args.CRIT)
         state = lib.base.get_worst(state, cache_usage_state)
-        result[cache]['percentFull'] = '{}%{}'.format(
-            result[cache]['percentFull'],
-            lib.base.state2str(cache_usage_state, prefix=' '),
+        result[cache]['percentFull'] = (
+            f'{result[cache]["percentFull"]}%'
+            f'{lib.base.state2str(cache_usage_state, prefix=" ")}'
         )
-        result[cache]['size'] = '{} / {}'.format(
-            lib.human.number2human(result[cache]['length']),
-            lib.human.number2human(result[cache]['max']),
+        result[cache]['size'] = (
+            f'{lib.human.number2human(result[cache]["length"])}'
+            f' / '
+            f'{lib.human.number2human(result[cache]["max"])}'
         )
         result[cache]['hits'] = lib.human.number2human(result[cache]['hits'])
         result[cache]['misses'] = lib.human.number2human(result[cache]['misses'])
-        result[cache]['hitRatio'] = '{}%'.format(
-            lib.human.number2human(result[cache]['hitRatio']),
-        )
+        result[cache]['hitRatio'] = f"{lib.human.number2human(result[cache]['hitRatio'])}%"
 
         table_data.append(result[cache])
 

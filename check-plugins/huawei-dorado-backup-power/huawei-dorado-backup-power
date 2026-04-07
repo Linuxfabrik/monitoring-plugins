@@ -25,7 +25,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Batch querying all backup power modules of a Huawei OceanStor Dorado
                  storage system via the REST Interface, using the ``/backup_power`` endpoint."""
@@ -45,7 +45,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -161,12 +161,13 @@ def main():
 
     # no valuable result?
     if not result:
-        lib.base.cu('Got no valuable response from {}.'.format(args.URL))
+        lib.base.cu(f'Got no valuable response from {args.URL}.')
     if result.get('error').get('code') != 0:
-        lib.base.oao('{} {}'.format(
-            result.get('error').get('description'),
-            result.get('error').get('suggestion'),
-        ), STATE_UNKNOWN)
+        lib.base.oao(
+            f"{result.get('error').get('description')}"
+            f" {result.get('error').get('suggestion')}",
+            STATE_UNKNOWN,
+        )
 
     # init some vars
     msg = ''
@@ -197,11 +198,11 @@ def main():
             power['REMAINLIFEDAYS'] = power['REMAINLIFEDAYS'] * 24*60*60
         power['VOLTAGE'] = float(power['VOLTAGE']) / 10
 
-        perfdata += lib.base.get_perfdata('{}_HEALTHSTATUS'.format(power['UUID']), power['HEALTHSTATUS'], None, None, 2, 0, 2)
-        perfdata += lib.base.get_perfdata('{}_RUNNINGSTATUS'.format(power['UUID']), power['RUNNINGSTATUS'], None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata('{}_CHARGETIMES'.format(power['UUID']), power['CHARGETIMES'], None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata('{}_REMAINLIFEDAYS'.format(power['UUID']), power['REMAINLIFEDAYS'], 's', None, None, 0, None) if power['REMAINLIFEDAYS'] > 0 else ''
-        perfdata += lib.base.get_perfdata('{}_VOLTAGE'.format(power['UUID']), power['VOLTAGE'], None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f"{power['UUID']}_HEALTHSTATUS", power['HEALTHSTATUS'], None, None, 2, 0, 2)
+        perfdata += lib.base.get_perfdata(f"{power['UUID']}_RUNNINGSTATUS", power['RUNNINGSTATUS'], None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f"{power['UUID']}_CHARGETIMES", power['CHARGETIMES'], None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f"{power['UUID']}_REMAINLIFEDAYS", power['REMAINLIFEDAYS'], 's', None, None, 0, None) if power['REMAINLIFEDAYS'] > 0 else ''
+        perfdata += lib.base.get_perfdata(f"{power['UUID']}_VOLTAGE", power['VOLTAGE'], None, None, None, 0, None)
 
         power['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         power['running_state'] = lib.base.state2str(running_state, empty_ok=False)
@@ -215,9 +216,9 @@ def main():
         headers = ['UUID', 'Location', 'Produced', 'ControllerID', '#Charged', 'Remain', 'Volt', 'Health', 'Running']
         msg += lib.base.get_table(table_data, keys, header=headers)
 
-    msg += '\nFetched API {} {}'.format(
-        result.get('counter', 0),
-        lib.txt.pluralize('time', result.get('counter', 0),),
+    msg += (
+        f"\nFetched API {result.get('counter', 0)}"
+        f" {lib.txt.pluralize('time', result.get('counter', 0))}"
     )
 
     if state == STATE_CRIT:

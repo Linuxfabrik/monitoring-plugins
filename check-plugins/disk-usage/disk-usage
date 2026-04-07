@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026033101'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Checks the used disk space, for each partition.'
 
@@ -45,7 +45,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -186,11 +186,7 @@ def compile_regex(regex, what):
     except re.error as e:
         # don't want a full stacktrace here, therefore not using cu()
         lib.base.oao(
-            'Your {} "{}" contains one or more errors: {}'.format(
-                what,
-                regex,
-                e,
-            ),
+            f'Your {what} "{regex}" contains one or more errors: {e}',
             STATE_UNKNOWN,
         )
 
@@ -320,8 +316,8 @@ def main():
             usage = psutil.disk_usage(part.mountpoint)
         except (PermissionError, FileNotFoundError, OSError):
             table_data.append({
-                'mountpoint': '{}'.format(part.mountpoint),
-                'type': '{}'.format(part.fstype),
+                'mountpoint': f'{part.mountpoint}',
+                'type': f'{part.fstype}',
                 'used': 'N/A',
                 'avail': 'N/A',
                 'size': 'N/A',
@@ -404,7 +400,7 @@ def main():
 
         state = lib.base.get_worst(state, disk_state)
 
-        perfdata_key = '{}-usage'.format(part.mountpoint)
+        perfdata_key = f'{part.mountpoint}-usage'
         if not args.PERFDATA_REGEX \
         or any(item.search(perfdata_key) for item in compiled_perfdata_regex):
             perfdata += lib.base.get_perfdata(
@@ -416,7 +412,7 @@ def main():
                 _min=0,
                 _max=usage.total,
             )
-        perfdata_key = '{}-total'.format(part.mountpoint)
+        perfdata_key = f'{part.mountpoint}-total'
         if not args.PERFDATA_REGEX \
         or any(item.search(perfdata_key) for item in compiled_perfdata_regex):
             perfdata += lib.base.get_perfdata(
@@ -428,7 +424,7 @@ def main():
                 _min=0,
                 _max=usage.total,
             )
-        perfdata_key = '{}-percent'.format(part.mountpoint)
+        perfdata_key = f'{part.mountpoint}-percent'
         if not args.PERFDATA_REGEX \
         or any(item.search(perfdata_key) for item in compiled_perfdata_regex):
             perfdata += lib.base.get_perfdata(
@@ -441,26 +437,26 @@ def main():
                 _max=100,
             )
         table_data.append({
-            'mountpoint': '{}'.format(part.mountpoint),
-            'type': '{}'.format(part.fstype),
+            'mountpoint': f'{part.mountpoint}',
+            'type': f'{part.fstype}',
             'used': lib.human.bytes2human(usage.used),
             'avail': lib.human.bytes2human(usage.free),
             'size': lib.human.bytes2human(usage.total),
-            'percent': '{}%{}'.format(usage.percent, lib.base.state2str(disk_state, prefix=' ')),
+            'percent': f"{usage.percent}%{lib.base.state2str(disk_state, prefix=' ')}",
         })
 
     # build the message
     if not table_data:
         msg = 'Nothing checked.'
     elif len(table_data) == 1:
-        msg = '{} {} - total: {}, free: {}, used: {} (warn={} crit={})'.format(
-            table_data[0]['mountpoint'],
-            table_data[0]['percent'],
-            table_data[0]['size'],
-            table_data[0]['avail'],
-            table_data[0]['used'],
-            ''.join(args.WARN),
-            ''.join(args.CRIT),
+        msg = (
+            f'{table_data[0]["mountpoint"]}'
+            f' {table_data[0]["percent"]}'
+            f' - total: {table_data[0]["size"]}'
+            f', free: {table_data[0]["avail"]}'
+            f', used: {table_data[0]["used"]}'
+            f' (warn={"".join(args.WARN)}'
+            f' crit={"".join(args.CRIT)})'
         )
     else:
         if state == STATE_CRIT:
@@ -469,16 +465,17 @@ def main():
             msg = 'There are warnings.'
         else:
             msg = 'Everything is ok.'
-        msg = '{} (warn={} crit={})\n\n{}'.format(
-            msg,
-            ''.join(args.WARN),
-            ''.join(args.CRIT),
-            lib.base.get_table(
-                table_data,
-                ['mountpoint', 'type', 'size', 'used', 'avail', 'percent'],
-                ['Mountpoint', 'Type', 'Size', 'Used', 'Avail', 'Use%'],
-                'percent',
-            ),
+        table = lib.base.get_table(
+            table_data,
+            ['mountpoint', 'type', 'size', 'used', 'avail', 'percent'],
+            ['Mountpoint', 'Type', 'Size', 'Used', 'Avail', 'Use%'],
+            'percent',
+        )
+        msg = (
+            f'{msg}'
+            f' (warn={"".join(args.WARN)}'
+            f' crit={"".join(args.CRIT)})'
+            f'\n\n{table}'
         )
 
     # over and out

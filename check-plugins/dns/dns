@@ -22,7 +22,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Performs a DNS lookup and converts a hostname to one or more IP addresses. Only the
                 name servers configured on the machine running this check plugin (for example those
@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -129,17 +129,17 @@ def main():
         else:
             result = socket.getaddrinfo(args.HOSTNAME, args.PORT)
     except socket.error as e:
-        lib.base.oao('Socket error "{}" for {}:{}/{}.'.format(e, args.HOSTNAME, args.PORT, args.TYPE), STATE_WARN)
+        lib.base.oao(f'Socket error "{e}" for {args.HOSTNAME}:{args.PORT}/{args.TYPE}.', STATE_WARN)
     except socket.herror as e:
-        lib.base.oao('Address related Socket error "{}" for {}:{}/{}.'.format(e, args.HOSTNAME, args.PORT, args.TYPE), STATE_WARN)
+        lib.base.oao(f'Address related Socket error "{e}" for {args.HOSTNAME}:{args.PORT}/{args.TYPE}.', STATE_WARN)
     except socket.gaierror as e:
-        lib.base.oao('Address related Socket error "{}" for {}:{}/{}.'.format(e, args.HOSTNAME, args.PORT, args.TYPE), STATE_WARN)
+        lib.base.oao(f'Address related Socket error "{e}" for {args.HOSTNAME}:{args.PORT}/{args.TYPE}.', STATE_WARN)
     runtime = (time.time() - start_time) * 1000     # we get seconds and want ms
 
-    msg = 'Lookup for {} returns '.format(args.HOSTNAME)
+    msg = f'Lookup for {args.HOSTNAME} returns '
     for res in result:
         af, socktype, proto, canonname, sa = res
-        msg += '{} ({}{}:{}), '.format(sa[0], lib.net.PROTOSTR[proto], lib.net.FAMILIYSTR[af], sa[1])
+        msg += f'{sa[0]} ({lib.net.PROTOSTR[proto]}{lib.net.FAMILIYSTR[af]}:{sa[1]}), '
 
     state = lib.base.get_state(runtime, args.WARN, args.CRIT, _operator='ge')
     perfdata = lib.base.get_perfdata('time', runtime, 'ms', args.WARN, args.CRIT, 0, None)

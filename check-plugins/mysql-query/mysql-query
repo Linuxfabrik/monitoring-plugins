@@ -22,7 +22,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """This check connects to a MySQL/MariaDB database and can then run a separate
                  warning and/or critical query against it. The result - the number of items found
@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -187,20 +187,20 @@ def main():
 
     # build the message
     if args.WARNING_QUERY:
-        msg = '{} {} from warning query `{}`{}'.format(
-            cnt_warn,
-            lib.txt.pluralize('result', cnt_warn),
-            args.WARNING_QUERY,
-            lib.base.state2str(state_warn, prefix=' '),
+        msg = (
+            f'{cnt_warn}'
+            f' {lib.txt.pluralize("result", cnt_warn)}'
+            f' from warning query `{args.WARNING_QUERY}`'
+            f'{lib.base.state2str(state_warn, prefix=" ")}'
         )
     if args.WARNING_QUERY and args.CRITICAL_QUERY:
         msg += ' and '
     if args.CRITICAL_QUERY:
-        msg += '{} {} from critical query `{}`{}'.format(
-            cnt_crit,
-            lib.txt.pluralize('result', cnt_crit),
-            args.CRITICAL_QUERY,
-            lib.base.state2str(state_crit, prefix=' '),
+        msg += (
+            f'{cnt_crit}'
+            f' {lib.txt.pluralize("result", cnt_crit)}'
+            f' from critical query `{args.CRITICAL_QUERY}`'
+            f'{lib.base.state2str(state_crit, prefix=" ")}'
         )
     msg += '\n'
 

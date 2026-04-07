@@ -22,7 +22,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026033101'
+__version__ = '2026040801'
 
 DESCRIPTION = """This plugin lets you check the most common analytics values from Matomo, for one
                  or several websites and for any given date and period."""
@@ -48,7 +48,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -146,7 +146,7 @@ def main():
         args.METRIC = DEFAULT_METRIC
 
     # fetch data
-    url = args.URL + ('/' if not args.URL.endswith('/') else '') + 'index.php?method=API.get&idSite={}&period={}&date={}&module=API&token_auth={}&format=json&filter_limit=1'.format(args.IDSITE, args.PERIOD, args.DATE, args.PASSWORD)
+    url = args.URL + ('/' if not args.URL.endswith('/') else '') + f'index.php?method=API.get&idSite={args.IDSITE}&period={args.PERIOD}&date={args.DATE}&module=API&token_auth={args.PASSWORD}&format=json&filter_limit=1'
     result = lib.base.coe(lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     if 'result' in result and result['result'] == 'error':
         lib.base.cu(result['message'])
@@ -180,7 +180,7 @@ def main():
             else:
                 sensor_state = STATE_OK
 
-            msg += '{}: {}{}, '.format(key, lib.human.number2human(value), lib.base.state2str(sensor_state, prefix=' (', suffix=')'))
+            msg += f"{key}: {lib.human.number2human(value)}{lib.base.state2str(sensor_state, prefix=' (', suffix=')')}, "
             state = lib.base.get_worst(state, sensor_state)
             if 'time' in key:
                 perfdata += lib.base.get_perfdata(key, value, 's', None, None, 0, None)
@@ -191,11 +191,11 @@ def main():
     else:
         for key, value in lib.base.sort(result, reverse=False, sort_by_key=True):
             # print all values
-            msg += '{}: {}, '.format(key, lib.human.number2human(value))
+            msg += f'{key}: {lib.human.number2human(value)}, '
             perfdata += lib.base.get_perfdata(key, value, 's' if 'time' in key else None, None, None, 0, None)
 
     # over and out
-    lib.base.oao('{}'.format(msg[:-2]), state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(f'{msg[:-2]}', state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

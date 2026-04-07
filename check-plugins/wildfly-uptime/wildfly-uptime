@@ -21,7 +21,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Checks the uptime of a Wildfly/JBossAS over HTTP.'
 
@@ -42,7 +42,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -157,7 +157,7 @@ def check_uptime(args):
     WARN = int(args.WARN)*24*60*60
     uptime = res['uptime'] / 1000
 
-    msg = 'Up {}'.format(lib.human.seconds2human(uptime))
+    msg = f'Up {lib.human.seconds2human(uptime)}'
     perfdata = lib.base.get_perfdata('uptime', uptime, 's', WARN, CRIT, 0, None)
     state = lib.base.get_state(uptime, WARN, CRIT)
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

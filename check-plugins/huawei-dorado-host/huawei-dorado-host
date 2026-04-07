@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Batch query basic information about hosts attached to a Huawei OceanStor Dorado
                  storage system via the REST Interface, using the ``/host`` endpoint."""
@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -160,12 +160,13 @@ def main():
 
     # no valuable result?
     if not result:
-        lib.base.cu('Got no valuable response from {}.'.format(args.URL))
+        lib.base.cu(f'Got no valuable response from {args.URL}.')
     if result.get('error').get('code') != 0:
-        lib.base.oao('{} {}'.format(
-            result.get('error').get('description'),
-            result.get('error').get('suggestion'),
-        ), STATE_UNKNOWN)
+        lib.base.oao(
+            f"{result.get('error').get('description')}"
+            f" {result.get('error').get('suggestion')}",
+            STATE_UNKNOWN,
+        )
 
     # init some vars
     msg = ''
@@ -187,9 +188,9 @@ def main():
 
         host['UUID'] = lib.huawei.get_uuid(host)
 
-        perfdata += lib.base.get_perfdata('{}_HEALTHSTATUS'.format(host['UUID']), host['HEALTHSTATUS'], None, None, 2, 0, 2)
-        perfdata += lib.base.get_perfdata('{}_RUNNINGSTATUS'.format(host['UUID']), host['RUNNINGSTATUS'], None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata('{}_allocatedCapacity'.format(host['UUID']), host['allocatedCapacity'], None, None, None, 0, host['capacity'])
+        perfdata += lib.base.get_perfdata(f"{host['UUID']}_HEALTHSTATUS", host['HEALTHSTATUS'], None, None, 2, 0, 2)
+        perfdata += lib.base.get_perfdata(f"{host['UUID']}_RUNNINGSTATUS", host['RUNNINGSTATUS'], None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f"{host['UUID']}_allocatedCapacity", host['allocatedCapacity'], None, None, None, 0, host['capacity'])
 
         host['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         host['running_state'] = lib.base.state2str(running_state, empty_ok=False)
@@ -202,9 +203,9 @@ def main():
         headers = ['UUID', 'Location', 'Name', 'OS', 'Health', 'Running']
         msg += lib.base.get_table(table_data, keys, header=headers)
 
-    msg += '\nFetched API {} {}'.format(
-        result.get('counter', 0),
-        lib.txt.pluralize('time', result.get('counter', 0),),
+    msg += (
+        f"\nFetched API {result.get('counter', 0)}"
+        f" {lib.txt.pluralize('time', result.get('counter', 0))}"
     )
 
     if state == STATE_CRIT:

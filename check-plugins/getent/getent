@@ -20,7 +20,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Attempts to obtain entries from Name Service Switch (NSS) libraries and warns of
                  errors or missing matches."""
@@ -36,7 +36,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__),
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -70,10 +70,10 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # build the getent command
-    cmd = '/usr/bin/getent {}'.format(args.DATABASE)
+    cmd = f'/usr/bin/getent {args.DATABASE}'
     if args.KEY:
         for key in args.KEY:
-            cmd += ' {}'.format(key)
+            cmd += f' {key}'
 
     # execute the shell command and return its result and exit code
     stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
@@ -84,16 +84,16 @@ def main():
 
     # build the message
     if retc == 0:
-        msg = 'Everything is ok. Executed `{}`, got {} results.'.format(cmd, count)
+        msg = f'Everything is ok. Executed `{cmd}`, got {count} results.'
         state = STATE_OK
     if retc == 1:
-        msg = 'Missing arguments for `{}`, or database "{}" unknown.'.format(cmd, args.DATABASE)
+        msg = f'Missing arguments for `{cmd}`, or database "{args.DATABASE}" unknown.'
         state = STATE_UNKNOWN
     if retc == 2:
-        msg = 'One or more supplied keys could not be found in "{}", executing `{}`.'.format(args.DATABASE, cmd)
+        msg = f'One or more supplied keys could not be found in "{args.DATABASE}", executing `{cmd}`.'
         state = STATE_WARN
     if retc == 3:
-        msg = 'Multiple keys (enumeration) not supported on database "{}".'.format(args.DATABASE)
+        msg = f'Multiple keys (enumeration) not supported on database "{args.DATABASE}".'
         state = STATE_UNKNOWN
 
     # over and out

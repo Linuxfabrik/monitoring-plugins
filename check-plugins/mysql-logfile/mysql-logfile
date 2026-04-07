@@ -27,7 +27,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026033101'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks MySQL/MariaDB log content the same way MySQLTuner does, but also
                  in case the DB is down."""
@@ -50,7 +50,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -157,24 +157,24 @@ def get_vars(conn):
 def get_log_file_real_path(file, hostname, datadir):
     if file and os.path.isfile(file):
         return file
-    if os.path.isfile('{}.log'.format(hostname)):
-        return '{}.log'.format(hostname)
-    if os.path.isfile('{}.err'.format(hostname)):
-        return '{}.err'.format(hostname)
-    if os.path.isfile(os.path.join(datadir, '{}.err'.format(hostname))):
-        return os.path.join(datadir, '{}.err'.format(hostname))
-    if os.path.isfile(os.path.join(datadir, '{}.log'.format(hostname))):
-        return os.path.join(datadir, '{}.log'.format(hostname))
+    if os.path.isfile(f'{hostname}.log'):
+        return f'{hostname}.log'
+    if os.path.isfile(f'{hostname}.err'):
+        return f'{hostname}.err'
+    if os.path.isfile(os.path.join(datadir, f'{hostname}.err')):
+        return os.path.join(datadir, f'{hostname}.err')
+    if os.path.isfile(os.path.join(datadir, f'{hostname}.log')):
+        return os.path.join(datadir, f'{hostname}.log')
     if os.path.isfile(os.path.join(datadir, 'mysql_error.log')):
         return os.path.join(datadir, 'mysql_error.log')
     if os.path.isfile('/var/log/mysql.log'):
         return '/var/log/mysql.log'
     if os.path.isfile('/var/log/mysqld.log'):
         return '/var/log/mysqld.log'
-    if os.path.isfile('/var/log/mysql/{}.err'.format(hostname)):
-        return '/var/log/mysql/{}.err'.format(hostname)
-    if os.path.isfile('/var/log/mysql/{}.log'.format(hostname)):
-        return '/var/log/mysql/{}.log'.format(hostname)
+    if os.path.isfile(f'/var/log/mysql/{hostname}.err'):
+        return f'/var/log/mysql/{hostname}.err'
+    if os.path.isfile(f'/var/log/mysql/{hostname}.log'):
+        return f'/var/log/mysql/{hostname}.log'
     if os.path.isfile('/var/log/mysql/mysql_error.log'):
         return '/var/log/mysql/mysql_error.log'
     return file
@@ -215,10 +215,7 @@ def main():
             # Try to get the "log_error" setting and save it to cache, so that we know
             #  where to get the log info from in case the DB is down again.
             myvar = {}
-            log_error = lib.cache.get('{}-{}'.format(
-                    args.HOSTNAME,
-                    args.PORT
-                ),
+            log_error = lib.cache.get(f'{args.HOSTNAME}-{args.PORT}',
                 filename='linuxfabrik-monitoring-plugins-mysql-logfile.db',
             )
         else:
@@ -235,10 +232,7 @@ def main():
         if not log_error:
             lib.base.cu('No log file set (set `log_error` in MySQL/MariaDB config or use the check\'s `--server-log` parameter).')
 
-    lib.cache.set('{}-{}'.format(
-            args.HOSTNAME,
-            args.PORT
-        ),
+    lib.cache.set(f'{args.HOSTNAME}-{args.PORT}',
         log_error,
         lib.time.now() + args.CACHE_EXPIRE*60,
         filename='linuxfabrik-monitoring-plugins-mysql-logfile.db',
@@ -254,47 +248,43 @@ def main():
 
     match = re.search(r'^(docker|podman|kubectl):(.*)', log_error)
     if match:
-        cmd = "{} logs --tail={} '{}'".format(
-            match.group(1).strip(),
-            MAXLINES,
-            match.group(2).strip(),
-        )
+        cmd = f"{match.group(1).strip()} logs --tail={MAXLINES} '{match.group(2).strip()}'"
         logfile, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         if retc != 0:
-            lib.base.cu('{} exited with error ({}, {}).'.format(cmd, retc, stderr.strip()))
-        msg += 'Src: {}, '.format(log_error)
+            lib.base.cu(f'{cmd} exited with error ({retc}, {stderr.strip()}).')
+        msg += f'Src: {log_error}, '
 
     match = re.search(r'^systemd:(.*)', log_error)
     if match:
-        cmd = "journalctl --lines {} --boot --unit '{}'".format(MAXLINES, match.group(1).strip())
+        cmd = f"journalctl --lines {MAXLINES} --boot --unit '{match.group(1).strip()}'"
         logfile, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         if retc != 0:
-            lib.base.cu('`{}` exited with error ({}, {}).'.format(cmd, retc, stderr.strip()))
-        msg += 'Src: {}, '.format(log_error)
+            lib.base.cu(f'`{cmd}` exited with error ({retc}, {stderr.strip()}).')
+        msg += f'Src: {log_error}, '
     else:
         # good old logfile
         if not os.path.isabs(log_error):
             log_error = os.path.join(myvar.get('datadir', ''), log_error)
         if not os.path.isfile(log_error):
-            msg = 'Logging seems to be configured, but `{}` does not seem to be an existing regular file. '.format(log_error)
+            msg = f'Logging seems to be configured, but `{log_error}` does not seem to be an existing regular file. '
             msg += 'Check the path and file permissions, or provide the `--server-log` parameter.'
             lib.base.oao(msg, STATE_WARN)
         size = os.path.getsize(log_error)
         if size == 0:
             if not args.SERVER_LOG:
-                lib.base.cu('Log file {} is empty. Assuming log-rotation. Use `--server-log` for explicit file.'.format(log_error))
+                lib.base.cu(f'Log file {log_error} is empty. Assuming log-rotation. Use `--server-log` for explicit file.')
             else:
-                lib.base.oao('Log file {} is empty. `--server-log` is set explicitely, so assuming log-rotation.'.format(log_error), STATE_OK)
-        msg += 'Src: Log file {} (size: {}), '.format(
-            log_error,
-            lib.human.bytes2human(size),
-        )
+                lib.base.oao(f'Log file {log_error} is empty. `--server-log` is set explicitely, so assuming log-rotation.', STATE_OK)
+        msg += f'Src: Log file {log_error} (size: {lib.human.bytes2human(size)}), '
         perfdata += lib.base.get_perfdata('mysql_logfile_size', size, 'B', None, None, 0, None)
         if size >= 32 * 1024 * 1024:
             size_state = STATE_WARN
             state = lib.base.get_worst(state, size_state)
-            msg += 'bigger than 32 MiB{} (you should analyze why or implement a rotation log strategy such as logrotate), '.format(
-                lib.base.state2str(size_state, prefix=' '),
+            msg += (
+                f'bigger than 32 MiB'
+                f'{lib.base.state2str(size_state, prefix=" ")}'
+                f' (you should analyze why or implement a'
+                f' rotation log strategy such as logrotate), '
             )
         logfile = lib.base.coe(lib.disk.read_file(log_error))
 
@@ -319,62 +309,58 @@ def main():
     if lastErrs:
         errline_state = STATE_CRIT
         state = lib.base.get_worst(state, errline_state)
-        msg += '{} {}{} (last: {}), '.format(
-            cnt,
-            lib.txt.pluralize('error', len(lastErrs)),
-            lib.base.state2str(errline_state, prefix=' '),
-            lastErrs[-1]
+        msg += (
+            f'{cnt}'
+            f' {lib.txt.pluralize("error", len(lastErrs))}'
+            f'{lib.base.state2str(errline_state, prefix=" ")}'
+            f' (last: {lastErrs[-1]}), '
         )
         if cnt > 10:
             # shorten the message
             lastErrs = lastErrs[0:5] + ['...'] + lastErrs[-5:]
-        msg_body += '\nErrors:\n* {}\n'.format('\n* '.join(lastErrs))
+        msg_body += '\nErrors:\n* ' + '\n* '.join(lastErrs) + '\n'
     perfdata += lib.base.get_perfdata('mysql_error_lines', cnt, None, None, None, 0, None)
 
     cnt = len(lastWarns)
     if lastWarns:
         warnline_state = STATE_WARN
         state = lib.base.get_worst(state, warnline_state)
-        msg += '{} {}{} (last: {}), '.format(
-            cnt,
-            lib.txt.pluralize('warning', len(lastWarns)),
-            lib.base.state2str(warnline_state, prefix=' '),
-            lastWarns[-1]
+        msg += (
+            f'{cnt}'
+            f' {lib.txt.pluralize("warning", len(lastWarns))}'
+            f'{lib.base.state2str(warnline_state, prefix=" ")}'
+            f' (last: {lastWarns[-1]}), '
         )
         if cnt > 10:
             # shorten the message
             lastWarns = lastWarns[0:5] + ['...'] + lastWarns[-5:]
-        msg_body += '\nWarnings:\n* {}\n'.format('\n* '.join(lastWarns))
+        msg_body += '\nWarnings:\n* ' + '\n* '.join(lastWarns) + '\n'
     perfdata += lib.base.get_perfdata('mysql_warning_lines', cnt, None, None, None, 0, None)
 
     cnt = len(lastStarts)
     if lastStarts:
-        msg += '{} {} (last: {}), '.format(
-            cnt,
-            lib.txt.pluralize('start', len(lastStarts)),
-            lastStarts[-1],
-        )
+        msg += f"{cnt} {lib.txt.pluralize('start', len(lastStarts))} (last: {lastStarts[-1]}), "
         if cnt > 10:
             # shorten the message
             lastStarts = lastStarts[0:5] + ['...'] + lastStarts[-5:]
-        msg_body += '\nStarts:\n* {}\n'.format('\n* '.join(lastStarts))
+        msg_body += '\nStarts:\n* ' + '\n* '.join(lastStarts) + '\n'
     perfdata += lib.base.get_perfdata('mysql_startups', cnt, None, None, None, 0, None)
 
     cnt = len(lastShutdowns)
     if lastShutdowns:
-        msg += '{} {} (last: {}), '.format(
-            cnt,
-            lib.txt.pluralize('shutdown', len(lastShutdowns)),
-            lastShutdowns[-1],
+        msg += (
+            f'{cnt}'
+            f' {lib.txt.pluralize("shutdown", len(lastShutdowns))}'
+            f' (last: {lastShutdowns[-1]}), '
         )
         if cnt > 10:
             # shorten the message
             lastShutdowns = lastShutdowns[0:5] + ['...'] + lastShutdowns[-5:]
-        msg_body += '\nShutdowns:\n* {}\n'.format('\n* '.join(lastShutdowns))
+        msg_body += '\nShutdowns:\n* ' + '\n* '.join(lastShutdowns) + '\n'
     perfdata += lib.base.get_perfdata('mysql_shutdowns', cnt, None, None, None, 0, None)
 
     # over and out
-    lib.base.oao('{}\n{}'.format(msg[:-2], msg_body), state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(f'{msg[:-2]}\n{msg_body}', state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

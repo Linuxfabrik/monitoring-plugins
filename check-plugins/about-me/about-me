@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026032401'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Provides a quick overview of host dimensions and software.'
 
@@ -59,7 +59,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -133,7 +133,7 @@ def get_birthday():
     if os.path.exists('/var/lib/cloud/data/instance-id'):
         # cloud-init based VM
         birthday = os.stat('/var/lib/cloud/data/instance-id')
-        return 'born {}. '.format(lib.time.epoch2iso(birthday.st_ctime))
+        return f'born {lib.time.epoch2iso(birthday.st_ctime)}. '
     # no way to do this in python - getting the birthday of a folder
     success, result = lib.shell.shell_exec(
         'stat / | grep "Birth" | sed "s/Birth: //g" | cut -b 2-11',
@@ -141,7 +141,7 @@ def get_birthday():
     )
     birthday, _, _ = result
     birthday = birthday.strip()
-    return 'born {}. '.format(birthday)
+    return f'born {birthday}. '
 
 
 def get_boot_mode():
@@ -161,9 +161,9 @@ def get_crontab():
     for line in stdout.splitlines():
         line = line.strip()
         if len(line) > 0 and re.match(line_regex, line) is None:
-            output = '{}{}\n'.format(output, line)
+            output = f'{output}{line}\n'
     if output:
-        output = 'crontab:\n{}\n'.format(output)
+        output = f'crontab:\n{output}\n'
     return output
 
 
@@ -182,10 +182,7 @@ def get_disks():
         if disk.startswith('zram'):
             continue
         output.append(re.sub('\\s+', ' ', disk))
-    return '{} {}, '.format(
-        lib.txt.pluralize('Disk', len(output)),
-        ', '.join(output),
-    ), len(output)
+    return f"{lib.txt.pluralize('Disk', len(output))} {', '.join(output)}, ", len(output)
 
 
 def get_hw_info():
@@ -195,64 +192,73 @@ def get_hw_info():
     output = ''
     for _, value in result.items():
         if value['dminame'] == 'Base Board Information':
-            output += '* Base Board: Type {} {} {}, SerNo {}, Ver {}\n'.format(
-                value.get('Type', 'n/a').replace('Default string', 'n/a'),
-                value.get('Manufacturer', 'n/a').replace('Default string', 'n/a'),
-                value.get('Product Name', 'n/a').replace('Default string', 'n/a'),
-                value.get('Serial Number', 'n/a').replace('Default string', 'n/a'),
-                value.get('Version', 'n/a').replace('Default string', 'n/a'),
+            d = 'Default string'
+            output += (
+                f'* Base Board: Type'
+                f' {value.get("Type", "n/a").replace(d, "n/a")}'
+                f' {value.get("Manufacturer", "n/a").replace(d, "n/a")}'
+                f' {value.get("Product Name", "n/a").replace(d, "n/a")}'
+                f', SerNo {value.get("Serial Number", "n/a").replace(d, "n/a")}'
+                f', Ver {value.get("Version", "n/a").replace(d, "n/a")}\n'
             )
         if value['dminame'] == 'BIOS Information':
-            output += '* BIOS: {}, Ver {} (released {}), ROM {}\n'.format(
-                value.get('Vendor', 'n/a').replace('Default string', 'n/a'),
-                value.get('Version', 'n/a').replace('Default string', 'n/a'),
-                value.get('Release Date', 'n/a').replace('Default string', 'n/a'),
-                value.get('ROM Size', 'n/a').replace('Default string', 'n/a'),
+            d = 'Default string'
+            output += (
+                f'* BIOS: {value.get("Vendor", "n/a").replace(d, "n/a")}'
+                f', Ver {value.get("Version", "n/a").replace(d, "n/a")}'
+                f' (released {value.get("Release Date", "n/a").replace(d, "n/a")})'
+                f', ROM {value.get("ROM Size", "n/a").replace(d, "n/a")}\n'
             )
         if value['dminame'] == 'Chassis Information':
-            output += '* Chassis: {}, Type {}, SKU {}, SerNo {}\n'.format(
-                value.get('Manufacturer', 'n/a').replace('Default string', 'n/a'),
-                value.get('Type', 'n/a').replace('Default string', 'n/a'),
-                value.get('SKU', 'n/a').replace('Default string', 'n/a'),
-                value.get('Serial Number', 'n/a').replace('Default string', 'n/a'),
+            d = 'Default string'
+            output += (
+                f'* Chassis:'
+                f' {value.get("Manufacturer", "n/a").replace(d, "n/a")}'
+                f', Type {value.get("Type", "n/a").replace(d, "n/a")}'
+                f', SKU {value.get("SKU", "n/a").replace(d, "n/a")}'
+                f', SerNo {value.get("Serial Number", "n/a").replace(d, "n/a")}\n'
             )
-            output += '  States: boot-up={}, pwr-supply={}, thermal={}, security={}\n'.format(
-                value.get('Boot-up State', 'n/a').replace('Default string', 'n/a'),
-                value.get('Power Supply State', 'n/a').replace('Default string', 'n/a'),
-                value.get('Thermal State', 'n/a').replace('Default string', 'n/a'),
-                value.get('Security Status', 'n/a').replace('Default string', 'n/a'),
+            output += (
+                f'  States:'
+                f' boot-up={value.get("Boot-up State", "n/a").replace(d, "n/a")}'
+                f', pwr-supply={value.get("Power Supply State", "n/a").replace(d, "n/a")}'
+                f', thermal={value.get("Thermal State", "n/a").replace(d, "n/a")}'
+                f', security={value.get("Security Status", "n/a").replace(d, "n/a")}\n'
             )
         if value['dminame'] == 'Processor Information':
-            output += '* Proc: {}, Ver {},\n'.format(
-                value.get('Manufacturer', 'n/a').replace('Default string', 'n/a'),
-                value.get('Version', 'n/a').replace('Default string', 'n/a'),
+            d = 'Default string'
+            output += (
+                f'* Proc: {value.get("Manufacturer", "n/a").replace(d, "n/a")}'
+                f', Ver {value.get("Version", "n/a").replace(d, "n/a")},\n'
             )
-            output += '  Speed {}/{} max., {}/{} Cores enabled, {} {}, Voltage {}\n'.format(
-                value.get('Current Speed', 'n/a').replace('Default string', 'n/a'),
-                value.get('Max Speed', 'n/a').replace('Default string', 'n/a'),
-                value.get('Core Enabled', 'n/a').replace('Default string', 'n/a'),
-                value.get('Core Count', 'n/a').replace('Default string', 'n/a'),
-                value.get('Thread Count', 'n/a').replace('Default string', 'n/a'),
-                lib.txt.pluralize('Thread', value.get('Thread Count', 0)),
-                value.get('Voltage', 'n/a').replace('Default string', 'n/a'),
+            output += (
+                f'  Speed {value.get("Current Speed", "n/a").replace(d, "n/a")}'
+                f'/{value.get("Max Speed", "n/a").replace(d, "n/a")} max.'
+                f', {value.get("Core Enabled", "n/a").replace(d, "n/a")}'
+                f'/{value.get("Core Count", "n/a").replace(d, "n/a")} Cores enabled'
+                f', {value.get("Thread Count", "n/a").replace(d, "n/a")}'
+                f' {lib.txt.pluralize("Thread", value.get("Thread Count", 0))}'
+                f', Voltage {value.get("Voltage", "n/a").replace(d, "n/a")}\n'
             )
         if value['dminame'] == 'System Boot Information':
-            output += '* System Boot: {}\n'.format(
-                value.get('Status', 'n/a').replace('Default string', 'n/a'),
+            d = 'Default string'
+            output += (
+                f'* System Boot:'
+                f' {value.get("Status", "n/a").replace(d, "n/a")}\n'
             )
         if value['dminame'] == 'System Information':
-            output += '* SysInfo: {} {}, SerNo {}, SKU {}, Wake-up Type "{}",\n'.format(
-                value.get('Manufacturer', 'n/a').replace('Default string', 'n/a'),
-                value.get('Product Name', 'n/a').replace('Default string', 'n/a'),
-                value.get('Serial Number', 'n/a').replace('Default string', 'n/a'),
-                value.get('SKU', 'n/a').replace('Default string', 'n/a'),
-                value.get('Wake-up Type', 'n/a').replace('Default string', 'n/a'),
+            d = 'Default string'
+            output += (
+                f'* SysInfo:'
+                f' {value.get("Manufacturer", "n/a").replace(d, "n/a")}'
+                f' {value.get("Product Name", "n/a").replace(d, "n/a")}'
+                f', SerNo {value.get("Serial Number", "n/a").replace(d, "n/a")}'
+                f', SKU {value.get("SKU", "n/a").replace(d, "n/a")}'
+                f', Wake-up Type "{value.get("Wake-up Type", "n/a").replace(d, "n/a")}",\n'
             )
-            output += '  UUID {}\n'.format(
-                value.get('UUID', 'n/a').replace('Default string', 'n/a'),
-            )
+            output += f"  UUID {value.get('UUID', 'n/a').replace('Default string', 'n/a')}\n"
     if output:
-        return 'Hardware Info (`dmidecode`):\n{}\n'.format(output)
+        return f'Hardware Info (`dmidecode`):\n{output}\n'
     return output
 
 
@@ -264,15 +270,11 @@ def get_interfaces():
                 continue
             for addr in interface:
                 if addr.family == lib.net.AF_INET:
-                    output += '* {} {}/{}\n'.format(
-                        name,
-                        addr.address,
-                        lib.net.ip_to_cidr(addr.netmask),
-                    )
+                    output += f'* {name} {addr.address}/{lib.net.ip_to_cidr(addr.netmask)}\n'
     except:
         pass
     if output:
-        return 'Interfaces (IPv4):\n{}\n'.format(output)
+        return f'Interfaces (IPv4):\n{output}\n'
     return output
 
 
@@ -378,10 +380,7 @@ def get_lftags(distro):
         {'sw': 'OpenVAS', 'package': [], 'expr': [run_cmd('systemctl is-enabled gsad.service', ignore_output=True)]}, # pylint: disable=C0301
         {'sw': 'OpenVPN Server', 'package': ['openvpn'], 'expr': [run_cmd('systemctl is-enabled openvpn-server@server.service', ignore_output=True)]}, # pylint: disable=C0301
         {
-            'sw': 'OS - {}, family "{}"'.format(
-                distro.get('os_info'),
-                distro.get('os_family'),
-            ),
+            'sw': f"OS - {distro.get('os_info')}, family \"{distro.get('os_family')}\"",
             'package': [],
             'expr': [True], # always check this
         },
@@ -433,9 +432,9 @@ def get_lftags(distro):
         # if any of the listed software packages is installed, we have a match
         if any(i in item['package'] for i in userinstalled_software) \
         or any(item['expr']):
-            output += '* {}\n'.format(item['sw'])
+            output += f"* {item['sw']}\n"
     if output:
-        return 'Linuxfabrik\'s Icinga Director Tags:\n{}\n'.format(output)
+        return f'Linuxfabrik\'s Icinga Director Tags:\n{output}\n'
     return ''
 
 
@@ -458,9 +457,9 @@ def get_listening_ports():
             else:
                 proto += '6'
             ip, port = c.laddr
-            ports['{}#{}#{}'.format(ip, port, proto)] = {
+            ports[f'{ip}#{port}#{proto}'] = {
                 'proto': proto,
-                'ip': '[{}]'.format(ip) if c.family == socket.AF_INET6 and not ip.startswith('[') and not ip.endswith(']') else ip, # pylint: disable=C0301
+                'ip': f'[{ip}]' if c.family == socket.AF_INET6 and not ip.startswith('[') and not ip.endswith(']') else ip, # pylint: disable=C0301
                 'port': port,
             }
         for _, value in ports.items():
@@ -471,7 +470,7 @@ def get_listening_ports():
     if output:
         msg = 'Listening TCP/UDP Ports (ordered by port, proto, ip):\n'
         for p in output:
-            msg += '* {}:{}/{}\n'.format(p['ip'], p['port'], p['proto'])
+            msg += f"* {p['ip']}:{p['port']}/{p['proto']}\n"
         msg += '\n'
         return msg
     return ''
@@ -495,7 +494,7 @@ def get_nondefault_software():
         header=header,
     )
     if output:
-        return 'Non-default Software (ordered by name):\n{}\n'.format(output)
+        return f'Non-default Software (ordered by name):\n{output}\n'
     return ''
 
 
@@ -564,7 +563,7 @@ def get_nondefault_users():
         sort_by_key='user',
     )
     if output:
-        return 'Non-default Users:\n{}\n'.format(output)
+        return f'Non-default Users:\n{output}\n'
     return ''
 
 
@@ -576,7 +575,7 @@ def get_public_ip(args):
         timeout=args.TIMEOUT,
     )
     if success:
-        return 'Public IP {}, '.format(pub_ip)
+        return f'Public IP {pub_ip}, '
     return ''
 
 
@@ -628,9 +627,9 @@ def get_software_found():
     for item in guessed:
         # if any of the listed software packages is installed, we have a match
         if any(item['expr']):
-            output += '* {}\n'.format(item['sw'])
+            output += f"* {item['sw']}\n"
     if output:
-        return 'Software found elsewhere (just guessed):\n{}\n'.format(output)
+        return f'Software found elsewhere (just guessed):\n{output}\n'
     return ''
 
 
@@ -657,7 +656,7 @@ def get_systemd_default_target():
     stdout, stderr, retc = result
     if stderr or retc != 0:
         return ''
-    return 'systemctl get-default:\n* {}\n\n'.format(stdout.strip())
+    return f'systemctl get-default:\n* {stdout.strip()}\n\n'
 
 
 def get_systemd_timers():
@@ -699,7 +698,7 @@ def get_systemd_timers():
         sort_by_key='unit',
     )
     if output:
-        return 'systemctl list-timers:\n{}\n'.format(output)
+        return f'systemctl list-timers:\n{output}\n'
     return ''
 
 
@@ -718,9 +717,9 @@ def get_systemd_units(cmd):
     if not stdout:
         return ''
 
-    output = '{}:\n'.format(cmd.replace(' --no-legend', ''))
+    output = f"{cmd.replace(' --no-legend', '')}:\n"
     for line in stdout.splitlines():
-        output += '* {}\n'.format(line.split()[0])
+        output += f'* {line.split()[0]}\n'
     return output + '\n'
 
 
@@ -729,7 +728,7 @@ def get_tuned_active_profile():
     """
     output = run_cmd('tuned-adm active')
     if output:
-        return 'tuned profile "{}", '.format(run_regex(output, r': (.*)').strip().replace('* ', ''))
+        return f"tuned profile \"{run_regex(output, ': (.*)').strip().replace('* ', '')}\", "
     return ''
 
 
@@ -799,25 +798,25 @@ def main():
     # build the message
 
     # first header line ----------------------------------------------------------------------------
-    msg = '{}: '.format(socket.gethostname())
+    msg = f'{socket.gethostname()}: '
 
 
     os_info = distro.get('os_info')
     if os_info:
-        msg += '{} '.format(os_info)
-    msg += 'Kernel {} '.format(run_cmd('uname -r'))
+        msg += f'{os_info} '
+    msg += f"Kernel {run_cmd('uname -r')} "
 
     virt = get_virt_info()
     if virt == 'none':
         msg += 'on Bare-Metal, '
     else:
-        msg += 'virtualized on {}, '.format(virt)
+        msg += f'virtualized on {virt}, '
 
     success, firmware_device_model = lib.disk.read_file('/sys/firmware/devicetree/base/model')
     if not success:
         firmware_device_model = ''
     if firmware_device_model:
-        msg += '{}, '.format(firmware_device_model)
+        msg += f'{firmware_device_model}, '
 
     if args.DMIDECODE:
         dmi = lib.dmidecode.get_data()
@@ -826,41 +825,42 @@ def main():
     sys_dimensions = get_sys_dimensions()
     if dmi and sys_dimensions:
         # combine the best from both worlds
-        msg += '{} {}, '.format(lib.dmidecode.manufacturer(dmi), lib.dmidecode.model(dmi))
-        msg += 'Firmware: {}, '.format(lib.dmidecode.firmware(dmi))
-        msg += 'SerNo: {}, '.format(lib.dmidecode.serno(dmi))
-        msg += 'Proc: {}, '.format(lib.dmidecode.cpu_type(dmi))
-        msg += 'CPUs: {}/{}/{} (phys/lcpu/onln), '.format(
-            sys_dimensions['cpu_physical'],
-            sys_dimensions['cpu_logical'],
-            sys_dimensions['cpu_usable'],
+        msg += f'{lib.dmidecode.manufacturer(dmi)} {lib.dmidecode.model(dmi)}, '
+        msg += f'Firmware: {lib.dmidecode.firmware(dmi)}, '
+        msg += f'SerNo: {lib.dmidecode.serno(dmi)}, '
+        msg += f'Proc: {lib.dmidecode.cpu_type(dmi)}, '
+        msg += (
+            f'{sys_dimensions["cpu_physical"]}'
+            f'/{sys_dimensions["cpu_logical"]}'
+            f'/{sys_dimensions["cpu_usable"]}'
+            f' CPUs (phys/lcpu/onln), '
         )
         if sys_dimensions['cpu_freq']:
-            msg += 'Current Speed: {} MHz, '.format(int(sys_dimensions['cpu_freq'][0]))
-        msg += '{}/{} RAM (virtmem/max'.format(
-            lib.human.bytes2human(sys_dimensions['ram']),
-            lib.human.bytes2human(lib.dmidecode.ram(dmi)),
+            msg += f"Current Speed: {int(sys_dimensions['cpu_freq'][0])} MHz, "
+        msg += (
+            f'{lib.human.bytes2human(sys_dimensions["ram"])}'
+            f'/{lib.human.bytes2human(lib.dmidecode.ram(dmi))}'
+            f' RAM (virtmem/max'
         )
         if sys_dimensions['ram'] > lib.dmidecode.ram(dmi):
             msg += '; reboot recommended'
         msg += '), '
     elif dmi:
-        msg += '{} {}, '.format(lib.dmidecode.manufacturer(dmi), lib.dmidecode.model(dmi))
-        msg += 'Firmware: {}, '.format(lib.dmidecode.firmware(dmi))
-        msg += 'SerNo: {}, '.format(lib.dmidecode.serno(dmi))
-        msg += 'Proc: {}, '.format(lib.dmidecode.cpu_type(dmi))
-        msg += '{} RAM, '.format(lib.human.bytes2human(lib.dmidecode.ram(dmi)))
+        msg += f'{lib.dmidecode.manufacturer(dmi)} {lib.dmidecode.model(dmi)}, '
+        msg += f'Firmware: {lib.dmidecode.firmware(dmi)}, '
+        msg += f'SerNo: {lib.dmidecode.serno(dmi)}, '
+        msg += f'Proc: {lib.dmidecode.cpu_type(dmi)}, '
+        msg += f'{lib.human.bytes2human(lib.dmidecode.ram(dmi))} RAM, '
     elif sys_dimensions:
-        msg += 'CPUs: {}/{}/{} (phys/lcpu/onln), '.format(
-            sys_dimensions['cpu_physical'],
-            sys_dimensions['cpu_logical'],
-            sys_dimensions['cpu_usable'],
+        msg += (
+            f'{sys_dimensions["cpu_physical"]}'
+            f'/{sys_dimensions["cpu_logical"]}'
+            f'/{sys_dimensions["cpu_usable"]}'
+            f' CPUs (phys/lcpu/onln), '
         )
         if sys_dimensions['cpu_freq']:
-            msg += 'Current Speed: {} MHz, '.format(int(sys_dimensions['cpu_freq'][0]))
-        msg += '{} RAM, '.format(
-            lib.human.bytes2human(sys_dimensions['ram'])
-        )
+            msg += f"Current Speed: {int(sys_dimensions['cpu_freq'][0])} MHz, "
+        msg += f"{lib.human.bytes2human(sys_dimensions['ram'])} RAM, "
     else:
         msg += 'sys dimensions n/a (consider installing dmidecode/psutil), '
 
@@ -870,11 +870,11 @@ def main():
     env = os.environ.copy()
     display_server = env.get('XDG_SESSION_TYPE')
     if display_server and display_server != 'unspecified':
-        msg += 'Display Server {}, '.format(display_server)
+        msg += f'Display Server {display_server}, '
     msg += get_tuned_active_profile()
     msg += get_public_ip(args)
     msg += get_birthday()
-    msg += 'About-me v{}\n\n'.format(__version__)
+    msg += f'About-me v{__version__}\n\n'
 
 
     # multi-line content - print further lines -----------------------------------------------------

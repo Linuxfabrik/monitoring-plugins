@@ -24,7 +24,7 @@ import lib.url  # pylint: disable=C0413
 from lib.globals import (STATE_UNKNOWN, STATE_OK)  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = '''Warns if virtual services provided by a kemp loadbalancer appliance are down.'''
 
@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -147,10 +147,10 @@ def main():
     if args.TEST is None:
         # https://support.kemptechnologies.com/hc/en-us/articles/10113769677581-RESTful-API-Programmer-Guide
         # get the values the normal way
-        url = 'https://{}:{}/access/listvs'.format(args.HOSTNAME, args.PORT)
+        url = f'https://{args.HOSTNAME}:{args.PORT}/access/listvs'
 
         # authorization
-        auth = '{}:{}'.format(args.USERNAME, args.PASSWORD)
+        auth = f'{args.USERNAME}:{args.PASSWORD}'
         encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
 
         result = lib.base.coe(lib.url.fetch(
@@ -158,7 +158,7 @@ def main():
             insecure=args.INSECURE,
             no_proxy=args.NO_PROXY,
             timeout=args.TIMEOUT,
-            header={'Authorization': 'Basic {}'.format(encoded_auth)},
+            header={'Authorization': f'Basic {encoded_auth}'},
         ))
     else:
         # do not call the command, put in test data
@@ -178,7 +178,7 @@ def main():
             status = service.find('Status').text  # = Up, Down, Unchecked
             if status.lower() == 'down':
                 service_state = lib.base.str2state(args.SEVERITY)
-                status = '{}{}'.format(status, lib.base.state2str(service_state, prefix=' '))
+                status = f"{status}{lib.base.state2str(service_state, prefix=' ')}"
                 state = lib.base.get_worst(state, service_state)
             table.append({
                 'name': name,
@@ -186,7 +186,7 @@ def main():
             })
 
     # build the message
-    msg = '{} {} checked. '.format(count,lib.txt.pluralize('service', count))
+    msg = f"{count} {lib.txt.pluralize('service', count)} checked. "
     if len(table) > 0:
         msg += '\n\n' + lib.base.get_table(
             table,

@@ -23,7 +23,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks the state of all drives or other physical storage media in the Systems
                  collection."""
@@ -42,7 +42,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -121,12 +121,12 @@ def main():
     header = {}
     header['Accept'] = 'application/json'
     if args.USERNAME and args.PASSWORD:
-        auth = '{}:{}'.format(args.USERNAME, args.PASSWORD)
+        auth = f'{args.USERNAME}:{args.PASSWORD}'
         encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
-        header['Authorization'] = 'Basic {}'.format(encoded_auth)
+        header['Authorization'] = f'Basic {encoded_auth}'
 
     # "/redfish/v1/Systems"
-    url = '{}/redfish/v1/Systems'.format(base_url)
+    url = f'{base_url}/redfish/v1/Systems'
     result = lib.base.coe(lib.url.fetch_json(
         url,
         header=header,
@@ -151,7 +151,7 @@ def main():
     # fetch and analyze data by following the "Members" found
     for member in result.get('Members', []):
         # "/redfish/v1/Systems/437XR1138R2"
-        url = '{}{}'.format(base_url, member['@odata.id'])
+        url = f"{base_url}{member['@odata.id']}"
         systems = lib.base.coe(lib.url.fetch_json(
             url,
             header=header,
@@ -167,19 +167,19 @@ def main():
         state = lib.base.get_worst(state, systems_state)
 
         msg += 'Member:'
-        msg += ' {}'.format(systems['Manufacturer']) if systems['Manufacturer'] else ''
-        msg += ' {}'.format(systems['Model']) if systems['Model'] else ''
+        msg += f" {systems['Manufacturer']}" if systems['Manufacturer'] else ''
+        msg += f" {systems['Model']}" if systems['Model'] else ''
         msg += ', '
-        msg += 'HostName: {}, '.format(systems['HostName']) if systems['HostName'] else ''
-        msg += 'Processors: {}x'.format(systems['ProcessorSummary_Count'])
-        msg += ' {}'.format(systems['ProcessorSummary_Model']) if systems['ProcessorSummary_Model'] else ''
-        msg += ' ({} logical)'.format(systems['ProcessorSummary_LogicalProcessorCount']) if systems['ProcessorSummary_LogicalProcessorCount'] else ''
+        msg += f"HostName: {systems['HostName']}, " if systems['HostName'] else ''
+        msg += f"Processors: {systems['ProcessorSummary_Count']}x"
+        msg += f" {systems['ProcessorSummary_Model']}" if systems['ProcessorSummary_Model'] else ''
+        msg += f" ({systems['ProcessorSummary_LogicalProcessorCount']} logical)" if systems['ProcessorSummary_LogicalProcessorCount'] else ''
         msg += ', '
-        msg += 'BIOS: {}, '.format(systems['BiosVersion'])
-        msg += 'Power: {}, '.format(systems['PowerState']) if systems['PowerState'] else ''
-        msg += 'LED: {}, '.format(systems['IndicatorLED']) if systems['IndicatorLED'] else ''
-        msg += 'SKU: {}, '.format(systems['SKU']) if systems['SKU'] else ''
-        msg += 'SerNo: {}, '.format(systems['SerialNumber']) if systems['SerialNumber'] else ''
+        msg += f"BIOS: {systems['BiosVersion']}, "
+        msg += f"Power: {systems['PowerState']}, " if systems['PowerState'] else ''
+        msg += f"LED: {systems['IndicatorLED']}, " if systems['IndicatorLED'] else ''
+        msg += f"SKU: {systems['SKU']}, " if systems['SKU'] else ''
+        msg += f"SerNo: {systems['SerialNumber']}, " if systems['SerialNumber'] else ''
         msg = msg[:-2] + lib.base.state2str(systems_state, prefix=' ')
 
         # get all available storage links for the member
@@ -188,7 +188,7 @@ def main():
             continue
 
         # "/redfish/v1/Systems/437XR1138R2/Storage"
-        url = '{}{}'.format(base_url, systems['Storage_@odata.id'])
+        url = f"{base_url}{systems['Storage_@odata.id']}"
         storages = lib.base.coe(lib.url.fetch_json(
             url,
             header=header,
@@ -200,7 +200,7 @@ def main():
         table_data_drive = []
         for storage in storages.get('Members', []):
             # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1"
-            url = '{}{}'.format(base_url, storage['@odata.id'])
+            url = f"{base_url}{storage['@odata.id']}"
             storage_data = lib.base.coe(lib.url.fetch_json(
                 url,
                 header=header,
@@ -212,7 +212,7 @@ def main():
             # get drives attached to the storage member
             for drive in storage_data.get('Drives', []):
                 # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1/Drives/Disk.Bay.0:Enclosure.Internal.0-1:RAID.SL.7-1"
-                url = '{}{}'.format(base_url, drive['@odata.id'])
+                url = f"{base_url}{drive['@odata.id']}"
                 drive_data = lib.base.coe(lib.url.fetch_json(
                     url,
                     header=header,
@@ -250,20 +250,21 @@ def main():
 
         msg += '\n\n'
 
+    members = lib.txt.pluralize('member', member_count)
     if state == STATE_CRIT:
-        msg = 'Checked storage on {} {}. There are critical errors.\n\n'.format(
-            member_count,
-            lib.txt.pluralize('member', member_count)
+        msg = (
+            f'Checked storage on {member_count} {members}.'
+            f' There are critical errors.\n\n'
         ) + msg
     elif state == STATE_WARN:
-        msg = 'Checked storage on {} {}. There are warnings.\n\n'.format(
-            member_count,
-            lib.txt.pluralize('member', member_count)
+        msg = (
+            f'Checked storage on {member_count} {members}.'
+            f' There are warnings.\n\n'
         ) + msg
     else:
-        msg = 'Everything is ok, checked storage on {} {}.\n\n'.format(
-            member_count,
-            lib.txt.pluralize('member', member_count)
+        msg = (
+            f'Everything is ok, checked storage on'
+            f' {member_count} {members}.\n\n'
         ) + msg
 
     # over and out

@@ -28,7 +28,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks system requirements and kernel settings specifically for MySQL/MariaDB."""
 
@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -74,7 +74,7 @@ def get_opened_ports():
 
 
 def get_sysctl(key):
-    cmd = 'sysctl --values {} 2> /dev/null'.format(key)
+    cmd = f'sysctl --values {key} 2> /dev/null'
     stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
     return stdout.strip()
 
@@ -103,9 +103,14 @@ def main():
             msg += 'No ports checked (psutil missing). '
         if opened_ports > args.MAXPORTSALLOWED:
             state = STATE_WARN
-            msg += ('There are too many listening ports: {} opened > {} allowed '
-                    '(consider dedicating a server for your database installation with '
-                    'less services running on). ').format(opened_ports, args.MAXPORTSALLOWED)
+            msg += (
+                f'There are too many listening ports:'
+                f' {opened_ports} opened >'
+                f' {args.MAXPORTSALLOWED} allowed'
+                f' (consider dedicating a server for your'
+                f' database installation with less services'
+                f' running on). '
+            )
     perfdata += lib.base.get_perfdata('mysql_opened_ports', opened_ports, None, None, None, 0, None)
 
     # get kernel settings on linux
@@ -115,8 +120,11 @@ def main():
             lib.base.cu('Permission denied reading `vm.swappiness`')
         if int(result) > 10:
             state = STATE_WARN
-            msg += 'vm.swappiness is {}, should be <= 10 (use `echo 10 > /proc/sys/vm/swappiness`). '.format(
-                result,
+            msg += (
+                f'vm.swappiness is {result},'
+                f' should be <= 10'
+                f' (use `echo 10 >'
+                f' /proc/sys/vm/swappiness`). '
             )
         perfdata += lib.base.get_perfdata('mysql_kernel_vm.swappiness', result, '%', None, None, 0, 100)
 
@@ -125,8 +133,11 @@ def main():
             result = get_sysctl('sunrpc.tcp_slot_table_entries')
             if int(result) <= 100:
                 state = STATE_WARN
-                msg += 'sunrpc.tcp_slot_table_entries is {}, should be > 100 (use `echo 128 > /proc/sys/sunrpc/tcp_slot_table_entries`). '.format(
-                    result,
+                msg += (
+                    f'sunrpc.tcp_slot_table_entries is'
+                    f' {result}, should be > 100'
+                    f' (use `echo 128 > /proc/sys/sunrpc'
+                    f'/tcp_slot_table_entries`). '
                 )
             perfdata += lib.base.get_perfdata('mysql_kernel_sunrpc.tcp_slot_table_entries', result, None, None, None, 0, None)
 
@@ -134,8 +145,11 @@ def main():
             result = get_sysctl('fs.aio-max-nr')
             if int(result) < 1000000:
                 state = STATE_WARN
-                msg += 'fs.aio-max-nr is {}, should be > 1M (use `echo 1048576 > /proc/sys/fs/aio-max-nr`). '.format(
-                    result,
+                msg += (
+                    f'fs.aio-max-nr is {result},'
+                    f' should be > 1M'
+                    f' (use `echo 1048576 >'
+                    f' /proc/sys/fs/aio-max-nr`). '
                 )
             perfdata += lib.base.get_perfdata('mysql_kernel_fs.aio-max-nr', result, None, None, None, 0, None)
 

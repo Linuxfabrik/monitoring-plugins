@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Checks OnlyOffice statistics and license usage via HTTP.'
 
@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -130,7 +130,7 @@ def main():
     max_conn_crit = max_conn * 0.95
 
     # build the message and perfdata
-    msg += 'Max {} {}, '.format(max_conn, lib.txt.pluralize('connection', max_conn))
+    msg += f"Max {max_conn} {lib.txt.pluralize('connection', max_conn)}, "
 
     # license; expired?
     now = lib.time.now(as_type='iso')
@@ -141,39 +141,40 @@ def main():
             state = lib.base.get_worst(STATE_WARN, state)
         expires_in = lib.time.timestrdiff(result['licenseInfo']['endDate'][0:10], now[0:10], pattern1='%Y-%m-%d', pattern2='%Y-%m-%d')
         if expires_in <= 10 * 24 * 60 * 60:
-            msg += ' (expires in {}) [WARNING]'.format(lib.human.seconds2human(expires_in))
+            msg += f' (expires in {lib.human.seconds2human(expires_in)}) [WARNING]'
             state = lib.base.get_worst(STATE_WARN, state)
     msg += ', '
 
-    view_state = lib.base.get_state(result['connectionsStat']['hour']['view']['max'], max_conn_warn, max_conn_crit, _operator='ge')
+    hour_view = result['connectionsStat']['hour']['view']
+    view_state = lib.base.get_state(hour_view['max'], max_conn_warn, max_conn_crit, _operator='ge')
     state = lib.base.get_worst(view_state, state)
-    msg += 'last hour: {}/{}/{} views{} '.format(
-        result['connectionsStat']['hour']['view']['min'],
-        result['connectionsStat']['hour']['view']['avr'],
-        result['connectionsStat']['hour']['view']['max'],
-        lib.base.state2str(view_state, prefix=' ')
+    msg += (
+        f'last hour:'
+        f' {hour_view["min"]}/{hour_view["avr"]}/{hour_view["max"]}'
+        f' views{lib.base.state2str(view_state, prefix=" ")} '
     )
-    perfdata += lib.base.get_perfdata('conn_hour_view_min', result['connectionsStat']['hour']['view']['min'], None, max_conn_warn, max_conn_crit, 0, result['licenseInfo']['connections'])
-    perfdata += lib.base.get_perfdata('conn_hour_view_avr', result['connectionsStat']['hour']['view']['avr'], None, max_conn_warn, max_conn_crit, 0, result['licenseInfo']['connections'])
-    perfdata += lib.base.get_perfdata('conn_hour_view_max', result['connectionsStat']['hour']['view']['max'], None, max_conn_warn, max_conn_crit, 0, result['licenseInfo']['connections'])
+    perfdata += lib.base.get_perfdata('conn_hour_view_min', hour_view['min'], None, max_conn_warn, max_conn_crit, 0, result['licenseInfo']['connections'])
+    perfdata += lib.base.get_perfdata('conn_hour_view_avr', hour_view['avr'], None, max_conn_warn, max_conn_crit, 0, result['licenseInfo']['connections'])
+    perfdata += lib.base.get_perfdata('conn_hour_view_max', hour_view['max'], None, max_conn_warn, max_conn_crit, 0, result['licenseInfo']['connections'])
 
-    edit_state = lib.base.get_state(result['connectionsStat']['hour']['edit']['max'], max_conn_warn, max_conn_crit, _operator='ge')
+    hour_edit = result['connectionsStat']['hour']['edit']
+    edit_state = lib.base.get_state(hour_edit['max'], max_conn_warn, max_conn_crit, _operator='ge')
     state = lib.base.get_worst(edit_state, state)
-    msg += 'and {}/{}/{} edits{} (min/avr/max), '.format(
-        result['connectionsStat']['hour']['edit']['min'],
-        result['connectionsStat']['hour']['edit']['avr'],
-        result['connectionsStat']['hour']['edit']['max'],
-        lib.base.state2str(edit_state, prefix=' ')
+    msg += (
+        f'and'
+        f' {hour_edit["min"]}/{hour_edit["avr"]}/{hour_edit["max"]}'
+        f' edits{lib.base.state2str(edit_state, prefix=" ")}'
+        f' (min/avr/max), '
     )
-    perfdata += lib.base.get_perfdata('conn_hour_edit_min', result['connectionsStat']['hour']['edit']['min'], None, max_conn_warn, max_conn_crit, 0, result['licenseInfo']['connections'])
-    perfdata += lib.base.get_perfdata('conn_hour_edit_avr', result['connectionsStat']['hour']['edit']['avr'], None, max_conn_warn, max_conn_crit, 0, result['licenseInfo']['connections'])
-    perfdata += lib.base.get_perfdata('conn_hour_edit_max', result['connectionsStat']['hour']['edit']['max'], None, max_conn_warn, max_conn_crit, 0, result['licenseInfo']['connections'])
+    perfdata += lib.base.get_perfdata('conn_hour_edit_min', hour_edit['min'], None, max_conn_warn, max_conn_crit, 0, result['licenseInfo']['connections'])
+    perfdata += lib.base.get_perfdata('conn_hour_edit_avr', hour_edit['avr'], None, max_conn_warn, max_conn_crit, 0, result['licenseInfo']['connections'])
+    perfdata += lib.base.get_perfdata('conn_hour_edit_max', hour_edit['max'], None, max_conn_warn, max_conn_crit, 0, result['licenseInfo']['connections'])
 
     if 'usersInfo' in result:
-        msg += '{} unique {}, '.format(result['usersInfo']['uniqueUserCount'], lib.txt.pluralize('user', result['usersInfo']['uniqueUserCount']))
+        msg += f"{result['usersInfo']['uniqueUserCount']} unique {lib.txt.pluralize('user', result['usersInfo']['uniqueUserCount'])}, "
         perfdata += lib.base.get_perfdata('unique_users', result['usersInfo']['uniqueUserCount'], None, None, None, 0, None)
 
-    msg += 'v{}, '.format(result['serverInfo']['buildVersion'])
+    msg += f"v{result['serverInfo']['buildVersion']}, "
 
 
     # over and out

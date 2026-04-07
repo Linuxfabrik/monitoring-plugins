@@ -26,7 +26,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """This monitoring plugin shows you a list of Grassfish players whose data transfer
                  status is overdue, whose last access date is more than `--warning` hours ago
@@ -58,7 +58,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -238,12 +238,12 @@ def main():
         try:
             compiled_box_id_regex = re.compile(args.BOX_ID, re.IGNORECASE)
         except re.error as rerr:
-            lib.base.cu('Invalid regex "{}": {}'.format(args.BOX_ID, rerr))
+            lib.base.cu(f'Invalid regex "{args.BOX_ID}": {rerr}')
     if args.CUSTOM_ID:
         try:
             compiled_custom_id_regex = re.compile(args.CUSTOM_ID, re.IGNORECASE)
         except re.error as rerr:
-            lib.base.cu('Invalid regex "{}": {}'.format(args.CUSTOM_ID, rerr))
+            lib.base.cu(f'Invalid regex "{args.CUSTOM_ID}": {rerr}')
 
     # due to https://bugs.python.org/issue16399, set the default value here
     if args.BOX_STATE is None:
@@ -327,10 +327,7 @@ def main():
         # timestamp handling
         ts = player['LastAccess'].replace('T', ' ').replace('Z', '')
         player['LastAccessDelta'] = lib.time.timestrdiff(lib.time.now(as_type='iso'), ts)
-        player['LastAccess'] = '{} ({} ago)'.format(
-            ts,
-            lib.human.seconds2human(player['LastAccessDelta']),
-        )
+        player['LastAccess'] = f"{ts} ({lib.human.seconds2human(player['LastAccessDelta'])} ago)"
 
         # warn (and only append players with warnings)
         if not player['IsLicensed'] \
@@ -356,34 +353,31 @@ def main():
     if state == STATE_OK:
         msg = 'Everything is ok. '
     else:
-        msg = 'There {} {} {} with warnings: {} unlicensed, {} transfer overdue, {} accessed > {} {} ago. '.format(
-            lib.txt.pluralize('', cnt['warnings'], 'is,are'),
-            cnt['warnings'],
-            lib.txt.pluralize('player', cnt['warnings']),
-            cnt['unlicensed'],
-            cnt['transfer_overdue'],
-            cnt['access_overdue'],
-            args.WARN,
-            lib.txt.pluralize('hour', args.WARN),
+        msg = (
+            f"There {lib.txt.pluralize('', cnt['warnings'], 'is,are')}"
+            f" {cnt['warnings']}"
+            f" {lib.txt.pluralize('player', cnt['warnings'])}"
+            f" with warnings: {cnt['unlicensed']} unlicensed,"
+            f" {cnt['transfer_overdue']} transfer overdue,"
+            f" {cnt['access_overdue']} accessed"
+            f' > {args.WARN}'
+            f" {lib.txt.pluralize('hour', args.WARN)} ago. "
         )
-    msg += '{} {} checked. '.format(
-        cnt['players'],
-        lib.txt.pluralize('player', cnt['players']),
-    )
+    msg += f"{cnt['players']} {lib.txt.pluralize('player', cnt['players'])} checked. "
 
     _filter = ''
     if args.BOX_ID:
-        _filter += '--box-id={}, '.format(args.BOX_ID)
+        _filter += f'--box-id={args.BOX_ID}, '
     if args.BOX_STATE:
-        _filter += '--box-state={}, '.format(args.BOX_STATE)
+        _filter += f'--box-state={args.BOX_STATE}, '
     if args.CUSTOM_ID:
-        _filter += '--custom-id={}, '.format(args.CUSTOM_ID)
+        _filter += f'--custom-id={args.CUSTOM_ID}, '
     if args.IS_INSTALLED:
-        _filter += '--is-installed={}, '.format(args.IS_INSTALLED)
+        _filter += f'--is-installed={args.IS_INSTALLED}, '
     if args.IS_LICENSED:
-        _filter += '--is-licensed={}, '.format(args.IS_LICENSED)
+        _filter += f'--is-licensed={args.IS_LICENSED}, '
     if _filter:
-        msg += 'Filter: {}'.format(_filter[:-2])
+        msg += f'Filter: {_filter[:-2]}'
 
     msg += '\n\n'
 

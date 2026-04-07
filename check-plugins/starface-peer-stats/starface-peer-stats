@@ -24,7 +24,7 @@ import lib.txt  # pylint: disable=C0413
 from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Returns the peer statistics of the Starface PBX.
                 It uses the data output of the Starface Monitoring Module, which was
@@ -47,7 +47,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -123,7 +123,7 @@ def main():
         data = stdout
 
     if not data:
-        lib.base.cu('Got no valuable response from {}:{}.'.format(args.HOSTNAME, args.PORT))
+        lib.base.cu(f'Got no valuable response from {args.HOSTNAME}:{args.PORT}.')
 
     # extract data
     result = lib.txt.extract_str(data, '<<<starface_peers>>>', '<<<').splitlines()
@@ -147,12 +147,12 @@ def main():
             break
 
     # build the message
-    msg += '{} SIP Peers: {} online / {} offline (monitored), {} online / {} offline (unmonitored)'.format(
-        sip_peers,
-        mon_online,
-        mon_offline,
-        unmon_online,
-        unmon_offline,
+    msg += (
+        f'{sip_peers} SIP Peers: '
+        f'{mon_online} online / {mon_offline} offline '
+        f'(monitored), '
+        f'{unmon_online} online / {unmon_offline} offline '
+        f'(unmonitored)'
     )
 
     perfdata += lib.base.get_perfdata('sip_peers', sip_peers, None, None, None, 0, None)

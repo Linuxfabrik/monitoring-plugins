@@ -29,7 +29,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """This check parses a flat json array from a file or url and simply returns the
                  message, state and perfdata from the json."""
@@ -50,7 +50,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -161,7 +161,7 @@ def main():
     if args.URL:
         split_url = args.URL.split('://')
         if len(split_url) != 2:
-            lib.base.cu('Could not parse the protocol of the url "{}".'.format(args.URL))
+            lib.base.cu(f'Could not parse the protocol of the url "{args.URL}".')
         proto, url = split_url
 
         if proto in ['http', 'https']:
@@ -171,14 +171,14 @@ def main():
             ))
         elif proto == 'smb':
             if not HAVE_SMB:
-                lib.base.cu('Python module "{}" is not installed.'.format(missing_lib))
+                lib.base.cu(f'Python module "{missing_lib}" is not installed.')
             with lib.base.coe(lib.smb.open_file(url, args.USERNAME, args.PASSWORD, args.TIMEOUT)) as fd:
                 try:
                     result = json.loads(lib.txt.to_text(fd.read()))
                 except:
                     lib.base.cu('ValueError: No JSON object could be decoded')
         else:
-            lib.base.cu('The protocol "{}" is not supported.'.format(proto))
+            lib.base.cu(f'The protocol "{proto}" is not supported.')
 
     if result is None:
         lib.base.cu('Nothing returned.')

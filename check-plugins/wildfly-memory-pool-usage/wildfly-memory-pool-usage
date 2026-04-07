@@ -22,7 +22,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Checks the memory pool usage of a Wildfly/JBossAS over HTTP.'
 
@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -161,37 +161,41 @@ def main():
     for name, value in result['name'].items():
         if not value['valid']:
             state = STATE_WARN
-            value['name'] += ' (invalid {})'.format(lib.base.state2str(STATE_WARN))
+            value['name'] += f' (invalid {lib.base.state2str(STATE_WARN)})'
 
-        value['usage-calc'] = '{} / {} / {}'.format(
-            lib.human.bytes2human(value['usage']['used']),
-            lib.human.bytes2human(value['usage']['committed']),
-            lib.human.bytes2human(value['usage']['max']),
+        value['usage-calc'] = (
+            f'{lib.human.bytes2human(value["usage"]["used"])}'
+            f' / '
+            f'{lib.human.bytes2human(value["usage"]["committed"])}'
+            f' / '
+            f'{lib.human.bytes2human(value["usage"]["max"])}'
         )
         if value['usage-threshold-exceeded']:
             state = STATE_WARN
             value['usage-calc'] += lib.base.state2str(STATE_WARN, prefix=' ')
-            value['usage-calc'] += ' ({}x)'.format(value['usage-threshold-count'])
+            value['usage-calc'] += f" ({value['usage-threshold-count']}x)"
 
-        perfdata += lib.base.get_perfdata('memory-pool-{}-usage-init'.format(name), value['usage']['init'], 'B', None, None, 0, None)
-        perfdata += lib.base.get_perfdata('memory-pool-{}-usage-used'.format(name), value['usage']['used'], 'B', None, None, 0, None)
-        perfdata += lib.base.get_perfdata('memory-pool-{}-usage-committed'.format(name), value['usage']['committed'], 'B', None, None, 0, None)
-        perfdata += lib.base.get_perfdata('memory-pool-{}-usage-max'.format(name), value['usage']['max'], 'B', None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f'memory-pool-{name}-usage-init', value['usage']['init'], 'B', None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f'memory-pool-{name}-usage-used', value['usage']['used'], 'B', None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f'memory-pool-{name}-usage-committed', value['usage']['committed'], 'B', None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f'memory-pool-{name}-usage-max', value['usage']['max'], 'B', None, None, 0, None)
 
         if value['collection-usage']:
-            value['collection-usage-calc'] = '{} / {} / {}'.format(
-                lib.human.bytes2human(value['collection-usage']['used']),
-                lib.human.bytes2human(value['collection-usage']['committed']),
-                lib.human.bytes2human(value['collection-usage']['max']),
+            value['collection-usage-calc'] = (
+                f'{lib.human.bytes2human(value["collection-usage"]["used"])}'
+                f' / '
+                f'{lib.human.bytes2human(value["collection-usage"]["committed"])}'
+                f' / '
+                f'{lib.human.bytes2human(value["collection-usage"]["max"])}'
             )
             if value['collection-usage-threshold-exceeded']:
                 state = STATE_WARN
                 value['collection-usage-calc'] += lib.base.state2str(STATE_WARN, prefix=' ')
-                value['collection-usage-calc'] += ' ({}x)'.format(value['collection-usage-threshold-count'])
-            perfdata += lib.base.get_perfdata('memory-pool-{}-collection-usage-init'.format(name), value['collection-usage']['init'], 'B', None, None, 0, None)
-            perfdata += lib.base.get_perfdata('memory-pool-{}-collection-usage-used'.format(name), value['collection-usage']['used'], 'B', None, None, 0, None)
-            perfdata += lib.base.get_perfdata('memory-pool-{}-collection-usage-committed'.format(name), value['collection-usage']['committed'], 'B', None, None, 0, None)
-            perfdata += lib.base.get_perfdata('memory-pool-{}-collection-usage-max'.format(name), value['collection-usage']['max'], 'B', None, None, 0, None)
+                value['collection-usage-calc'] += f" ({value['collection-usage-threshold-count']}x)"
+            perfdata += lib.base.get_perfdata(f'memory-pool-{name}-collection-usage-init', value['collection-usage']['init'], 'B', None, None, 0, None)
+            perfdata += lib.base.get_perfdata(f'memory-pool-{name}-collection-usage-used', value['collection-usage']['used'], 'B', None, None, 0, None)
+            perfdata += lib.base.get_perfdata(f'memory-pool-{name}-collection-usage-committed', value['collection-usage']['committed'], 'B', None, None, 0, None)
+            perfdata += lib.base.get_perfdata(f'memory-pool-{name}-collection-usage-max', value['collection-usage']['max'], 'B', None, None, 0, None)
         else:
             value['collection-usage-calc'] = 'N/A'
 

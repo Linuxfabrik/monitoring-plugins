@@ -21,7 +21,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks the slow query log, which is a record of SQL queries that took a long time
                  to perform on MySQL/MariaDB."""
@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -143,11 +143,11 @@ def main():
     # Slow queries
     if int(mycalc['pct_slow_queries']) > 5:
         state = STATE_WARN
-    msg += 'Slow queries: {}% ({} slow queries/{} questions){}. '.format(
-        mycalc['pct_slow_queries'],
-        lib.human.number2human(mystat['Slow_queries']),
-        lib.human.number2human(mystat['Questions']),
-        lib.base.state2str(state, prefix=' '),
+    msg += (
+        f'Slow queries: {mycalc["pct_slow_queries"]}%'
+        f' ({lib.human.number2human(mystat["Slow_queries"])} slow queries'
+        f'/{lib.human.number2human(mystat["Questions"])} questions)'
+        f'{lib.base.state2str(state, prefix=" ")}. '
     )
 
     if float(myvar['long_query_time']) > 10:

@@ -23,7 +23,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Get NodeBB process/system information."""
 
@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -156,16 +156,17 @@ def main():
                 heap_used_percent = round(float(proc['process']['memoryUsage']['heapUsed']) / float(proc['process']['memoryUsage']['heapTotal']) * 100, 1)
                 heap_state = lib.base.get_state(heap_used_percent, args.WARN, args.CRIT)
                 state = lib.base.get_worst(state, heap_state)
-                msg += 'NodeBB {}, {} {}, Heap {}% used ({} of {}){}, RSS {}, Up {}'.format(
-                    proc['id'],
-                    proc['process']['title'],
-                    proc['process']['version'],
-                    heap_used_percent,
-                    lib.human.bytes2human(proc['process']['memoryUsage']['heapUsed']),
-                    lib.human.bytes2human(proc['process']['memoryUsage']['heapTotal']),
-                    lib.base.state2str(heap_state, prefix=' '),
-                    lib.human.bytes2human(proc['process']['memoryUsage']['rss']),
-                    lib.human.seconds2human(proc['process']['uptime']),
+                mem = proc['process']['memoryUsage']
+                msg += (
+                    f'NodeBB {proc["id"]}'
+                    f', {proc["process"]["title"]}'
+                    f' {proc["process"]["version"]}'
+                    f', Heap {heap_used_percent}% used'
+                    f' ({lib.human.bytes2human(mem["heapUsed"])}'
+                    f' of {lib.human.bytes2human(mem["heapTotal"])})'
+                    f'{lib.base.state2str(heap_state, prefix=" ")}'
+                    f', RSS {lib.human.bytes2human(mem["rss"])}'
+                    f', Up {lib.human.seconds2human(proc["process"]["uptime"])}'
                 )
 
                 perfdata += lib.base.get_perfdata('nodebb_heap_used_percent', heap_used_percent, '%', args.WARN, args.CRIT, 0, 100)

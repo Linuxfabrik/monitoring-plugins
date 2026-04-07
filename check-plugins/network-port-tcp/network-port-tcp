@@ -20,7 +20,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Checks whether a network port is reachable.'
 
@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -117,19 +117,20 @@ def main():
             state = STATE_WARN if args.SEVERITY == 'warn' else STATE_CRIT
         sock.close()
     except:
-        lib.base.oao('Cannot initiate a connection to {}:{}/{}.'.format(
-            args.HOSTNAME,
-            args.PORT,
-            args.TYPE,
-        ), STATE_UNKNOWN)
+        lib.base.oao(
+            f'Cannot initiate a connection to'
+            f' {args.HOSTNAME}:{args.PORT}/{args.TYPE}.',
+            STATE_UNKNOWN,
+        )
 
     # over and out
-    lib.base.oao('{}:{}/{} is {}.'.format(
-        args.HOSTNAME,
-        args.PORTNAME if args.PORTNAME else args.PORT,
-        args.TYPE,
-        'reachable' if state == STATE_OK else 'unreachable',
-    ), state)
+    port_display = args.PORTNAME if args.PORTNAME else args.PORT
+    reachability = 'reachable' if state == STATE_OK else 'unreachable'
+    lib.base.oao(
+        f'{args.HOSTNAME}:{port_display}/{args.TYPE}'
+        f' is {reachability}.',
+        state,
+    )
 
 
 if __name__ == '__main__':

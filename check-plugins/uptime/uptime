@@ -30,7 +30,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = '''Check how long the system has been running. The plugin can also display the last
                  downtime timestamp and duration - the shorter the intervals at which it is run,
@@ -48,7 +48,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -126,17 +126,17 @@ def main():
 
     # build the message
     state = lib.base.get_state(uptime, WARN, CRIT, _operator='range')
-    msg = 'Up {} since {} (thresholds {}/{}){}'.format(
-        lib.human.seconds2human(uptime),
-        lib.time.epoch2iso(psutil.boot_time()),
-        args.WARN,
-        args.CRIT,
-        lib.base.state2str(state, prefix=' '),
+    msg = (
+        f'Up {lib.human.seconds2human(uptime)} '
+        f'since {lib.time.epoch2iso(psutil.boot_time())} '
+        f'(thresholds {args.WARN}/{args.CRIT})'
+        f'{lib.base.state2str(state, prefix=" ")}'
     )
     if downtime:
-        msg += '.\nLast power event at ~{} and down for ~{}.'.format(
-            lib.time.epoch2iso(down_ts),
-            lib.human.seconds2human(downtime),
+        msg += (
+            f'.\nLast power event '
+            f'at ~{lib.time.epoch2iso(down_ts)} '
+            f'and down for ~{lib.human.seconds2human(downtime)}.'
         )
     perfdata = lib.base.get_perfdata('uptime', uptime, 's', None, None, 0, None)
 

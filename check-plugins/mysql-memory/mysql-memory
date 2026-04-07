@@ -30,7 +30,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks memory metrics for MySQL/MariaDB."""
 
@@ -48,7 +48,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -261,26 +261,31 @@ def main():
     else:
         mem1_state = STATE_OK
     state = lib.base.get_worst(state, mem1_state)
-    msg += '{}% - total: {}, used: {}{}. '.format(
-        mycalc['pct_max_used_memory'],
-        lib.human.bytes2human(physical_memory),
-        lib.human.bytes2human(mycalc['max_used_memory']),
-        lib.base.state2str(mem1_state, prefix=' '),
+    msg += (
+        f'{mycalc["pct_max_used_memory"]}%'
+        f' - total: {lib.human.bytes2human(physical_memory)}'
+        f', used: {lib.human.bytes2human(mycalc["max_used_memory"])}'
+        f'{lib.base.state2str(mem1_state, prefix=" ")}. '
     )
 
-    msg += 'Maximum possible memory usage is {}% (possible peak: {}). '.format(
-        mycalc['pct_max_physical_memory'],
-        lib.human.bytes2human(mycalc['max_peak_memory']),
+    msg += (
+        f'Maximum possible memory usage is'
+        f' {mycalc["pct_max_physical_memory"]}%'
+        f' (possible peak:'
+        f' {lib.human.bytes2human(mycalc["max_peak_memory"])}). '
     )
     other_process_memory = get_other_process_memory()
     if physical_memory < mycalc['max_peak_memory'] + other_process_memory:
         mem2_state = STATE_WARN
         state = lib.base.get_worst(state, mem2_state)
-        msg += 'Overall possible memory usage ({}) with other processes ({}) will exceed physical memory ({}).{}'.format(
-            lib.human.bytes2human(mycalc['max_peak_memory']),
-            lib.human.bytes2human(other_process_memory),
-            lib.human.bytes2human(physical_memory),
-            lib.base.state2str(mem2_state, prefix=' '),
+        msg += (
+            f'Overall possible memory usage'
+            f' ({lib.human.bytes2human(mycalc["max_peak_memory"])})'
+            f' with other processes'
+            f' ({lib.human.bytes2human(other_process_memory)})'
+            f' will exceed physical memory'
+            f' ({lib.human.bytes2human(physical_memory)}).'
+            f'{lib.base.state2str(mem2_state, prefix=" ")}'
         )
 
     if mycalc['pct_max_physical_memory'] > DEFAULT_WARN:
@@ -289,95 +294,95 @@ def main():
 
     # be nice and print the calculation
     msg += '\n\nCalculations:\n'
-    msg += '* Memory usage according to Performance Schema: pfm = {}\n'.format(
-        lib.human.bytes2human(mycalc['pf_memory']),
+    msg += (
+        f'* Memory usage according to Performance Schema:'
+        f' pfm = {lib.human.bytes2human(mycalc["pf_memory"])}\n'
     )
 
-    msg += '* Server Buffers: sb = {}\n'.format(
-        lib.human.bytes2human(mycalc['server_buffers']),
+    msg += f"* Server Buffers: sb = {lib.human.bytes2human(mycalc['server_buffers'])}\n"
+    msg += f"      {lib.human.bytes2human(int(myvar['key_buffer_size']))} key_buffer_size\n"
+    msg += f"    + {lib.human.bytes2human(mycalc['max_tmp_table_size'])} max_tmp_table_size\n"
+    msg += (
+        f'    +'
+        f' {lib.human.bytes2human(int(myvar.get("innodb_buffer_pool_size", 0)))}'
+        f' innodb_buffer_pool_size\n'
     )
-    msg += '      {} key_buffer_size\n'.format(
-        lib.human.bytes2human(int(myvar['key_buffer_size'])),
+    msg += (
+        f'    +'
+        f' {lib.human.bytes2human(int(myvar.get("innodb_additional_mem_pool_size", 0)))}'
+        f' innodb_additional_mem_pool_size\n'
     )
-    msg += '    + {} max_tmp_table_size\n'.format(
-        lib.human.bytes2human(mycalc['max_tmp_table_size']),
+    msg += (
+        f'    +'
+        f' {lib.human.bytes2human(int(myvar.get("innodb_log_buffer_size", 0)))}'
+        f' innodb_log_buffer_size\n'
     )
-    msg += '    + {} innodb_buffer_pool_size\n'.format(
-        lib.human.bytes2human(int(myvar.get('innodb_buffer_pool_size', 0))),
+    msg += (
+        f'    +'
+        f' {lib.human.bytes2human(int(myvar.get("query_cache_size", 0)))}'
+        f' query_cache_size\n'
     )
-    msg += '    + {} innodb_additional_mem_pool_size\n'.format(
-        lib.human.bytes2human(int(myvar.get('innodb_additional_mem_pool_size', 0))),
-    )
-    msg += '    + {} innodb_log_buffer_size\n'.format(
-        lib.human.bytes2human(int(myvar.get('innodb_log_buffer_size', 0))),
-    )
-    msg += '    + {} query_cache_size\n'.format(
-        lib.human.bytes2human(int(myvar.get('query_cache_size', 0))),
-    )
-    msg += '    + {} aria_pagecache_buffer_size\n'.format(
-        lib.human.bytes2human(int(myvar.get('aria_pagecache_buffer_size', 0))),
-    )
-
-    msg += '* Per Thread Buffers: ptb = {}\n'.format(
-        lib.human.bytes2human(mycalc['per_thread_buffers']),
-    )
-    msg += '      {} read_buffer_size\n'.format(
-        lib.human.bytes2human(int(myvar['read_buffer_size'])),
-    )
-    msg += '    + {} read_rnd_buffer_size\n'.format(
-        lib.human.bytes2human(int(myvar['read_rnd_buffer_size'])),
-    )
-    msg += '    + {} sort_buffer_size\n'.format(
-        lib.human.bytes2human(int(myvar['sort_buffer_size'])),
-    )
-    msg += '    + {} thread_stack\n'.format(
-        lib.human.bytes2human(int(myvar['thread_stack'])),
-    )
-    msg += '    + {} max_allowed_packet\n'.format(
-        lib.human.bytes2human(int(myvar['max_allowed_packet'])),
-    )
-    msg += '    + {} join_buffer_size\n'.format(
-        lib.human.bytes2human(int(myvar['join_buffer_size'])),
+    msg += (
+        f'    +'
+        f' {lib.human.bytes2human(int(myvar.get("aria_pagecache_buffer_size", 0)))}'
+        f' aria_pagecache_buffer_size\n'
     )
 
-    msg += '* Max Total per Thread Buffers: mtptb = ptb * max_used_conns = {} * {} = {}\n'.format(
-        lib.human.bytes2human(mycalc['per_thread_buffers']),
-        int(mystat['Max_used_connections']),
-        lib.human.bytes2human(mycalc['max_total_per_thread_buffers']),
+    msg += f"* Per Thread Buffers: ptb = {lib.human.bytes2human(mycalc['per_thread_buffers'])}\n"
+    msg += f"      {lib.human.bytes2human(int(myvar['read_buffer_size']))} read_buffer_size\n"
+    msg += (
+        f'    +'
+        f' {lib.human.bytes2human(int(myvar["read_rnd_buffer_size"]))}'
+        f' read_rnd_buffer_size\n'
     )
-    msg += '* Total per Thread Buffers: tptb = ptb * max_conns = {} * {} = {}\n'.format(
-        lib.human.bytes2human(mycalc['per_thread_buffers']),
-        int(myvar['max_connections']),
-        lib.human.bytes2human(mycalc['total_per_thread_buffers']),
+    msg += f"    + {lib.human.bytes2human(int(myvar['sort_buffer_size']))} sort_buffer_size\n"
+    msg += f"    + {lib.human.bytes2human(int(myvar['thread_stack']))} thread_stack\n"
+    msg += f"    + {lib.human.bytes2human(int(myvar['max_allowed_packet']))} max_allowed_packet\n"
+    msg += f"    + {lib.human.bytes2human(int(myvar['join_buffer_size']))} join_buffer_size\n"
+
+    msg += (
+        f'* Max Total per Thread Buffers:'
+        f' mtptb = ptb * max_used_conns'
+        f' = {lib.human.bytes2human(mycalc["per_thread_buffers"])}'
+        f' * {int(mystat["Max_used_connections"])}'
+        f' = {lib.human.bytes2human(mycalc["max_total_per_thread_buffers"])}\n'
+    )
+    msg += (
+        f'* Total per Thread Buffers:'
+        f' tptb = ptb * max_conns'
+        f' = {lib.human.bytes2human(mycalc["per_thread_buffers"])}'
+        f' * {int(myvar["max_connections"])}'
+        f' = {lib.human.bytes2human(mycalc["total_per_thread_buffers"])}\n'
     )
 
-    msg += '* Max Used Memory: mum = sb + mtptb + pfm = {} + {} + {} = {}\n'.format(
-        lib.human.bytes2human(mycalc['server_buffers']),
-        lib.human.bytes2human(mycalc['max_total_per_thread_buffers']),
-        lib.human.bytes2human(mycalc['pf_memory']),
-        lib.human.bytes2human(mycalc['max_used_memory']),
+    msg += (
+        f'* Max Used Memory: mum = sb + mtptb + pfm'
+        f' = {lib.human.bytes2human(mycalc["server_buffers"])}'
+        f' + {lib.human.bytes2human(mycalc["max_total_per_thread_buffers"])}'
+        f' + {lib.human.bytes2human(mycalc["pf_memory"])}'
+        f' = {lib.human.bytes2human(mycalc["max_used_memory"])}\n'
     )
-    msg += '* Possible Peak Memory: ppm = sb + tptb + pfm = {} + {} + {} = {}\n'.format(
-        lib.human.bytes2human(mycalc['server_buffers']),
-        lib.human.bytes2human(mycalc['total_per_thread_buffers']),
-        lib.human.bytes2human(mycalc['pf_memory']),
-        lib.human.bytes2human(mycalc['max_peak_memory']),
+    msg += (
+        f'* Possible Peak Memory: ppm = sb + tptb + pfm'
+        f' = {lib.human.bytes2human(mycalc["server_buffers"])}'
+        f' + {lib.human.bytes2human(mycalc["total_per_thread_buffers"])}'
+        f' + {lib.human.bytes2human(mycalc["pf_memory"])}'
+        f' = {lib.human.bytes2human(mycalc["max_peak_memory"])}\n'
     )
-    msg += '* Other Process Memory: {}\n'.format(
-        lib.human.bytes2human(other_process_memory),
+    msg += f'* Other Process Memory: {lib.human.bytes2human(other_process_memory)}\n'
+    msg += f'* Physical Memory: pm = {lib.human.bytes2human(physical_memory)}\n'
+    msg += (
+        f'* Max Used Memory %: mump = mum / pm * 100'
+        f' = {lib.human.bytes2human(mycalc["max_used_memory"])}'
+        f' / {lib.human.bytes2human(physical_memory)}'
+        f' * 100 = {mycalc["pct_max_used_memory"]}%\n'
     )
-    msg += '* Physical Memory: pm = {}\n'.format(
-        lib.human.bytes2human(physical_memory),
-    )
-    msg += '* Max Used Memory %: mump = mum / pm * 100 = {} / {} * 100 = {}%\n'.format(
-        lib.human.bytes2human(mycalc['max_used_memory']),
-        lib.human.bytes2human(physical_memory),
-        mycalc['pct_max_used_memory'],
-    )
-    msg += '* Max Possible Memory Usage %: mpmu = ppm / pm * 100 = {} / {} * 100 = {}%\n'.format(
-        lib.human.bytes2human(mycalc['max_peak_memory']),
-        lib.human.bytes2human(physical_memory),
-        mycalc['pct_max_physical_memory'],
+    msg += (
+        f'* Max Possible Memory Usage %:'
+        f' mpmu = ppm / pm * 100'
+        f' = {lib.human.bytes2human(mycalc["max_peak_memory"])}'
+        f' / {lib.human.bytes2human(physical_memory)}'
+        f' * 100 = {mycalc["pct_max_physical_memory"]}%\n'
     )
 
     # perfdata

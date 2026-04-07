@@ -22,7 +22,7 @@ import lib.txt  # pylint: disable=C0413
 from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Check user's security in MySQL/MariaDB."""
 
@@ -40,7 +40,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -122,14 +122,15 @@ def main():
     users = lib.base.coe(lib.db_mysql.select(conn, sql))
     if len(users):
         state = lib.base.str2state(args.SEVERITY)
-        msg_header += '{} anonymous user {}{}. '.format(
-            len(users),
-            lib.txt.pluralize('account', len(users)),
-            lib.base.state2str(lib.base.str2state(args.SEVERITY), prefix=' '),
+        msg_header += (
+            f'{len(users)} anonymous user'
+            f' {lib.txt.pluralize("account", len(users))}'
+            f'{lib.base.state2str(lib.base.str2state(args.SEVERITY), prefix=" ")}'
+            f'. '
         )
         msg_body += '\nRemove anonymous users:\n'
         for user in users:
-            msg_body += '* DROP USER {};\n'.format(user['user'])
+            msg_body += f"* DROP USER {user['user']};\n"
 
     # possible password column names:
     pass_column_names = [
@@ -154,63 +155,75 @@ def main():
     if not success:
         # all other versions:
         for pass_column_name in pass_column_names:
-            sql = '''
+            sql = f'''
                 select concat(quote(user), "@", quote(host)) as user
                 from mysql.user
-                where ({0} = "" or {0} is null)
+                where ({pass_column_name} = "" or {pass_column_name} is null)
                     and user != ""
                     and user != "mariadb.sys"
                     and user != "mysql.sys"
                     /*!50501 and plugin not in ("auth_socket", "unix_socket", "win_socket", "auth_pam_compat") */
                     /*!80000 and account_locked = "N" and password_expired = "N" */;
-            '''.format(pass_column_name)
+            '''
             success, users = lib.db_mysql.select(conn, sql)
             if success:
                 break
     if success and len(users):
         state = lib.base.str2state(args.SEVERITY)
-        msg_header += '{} {} without password{}. '.format(
-            len(users),
-            lib.txt.pluralize('user', len(users)),
-            lib.base.state2str(state, prefix=' '),
+        msg_header += (
+            f'{len(users)}'
+            f' {lib.txt.pluralize("user", len(users))}'
+            f' without password'
+            f'{lib.base.state2str(state, prefix=" ")}'
+            f'. '
         )
         msg_body += '\nSet user passwords:\n'
         for user in users:
-            msg_body += '* SET PASSWORD FOR {} = PASSWORD("{}");\n'.format(
-                user['user'],
-                ''.join(random.choice(string.ascii_letters + string.digits) for i in range(40))
+            random_pw = ''.join(
+                random.choice(string.ascii_letters + string.digits)
+                for i in range(40)
+            )
+            msg_body += (
+                f'* SET PASSWORD FOR {user["user"]}'
+                f' = PASSWORD("{random_pw}");\n'
             )
 
     # Looking for users with user / uppercase / capitalise user as password
     # does not work on MySQL 8
     for pass_column_name in pass_column_names:
-        sql = '''
+        sql = f'''
             select concat(quote(user), "@", quote(host)) as user
             from mysql.user
             where user != ""
                 and user != "mariadb.sys"
                 and user != "mysql.sys"
                 and (
-                    cast({0} as binary) = password(user)
-                    or cast({0} as binary) = password(upper(user))
-                    or cast({0} as binary) = password(concat(upper(left(user, 1)), substring(user, 2, length(user))))
+                    cast({pass_column_name} as binary) = password(user)
+                    or cast({pass_column_name} as binary) = password(upper(user))
+                    or cast({pass_column_name} as binary) = password(concat(upper(left(user, 1)), substring(user, 2, length(user))))
                 );
-        '''.format(pass_column_name)
+        '''
         success, users = lib.db_mysql.select(conn, sql)
         if success:
             break
     if success and len(users):
         state = lib.base.str2state(args.SEVERITY)
-        msg_header += '{} {} with username as password{}. '.format(
-            len(users),
-            lib.txt.pluralize('user', len(users)),
-            lib.base.state2str(state, prefix=' '),
+        msg_header += (
+            f'{len(users)}'
+            f' {lib.txt.pluralize("user", len(users))}'
+            f' with username as password'
+            f'{lib.base.state2str(state, prefix=" ")}'
+            f'. '
         )
         msg_body += '\nChange user passwords:\n'
         for user in users:
-            msg_body += '* SET PASSWORD FOR {} = PASSWORD("{}");\n'.format(
-                user['user'],
-                ''.join(random.choice(string.ascii_letters + string.digits) for i in range(40))
+            random_pw = ''.join(
+                random.choice(string.ascii_letters + string.digits)
+                for i in range(40)
+            )
+            msg_body += (
+                f'* SET PASSWORD FOR {user["user"]}'
+                f' = PASSWORD("{random_pw}");\n'
             )
 
     # Looking for users without hostname restriction
@@ -222,16 +235,21 @@ def main():
     users = lib.base.coe(lib.db_mysql.select(conn, sql))
     if len(users):
         state = lib.base.str2state(args.SEVERITY)
-        msg_header += '{} {} without hostname restriction{}. '.format(
-            len(users),
-            lib.txt.pluralize('account', len(users)),
-            lib.base.state2str(lib.base.str2state(args.SEVERITY), prefix=' '),
+        msg_header += (
+            f'{len(users)}'
+            f' {lib.txt.pluralize("account", len(users))}'
+            f' without hostname restriction'
+            f'{lib.base.state2str(lib.base.str2state(args.SEVERITY), prefix=" ")}'
+            f'. '
         )
         msg_body += '\nRestrict users:\n'
         for user in users:
-            msg_body += '* RENAME USER {} TO {};\n'.format(
-                user['user'],
-                user['user'].replace("'%", "'LimitedIPRangeOrLocalhost")
+            renamed = user['user'].replace(
+                "'%", "'LimitedIPRangeOrLocalhost",
+            )
+            msg_body += (
+                f'* RENAME USER {user["user"]}'
+                f' TO {renamed};\n'
             )
 
     lib.db_mysql.close(conn)

@@ -20,7 +20,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks some performance metrics and best practice configurations
                  for MySQL/MariaDB."""
@@ -38,7 +38,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -125,15 +125,20 @@ def main():
         if myvar['innodb_stats_on_metadata'] == 'ON':
             metastat_state = STATE_WARN
             state = lib.base.get_worst(state, metastat_state)
-            msg += 'Stat are updated during querying INFORMATION_SCHEMA{}. Set innodb_stats_on_metadata to OFF. '.format(
-                lib.base.state2str(metastat_state, prefix=' '),
+            msg += (
+                f'Stat are updated during querying'
+                f' INFORMATION_SCHEMA'
+                f'{lib.base.state2str(metastat_state, prefix=" ")}.'
+                f' Set innodb_stats_on_metadata to OFF. '
             )
 
     if myvar['concurrent_insert'] == '0' or myvar['concurrent_insert'] == 'NEVER':
         concins_state = STATE_WARN
         state = lib.base.get_worst(state, concins_state)
-        msg += 'Concurrent INSERTs are off{}. Set concurrent_insert to AUTO or ALWAYS. '.format(
-            lib.base.state2str(concins_state, prefix=' '),
+        msg += (
+            f'Concurrent INSERTs are off'
+            f'{lib.base.state2str(concins_state, prefix=" ")}.'
+            f' Set concurrent_insert to AUTO or ALWAYS. '
         )
 
     if engines.get('have_innodb', ''):
@@ -141,8 +146,10 @@ def main():
             if myvar['innodb_file_per_table'] != 'ON':
                 ifpt_state = STATE_WARN
                 state = lib.base.get_worst(state, ifpt_state)
-                msg += 'InnoDB File per table is not activated{}. Set innodb_file_per_table to ON. '.format(
-                    lib.base.state2str(ifpt_state, prefix=' '),
+                msg += (
+                    f'InnoDB File per table is not activated'
+                    f'{lib.base.state2str(ifpt_state, prefix=" ")}.'
+                    f' Set innodb_file_per_table to ON. '
                 )
 
     if not msg:

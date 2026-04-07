@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Batch querying controllers of a Huawei OceanStor Dorado storage
                  system via the REST Interface, using the ``/controller`` endpoint."""
@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -160,12 +160,13 @@ def main():
 
     # no valuable result?
     if not result:
-        lib.base.cu('Got no valuable response from {}.'.format(args.URL))
+        lib.base.cu(f'Got no valuable response from {args.URL}.')
     if result.get('error').get('code') != 0:
-        lib.base.oao('{} {}'.format(
-            result.get('error').get('description'),
-            result.get('error').get('suggestion'),
-        ), STATE_UNKNOWN)
+        lib.base.oao(
+            f"{result.get('error').get('description')}"
+            f" {result.get('error').get('suggestion')}",
+            STATE_UNKNOWN,
+        )
 
     # init some vars
     msg = ''
@@ -190,14 +191,14 @@ def main():
         controller['UUID'] = lib.huawei.get_uuid(controller)
         controller['TEMPERATURE'] = int(controller['TEMPERATURE'])
 
-        perfdata += lib.base.get_perfdata('{}_HEALTHSTATUS'.format(controller['UUID']), controller['HEALTHSTATUS'], None, None, 2, 0, 2)
-        perfdata += lib.base.get_perfdata('{}_RUNNINGSTATUS'.format(controller['UUID']), controller['RUNNINGSTATUS'], None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata('{}_CPUUSAGE'.format(controller['UUID']), controller['CPUUSAGE'], '%', None, None, 0, 100)
-        perfdata += lib.base.get_perfdata('{}_DIRTYDATARATE'.format(controller['UUID']), controller['DIRTYDATARATE'], '%', None, None, 0, 100)
-        perfdata += lib.base.get_perfdata('{}_LIGHT_STATUS'.format(controller['UUID']), controller['LIGHT_STATUS'], None, None, None, 0, 2)
-        perfdata += lib.base.get_perfdata('{}_MEMORYUSAGE'.format(controller['UUID']), controller['MEMORYUSAGE'], '%', None, None, 0, 100)
-        perfdata += lib.base.get_perfdata('{}_TEMPERATURE'.format(controller['UUID']), controller['TEMPERATURE'], None, None, None, 0, None) if controller['TEMPERATURE'] > 0 else ''
-        perfdata += lib.base.get_perfdata('{}_VOLTAGE'.format(controller['UUID']), controller['VOLTAGE'], None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f"{controller['UUID']}_HEALTHSTATUS", controller['HEALTHSTATUS'], None, None, 2, 0, 2)
+        perfdata += lib.base.get_perfdata(f"{controller['UUID']}_RUNNINGSTATUS", controller['RUNNINGSTATUS'], None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f"{controller['UUID']}_CPUUSAGE", controller['CPUUSAGE'], '%', None, None, 0, 100)
+        perfdata += lib.base.get_perfdata(f"{controller['UUID']}_DIRTYDATARATE", controller['DIRTYDATARATE'], '%', None, None, 0, 100)
+        perfdata += lib.base.get_perfdata(f"{controller['UUID']}_LIGHT_STATUS", controller['LIGHT_STATUS'], None, None, None, 0, 2)
+        perfdata += lib.base.get_perfdata(f"{controller['UUID']}_MEMORYUSAGE", controller['MEMORYUSAGE'], '%', None, None, 0, 100)
+        perfdata += lib.base.get_perfdata(f"{controller['UUID']}_TEMPERATURE", controller['TEMPERATURE'], None, None, None, 0, None) if controller['TEMPERATURE'] > 0 else ''
+        perfdata += lib.base.get_perfdata(f"{controller['UUID']}_VOLTAGE", controller['VOLTAGE'], None, None, None, 0, None)
 
         controller['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         controller['running_state'] = lib.base.state2str(running_state, empty_ok=False)
@@ -212,9 +213,9 @@ def main():
         headers = ['UUID', 'Location', 'Model', 'Role', 'Master', 'CPU (%)', 'Mem (%)', 'Volt', 'Health', 'Running']
         msg += lib.base.get_table(table_data, keys, header=headers)
 
-    msg += '\nFetched API {} {}'.format(
-        result.get('counter', 0),
-        lib.txt.pluralize('time', result.get('counter', 0),),
+    msg += (
+        f"\nFetched API {result.get('counter', 0)}"
+        f" {lib.txt.pluralize('time', result.get('counter', 0))}"
     )
 
     if state == STATE_CRIT:

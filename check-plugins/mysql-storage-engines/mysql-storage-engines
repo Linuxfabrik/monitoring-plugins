@@ -22,7 +22,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks storage engines, fragmented tables and autoindex usage in MySQL/MariaDB."""
 
@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -159,7 +159,7 @@ def main():
         not_innodb = 'and not ENGINE="InnoDB"'
     elif myvar['innodb_file_per_table'] == 'OFF':
         not_innodb = 'and not ENGINE="InnoDB"'
-    sql = '''
+    sql = f'''
         select concat(concat(TABLE_SCHEMA, '.'),TABLE_NAME) as full_table_name,
             cast(DATA_FREE as signed) as data_free
         from information_schema.tables
@@ -167,26 +167,23 @@ def main():
             and DATA_LENGTH/1024/1024 > 100
             and cast(DATA_FREE as signed)*100/(DATA_LENGTH+INDEX_LENGTH+cast(DATA_FREE as signed)) > 10
             and not ENGINE='MEMORY'
-            {}
-    '''.format(not_innodb)
+            {not_innodb}
+    '''
     fragtables = lib.base.coe(lib.db_mysql.select(conn, sql))
     if len(fragtables) > 0:
-        msg += '* {} fragmented {}\n'.format(
-            len(fragtables),
-            lib.txt.pluralize('table', len(fragtables)),
-        )
+        msg += f"* {len(fragtables)} fragmented {lib.txt.pluralize('table', len(fragtables))}\n"
         total_free = 0
         for fragtable in fragtables:
             table_schema, table_name = fragtable['full_table_name'].rsplit('.', 1)  # my.schema.my_table
             data_free = fragtable.get('data_free', 0)
             total_free += data_free
-            msg += '* OPTIMIZE TABLE `{}`.`{}`; -- can free {}\n'.format(
-                table_schema,
-                table_name,
-                lib.human.bytes2human(data_free),
+            msg += (
+                f'* OPTIMIZE TABLE `{table_schema}`.`{table_name}`;'
+                f' -- can free {lib.human.bytes2human(data_free)}\n'
             )
-        msg += '* Total freed space after all OPTIMIZE TABLEs: {}\n'.format(
-            lib.human.bytes2human(total_free),
+        msg += (
+            f'* Total freed space after all OPTIMIZE TABLEs:'
+            f' {lib.human.bytes2human(total_free)}\n'
         )
 
     sql = '''
@@ -210,17 +207,17 @@ def main():
     for db in dblist:
         if db['Database'] == 'information_schema':
             continue
-        sql = 'show table status from `{}`;'.format(db['Database'])
+        sql = f"show table status from `{db['Database']}`;"
         tblist = lib.base.coe(lib.db_mysql.select(conn, sql))
         for tbl in tblist:
             if not tbl['Auto_increment']:
                 continue
             percent = tbl['Auto_increment'] / maxint['maxint'] * 100
             if percent >= 75:
-                msg += '* {}.{} has an autoincrement value near max capacity ({}%)\n'.format(
-                    db['Database'],
-                    tbl['Name'],
-                    round(percent, 1),
+                msg += (
+                    f'* {db["Database"]}.{tbl["Name"]}'
+                    f' has an autoincrement value near'
+                    f' max capacity ({round(percent, 1)}%)\n'
                 )
 
     lib.db_mysql.close(conn)

@@ -30,7 +30,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'This plugin lets you track if server updates are available.'
 
@@ -48,7 +48,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -125,9 +125,9 @@ def main():
     auth_sid = lib.base.coe(lib.qts.get_auth_sid(args))
 
     # get system information
-    url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(
-        args.URL,
-        auth_sid,
+    url = (
+        f'{args.URL}/cgi-bin/management/manaRequest.cgi'
+        f'?subfunc=sysinfo&hd=no&multicpu=1&sid={auth_sid}'
     )
     result = lib.base.coe(
         lib.url.fetch(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT)
@@ -141,7 +141,7 @@ def main():
     installed_build = data['firmware']['build']
 
     # check for updates
-    url = '{}/cgi-bin/sys/sysRequest.cgi?subfunc=firm_update&sid={}'.format(args.URL, auth_sid)
+    url = f'{args.URL}/cgi-bin/sys/sysRequest.cgi?subfunc=firm_update&sid={auth_sid}'
     result = lib.base.coe(
         lib.url.fetch(
             url,
@@ -169,19 +169,14 @@ def main():
     # build the message
     if lib.version.version('.'.join(installed_version)) >= lib.version.version(latest_version):
         lib.base.oao(
-            'QTS v{}.{} Build {} is up to date'.format(
-                installed_version,
-                installed_number,
-                installed_build,
-            ),
+            f'QTS v{installed_version}.{installed_number} Build {installed_build} is up to date',
             STATE_OK,
         )
     lib.base.oao(
-        'QTS v{}.{} Build {} installed, QTS v{} available'.format(
-            installed_version,
-            installed_number,
-            installed_build,
-            latest_version,
+        (
+            f'QTS v{installed_version}.{installed_number}'
+            f' Build {installed_build} installed,'
+            f' QTS v{latest_version} available'
         ),
         STATE_WARN,
         always_ok=args.ALWAYS_OK,

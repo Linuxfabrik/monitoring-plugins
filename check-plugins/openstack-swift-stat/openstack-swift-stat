@@ -32,7 +32,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """The OpenStack Object Store project, known as Swift, offers cloud storage 
                  software so that you can store and retrieve lots of data with a simple API.
@@ -52,7 +52,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -144,12 +144,12 @@ def main():
     else:
         # do not call the command, put in test data
         # general statistics
-        stat_account = json.loads(lib.base.coe(lib.disk.read_file('{}-stat_account'.format(args.TEST[0]))))
+        stat_account = json.loads(lib.base.coe(lib.disk.read_file(f'{args.TEST[0]}-stat_account')))
         # get stat for each container
         containers = {}
-        list_account_part = json.loads(lib.base.coe(lib.disk.read_file('{}-list_account_part'.format(args.TEST[0])))) # pylint: disable=C0301
+        list_account_part = json.loads(lib.base.coe(lib.disk.read_file(f'{args.TEST[0]}-list_account_part'))) # pylint: disable=C0301
         for lap in list_account_part['listing']:
-            stat_container = json.loads(lib.base.coe(lib.disk.read_file('{}-stat_container-{}'.format(args.TEST[0], lap['name'])))) # pylint: disable=C0301
+            stat_container = json.loads(lib.base.coe(lib.disk.read_file(f"{args.TEST[0]}-stat_container-{lap['name']}"))) # pylint: disable=C0301
             if stat_container['success']:
                 containers[lap['name']] = stat_container['headers']
 
@@ -189,46 +189,50 @@ def main():
                 'le',
             )
             state = lib.base.get_worst(state, container_state)
-            item['free'] = '{}{}'.format(
-                lib.human.bytes2human(max(0, item['x-container-meta-quota-bytes'] - item['x-container-bytes-used'])), # pylint: disable=C0301
-                lib.base.state2str(container_state, prefix=' '),
+            free_bytes = max(
+                0,
+                item['x-container-meta-quota-bytes'] - item['x-container-bytes-used'],
+            )
+            item['free'] = (
+                f'{lib.human.bytes2human(free_bytes)}'
+                f'{lib.base.state2str(container_state, prefix=" ")}'
             )
             percent = round(
                 float(item['x-container-bytes-used']) / float(item['x-container-meta-quota-bytes']) * 100, # pylint: disable=C0301
                 1,
             )
-            item['used'] += ' ({}%)'.format(percent)
+            item['used'] += f' ({percent}%)'
         else:
             item['free'] = ''
         table_data.append(item)
 
-        perfdata += lib.base.get_perfdata('{}_items'.format(name), container.get('x-container-object-count', 0), None, None, None, 0, None) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('{}_used'.format(name), container.get('x-container-bytes-used', 0), 'B', None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(f'{name}_items', container.get('x-container-object-count', 0), None, None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(f'{name}_used', container.get('x-container-bytes-used', 0), 'B', None, None, 0, None) # pylint: disable=C0301
 
     # build the message
     msg += 'Account: '
     if 'x-account-container-count' in stat_account['headers'] \
     and int(stat_account['headers']['x-account-container-count']):
-        msg += '{} {}, '.format(
-            stat_account['headers']['x-account-container-count'],
-            lib.txt.pluralize('container', int(stat_account['headers']['x-account-container-count'])), # pylint: disable=C0301
+        cnt = stat_account['headers']['x-account-container-count']
+        msg += (
+            f'{cnt}'
+            f' {lib.txt.pluralize("container", int(cnt))}, '
         )
     if 'x-account-object-count' in stat_account['headers'] \
     and int(stat_account['headers']['x-account-object-count']):
-        msg += '{} {}, '.format(
-            lib.human.number2human(stat_account['headers']['x-account-object-count']),
-            lib.txt.pluralize('object', int(stat_account['headers']['x-account-object-count'])),
+        obj_cnt = stat_account['headers']['x-account-object-count']
+        msg += (
+            f'{lib.human.number2human(obj_cnt)}'
+            f' {lib.txt.pluralize("object", int(obj_cnt))}, '
         )
     if 'x-account-meta-quota-bytes' in stat_account['headers'] \
     and int(stat_account['headers']['x-account-bytes-used']):
-        msg += '{} used, '.format(
-            lib.human.bytes2human(int(stat_account['headers']['x-account-bytes-used'])),
-        )
+        bytes_used = int(stat_account['headers']['x-account-bytes-used'])
+        msg += f'{lib.human.bytes2human(bytes_used)} used, '
     if 'x-account-meta-quota-bytes' in stat_account['headers'] \
     and int(stat_account['headers']['x-account-meta-quota-bytes']):
-        msg += '{} quota, '.format(
-            lib.human.bytes2human(int(stat_account['headers']['x-account-meta-quota-bytes'])),
-        )
+        quota = int(stat_account['headers']['x-account-meta-quota-bytes'])
+        msg += f'{lib.human.bytes2human(quota)} quota, '
     if msg.endswith(', '):
         msg = msg[:-2]
 

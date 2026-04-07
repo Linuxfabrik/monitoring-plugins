@@ -26,7 +26,7 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040701'
+__version__ = '2026040801'
 
 DESCRIPTION = 'A tool to generate Icinga Director baskets from a check plugin.'
 
@@ -124,7 +124,7 @@ def parse_args():
         '-V',
         '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__),
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -151,7 +151,7 @@ def save_json_to_file(data, filename):
             json.dump(data, file, sort_keys=False, indent=4, separators=(',', ': '))
             file.write('\n')
     except FileNotFoundError as e:
-        err_print('{}. Ignoring...'.format(e))
+        err_print(f'{e}. Ignoring...')
 
 
 def find_long_param(params):
@@ -162,7 +162,7 @@ def find_long_param(params):
 
 def get_varname(check, param):
     param = param.lstrip("-")
-    return '{}_{}'.format(check, param).replace('-', '_')
+    return f'{check}_{param}'.replace('-', '_')
 
 
 def help2description(help_text):
@@ -180,7 +180,7 @@ def lf_title(string):
 
 
 def get_caption(check, long_param):
-    return lf_title('{}: {}'.format(check.replace("-", " "), long_param.lstrip("-").replace("-", " ")))
+    return lf_title(f"{check.replace('-', ' ')}: {long_param.lstrip('-').replace('-', ' ')}")
 
 
 def get_visibility(varname):
@@ -206,7 +206,7 @@ def _return_parser_as_tuple(self, *args, **kwargs):
 def warn_print(msg):
     msg = msg.strip()
     if colorama:
-        print(colorama.Fore.YELLOW + 'Warning: {}'.format(msg))
+        print(colorama.Fore.YELLOW + f'Warning: {msg}')
     else:
         print(msg)
 
@@ -214,7 +214,7 @@ def warn_print(msg):
 def err_print(msg):
     msg = msg.strip()
     if colorama:
-        print(colorama.Fore.RED + 'Error: {}'.format(msg))
+        print(colorama.Fore.RED + f'Error: {msg}')
     else:
         print(msg)
 
@@ -235,10 +235,10 @@ def get_plugin_args(plugin_file):
     try:
         spec.loader.exec_module(plugin_module)
     except Exception as e:
-        err_print('Exception during check execution: {}'.format(e))
+        err_print(f'Exception during check execution: {e}')
         return None
     except SystemExit as e:
-        err_print('SystemExit during check execution: {}'.format(e))
+        err_print(f'SystemExit during check execution: {e}')
         return None
     finally:
         sys.stdin.close = orig_sys_stdin_close
@@ -421,7 +421,7 @@ def get_notification_template(data, object_name, check_command):
 def offer_selection(options):
     options = list(options)
     for index, text in enumerate(options):
-        print('{}: {}'.format(index, text))
+        print(f'{index}: {text}')
 
     print('n: treat as a new object and generate a new uuid')
 
@@ -451,18 +451,18 @@ def manage_uuids(data, old_data=None):
                     if varname in old_varnames:
                         try:
                             data[parent_key][key]['uuid'] = old_data[parent_key][old_varnames[varname]]['uuid']
-                            reused_uuid_objects.append('[{}][{}]'.format(parent_key, value["varname"]))
+                            reused_uuid_objects.append(f"[{parent_key}][{value['varname']}]")
                         except KeyError as e:
                             if e.args[0] == 'uuid':
                                 # could not find the uuid in the existing basket, therefore skipping so a new one is generated further down
                                 continue
                             old_uuid = None
                     else:
-                        print('\nCould not find the corresponding object for "[{}][{}]". Which uuid should I use?'.format(parent_key, value["varname"]))
+                        print(f"\nCould not find the corresponding object for \"[{parent_key}][{value['varname']}]\". Which uuid should I use?")
                         selection = offer_selection(old_varnames.keys())
                         if selection:
                             data[parent_key][key]['uuid'] = old_data[parent_key][old_varnames[selection]]['uuid']
-                            reused_uuid_objects.append('[{}][{}]'.format(parent_key, value["varname"]))
+                            reused_uuid_objects.append(f"[{parent_key}][{value['varname']}]")
 
             else:
                 for key, value in parent_value.items():
@@ -476,13 +476,13 @@ def manage_uuids(data, old_data=None):
 
                     if old_uuid is not None:
                         data[parent_key][key]['uuid'] = old_uuid
-                        reused_uuid_objects.append('[{}][{}]'.format(parent_key, key))
+                        reused_uuid_objects.append(f'[{parent_key}][{key}]')
                     else:
-                        print('\nCould not find the corresponding object for "[{}][{}]".'.format(parent_key, key))
+                        print(f'\nCould not find the corresponding object for "[{parent_key}][{key}]".')
                         selection = offer_selection(old_data.get(parent_key, {}).keys())
                         if selection:
                             data[parent_key][key]['uuid'] = old_data[parent_key][selection]['uuid']
-                            reused_uuid_objects.append('[{}][{}]'.format(parent_key, key))
+                            reused_uuid_objects.append(f'[{parent_key}][{key}]')
 
         if reused_uuid_objects:
             print('\nFound an object with the same name in the old basket, reusing the uuid for:\n* ', end='')
@@ -496,9 +496,9 @@ def manage_uuids(data, old_data=None):
         for key, value in parent_value.items():
             if 'uuid' not in value:
                 if parent_key == 'Datafield':
-                    new_uuid_objects.append('[{}][{}]'.format(parent_key, value["varname"]))
+                    new_uuid_objects.append(f"[{parent_key}][{value['varname']}]")
                 else:
-                    new_uuid_objects.append('[{}][{}]'.format(parent_key, key))
+                    new_uuid_objects.append(f'[{parent_key}][{key}]')
                 data[parent_key][key]['uuid'] = str(uuid.uuid4())
             uuids.append(value['uuid'])
 
@@ -521,9 +521,9 @@ def manage_uuids(data, old_data=None):
 def apply_overwrites(data, overwrites):
     for key, value in overwrites.items():
         try:
-            exec('data{} = value'.format(key), {}, {'value': value, 'data': data})
+            exec(f'data{key} = value', {}, {'value': value, 'data': data})
         except KeyError:
-            err_print('Could not apply overwrite "{}", as the path was not found. Continuing...'.format(key))
+            err_print(f'Could not apply overwrite "{key}", as the path was not found. Continuing...')
 
     return data
 
@@ -555,7 +555,7 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
             print(f'Skipping the "{long_param}" parameter as it is suppressed')
             continue
         if not long_param:
-            warn_print('Could not find a long parameter for:\n{}'.format(action))
+            warn_print(f'Could not find a long parameter for:\n{action}')
             continue
         if long_param in skip_params:
             continue
@@ -589,7 +589,7 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
                 })
 
             if action.choices is not None:
-                datalist_name = '{}_list'.format(varname)
+                datalist_name = f'{varname}_list'
                 if isinstance(action, argparse._AppendAction):
                     target_data_type = 'array'
                 else:
@@ -693,7 +693,7 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
             command_field_id += 1
             continue
 
-        warn_print('Unhandled action class: "{}".'.format(action.__class__.__name__))
+        warn_print(f'Unhandled action class: "{action.__class__.__name__}".')
     return data, command_field_id
 
 
@@ -714,9 +714,9 @@ def generate_basket(plugin_file, config=None, old_data=None):
 
     if 'linux' in config['variants']:
         print('Generating "linux" variant.')
-        command_object_name = 'cmd-check-{}'.format(check_name)
-        service_object_name = 'tpl-service-{}'.format(check_name)
-        command = '/usr/lib64/nagios/plugins/{}'.format(check_name)
+        command_object_name = f'cmd-check-{check_name}'
+        service_object_name = f'tpl-service-{check_name}'
+        command = f'/usr/lib64/nagios/plugins/{check_name}'
         varname_suffix = ''
 
         data = get_command_template(
@@ -747,20 +747,20 @@ def generate_basket(plugin_file, config=None, old_data=None):
         print('Generating "sudo" variant.')
         data = get_command_template(
             data,
-            'cmd-check-{}-sudo'.format(check_name),
-            '/usr/bin/sudo /usr/lib64/nagios/plugins/{}'.format(check_name),
+            f'cmd-check-{check_name}-sudo',
+            f'/usr/bin/sudo /usr/lib64/nagios/plugins/{check_name}',
             imports=[
-                'cmd-check-{}'.format(check_name),
+                f'cmd-check-{check_name}',
             ]
         )
         data = get_service_template(
             data,
-            'tpl-service-{}-sudo'.format(check_name),
-            'cmd-check-{}-sudo'.format(check_name),
+            f'tpl-service-{check_name}-sudo',
+            f'cmd-check-{check_name}-sudo',
             check_name,
             plugin_args.description,
             imports=[
-                'tpl-service-{}'.format(check_name),
+                f'tpl-service-{check_name}',
             ]
         )
 
@@ -768,8 +768,8 @@ def generate_basket(plugin_file, config=None, old_data=None):
         print('Generating "no-agent" variant.')
         data = get_service_template(
             data,
-            'tpl-service-{}-no-agent'.format(check_name),
-            'cmd-check-{}'.format(check_name),
+            f'tpl-service-{check_name}-no-agent',
+            f'cmd-check-{check_name}',
             check_name,
             plugin_args.description,
             imports=[
@@ -780,9 +780,9 @@ def generate_basket(plugin_file, config=None, old_data=None):
 
     if 'windows' in config['variants']:
         print('Generating "windows" variant.')
-        command_object_name = 'cmd-check-{}-windows'.format(check_name)
-        service_object_name = 'tpl-service-{}-windows'.format(check_name)
-        command = 'C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\{}.exe'.format(check_name)
+        command_object_name = f'cmd-check-{check_name}-windows'
+        service_object_name = f'tpl-service-{check_name}-windows'
+        command = f'C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\{check_name}.exe'
         varname_suffix = '_windows'
 
         data = get_command_template(
@@ -833,18 +833,18 @@ def generate_basket(plugin_file, config=None, old_data=None):
 
         data = get_command_template(
             data,
-            'cmd-check-{}-windows-python'.format(check_name),
-            'C:\\Windows\\py C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\{}.py'.format(check_name),
+            f'cmd-check-{check_name}-windows-python',
+            f'C:\\Windows\\py C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\{check_name}.py',
             imports=[
-                'cmd-check-{}-windows'.format(check_name),
+                f'cmd-check-{check_name}-windows',
             ]
         )
 
     if 'notification-plugin' in config['variants']:
         print('Generating "notification-plugin" variant.')
-        command_object_name = 'cmd-notification-{}'.format(check_name)
-        notification_object_name = 'tpl-notification-{}'.format(check_name)
-        command = '/usr/lib64/nagios/plugins/{}'.format(check_name)
+        command_object_name = f'cmd-notification-{check_name}'
+        notification_object_name = f'tpl-notification-{check_name}'
+        command = f'/usr/lib64/nagios/plugins/{check_name}'
         varname_suffix = ''
 
         data = get_command_template(
@@ -891,11 +891,11 @@ def main():
         plugin_dir = os.path.dirname(args.PLUGIN_FILE)
         check = os.path.basename(args.PLUGIN_FILE)
 
-        output_file = os.path.join(plugin_dir, 'icingaweb2-module-director', '{}.json'.format(check))
+        output_file = os.path.join(plugin_dir, 'icingaweb2-module-director', f'{check}.json')
         old_data = None
         if os.path.isfile(output_file):
             with open(output_file, 'rb') as file:
-                print('Found an existing basket at {}, updating it.'.format(output_file))
+                print(f'Found an existing basket at {output_file}, updating it.')
                 try:
                     old_data = json.load(file)
                 except json.decoder.JSONDecodeError:
@@ -907,11 +907,11 @@ def main():
             except FileExistsError:
                 pass
 
-        config_file = os.path.join(plugin_dir, 'icingaweb2-module-director', '{}.yml'.format(check))
+        config_file = os.path.join(plugin_dir, 'icingaweb2-module-director', f'{check}.yml')
         config = None
         if os.path.isfile(config_file):
             with open(config_file, 'rb') as file:
-                print('Using config at {}.'.format(config_file))
+                print(f'Using config at {config_file}.')
                 try:
                     config = yaml.safe_load(file)
                 except yaml.scanner.ScannerError:
@@ -929,13 +929,13 @@ def main():
             plugin_file = os.path.join('check-plugins', directory, directory)
             if os.path.isfile(plugin_file):
                 print('\n' + '- ' * 40)
-                print('Check: {}'.format(directory))
+                print(f'Check: {directory}')
                 print('- ' * 40)
                 old_data = None
-                output_file = os.path.join('check-plugins', directory, 'icingaweb2-module-director', '{}.json'.format(directory))
+                output_file = os.path.join('check-plugins', directory, 'icingaweb2-module-director', f'{directory}.json')
                 if os.path.isfile(output_file):
                     with open(output_file, 'rb') as file:
-                        print('Found an existing basket at {}, updating it.'.format(output_file))
+                        print(f'Found an existing basket at {output_file}, updating it.')
                         try:
                             old_data = json.load(file)
                         except json.decoder.JSONDecodeError:
@@ -947,11 +947,11 @@ def main():
                     except FileExistsError:
                         pass
 
-                config_file = os.path.join('check-plugins', directory, 'icingaweb2-module-director', '{}.yml'.format(directory))
+                config_file = os.path.join('check-plugins', directory, 'icingaweb2-module-director', f'{directory}.yml')
                 config = None
                 if os.path.isfile(config_file):
                     with open(config_file, 'rb') as file:
-                        print('Using config at {}.'.format(config_file))
+                        print(f'Using config at {config_file}.')
                         try:
                             config = yaml.safe_load(file)
                         except yaml.scanner.ScannerError:
@@ -962,7 +962,7 @@ def main():
                 if plugin_data:
                     save_json_to_file(plugin_data, output_file)
                 else:
-                    err_print('No data for {}.'.format(directory))
+                    err_print(f'No data for {directory}.')
                     sys.exit(3)
 
     else:

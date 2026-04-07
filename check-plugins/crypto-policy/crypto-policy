@@ -20,7 +20,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks the current crypto policy against a desired one,
                  and returns a warning on a non-match."""
@@ -37,7 +37,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__),
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -80,11 +80,8 @@ def main():
     # over and out
     # calculating the final check state
     if crypto_policy.lower() == args.CRYPTO_POLICY.lower():
-        lib.base.oao('Crypto policy is "{}" (as expected).'.format(
-            crypto_policy,
-        ), STATE_OK)
-    lib.base.oao('Crypto policy is "{}", but supposed to be "{}".'.format(
-        crypto_policy, args.CRYPTO_POLICY),
+        lib.base.oao(f'Crypto policy is "{crypto_policy}" (as expected).', STATE_OK)
+    lib.base.oao(f'Crypto policy is "{crypto_policy}", but supposed to be "{args.CRYPTO_POLICY}".',
         STATE_WARN,
         always_ok=args.ALWAYS_OK,
     )

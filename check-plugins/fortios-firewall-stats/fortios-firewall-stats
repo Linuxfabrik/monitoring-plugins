@@ -21,7 +21,7 @@ import lib.url  # pylint: disable=C0413
 from lib.globals import (STATE_OK, STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Summarizes traffic statistics for all IPv4 and IPv6 firewall policies from Forti
                  Appliances like FortiGate running FortiOS via FortiOS REST API. The authentication
@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -106,9 +106,10 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    url = 'https://{}/api/v2/monitor/firewall/policy/select/?access_token={}'.format(
-        args.HOSTNAME,
-        urllib.parse.quote(args.PASSWORD),
+    url = (
+        f'https://{args.HOSTNAME}'
+        f'/api/v2/monitor/firewall/policy/select/'
+        f'?access_token={urllib.parse.quote(args.PASSWORD)}'
     )
     success4, result4 = lib.url.fetch_json(
         url,
@@ -117,9 +118,10 @@ def main():
         timeout=args.TIMEOUT,
     )
 
-    url = 'https://{}/api/v2/monitor/firewall/policy6/select/?access_token={}'.format(
-        args.HOSTNAME,
-        urllib.parse.quote(args.PASSWORD),
+    url = (
+        f'https://{args.HOSTNAME}'
+        f'/api/v2/monitor/firewall/policy6/select/'
+        f'?access_token={urllib.parse.quote(args.PASSWORD)}'
     )
     success6, result6 = lib.url.fetch_json(
         url,
@@ -131,9 +133,11 @@ def main():
     # if both requests fail then exit
     if success4 is False and success6 is False:
         lib.base.oao(
-            'Both requests for IPv4 and IPv6 policies failed.\n* IPv4: "{}"\n* IPv6: "{}"'.format(
-                result4,
-                result6,
+            (
+                f'Both requests for IPv4 and IPv6'
+                f' policies failed.\n'
+                f'* IPv4: "{result4}"\n'
+                f'* IPv6: "{result6}"'
             ),
             STATE_UNKNOWN,
         )
@@ -175,15 +179,20 @@ def main():
     #     u'software_packets': 1279872
     # }
 
-    msg = '{} policies, {} sessions ({} active), {} hits, {} bytes ({} software, {} asic, {} nturbo)'.format(
-        policy_count,
-        total.get('session_count', 0),
-        total.get('active_sessions', 0),
-        total.get('hit_count', 0),
-        lib.human.bytes2human(total.get('bytes', 0)),
-        lib.human.bytes2human(total.get('software_bytes', 0)),
-        lib.human.bytes2human(total.get('asic_bytes', 0)),
-        lib.human.bytes2human(total.get('nturbo_bytes', 0)),
+    sessions = total.get('session_count', 0)
+    active = total.get('active_sessions', 0)
+    hits = total.get('hit_count', 0)
+    bytes_hr = lib.human.bytes2human(total.get('bytes', 0))
+    sw_hr = lib.human.bytes2human(total.get('software_bytes', 0))
+    asic_hr = lib.human.bytes2human(total.get('asic_bytes', 0))
+    nturbo_hr = lib.human.bytes2human(total.get('nturbo_bytes', 0))
+    msg = (
+        f'{policy_count} policies,'
+        f' {sessions} sessions ({active} active),'
+        f' {hits} hits,'
+        f' {bytes_hr} bytes'
+        f' ({sw_hr} software,'
+        f' {asic_hr} asic, {nturbo_hr} nturbo)'
     )
     state = STATE_OK
 

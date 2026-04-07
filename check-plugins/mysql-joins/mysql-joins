@@ -22,7 +22,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks if many joins per day without indexes were executed on MySQL/MariaDB."""
 
@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -140,17 +140,21 @@ def main():
     # Joins
     if mycalc['joins_without_indexes_per_day'] > 250:
         state = STATE_WARN
-        msg = '{} {} without indexes while MySQL/MariaDB is {} up (approx. {} joins without indexes per day){}'.format(
-            lib.human.number2human(mycalc['joins_without_indexes']),
-            lib.txt.pluralize('JOIN', mycalc['joins_without_indexes']),
-            lib.human.seconds2human(int(mystat['Uptime'])),
-            lib.human.number2human(mycalc['joins_without_indexes_per_day']),
-            lib.base.state2str(state, prefix=' '),
+        msg = (
+            f'{lib.human.number2human(mycalc["joins_without_indexes"])}'
+            f' {lib.txt.pluralize("JOIN", mycalc["joins_without_indexes"])}'
+            f' without indexes while MySQL/MariaDB is'
+            f' {lib.human.seconds2human(int(mystat["Uptime"]))} up'
+            f' (approx.'
+            f' {lib.human.number2human(mycalc["joins_without_indexes_per_day"])}'
+            f' joins without indexes per day)'
+            f'{lib.base.state2str(state, prefix=" ")}'
         )
         msg += '\n\nRecommendations:\n'
         msg += '* Use JOIN with indexes\n'
-        msg += '* Otherwise set join_buffer_size > {}\n'.format(
-            lib.human.bytes2human(int(myvar['join_buffer_size'])),
+        msg += (
+            f'* Otherwise set join_buffer_size >'
+            f' {lib.human.bytes2human(int(myvar["join_buffer_size"]))}\n'
         )
     else:
         state = STATE_OK

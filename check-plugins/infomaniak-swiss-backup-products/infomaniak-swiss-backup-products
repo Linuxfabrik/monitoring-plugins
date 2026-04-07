@@ -27,7 +27,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040701'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks your Infomaniak Swiss Backup product details via the Infomaniak API."""
 
@@ -47,7 +47,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -229,22 +229,22 @@ def main():
             busy_state = lib.base.get_state(product.get('has_operation_in_progress', False), None, True, _operator='eq')
         state = lib.base.get_worst(state, busy_state)
 
-        perfdata += lib.base.get_perfdata('{}-busy'.format(product.get('id')), int(product.get('has_operation_in_progress', False)), None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata('{}-locked'.format(product.get('id')), int(product.get('is_locked', False)), None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata('{}-maintenance'.format(product.get('id')), int(product.get('has_maintenance', False)), None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata('{}-size'.format(product.get('id')), product.get('size'), 'B', None, None, 0, None)
-        perfdata += lib.base.get_perfdata('{}-storage_reserved'.format(product.get('id')), product.get('storage_reserved'), 'B', None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f"{product.get('id')}-busy", int(product.get('has_operation_in_progress', False)), None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f"{product.get('id')}-locked", int(product.get('is_locked', False)), None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f"{product.get('id')}-maintenance", int(product.get('has_maintenance', False)), None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f"{product.get('id')}-size", product.get('size'), 'B', None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f"{product.get('id')}-storage_reserved", product.get('storage_reserved'), 'B', None, None, 0, None)
 
         table_data.append({
-            'busy': '{}{}'.format(product.get('has_operation_in_progress', False), lib.base.state2str(busy_state, prefix=' ')),
+            'busy': f"{product.get('has_operation_in_progress', False)}{lib.base.state2str(busy_state, prefix=' ')}",
             'customer_name': product.get('customer_name'),
-            'expires_in': '{}{}'.format(lib.human.seconds2human(expired_at), lib.base.state2str(expired_at_state, prefix=' ')),
+            'expires_in': f"{lib.human.seconds2human(expired_at)}{lib.base.state2str(expired_at_state, prefix=' ')}",
             'id': product.get('id'),
-            'locked': '{}{}'.format(product.get('is_locked', False), lib.base.state2str(locked_state, prefix=' ')),
-            'maintenance': '{}{}'.format(product.get('has_maintenance', False), lib.base.state2str(maintenance_state, prefix=' ')),
+            'locked': f"{product.get('is_locked', False)}{lib.base.state2str(locked_state, prefix=' ')}",
+            'maintenance': f"{product.get('has_maintenance', False)}{lib.base.state2str(maintenance_state, prefix=' ')}",
             'max_slots': product.get('max_slots'),
             'nb_slots': product.get('nb_slots'),
-            'size': '{} / {}'.format(lib.human.bytes2human(product.get('storage_reserved')), lib.human.bytes2human(product.get('size'))),
+            'size': f"{lib.human.bytes2human(product.get('storage_reserved'))} / {lib.human.bytes2human(product.get('size'))}",
             'tags': ', '.join([i['name'] for i in product.get('tags')]),
         })
 

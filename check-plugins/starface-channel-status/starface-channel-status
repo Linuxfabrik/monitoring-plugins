@@ -25,7 +25,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Counts the number of current active DAHDI, SIP or other channels of the Starface
                 PBX, and warns on possibly overusage (in percentage).
@@ -51,7 +51,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -149,7 +149,7 @@ def main():
         data = stdout
 
     if not data:
-        lib.base.cu('Got no valuable response from {}:{}.'.format(args.HOSTNAME, args.PORT))
+        lib.base.cu(f'Got no valuable response from {args.HOSTNAME}:{args.PORT}.')
 
     # extract data
     result = lib.txt.extract_str(data, '<<<starface_channels>>>', '<<<').splitlines()
@@ -181,20 +181,19 @@ def main():
         # there is a maximum call limit, warn on overusage
         used_percent = round(float(cnt_dahdi + cnt_sip + cnt_other) / float(max_calls) * 100, 1)
         state = lib.base.get_state(used_percent, args.WARN, args.CRIT)
-        msg += '{}% call usage ({}/{}){}. '.format(
-            used_percent,
-            cnt_dahdi + cnt_sip + cnt_other,
-            max_calls,
-            lib.base.state2str(state, prefix=' '),
+        msg += (
+            f'{used_percent}% call usage '
+            f'({cnt_dahdi + cnt_sip + cnt_other}/{max_calls})'
+            f'{lib.base.state2str(state, prefix=" ")}. '
         )
         perfdata += lib.base.get_perfdata('used_percent', used_percent, '%', args.WARN, args.CRIT, 0, 100)
         perfdata += lib.base.get_perfdata('max_calls', max_calls, None, None, None, 0, None)
 
     if cnt_dahdi or cnt_sip or cnt_other:
         msg += 'Current channels: '
-        msg += '{}x DAHDI, '.format(cnt_dahdi) if cnt_dahdi else ''
-        msg += '{}x SIP, '.format(cnt_sip) if cnt_sip else ''
-        msg += '{}x other, '.format(cnt_other) if cnt_other else ''
+        msg += f'{cnt_dahdi}x DAHDI, ' if cnt_dahdi else ''
+        msg += f'{cnt_sip}x SIP, ' if cnt_sip else ''
+        msg += f'{cnt_other}x other, ' if cnt_other else ''
     else:
         msg += 'No channels active.  '
     perfdata += lib.base.get_perfdata('channel_dahdi', cnt_dahdi, None, None, None, 0, max_calls if max_calls else None)

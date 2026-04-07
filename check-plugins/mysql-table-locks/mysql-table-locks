@@ -21,7 +21,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks whether a certain percentage of table locks had to wait in MySQL/MariaDB."""
 
@@ -38,7 +38,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -129,15 +129,20 @@ def main():
         mycalc['pct_table_locks_immediate'] = 0
 
     # Table locks
-    msg = '{}% table locks acquired immediately ({} immediate / {} locks)'.format(
-        mycalc['pct_table_locks_immediate'],
-        lib.human.number2human(mystat['Table_locks_immediate']),
-        lib.human.number2human(mystat['Table_locks_immediate'])
+    msg = (
+        f'{mycalc["pct_table_locks_immediate"]}% table locks'
+        f' acquired immediately'
+        f' ({lib.human.number2human(mystat["Table_locks_immediate"])}'
+        f' immediate /'
+        f' {lib.human.number2human(mystat["Table_locks_immediate"])}'
+        f' locks)'
     )
     if mycalc['pct_table_locks_immediate'] < 95:
         state = STATE_WARN
-        msg += '{}. Optimize queries and/or use InnoDB to reduce lock wait.'.format(
-            lib.base.state2str(state, prefix=' '),
+        msg += (
+            f'{lib.base.state2str(state, prefix=" ")}'
+            f'. Optimize queries and/or use InnoDB'
+            f' to reduce lock wait.'
         )
     else:
         msg += '.'

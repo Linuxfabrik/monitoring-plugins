@@ -20,7 +20,7 @@ import lib.txt  # pylint: disable=C0413
 from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks the replication status of MySQL/MariaDB."""
 
@@ -38,7 +38,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -147,30 +147,32 @@ def main():
     state = STATE_OK
 
     # Replication Metrics
-    msg += 'Galera Synchronous replication: {}. '.format(myvar['have_galera'])
+    msg += f"Galera Synchronous replication: {myvar['have_galera']}. "
     if len(myslaves) != 0:
-        msg += 'This server is acting as primary for {} {}. '.format(
-            len(myslaves),
-            lib.txt.pluralize('server', len(myslaves)),
+        msg += (
+            f'This server is acting as primary for'
+            f' {len(myslaves)}'
+            f' {lib.txt.pluralize("server", len(myslaves))}. '
         )
-    msg += 'Binlog format: {}, XA support enabled: {}. '.format(
-        myvar['binlog_format'],
-        myvar.get('innodb_support_xa', 'ON'),
+    msg += (
+        f'Binlog format: {myvar["binlog_format"]}'
+        f', XA support enabled:'
+        f' {myvar.get("innodb_support_xa", "ON")}. '
     )
 
     msg += 'Semi synchronous Primary: '
     if myvar.get('rpl_semi_sync_master_enabled', 0) or myvar.get('rpl_semi_sync_source_enabled', 0):
-        msg += '{}{}. '.format(
-            myvar.get('rpl_semi_sync_master_enabled', ''),
-            myvar.get('rpl_semi_sync_source_enabled', ''),
+        msg += (
+            f'{myvar.get("rpl_semi_sync_master_enabled", "")}'
+            f'{myvar.get("rpl_semi_sync_source_enabled", "")}. '
         )
     else:
         msg += 'Not Activated. '
     msg += 'Semi synchronous Replica: '
     if myvar.get('rpl_semi_sync_slave_enabled', 0) or myvar.get('rpl_semi_sync_replica_enabled', 0):
-        msg += '{}{}. '.format(
-            myvar.get('rpl_semi_sync_slave_enabled', ''),
-            myvar.get('rpl_semi_sync_replica_enabled', ''),
+        msg += (
+            f'{myvar.get("rpl_semi_sync_slave_enabled", "")}'
+            f'{myvar.get("rpl_semi_sync_replica_enabled", "")}. '
         )
     else:
         msg += 'Not Activated. '
@@ -193,22 +195,27 @@ def main():
 
     if not io_running or not sql_running:
         state = lib.base.str2state(args.SEVERITY)
-        msg += 'This Replica is not running but seems to be configured{}. '.format(
-            lib.base.state2str(state, prefix=' '),
+        msg += (
+            f'This Replica is not running but seems to be'
+            f' configured'
+            f'{lib.base.state2str(state, prefix=" ")}. '
         )
     if io_running and sql_running:
         if myvar['read_only'] == 'OFF':
             state = lib.base.str2state(args.SEVERITY)
-            msg += 'This Replica is running with the read_only option disabled{}. '.format(
-                lib.base.state2str(state, prefix=' '),
+            msg += (
+                f'This Replica is running with the'
+                f' read_only option disabled'
+                f'{lib.base.state2str(state, prefix=" ")}. '
             )
         if myrepl[0].get('Seconds_Behind_Master', 0) is None \
         or myrepl[0].get('Seconds_Behind_Source', 0) is None \
         or myrepl[0].get('Seconds_Behind_Master', 0) > 0 \
         or myrepl[0].get('Seconds_Behind_Source', 0) > 0:
             state = lib.base.str2state(args.SEVERITY)
-            msg += 'This Replica is lagging behind Primary{}. '.format(
-                lib.base.state2str(state, prefix=' '),
+            msg += (
+                f'This Replica is lagging behind Primary'
+                f'{lib.base.state2str(state, prefix=" ")}. '
             )
         else:
             msg += 'This Replica is up to date with Primary. '

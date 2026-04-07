@@ -25,7 +25,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 
 __author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
                 originally written by Dominik Riva, Universitätsspital Basel/Switzerland"""
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """This monitoring plugin checks the current state of a Gemalto SafeNet
                  ProtectServer Network HSM via SSH and a PSESH command, and displays the
@@ -47,7 +47,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -137,16 +137,15 @@ def main():
     if args.TEST is None:
         # -o: Give options in the format used in the configuration file.
         # -T: Disable pseudo-terminal allocation.
-        cmd = "sshpass -p {} ssh -o ConnectTimeout={} -T '{}'@'{}' '{}'".format(
-            args.PASSWORD,
-            args.TIMEOUT,
-            args.USERNAME,
-            args.HOSTNAME,
-            'hsm state',
+        cmd = (
+            f'sshpass -p {args.PASSWORD}'
+            f' ssh -o ConnectTimeout={args.TIMEOUT}'
+            f" -T '{args.USERNAME}'@'{args.HOSTNAME}'"
+            f" 'hsm state'"
         )
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         if lib.shell.RETC_SSHPASS.get(retc, ''):
-            lib.base.cu('sshpass: {}'.format(lib.shell.RETC_SSHPASS[retc]))
+            lib.base.cu(f'sshpass: {lib.shell.RETC_SSHPASS[retc]}')
         if stderr:
             lib.base.cu(stderr)
     else:
@@ -169,9 +168,10 @@ def main():
         perfdata += lib.base.get_perfdata('usage_percent', value, '%', args.WARN, args.CRIT, 0, 100) # pylint: disable=C0301
 
     # build the message
-    msg = '{}{}'.format(
-        ' '.join(stdout.partition('\n')[0].split()), # get the first line, strip all whitespaces
-        lib.base.state2str(state, prefix=' '),
+    first_line = ' '.join(stdout.partition('\n')[0].split())
+    msg = (
+        f'{first_line}'
+        f'{lib.base.state2str(state, prefix=" ")}'
     )
 
     # over and out

@@ -25,7 +25,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Displays system-wide docker information.'
 
@@ -38,7 +38,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument('--always-ok',
@@ -78,7 +78,7 @@ def main():
         else:
             stdout, stderr, retc = result
         if retc != 0:
-            lib.base.oao('{}\n{}'.format(stderr, stdout), STATE_CRIT)
+            lib.base.oao(f'{stderr}\n{stdout}', STATE_CRIT)
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
@@ -152,42 +152,42 @@ def main():
         for row in stderr.strip().split('\n'):
             lcrow = row.lower()
             if 'warning: ' in lcrow:
-                warn += '{}, '.format(row)
+                warn += f'{row}, '
                 state = lib.base.get_worst(state, STATE_WARN)
             if 'error: ' in lcrow:
-                crit += '{}, '.format(row)
+                crit += f'{row}, '
                 state = lib.base.get_worst(state, STATE_CRIT)
 
     # create output
     if crit:
-        msg += '{}'.format(crit)
+        msg += f'{crit}'
     if warn:
-        msg += '{}'.format(warn)
+        msg += f'{warn}'
     if containers != '':
-        msg += '{} Containers'.format(containers)
+        msg += f'{containers} Containers'
     if containers_running != '':
-        msg += ' ({} running, {} paused, {} stopped)'.format(containers_running, containers_paused, containers_stopped)
+        msg += f' ({containers_running} running, {containers_paused} paused, {containers_stopped} stopped)'
     if images != '':
-        msg += ', {} Images'.format(images)
+        msg += f', {images} Images'
     if storage_driver != '':
-        msg += ', Storage Driver: {}'.format(storage_driver)
+        msg += f', Storage Driver: {storage_driver}'
     if logging_driver != '':
-        msg += ', Logging Driver: {}'.format(logging_driver)
+        msg += f', Logging Driver: {logging_driver}'
     if podman_found:
-        msg += ', {} {}'.format(registry, lib.txt.pluralize('Registr', registry, 'y,ies'))
+        msg += f", {registry} {lib.txt.pluralize('Registr', registry, 'y,ies')}"
     else:
         if registry != '':
-            msg += ', Registry: {}'.format(registry)
+            msg += f', Registry: {registry}'
     if podman_found:
         msg += ', Podman'
     else:
         msg += ', Docker'
-    msg += ' v{}'.format(ver)
-    msg += ', {} CPUs'.format(cpus)
+    msg += f' v{ver}'
+    msg += f', {cpus} CPUs'
     if podman_found:
-        msg += ', {} Memory'.format(lib.human.bytes2human(memory))
+        msg += f', {lib.human.bytes2human(memory)} Memory'
     else:
-        msg += ', {} Memory'.format(memory)
+        msg += f', {memory} Memory'
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

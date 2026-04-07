@@ -24,7 +24,7 @@ import lib.txt  # pylint: disable=C0413
 from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Returns the account statistics of the Starface PBX.
                 It uses the data output of the Starface Monitoring Module, which was
@@ -47,7 +47,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -123,7 +123,7 @@ def main():
         data = stdout
 
     if not data:
-        lib.base.cu('Got no valuable response from {}:{}.'.format(args.HOSTNAME, args.PORT))
+        lib.base.cu(f'Got no valuable response from {args.HOSTNAME}:{args.PORT}.')
 
     # extract data
     result = lib.txt.extract_str(data, '<<<starface_accounts>>>', '<<<').splitlines()
@@ -151,14 +151,14 @@ def main():
             unavailable_accounts = row.replace('unavailable_accounts ', '')
 
     # build the message
-    msg += '{} ringing, {} active, {} available{} (total {} {})\n{} of them are admin accounts'.format(
-        ringing_accounts,
-        active_accounts,
-        available_accounts,
-        ', {} unavailable'.format(unavailable_accounts) if unavailable_accounts else '',
-        total_accounts,
-        lib.txt.pluralize('account', total_accounts),
-        admin_accounts,
+    msg += (
+        f'{ringing_accounts} ringing, '
+        f'{active_accounts} active, '
+        f'{available_accounts} available'
+        f'{f", {unavailable_accounts} unavailable" if unavailable_accounts else ""}'
+        f' (total {total_accounts} '
+        f'{lib.txt.pluralize("account", total_accounts)})\n'
+        f'{admin_accounts} of them are admin accounts'
     )
 
     perfdata += lib.base.get_perfdata('active_accounts', active_accounts, None, None, None, 0, None)

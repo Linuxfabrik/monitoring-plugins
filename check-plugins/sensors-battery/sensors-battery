@@ -27,7 +27,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Return battery status information. If no battery is installed or metrics can't
                  be determined OK is returned."""
@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -93,11 +93,11 @@ def main():
     if batt is None:
         lib.base.oao('No battery installed.', STATE_OK, always_ok=args.ALWAYS_OK)
 
-    msg = '{}%'.format(round(batt.percent, 2))
+    msg = f'{round(batt.percent, 2)}%'
     if batt.power_plugged:
-        msg += ' (plugged in and {})'.format('charging' if batt.percent < 100 else 'fully charged')
+        msg += f" (plugged in and {'charging' if batt.percent < 100 else 'fully charged'})"
     else:
-        msg += ', {} left '.format(lib.human.seconds2human(batt.secsleft))
+        msg += f', {lib.human.seconds2human(batt.secsleft)} left '
         msg += '(not plugged in and discharging)'
 
     perfdata = ''

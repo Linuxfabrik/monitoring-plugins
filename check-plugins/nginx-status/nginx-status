@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'This check provides NGINX basic status information.'
 
@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument('--always-ok',
@@ -159,7 +159,7 @@ def main():
         requests_per_connection = round(float(total_requests) / float(total_connections_handled), 1)
         tmp, connections_reading, tmp, connections_writing, tmp, connections_waiting = result[3].strip().split(' ')
     except:
-        lib.base.cu('Got no valuable response from {}.'.format(args.URL))
+        lib.base.cu(f'Got no valuable response from {args.URL}.')
 
     # identify any alerts
     if total_connections_handled != total_connections_accepted:
@@ -169,16 +169,29 @@ def main():
     state = lib.base.get_worst(conn_state, state)
 
     # build the message
-    msg += '{} active concurrent {}{}; {} accepted {}, {} handled {}, {} {}; {} req per conn; currently {} receiving {}, {} sending {}, {} keep-alive {}'.format(
-        active_connections, lib.txt.pluralize('conn', active_connections), lib.base.state2str(conn_state, prefix=' '),
-        lib.human.number2human(total_connections_accepted), lib.txt.pluralize('conn', total_connections_accepted),
-        lib.human.number2human(total_connections_handled), lib.txt.pluralize('conn', total_connections_handled),
-        lib.human.number2human(total_requests), lib.txt.pluralize('req', total_requests),
-        requests_per_connection,
-        connections_reading, lib.txt.pluralize('req', connections_reading),
-        connections_writing, lib.txt.pluralize('response', connections_writing),
-        connections_waiting, lib.txt.pluralize('conn', connections_waiting),
-        )
+    msg += (
+        f'{active_connections} active concurrent'
+        f' {lib.txt.pluralize("conn", active_connections)}'
+        f'{lib.base.state2str(conn_state, prefix=" ")};'
+        f' {lib.human.number2human(total_connections_accepted)}'
+        f' accepted'
+        f' {lib.txt.pluralize("conn", total_connections_accepted)},'
+        f' {lib.human.number2human(total_connections_handled)}'
+        f' handled'
+        f' {lib.txt.pluralize("conn", total_connections_handled)},'
+        f' {lib.human.number2human(total_requests)}'
+        f' {lib.txt.pluralize("req", total_requests)};'
+        f' {requests_per_connection} req per conn;'
+        f' currently {connections_reading}'
+        f' receiving'
+        f' {lib.txt.pluralize("req", connections_reading)},'
+        f' {connections_writing}'
+        f' sending'
+        f' {lib.txt.pluralize("response", connections_writing)},'
+        f' {connections_waiting}'
+        f' keep-alive'
+        f' {lib.txt.pluralize("conn", connections_waiting)}'
+    )
     perfdata += lib.base.get_perfdata('nginx_connections_accepted', total_connections_accepted, 'c', None, None, 0, None)
     perfdata += lib.base.get_perfdata('nginx_connections_active', active_connections, None, args.WARN, args.CRIT, 0, None)
     perfdata += lib.base.get_perfdata('nginx_connections_handled', total_connections_handled, 'c', None, None, 0, None)

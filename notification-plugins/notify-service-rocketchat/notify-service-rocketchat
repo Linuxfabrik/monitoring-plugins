@@ -24,7 +24,7 @@ import lib.url                        # pylint: disable=C0413
 from lib.globals import STATE_UNKNOWN # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Sends service notifications using the RocketChat API.'
 
@@ -129,7 +129,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     args, _ = parser.parse_known_args()
@@ -146,25 +146,18 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    message = textwrap.dedent('''
-        {SERVICE_STATE:.4}: {SERVICENAME} ({DATETIME})
-        HOST: {HOST_DISPLAYNAME}
-        ```
-        {SERVICE_OUTPUT}
-        ```
-    ''').strip().format(
-        SERVICE_STATE=args.SERVICE_STATE,
-        SERVICENAME=args.SERVICENAME,
-        DATETIME=args.DATETIME,
-        HOST_DISPLAYNAME=args.HOST_DISPLAYNAME,
-        SERVICE_OUTPUT = args.SERVICE_OUTPUT,
+    message = (
+        f'{args.SERVICE_STATE:.4}:'
+        f' {args.SERVICENAME}'
+        f' ({args.DATETIME})\n'
+        f'HOST: {args.HOST_DISPLAYNAME}\n'
+        f'```\n'
+        f'{args.SERVICE_OUTPUT}\n'
+        f'```'
     )
 
     if args.NOTIFICATION_COMMENT:
-        comment = '\nCOMMENT: {NOTIFICATION_COMMENT} ({NOTIFICATION_AUTHOR})'.format(
-            NOTIFICATION_AUTHOR=args.NOTIFICATION_AUTHOR,
-            NOTIFICATION_COMMENT=args.NOTIFICATION_COMMENT,
-        )
+        comment = f'\nCOMMENT: {args.NOTIFICATION_COMMENT} ({args.NOTIFICATION_AUTHOR})'
         message += comment
 
     notifying_hostname = socket.gethostname().split('.', 1)[0] # short hostname of the icinga2 server sending the notif
@@ -179,14 +172,14 @@ def main():
         )
 
         icingaweb2_url = urllib.parse.urljoin(
-            '{}/'.format(args.ICINGAWEB2_URL),
-            'icingadb/service?{}'.format(params)
+            f'{args.ICINGAWEB2_URL}/',
+            f'icingadb/service?{params}'
         )
 
     if args.ROCKETCHAT_MENTIONS:
         message += '\n'
         for mention in args.ROCKETCHAT_MENTIONS:
-            message += '@{} '.format(mention)
+            message += f'@{mention} '
 
     if args.SERVICE_STATE == 'OK':
         icon = ':service_ok:'

@@ -21,7 +21,7 @@ import lib.version  # pylint: disable=C0413
 from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Tracks if Python is EOL.'
 
@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -136,7 +136,7 @@ def parse_args():
 
 
 def get_installed_version(path):
-    success, result = lib.shell.shell_exec('{} --version'.format(path))
+    success, result = lib.shell.shell_exec(f'{path} --version')
     if not success:
         return ''
     stdout = result[0].strip()
@@ -163,7 +163,7 @@ def main():
     # fetch data
     installed_version = get_installed_version(args.PATH)
     if not installed_version:
-        lib.base.cu('Python `{}` not found.'.format(args.PATH))
+        lib.base.cu(f'Python `{args.PATH}` not found.')
     state, msg = lib.version.check_eol(
         'https://endoflife.date/api/python.json',
         installed_version,
@@ -178,7 +178,7 @@ def main():
 
     # over and out
     lib.base.oao(
-        'Python v{} ({})'.format(installed_version, msg),
+        f'Python v{installed_version} ({msg})',
         state,
         lib.base.get_perfdata(
             'python-version',

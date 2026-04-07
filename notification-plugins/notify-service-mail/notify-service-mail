@@ -43,7 +43,7 @@ import lib.url     # pylint: disable=C0413
 from lib.globals import STATE_UNKNOWN # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Sends notifications for services using mail.'
 
@@ -87,7 +87,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -285,7 +285,7 @@ def generate_mail_content(args, logo_cid):
             {
                 'left_column': 'Notification Type:',
                 'right_column': args.NOTIFICATION_TYPE,
-                'right_column_attributes': 'style="background-color: {}"'.format(colors.get(args.NOTIFICATION_TYPE)),
+                'right_column_attributes': f'style="background-color: {colors.get(args.NOTIFICATION_TYPE)}"',
             },
         ]
 
@@ -304,7 +304,7 @@ def generate_mail_content(args, logo_cid):
         {
             'left_column': 'Service State:',
             'right_column': args.SERVICE_STATE,
-            'right_column_attributes': 'style="background-color: {}"'.format(colors.get(args.SERVICE_STATE)),
+            'right_column_attributes': f'style="background-color: {colors.get(args.SERVICE_STATE)}"',
         },
     ]
 
@@ -370,7 +370,7 @@ def generate_mail_content(args, logo_cid):
         rows += [
             {
                 'left_column': 'IcingaWeb2 URL:',
-                'right_column': urllib.parse.urljoin('{}/'.format(args.ICINGAWEB2_URL), 'icingadb/service?{}'.format(params))
+                'right_column': urllib.parse.urljoin(f'{args.ICINGAWEB2_URL}/', f'icingadb/service?{params}')
             },
         ]
 
@@ -411,7 +411,7 @@ def generate_mail_content(args, logo_cid):
 
             if row['right_column'].startswith('http'):
                 url = row['right_column']
-                row['right_column'] = '<a href="{}">{}</a>'.format(url, url)
+                row['right_column'] = f'<a href="{url}">{url}</a>'
 
         # make sure right_column_attributes is always set
         if 'right_column_attributes' not in row:
@@ -466,30 +466,24 @@ def main():
     mail_msg['To'] = args.MAIL_RECIPIENT
 
     if args.SHORT:
-        plain = textwrap.dedent('''
-            {SERVICE_STATE:.4}: {SERVICE_DISPLAYNAME}
-            HOST: {HOST_DISPLAYNAME} ({DATETIME})
-        ''').strip().format(
-            SERVICE_DISPLAYNAME=args.SERVICE_DISPLAYNAME,
-            SERVICE_STATE=args.SERVICE_STATE,
-            HOST_DISPLAYNAME=args.HOST_DISPLAYNAME,
-            DATETIME=args.DATETIME,
+        plain = (
+            f'{args.SERVICE_STATE:.4}:'
+            f' {args.SERVICE_DISPLAYNAME}\n'
+            f'HOST: {args.HOST_DISPLAYNAME}'
+            f' ({args.DATETIME})'
         )
 
         if args.NOTIFICATION_COMMENT:
-            plain += '\nCOMMENT: {NOTIFICATION_COMMENT} ({NOTIFICATION_AUTHOR})'.format(
-                NOTIFICATION_AUTHOR=args.NOTIFICATION_AUTHOR,
-                NOTIFICATION_COMMENT=args.NOTIFICATION_COMMENT,
-            )
+            plain += f'\nCOMMENT: {args.NOTIFICATION_COMMENT} ({args.NOTIFICATION_AUTHOR})'
         mail_msg.set_content(plain)
 
     else: # no args.SHORT
         logo_cid =  make_msgid()
         plain, html = generate_mail_content(args, logo_cid)
 
-        subject = 'Service "{}" on "{}" is {}'.format(args.SERVICE_DISPLAYNAME, args.HOST_DISPLAYNAME, args.SERVICE_STATE)
+        subject = f'Service "{args.SERVICE_DISPLAYNAME}" on "{args.HOST_DISPLAYNAME}" is {args.SERVICE_STATE}'
         if args.NOTIFICATION_TYPE:
-            subject = '[{}] {}'.format(args.NOTIFICATION_TYPE, subject)
+            subject = f'[{args.NOTIFICATION_TYPE}] {subject}'
         mail_msg['Subject'] = subject
 
         mail_msg.set_content(plain)

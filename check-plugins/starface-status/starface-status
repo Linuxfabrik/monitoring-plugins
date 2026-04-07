@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks the overall health of the Starface PBX.
                 It uses the data output of the Starface Monitoring Module, which was
@@ -51,7 +51,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -149,7 +149,7 @@ def main():
         data = stdout
 
     if not data:
-        lib.base.cu('Got no valuable response from {}:{}.'.format(args.HOSTNAME, args.PORT))
+        lib.base.cu(f'Got no valuable response from {args.HOSTNAME}:{args.PORT}.')
 
     # extract data
     result = lib.txt.extract_str(data, '<<<starface>>>', '<<<').splitlines()
@@ -166,32 +166,32 @@ def main():
 
         if row.startswith('appliance_type'):
             value = row.replace('appliance_type ', '').replace('"', '')
-            msg_header += '{}, '.format(value)
+            msg_header += f'{value}, '
 
         if row.startswith('appliance_max_users'):
             value = row.replace('appliance_max_users ', '')
             if value != '0':
-                msg_body += '{} max users, '.format(value)
+                msg_body += f'{value} max users, '
                 perfdata += lib.base.get_perfdata('appliance_max_users', value, None, None, None, 0, None)
 
         if row.startswith('appliance_max_connections'):
             value = row.replace('appliance_max_connections ', '')
             if value != '0':
-                msg_body += '{} max conns, '.format(value)
+                msg_body += f'{value} max conns, '
                 perfdata += lib.base.get_perfdata('appliance_max_connections', value, None, None, None, 0, None)
 
         if row.startswith('starface_version'):
             value = row.replace('starface_version ', '')
-            msg_header += 'v{}, '.format(value)
+            msg_header += f'v{value}, '
             perfdata = lib.base.get_perfdata('starface_version', lib.version.version2float(value), None, None, None, 0, None)
 
         if row.startswith('owner'):
             value = row.replace('owner ', '')
-            msg_body += 'Owner: {}, '.format(value).replace('"', '')
+            msg_body += f'Owner: {value}, '.replace('"', '')
 
         if row.startswith('license_max_users'):
             value = row.replace('license_max_users ', '')
-            msg_body += '{} licensed {}, '.format(value, lib.txt.pluralize('user', value))
+            msg_body += f"{value} licensed {lib.txt.pluralize('user', value)}, "
 
         if row.startswith('raid_diagnosis'):
             value = row.replace('raid_diagnosis ', '')
@@ -200,16 +200,16 @@ def main():
             else:
                 raid_status = STATE_WARN
                 state = lib.base.get_worst(STATE_WARN, state)
-            msg_header += 'RAID Status: {}{}, '.format(value, lib.base.state2str(raid_status, prefix=' '))
+            msg_header += f"RAID Status: {value}{lib.base.state2str(raid_status, prefix=' ')}, "
 
         if row.startswith('blacklisted_hosts'):
             value = row.replace('blacklisted_hosts ', '')
-            msg_header += '{} blacklisted {}, '.format(value, lib.txt.pluralize('host', value))
+            msg_header += f"{value} blacklisted {lib.txt.pluralize('host', value)}, "
             perfdata += lib.base.get_perfdata('blacklisted_hosts', value, None, None, None, 0, None)
 
         if row.startswith('whitelisted_hosts'):
             value = row.replace('whitelisted_hosts ', '')
-            msg_body += '{} whitelisted {}, '.format(value, lib.txt.pluralize('host', value))
+            msg_body += f"{value} whitelisted {lib.txt.pluralize('host', value)}, "
             perfdata += lib.base.get_perfdata('whitelisted_hosts', value, None, None, None, 0, None)
 
         if row.startswith('sip_status_localhost'):
@@ -219,29 +219,29 @@ def main():
             else:
                 sip_status = STATE_WARN
                 state = lib.base.get_worst(STATE_WARN, state)
-            msg_header += 'SIP Status: {}{}, '.format(value, lib.base.state2str(sip_status, prefix=' '))
+            msg_header += f"SIP Status: {value}{lib.base.state2str(sip_status, prefix=' ')}, "
 
         if row.startswith('known_phones'):
             value = row.replace('known_phones ', '')
-            msg_body += '{} {} known, '.format(value, lib.txt.pluralize('phone', value))
+            msg_body += f"{value} {lib.txt.pluralize('phone', value)} known, "
             perfdata += lib.base.get_perfdata('known_phones', value, None, None, None, 0, None)
 
         if row.startswith('online_phones'):
             value = row.replace('online_phones ', '')
-            msg_header += '{} {} online, '.format(value, lib.txt.pluralize('phone', value))
+            msg_header += f"{value} {lib.txt.pluralize('phone', value)} online, "
             perfdata += lib.base.get_perfdata('online_phones', value, None, None, None, 0, None)
 
         if row.startswith('ip_changed_phones'):
             value = row.replace('ip_changed_phones ', '')
-            msg_body += '{} {} changed IP, '.format(value, lib.txt.pluralize('phone', value))
+            msg_body += f"{value} {lib.txt.pluralize('phone', value)} changed IP, "
             perfdata += lib.base.get_perfdata('ip_changed_phones', value, None, None, None, 0, None)
 
         if row.startswith('asterisk_uptime'):
             value = row.replace('asterisk_uptime ', '')
-            msg_body += 'Up {}, '.format(value.strip())
+            msg_body += f'Up {value.strip()}, '
 
     # over and out
-    msg = '{}\n{}'.format(msg_header[:-2], msg_body[:-2])
+    msg = f'{msg_header[:-2]}\n{msg_body[:-2]}'
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 

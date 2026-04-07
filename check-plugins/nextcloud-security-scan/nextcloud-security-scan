@@ -23,7 +23,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Checks the security of your private Nextcloud server.'
 
@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -110,7 +110,7 @@ def get_uuid_from_scan_nextcloud_com(nc_url, args):
     if not success:
         return (success, result)
     if result == '':
-        return (False, 'The scan for {} failed. Either no Nextcloud or ownCloud can be found there or you tried to scan too many servers.'.format(nc_url))  # pylint: disable=C0301
+        return (False, f'The scan for {nc_url} failed. Either no Nextcloud or ownCloud can be found there or you tried to scan too many servers.')  # pylint: disable=C0301
     try:
         return (True, json.loads(result)['uuid'])
     except Exception:
@@ -193,14 +193,15 @@ def main():
     if abs(delta.days) > args.TRIGGER:
         lib.base.coe(trigger_rescan_nextcloud_com(args.URL, args))
 
-    msg += '"{}" rating for {}, checked at {}, on '.format(
-        get_rating_string(result['rating']),
-        result['domain'],
-        result['scannedAt']['date'][:10],
+    msg += (
+        f'"{get_rating_string(result["rating"])}"'
+        f' rating for {result["domain"]},'
+        f' checked at {result["scannedAt"]["date"][:10]},'
+        f' on '
     )
 
     # Version
-    msg += '{} v{} '.format(result['product'], result['version'])
+    msg += f"{result['product']} v{result['version']} "
     if not result['latestVersionInBranch']:
         msg += '(NOT on latest patch level). '
     else:

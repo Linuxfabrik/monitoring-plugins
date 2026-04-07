@@ -27,7 +27,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040701'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks each device / slot of all your Infomaniak Swiss backup products via the
                  Infomaniak API."""
@@ -48,7 +48,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -263,10 +263,10 @@ def main():
                 )
             state = lib.base.get_worst(state, locked_state)
 
-            perfdata += lib.base.get_perfdata('{}-locked'.format(slot_data.get('id')), int(slot_data.get('locked', False)), None, None, None, 0, None) # pylint: disable=C0301
-            perfdata += lib.base.get_perfdata('{}-percent'.format(slot_data.get('id')), used, '%', args.WARN, args.CRIT, 0, 100) # pylint: disable=C0301
-            perfdata += lib.base.get_perfdata('{}-total'.format(slot_data.get('id')), slot_data.get('size'), 'B', None, None, 0, slot_data.get('size')) # pylint: disable=C0301
-            perfdata += lib.base.get_perfdata('{}-usage'.format(slot_data.get('id')), slot_data.get('storage_used'), 'B', None, None, 0, slot_data.get('size')) # pylint: disable=C0301
+            perfdata += lib.base.get_perfdata(f"{slot_data.get('id')}-locked", int(slot_data.get('locked', False)), None, None, None, 0, None) # pylint: disable=C0301
+            perfdata += lib.base.get_perfdata(f"{slot_data.get('id')}-percent", used, '%', args.WARN, args.CRIT, 0, 100) # pylint: disable=C0301
+            perfdata += lib.base.get_perfdata(f"{slot_data.get('id')}-total", slot_data.get('size'), 'B', None, None, 0, slot_data.get('size')) # pylint: disable=C0301
+            perfdata += lib.base.get_perfdata(f"{slot_data.get('id')}-usage", slot_data.get('storage_used'), 'B', None, None, 0, slot_data.get('size')) # pylint: disable=C0301
 
             if slot_data.get('usage_last_check') is None:
                 slot_data['usage_last_check'] = 0
@@ -278,26 +278,25 @@ def main():
                 'customer_name': slot_data.get('customer_name'),
                 'id': slot_data.get('id'),
                 'lang': slot_data.get('lang'),
-                'locked': '{}{}'.format(
-                    slot_data.get('locked', False),
-                    lib.base.state2str(locked_state, prefix=' '),
+                'locked': (
+                    f'{slot_data.get("locked", False)}'
+                    f'{lib.base.state2str(locked_state, prefix=" ")}'
                 ),
                 'product_customer_name': slot.get('product_customer_name'),
                 'product_tags': ', '.join([i['name'] for i in slot.get('product_tags')]),
                 'subtype': slot_data.get('subtype'),
                 'type': slot_data.get('type'),
                 'unit_admin': slot_data.get('unit_admin'),
-                'usage_last_check': '{} ago'.format(
-                    lib.human.seconds2human(lib.time.now(as_type='epoch') - slot_data['usage_last_check']), # pylint: disable=C0301
+                'usage_last_check': (
+                    f'{lib.human.seconds2human(lib.time.now(as_type="epoch") - slot_data["usage_last_check"])}' # pylint: disable=C0301
+                    f' ago'
                 ),
-                'used': '{} / {}'.format(
-                    lib.human.bytes2human(slot_data.get('storage_used')),
-                    lib.human.bytes2human(slot_data.get('size')),
+                'used': (
+                    f'{lib.human.bytes2human(slot_data.get("storage_used"))}'
+                    f' / '
+                    f'{lib.human.bytes2human(slot_data.get("size"))}'
                 ),
-                'used_percent': '{}%{}'.format(
-                    used,
-                    lib.base.state2str(used_state, prefix=' '),
-                ),
+                'used_percent': f"{used}%{lib.base.state2str(used_state, prefix=' ')}",
                 'username': slot_data.get('username'),
             })
 

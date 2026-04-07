@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026033101'
+__version__ = '2026040801'
 
 DESCRIPTION = """This plugin uses SSH to execute a command on a remote host,
                  returning STDOUT and, in case of failure, STDERR and the command's return code.
@@ -51,7 +51,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -324,32 +324,29 @@ def main():
         args.WARN_REGEX = []
 
     # fetch data - run ssh
-    cmd = "ssh {} {} {} {} {} {} {} {} '{}'@'{}' '{}'".format(
-        "-4" if args.IPV4 else '',
-        "-6" if args.IPV6 else '',
-        "-F '{}'".format(args.CONFIGFILE) if args.CONFIGFILE else '',
-        "-i '" + "' -i '".join(args.IDENTITY) + "'" if args.IDENTITY else '',
-        "-o '" + "' -o '".join(args.SSH_OPTION) + "'" if args.SSH_OPTION else '',
-        "-p {}".format(args.PORT) if args.PORT else '',
-        "-q" if args.QUIET else '',
-        "-T" if args.DISABLE_PSEUDO_TERMINAL else '',
-        args.USERNAME,
-        args.HOSTNAME,
-        args.COMMAND,
+    cmd = (
+        f'ssh'
+        f' {"-4" if args.IPV4 else ""}'
+        f' {"-6" if args.IPV6 else ""}'
+        f""" {f"-F '{args.CONFIGFILE}'" if args.CONFIGFILE else ""}"""
+        f""" {"-i '" + "' -i '".join(args.IDENTITY) + "'" if args.IDENTITY else ""}"""
+        f""" {"-o '" + "' -o '".join(args.SSH_OPTION) + "'" if args.SSH_OPTION else ""}"""
+        f' {f"-p {args.PORT}" if args.PORT else ""}'
+        f' {"-q" if args.QUIET else ""}'
+        f' {"-T" if args.DISABLE_PSEUDO_TERMINAL else ""}'
+        f" '{args.USERNAME}'@'{args.HOSTNAME}'"
+        f" '{args.COMMAND}'"
     )
     cmd = ' '.join(cmd.split()) # strip all whitespaces
     if args.PASSWORD:
         # add sshpass in front of it
-        cmd = 'sshpass -p {} {}'.format(
-            args.PASSWORD,
-            cmd
-        )
+        cmd = f'sshpass -p {args.PASSWORD} {cmd}'
     timer_start = lib.time.now('float')
     stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd, shell=args.SHELL))
     if args.PASSWORD and not stderr and retc in range(1, 8):
         # we got a specific sshpass return code (this also means stderr = ""), and not just
         # something like stderr = "Permission denied" with retc 127 or 255
-        stderr = 'sshpass: {}'.format(lib.shell.RETC_SSHPASS[retc])
+        stderr = f'sshpass: {lib.shell.RETC_SSHPASS[retc]}'
 
     perfdata = lib.base.get_perfdata('remote_runtime', lib.time.now('float') - timer_start, 's')
 
@@ -407,7 +404,7 @@ def main():
     # retc overwrites state from stderr
     if retc:
         if retc == 255 and not stdout and not stderr:
-            stderr = 'ssh: Could not connect. The full command used was: `{}`'.format(cmd)
+            stderr = f'ssh: Could not connect. The full command used was: `{cmd}`'
             state = lib.base.str2state(args.SEVERITY_CONNTIMEOUT)
         else:
             retc_state = lib.base.str2state(args.SEVERITY_RETC)
@@ -415,19 +412,10 @@ def main():
 
     # build the message
     if retc:
-        msg += 'retc: {}{}; '.format(
-            retc,
-            lib.base.state2str(retc_state, prefix=' '),
-        )
+        msg += f"retc: {retc}{lib.base.state2str(retc_state, prefix=' ')}; "
     if stderr:
-        msg += 'stderr: {}{}; '.format(
-            stderr,
-            lib.base.state2str(stderr_state, prefix=' '),
-        )
-    msg += '{}{}'.format(
-        stdout if stdout else 'stdout: None',
-        lib.base.state2str(stdout_state, prefix=' '),
-    )
+        msg += f"stderr: {stderr}{lib.base.state2str(stderr_state, prefix=' ')}; "
+    msg += f"{stdout if stdout else 'stdout: None'}{lib.base.state2str(stdout_state, prefix=' ')}"
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

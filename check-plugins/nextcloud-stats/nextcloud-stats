@@ -23,7 +23,7 @@ import lib.url  # pylint: disable=C0413
 from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """This plugin lets you track the number of active
                 users over time, the number of shares in various categories and some storage
@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -118,10 +118,10 @@ def main():
     url = args.URL + '?format=json&skipApps=false'
 
     # Add the authentication and api request header
-    auth = '{}:{}'.format(args.USERNAME, args.PASSWORD)
+    auth = f'{args.USERNAME}:{args.PASSWORD}'
     encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
     header = {
-        'Authorization' : "Basic %s" % encoded_auth,
+        'Authorization' : f"Basic {encoded_auth}",
         'OCS-APIRequest': 'true',
     }
     # and get the info from the API
@@ -187,53 +187,63 @@ def main():
     perfdata = ''
 
     # build the (long) multiline message
-    msg += '{} users ({}/{}/{} in the last 5min/1h/24h), {} files, {} apps ({} {} available), v{}\n'.format( # pylint: disable=C0301
-        nc_storage_num_users,
-        nc_active_users_last5min,
-        nc_active_users_last1h,
-        nc_active_users_last24h,
-        lib.human.number2human(nc_storage_num_files),
-        nc_system_apps_num_installed,
-        nc_system_apps_num_updates_available,
-        lib.txt.pluralize('update', nc_system_apps_num_updates_available),
-        nc_system_version,
+    msg += (
+        f'{nc_storage_num_users} users'
+        f' ({nc_active_users_last5min}'
+        f'/{nc_active_users_last1h}'
+        f'/{nc_active_users_last24h}'
+        f' in the last 5min/1h/24h),'
+        f' {lib.human.number2human(nc_storage_num_files)} files,'
+        f' {nc_system_apps_num_installed} apps'
+        f' ({nc_system_apps_num_updates_available}'
+        f' {lib.txt.pluralize("update", nc_system_apps_num_updates_available)}'
+        f' available),'
+        f' v{nc_system_version}\n'
     )
-    msg += '* Shares: {} ({} {}, {} {} [{} w/o password], {} {}, {} {}, {} {}, {} federated sent)\n'.format( # pylint: disable=C0301
-        nc_shares_num_shares,
-        nc_shares_num_shares_groups,
-        lib.txt.pluralize('group', nc_shares_num_shares_groups),
-        nc_shares_num_shares_link,
-        lib.txt.pluralize('link', nc_shares_num_shares_link),
-        nc_shares_num_shares_link_no_password,
-        nc_shares_num_shares_mail,
-        lib.txt.pluralize('mail', nc_shares_num_shares_mail),
-        nc_shares_num_shares_room,
-        lib.txt.pluralize('room', nc_shares_num_shares_room),
-        nc_shares_num_shares_user,
-        lib.txt.pluralize('user', nc_shares_num_shares_user),
-        nc_shares_num_fed_shares_sent,
+    msg += (
+        f'* Shares: {nc_shares_num_shares}'
+        f' ({nc_shares_num_shares_groups}'
+        f' {lib.txt.pluralize("group", nc_shares_num_shares_groups)},'
+        f' {nc_shares_num_shares_link}'
+        f' {lib.txt.pluralize("link", nc_shares_num_shares_link)}'
+        f' [{nc_shares_num_shares_link_no_password} w/o password],'
+        f' {nc_shares_num_shares_mail}'
+        f' {lib.txt.pluralize("mail", nc_shares_num_shares_mail)},'
+        f' {nc_shares_num_shares_room}'
+        f' {lib.txt.pluralize("room", nc_shares_num_shares_room)},'
+        f' {nc_shares_num_shares_user}'
+        f' {lib.txt.pluralize("user", nc_shares_num_shares_user)},'
+        f' {nc_shares_num_fed_shares_sent}'
+        f' federated sent)\n'
     )
-    msg += '* Federated Shares: {} received\n'.format(nc_shares_num_fed_shares_received)
-    msg += '* Storages: {} ({} home, {} other, {} local)\n'.format(
-        nc_storage_num_storages, nc_storage_num_storages_home,
-        nc_storage_num_storages_other,
-        nc_storage_num_storages_local,
+    msg += f'* Federated Shares: {nc_shares_num_fed_shares_received} received\n'
+    msg += (
+        f'* Storages: {nc_storage_num_storages}'
+        f' ({nc_storage_num_storages_home} home,'
+        f' {nc_storage_num_storages_other} other,'
+        f' {nc_storage_num_storages_local} local)\n'
     )
-    msg += '* PHP: v{}, upload_max_filesize={}, max_execution_time={}s, memory_limit={}\n'.format(
-        nc_server_php_version,
-        lib.human.bytes2human(nc_server_php_upload_max_filesize),
-        nc_server_php_max_execution_time,
-        lib.human.bytes2human(nc_server_php_memory_limit),
+    msg += (
+        f'* PHP: v{nc_server_php_version},'
+        f' upload_max_filesize='
+        f'{lib.human.bytes2human(nc_server_php_upload_max_filesize)},'
+        f' max_execution_time='
+        f'{nc_server_php_max_execution_time}s,'
+        f' memory_limit='
+        f'{lib.human.bytes2human(nc_server_php_memory_limit)}\n'
     )
-    msg += '* DB: {} v{}, size={}\n'.format(
-        nc_server_database_type,
-        nc_server_database_version,
-        lib.human.bytes2human(nc_server_database_size),
+    msg += (
+        f'* DB: {nc_server_database_type}'
+        f' v{nc_server_database_version},'
+        f' size='
+        f'{lib.human.bytes2human(nc_server_database_size)}\n'
     )
-    msg += '* Web: {}, local memcache: {}, locking memcache: {}'.format(
-        nc_server_webserver,
-        nc_system_memcache_local.replace('\\OC\\', ''),
-        nc_system_memcache_locking.replace('\\OC\\', ''),
+    local_mc = nc_system_memcache_local.replace('\\OC\\', '')
+    locking_mc = nc_system_memcache_locking.replace('\\OC\\', '')
+    msg += (
+        f'* Web: {nc_server_webserver},'
+        f' local memcache: {local_mc},'
+        f' locking memcache: {locking_mc}'
     )
 
     perfdata += lib.base.get_perfdata('nc_system_apps_num_installed', nc_system_apps_num_installed, None, None, None, 0, None) # pylint: disable=C0301

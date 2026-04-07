@@ -21,7 +21,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = '''Reports the state of a channel bonding interface. Channel bonding enables two or
     more network interfaces to act as one, simultaneously increasing the bandwidth and providing
@@ -36,7 +36,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -86,7 +86,7 @@ def main():
 
     for bonding_interface in bonding_interfaces:
         if args.TEST is None:
-            filename = '/proc/net/bonding/{}'.format(bonding_interface)
+            filename = f'/proc/net/bonding/{bonding_interface}'
         else:
             filename = args.TEST
 
@@ -101,15 +101,18 @@ def main():
                     # empty line after the end of an interface section
                     if in_interface_section:
                         perfdata += lib.base.get_perfdata(
-                            '{}_{}_link_failure_count'.format(bonding_interface, slave_interface),
+                            f'{bonding_interface}_{slave_interface}_link_failure_count',
                             link_failure_count, None, 1, None, 0, None
                             )
                         if mii_status != 'up':
-                            submsg += '    * {} is {} with {} link {}.\n'.format(
-                                slave_interface,
-                                mii_status,
-                                link_failure_count,
-                                lib.txt.pluralize('failure', link_failure_count))
+                            submsg += (
+                                f'    * {slave_interface}'
+                                f' is {mii_status}'
+                                f' with {link_failure_count}'
+                                f' link'
+                                f' {lib.txt.pluralize("failure", link_failure_count)}'
+                                f'.\n'
+                            )
                             substate = state = STATE_WARN
                         in_interface_section = False
                     continue
@@ -133,18 +136,21 @@ def main():
 
             if in_interface_section:
                 perfdata += lib.base.get_perfdata(
-                    '{}_{}_link_failure_count'.format(bonding_interface, slave_interface),
+                    f'{bonding_interface}_{slave_interface}_link_failure_count',
                     link_failure_count, None, 1, None, 0, None
                     )
                 if mii_status != 'up':
-                    submsg += '    * {} is {} with {} link {}.\n'.format(
-                        slave_interface,
-                        mii_status,
-                        link_failure_count,
-                        lib.txt.pluralize('failure', link_failure_count))
+                    submsg += (
+                        f'    * {slave_interface}'
+                        f' is {mii_status}'
+                        f' with {link_failure_count}'
+                        f' link'
+                        f' {lib.txt.pluralize("failure", link_failure_count)}'
+                        f'.\n'
+                    )
                     substate = state = STATE_WARN
 
-            msg += '* {}{} ({})\n'.format(lib.base.state2str(substate, suffix=' '), bonding_interface, bonding_mode) + submsg
+            msg += f"* {lib.base.state2str(substate, suffix=' ')}{bonding_interface} ({bonding_mode})\n" + submsg
 
     if state == STATE_OK:
         msg = 'Everything is ok.\n\n' + msg

@@ -21,7 +21,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks index sizes and consistent engine and collation use in
                  MySQL/MariaDB schemas."""
@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -123,7 +123,7 @@ def main():
 
     for schema in dblist:
         tmp_msg = ''
-        sql = '''
+        sql = f'''
             select TABLE_SCHEMA,
                 sum(TABLE_ROWS) as sum_rows,
                 sum(DATA_LENGTH) as sum_data,
@@ -134,10 +134,10 @@ def main():
                 count(distinct(TABLE_COLLATION)) as cnt_collations,
                 count(distinct(ENGINE)) as cnt_tableengines
             from information_schema.tables
-            where TABLE_SCHEMA="{}"
+            where TABLE_SCHEMA="{schema['SCHEMA_NAME']}"
             group by TABLE_SCHEMA
             order by TABLE_SCHEMA;
-        '''.format(schema['SCHEMA_NAME'])
+        '''
         dbinfo = lib.base.coe(lib.db_mysql.select(conn, sql, fetchone=True))
         if dbinfo is None:
             continue
@@ -146,71 +146,60 @@ def main():
         and dbinfo['sum_index'] != 'NULL' \
         and (dbinfo['sum_data'] > 10*1024*1024 or dbinfo['sum_index'] > 10*1024*1024) \
         and dbinfo['sum_data'] < dbinfo['sum_index']:
-            results['index'] += '{} ({} / {}), '.format(
-                dbinfo['TABLE_SCHEMA'],
-                lib.human.bytes2human(dbinfo['sum_index']),
-                lib.human.bytes2human(dbinfo['sum_data']),
+            idx_h = lib.human.bytes2human(dbinfo['sum_index'])
+            data_h = lib.human.bytes2human(dbinfo['sum_data'])
+            results['index'] += (
+                f'{dbinfo["TABLE_SCHEMA"]}'
+                f' ({idx_h} / {data_h}), '
             )
 
         if dbinfo['cnt_storengines'] != 1:
-            results['storengine'] += '{} ({}x), '.format(
-                dbinfo['TABLE_SCHEMA'],
-                dbinfo['cnt_storengines'],
-            )
+            results['storengine'] += f"{dbinfo['TABLE_SCHEMA']} ({dbinfo['cnt_storengines']}x), "
 
         if dbinfo['cnt_collations'] > 1:
-            results['collation'] += '{} ({}x), '.format(
-                dbinfo['TABLE_SCHEMA'],
-                dbinfo['cnt_collations'],
-            )
+            results['collation'] += f"{dbinfo['TABLE_SCHEMA']} ({dbinfo['cnt_collations']}x), "
 
         if dbinfo['cnt_tableengines'] > 1:
-            results['tblengine'] += '{} ({}x), '.format(
-                dbinfo['TABLE_SCHEMA'],
-                dbinfo['cnt_tableengines'],
-            )
+            results['tblengine'] += f"{dbinfo['TABLE_SCHEMA']} ({dbinfo['cnt_tableengines']}x), "
 
-        sql = '''
+        sql = f'''
             select distinct(CHARACTER_SET_NAME)
             from information_schema.COLUMNS
             where CHARACTER_SET_NAME is not null
-                and TABLE_SCHEMA = "{}";
-        '''.format(schema['SCHEMA_NAME'])
+                and TABLE_SCHEMA = "{schema['SCHEMA_NAME']}";
+        '''
         distinct_column_charset = lib.base.coe(lib.db_mysql.select(conn, sql))
         if len(distinct_column_charset) > 1:
-            results['colcharset'] += '{} ({}x), '.format(
-                dbinfo['TABLE_SCHEMA'],
-                len(distinct_column_charset),
-            )
+            results['colcharset'] += f"{dbinfo['TABLE_SCHEMA']} ({len(distinct_column_charset)}x), "
 
-        sql = '''
+        sql = f'''
             select distinct(COLLATION_NAME)
             from information_schema.COLUMNS
             where COLLATION_NAME is not null
-                and TABLE_SCHEMA = "{}";
-        '''.format(schema['SCHEMA_NAME'])
+                and TABLE_SCHEMA = "{schema['SCHEMA_NAME']}";
+        '''
         distinct_column_collation = lib.base.coe(lib.db_mysql.select(conn, sql))
         if len(distinct_column_collation) > 1:
-            results['colcollation'] += '{} ({}x), '.format(
-                dbinfo['TABLE_SCHEMA'],
-                len(distinct_column_collation),
+            results['colcollation'] += (
+                f'{dbinfo["TABLE_SCHEMA"]}'
+                f' ({len(distinct_column_collation)}x), '
             )
 
     lib.db_mysql.close(conn)
 
     msg = ''
     if results['index']:
-        msg += '* Index size is larger than data size: {}\n'.format(results['index'][:-2]) 
+        msg += f"* Index size is larger than data size: {results['index'][:-2]}\n" 
     if results['storengine']:
-        msg += '* Multi storage engines (use one storage engine for all tables): {}\n'.format(results['storengine'][:-2])
+        msg += f"* Multi storage engines (use one storage engine for all tables): {results['storengine'][:-2]}\n"
     if results['collation']:
-        msg += '* Multi collations (use one collation for all tables): {}\n'.format(results['collation'][:-2])
+        msg += f"* Multi collations (use one collation for all tables): {results['collation'][:-2]}\n"
     if results['tblengine']:
-        msg += '* Multi table engines (use one engine for all tables): {}\n'.format(results['tblengine'][:-2])
+        msg += f"* Multi table engines (use one engine for all tables): {results['tblengine'][:-2]}\n"
     if results['colcharset']:
-        msg += '* Multi charsets for text-like cols (use one charset for all cols if possible): {}\n'.format(results['colcharset'][:-2])
+        msg += f"* Multi charsets for text-like cols (use one charset for all cols if possible): {results['colcharset'][:-2]}\n"
     if results['colcollation']:
-        msg += '* Multi collations for text-like cols (use one charset for all cols if possible): {}\n'.format(results['colcollation'][:-2])
+        msg += f"* Multi collations for text-like cols (use one charset for all cols if possible): {results['colcollation'][:-2]}\n"
 
     if msg:
         state = STATE_WARN

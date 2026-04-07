@@ -23,7 +23,7 @@ import lib.time  # pylint: disable=C0413
 from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Get NodeBB event log."""
 
@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -125,9 +125,10 @@ def main():
         # append subdict "user" to the parent item
         tmp = {**item, **item['user']}
         tmp['user'] = None
-        tmp['timestamp'] = '{} ({} ago)'.format(
-            lib.time.epoch2iso(tmp['timestamp'] / 1000),
-            lib.human.seconds2human(lib.time.now(as_type='epoch') - (item['timestamp'] / 1000)),
+        ts_epoch = tmp['timestamp'] / 1000
+        tmp['timestamp'] = (
+            f'{lib.time.epoch2iso(ts_epoch)}'
+            f' ({lib.human.seconds2human(lib.time.now(as_type="epoch") - ts_epoch)} ago)'
         )
         table_data.append(tmp)
 
@@ -135,13 +136,17 @@ def main():
     if len(result['events']) == 0:
         msg = 'Everything is ok.'
     else:
-        msg = 'Latest event: #{} uid={} {} {} {} ({} ago)\n\n'.format(
-            result['events'][0]['eid'],
-            result['events'][0]['uid'],
-            result['events'][0]['user']['username'],
-            result['events'][0]['type'],
-            result['events'][0]['ip'],
-            lib.human.seconds2human(lib.time.now(as_type='epoch') - result['events'][0]['timestamp'] / 1000),
+        evt = result['events'][0]
+        ago = lib.human.seconds2human(
+            lib.time.now(as_type='epoch') - evt['timestamp'] / 1000,
+        )
+        msg = (
+            f'Latest event: #{evt["eid"]}'
+            f' uid={evt["uid"]}'
+            f' {evt["user"]["username"]}'
+            f' {evt["type"]}'
+            f' {evt["ip"]}'
+            f' ({ago} ago)\n\n'
         )
         if table_data:
             keys = [

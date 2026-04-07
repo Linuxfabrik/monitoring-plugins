@@ -21,7 +21,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks the open file usage in MySQL/MariaDB."""
 
@@ -38,7 +38,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -138,16 +138,17 @@ def main():
         mycalc['pct_files_open'] = 0
 
     # Open files
-    msg = '{}% of open_files_limit used ({}/{})'.format(
-        mycalc['pct_files_open'],
-        lib.human.number2human(mystat['Open_files']),
-        lib.human.number2human(myvar['open_files_limit']),
+    msg = (
+        f'{mycalc["pct_files_open"]}% of open_files_limit used'
+        f' ({lib.human.number2human(mystat["Open_files"])}'
+        f'/{lib.human.number2human(myvar["open_files_limit"])})'
     )
     if mycalc['pct_files_open'] > 85:
         state = STATE_WARN
-        msg += '{}. Set open_files_limit > {}.'.format(
-            lib.base.state2str(state, prefix=' '),
-            myvar['open_files_limit'],
+        msg += (
+            f'{lib.base.state2str(state, prefix=" ")}.'
+            f' Set open_files_limit >'
+            f' {myvar["open_files_limit"]}.'
         )
     else:
         msg += '.'

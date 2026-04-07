@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """This check collects information from the PHP-FPM status page and alerts on certain
                 overuse. In addition, a table is printed which contains each pool process in the
@@ -52,7 +52,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -212,39 +212,42 @@ def main():
     # build the message
 
     # Basic information - Always displayed on the status page Parameter
-    msg += 'Pool {} ({}): '.format(result['pool'], result['process manager'])
+    msg += f"Pool {result['pool']} ({result['process manager']}): "
     if result['listen queue']:
-        msg += '{}/{} {} waiting for a free process in listen queue ({}%){}, '.format(
-            result['listen queue'],
-            result['listen queue len'],
-            lib.txt.pluralize('req', result['listen queue']),
-            queue_usage,
-            lib.base.state2str(queue_state, prefix=' '),
+        msg += (
+            f'{result["listen queue"]}'
+            f'/{result["listen queue len"]}'
+            f' {lib.txt.pluralize("req", result["listen queue"])}'
+            f' waiting for a free process'
+            f' in listen queue ({queue_usage}%)'
+            f'{lib.base.state2str(queue_state, prefix=" ")}, '
         )
     if result.get('max children reached', 0):
         children_state = STATE_WARN
         state = lib.base.get_worst(children_state, state)
-        msg += '"max children" was reached at least once{}, '.format(
-            lib.base.state2str(children_state, prefix=' '),
+        msg += (
+            f'"max children" was reached at least once'
+            f'{lib.base.state2str(children_state, prefix=" ")}, '
         )
     if result.get('slow requests', 0):
-        msg += '{} slow {} {} hit the configured `request_slowlog_timeout`{}, '.format(
-            result['slow requests'],
-            lib.txt.pluralize('req', result['slow requests']),
-            lib.txt.pluralize('', result['slow requests'], 'has,have'),
-            lib.base.state2str(slow_req_state, prefix=' '),
+        slow_cnt = result['slow requests']
+        msg += (
+            f'{slow_cnt} slow'
+            f' {lib.txt.pluralize("req", slow_cnt)}'
+            f' {lib.txt.pluralize("", slow_cnt, "has,have")}'
+            f' hit the configured'
+            f' `request_slowlog_timeout`'
+            f'{lib.base.state2str(slow_req_state, prefix=" ")}, '
         )
-    msg += '{} connections, '.format(
-        lib.human.number2human(result['accepted conn']),
+    msg += f"{lib.human.number2human(result['accepted conn'])} connections, "
+    msg += (
+        f'{result["total processes"]} processes'
+        f' ({result["active processes"]} active,'
+        f' {result["idle processes"]} idle), '
     )
-    msg += '{} processes ({} active, {} idle), '.format(
-        result['total processes'],
-        result['active processes'],
-        result['idle processes'],
-    )
-    msg += 'Up {} (since {}), '.format(
-        lib.human.seconds2human(result['start since']),
-        lib.time.epoch2iso(result['start time']),
+    msg += (
+        f'Up {lib.human.seconds2human(result["start since"])}'
+        f' (since {lib.time.epoch2iso(result["start time"])}), '
     )
 
     # Per-process information - only displayed in full output mode
@@ -259,9 +262,9 @@ def main():
         table_values.append({
             'pid': value['pid'],
             'state': value['state'],
-            'start time': '{} ({} ago)'.format(
-                lib.time.epoch2iso(value['start time']),
-                lib.human.seconds2human(value['start since']),
+            'start time': (
+                f'{lib.time.epoch2iso(value["start time"])}'
+                f' ({lib.human.seconds2human(value["start since"])} ago)'
             ),
             'requests': value['requests'],
             # microseconds:

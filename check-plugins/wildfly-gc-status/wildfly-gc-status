@@ -20,7 +20,7 @@ import lib.wildfly  # pylint: disable=C0413
 from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Prints the status of the Wildfly/JBossAS garbage collector.'
 
@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -145,12 +145,13 @@ def main():
     for name, value in res['name'].items():
         gc_time = value['collection-time']
         gc_count = value['collection-count']
-        perfdata += lib.base.get_perfdata('garbage-collector-{}-collection-time'.format(name), gc_time, 'ms', None, None, 0, None)
-        perfdata += lib.base.get_perfdata('garbage-collector-{}-collection-count'.format(name), gc_count, 'c', None, None, 0, None)
-        msg += '{}: CollectionCount {}, CollectionTime {}; '.format(
-            name,
-            lib.human.number2human(gc_count),
-            lib.human.seconds2human(float(gc_time)/1000),
+        perfdata += lib.base.get_perfdata(f'garbage-collector-{name}-collection-time', gc_time, 'ms', None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f'garbage-collector-{name}-collection-count', gc_count, 'c', None, None, 0, None)
+        msg += (
+            f'{name}: '
+            f'CollectionCount {lib.human.number2human(gc_count)}, '
+            f'CollectionTime '
+            f'{lib.human.seconds2human(float(gc_time)/1000)}; '
         )
 
     # over and out

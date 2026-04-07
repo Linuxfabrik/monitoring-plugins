@@ -21,7 +21,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Tests if a temporary file can be created, written to a specified path, read,
                  and then deleted. Especially useful with mounted file systems such as NFS or SMB.
@@ -40,7 +40,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -96,15 +96,15 @@ def main():
             # close the file, it will be removed
             fp.close()
         except Exception as e:
-            msg += '`{}` ({}), '.format(path, e)
+            msg += f'`{path}` ({e}), '
             state = lib.base.str2state(args.SEVERITY)
 
     # build the message
     if msg == '':
         msg = 'Everything is ok. '
     else:
-        msg = 'Error creating/writing/reading/deleting file in {}. '.format(msg[:-2])
-    msg += 'Tested: {}'.format(', '.join(args.PATH))
+        msg = f'Error creating/writing/reading/deleting file in {msg[:-2]}. '
+    msg += f"Tested: {', '.join(args.PATH)}"
 
     # over and out
     lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)

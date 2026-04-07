@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Checks the number of allocated file handles in percent.'
 
@@ -46,7 +46,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -90,7 +90,7 @@ def top(count):
     """Get top X processes opening file descriptors.
     """
     cnt = Counter()
-    msg = '\nTop {} processes opening file descriptors:\n'.format(count)
+    msg = f'\nTop {count} processes opening file descriptors:\n'
     if lib.version.version(psutil.__version__) >= lib.version.version('5.3.0'):
         try:
             for p in psutil.process_iter(attrs=['name', 'num_fds']):
@@ -107,7 +107,7 @@ def top(count):
             pass
 
     for i, p in enumerate(cnt.most_common(count)):
-        msg += '{}. {}: {} FD\n'.format(i + 1, p[0], p[1])
+        msg += f'{i + 1}. {p[0]}: {p[1]} FD\n'
     return msg
 
 
@@ -133,10 +133,10 @@ def main():
     # fs[1] is the number of unused-but-allocated file handles
     files_percent = round(files_allocated / files_max * 100, 1)
 
-    msg = '{}% file descriptors used ({}/{})\n'.format(
-        files_percent,
-        lib.human.number2human(files_allocated),
-        lib.human.number2human(files_max)
+    msg = (
+        f'{files_percent}% file descriptors used'
+        f' ({lib.human.number2human(files_allocated)}'
+        f'/{lib.human.number2human(files_max)})\n'
     )
     perfdata += lib.base.get_perfdata('fd', files_percent, '%', args.WARN, args.CRIT, 0, 100)
     state = lib.base.get_state(files_percent, args.WARN, args.CRIT, 'ge')

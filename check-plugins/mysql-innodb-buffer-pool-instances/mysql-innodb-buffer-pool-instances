@@ -22,7 +22,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks the InnoDB buffer pool instance configuration in MySQL/MariaDB."""
 
@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -133,17 +133,21 @@ def main():
         # Removed in MariaDB 10.6.0
         lib.base.oao('Everything is ok (although nothing checked).', state)
 
-    msg += '{} InnoDB buffer pool {}'.format(
-        myvar['innodb_buffer_pool_instances'],
-        lib.txt.pluralize('instance', int(myvar['innodb_buffer_pool_instances'])),
+    instances = myvar['innodb_buffer_pool_instances']
+    msg += (
+        f'{instances} InnoDB buffer pool'
+        f' {lib.txt.pluralize("instance", int(instances))}'
     )
 
     # Bad Value if > 64
     if int(myvar['innodb_buffer_pool_instances']) > 64:
         inst1_state = STATE_WARN
         state = lib.base.get_worst(state, inst1_state)
-        msg += '{}. Set innodb_buffer_pool_instances <= 64. '.format(
-            lib.base.state2str(inst1_state, prefix=' '),
+        inst1_str = lib.base.state2str(inst1_state, prefix=' ')
+        msg += (
+            f'{inst1_str}.'
+            f' Set innodb_buffer_pool_instances'
+            f' <= 64. '
         )
     else:
         msg += '. '
@@ -156,16 +160,26 @@ def main():
         if int(myvar['innodb_buffer_pool_instances']) != max_innodb_buffer_pool_instances:
             inst2_state = STATE_WARN
             state = lib.base.get_worst(state, inst2_state)
-            msg += 'Set innodb_buffer_pool_instances to {}{}. '.format(
-                max_innodb_buffer_pool_instances,
-                lib.base.state2str(inst2_state, prefix=' '),
+            inst2_str = lib.base.state2str(
+                inst2_state, prefix=' ',
+            )
+            msg += (
+                f'Set innodb_buffer_pool_instances'
+                f' to {max_innodb_buffer_pool_instances}'
+                f'{inst2_str}. '
             )
     else:
         if int(myvar['innodb_buffer_pool_instances']) != 1:
             inst2_state = STATE_WARN
             state = lib.base.get_worst(state, inst2_state)
-            msg += 'innodb_buffer_pool_size <= 1G and innodb_buffer_pool_instances !=1{}. Set innodb_buffer_pool_instances to 1.'.format(
-                lib.base.state2str(inst2_state, prefix=' '),
+            inst2_str = lib.base.state2str(
+                inst2_state, prefix=' ',
+            )
+            msg += (
+                f'innodb_buffer_pool_size <= 1G and'
+                f' innodb_buffer_pool_instances'
+                f' !=1{inst2_str}. Set'
+                f' innodb_buffer_pool_instances to 1.'
             )
 
     perfdata += lib.base.get_perfdata('mysql_innodb_buffer_pool_instances', myvar['innodb_buffer_pool_instances'], None, None, None, 0, None)

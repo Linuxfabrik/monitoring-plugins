@@ -20,7 +20,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Check VMs on a KVM host using "virsh list".'
 
@@ -33,7 +33,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -63,7 +63,7 @@ def main():
         lib.shell.shell_exec('virsh list --all'),
     )
     if stderr or retc != 0:
-        lib.base.oao('{}'.format(stderr), STATE_WARN)
+        lib.base.oao(f'{stderr}', STATE_WARN)
     # we got a VM list and their states - strip first two header and last two empty rows
     vm_list = stdout.strip().split('\n')[2:]
 
@@ -94,24 +94,24 @@ def main():
 
         msg = 'VMs: '
         if running:
-            msg += '{} running, '.format(running)
+            msg += f'{running} running, '
         if shut_off:
-            msg += '{} shut_off, '.format(shut_off)
+            msg += f'{shut_off} shut_off, '
         if in_shutdown:
-            msg += '{} in_shutdown, '.format(in_shutdown)
+            msg += f'{in_shutdown} in_shutdown, '
 
         if idle:
-            msg += '{} idle (WARN), '.format(idle)
+            msg += f'{idle} idle (WARN), '
             state = lib.base.get_worst(state, STATE_WARN)
         if paused:
-            msg += '{} paused (WARN), '.format(paused)
+            msg += f'{paused} paused (WARN), '
             state = lib.base.get_worst(state, STATE_WARN)
         if pmsuspended:
-            msg += '{} pmsuspended (WARN), '.format(pmsuspended)
+            msg += f'{pmsuspended} pmsuspended (WARN), '
             state = lib.base.get_worst(state, STATE_WARN)
 
         if crashed:
-            msg += '{} crashed (CRIT), '.format(crashed)
+            msg += f'{crashed} crashed (CRIT), '
             state = lib.base.get_worst(state, STATE_CRIT)
         msg = msg[:-2]
     else:

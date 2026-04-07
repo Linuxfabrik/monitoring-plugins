@@ -22,7 +22,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks some metrics of the Aria Storage Engine in MySQL/MariaDB."""
 
@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -164,34 +164,45 @@ def main():
     and pct_aria_keys_from_mem < 95:
         aria_pagecache_buffer_size_state = STATE_WARN
         state = lib.base.get_worst(state, aria_pagecache_buffer_size_state)
-        msg += ' (adjust aria_pagecache_buffer_size > {}){}'.format(
-            total_aria_indexes,
-            lib.base.state2str(aria_pagecache_buffer_size_state, prefix=' '),
+        aria_state_str = lib.base.state2str(
+            aria_pagecache_buffer_size_state, prefix=' ',
+        )
+        msg += (
+            f' (adjust aria_pagecache_buffer_size'
+            f' > {total_aria_indexes}){aria_state_str}'
         )
     else:
         aria_pagecache_buffer_size_state = STATE_OK
-    msg = 'Total Aria indexes: {}, Aria pagecache size: {}{}; '.format(
-        lib.human.bytes2human(int(total_aria_indexes)),
-        lib.human.bytes2human(int(myvar['aria_pagecache_buffer_size'])),
-        msg,
+    aria_idx = lib.human.bytes2human(int(total_aria_indexes))
+    aria_cache = lib.human.bytes2human(
+        int(myvar['aria_pagecache_buffer_size']),
+    )
+    msg = (
+        f'Total Aria indexes: {aria_idx},'
+        f' Aria pagecache size: {aria_cache}'
+        f'{msg}; '
     )
     perfdata += lib.base.get_perfdata('mysql_aria_pagecache_buffer_size', myvar['aria_pagecache_buffer_size'], 'B', None, None, 0, None)
     perfdata += lib.base.get_perfdata('mysql_total_aria_indexes', total_aria_indexes, None, None, None, 0, None)
 
     if int(mystat['Aria_pagecache_read_requests']) > 0:
-        msg += '{}% Aria pagecache hit rate ({} cached / {} reads)'.format(
-            pct_aria_keys_from_mem,
-            lib.human.number2human(mystat['Aria_pagecache_read_requests']),
-            lib.human.number2human(mystat['Aria_pagecache_reads']),
+        cached = lib.human.number2human(
+            mystat['Aria_pagecache_read_requests'],
+        )
+        reads = lib.human.number2human(
+            mystat['Aria_pagecache_reads'],
+        )
+        msg += (
+            f'{pct_aria_keys_from_mem}%'
+            f' Aria pagecache hit rate'
+            f' ({cached} cached / {reads} reads)'
         )
         # Remove WARN if `aria_pagecache_read_requests` > 0 and `pct_aria_keys_from_mem` < 95%
         # Because there's nothing we can do about it:
         # if pct_aria_keys_from_mem < 95:
         #     pct_aria_keys_from_mem_state = STATE_WARN
         #     state = lib.base.get_worst(state, pct_aria_keys_from_mem_state)
-        #     msg += '{}'.format(
-        #         lib.base.state2str(pct_aria_keys_from_mem_state, prefix=' '),
-        #     )
+        #     msg += f'{lib.base.state2str(pct_aria_keys_from_mem_state, prefix=" ")}'
         perfdata += lib.base.get_perfdata('mysql_pct_aria_keys_from_mem', pct_aria_keys_from_mem, '%', 95, None, 0, 100)
         perfdata += lib.base.get_perfdata('mysql_aria_pagecache_read_requests', mystat['Aria_pagecache_read_requests'], 'c', None, None, 0, None)
         perfdata += lib.base.get_perfdata('mysql_aria_pagecache_reads', mystat['Aria_pagecache_reads'], 'c', None, None, 0, None)

@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Monitors the heap and non-heap memory usage of the Java VM of the
                 Starface PBX.
@@ -52,7 +52,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -150,7 +150,7 @@ def main():
         data = stdout
 
     if not data:
-        lib.base.cu('Got no valuable response from {}:{}.'.format(args.HOSTNAME, args.PORT))
+        lib.base.cu(f'Got no valuable response from {args.HOSTNAME}:{args.PORT}.')
 
     # extract data
     result = lib.txt.extract_str(data, '<<<starface_java>>>', '<<<').splitlines()
@@ -171,13 +171,16 @@ def main():
             mem_max = float(mem_max)
             if mem_max == -1:
                 # unlimited memory usage allowed
-                msg += 'Heap used: {} (unlimited memory usage allowed), '.format(lib.human.bytes2human(mem_used))
+                msg += f'Heap used: {lib.human.bytes2human(mem_used)} (unlimited memory usage allowed), '
                 perfdata += lib.base.get_perfdata('heap-used', mem_used, 'B', None, None, 0, None)
             else:
                 used_percent = round(mem_used / mem_max * 100, 1)
                 used_state = lib.base.get_state(used_percent, args.WARN, args.CRIT, 'ge')
-                msg += 'Heap used: {}% ({} of {}){}, '.format(
-                    used_percent, lib.human.bytes2human(mem_used), lib.human.bytes2human(mem_max), lib.base.state2str(used_state, prefix=' '),
+                msg += (
+                    f'Heap used: {used_percent}% '
+                    f'({lib.human.bytes2human(mem_used)} '
+                    f'of {lib.human.bytes2human(mem_max)})'
+                    f'{lib.base.state2str(used_state, prefix=" ")}, '
                 )
                 state += lib.base.get_worst(used_state, state)
                 perfdata += lib.base.get_perfdata('heap-used-percent', used_percent, '%', args.WARN, args.CRIT, 0, 100)
@@ -190,13 +193,16 @@ def main():
             mem_max = float(mem_max)
             if mem_max == -1:
                 # unlimited memory usage allowed
-                msg += 'Non-Heap used: {} (unlimited memory usage allowed), '.format(lib.human.bytes2human(mem_used))
+                msg += f'Non-Heap used: {lib.human.bytes2human(mem_used)} (unlimited memory usage allowed), '
                 perfdata += lib.base.get_perfdata('non-heap-used', mem_used, 'B', None, None, 0, None)
             else:
                 used_percent = round(mem_used / mem_max * 100, 1)
                 used_state = lib.base.get_state(used_percent, args.WARN, args.CRIT, 'ge')
-                msg += 'Non-Heap used: {}% ({} of {}){}, '.format(
-                    used_percent, lib.human.bytes2human(mem_used), lib.human.bytes2human(mem_max), lib.base.state2str(used_state, prefix=' '),
+                msg += (
+                    f'Non-Heap used: {used_percent}% '
+                    f'({lib.human.bytes2human(mem_used)} '
+                    f'of {lib.human.bytes2human(mem_max)})'
+                    f'{lib.base.state2str(used_state, prefix=" ")}, '
                 )
                 state += lib.base.get_worst(used_state, state)
                 perfdata += lib.base.get_perfdata('non-heap-used-percent', used_percent, '%', args.WARN, args.CRIT, 0, 100)

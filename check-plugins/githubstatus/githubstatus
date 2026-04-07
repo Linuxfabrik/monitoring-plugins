@@ -26,7 +26,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks the GitHub status page, including a status indicator,
                  component statuses and unresolved incidents."""
@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -128,12 +128,12 @@ def main():
     # analyze data
     for incident in result.get('incidents', {}):
         incident['updated_at'] = incident.get('updated_at').replace('T', ' ')[:19]
-        msg += '{}, {} impact, {}: {}. {} '.format(
-            incident.get('updated_at'),
-            incident.get('impact'),
-            incident.get('status'),
-            incident.get('name'),
-            incident.get('incident_updates', [])[0].get('body', ''),
+        msg += (
+            f"{incident.get('updated_at')}"
+            f", {incident.get('impact')} impact"
+            f", {incident.get('status')}"
+            f": {incident.get('name')}. "
+            f"{incident.get('incident_updates', [])[0].get('body', '')} "
         )
         state = STATE_WARN
         incidents += 1
@@ -156,21 +156,21 @@ def main():
     if not result.get('incidents', {}) and not result.get('components', {}):
         if result.get('status', {}).get('indicator', 'none') != 'none':
             state = STATE_WARN
-            msg = '{} ({})'.format(
-                result.get('status', {}).get('description', 'none'),
-                result.get('status', {}).get('indicator', 'none'),
+            msg = (
+                f"{result.get('status', {}).get('description', 'none')}"
+                f" ({result.get('status', {}).get('indicator', 'none')})"
             )
 
     # build the message
     if state == STATE_OK:
         msg = 'Everything is ok.'
     else:
-        msg = '{} {}, {} {} affected. {}'.format(
-            incidents,
-            lib.txt.pluralize('incindent', incidents),
-            components,
-            lib.txt.pluralize('component', components),
-            msg,
+        msg = (
+            f'{incidents}'
+            f" {lib.txt.pluralize('incindent', incidents)}"
+            f', {components}'
+            f" {lib.txt.pluralize('component', components)}"
+            f' affected. {msg}'
         )
     if table_data:
         keys = [
@@ -181,7 +181,7 @@ def main():
         headers = [
             'Component',
             'Status',
-            'Updated ({})'.format(result['page'].get('time_zone', 'TZ n/a')),
+            f"Updated ({result['page'].get('time_zone', 'TZ n/a')})",
         ]
         msg +=  '\n\n' + lib.base.get_table(table_data, keys, header=headers)
     perfdata += lib.base.get_perfdata('components', components, None, None, None, 0, None)

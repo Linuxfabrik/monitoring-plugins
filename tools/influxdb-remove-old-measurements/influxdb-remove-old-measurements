@@ -20,7 +20,7 @@ import lib.human
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024041701'
+__version__ = '2026040801'
 
 DESCRIPTION = """This tool removes old measurements in InfluxDB, therefore to reducing InfluxDB disk usage.
 
@@ -38,7 +38,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -120,8 +120,8 @@ def main():
     for measurement in client.get_list_measurements():
         measurement = measurement["name"]
 
-        print('Analysing measurement "{}"...'.format(measurement), end='')
-        hosts = client.query('SELECT * FROM "{}" GROUP BY "hostname" ORDER BY time DESC LIMIT 1'.format(measurement))
+        print(f'Analysing measurement "{measurement}"...', end='')
+        hosts = client.query(f'SELECT * FROM "{measurement}" GROUP BY "hostname" ORDER BY time DESC LIMIT 1')
         print(' done')
 
         for key, generator in hosts.items():
@@ -132,11 +132,14 @@ def main():
             delta = datetime.datetime.now() - time
 
             if delta > threshold:
-                print('\t\tDeleting "{}" for host "{}" (last entry {} ago)...'.format(
-                    measurement,
-                    hostname,
-                    lib.human.seconds2human(delta.total_seconds()),
-                ), end='')
+                print(
+                    f'\t\tDeleting "{measurement}"'
+                    f' for host "{hostname}"'
+                    f' (last entry'
+                    f' {lib.human.seconds2human(delta.total_seconds())}'
+                    f' ago)...',
+                    end='',
+                )
 
                 if not args.DRY_RUN:
                     client.delete_series(

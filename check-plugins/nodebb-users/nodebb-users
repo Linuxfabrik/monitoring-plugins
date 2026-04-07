@@ -25,7 +25,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Get NodeBB users."""
 
@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -145,29 +145,25 @@ def main():
     # analyze data
     for user in result['users']:
         user['lastonline'] = user['lastonline'] / 1000
-        user['lastonline'] = '{} ({} ago)'.format(
-            lib.time.epoch2iso(user['lastonline']),
-            lib.human.seconds2human(lib.time.now(as_type='epoch') - (user['lastonline'])),
+        user['lastonline'] = (
+            f'{lib.time.epoch2iso(user["lastonline"])}'
+            f' ({lib.human.seconds2human(lib.time.now(as_type="epoch") - user["lastonline"])} ago)'
         )
         if user['banned']:
             state = lib.base.str2state(args.SEVERITY)
-            user['banned'] = '{}{}'.format(
-                user['banned'],
-                lib.base.state2str(state, prefix=' '),
-            )
+            user['banned'] = f"{user['banned']}{lib.base.state2str(state, prefix=' ')}"
         table_data.append(user)
 
     # build the message
-    msg += '{} {}'.format(
-        result['userCount'],
-        lib.txt.pluralize('user', result['userCount']),
-    )
+    msg += f"{result['userCount']} {lib.txt.pluralize('user', result['userCount'])}"
     try:
         # don't report the user you login with
-        msg += ', latest active user: {} <{}>, online {}'.format(
-            result['users'][1]['username'],
-            result['users'][1]['email'],
-            result['users'][1]['lastonline'],
+        usr = result['users'][1]
+        msg += (
+            f', latest active user:'
+            f' {usr["username"]}'
+            f' <{usr["email"]}>'
+            f', online {usr["lastonline"]}'
         )
     except:
         pass

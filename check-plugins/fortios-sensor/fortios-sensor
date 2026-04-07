@@ -22,7 +22,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Checks FortiOS sensor information in detail.'
 
@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -116,7 +116,7 @@ def main():
 
     # fetch data
     # Resource to get sensor data from
-    url = 'https://{}/api/v2/monitor/system/sensor-info/select?access_token={}'.format(args.HOSTNAME, urllib.parse.quote(args.PASSWORD))
+    url = f'https://{args.HOSTNAME}/api/v2/monitor/system/sensor-info/select?access_token={urllib.parse.quote(args.PASSWORD)}'
     result = lib.base.coe(lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
 
     msg_header, msg_body = '', ''
@@ -148,22 +148,22 @@ def main():
             sensor_state = lib.base.get_state(sensor['value'], sensor['thresholds']['lower_non_critical'], sensor['thresholds']['lower_critical'], _operator='le')
             state = lib.base.get_worst(sensor_state, state)
             if sensor_state in (STATE_WARN, STATE_CRIT):
-                msg_body += '\n* {} ({} {}) is less or equal to a certain threshold ({}/{})'.format(sensor['name'], sensor['value'], shorten_uom(sensor['type']), sensor['thresholds']['lower_non_critical'], sensor['thresholds']['lower_critical'])
+                msg_body += f"\n* {sensor['name']} ({sensor['value']} {shorten_uom(sensor['type'])}) is less or equal to a certain threshold ({sensor['thresholds']['lower_non_critical']}/{sensor['thresholds']['lower_critical']})"
         if 'upper_non_critical' in sensor['thresholds']:
             sensor_state = lib.base.get_state(sensor['value'], sensor['thresholds']['upper_non_critical'], sensor['thresholds']['upper_critical'], _operator='ge')
             state = lib.base.get_worst(sensor_state, state)
             if sensor_state in (STATE_WARN, STATE_CRIT):
-                msg_body += '\n* {} ({} {}) is greater or equal to a certain threshold ({}/{})'.format(sensor['name'], sensor['value'], shorten_uom(sensor['type']), sensor['thresholds']['upper_non_critical'], sensor['thresholds']['upper_critical'])
+                msg_body += f"\n* {sensor['name']} ({sensor['value']} {shorten_uom(sensor['type'])}) is greater or equal to a certain threshold ({sensor['thresholds']['upper_non_critical']}/{sensor['thresholds']['upper_critical']})"
 
         perfdata += lib.base.get_perfdata(sensor['id'], sensor['value'], None, sensor['thresholds']['upper_non_critical'], sensor['thresholds']['upper_critical'], sensor['thresholds'].get('lower_non_recoverable', 0), sensor['thresholds']['upper_non_recoverable'])
         sensor_counter += 1
 
     if state == STATE_CRIT:
-        msg_header = 'Checked {} {}. There are critical errors.'.format(sensor_counter, lib.txt.pluralize('sensor', sensor_counter))
+        msg_header = f"Checked {sensor_counter} {lib.txt.pluralize('sensor', sensor_counter)}. There are critical errors."
     elif state == STATE_WARN:
-        msg_header = 'Checked {} {}. There are warnings.'.format(sensor_counter, lib.txt.pluralize('sensor', sensor_counter))
+        msg_header = f"Checked {sensor_counter} {lib.txt.pluralize('sensor', sensor_counter)}. There are warnings."
     else:
-        msg_header = 'Checked {} {}, all are ok.'.format(sensor_counter, lib.txt.pluralize('sensor', sensor_counter))
+        msg_header = f"Checked {sensor_counter} {lib.txt.pluralize('sensor', sensor_counter)}, all are ok."
 
     # over and out
     lib.base.oao(msg_header + msg_body, state, perfdata)

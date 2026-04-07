@@ -29,7 +29,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Checks the current temperatures from QNAP Appliances running QTS via API.'
 
@@ -47,7 +47,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -124,9 +124,9 @@ def main():
     auth_sid = lib.base.coe(lib.qts.get_auth_sid(args))
 
     # get system information
-    url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(
-        args.URL,
-        auth_sid,
+    url = (
+        f'{args.URL}/cgi-bin/management/manaRequest.cgi'
+        f'?subfunc=sysinfo&hd=no&multicpu=1&sid={auth_sid}'
     )
     result = lib.base.coe(
         lib.url.fetch(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT)
@@ -151,15 +151,16 @@ def main():
     state = lib.base.get_worst(systemp_state, cputemp_state)
 
     # build the message
-    msg = 'Sys: {}°C (Thresholds: {}/{}°C){}, CPU: {}°C (Thresholds: {}/{}°C){}'.format(
-        int(data['func']['ownContent']['root']['sys_tempc']),
-        int(data['func']['ownContent']['root']['SysTempWarnT']),
-        int(data['func']['ownContent']['root']['SysTempErrT']),
-        lib.base.state2str(systemp_state, prefix=' '),
-        int(data['func']['ownContent']['root']['cpu_tempc']),
-        int(data['func']['ownContent']['root']['CPUTempWarnT']),
-        int(data['func']['ownContent']['root']['CPUTempErrT']),
-        lib.base.state2str(cputemp_state, prefix=' '),
+    root = data['func']['ownContent']['root']
+    msg = (
+        f'Sys: {int(root["sys_tempc"])}°C'
+        f' (Thresholds: {int(root["SysTempWarnT"])}'
+        f'/{int(root["SysTempErrT"])}°C)'
+        f'{lib.base.state2str(systemp_state, prefix=" ")}'
+        f', CPU: {int(root["cpu_tempc"])}°C'
+        f' (Thresholds: {int(root["CPUTempWarnT"])}'
+        f'/{int(root["CPUTempErrT"])}°C)'
+        f'{lib.base.state2str(cputemp_state, prefix=" ")}'
     )
     perfdata = lib.base.get_perfdata(
         'systemp',

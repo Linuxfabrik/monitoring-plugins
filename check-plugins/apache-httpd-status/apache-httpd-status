@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Checks how well an Apache httpd server is performing.'
 
@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -242,14 +242,14 @@ def main():
     # If ExtendedStatus is off:
     if 'Uptime' not in apache:
         # "ExtendedStatus off" just reports BusyWorkers, IdleWorkers and Scoreboard
-        msg = '{}/{} workers busy ({}%{}; {} "G"), {} idle, {} free'.format(
-            apache['BusyWorkers'],
-            apache['TotalWorkers'],
-            apache['WorkerUsagePercentage'],
-            lib.base.state2str(state, prefix=' '),
-            workers['finishing'],
-            apache['IdleWorkers'],
-            workers['free'],
+        msg = (
+            f'{apache["BusyWorkers"]}/{apache["TotalWorkers"]}'
+            f' workers busy'
+            f' ({apache["WorkerUsagePercentage"]}%'
+            f'{lib.base.state2str(state, prefix=" ")}'
+            f'; {workers["finishing"]} "G")'
+            f', {apache["IdleWorkers"]} idle'
+            f', {workers["free"]} free'
         )
 
         # over and out
@@ -262,31 +262,31 @@ def main():
 
     # get previous values
     prev_uptime = lib.cache.get(
-        'apache-httpd-status-{}-uptime'.format(args.URL),
+        f'apache-httpd-status-{args.URL}-uptime',
         filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db',
     )
     prev_count = lib.cache.get(
-        'apache-httpd-status-{}-total-accesses'.format(args.URL),
+        f'apache-httpd-status-{args.URL}-total-accesses',
         filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db',
     )
     prev_bcount = lib.cache.get(
-        'apache-httpd-status-{}-total-bytes'.format(args.URL),
+        f'apache-httpd-status-{args.URL}-total-bytes',
         filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db',
     )
 
     # save current values
     lib.cache.set(
-        'apache-httpd-status-{}-uptime'.format(args.URL),
+        f'apache-httpd-status-{args.URL}-uptime',
         apache['Uptime'],
         filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db',
     )
     lib.cache.set(
-        'apache-httpd-status-{}-total-accesses'.format(args.URL),
+        f'apache-httpd-status-{args.URL}-total-accesses',
         apache['Total Accesses'],
         filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db',
     )
     lib.cache.set(
-        'apache-httpd-status-{}-total-bytes'.format(args.URL),
+        f'apache-httpd-status-{args.URL}-total-bytes',
         apache['Total Bytes'],
         filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db',
     )
@@ -306,17 +306,17 @@ def main():
     perfdata += lib.base.get_perfdata('Uptime', apache['Uptime'], 's', None, None, 0, None) # pylint: disable=C0301
 
     if 'Total Duration' not in apache:
-        msg = '{}/{} workers busy ({}%{}; {} "G"), {} idle, {} free; {} accesses, {} traffic; Up {}'.format(
-            apache['BusyWorkers'],
-            apache['TotalWorkers'],
-            apache['WorkerUsagePercentage'],
-            lib.base.state2str(state, prefix=' '),
-            workers['finishing'],
-            apache['IdleWorkers'],
-            workers['free'],
-            lib.human.number2human(apache['Total Accesses']),
-            lib.human.bytes2human(apache['Total Bytes']),
-            lib.human.seconds2human(apache['Uptime']),
+        msg = (
+            f'{apache["BusyWorkers"]}/{apache["TotalWorkers"]}'
+            f' workers busy'
+            f' ({apache["WorkerUsagePercentage"]}%'
+            f'{lib.base.state2str(state, prefix=" ")}'
+            f'; {workers["finishing"]} "G")'
+            f', {apache["IdleWorkers"]} idle'
+            f', {workers["free"]} free'
+            f'; {lib.human.number2human(apache["Total Accesses"])} accesses'
+            f', {lib.human.bytes2human(apache["Total Bytes"])} traffic'
+            f'; Up {lib.human.seconds2human(apache["Uptime"])}'
         )
 
         # over and out
@@ -327,11 +327,11 @@ def main():
     # Some more variables in newer versions of mod_status
 
     prev_duration_global = lib.cache.get(
-        'apache-httpd-status-{}-total-duration'.format(args.URL),
+        f'apache-httpd-status-{args.URL}-total-duration',
         filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db',
     )
     lib.cache.set(
-        'apache-httpd-status-{}-total-duration'.format(args.URL),
+        f'apache-httpd-status-{args.URL}-total-duration',
         apache['Total Duration'],
         filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db',
     )
@@ -356,18 +356,18 @@ def main():
     perfdata += lib.base.get_perfdata('Stopping', apache['Stopping'], None, None, None, 0, None) if 'Stopping' in apache else '' # pylint: disable=C0301
     perfdata += lib.base.get_perfdata('Total Duration', duration_diff, 's', None, None, 0, None) if 'Total Duration' in apache else '' # pylint: disable=C0301
 
-    msg = '{}: {}/{} workers busy ({}%{}; {} "G"), {} idle, {} free; {} accesses, {} traffic; Up {}'.format(
-        apache['ServerName'],
-        apache['BusyWorkers'],
-        apache['TotalWorkers'],
-        apache['WorkerUsagePercentage'],
-        lib.base.state2str(state, prefix=' '),
-        workers['finishing'],
-        apache['IdleWorkers'],
-        workers['free'],
-        lib.human.number2human(apache['Total Accesses']),
-        lib.human.bytes2human(apache['Total Bytes']),
-        lib.human.seconds2human(apache['Uptime']),
+    msg = (
+        f'{apache["ServerName"]}:'
+        f' {apache["BusyWorkers"]}/{apache["TotalWorkers"]}'
+        f' workers busy'
+        f' ({apache["WorkerUsagePercentage"]}%'
+        f'{lib.base.state2str(state, prefix=" ")}'
+        f'; {workers["finishing"]} "G")'
+        f', {apache["IdleWorkers"]} idle'
+        f', {workers["free"]} free'
+        f'; {lib.human.number2human(apache["Total Accesses"])} accesses'
+        f', {lib.human.bytes2human(apache["Total Bytes"])} traffic'
+        f'; Up {lib.human.seconds2human(apache["Uptime"])}'
     )
 
     table_values = []

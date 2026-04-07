@@ -37,7 +37,7 @@ import lib.url     # pylint: disable=C0413
 from lib.globals import STATE_UNKNOWN # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Sends notifications for hosts using the Zoom Incoming Webhook API.'
 
@@ -49,7 +49,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -147,19 +147,14 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    head = textwrap.dedent('''
-        {HOST_STATE:.4}: {HOST_DISPLAYNAME} ({DATETIME})
-    ''').strip().format(
-        HOST_STATE=args.HOST_STATE,
-        HOST_DISPLAYNAME=args.HOST_DISPLAYNAME,
-        DATETIME=args.DATETIME,
+    head = (
+        f'{args.HOST_STATE:.4}:'
+        f' {args.HOST_DISPLAYNAME}'
+        f' ({args.DATETIME})'
     )
 
     if args.NOTIFICATION_COMMENT:
-        head += '\nCOMMENT: {NOTIFICATION_COMMENT} ({NOTIFICATION_AUTHOR})'.format(
-            NOTIFICATION_AUTHOR=args.NOTIFICATION_AUTHOR,
-            NOTIFICATION_COMMENT=args.NOTIFICATION_COMMENT,
-        )
+        head += f'\nCOMMENT: {args.NOTIFICATION_COMMENT} ({args.NOTIFICATION_AUTHOR})'
 
     link = None
     if args.ICINGAWEB2_URL and args.HOSTNAME:
@@ -171,8 +166,8 @@ def main():
         )
 
         link = urllib.parse.urljoin(
-            '{}/'.format(args.ICINGAWEB2_URL),
-            'icingadb/host?{}'.format(params)
+            f'{args.ICINGAWEB2_URL}/',
+            f'icingadb/host?{params}'
         )
 
     body = args.HOST_OUTPUT

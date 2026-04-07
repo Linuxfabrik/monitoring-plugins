@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """This check prints various statistics for all running Docker containers, in much the
                 same way as the Unix application top, using the "docker stats" command."""
@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -161,7 +161,7 @@ def main():
         cmd = 'docker info'
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd, shell=True))
         if retc != 0:
-            lib.base.oao('{}\n{}'.format(stderr, stdout), STATE_CRIT)
+            lib.base.oao(f'{stderr}\n{stdout}', STATE_CRIT)
         try:
             strpos1 = stdout.find('CPUs: ') + 6
             strpos2 = stdout.find('\n', strpos1)
@@ -208,7 +208,7 @@ def main():
 
         # divide by number of cores (got by docker info)
         cpu_usage = round(float(cpu_percent.replace('%', '').strip()) / host_cpus, 1)
-        perfdata += lib.base.get_perfdata('{}_cpu_usage'.format(name), cpu_usage, '%', args.WARN_CPU, args.CRIT_CPU, 0, 100) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(f'{name}_cpu_usage', cpu_usage, '%', args.WARN_CPU, args.CRIT_CPU, 0, 100) # pylint: disable=C0301
 
         # save trend data to local sqlite database, limited to "count" rows max.
         lib.base.coe(
@@ -226,21 +226,21 @@ def main():
         else:
             cpu_state = STATE_OK
         if cpu_state != STATE_OK:
-            msg += '"{}" cpu {}% {}, '.format(name, cpu_usage, lib.base.state2str(cpu_state))
+            msg += f'"{name}" cpu {cpu_usage}% {lib.base.state2str(cpu_state)}, '
         state = lib.base.get_worst(cpu_state, state)
 
         # alert when container mem_usage is exceeded
         mem_usage = float(mem_percent.replace('%', '').strip())
-        perfdata += lib.base.get_perfdata('{}_mem_usage'.format(name), mem_usage, '%', args.WARN_CPU, args.CRIT_CPU, 0, 100) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(f'{name}_mem_usage', mem_usage, '%', args.WARN_CPU, args.CRIT_CPU, 0, 100) # pylint: disable=C0301
         mem_state = lib.base.get_state(mem_usage, args.WARN_MEM, args.CRIT_MEM)
         if mem_state != STATE_OK:
-            msg += '"{}" memory {}% {}, '.format(name, mem_usage, lib.base.state2str(mem_state))
+            msg += f'"{name}" memory {mem_usage}% {lib.base.state2str(mem_state)}, '
         state = lib.base.get_worst(mem_state, state)
 
         table_values.append({
             'name': name,
-            'cpu_usage': '{}{}'.format(cpu_usage, lib.base.state2str(cpu_state, prefix=' ')),
-            'mem_usage': '{}{}'.format(mem_usage, lib.base.state2str(mem_state, prefix=' ')),
+            'cpu_usage': f"{cpu_usage}{lib.base.state2str(cpu_state, prefix=' ')}",
+            'mem_usage': f"{mem_usage}{lib.base.state2str(mem_state, prefix=' ')}",
         })
 
     # we don't need the database any more: save data and close connection

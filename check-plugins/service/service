@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = '''Checks the state of one or more Windows services. You have to provide the
                  case-insensitive "Service Name", not the "Display Name". Supports Python regular
@@ -51,7 +51,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__),
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -162,7 +162,7 @@ def main():
         compiled_service_regex = re.compile(args.SERVICE, re.IGNORECASE)
         if args.TEST is None:
             for s in psutil.win_service_iter():
-                # print('{}, {}, {}, {}'.format(s.name(), s.display_name(), s.status(), s.start_type()))  # pylint: disable=C0301
+                # print(f'{s.name()}, {s.display_name()}, {s.status()}, {s.start_type()}')
                 if s.start_type() not in args.STARTTYPE:
                     continue
                 matches = re.search(compiled_service_regex, s.name())
@@ -192,12 +192,12 @@ def main():
                         'start_type': start_type,
                     })
     except re.error as rerr:
-        lib.base.cu('Invalid regex "{}": {}'.format(args.SERVICE, rerr))
+        lib.base.cu(f'Invalid regex "{args.SERVICE}": {rerr}')
     except psutil.NoSuchProcess:
-        lib.base.cu('r`{}` does not match any service name.'.format(args.SERVICE))
+        lib.base.cu(f'r`{args.SERVICE}` does not match any service name.')
 
     if not table_data:
-        lib.base.cu('r`{}` does not match any service name.'.format(args.SERVICE))
+        lib.base.cu(f'r`{args.SERVICE}` does not match any service name.')
     svc_cnt = len(table_data)
 
     # build the message
@@ -218,17 +218,15 @@ def main():
             'Startup',
         ],
     )
-    msg = '{}{} {} named r`{}` and start type {} found, {} in status {} (thresholds {}/{}){}.\n\n'.format(  # pylint: disable=C0301
-        'Everything is ok. ' if state == STATE_OK else '',
-        svc_cnt,
-        lib.txt.pluralize('service', svc_cnt),
-        args.SERVICE,
-        args.STARTTYPE,
-        svcstate_cnt,
-        args.STATUS,
-        args.WARN,
-        args.CRIT,
-        lib.base.state2str(state, prefix=' '),
+    msg = (
+        f'{"Everything is ok. " if state == STATE_OK else ""}'
+        f'{svc_cnt} '
+        f'{lib.txt.pluralize("service", svc_cnt)} '
+        f'named r`{args.SERVICE}` '
+        f'and start type {args.STARTTYPE} found, '
+        f'{svcstate_cnt} in status {args.STATUS} '
+        f'(thresholds {args.WARN}/{args.CRIT})'
+        f'{lib.base.state2str(state, prefix=" ")}.\n\n'
     ) + msg
 
     # over and out

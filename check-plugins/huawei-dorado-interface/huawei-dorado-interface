@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Batch query basic information about interfaces on a Huawei OceanStor Dorado
                  storage system via the REST Interface, using the ``/intf_module`` endpoint."""
@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -160,12 +160,13 @@ def main():
 
     # no valuable result?
     if not result:
-        lib.base.cu('Got no valuable response from {}.'.format(args.URL))
+        lib.base.cu(f'Got no valuable response from {args.URL}.')
     if result.get('error').get('code') != 0:
-        lib.base.oao('{} {}'.format(
-            result.get('error').get('description'),
-            result.get('error').get('suggestion'),
-        ), STATE_UNKNOWN)
+        lib.base.oao(
+            f'{result.get("error").get("description")}'
+            f' {result.get("error").get("suggestion")}',
+            STATE_UNKNOWN,
+        )
 
     # init some vars
     msg = ''
@@ -190,8 +191,8 @@ def main():
 
         iface['UUID'] = lib.huawei.get_uuid(iface)
 
-        perfdata += lib.base.get_perfdata('{}_HEALTHSTATUS'.format(iface['UUID']), iface['HEALTHSTATUS'], None, None, 2, 0, 2)
-        perfdata += lib.base.get_perfdata('{}_RUNNINGSTATUS'.format(iface['UUID']), iface['RUNNINGSTATUS'], None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f"{iface['UUID']}_HEALTHSTATUS", iface['HEALTHSTATUS'], None, None, 2, 0, 2)
+        perfdata += lib.base.get_perfdata(f"{iface['UUID']}_RUNNINGSTATUS", iface['RUNNINGSTATUS'], None, None, None, 0, None)
 
         iface['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         iface['running_state'] = lib.base.state2str(running_state, empty_ok=False)
@@ -206,9 +207,10 @@ def main():
         headers = ['UUID', 'Location', 'Model', 'RunMode', 'LED', 'Health', 'Running']
         msg += lib.base.get_table(table_data, keys, header=headers)
 
-    msg += '\nFetched API {} {}'.format(
-        result.get('counter', 0),
-        lib.txt.pluralize('time', result.get('counter', 0),),
+    counter = result.get('counter', 0)
+    msg += (
+        f'\nFetched API {counter}'
+        f' {lib.txt.pluralize("time", counter)}'
     )
 
     if state == STATE_CRIT:

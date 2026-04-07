@@ -21,7 +21,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Check the status of a scheduled task.'
 
@@ -37,7 +37,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__),
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -90,14 +90,16 @@ def main():
         task_name, next_run_time, status = row
         if task_name == args.TASK:
             if status in args.STATUS:
-                lib.base.oao('{} is {}'.format(args.TASK, status), STATE_OK)
-            lib.base.oao('{} is {}, but supposed to be {}'.format(
-                args.TASK,
-                status,
-                args.STATUS,
-            ), problem_state)
+                lib.base.oao(f'{args.TASK} is {status}', STATE_OK)
+            lib.base.oao(
+                (
+                    f'{args.TASK} is {status},'
+                    f' but supposed to be {args.STATUS}'
+                ),
+                problem_state,
+            )
 
-    lib.base.cu('Scheduled Task {} not found'.format(args.TASK))
+    lib.base.cu(f'Scheduled Task {args.TASK} not found')
 
 
 if __name__ == '__main__':

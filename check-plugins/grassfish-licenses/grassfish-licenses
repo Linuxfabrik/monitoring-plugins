@@ -24,7 +24,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Alerts if no more Grassfish licenses are available, using the Grassfish API.
                  You must provide both the Grassfish hostname and a Grassfish token for this
@@ -46,7 +46,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -174,21 +174,20 @@ def main():
         used = lic['TotalCount'] - lic['AvailableCount']
         if lic['AvailableCount'] == 0:
             lic_state = STATE_WARN
-            msg += '{}, '.format(lic['Type'])
+            msg += f"{lic['Type']}, "
         else:
             lic_state = STATE_OK
 
         state = lib.base.get_worst(state, lic_state)
         table_data.append({
             'type': lic['Type'],
-            'usage': '{}/{} ({} available{})'.format(
-                used,
-                lic['TotalCount'],
-                lic['AvailableCount'],
-                lib.base.state2str(lic_state, prefix=' '),
-            )
+            'usage': (
+                f'{used}/{lic["TotalCount"]}'
+                f' ({lic["AvailableCount"]} available'
+                f'{lib.base.state2str(lic_state, prefix=" ")})'
+            ),
         })
-        perfdata += lib.base.get_perfdata('grassfish_lic_{}_used'.format(lic['Type'].lower()), used, None, None, None, 0, lic['TotalCount']) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(f"grassfish_lic_{lic['Type'].lower()}_used", used, None, None, None, 0, lic['TotalCount']) # pylint: disable=C0301
 
     # build the message
     if table_data:
@@ -204,7 +203,7 @@ def main():
     if state == STATE_OK:
         msg = 'Everything is ok.\n\n'
     else:
-        msg = 'No more licenses available: {}\n\n'.format(msg[:-2])
+        msg = f'No more licenses available: {msg[:-2]}\n\n'
     msg += lib.base.get_table(table_data, keys, header=headers)
 
     # over and out

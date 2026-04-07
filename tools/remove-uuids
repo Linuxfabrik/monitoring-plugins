@@ -19,7 +19,7 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2026040801'
 
 DESCRIPTION = 'A tool to join icingaweb2 director baskets (with or without uuids).'
 
@@ -37,7 +37,7 @@ def parse_args():
         '-V',
         '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__),
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -62,7 +62,7 @@ def parse_args():
 def warn_print(msg, **kwargs):
     msg = msg.strip()
     if colorama:
-        print(colorama.Fore.YELLOW + 'Warning: {}'.format(msg), **kwargs)
+        print(colorama.Fore.YELLOW + f'Warning: {msg}', **kwargs)
     else:
         print(msg, **kwargs)
 
@@ -70,7 +70,7 @@ def warn_print(msg, **kwargs):
 def err_print(msg, **kwargs):
     msg = msg.strip()
     if colorama:
-        print(colorama.Fore.RED + 'Error: {}'.format(msg), **kwargs)
+        print(colorama.Fore.RED + f'Error: {msg}', **kwargs)
     else:
         print(msg, **kwargs)
 
@@ -84,7 +84,7 @@ def raise_on_duplicate_keys(ordered_pairs):
     dict_out = {}
     for key, val in ordered_pairs:
         if key in dict_out:
-            raise DuplicateKeyError('Duplicate key: {}'.format(key))
+            raise DuplicateKeyError(f'Duplicate key: {key}')
         dict_out[key] = val
     return dict_out
 
@@ -113,7 +113,7 @@ class BasketUUIDRemover:
                 json.dump(self.data, file, sort_keys=False, indent=4, separators=(',', ': '))
                 file.write('\n')
         except FileNotFoundError as e:
-            err_print('{}.'.format(e))
+            err_print(f'{e}.')
             return False
         return True
 

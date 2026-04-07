@@ -20,7 +20,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Checks the health of a Wildfly/JBossAS over HTTP.'
 
@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -142,7 +142,7 @@ def check_server_status(args):
     else:
         state = STATE_CRIT
         retc = 2
-    msg = 'Server status "{}"{}, '.format(res, lib.base.state2str(state, prefix=' '))
+    msg = f"Server status \"{res}\"{lib.base.state2str(state, prefix=' ')}, "
     perfdata = lib.base.get_perfdata('server-state', retc, None, 1, 2, 0, 3)
 
     data = {
@@ -151,7 +151,7 @@ def check_server_status(args):
         'json': 1,
     }
     res = lib.wildfly.get_data(args, data)
-    msg += 'Launch Type {}, '.format(res)
+    msg += f'Launch Type {res}, '
 
     data = {
         'operation': 'read-attribute',
@@ -159,7 +159,7 @@ def check_server_status(args):
         'json': 1,
     }
     res = lib.wildfly.get_data(args, data)
-    msg += 'Running Mode {}, '.format(res)
+    msg += f'Running Mode {res}, '
 
     data = {
         'operation': 'read-attribute',
@@ -174,7 +174,7 @@ def check_server_status(args):
             'json': 1,
         }
         res = lib.wildfly.get_data(args, data)
-    msg += 'v{}'.format(res)
+    msg += f'v{res}'
 
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 

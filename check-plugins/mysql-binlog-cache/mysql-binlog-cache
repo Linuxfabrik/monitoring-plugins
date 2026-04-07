@@ -21,7 +21,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks if a certain amount of transactions used a temporary disk cache because
                  they could not fit in the regular binary log cache in MySQL/MariaDB."""
@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -144,16 +144,27 @@ def main():
         mycalc['pct_binlog_cache'] = 0
 
     # Binlog cache
-    msg = '{}% binlog cache memory access ({} memory / {} total)'.format(
-        mycalc['pct_binlog_cache'],
-        lib.human.number2human(int(mystat['Binlog_cache_use']) - int(mystat['Binlog_cache_disk_use'])),
-        lib.human.number2human(mystat['Binlog_cache_use']),
+    binlog_mem = lib.human.number2human(
+        int(mystat['Binlog_cache_use'])
+        - int(mystat['Binlog_cache_disk_use']),
+    )
+    binlog_total = lib.human.number2human(
+        mystat['Binlog_cache_use'],
+    )
+    msg = (
+        f'{mycalc["pct_binlog_cache"]}%'
+        f' binlog cache memory access'
+        f' ({binlog_mem} memory / {binlog_total} total)'
     )
     if mycalc['pct_binlog_cache'] < 90 and int(mystat['Binlog_cache_use']) > 0:
         state = STATE_WARN
-        msg += '{}. Set binlog_cache_size to {}.'.format(
-            lib.base.state2str(state, prefix=' '),
-            lib.human.bytes2human(int(myvar['binlog_cache_size']) + 16 * 1024 * 1024),
+        state_str = lib.base.state2str(state, prefix=' ')
+        new_size = lib.human.bytes2human(
+            int(myvar['binlog_cache_size']) + 16 * 1024 * 1024,
+        )
+        msg += (
+            f'{state_str}.'
+            f' Set binlog_cache_size to {new_size}.'
         )
     else:
         msg += '.'

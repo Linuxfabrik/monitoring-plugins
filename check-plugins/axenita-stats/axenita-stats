@@ -23,7 +23,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'With this plugin you can track some values of the Axenita application.'
 
@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -165,11 +165,11 @@ def main():
     if achilles_maintenance:
         if achilles_maintenance['state'].upper() != 'SUCCESS':
             state = lib.base.get_worst(STATE_WARN, state)
-            msg = '{}/api/login/maintenance-state-active, state: {}{}'.format(args.URL, achilles_maintenance['state'], lib.base.state2str(state))
+            msg = f"{args.URL}/api/login/maintenance-state-active, state: {achilles_maintenance['state']}{lib.base.state2str(state)}"
             lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
         if achilles_maintenance['data'] is not False:
             state = lib.base.get_worst(STATE_WARN, state)
-            msg += 'Axenita/Achilles is in maintenance mode {}, '.format(lib.base.state2str(state))
+            msg += f'Axenita/Achilles is in maintenance mode {lib.base.state2str(state)}, '
             perfdata += lib.base.get_perfdata('maintenance', 1, None, None, None, 0, 1)
         else:
             perfdata += lib.base.get_perfdata('maintenance', 0, None, None, None, 0, 1)
@@ -177,13 +177,13 @@ def main():
     if achilles_readmodel:
         if achilles_readmodel['state'].upper() != 'SUCCESS':
             state = lib.base.get_worst(STATE_WARN, state)
-            msg = '{}/api/admin/readmodel/state, state: {}{}'.format(args.URL, achilles_readmodel['state'], lib.base.state2str(state))
+            msg = f"{args.URL}/api/admin/readmodel/state, state: {achilles_readmodel['state']}{lib.base.state2str(state)}"
             lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
         if achilles_readmodel['data']['readModelState'].upper() != 'DONE':
             state = lib.base.get_worst(STATE_WARN, state)
-            msg = '{}/api/admin/readmodel/state, data.readModelState: {}{}'.format(args.URL, achilles_readmodel['data']['readModelState'], lib.base.state2str(state))
+            msg = f"{args.URL}/api/admin/readmodel/state, data.readModelState: {achilles_readmodel['data']['readModelState']}{lib.base.state2str(state)}"
             lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
-        msg += 'ReadModel: {}, '.format(achilles_readmodel['data']['message'])
+        msg += f"ReadModel: {achilles_readmodel['data']['message']}, "
         perfdata += lib.base.get_perfdata('currentInitRmStep', achilles_readmodel['data']['currentInitRmStep'], None, None, None, 0, None)
         perfdata += lib.base.get_perfdata('totalInitRmSteps', achilles_readmodel['data']['totalInitRmSteps'], None, None, None, 0, None)
         perfdata += lib.base.get_perfdata('totalDurationInitRm', achilles_readmodel['data']['totalDurationInitRm'], None, None, None, 0, None)
@@ -191,19 +191,19 @@ def main():
     if achilles_userinfo:
         if achilles_userinfo['state'].upper() != 'SUCCESS':
             state = lib.base.get_worst(STATE_WARN, state)
-            msg = '{}/api/admin/user-info/number-of-current-sessions, state: {}{}'.format(args.URL, achilles_userinfo['state'], lib.base.state2str(state))
+            msg = f"{args.URL}/api/admin/user-info/number-of-current-sessions, state: {achilles_userinfo['state']}{lib.base.state2str(state)}"
             lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
-        msg += '{} users logged in, {} active sessions, '.format(achilles_userinfo['data']['loggedInUsers'], achilles_userinfo['data']['currentActiveSessions'])
+        msg += f"{achilles_userinfo['data']['loggedInUsers']} users logged in, {achilles_userinfo['data']['currentActiveSessions']} active sessions, "
         perfdata += lib.base.get_perfdata('loggedInUsers', achilles_userinfo['data']['loggedInUsers'], None, None, None, 0, None)
         perfdata += lib.base.get_perfdata('currentActiveSessions', achilles_userinfo['data']['currentActiveSessions'], None, None, None, 0, None)
 
     if achilles_buildinfo:
         if achilles_buildinfo['state'].upper() != 'SUCCESS':
             state = lib.base.get_worst(STATE_WARN, state)
-            msg = '{}/api/build-info, state: {}{}'.format(args.URL, achilles_buildinfo['state'], lib.base.state2str(state))
+            msg = f"{args.URL}/api/build-info, state: {achilles_buildinfo['state']}{lib.base.state2str(state)}"
             lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
         axenita_ver = achilles_buildinfo['data']['version']
-        msg += '{} (timestamp {}), '.format(axenita_ver, achilles_buildinfo['data']['timestamp'])
+        msg += f"{axenita_ver} (timestamp {achilles_buildinfo['data']['timestamp']}), "
         axenita_ver = axenita_ver[8:8+axenita_ver.find('-')-1].replace('.', '')
         perfdata += lib.base.get_perfdata('axenita-version', axenita_ver, None, None, None, 0, None)
 

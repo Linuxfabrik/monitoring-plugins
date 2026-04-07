@@ -23,7 +23,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks the state of the Chassis collection containing resources that represent the
                  physical aspects of the infrastructure. A Chassis is roughly defined as a physical
@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -124,12 +124,12 @@ def main():
     header = {}
     header['Accept'] = 'application/json'
     if args.USERNAME and args.PASSWORD:
-        auth = '{}:{}'.format(args.USERNAME, args.PASSWORD)
+        auth = f'{args.USERNAME}:{args.PASSWORD}'
         encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
-        header['Authorization'] = 'Basic {}'.format(encoded_auth)
+        header['Authorization'] = f'Basic {encoded_auth}'
 
     # Entry point: Get the main data
-    url = '{}/redfish/v1/Chassis'.format(base_url)
+    url = f'{base_url}/redfish/v1/Chassis'
     result = lib.base.coe(lib.url.fetch_json(
         url,
         header=header,
@@ -153,7 +153,7 @@ def main():
     member_count = 0
     # fetch and analyze data by following the "Members" found
     for member in result.get('Members', []):
-        url = '{}{}'.format(base_url, member['@odata.id'])  # "/redfish/v1/Chassis/1U"
+        url = f"{base_url}{member['@odata.id']}"  # "/redfish/v1/Chassis/1U"
         chassis = lib.base.coe(lib.url.fetch_json(
             url,
             header=header,
@@ -169,14 +169,14 @@ def main():
         state = lib.base.get_worst(state, chassis_state)
 
         msg += 'Member:'
-        msg += ' {}'.format(chassis['Manufacturer']) if chassis['Manufacturer'] else ''
-        msg += ' {}'.format(chassis['Model']) if chassis['Model'] else ''
+        msg += f" {chassis['Manufacturer']}" if chassis['Manufacturer'] else ''
+        msg += f" {chassis['Model']}" if chassis['Model'] else ''
         msg += ', '
-        msg += 'Power: {}, '.format(chassis['PowerState']) if chassis['PowerState'] else ''
-        msg += 'LED: {}, '.format(chassis['IndicatorLED']) if chassis['IndicatorLED'] else ''
-        msg += 'SKU: {}, '.format(chassis['SKU']) if chassis['SKU'] else ''
-        msg += 'SerNo: {}, '.format(chassis['SerialNumber']) if chassis['SerialNumber'] else ''
-        msg += 'PartNumber: {}, '.format(chassis['PartNumber']) if chassis['PartNumber'] else ''
+        msg += f"Power: {chassis['PowerState']}, " if chassis['PowerState'] else ''
+        msg += f"LED: {chassis['IndicatorLED']}, " if chassis['IndicatorLED'] else ''
+        msg += f"SKU: {chassis['SKU']}, " if chassis['SKU'] else ''
+        msg += f"SerNo: {chassis['SerialNumber']}, " if chassis['SerialNumber'] else ''
+        msg += f"PartNumber: {chassis['PartNumber']}, " if chassis['PartNumber'] else ''
         msg = msg[:-2] + lib.base.state2str(chassis_state, prefix=' ')
 
         # get all available sensor links for the member
@@ -184,7 +184,7 @@ def main():
             msg += '\n\n'
             continue
 
-        url = '{}{}'.format(base_url, chassis['Sensors_@odata.id'])
+        url = f"{base_url}{chassis['Sensors_@odata.id']}"
         sensors = lib.base.coe(lib.url.fetch_json(
             url,
             header=header,
@@ -194,7 +194,7 @@ def main():
         ))
         table_data = []
         for sensor in sensors.get('Members', []):
-            url = '{}{}'.format(base_url, sensor['@odata.id'])
+            url = f"{base_url}{sensor['@odata.id']}"
             sensor_data = lib.base.coe(lib.url.fetch_json(
                 url,
                 header=header,
@@ -221,7 +221,7 @@ def main():
             msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
 
         # get thermal values for the member
-        url = '{}{}/Thermal'.format(base_url, member['@odata.id'])
+        url = f"{base_url}{member['@odata.id']}/Thermal"
         thermal = lib.base.coe(lib.url.fetch_json(
             url,
             header=header,
@@ -249,20 +249,21 @@ def main():
 
         msg += '\n\n'
 
+    members = lib.txt.pluralize('member', member_count)
     if state == STATE_CRIT:
-        msg = 'Checked sensors on {} {}. There are critical errors.\n\n'.format(
-            member_count,
-            lib.txt.pluralize('member', member_count)
+        msg = (
+            f'Checked sensors on {member_count} {members}.'
+            f' There are critical errors.\n\n'
         ) + msg
     elif state == STATE_WARN:
-        msg = 'Checked sensors on {} {}. There are warnings.\n\n'.format(
-            member_count,
-            lib.txt.pluralize('member', member_count)
+        msg = (
+            f'Checked sensors on {member_count} {members}.'
+            f' There are warnings.\n\n'
         ) + msg
     else:
-        msg = 'Everything is ok, checked sensors on {} {}.\n\n'.format(
-            member_count,
-            lib.txt.pluralize('member', member_count)
+        msg = (
+            f'Everything is ok, checked sensors on'
+            f' {member_count} {members}.\n\n'
         ) + msg
 
     # over and out

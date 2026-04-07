@@ -21,7 +21,7 @@ import lib.version  # pylint: disable=C0413
 from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Tracks if Java is EOL.'
 
@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -136,7 +136,7 @@ def parse_args():
 
 
 def get_installed_version(path):
-    success, result = lib.shell.shell_exec('{} -version'.format(path))
+    success, result = lib.shell.shell_exec(f'{path} -version')
     if not success:
         return ''
     stdout = result[1].strip()  # we get the version info on STDERR :facepalm:
@@ -165,7 +165,7 @@ def main():
     # fetch data
     installed_version = get_installed_version(args.PATH).replace('_', '.')
     if not installed_version:
-        lib.base.cu('Java `{}` not found.'.format(args.PATH))
+        lib.base.cu(f'Java `{args.PATH}` not found.')
     state, msg = lib.version.check_eol(
         'https://endoflife.date/api/redhat-build-of-openjdk.json',
         installed_version,
@@ -180,7 +180,7 @@ def main():
 
     # over and out
     lib.base.oao(
-        'Java (Red Hat build of OpenJDK) v{} ({})'.format(installed_version, msg),
+        f'Java (Red Hat build of OpenJDK) v{installed_version} ({msg})',
         state,
         lib.base.get_perfdata(
             'openjdk-redhat-version',

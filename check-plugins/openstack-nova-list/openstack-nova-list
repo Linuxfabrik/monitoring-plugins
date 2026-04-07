@@ -31,7 +31,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Nova is the OpenStack project that provides a way to provision compute
                  instances (aka virtual servers).
@@ -49,7 +49,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -257,18 +257,14 @@ def main():
             }
         except Exception as e:
             lib.base.cu('Error occured while fetching server attributes.')
-        item['created'] = '{} ({} ago)'.format(
-            item['created'],
-            lib.human.seconds2human(
-                lib.time.timestrdiff(lib.time.now(as_type='iso'), item['created']),
-            ),
+        item['created'] = (
+            f'{item["created"]}'
+            f' ({lib.human.seconds2human(lib.time.timestrdiff(lib.time.now(as_type="iso"), item["created"]))} ago)'
         )
         max_last_update = max(max_last_update, item['updated'])
-        item['updated'] = '{} ({} ago)'.format(
-            item['updated'],
-            lib.human.seconds2human(
-                lib.time.timestrdiff(lib.time.now(as_type='iso'), item['updated']),
-            ),
+        item['updated'] = (
+            f'{item["updated"]}'
+            f' ({lib.human.seconds2human(lib.time.timestrdiff(lib.time.now(as_type="iso"), item["updated"]))} ago)'
         )
         vm_state = get_state(server.status)
         vm_state_count[server.status] += 1
@@ -281,19 +277,21 @@ def main():
         perfdata += lib.base.get_perfdata(vm_state, cnt, None, None, None, 0, len(servers))
 
     # build the message
-    msg = '{} {} checked. {} active, {} migrating, {} demand verify resize, {} in error. '.format(
-        len(servers),
-        lib.txt.pluralize('server', len(servers)),
-        vm_state_count['ACTIVE'],
-        vm_state_count['MIGRATING'],
-        vm_state_count['VERIFY_RESIZE'],
-        vm_state_count['ERROR'],
+    server_count = len(servers)
+    msg = (
+        f'{server_count}'
+        f' {lib.txt.pluralize("server", server_count)} checked.'
+        f' {vm_state_count["ACTIVE"]} active,'
+        f' {vm_state_count["MIGRATING"]} migrating,'
+        f' {vm_state_count["VERIFY_RESIZE"]} demand verify resize,'
+        f' {vm_state_count["ERROR"]} in error. '
     )
-    msg += 'Last status change {} UTC ({} ago).'.format(
-        max_last_update,
-        lib.human.seconds2human(
-            lib.time.timestrdiff(lib.time.now(as_type='iso'), max_last_update),
-        ),
+    ago = lib.human.seconds2human(
+        lib.time.timestrdiff(lib.time.now(as_type='iso'), max_last_update),
+    )
+    msg += (
+        f'Last status change {max_last_update} UTC'
+        f' ({ago} ago).'
     )
     if table_data:
         keys = [

@@ -25,7 +25,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Batch query basic information about disks on a Huawei OceanStor Dorado storage
                  system via the REST Interface, using the ``/disk`` endpoint."""
@@ -45,7 +45,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -161,12 +161,13 @@ def main():
 
     # no valuable result?
     if not result:
-        lib.base.cu('Got no valuable response from {}.'.format(args.URL))
+        lib.base.cu(f'Got no valuable response from {args.URL}.')
     if result.get('error').get('code') != 0:
-        lib.base.oao('{} {}'.format(
-            result.get('error').get('description'),
-            result.get('error').get('suggestion'),
-        ), STATE_UNKNOWN)
+        lib.base.oao(
+            f"{result.get('error').get('description')}"
+            f" {result.get('error').get('suggestion')}",
+            STATE_UNKNOWN,
+        )
 
     # init some vars
     msg = ''
@@ -192,15 +193,15 @@ def main():
         disk['REMAINLIFE'] = int(disk['REMAINLIFE']) * 24*60*60
         disk['RUNTIME'] = int(disk['RUNTIME']) * 24*60*60
 
-        perfdata += lib.base.get_perfdata('{}_HEALTHSTATUS'.format(disk['UUID']), disk['HEALTHSTATUS'], None, None, 2, 0, 2)
-        perfdata += lib.base.get_perfdata('{}_RUNNINGSTATUS'.format(disk['UUID']), disk['RUNNINGSTATUS'], None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata('{}_ABRASIONRATE'.format(disk['UUID']), disk['ABRASIONRATE'], '%', None, None, 0, 100)
-        perfdata += lib.base.get_perfdata('{}_CAPACITYUSAGE'.format(disk['UUID']), disk['CAPACITYUSAGE'], '%', None, None, 0, 100)
-        perfdata += lib.base.get_perfdata('{}_HEALTHMARK'.format(disk['UUID']), disk['HEALTHMARK'], None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata('{}_PROGRESS'.format(disk['UUID']), disk['PROGRESS'], '%', None, None, 0, 100)
-        perfdata += lib.base.get_perfdata('{}_REMAINLIFE'.format(disk['UUID']), disk['REMAINLIFE'], 's', None, None, 0, None)
-        perfdata += lib.base.get_perfdata('{}_RUNTIME'.format(disk['UUID']), disk['RUNTIME'], 's', None, None, 0, None)
-        perfdata += lib.base.get_perfdata('{}_TEMPERATURE'.format(disk['UUID']), disk['TEMPERATURE'], None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f"{disk['UUID']}_HEALTHSTATUS", disk['HEALTHSTATUS'], None, None, 2, 0, 2)
+        perfdata += lib.base.get_perfdata(f"{disk['UUID']}_RUNNINGSTATUS", disk['RUNNINGSTATUS'], None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f"{disk['UUID']}_ABRASIONRATE", disk['ABRASIONRATE'], '%', None, None, 0, 100)
+        perfdata += lib.base.get_perfdata(f"{disk['UUID']}_CAPACITYUSAGE", disk['CAPACITYUSAGE'], '%', None, None, 0, 100)
+        perfdata += lib.base.get_perfdata(f"{disk['UUID']}_HEALTHMARK", disk['HEALTHMARK'], None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f"{disk['UUID']}_PROGRESS", disk['PROGRESS'], '%', None, None, 0, 100)
+        perfdata += lib.base.get_perfdata(f"{disk['UUID']}_REMAINLIFE", disk['REMAINLIFE'], 's', None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f"{disk['UUID']}_RUNTIME", disk['RUNTIME'], 's', None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f"{disk['UUID']}_TEMPERATURE", disk['TEMPERATURE'], None, None, None, 0, None)
 
         disk['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         disk['running_state'] = lib.base.state2str(running_state, empty_ok=False)
@@ -213,9 +214,9 @@ def main():
         headers = ['UUID', 'Location', 'Manufacturer', 'Model', 'SerialNumber', 'Abrasion%', 'Progress%', 'Runtime', 'Temp', 'Health', 'Running']
         msg += lib.base.get_table(table_data, keys, header=headers)
 
-    msg += '\nFetched API {} {}'.format(
-        result.get('counter', 0),
-        lib.txt.pluralize('time', result.get('counter', 0),),
+    msg += (
+        f"\nFetched API {result.get('counter', 0)}"
+        f" {lib.txt.pluralize('time', result.get('counter', 0))}"
     )
 
     if state == STATE_CRIT:

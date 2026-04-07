@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """This check is a SNMP application that uses the SNMP GET request to query for
                  information on a network entity. The object identifiers (OIDs) of interest have
@@ -58,7 +58,7 @@ def parse_args():
 
     parser.add_argument('-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -225,25 +225,25 @@ def build_snmpget_call(args):
             U:  don't print units
     """
     if args.SNMP_VERSION in ['1', '2c']:
-        cmd = 'snmpget -v {} '.format(args.SNMP_VERSION)
-        cmd += "-c '{}' ".format(args.COMMUNITY) if args.COMMUNITY else ''
+        cmd = f'snmpget -v {args.SNMP_VERSION} '
+        cmd += f"-c '{args.COMMUNITY}' " if args.COMMUNITY else ''
     else:
         cmd = 'snmpget -v 3 '
-        cmd += '-a {} '.format(args.V3_AUTH_PROT) if args.V3_AUTH_PROT else ''
-        cmd += "-A '{}' ".format(args.V3_AUTH_PROT_PASSWORD) if args.V3_AUTH_PROT_PASSWORD else ''
-        cmd += '-e {} '.format(args.V3_SECURITY_ENGINE_ID) if args.V3_SECURITY_ENGINE_ID else ''
-        cmd += '-E {} '.format(args.V3_CONTEXT_ENGINE_ID) if args.V3_CONTEXT_ENGINE_ID else ''
-        cmd += '-l {} '.format(args.V3_LEVEL) if args.V3_LEVEL else ''
-        cmd += '-n {} '.format(args.V3_CONTEXT) if args.V3_CONTEXT else ''
-        cmd += '-u {} '.format(args.V3_USERNAME) if args.V3_USERNAME else ''
-        cmd += '-x {} '.format(args.V3_PRIV_PROT) if args.V3_PRIV_PROT else ''
-        cmd += "-X '{}' ".format(args.V3_PRIV_PROT_PASSWORD) if args.V3_PRIV_PROT_PASSWORD else ''
-        cmd += '-Z {} '.format(args.V3_BOOTS_TIME) if args.V3_BOOTS_TIME else ''
+        cmd += f'-a {args.V3_AUTH_PROT} ' if args.V3_AUTH_PROT else ''
+        cmd += f"-A '{args.V3_AUTH_PROT_PASSWORD}' " if args.V3_AUTH_PROT_PASSWORD else ''
+        cmd += f'-e {args.V3_SECURITY_ENGINE_ID} ' if args.V3_SECURITY_ENGINE_ID else ''
+        cmd += f'-E {args.V3_CONTEXT_ENGINE_ID} ' if args.V3_CONTEXT_ENGINE_ID else ''
+        cmd += f'-l {args.V3_LEVEL} ' if args.V3_LEVEL else ''
+        cmd += f'-n {args.V3_CONTEXT} ' if args.V3_CONTEXT else ''
+        cmd += f'-u {args.V3_USERNAME} ' if args.V3_USERNAME else ''
+        cmd += f'-x {args.V3_PRIV_PROT} ' if args.V3_PRIV_PROT else ''
+        cmd += f"-X '{args.V3_PRIV_PROT_PASSWORD}' " if args.V3_PRIV_PROT_PASSWORD else ''
+        cmd += f'-Z {args.V3_BOOTS_TIME} ' if args.V3_BOOTS_TIME else ''
     cmd += '-OSqtU -r 0 '
-    cmd += '-t {} '.format(args.TIMEOUT) if args.TIMEOUT else ''
-    cmd += '-M {} '.format(args.MIB_DIR) if args.MIB_DIR else ''
-    cmd += '-m {} '.format(args.MIB) if args.MIB else ''
-    cmd += '{} '.format(args.HOSTNAME) if args.HOSTNAME else ''
+    cmd += f'-t {args.TIMEOUT} ' if args.TIMEOUT else ''
+    cmd += f'-M {args.MIB_DIR} ' if args.MIB_DIR else ''
+    cmd += f'-m {args.MIB} ' if args.MIB else ''
+    cmd += f'{args.HOSTNAME} ' if args.HOSTNAME else ''
     cmd += '_OIDS_'
 
     return cmd
@@ -273,7 +273,7 @@ def main():
     plugin_path = os.path.join(os.path.dirname(os.path.realpath(__file__)))
     snmp_objects = lib.base.coe(
         lib.disk.read_csv(
-            os.path.join(plugin_path, 'device-oids/{}'.format(args.DEVICE)),
+            os.path.join(plugin_path, f'device-oids/{args.DEVICE}'),
             as_dict=False,
             skip_empty_rows=True,
         )
@@ -302,7 +302,7 @@ def main():
     count = 0
     tmp = ''
     for snmp_object in snmp_objects[1:]:        # ignore the header row in csv
-        tmp += '{} '.format(snmp_object[CSV_COL_OID])
+        tmp += f'{snmp_object[CSV_COL_OID]} '
         count += 1
         if count == MAX_OIDS_PER_REQUEST:
             oids.append(tmp)
@@ -420,11 +420,7 @@ def main():
             except Exception as e:
                 table_values.append({
                     'name': name,
-                    'value': "The recalc in {} failed with {}: '{}'.".format(
-                        args.DEVICE,
-                        type(e).__name__,
-                        e,
-                    ),
+                    'value': f"The recalc in {args.DEVICE} failed with {type(e).__name__}: '{e}'.",
                     'state': lib.base.state2str(STATE_UNKNOWN),
                 })
                 state = lib.base.get_worst(state, STATE_UNKNOWN)
@@ -437,25 +433,15 @@ def main():
         if check_state and crit:
             if eval(crit, {}, {'value': value, 'values': values}): # pylint: disable=W0123
                 value_state = STATE_CRIT
-                msg_header += '{}: {}{} {}, '.format(
-                    name,
-                    value,
-                    unit,
-                    lib.base.state2str(STATE_CRIT),
-                )
+                msg_header += f'{name}: {value}{unit} {lib.base.state2str(STATE_CRIT)}, '
                 check_state = False   # no more checks for this value necessary
         if check_state and warn:
             if eval(warn, {}, {'value': value, 'values': values}): # pylint: disable=W0123
                 value_state = STATE_WARN
-                msg_header += '{}: {}{} {}, '.format(
-                    name,
-                    value,
-                    unit,
-                    lib.base.state2str(STATE_WARN),
-                )
+                msg_header += f'{name}: {value}{unit} {lib.base.state2str(STATE_WARN)}, '
                 check_state = False
         if check_state and report_change:
-            cache_key = '{}::{}'.format(args.DEVICE, oid)
+            cache_key = f'{args.DEVICE}::{oid}'
             cache_value = lib.cache.get(
                 cache_key,
                 filename='linuxfabrik-monitoring-plugins-snmp.db',
@@ -464,21 +450,17 @@ def main():
                 if cache_value != value: # that is different from the current one
                     if report_change.lower().startswith('crit'):
                         value_state = STATE_CRIT
-                        msg_header += '{}: {}{} ({}, changed from "{}"), '.format(
-                            name,
-                            value,
-                            unit,
-                            lib.base.state2str(STATE_CRIT),
-                            cache_value,
+                        msg_header += (
+                            f'{name}: {value}{unit} '
+                            f'({lib.base.state2str(STATE_CRIT)}'
+                            f', changed from "{cache_value}"), '
                         )
                     else:
                         value_state = STATE_WARN
-                        msg_header += '{}: {}{} ({}, changed from "{}"), '.format(
-                            name,
-                            value,
-                            unit,
-                            lib.base.state2str(STATE_WARN),
-                            cache_value,
+                        msg_header += (
+                            f'{name}: {value}{unit} '
+                            f'({lib.base.state2str(STATE_WARN)}'
+                            f', changed from "{cache_value}"), '
                         )
             else:
                 lib.cache.set(cache_key, value, filename='linuxfabrik-monitoring-plugins-snmp.db')
@@ -493,59 +475,61 @@ def main():
             perfdata_unit = unit
         if unit == 's':
             if show_in_first_line:
-                msg_header += '{}: {}{}, '.format(
-                    name,
-                    lib.human.seconds2human(value),
-                    lib.base.state2str(value_state, prefix=' '),
+                msg_header += (
+                    f'{name}: '
+                    f'{lib.human.seconds2human(value)}'
+                    f'{lib.base.state2str(value_state, prefix=" ")}'
+                    f', '
                 )
             if not skip_output:
                 if not args.HIDEOK or value_state:
                     table_values.append({
                         'name': name,
-                        'value': '{}{}'.format(lib.human.seconds2human(value), ''),
+                        'value': f'{lib.human.seconds2human(value)}',
                         'state': lib.base.state2str(value_state, empty_ok=False),
                     })
         elif unit.lower() == 'b':
             if show_in_first_line:
-                msg_header += '{}: {}{}, '.format(
-                    name,
-                    lib.human.bytes2human(value),
-                    lib.base.state2str(value_state, prefix=' '),
+                msg_header += (
+                    f'{name}: '
+                    f'{lib.human.bytes2human(value)}'
+                    f'{lib.base.state2str(value_state, prefix=" ")}'
+                    f', '
                 )
             if not skip_output:
                 if not args.HIDEOK or value_state:
                     table_values.append({
                         'name': name,
-                        'value': '{}{}'.format(lib.human.bytes2human(value), ''),
+                        'value': f'{lib.human.bytes2human(value)}',
                         'state': lib.base.state2str(value_state, empty_ok=False),
                     })
         elif unit.lower() == 'bps':
             if show_in_first_line:
-                msg_header += '{}: {}{}, '.format(
-                    name,
-                    lib.human.bps2human(value),
-                    lib.base.state2str(value_state, prefix=' '),
+                msg_header += (
+                    f'{name}: '
+                    f'{lib.human.bps2human(value)}'
+                    f'{lib.base.state2str(value_state, prefix=" ")}'
+                    f', '
                 )
             if not skip_output:
                 if not args.HIDEOK or value_state:
                     table_values.append({
                         'name': name,
-                        'value': '{}{}'.format(lib.human.bps2human(value), ''),
+                        'value': f'{lib.human.bps2human(value)}',
                         'state': lib.base.state2str(value_state, empty_ok=False),
                     })
         else:
             if show_in_first_line:
-                msg_header += '{}: {}{}{}, '.format(
-                    name,
-                    value,
-                    unit,
-                    lib.base.state2str(value_state, prefix=' '),
+                msg_header += (
+                    f'{name}: {value}{unit}'
+                    f'{lib.base.state2str(value_state, prefix=" ")}'
+                    f', '
                 )
             if not skip_output:
                 if not args.HIDEOK or value_state:
                     table_values.append({
                         'name': name,
-                        'value': '{}{}'.format(value, unit),
+                        'value': f'{value}{unit}',
                         'state': lib.base.state2str(value_state, empty_ok=False),
                     })
 

@@ -23,7 +23,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Get NodeBB database information."""
 
@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -177,19 +177,20 @@ def main():
     perfdata += lib.base.get_perfdata('db_objects', result['mongo']['objects'], None, None, None, 0, None)
 
     # build the message
-    msg += 'MongoDB "{}"{}: {}% Disk Usage ({}/{}){}, {} {}, {} {}, {} {}'.format(
-        result['mongo']['db'],
-        lib.base.state2str(db_conn_state, prefix=' '),
-        fs_used_percent,
-        lib.human.bytes2human(result['mongo']['fsUsedSize']),
-        lib.human.bytes2human(result['mongo']['fsTotalSize']),
-        lib.base.state2str(db_fs_state, prefix=' '),
-        result['mongo']['collections'],
-        lib.txt.pluralize('collection', result['mongo']['collections']),
-        result['mongo']['indexes'],
-        lib.txt.pluralize('index', result['mongo']['indexes'], 'es'),
-        lib.human.number2human(result['mongo']['objects']),
-        lib.txt.pluralize('object', result['mongo']['objects']),
+    mongo = result['mongo']
+    msg += (
+        f'MongoDB "{mongo["db"]}"'
+        f'{lib.base.state2str(db_conn_state, prefix=" ")}'
+        f': {fs_used_percent}% Disk Usage'
+        f' ({lib.human.bytes2human(mongo["fsUsedSize"])}/'
+        f'{lib.human.bytes2human(mongo["fsTotalSize"])})'
+        f'{lib.base.state2str(db_fs_state, prefix=" ")}'
+        f', {mongo["collections"]}'
+        f' {lib.txt.pluralize("collection", mongo["collections"])}'
+        f', {mongo["indexes"]}'
+        f' {lib.txt.pluralize("index", mongo["indexes"], "es")}'
+        f', {lib.human.number2human(mongo["objects"])}'
+        f' {lib.txt.pluralize("object", mongo["objects"])}'
     )
 
     # over and out

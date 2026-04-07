@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks the status of the newest backups of the Starface PBX.
                 It uses the data output of the Starface Monitoring Module, which was
@@ -51,7 +51,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -151,7 +151,7 @@ def main():
         data = stdout
 
     if not data:
-        lib.base.cu('Got no valuable response from {}:{}.'.format(args.HOSTNAME, args.PORT))
+        lib.base.cu(f'Got no valuable response from {args.HOSTNAME}:{args.PORT}.')
 
     # extract data
     result = lib.txt.extract_str(data, '<<<starface_backups>>>', '<<<').splitlines()
@@ -190,13 +190,13 @@ def main():
     state = lib.base.get_worst(backup_state, state)
 
     # build the message
-    msg += 'Last Backup to {} at {} ({} ago{}) {}{}.'.format(
-        target,
-        lib.time.epoch2iso(timestamp),
-        lib.human.seconds2human(delta),
-        lib.base.state2str(delta_state, prefix=' '),
-        'was successful' if backup_state == STATE_OK else 'failed ({})'.format(retc),
-        lib.base.state2str(backup_state, prefix=' '),
+    msg += (
+        f'Last Backup to {target} '
+        f'at {lib.time.epoch2iso(timestamp)} '
+        f'({lib.human.seconds2human(delta)} ago'
+        f'{lib.base.state2str(delta_state, prefix=" ")}) '
+        f'{"was successful" if backup_state == STATE_OK else f"failed ({retc})"}'
+        f'{lib.base.state2str(backup_state, prefix=" ")}.'
     )
 
     # over and out

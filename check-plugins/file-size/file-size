@@ -32,7 +32,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Checks the size for a file (in bytes).'
 
@@ -51,7 +51,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -178,11 +178,11 @@ def main():
     if args.URL:
         split_url = args.URL.split('://')
         if len(split_url) != 2:
-            lib.base.cu('Could not parse the protocol of the url "{}".'.format(args.URL))
+            lib.base.cu(f'Could not parse the protocol of the url "{args.URL}".')
         proto, url = split_url
         if proto == 'smb':
             if not HAVE_SMB:
-                lib.base.cu('Python module "{}" is not installed.'.format(PYTHON_MOD)) # pylint: disable=E0601
+                lib.base.cu(f'Python module "{PYTHON_MOD}" is not installed.') # pylint: disable=E0601
             for item in lib.base.coe(lib.smb.glob(url, args.USERNAME, args.PASSWORD, args.TIMEOUT, pattern=args.PATTERN)): # pylint: disable=C0301
                 # ignoring directories as the size of a directory is not consistently defined across
                 # filesystems, and never is the size of the contents
@@ -193,7 +193,7 @@ def main():
                     'size': item.stat().st_size,
                 })
         else:
-            lib.base.cu('The protocol "{}" is not supported.'.format(proto))
+            lib.base.cu(f'The protocol "{proto}" is not supported.')
 
     if len(table_data) == 0:
         msg = 'No files found.'
@@ -214,29 +214,26 @@ def main():
         state = lib.base.get_worst(state, table_data[i]['state'])
 
     # build the message
-    msg += '{} {} checked. '.format(
-        len(table_data),
-        lib.txt.pluralize('file', len(table_data)),
-    )
+    msg += f"{len(table_data)} {lib.txt.pluralize('file', len(table_data))} checked. "
     if state == STATE_OK:
-        msg += '{} within the given size thresholds ({}/{}).'.format(
-            lib.txt.pluralize('', len(table_data), 'It is,All are'),
-            args.WARN,
-            args.CRIT,
+        msg += (
+            f'{lib.txt.pluralize("", len(table_data), "It is,All are")}'
+            f' within the given size thresholds'
+            f' ({args.WARN}/{args.CRIT}).'
         )
     else:
-        msg += '{} {} outside the given size thresholds ({}/{}).'.format(
-            alert_count,
-            lib.txt.pluralize('', alert_count, 'is,are'),
-            args.WARN,
-            args.CRIT,
+        msg += (
+            f'{alert_count}'
+            f' {lib.txt.pluralize("", alert_count, "is,are")}'
+            f' outside the given size thresholds'
+            f' ({args.WARN}/{args.CRIT}).'
         )
     if len(table_data) == 1:
         # show info on first line when there is only one hit
-        msg += ' Checked {}: {} {}'.format(
-            table_data[0]['filename'],
-            table_data[0]['size_hr'],
-            lib.base.state2str(table_data[0]['state'], prefix=' '),
+        msg += (
+            f' Checked {table_data[0]["filename"]}:'
+            f' {table_data[0]["size_hr"]}'
+            f'{lib.base.state2str(table_data[0]["state"], prefix=" ")}'
         )
     else:
         msg += '\n\n' + lib.base.get_table(

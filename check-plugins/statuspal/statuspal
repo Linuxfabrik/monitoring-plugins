@@ -25,7 +25,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026033101'
+__version__ = '2026040801'
 
 DESCRIPTION = """Statuspal is a status page provider from Germany. This check plugin gets
                  the summary of a Statuspal status page, checks its status, services,
@@ -46,7 +46,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -118,7 +118,7 @@ def flatten_services(services, parent_name=''):
     for service in services:
         if not service.get('name'):
             continue
-        full_name = '{}.{}'.format(parent_name, service['name']) if parent_name else service['name']
+        full_name = f"{parent_name}.{service['name']}" if parent_name else service['name']
         result.append({
             'name': full_name,
             'current_incident_type': service.get('current_incident_type'),
@@ -171,7 +171,7 @@ def main():
     try:
         result['status_page']['current_incident_type']
     except Exception as e:
-        lib.base.cu('Unexpected response from {}'.format(args.URL))
+        lib.base.cu(f'Unexpected response from {args.URL}')
 
     # init some vars
     msg = ''
@@ -190,25 +190,25 @@ def main():
     if state == STATE_CRIT:
         msg += 'Major incidents @ '
     if state == STATE_UNKNOWN:
-        msg += 'Got state "{}" from {} for '.format(
-            result['status_page']['current_incident_type'],
-            args.URL,
+        msg += (
+            f'Got state "'
+            f'{result["status_page"]["current_incident_type"]}'
+            f'" from {args.URL} for '
         )
-    msg += '{} ({}, TZ {})'.format(
-        result['status_page']['name'],
-        result['status_page']['url'],
-        result['status_page']['time_zone'],
+    msg += (
+        f'{result["status_page"]["name"]} '
+        f'({result["status_page"]["url"]}, '
+        f'TZ {result["status_page"]["time_zone"]})'
     )
 
     # incidents - get newest incident message only and print it on top
     if result['incidents']:
-        msg += ': {}'.format(result['incidents'][0]['title'].strip())
+        msg += f": {result['incidents'][0]['title'].strip()}"
         if result['incidents'][0]['updates']:
-            msg += ' / {} ({})'.format(
-                result['incidents'][0]['updates'][0]['description'].strip(),
-                result['incidents'][0]['updates'][0]['updated_at'].replace('T', ' ').strip(),
-            )
-        msg += ' (see {})'.format(result['incidents'][0]['url']) if result['incidents'][0]['url'] else '' # pylint: disable=C0301
+            description = result['incidents'][0]['updates'][0]['description'].strip()
+            updated_at = result['incidents'][0]['updates'][0]['updated_at'].replace('T', ' ').strip()
+            msg += f' / {description} ({updated_at})'
+        msg += f" (see {result['incidents'][0]['url']})" if result['incidents'][0]['url'] else '' # pylint: disable=C0301
 
     # services - search for any incidents in services
     for service in flatten_services(result['services']):
@@ -235,13 +235,13 @@ def main():
         table_data.append({
             'type': maint['type'],
             'title': maint['title'],
-            'starts_at': '{}'.format(
-                lib.time.timestr2datetime(maint['starts_at'], pattern='%Y-%m-%dT%H:%M:%S'),
-            ),
+            'starts_at': f'{lib.time.timestr2datetime(maint["starts_at"], pattern="%Y-%m-%dT%H:%M:%S")}',
             # in case of an ongoing maint, ends_at is "None"
-            'ends_at': '{}'.format(
-                lib.time.timestr2datetime(maint['ends_at'], pattern='%Y-%m-%dT%H:%M:%S'),
-            ) if maint.get('ends_at') is not None else 'in progress',
+            'ends_at': (
+                f'{lib.time.timestr2datetime(maint["ends_at"], pattern="%Y-%m-%dT%H:%M:%S")}'
+                if maint.get('ends_at') is not None
+                else 'in progress'
+            ),
         })
     if table_data:
         msg += '\n'
@@ -252,10 +252,11 @@ def main():
         )
         # get newest maintenance task
         if table_data[0]['starts_at'] <= lib.time.now(as_type='iso'):
-            msg = 'Ongoing maintenance since {}: {}\n{}'.format(
-                table_data[0]['starts_at'],
-                table_data[0]['title'],
-                msg,
+            msg = (
+                f'Ongoing maintenance since '
+                f'{table_data[0]["starts_at"]}: '
+                f'{table_data[0]["title"]}\n'
+                f'{msg}'
             )
 
     # upcoming_maintenances (just fyi)
@@ -264,13 +265,13 @@ def main():
         table_data.append({
             'type': maint['type'],
             'title': maint['title'],
-            'starts_at': '{}'.format(
-                lib.time.timestr2datetime(maint['starts_at'], pattern='%Y-%m-%dT%H:%M:%S'),
-            ),
+            'starts_at': f'{lib.time.timestr2datetime(maint["starts_at"], pattern="%Y-%m-%dT%H:%M:%S")}',
             # in case of an ongoing maint, ends_at is "None"
-            'ends_at': '{}'.format(
-                lib.time.timestr2datetime(maint['ends_at'], pattern='%Y-%m-%dT%H:%M:%S'),
-            ) if maint.get('ends_at') is not None else 'open end',
+            'ends_at': (
+                f'{lib.time.timestr2datetime(maint["ends_at"], pattern="%Y-%m-%dT%H:%M:%S")}'
+                if maint.get('ends_at') is not None
+                else 'open end'
+            ),
         })
     if table_data:
         msg += '\n'

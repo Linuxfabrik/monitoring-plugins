@@ -75,6 +75,7 @@ Grafana:
 
 Monitoring Plugins:
 
+* all plugins: convert `.format()` string formatting to f-strings
 * all plugins: ignore unknown arguments instead of generating an error (this helps with updating Icinga and Nagios service definitions considerably)
 * by-ssh, by-winrm, disk-usage, example, file-ownership, fs-ro, infomaniak-events, journald-query, logfile, matomo-reporting, mysql-logfile, php-status, pip-updates, systemd-unit: fix `append` parameters so that user-specified values replace defaults instead of being appended to them ([#540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
 * cpu-usage: remove `--top` parameter (the top N processes by CPU time are now reported by the procs check via `--top`)

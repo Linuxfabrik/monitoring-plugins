@@ -27,7 +27,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_CRIT, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026033101'
+__version__ = '2026040801'
 
 DESCRIPTION = """Informs you about open events at Infomaniak."""
 
@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -179,11 +179,7 @@ def main():
 
         services = ', '.join(services)
         if event.get('status') != 'terminated':
-            msg += '{}: {} ({}), '.format(
-                event.get('type'),
-                title,
-                services,
-            )
+            msg += f"{event.get('type')}: {title} ({services}), "
             if event.get('type').lower() == 'critical':
                 state = STATE_CRIT
             else:
@@ -195,13 +191,11 @@ def main():
             'status': event.get('status'),
             'title': title,
             'services': services,
-            'started_at': '{}'.format(
-                lib.time.epoch2iso(int(event.get('started_at'))),
-            ),
+            'started_at': f"{lib.time.epoch2iso(int(event.get('started_at')))}",
             # in case of an ongoing event, `ended_at` is "None"
-            'ended_at': '{} ({} ago)'.format(
-                lib.time.epoch2iso(int(event.get('ended_at'))),
-                lib.human.seconds2human(lib.time.now(as_type='epoch') - int(event.get('ended_at'))), # pylint: disable=C0301
+            'ended_at': (
+                f'{lib.time.epoch2iso(int(event.get("ended_at")))}'
+                f' ({lib.human.seconds2human(lib.time.now(as_type="epoch") - int(event.get("ended_at")))} ago)' # pylint: disable=C0301
             ) if event.get('ended_at') is not None else 'in progress',
             'duration': lib.human.seconds2human(
                 event.get('ended_at') - event.get('started_at')

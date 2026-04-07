@@ -21,7 +21,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks the number of threads MySQL/MariaDB caches for re-use."""
 
@@ -38,7 +38,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -147,23 +147,30 @@ def main():
     else:
         if int(myvar['thread_cache_size']) == 0:
             state = STATE_WARN
-            msg += 'Thread cache is disabled{}. Set thread_cache_size to 4 as a starting value.'.format(
-                lib.base.state2str(state, prefix=' '),
+            msg += (
+                f'Thread cache is disabled'
+                f'{lib.base.state2str(state, prefix=" ")}'
+                f'. Set thread_cache_size to 4'
+                f' as a starting value.'
             )
         else:
-            msg += '{}% thread cache hit rate ({} threads created / {} connections)'.format(
-                mycalc['thread_cache_hit_rate'],
-                lib.human.number2human(mystat['Threads_created']),
-                lib.human.number2human(mystat['Connections']),
+            msg += (
+                f'{mycalc["thread_cache_hit_rate"]}%'
+                f' thread cache hit rate'
+                f' ({lib.human.number2human(mystat["Threads_created"])}'
+                f' threads created /'
+                f' {lib.human.number2human(mystat["Connections"])}'
+                f' connections)'
             )
             if int(mystat['Uptime']) < 3600:
                 # only alert if cache is warmed up
                 msg += '. Cache is warming up.'
             elif mycalc['thread_cache_hit_rate'] <= 50:
                 state = STATE_WARN
-                msg += '{}. Set thread_cache_size > {}.'.format(
-                    lib.base.state2str(state, prefix=' '),
-                    myvar['thread_cache_size'],
+                msg += (
+                    f'{lib.base.state2str(state, prefix=" ")}'
+                    f'. Set thread_cache_size >'
+                    f' {myvar["thread_cache_size"]}.'
                 )
             else:
                 msg += '.'

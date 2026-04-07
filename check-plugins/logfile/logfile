@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026033101'
+__version__ = '2026040801'
 
 DESCRIPTION = """Scans a logfile for a set of patterns or regex and alerts
                  on the number of matches."""
@@ -47,7 +47,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -239,7 +239,7 @@ def main():
         file_stat = os.stat(args.FILENAME)
     except FileNotFoundError as e:
         # no traceback wanted, so using oao() instead of cu()
-        lib.base.oao('{}: "{}"'.format(e.strerror, args.FILENAME), STATE_UNKNOWN)
+        lib.base.oao(f'{e.strerror}: "{args.FILENAME}"', STATE_UNKNOWN)
 
     if not any((args.WARN_PATTERN, args.WARN_REGEX, args.CRIT_PATTERN, args.CRIT_REGEX)):
         lib.base.cu('At least one pattern or regex is required.')
@@ -251,9 +251,7 @@ def main():
     # create the db table
     conn = lib.base.coe(
         lib.db_sqlite.connect(
-            filename='linuxfabrik-monitoring-plugins-logfile-{}.db'.format(
-                os.path.basename(args.FILENAME),
-            )
+            filename=f'linuxfabrik-monitoring-plugins-logfile-{os.path.basename(args.FILENAME)}.db'
         )
     )
     definition = '''
@@ -322,7 +320,7 @@ def main():
                         crit_matches.append(line.strip())
             offset = logfile.tell()
     except PermissionError:
-        lib.base.cu("Permission denied opening '{}'.".format(args.FILENAME))
+        lib.base.cu(f"Permission denied opening '{args.FILENAME}'.")
         # make sure conn is always closed
         lib.db_sqlite.close(conn)
 
@@ -412,7 +410,7 @@ def main():
             except IndexError:
                 msg_addendum += 'Note: Could not determine the acknowledgement from the Icinga API, this could be due to an incorrect service name.' # pylint: disable=C0301
         else:
-            msg_addendum += 'Note: Could not determine the acknowledgement from the Icinga API:\n{}.'.format(icinga) # pylint: disable=C0301
+            msg_addendum += f'Note: Could not determine the acknowledgement from the Icinga API:\n{icinga}.' # pylint: disable=C0301
 
     # save to db, these lines will be alarmed until the service is acknowledged in icinga2
     for match in warn_matches:
@@ -441,29 +439,29 @@ def main():
     lib.db_sqlite.close(conn)
 
     # Build the message
-    msg = 'Scanned {} lines'.format(line_counter)
+    msg = f'Scanned {line_counter} lines'
     if warn_matches:
-        msg += ', {} warning {}'.format(
-            len(warn_matches),
-            lib.txt.pluralize('match', len(warn_matches), 'es'),
+        msg += (
+            f', {len(warn_matches)} warning'
+            f' {lib.txt.pluralize("match", len(warn_matches), "es")}'
         )
 
     if crit_matches:
-        msg += ', {} critical {}'.format(
-            len(crit_matches),
-            lib.txt.pluralize('match', len(crit_matches), 'es'),
+        msg += (
+            f', {len(crit_matches)} critical'
+            f' {lib.txt.pluralize("match", len(crit_matches), "es")}'
         )
 
     if old_warn_matches:
-        msg += ', {} old warning {}'.format(
-            len(old_warn_matches),
-            lib.txt.pluralize('match', len(old_warn_matches), 'es'),
+        msg += (
+            f', {len(old_warn_matches)} old warning'
+            f' {lib.txt.pluralize("match", len(old_warn_matches), "es")}'
         )
 
     if old_crit_matches:
-        msg += ', {} old critical {}'.format(
-            len(old_crit_matches),
-            lib.txt.pluralize('match', len(old_crit_matches), 'es'),
+        msg += (
+            f', {len(old_crit_matches)} old critical'
+            f' {lib.txt.pluralize("match", len(old_crit_matches), "es")}'
         )
 
     if not args.SUPPRESS_OUTPUT:

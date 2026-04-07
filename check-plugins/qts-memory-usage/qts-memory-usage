@@ -30,7 +30,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Returns the current system-wide memory utilization as a percentage from QNAP
                  Appliances running QTS via API."""
@@ -51,7 +51,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -146,9 +146,10 @@ def main():
     auth_sid = lib.base.coe(lib.qts.get_auth_sid(args))
 
     # get system information
-    url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(
-        args.URL,
-        auth_sid,
+    url = (
+        f'{args.URL}/cgi-bin/management/'
+        f'manaRequest.cgi?subfunc=sysinfo'
+        f'&hd=no&multicpu=1&sid={auth_sid}'
     )
     result = lib.base.coe(
         lib.url.fetch(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT)
@@ -165,11 +166,11 @@ def main():
     state = lib.base.get_state(memory_usage, args.WARN, args.CRIT, _operator='gt')
 
     # build the message
-    msg = '{}% - total: {}, used: {}, free: {}'.format(
-        memory_usage,
-        lib.human.bytes2human(total),
-        lib.human.bytes2human(used),
-        lib.human.bytes2human(free),
+    msg = (
+        f'{memory_usage}% - total:'
+        f' {lib.human.bytes2human(total)}, used:'
+        f' {lib.human.bytes2human(used)}, free:'
+        f' {lib.human.bytes2human(free)}'
     )
     perfdata = lib.base.get_perfdata('memory-usage', memory_usage, '%', args.WARN, args.CRIT, 0, 100) # pylint: disable=C0301
     perfdata += lib.base.get_perfdata('total', total, 'B', None, None, 0, total)

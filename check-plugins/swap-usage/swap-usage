@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Displays amount of free and used swap space in the system, checks against used swap
                  in percent."""
@@ -47,7 +47,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__),
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -93,7 +93,7 @@ def get_swap_and_name(pid):
     """Scan for usage details in /proc-files.
     """
     try:
-        with open('/proc/{}/status'.format(pid)) as file:
+        with open(f'/proc/{pid}/status') as file:
             content = file.read()
             name = lib.txt.extract_str(content, 'Name:', '\n')
             size = lib.txt.extract_str(content, 'VmSwap:', '\n')
@@ -117,10 +117,10 @@ def top(count):
                 process_info[name] += usage * 1024
             except:
                 process_info[name] = usage * 1024
-    msg = '\nTop {} processes that use the most swap space:\n'.format(count)
+    msg = f'\nTop {count} processes that use the most swap space:\n'
     process_info = lib.base.sort(process_info)
     for i, p in enumerate(process_info[:count]):
-        msg += '{}. {}: {}\n'.format(i + 1, p[0], lib.human.bytes2human(p[1]))
+        msg += f'{i + 1}. {p[0]}: {lib.human.bytes2human(p[1])}\n'
     return msg
 
 
@@ -143,11 +143,11 @@ def main():
         )
     swap_usage_percent = swap.percent
 
-    msg_header = '{}% - total: {}, used: {}, free: {}'.format(
-        swap_usage_percent,
-        lib.human.bytes2human(swap.total),
-        lib.human.bytes2human(swap.used),
-        lib.human.bytes2human(swap.free),
+    msg_header = (
+        f'{swap_usage_percent}% - '
+        f'total: {lib.human.bytes2human(swap.total)}, '
+        f'used: {lib.human.bytes2human(swap.used)}, '
+        f'free: {lib.human.bytes2human(swap.free)}'
     )
 
     perfdata =  lib.base.get_perfdata('usage_percent', swap_usage_percent, '%', args.WARN, args.CRIT, 0, 100) # pylint: disable=C0301
@@ -157,9 +157,12 @@ def main():
 
     msg_body = ''
     if not lib.base.WINDOWS:
-        msg_body = 'swapped in: {}, swapped out: {} (both cumulative)'.format(
-            lib.human.bytes2human(getattr(swap, 'sin', 0)),
-            lib.human.bytes2human(getattr(swap, 'sout', 0)),
+        msg_body = (
+            f'swapped in: '
+            f'{lib.human.bytes2human(getattr(swap, "sin", 0))}'
+            f', swapped out: '
+            f'{lib.human.bytes2human(getattr(swap, "sout", 0))}'
+            f' (both cumulative)'
         )
         perfdata += lib.base.get_perfdata('sin', getattr(swap, 'sin', 0), 'B', None, None, 0, None)
         perfdata += lib.base.get_perfdata('sout', getattr(swap, 'sout', 0), 'B', None, None, 0, None) # pylint: disable=C0301

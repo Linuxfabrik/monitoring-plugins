@@ -25,7 +25,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 
 __author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
                 originally written by Dominik Riva, Universitätsspital Basel/Switzerland"""
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """This check targets the JSON endpoint of https://www.cometsystem.com/ Web Sensors.
               """
@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -195,18 +195,15 @@ def main():
                 value['alarm'] = 'high'
             if value['alarm'] == 2:
                 value['alarm'] = 'low'
-            value['aval'] = '{}{}{}'.format(
-                value['aval'],
-                value['unit'],
-                lib.base.state2str(channel_state, prefix=' '),
+            value['aval'] = (
+                f'{value["aval"]}'
+                f'{value["unit"]}'
+                f'{lib.base.state2str(channel_state, prefix=" ")}'
             )
             table_data.append(value)
 
     # build the message
-    msg += ' on {} SN {}.\n\n'.format(
-        result['devname'],
-        result['devsn'],
-    )
+    msg += f" on {result['devname']} SN {result['devsn']}.\n\n"
     if table_data:
         msg += lib.base.get_table(
             table_data,

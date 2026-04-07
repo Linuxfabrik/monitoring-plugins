@@ -21,7 +21,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks some sort metrics on MySQL/MariaDB."""
 
@@ -38,7 +38,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -143,24 +143,26 @@ def main():
         mycalc['pct_temp_sort_table'] = 0
 
     # Sorting
-    msg += '{} sorts used a full table scan. '.format(
-        lib.human.number2human(mystat['Sort_scan']),
-    )
+    msg += f"{lib.human.number2human(mystat['Sort_scan'])} sorts used a full table scan. "
     if mycalc['total_sorts'] == 0:
         msg += 'No sort required temporary tables.'
     else:
-        msg += 'Sorts requiring temporary tables: {}% ({} temp sorts / {} sorts)'.format(
-            mycalc['pct_temp_sort_table'],
-            lib.human.number2human(mystat['Sort_merge_passes']),
-            lib.human.number2human(mycalc['total_sorts']),
+        msg += (
+            f'Sorts requiring temporary tables:'
+            f' {mycalc["pct_temp_sort_table"]}%'
+            f' ({lib.human.number2human(mystat["Sort_merge_passes"])}'
+            f' temp sorts /'
+            f' {lib.human.number2human(mycalc["total_sorts"])} sorts)'
         )
         if mycalc['pct_temp_sort_table'] > 10:
             sort_state = STATE_WARN
             state = lib.base.get_worst(state, sort_state)
-            msg += '{}. Set sort_buffer_size > {} and/or read_rnd_buffer_size > {}.'.format(
-                lib.base.state2str(state, prefix=' '),
-                myvar['sort_buffer_size'],
-                myvar['read_rnd_buffer_size'],
+            msg += (
+                f'{lib.base.state2str(state, prefix=" ")}.'
+                f' Set sort_buffer_size >'
+                f' {myvar["sort_buffer_size"]}'
+                f' and/or read_rnd_buffer_size >'
+                f' {myvar["read_rnd_buffer_size"]}.'
             )
         else:
             msg += '.'

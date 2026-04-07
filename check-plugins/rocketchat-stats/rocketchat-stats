@@ -20,7 +20,7 @@ import lib.rocket  # pylint: disable=C0413
 from lib.globals import (STATE_OK, STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025112601'
+__version__ = '2026040801'
 
 DESCRIPTION = """This plugin allows you to track statistics about a Rocket.Chat server,
                  structured in the same way as on the https://rocket.chat/admin/info page.
@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -134,65 +134,83 @@ def main():
     state = STATE_OK
 
     # build a compact multiline message with the most important info first
-    msg += '{}/{} users online, {} {}, {} {}, {} upload total size, v{}'.format(
-        result.get('onlineUsers', 'n/a'),
-        result.get('totalUsers', 'n/a'),
-        lib.human.number2human(result.get('totalMessages', 0)),
-        lib.txt.pluralize('msg', result.get('totalMessages', 0)),
-        lib.human.number2human(result.get('uploadsTotal', 0)),
-        lib.txt.pluralize('upload', result.get('uploadsTotal', 0)),
-        lib.human.bytes2human(result.get('uploadsTotalSize', 0)),
-        result.get('version', 'n/a'),
+    msg += (
+        f'{result.get("onlineUsers", "n/a")}'
+        f'/{result.get("totalUsers", "n/a")} users online,'
+        f' {lib.human.number2human(result.get("totalMessages", 0))}'
+        f' {lib.txt.pluralize("msg", result.get("totalMessages", 0))},'
+        f' {lib.human.number2human(result.get("uploadsTotal", 0))}'
+        f' {lib.txt.pluralize("upload", result.get("uploadsTotal", 0))},'
+        f' {lib.human.bytes2human(result.get("uploadsTotalSize", 0))}'
+        f' upload total size,'
+        f' v{result.get("version", "n/a")}'
     )
 
     # no checks here, just for your information
-    msg += '\n* Users: {} total ({} online, {} busy, {} away, {} offline)'.format(
-        result.get('totalUsers', 'n/a'),
-        result.get('onlineUsers', 'n/a'),
-        result.get('busyUsers', 'n/a'),
-        result.get('awayUsers', 'n/a'),
-        result.get('offlineUsers', 'n/a'),
+    msg += (
+        f'\n* Users: {result.get("totalUsers", "n/a")} total'
+        f' ({result.get("onlineUsers", "n/a")} online,'
+        f' {result.get("busyUsers", "n/a")} busy,'
+        f' {result.get("awayUsers", "n/a")} away,'
+        f' {result.get("offlineUsers", "n/a")} offline)'
     )
 
-    msg += '\n* Types and Distribution: {} of {} activated {} online, {} activated {}, {} deactivated {}, {} Rocket.Chat app {}'.format( # pylint: disable=C0301
-        result.get('totalConnectedUsers', 'n/a'),
-        result.get('activeUsers', 'n/a'),
-        lib.txt.pluralize('user', result.get('activeUsers', 0)),
-        result.get('activeGuests', 'n/a'),
-        lib.txt.pluralize('guest', result.get('activeGuests', 0)),
-        result.get('nonActiveUsers', 'n/a'),
-        lib.txt.pluralize('user', result.get('nonActiveUsers', 0)),
-        result.get('appUsers', 'n/a'),
-        lib.txt.pluralize('user', result.get('appUsers', 0)),
+    msg += (
+        f'\n* Types and Distribution:'
+        f' {result.get("totalConnectedUsers", "n/a")}'
+        f' of {result.get("activeUsers", "n/a")}'
+        f' activated'
+        f' {lib.txt.pluralize("user", result.get("activeUsers", 0))}'
+        f' online,'
+        f' {result.get("activeGuests", "n/a")}'
+        f' activated'
+        f' {lib.txt.pluralize("guest", result.get("activeGuests", 0))},'
+        f' {result.get("nonActiveUsers", "n/a")}'
+        f' deactivated'
+        f' {lib.txt.pluralize("user", result.get("nonActiveUsers", 0))},'
+        f' {result.get("appUsers", "n/a")}'
+        f' Rocket.Chat app'
+        f' {lib.txt.pluralize("user", result.get("appUsers", 0))}'
     )
 
-    msg += '\n* Total Uploads: {}, {} size'.format(
-        result.get('uploadsTotal', 'n/a'),
-        lib.human.bytes2human(result.get('uploadsTotalSize', 0)),
+    msg += (
+        f'\n* Total Uploads:'
+        f' {result.get("uploadsTotal", "n/a")},'
+        f' {lib.human.bytes2human(result.get("uploadsTotalSize", 0))}'
+        f' size'
     )
 
-    msg += '\n* Total Rooms: {} ({} {}, {} private {}, {} direct msg {}, {} {}, {} omnichannel {})'.format( # pylint: disable=C0301
-        result.get('totalRooms', 'n/a'),
-        result.get('totalChannels', 'n/a'),
-        lib.txt.pluralize('channel', result.get('totalChannels', 0)),
-        result.get('totalPrivateGroups', 'n/a'),
-        lib.txt.pluralize('group', result.get('totalPrivateGroups', 0)),
-        result.get('totalDirect', 'n/a'),
-        lib.txt.pluralize('room', result.get('totalDirect', 0)),
-        result.get('totalDiscussions', 'n/a'),
-        lib.txt.pluralize('discussion', result.get('totalDiscussions', 0)),
-        result.get('totalLivechat', 'n/a'),
-        lib.txt.pluralize('room', result.get('totalLivechat', 0)),
+    msg += (
+        f'\n* Total Rooms:'
+        f' {result.get("totalRooms", "n/a")}'
+        f' ({result.get("totalChannels", "n/a")}'
+        f' {lib.txt.pluralize("channel", result.get("totalChannels", 0))},'
+        f' {result.get("totalPrivateGroups", "n/a")}'
+        f' private'
+        f' {lib.txt.pluralize("group", result.get("totalPrivateGroups", 0))},'
+        f' {result.get("totalDirect", "n/a")}'
+        f' direct msg'
+        f' {lib.txt.pluralize("room", result.get("totalDirect", 0))},'
+        f' {result.get("totalDiscussions", "n/a")}'
+        f' {lib.txt.pluralize("discussion", result.get("totalDiscussions", 0))},'
+        f' {result.get("totalLivechat", "n/a")}'
+        f' omnichannel'
+        f' {lib.txt.pluralize("room", result.get("totalLivechat", 0))})'
     )
 
-    msg += '\n* Total Messages: {} ({} {}, {} in channels, {} in priv groups, {} in direct msg, {} in omnichannel)'.format( # pylint: disable=C0301
-        lib.human.number2human(result.get('totalMessages', 0)),
-        result.get('totalThreads', 'n/a'),
-        lib.txt.pluralize('thread', result.get('totalThreads', 0)),
-        result.get('totalChannelMessages', 'n/a'),
-        lib.human.number2human(result.get('totalPrivateGroupMessages', 0)),
-        lib.human.number2human(result.get('totalDirectMessages', 0)),
-        lib.human.number2human(result.get('totalLivechatMessages', 0)),
+    msg += (
+        f'\n* Total Messages:'
+        f' {lib.human.number2human(result.get("totalMessages", 0))}'
+        f' ({result.get("totalThreads", "n/a")}'
+        f' {lib.txt.pluralize("thread", result.get("totalThreads", 0))},'
+        f' {result.get("totalChannelMessages", "n/a")}'
+        f' in channels,'
+        f' {lib.human.number2human(result.get("totalPrivateGroupMessages", 0))}'
+        f' in priv groups,'
+        f' {lib.human.number2human(result.get("totalDirectMessages", 0))}'
+        f' in direct msg,'
+        f' {lib.human.number2human(result.get("totalLivechatMessages", 0))}'
+        f' in omnichannel)'
     )
 
     perfdata += lib.base.get_perfdata('rc_totalUsers', result.get('totalUsers', 0), None, None, None, 0, None) # pylint: disable=C0301

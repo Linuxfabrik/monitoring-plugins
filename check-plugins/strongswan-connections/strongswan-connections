@@ -33,7 +33,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """This Nagios/Icinga monitoring plugin checks IPSec connection states. It connects
                  to the vici plugin in libcharon using the Versatile IKE Control Interface (VICI)
@@ -53,7 +53,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -133,43 +133,28 @@ def format_sas_data(sas):
         # interface does not return a "integ-alg" key at all. There is no key without value but the
         # key is missing in the dictionary.
         data['integ-alg'] = 'None'
-    data['encr'] = '{}-{}/{}/{}/{}'.format(
-        data['encr-alg'],
-        data['encr-keysize'],
-        data['integ-alg'],
-        data['prf-alg'],
-        data['dh-group'],
+    data['encr'] = (
+        f'{data["encr-alg"]}-{data["encr-keysize"]}'
+        f'/{data["integ-alg"]}'
+        f'/{data["prf-alg"]}'
+        f'/{data["dh-group"]}'
     )
     data['established-hr'] = lib.time.epoch2iso(
         lib.time.now(as_type='epoch') - int(data['established'])
     )
     if data['local-id'] != data['local-host']:
-        data['local'] = '{}:{} ("{}")'.format(
-            data['local-host'],
-            data['local-port'],
-            data['local-id'],
-        )
+        data['local'] = f"{data['local-host']}:{data['local-port']} (\"{data['local-id']}\")"
     else:
-        data['local'] = '{}:{}'.format(
-            data['local-host'],
-            data['local-port'],
-        )
+        data['local'] = f"{data['local-host']}:{data['local-port']}"
     data['rekey-time-hr'] = lib.time.epoch2iso(
         lib.time.now(as_type='epoch') + int(data['rekey-time'])
     )
     if data['remote-id'] != data['remote-host']:
-        data['remote'] = '{}:{} ("{}")'.format(
-            data['remote-host'],
-            data['remote-port'],
-            data['remote-id'],
-        )
+        data['remote'] = f"{data['remote-host']}:{data['remote-port']} (\"{data['remote-id']}\")"
     else:
-        data['remote'] = '{}:{}'.format(
-            data['remote-host'],
-            data['remote-port'],
-        )
+        data['remote'] = f"{data['remote-host']}:{data['remote-port']}"
     data['state'] = data['state'].replace('ESTABLISHED', 'EST')
-    data['version'] = 'v{}'.format(data['version'])
+    data['version'] = f"v{data['version']}"
 
     return data
 
@@ -198,12 +183,12 @@ def format_child_data(child):
 
     data['child-bytes-in-hr'] = lib.human.bytes2human(data['child-bytes-in'])
     data['child-bytes-out-hr'] = lib.human.bytes2human(data['child-bytes-out'])
-    data['child-encr'] = '{}:{}-{}/{}/{}'.format(
-        data['child-protocol'],
-        data['child-encr-alg'],
-        data['child-encr-keysize'],
-        data['child-integ-alg'],
-        data['child-dh-group'],
+    data['child-encr'] = (
+        f'{data["child-protocol"]}:'
+        f'{data["child-encr-alg"]}-'
+        f'{data["child-encr-keysize"]}'
+        f'/{data["child-integ-alg"]}'
+        f'/{data["child-dh-group"]}'
     )
     data['child-install-time-hr'] = lib.time.epoch2iso(
         lib.time.now(as_type='epoch') - data['child-install-time']
@@ -211,10 +196,7 @@ def format_child_data(child):
     data['child-life-time-hr'] = lib.time.epoch2iso(
         lib.time.now(as_type='epoch') + data['child-life-time']
     )
-    data['child-mode-state'] = '{}:{}'.format(
-        data['child-mode'],
-        data['child-state'],
-    )
+    data['child-mode-state'] = f"{data['child-mode']}:{data['child-state']}"
     data['child-rekey-time-hr'] = lib.time.epoch2iso(
         lib.time.now(as_type='epoch') + data['child-rekey-time']
     )
@@ -267,8 +249,10 @@ def main():
     if possible_connection_keys != active_connection_keys:
         conf_state = STATE_WARN
         state = lib.base.get_worst(state, conf_state)
-        msg += 'One or more connections are configured but not active{}. '.format(
-            lib.base.state2str(conf_state, prefix=' '),
+        msg += (
+            f'One or more connections are configured '
+            f'but not active'
+            f'{lib.base.state2str(conf_state, prefix=" ")}. '
         )
 
     # analyze data
@@ -279,8 +263,8 @@ def main():
             except:
                 continue
             row['conn'] = key
-            perfdata += lib.base.get_perfdata('{}_established'.format(key), row['established'], 's', None, None, 0, None)
-            perfdata += lib.base.get_perfdata('{}_rekey-time'.format(key), row['rekey-time'], 's', None, None, 0, None)
+            perfdata += lib.base.get_perfdata(f'{key}_established', row['established'], 's', None, None, 0, None)
+            perfdata += lib.base.get_perfdata(f'{key}_rekey-time', row['rekey-time'], 's', None, None, 0, None)
 
             children = None
             try:
@@ -295,17 +279,17 @@ def main():
                     child_row = format_child_data(children[child_key])
                     # combine two dictionaries using dictionary comprehension
                     table_data.append({k:v for d in (row, child_row) for k,v in d.items()})
-                    perfdata += lib.base.get_perfdata('{}_{}_bytes-in'.format(key, child_row['child-name']), child_row['child-bytes-in'], 'B', None, None, 0, None)
-                    perfdata += lib.base.get_perfdata('{}_{}_bytes-out'.format(key, child_row['child-name']), child_row['child-bytes-out'], 'B', None, None, 0, None)
-                    perfdata += lib.base.get_perfdata('{}_{}_install-time'.format(key, child_row['child-name']), child_row['child-install-time'], 's', None, None, 0, None)
-                    perfdata += lib.base.get_perfdata('{}_{}_life-time'.format(key, child_row['child-name']), child_row['child-life-time'], 's', None, None, 0, None)
-                    perfdata += lib.base.get_perfdata('{}_{}_rekey-time'.format(key, child_row['child-name']), child_row['child-rekey-time'], 's', None, None, 0, None)
+                    perfdata += lib.base.get_perfdata(f"{key}_{child_row['child-name']}_bytes-in", child_row['child-bytes-in'], 'B', None, None, 0, None)
+                    perfdata += lib.base.get_perfdata(f"{key}_{child_row['child-name']}_bytes-out", child_row['child-bytes-out'], 'B', None, None, 0, None)
+                    perfdata += lib.base.get_perfdata(f"{key}_{child_row['child-name']}_install-time", child_row['child-install-time'], 's', None, None, 0, None)
+                    perfdata += lib.base.get_perfdata(f"{key}_{child_row['child-name']}_life-time", child_row['child-life-time'], 's', None, None, 0, None)
+                    perfdata += lib.base.get_perfdata(f"{key}_{child_row['child-name']}_rekey-time", child_row['child-rekey-time'], 's', None, None, 0, None)
             else:
                 child_state = STATE_WARN
                 state = lib.base.get_worst(state, child_state)
-                msg += '{} not connected at child level{}. '.format(
-                    key,
-                    lib.base.state2str(child_state, prefix=' '),
+                msg += (
+                    f'{key} not connected at child level'
+                    f'{lib.base.state2str(child_state, prefix=" ")}. '
                 )
 
     # build the message
@@ -378,10 +362,11 @@ def main():
                 'Rx',
                 'Tx',
             ]
-        lib.base.oao('{}\n\n{}'.format(
-            msg,
-            lib.base.get_table(table_data, keys, header=headers),
-        ), state, perfdata, always_ok=args.ALWAYS_OK)
+        lib.base.oao(
+            f'{msg}\n\n'
+            f'{lib.base.get_table(table_data, keys, header=headers)}',
+            state, perfdata, always_ok=args.ALWAYS_OK,
+        )
     else:
         lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 

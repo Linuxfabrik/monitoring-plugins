@@ -20,7 +20,7 @@ import lib.shell  # pylint: disable=C0413
 from lib.globals import (STATE_CRIT, STATE_OK, STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Sends ICMP ECHO_REQUEST to network hosts using the built-in `ping` command.'
 
@@ -38,7 +38,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -101,12 +101,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # ping -c 5 -i 0.2 -w 5 -q 192.0.2.10
-    cmd = 'ping -c {count} -i {interval} -w {deadline} -q {hostname}'.format(
-        count=args.COUNT,
-        interval=args.INTERVAL,
-        deadline=args.DEADLINE,
-        hostname=args.HOSTNAME
-    )
+    cmd = f'ping -c {args.COUNT} -i {args.INTERVAL} -w {args.DEADLINE} -q {args.HOSTNAME}'
 
     # fetch data
     stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
@@ -148,7 +143,7 @@ def main():
     # "PING %hostname (%ip) [from %sinip %device: ]%datalen(%datalen+28)
     # 'PING www.linuxfabrik.ch (192.0.2.10) 56(84) bytes of data.'
     ping = re.search(r'G (.*?)\(', result[0]) # regex: 45 steps
-    msg += 'PING {}'.format(ping.group(1).strip()) + ': '
+    msg += f'PING {ping.group(1).strip()}' + ': '
 
     # line 3:
     # "%ntransmitted packets transmitted, %nreceived received[, +%nrepeats duplicates][, +%nchecksum corrupted][, +%nerrors errors][, %packetloss% packet loss, time %timems]" # pylint: disable=C0301

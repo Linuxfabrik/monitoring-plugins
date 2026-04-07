@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 
 __author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
                 originally written by Dominik Riva, Universitätsspital Basel/Switzerland"""
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 
 DESCRIPTION = """This plugin checks availability and performance of an ID DIACOS® installation
@@ -57,7 +57,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by v{2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by v{__author__}'
     )
 
     parser.add_argument(
@@ -224,12 +224,14 @@ def main():
     if args.TEST is None:
         start_time = time.time()
 
-        url = '{}/axis2/idlogikrest?__format__=json&serviceName=user.Login&COMPUTER={}&IP={}&NAME={}&LICENCE={}'.format(
-            args.URL,
-            args.COMPUTER,
-            args.IP,
-            args.NAME,
-            args.LICENCE,
+        url = (
+            f'{args.URL}/axis2/idlogikrest'
+            f'?__format__=json'
+            f'&serviceName=user.Login'
+            f'&COMPUTER={args.COMPUTER}'
+            f'&IP={args.IP}'
+            f'&NAME={args.NAME}'
+            f'&LICENCE={args.LICENCE}'
         )
         session = lib.base.coe(lib.url.fetch_json(
             url,
@@ -239,18 +241,21 @@ def main():
         ))
         session_id = session['resultItems'][0]['value']
         if len(session_id) < 32 + 1 + len(args.NAME):
-            lib.base.cu('Session-ID {} too short'.format(session_id))
+            lib.base.cu(f'Session-ID {session_id} too short')
         login_duration = session['totalTimeMillis']
 
-        url = '{}/axis2/idlogikrest?__format__=json&serviceName=classification.SearchDiagnoses&COUNTRY={}&YEAR={}&FORMAT={}&SORT_MODE={}&CONCEPT_FILTER={}&SESSION_ID={}&SEARCHTEXT={}'.format(
-            args.URL,
-            args.COUNTRY,
-            args.YEAR,
-            args.FORMAT,
-            args.SORT_MODE,
-            args.CONCEPT_FILTER,
-            session_id,
-            args.SEARCHTEXT,
+        url = (
+            f'{args.URL}/axis2/idlogikrest'
+            f'?__format__=json'
+            f'&serviceName='
+            f'classification.SearchDiagnoses'
+            f'&COUNTRY={args.COUNTRY}'
+            f'&YEAR={args.YEAR}'
+            f'&FORMAT={args.FORMAT}'
+            f'&SORT_MODE={args.SORT_MODE}'
+            f'&CONCEPT_FILTER={args.CONCEPT_FILTER}'
+            f'&SESSION_ID={session_id}'
+            f'&SEARCHTEXT={args.SEARCHTEXT}'
         )
         search_result = lib.base.coe(lib.url.fetch_json(
             url,
@@ -260,9 +265,11 @@ def main():
         ))
         search_duration = search_result['totalTimeMillis']
 
-        url = '{}/axis2/idlogikrest?__format__=json&serviceName=user.Logoff&SESSION_ID={}'.format(
-            args.URL,
-            session_id,
+        url = (
+            f'{args.URL}/axis2/idlogikrest'
+            f'?__format__=json'
+            f'&serviceName=user.Logoff'
+            f'&SESSION_ID={session_id}'
         )
         logout_result = lib.base.coe(lib.url.fetch_json(
             url,
@@ -294,9 +301,10 @@ def main():
 
     # build the message
     state = lib.base.get_state(runtime, args.WARNING, args.CRITICAL)
-    msg = '{}ms for login, search and logout{}'.format(
-        round(runtime, 2),
-        lib.base.state2str(state, prefix=' '),
+    msg = (
+        f'{round(runtime, 2)}ms for login, search'
+        f' and logout'
+        f'{lib.base.state2str(state, prefix=" ")}'
     )
     perfdata = lib.base.get_perfdata('runtime', runtime, 'ms', args.WARNING, args.CRITICAL, 0, args.TIMEOUT * 1000)
     perfdata += lib.base.get_perfdata('login_duration', login_duration, 'ms', None, None, 0, args.TIMEOUT * 1000)

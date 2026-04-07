@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025103002'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks the IPv4 scope usage for a Windows DHCP server service."""
 
@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -142,7 +142,7 @@ def main():
     # fetch data
     if args.TEST is None:
         # https://docs.microsoft.com/en-us/powershell/module/dhcpserver/get-dhcpserverv4scopestatistics
-        cmd = 'Get-DhcpServerv4ScopeStatistics -ComputerName "{}"'.format(args.HOSTNAME)
+        cmd = f'Get-DhcpServerv4ScopeStatistics -ComputerName "{args.HOSTNAME}"'
         if args.WINRM_HOSTNAME:
             result = lib.winrm.run_ps(args, cmd)
         else:
@@ -186,12 +186,8 @@ def main():
 
         scope_state = lib.base.get_state(scope_used, args.WARN, args.CRIT)
         state = lib.base.get_worst(scope_state, state)
-        msg += '* {}: {}% used{}\n'.format(
-            scope_id,
-            scope_used,
-            lib.base.state2str(scope_state, prefix=' '),
-        )
-        perfdata += lib.base.get_perfdata('scope_{}'.format(scope_id), scope_used, '%', args.WARN, args.CRIT, 0, 100)
+        msg += f"* {scope_id}: {scope_used}% used{lib.base.state2str(scope_state, prefix=' ')}\n"
+        perfdata += lib.base.get_perfdata(f'scope_{scope_id}', scope_used, '%', args.WARN, args.CRIT, 0, 100)
 
     # over and out
     if state == STATE_CRIT:

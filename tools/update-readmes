@@ -19,7 +19,7 @@ import lib.shell  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025063001'
+__version__ = '2026040801'
 
 DESCRIPTION = """A tool to update the Linuxfabrik monitoring plugins README files at certain points.
                  Run this tool within the mp root directory."""
@@ -35,7 +35,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     return parser.parse_args()
@@ -68,10 +68,10 @@ def main():
         plugin = readme_path.replace('check-plugins/', '').replace('/README.md', '')
         # run `plugin-name --help`
         _help, stderr, retc = lib.base.coe(lib.shell.shell_exec(
-            'check-plugins/{}/{} --help'.format(plugin, plugin)
+            f'check-plugins/{plugin}/{plugin} --help'
         ))
         # prepend 4 spaces to every non-empty line of the output
-        _help = '\n'.join('{}'.format(line) if line.strip() else line for line in _help.split('\n'))
+        _help = '\n'.join(f'{line}' if line.strip() else line for line in _help.split('\n'))
         _help = _help.strip()
 
         # got the plugin name, it's help output and the path to the README.
@@ -81,15 +81,13 @@ def main():
         readme = lib.base.coe(lib.disk.read_file(readme_path))
         readme = re.sub(
             r'## Help\s*```text\s*?(.*?)\s*```\s*## Usage Examples',
-            '## Help\n\n```text\n{}\n```\n\n\n## Usage Examples'.format(
-                _help
-            ),
+            f'## Help\n\n```text\n{_help}\n```\n\n\n## Usage Examples',
             readme,
             flags=re.DOTALL, # to match dots across all lines
         )
         lib.base.coe(lib.disk.write_file(readme_path, readme))
 
-        print('Updated {}'.format(readme_path))
+        print(f'Updated {readme_path}')
 
 
 if __name__ == '__main__':

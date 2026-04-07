@@ -30,7 +30,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks network IO."""
 
@@ -51,7 +51,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -205,21 +205,21 @@ def main():
 
         # store the max. measured throughput in cache
         throughput_db = lib.cache.get(
-            'network-io-{}-throughput-max'.format(interface),
+            f'network-io-{interface}-throughput-max',
             filename='linuxfabrik-monitoring-plugins-network-io.db',
         )
         if throughput_db is False:
             # unknown interface, no value
             throughput_max = 10 * 1024 * 1024      # interface should be capable of 10 MB/sec
             lib.cache.set(
-                'network-io-{}-throughput-max'.format(interface),
+                f'network-io-{interface}-throughput-max',
                 throughput_max,
                 filename='linuxfabrik-monitoring-plugins-network-io.db',
             )
         elif throughput1 > int(throughput_db):
             throughput_max = throughput1
             lib.cache.set(
-                'network-io-{}-throughput-max'.format(interface),
+                f'network-io-{interface}-throughput-max',
                 throughput_max,
                 filename='linuxfabrik-monitoring-plugins-network-io.db',
             )
@@ -227,24 +227,26 @@ def main():
             throughput_max = int(throughput_db)
 
         # perfdata
-        perfdata += lib.base.get_perfdata('{}_bytes_recv'.format(interface), interfacedata[0]['bytes_recv'], 'c', None, None, 0, None) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('{}_bytes_recv_per_second1'.format(interface), bytes_recv_per_second1, 'B', None, None, 0, throughput_max) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('{}_bytes_sent'.format(interface), interfacedata[0]['bytes_sent'], 'c', None, None, 0, None) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('{}_bytes_sent_per_second1'.format(interface), bytes_sent_per_second1, 'B', None, None, 0, throughput_max) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('{}_packets_sent'.format(interface), interfacedata[0]['packets_sent'], 'c', None, None, 0, None) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('{}_packets_recv'.format(interface), interfacedata[0]['packets_recv'], 'c', None, None, 0, None) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('{}_errin'.format(interface), interfacedata[0]['errin'], 'c', None, None, 0, None) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('{}_errout'.format(interface), interfacedata[0]['errout'], 'c', None, None, 0, None) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('{}_dropin'.format(interface), interfacedata[0]['dropin'], 'c', None, None, 0, None) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('{}_dropout'.format(interface), interfacedata[0]['dropout'], 'c', None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(f'{interface}_bytes_recv', interfacedata[0]['bytes_recv'], 'c', None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(f'{interface}_bytes_recv_per_second1', bytes_recv_per_second1, 'B', None, None, 0, throughput_max) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(f'{interface}_bytes_sent', interfacedata[0]['bytes_sent'], 'c', None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(f'{interface}_bytes_sent_per_second1', bytes_sent_per_second1, 'B', None, None, 0, throughput_max) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(f'{interface}_packets_sent', interfacedata[0]['packets_sent'], 'c', None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(f'{interface}_packets_recv', interfacedata[0]['packets_recv'], 'c', None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(f'{interface}_errin', interfacedata[0]['errin'], 'c', None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(f'{interface}_errout', interfacedata[0]['errout'], 'c', None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(f'{interface}_dropin', interfacedata[0]['dropin'], 'c', None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(f'{interface}_dropout', interfacedata[0]['dropout'], 'c', None, None, 0, None) # pylint: disable=C0301
 
-        perfdata += lib.base.get_perfdata('{}_throughput1'.format(interface), throughput1, None, None, None, 0, throughput_max) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(f'{interface}_throughput1', throughput1, None, None, None, 0, throughput_max) # pylint: disable=C0301
 
         if throughput1 > max_rw:
-            msg = '{}: {}/s rx, {}/s tx (current)'.format(
-                interface,
-                lib.human.bytes2human(bytes_recv_per_second1),
-                lib.human.bytes2human(bytes_sent_per_second1),
+            msg = (
+                f'{interface}:'
+                f' {lib.human.bytes2human(bytes_recv_per_second1)}/s'
+                f' rx,'
+                f' {lib.human.bytes2human(bytes_sent_per_second1)}/s'
+                f' tx (current)'
             )
             max_rw = bytes_recv_per_second1 + bytes_sent_per_second1
 
@@ -261,9 +263,9 @@ def main():
         bytes_sent_per_second15 = max(bytes_sent_per_second15, 0)
         throughput15 = bytes_recv_per_second15 + bytes_sent_per_second15   # let's just call it like in cpu-usage # pylint: disable=C0301
 
-        perfdata += lib.base.get_perfdata('{}_bytes_recv_per_second15'.format(interface), bytes_recv_per_second15, 'B', None, None, 0, throughput_max) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('{}_bytes_sent_per_second15'.format(interface), bytes_sent_per_second15, 'B', None, None, 0, throughput_max) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('{}_throughput15'.format(interface), throughput15, None, throughput_max * args.WARN / 100, throughput_max * args.CRIT / 100, 0, throughput_max) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(f'{interface}_bytes_recv_per_second15', bytes_recv_per_second15, 'B', None, None, 0, throughput_max) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(f'{interface}_bytes_sent_per_second15', bytes_sent_per_second15, 'B', None, None, 0, throughput_max) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(f'{interface}_throughput15', throughput15, None, throughput_max * args.WARN / 100, throughput_max * args.CRIT / 100, 0, throughput_max) # pylint: disable=C0301
 
         # get state based on max measured I/O values
         interface_state = lib.base.get_state(
@@ -303,9 +305,9 @@ def main():
                 'rxtx-max/s',
                 'rx1/s',
                 'tx1/s',
-                'rx{}/s'.format(args.COUNT),
-                'tx{}/s'.format(args.COUNT),
-                'rxtx{}/s'.format(args.COUNT)
+                f'rx{args.COUNT}/s',
+                f'tx{args.COUNT}/s',
+                f'rxtx{args.COUNT}/s'
             ],
         )
 

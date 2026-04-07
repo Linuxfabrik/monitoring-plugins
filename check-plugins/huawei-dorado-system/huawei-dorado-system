@@ -25,7 +25,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Query basic status and performance data about a Huawei OceanStor Dorado storage
                  system via the REST Interface, using the ``/system/`` endpoint."""
@@ -47,7 +47,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -182,12 +182,13 @@ def main():
 
     # no valuable result?
     if not result:
-        lib.base.cu('Got no valuable response from {}.'.format(args.URL))
+        lib.base.cu(f'Got no valuable response from {args.URL}.')
     if result.get('error').get('code') != 0:
-        lib.base.oao('{} {}'.format(
-            result.get('error').get('description'),
-            result.get('error').get('suggestion'),
-        ), STATE_UNKNOWN)
+        lib.base.oao(
+            f'{result.get("error").get("description")}'
+            f' {result.get("error").get("suggestion")}',
+            STATE_UNKNOWN,
+        )
 
     # init some vars
     msg = ''
@@ -215,30 +216,47 @@ def main():
     state = lib.base.get_worst(state, capa_state)
 
     # build the message
-    msg += '{} {}, UUID: {}, Name: {}, Location: {}, Health Status: {}{}, Running Status: {}{}\n'.format(
-        data.get('productModeString'),
-        data.get('pointRelease'),
-        lib.huawei.get_uuid(data),
-        data.get('NAME'),
-        data.get('LOCATION'),
-        lib.huawei.get_health_status(data.get('HEALTHSTATUS')),
-        lib.base.state2str(health_state, prefix=' ', empty_ok=True),
-        lib.huawei.get_running_status(data.get('RUNNINGSTATUS')),
-        lib.base.state2str(running_state, prefix=' ', empty_ok=True),
+    health_status = lib.huawei.get_health_status(
+        data.get('HEALTHSTATUS'),
     )
-    msg += 'Sectors: Total {}% used ({}/{}){}, Storage Pool {}% used ({}/{}){}\n'.format(
-        capa_used,
-        lib.human.number2human(data.get('USEDCAPACITY')),
-        lib.human.number2human(data.get('TOTALCAPACITY')),
-        lib.base.state2str(capa_state, prefix=' '),
-        sp_used,
-        lib.human.number2human(data.get('STORAGEPOOLUSEDCAPACITY')),
-        lib.human.number2human(data.get('STORAGEPOOLCAPACITY')),
-        lib.base.state2str(sp_state, prefix=' '),
+    health_str = lib.base.state2str(
+        health_state, prefix=' ', empty_ok=True,
     )
-    msg += '\nFetched API {} {}'.format(
-        result.get('counter', 0),
-        lib.txt.pluralize('time', result.get('counter', 0),),
+    running_status = lib.huawei.get_running_status(
+        data.get('RUNNINGSTATUS'),
+    )
+    running_str = lib.base.state2str(
+        running_state, prefix=' ', empty_ok=True,
+    )
+    msg += (
+        f'{data.get("productModeString")}'
+        f' {data.get("pointRelease")},'
+        f' UUID: {lib.huawei.get_uuid(data)},'
+        f' Name: {data.get("NAME")},'
+        f' Location: {data.get("LOCATION")},'
+        f' Health Status: {health_status}{health_str},'
+        f' Running Status: {running_status}{running_str}\n'
+    )
+    used_cap = lib.human.number2human(data.get('USEDCAPACITY'))
+    total_cap = lib.human.number2human(data.get('TOTALCAPACITY'))
+    capa_str = lib.base.state2str(capa_state, prefix=' ')
+    sp_used_cap = lib.human.number2human(
+        data.get('STORAGEPOOLUSEDCAPACITY'),
+    )
+    sp_total_cap = lib.human.number2human(
+        data.get('STORAGEPOOLCAPACITY'),
+    )
+    sp_str = lib.base.state2str(sp_state, prefix=' ')
+    msg += (
+        f'Sectors: Total {capa_used}% used'
+        f' ({used_cap}/{total_cap}){capa_str},'
+        f' Storage Pool {sp_used}% used'
+        f' ({sp_used_cap}/{sp_total_cap}){sp_str}\n'
+    )
+    counter = result.get('counter', 0)
+    msg += (
+        f'\nFetched API {counter}'
+        f' {lib.txt.pluralize("time", counter)}'
     )
 
     perfdata += lib.base.get_perfdata('sectors-capacity-percent', capa_used, '%', args.WARN, args.CRIT, 0, 100)

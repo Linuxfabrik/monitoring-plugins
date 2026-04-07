@@ -25,7 +25,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'This plugin lets you track if mydumper updates are available.'
 
@@ -40,7 +40,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -113,16 +113,17 @@ def main():
 
     if lib.version.version(installed_version) >= lib.version.version(latest_version):
         lib.base.oao(
-            'mydumper/myloader {} is up to date'.format(installed_version),
+            f'mydumper/myloader {installed_version} is up to date',
             STATE_OK,
             perfdata,
         )
 
     # over and out
     lib.base.oao(
-        'mydumper/myloader {} installed, mydumper/myloader {} available'.format(
-            installed_version,
-            latest_version,
+        (
+            f'mydumper/myloader {installed_version}'
+            f' installed, mydumper/myloader'
+            f' {latest_version} available'
         ),
         STATE_WARN,
         perfdata,

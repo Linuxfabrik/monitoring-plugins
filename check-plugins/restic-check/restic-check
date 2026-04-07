@@ -23,7 +23,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Check the restic repository for errors."""
 
@@ -36,7 +36,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -75,10 +75,7 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        cmd = 'restic --json --repo={} --password-file={} check'.format(
-            args.REPO,
-            args.PASSWORD_FILE,
-        )
+        cmd = f'restic --json --repo={args.REPO} --password-file={args.PASSWORD_FILE} check'
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
     else:
         # do not call the command, put in test data
@@ -107,7 +104,7 @@ def main():
             stderr = stderr.split('\n')
             stderr = stderr[0:5] + ['...'] + stderr[-5:]
             stderr = '\n'.join(stderr)
-        msg = 'There are warnings.\n\n{}'.format(stderr)
+        msg = f'There are warnings.\n\n{stderr}'
         state = STATE_WARN
 
     # over and out

@@ -26,7 +26,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """This plugin lets you track if a NodeBB update is available."""
 
@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -136,21 +136,23 @@ def main():
     # build the message
     if not result['upgradeAvailable']:
         state = STATE_OK
-        msg = 'NodeBB v{} is up to date'.format(installed_version)
+        msg = f'NodeBB v{installed_version} is up to date'
     else:
         state = STATE_WARN
-        msg = 'NodeBB v{} installed, NodeBB v{} available'.format(
-            installed_version,
-            latest_version,
-        )
+        msg = f'NodeBB v{installed_version} installed, NodeBB v{latest_version} available'
 
     if result['lastrestart']['timestamp']:
         last_restart = result['lastrestart']['timestamp'] / 1000
-        msg += ', Last restart: {} by {} <{}> ({} ago)'.format(
-            lib.time.epoch2iso(last_restart),
-            result['lastrestart']['user']['username'],
-            result['lastrestart']['user']['email'],
-            lib.human.seconds2human(lib.time.now(as_type='epoch') - last_restart),
+        restart_user = result['lastrestart']['user']
+        ago = lib.human.seconds2human(
+            lib.time.now(as_type='epoch') - last_restart,
+        )
+        msg += (
+            f', Last restart:'
+            f' {lib.time.epoch2iso(last_restart)}'
+            f' by {restart_user["username"]}'
+            f' <{restart_user["email"]}>'
+            f' ({ago} ago)'
         )
 
     # over and out

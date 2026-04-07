@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Batch query basic information about HyperMetroPairs of a Huawei OceanStor Dorado
                  storage system via the REST Interface, using the ``/hypermetropair`` endpoint."""
@@ -46,7 +46,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -162,12 +162,13 @@ def main():
 
     # no valuable result?
     if not result:
-        lib.base.cu('Got no valuable response from {}.'.format(args.URL))
+        lib.base.cu(f'Got no valuable response from {args.URL}.')
     if result.get('error').get('code') != 0:
-        lib.base.oao('{} {}'.format(
-            result.get('error').get('description'),
-            result.get('error').get('suggestion'),
-        ), STATE_UNKNOWN)
+        lib.base.oao(
+            f"{result.get('error').get('description')}"
+            f" {result.get('error').get('suggestion')}",
+            STATE_UNKNOWN,
+        )
 
     # init some vars
     msg = ''
@@ -206,23 +207,24 @@ def main():
         hypermetropair['UUID'] = lib.huawei.get_uuid(hypermetropair)
         hypermetropair['sync_duration'] = int(hypermetropair['ENDTIME']) - int(hypermetropair['STARTTIME'])
 
-        perfdata += lib.base.get_perfdata('{}_HEALTHSTATUS'.format(hypermetropair['UUID']), hypermetropair['HEALTHSTATUS'], None, None, 2, 0, 2)
-        perfdata += lib.base.get_perfdata('{}_RUNNINGSTATUS'.format(hypermetropair['UUID']), hypermetropair['RUNNINGSTATUS'], None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata('{}_LINKSTATUS'.format(hypermetropair['UUID']), hypermetropair['LINKSTATUS'], None, 2, None, 0, 2)
-        perfdata += lib.base.get_perfdata('{}_LOCALDATASTATE'.format(hypermetropair['UUID']), hypermetropair['LOCALDATASTATE'], None, 2, None, 0, 2)
-        perfdata += lib.base.get_perfdata('{}_LOCALHOSTACCESSSTATE'.format(hypermetropair['UUID']), hypermetropair['LOCALHOSTACCESSSTATE'], None, None, None, 0, 3)
-        perfdata += lib.base.get_perfdata('{}_REMOTEDATASTATE'.format(hypermetropair['UUID']), hypermetropair['REMOTEDATASTATE'], None, 2, None, 0, 2)
-        perfdata += lib.base.get_perfdata('{}_REMOTEHOSTACCESSSTATE'.format(hypermetropair['UUID']), hypermetropair['REMOTEHOSTACCESSSTATE'], None, None, None, 0, 5)
-        perfdata += lib.base.get_perfdata('{}_SYNCPROGRESS'.format(hypermetropair['UUID']), hypermetropair['SYNCPROGRESS'], '%', None, None, 0, 100)
+        perfdata += lib.base.get_perfdata(f"{hypermetropair['UUID']}_HEALTHSTATUS", hypermetropair['HEALTHSTATUS'], None, None, 2, 0, 2)
+        perfdata += lib.base.get_perfdata(f"{hypermetropair['UUID']}_RUNNINGSTATUS", hypermetropair['RUNNINGSTATUS'], None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata(f"{hypermetropair['UUID']}_LINKSTATUS", hypermetropair['LINKSTATUS'], None, 2, None, 0, 2)
+        perfdata += lib.base.get_perfdata(f"{hypermetropair['UUID']}_LOCALDATASTATE", hypermetropair['LOCALDATASTATE'], None, 2, None, 0, 2)
+        perfdata += lib.base.get_perfdata(f"{hypermetropair['UUID']}_LOCALHOSTACCESSSTATE", hypermetropair['LOCALHOSTACCESSSTATE'], None, None, None, 0, 3)
+        perfdata += lib.base.get_perfdata(f"{hypermetropair['UUID']}_REMOTEDATASTATE", hypermetropair['REMOTEDATASTATE'], None, 2, None, 0, 2)
+        perfdata += lib.base.get_perfdata(f"{hypermetropair['UUID']}_REMOTEHOSTACCESSSTATE", hypermetropair['REMOTEHOSTACCESSSTATE'], None, None, None, 0, 5)
+        perfdata += lib.base.get_perfdata(f"{hypermetropair['UUID']}_SYNCPROGRESS", hypermetropair['SYNCPROGRESS'], '%', None, None, 0, 100)
 
         hypermetropair['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         hypermetropair['running_state'] = lib.base.state2str(running_state, empty_ok=False)
-        hypermetropair['sync_duration'] = '{}'.format(
-            lib.human.seconds2human(hypermetropair['sync_duration']),
+        hypermetropair['sync_duration'] = (
+            f"{lib.human.seconds2human(hypermetropair['sync_duration'])}"
         )
-        hypermetropair['sync_last'] = '{} ({} ago)'.format(
-            lib.time.epoch2iso(int(hypermetropair['ENDTIME'])),
-            lib.human.seconds2human(lib.time.now(as_type='epoch') - int(hypermetropair['ENDTIME'])),
+        hypermetropair['sync_last'] = (
+            f"{lib.time.epoch2iso(int(hypermetropair['ENDTIME']))}"
+            f' ({lib.human.seconds2human(lib.time.now(as_type="epoch") - int(hypermetropair["ENDTIME"]))}'
+            f' ago)'
         )
         hypermetropair['LINKSTATUS'] = lib.base.state2str(linkstatus_state, empty_ok=False)
         hypermetropair['LOCALDATASTATE'] = lib.base.state2str(localdata_state, empty_ok=False)
@@ -237,9 +239,9 @@ def main():
         headers = ['UUID', 'Link', 'Last Sync', 'Duration', 'Progr (%)', 'LocalJob', 'DataState', 'Access', 'RemoteJob', 'DataState', 'Access', 'Health', 'Running']
         msg += lib.base.get_table(table_data, keys, header=headers)
 
-    msg += '\nFetched API {} {}'.format(
-        result.get('counter', 0),
-        lib.txt.pluralize('time', result.get('counter', 0),),
+    msg += (
+        f"\nFetched API {result.get('counter', 0)}"
+        f" {lib.txt.pluralize('time', result.get('counter', 0))}"
     )
 
     if state == STATE_CRIT:

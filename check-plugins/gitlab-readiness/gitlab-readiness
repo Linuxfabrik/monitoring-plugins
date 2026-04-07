@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """The readiness probe checks whether the GitLab instance is ready to accept 
                 traffic via Rails Controllers.
@@ -46,7 +46,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -181,9 +181,10 @@ def main():
         if state == STATE_OK:
             msg = 'Everything is ok.'
         else:
-            msg = 'There are issues with {}. Run `curl {}` for full results.'.format(
-                ', '.join(issues),
-                args.URL,
+            msg = (
+                f'There are issues with '
+                f"{', '.join(issues)}. "
+                f'Run `curl {args.URL}` for full results.'
             )
     elif 'status' in result and 'message' in result and not 'error' in result:
         msg = result['message']
@@ -192,7 +193,7 @@ def main():
         msg = result['error']
         state = lib.base.str2state(args.SEVERITY)
     else:
-        msg = 'Unknown error fetching URL {}'.format(args.URL)
+        msg = f'Unknown error fetching URL {args.URL}'
         state = STATE_UNKNOWN
     perfdata = lib.base.get_perfdata('gitlab-readiness', state, None, None, None, 0, STATE_UNKNOWN)
 

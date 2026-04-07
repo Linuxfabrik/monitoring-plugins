@@ -26,7 +26,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Return hardware fans speed. Fan speed is expressed in RPM (rounds per minute).'
 
@@ -42,7 +42,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -96,11 +96,11 @@ def main():
     perfdata = ''
 
     for name, entries in fans.items():
-        msg += '{}: '.format(name)
+        msg += f'{name}: '
         for entry in entries:
-            perfdata += lib.base.get_perfdata('{}_{}'.format(name, entry.label).replace(' ', '_').lower(), entry.current, None, args.WARN, args.CRIT, 0, None)
+            perfdata += lib.base.get_perfdata(f'{name}_{entry.label}'.replace(' ', '_').lower(), entry.current, None, args.WARN, args.CRIT, 0, None)
             sensor_state = lib.base.get_state(entry.current, args.WARN, args.CRIT, 'ge')
-            msg += '{} = {} RPM{}, '.format(entry.label or name, entry.current, lib.base.state2str(sensor_state, prefix=' (', suffix=')'))
+            msg += f"{entry.label or name} = {entry.current} RPM{lib.base.state2str(sensor_state, prefix=' (', suffix=')')}, "
             state = lib.base.get_worst(state, sensor_state)
         msg = msg[:-2] + '; '
 

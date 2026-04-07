@@ -20,7 +20,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Checks for missing indexes in MySQL/MariaDB tables."""
 
@@ -37,7 +37,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -113,28 +113,28 @@ def main():
     user_dbs = lib.base.coe(lib.db_mysql.select(conn, sql))
 
     for schema in user_dbs:
-        sql = '''
+        sql = f'''
             select TABLE_NAME
             from information_schema.tables
-            where TABLE_SCHEMA="{}"
+            where TABLE_SCHEMA="{schema['TABLE_SCHEMA']}"
                 and table_type="BASE TABLE"
             order by TABLE_NAME;
-        '''.format(schema['TABLE_SCHEMA'])
+        '''
         user_tables = lib.base.coe(lib.db_mysql.select(conn, sql))
 
         for table in user_tables:
-            sql = '''
+            sql = f'''
                 select index_name as idxname,
                     group_concat(column_name order by seq_in_index) as cols,
                     index_type as type
                 from information_schema.statistics
-                where index_schema="{}"
-                    and TABLE_NAME="{}"
+                where index_schema="{schema['TABLE_SCHEMA']}"
+                    and TABLE_NAME="{table['TABLE_NAME']}"
                 group by idxname, type;
-            '''.format(schema['TABLE_SCHEMA'], table['TABLE_NAME'])
+            '''
             user_indexes = lib.base.coe(lib.db_mysql.select(conn, sql))
             if len(user_indexes) == 0:
-                tables.append('{}.{}'.format(schema['TABLE_SCHEMA'], table['TABLE_NAME']))
+                tables.append(f"{schema['TABLE_SCHEMA']}.{table['TABLE_NAME']}")
 
     lib.db_mysql.close(conn)
 
@@ -142,9 +142,10 @@ def main():
         msg = 'Everything is ok.'
     else:
         state = STATE_WARN
-        msg = 'Tables without indexes {}:\n* {}'.format(
-            lib.base.state2str(state),
-            '\n* '.join(tables),
+        msg = (
+            f'Tables without indexes '
+            f'{lib.base.state2str(state)}:\n'
+            f'* {chr(10) + "* ".join(tables)}'
         )
 
     # over and out

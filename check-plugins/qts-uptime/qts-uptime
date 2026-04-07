@@ -29,7 +29,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Tells how long the QTS system has been running.'
 
@@ -47,7 +47,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -116,9 +116,9 @@ def main():
     auth_sid = lib.base.coe(lib.qts.get_auth_sid(args))
 
     # get system information
-    url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(
-        args.URL,
-        auth_sid,
+    url = (
+        f'{args.URL}/cgi-bin/management/manaRequest.cgi'
+        f'?subfunc=sysinfo&hd=no&multicpu=1&sid={auth_sid}'
     )
     result = lib.base.coe(
         lib.url.fetch(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT)
@@ -133,7 +133,7 @@ def main():
         + int(data['func']['ownContent']['root']['uptime_sec'])
 
     # build the message
-    msg = 'Up {}'.format(lib.human.seconds2human(uptime))
+    msg = f'Up {lib.human.seconds2human(uptime)}'
     perfdata = lib.base.get_perfdata('uptime', uptime, 's', None, None, 0, None)
 
     # over and out

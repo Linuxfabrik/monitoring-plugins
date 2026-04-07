@@ -29,7 +29,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Checks the disk SMART values returned by QTS.'
 
@@ -47,7 +47,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -124,10 +124,7 @@ def main():
     auth_sid = lib.base.coe(lib.qts.get_auth_sid(args))
 
     # get all HDD/SSD data
-    url = '{}/cgi-bin/disk/qsmart.cgi?func=all_hd_data&sid={}'.format(
-        args.URL,
-        auth_sid,
-    )
+    url = f'{args.URL}/cgi-bin/disk/qsmart.cgi?func=all_hd_data&sid={auth_sid}'
     result = lib.base.coe(
         lib.url.fetch(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT)
     )
@@ -136,9 +133,10 @@ def main():
         lib.base.cu('Insufficient permissions.')
 
     # get system information
-    url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(
-        args.URL,
-        auth_sid,
+    url = (
+        f'{args.URL}/cgi-bin/management/'
+        f'manaRequest.cgi?subfunc=sysinfo'
+        f'&hd=no&multicpu=1&sid={auth_sid}'
     )
     result = lib.base.coe(
         lib.url.fetch(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT)
@@ -169,13 +167,11 @@ def main():
                 warn = int(sysinfo['func']['ownContent']['root']['HDTempWarnT'])
                 crit = int(sysinfo['func']['ownContent']['root']['HDTempErrT'])
 
+            alias = disk.get('Disk_Alias', 'Unknown Alias').replace(' ', '_')
+            model = disk['Model'].replace(' ', '_')
+            serial = disk['Serial'].replace(' ', '_')
             perfdata += lib.base.get_perfdata(
-                '{}_{}_{}_{}'.format(
-                    disk.get('Disk_Alias', 'Unknown Alias').replace(' ', '_'),
-                    disk['Model'].replace(' ', '_'),
-                    disk['Serial'].replace(' ', '_'),
-                    'temperature',
-                ),
+                f'{alias}_{model}_{serial}_temperature',
                 disk_temperature,
                 None,
                 warn,
@@ -189,19 +185,18 @@ def main():
                 disk_state = STATE_WARN
 
             state = lib.base.get_worst(disk_state, state)
-            msg_body += '* {} ({}, SerNo {}, Temp {}°C (Thresholds: {}/{}°C){}\n'.format(
-                disk.get('Disk_Alias', 'Unknown Alias'),
-                disk['Model'],
-                disk['Serial'],
-                disk_temperature,
-                warn,
-                crit,
-                lib.base.state2str(disk_state, prefix='', suffix=' '),
+            msg_body += (
+                f'* {disk.get("Disk_Alias", "Unknown Alias")}'
+                f' ({disk["Model"]}'
+                f', SerNo {disk["Serial"]}'
+                f', Temp {disk_temperature}°C'
+                f' (Thresholds: {warn}/{crit}°C)'
+                f'{lib.base.state2str(disk_state, prefix="", suffix=" ")}\n'
             )
 
     # build the message
     if disk_count:
-        msg_header = 'Checked {} {}.'.format(disk_count, lib.txt.pluralize('disk', disk_count))
+        msg_header = f"Checked {disk_count} {lib.txt.pluralize('disk', disk_count)}."
         if state == STATE_CRIT:
             msg_header += ' There are critical errors.'
         elif state == STATE_WARN:
@@ -210,7 +205,7 @@ def main():
             msg_header += ' All are healthy.'
         # over and out
         lib.base.oao(
-            '{}\n{}'.format(msg_header, msg_body),
+            f'{msg_header}\n{msg_body}',
             state,
             perfdata,
             always_ok=args.ALWAYS_OK,

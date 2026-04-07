@@ -24,7 +24,7 @@ import lib.base  # pylint: disable=C0413
 from lib.globals import (STATE_OK, STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """This plugin tests if a local or remote DHCP server can offer IPv4 addresses
                  (to a specific subnet).
@@ -44,7 +44,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -231,14 +231,14 @@ def create_dhcp_discover_msg(macb, xid, subnet_mask, subnet_selection):
         try:
             dhcp_discover += int(ipaddress.IPv4Address(subnet_mask)).to_bytes(4, byteorder='big')
         except ipaddress.AddressValueError:
-            lib.base.oao('Invaild subnet mask "{}"'.format(subnet_mask), STATE_UNKNOWN)
+            lib.base.oao(f'Invaild subnet mask "{subnet_mask}"', STATE_UNKNOWN)
     if subnet_selection:
         # https://www.rfc-editor.org/rfc/rfc3011.html
         dhcp_discover += struct.pack('!H', 0x7604) # code 118 (dec): Subnet Selection, 4 bytes
         try:
             dhcp_discover += int(ipaddress.IPv4Address(subnet_selection)).to_bytes(4, byteorder='big') # pylint: disable=C0301
         except ipaddress.AddressValueError:
-            lib.base.oao('Invaild subnet selection "{}"'.format(subnet_selection), STATE_UNKNOWN)
+            lib.base.oao(f'Invaild subnet selection "{subnet_selection}"', STATE_UNKNOWN)
     dhcp_discover += struct.pack('!I', 0xff)  # code 255 (dec): End option
 
     return dhcp_discover
@@ -277,10 +277,10 @@ def main():
         dhcps.bind((args.BIND_ADDRESS, 68)) # we want to send from port 68
     except PermissionError as e:
         dhcps.close()
-        lib.base.oao('Permission error "{}"'.format(e.strerror), STATE_UNKNOWN)
+        lib.base.oao(f'Permission error "{e.strerror}"', STATE_UNKNOWN)
     except OSError as e:
         dhcps.close()
-        lib.base.oao('OS error "{}"'.format(e.strerror), STATE_UNKNOWN)
+        lib.base.oao(f'OS error "{e.strerror}"', STATE_UNKNOWN)
 
     # handle MAC address
     if args.MAC:
@@ -325,18 +325,17 @@ def main():
         state = STATE_WARN
 
     # build the message
-    msg = 'DHCPOFFER: IP={}/{}{} Server ID={} Broadcast Addr={}\n'.format(
-        yiaddr,
-        subnet_mask,
-        lib.base.state2str(state, prefix=' '),
-        siaddr,
-        bc_addr,
+    msg = (
+        f'DHCPOFFER: IP={yiaddr}/{subnet_mask}'
+        f'{lib.base.state2str(state, prefix=" ")}'
+        f' Server ID={siaddr}'
+        f' Broadcast Addr={bc_addr}\n'
     )
-    msg += 'DHCPDISCOVER: MAC={} Host={} Network={}/{}'.format(
-        mac,
-        args.HOSTNAME if args.HOSTNAME else 'Broadcast',
-        args.SUBNET_SELECTION,
-        args.SUBNET_MASK,
+    msg += (
+        f'DHCPDISCOVER: MAC={mac}'
+        f' Host={args.HOSTNAME if args.HOSTNAME else "Broadcast"}'
+        f' Network={args.SUBNET_SELECTION}'
+        f'/{args.SUBNET_MASK}'
     )
 
     # over and out

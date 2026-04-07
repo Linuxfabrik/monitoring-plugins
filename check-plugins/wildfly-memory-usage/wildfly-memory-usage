@@ -21,7 +21,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = 'Checks the memory usage of a Wildfly/JBossAS over HTTP.'
 
@@ -42,7 +42,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -178,9 +178,16 @@ def main():
     committed_percent = round((float(mem_committed) / float(mem_max) * 100), 2)
     committed_state = lib.base.get_state(committed_percent, args.WARN, args.CRIT, 'ge')
 
-    msg += 'Heap used: {}% ({} of {}){}, Heap committed: {}% ({} of {}){}, '.format(
-        used_percent, lib.human.bytes2human(mem_used), lib.human.bytes2human(mem_max), lib.base.state2str(used_state, prefix=' '),
-        committed_percent, lib.human.bytes2human(mem_committed), lib.human.bytes2human(mem_max), lib.base.state2str(committed_state, prefix=' '),
+    msg += (
+        f'Heap used: {used_percent}%'
+        f' ({lib.human.bytes2human(mem_used)}'
+        f' of {lib.human.bytes2human(mem_max)})'
+        f'{lib.base.state2str(used_state, prefix=" ")}'
+        f', Heap committed: {committed_percent}%'
+        f' ({lib.human.bytes2human(mem_committed)}'
+        f' of {lib.human.bytes2human(mem_max)})'
+        f'{lib.base.state2str(committed_state, prefix=" ")}'
+        f', '
     )
     state += lib.base.get_worst(used_state, committed_state)
     perfdata += lib.base.get_perfdata('heap-used-percent', used_percent, '%', args.WARN, args.CRIT, 0, 100)
@@ -198,9 +205,16 @@ def main():
     committed_percent = round((float(mem_committed) / float(mem_max) * 100), 2)
     committed_state = lib.base.get_state(committed_percent, args.WARN, args.CRIT, 'ge')
 
-    msg += 'Non-Heap used: {}% ({} of {}){}, Non-Heap committed: {}% ({} of {}){}, '.format(
-        used_percent, lib.human.bytes2human(mem_used), lib.human.bytes2human(mem_max), lib.base.state2str(used_state, prefix=' '),
-        committed_percent, lib.human.bytes2human(mem_committed), lib.human.bytes2human(mem_max), lib.base.state2str(committed_state, prefix=' '),
+    msg += (
+        f'Non-Heap used: {used_percent}%'
+        f' ({lib.human.bytes2human(mem_used)}'
+        f' of {lib.human.bytes2human(mem_max)})'
+        f'{lib.base.state2str(used_state, prefix=" ")}'
+        f', Non-Heap committed: {committed_percent}%'
+        f' ({lib.human.bytes2human(mem_committed)}'
+        f' of {lib.human.bytes2human(mem_max)})'
+        f'{lib.base.state2str(committed_state, prefix=" ")}'
+        f', '
     )
     state += lib.base.get_worst(used_state, committed_state)
     perfdata += lib.base.get_perfdata('non-heap-used-percent', used_percent, '%', args.WARN, args.CRIT, 0, 100)
