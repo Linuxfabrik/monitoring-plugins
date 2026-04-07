@@ -81,12 +81,6 @@ Icinga v2.14.6 (EOL unknown)
 | icinga-version | Number | Installed Icinga version as float. "2.14.6" becomes "2.146". |
 
 
-## Troubleshooting
-
-`Error running sudo -u \#48 /var/www/html/nextcloud/occ config:list: rc=1 sudo: /var/www/html/nextcloud/occ: command not found`:
-Permission for `/var/www/html/nextcloud/occ` must be `0755`.
-
-
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
