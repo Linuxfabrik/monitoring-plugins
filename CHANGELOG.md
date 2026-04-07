@@ -85,6 +85,7 @@ Monitoring Plugins:
 * redis-status, valkey-status: modernize code and unify both plugins again after [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954)
 * rocketchat-stats: improve output
 * statuspal: replace `flatdict` dependency with a recursive approach ([#1044](https://github.com/Linuxfabrik/monitoring-plugins/issues/1044))
+* systemd-units-failed: show failed unit names in the first output line for better dashboard and SMS alert readability ([#967](https://github.com/Linuxfabrik/monitoring-plugins/issues/967))
 * updates: adapt to updated powershell.py library
 
 

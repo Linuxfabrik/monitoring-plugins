@@ -45,11 +45,11 @@ options:
 Output:
 
 ```text
-There is 1 failed unit.
+1 failed unit: ipmievd.service
 
-unit            load   active sub    description
-----            ----   ------ ---    -----------
-ipmievd.service loaded failed failed Ipmievd Daemon
+unit            ! load   ! active ! sub    ! description
+----------------+--------+--------+--------+----------------
+ipmievd.service ! loaded ! failed ! failed ! Ipmievd Daemon
 ```
 
 

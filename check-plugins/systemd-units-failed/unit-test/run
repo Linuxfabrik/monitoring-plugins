@@ -32,19 +32,19 @@ class TestCheck(unittest.TestCase):
 
     def test_if_check_runs_EXAMPLE02(self):
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0'))
-        self.assertRegex(stdout, r'There is 1 failed unit.')
+        self.assertIn('1 failed unit: openipmi.service', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE03(self):
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0'))
-        self.assertRegex(stdout, r'There are 2 failed units.')
+        self.assertIn('2 failed units: openipmi.service, smartd.service', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE03_ignore1(self):
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --ignore=openipmi.service --test=stdout/EXAMPLE03,,0'))
-        self.assertRegex(stdout, r'There is 1 failed unit.')
+        self.assertIn('1 failed unit: smartd.service', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
@@ -62,13 +62,13 @@ class TestCheck(unittest.TestCase):
 
     def test_if_check_runs_EXAMPLE04(self):
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04,,0'))
-        self.assertRegex(stdout, r'There is 1 failed unit.')
+        self.assertIn('1 failed unit: chronyd.service', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE05(self):
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE05,,0'))
-        self.assertRegex(stdout, r'There are 3 failed units.')
+        self.assertIn('3 failed units: tomcat8.service, varnish.service, varnishlog.service', stdout)
         self.assertRegex(stdout, r'unit               ! load      ! active ! sub    ! description')
         self.assertRegex(stdout, r'tomcat8.service    ! not-found ! failed ! failed ! tomcat8.service')
         self.assertRegex(stdout, r'varnish.service    ! loaded    ! failed ! failed ! Varnish HTTP accelerator')
