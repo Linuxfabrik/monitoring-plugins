@@ -20,6 +20,7 @@
 ![Python](https://img.shields.io/badge/Python-3.9+-3776ab)
 ![Platforms](https://img.shields.io/badge/Platforms-All%20Platforms-informational)
 ![GitHub Issues](https://img.shields.io/github/issues/linuxfabrik/monitoring-plugins)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/9892/badge)](https://www.bestpractices.dev/projects/9892)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Linuxfabrik/monitoring-plugins/badge)](https://scorecard.dev/viewer/?uri=github.com/Linuxfabrik/monitoring-plugins)
 [![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik)
 [![PayPal](https://img.shields.io/badge/Donate-PayPal-ff6600)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
