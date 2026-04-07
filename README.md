@@ -39,6 +39,11 @@ All plugins are written in Python and licensed under the [UNLICENSE](https://unl
 The plugins are fast and reliable, using as few system resources as possible. They report the same metrics consistently and uniformly on all platforms (for example, they always use 'used' instead of a mixture of 'used' and 'free'). Where possible, automatic detection and auto-discovery mechanisms are built in. The plugins use meaningful default settings to trigger WARNs and CRITs only where absolutely necessary. In addition, many plugins offer troubleshooting information. We avoid dependencies on third-party system libraries wherever possible.
 
 
+## Documentation
+
+Full documentation is available at [linuxfabrik.github.io/monitoring-plugins](https://linuxfabrik.github.io/monitoring-plugins/). It is automatically built and deployed on every push to `main`.
+
+
 ## Want to see some Plugins in Action?
 
 Visit [icinga-demo.linuxfabrik.ch](https://icinga-demo.linuxfabrik.ch).
