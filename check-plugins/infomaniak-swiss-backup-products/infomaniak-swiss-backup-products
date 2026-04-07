@@ -13,6 +13,7 @@
 
 import argparse  # pylint: disable=C0413
 import json  # pylint: disable=C0413
+import re  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
 import lib.args  # pylint: disable=C0413
@@ -26,7 +27,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040701'
 
 DESCRIPTION = """Checks your Infomaniak Swiss Backup product details via the Infomaniak API."""
 
@@ -71,6 +72,26 @@ def parse_args():
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--ignore-customer',
+        help='Any product whose customer name matches this python regex will be ignored '
+             '(repeating). '
+             'Example: \'(?i)test\' for a case-insensitive search for "test".',
+        action='append',
+        default=None,
+        dest='IGNORE_CUSTOMER',
+    )
+
+    parser.add_argument(
+        '--ignore-tag',
+        help='Any product whose tag matches this python regex will be ignored '
+             '(repeating). '
+             'Example: \'(?i)deprecated\' for a case-insensitive search for "deprecated".',
+        action='append',
+        default=None,
+        dest='IGNORE_TAG',
     )
 
     parser.add_argument(
@@ -146,6 +167,12 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # set default values for append parameters that were not specified
+    if args.IGNORE_CUSTOMER is None:
+        args.IGNORE_CUSTOMER = []
+    if args.IGNORE_TAG is None:
+        args.IGNORE_TAG = []
+
     # fetch data
     if args.TEST is None:
         result = lib.base.coe(lib.infomaniak.get_swiss_backup_products(
@@ -165,9 +192,20 @@ def main():
     state = STATE_OK
     perfdata = ''
     table_data = []
+    compiled_ignore_customer = [re.compile(item) for item in args.IGNORE_CUSTOMER]
+    compiled_ignore_tag = [re.compile(item) for item in args.IGNORE_TAG]
 
     # analyze data
     for product in result.get('data', {}):
+        # ignore products matching any --ignore-* parameter
+        if any(item.search(product.get('customer_name', '')) for item in compiled_ignore_customer):
+            continue
+        if any(
+            item.search(tag['name'])
+            for item in compiled_ignore_tag
+            for tag in product.get('tags', [])
+        ):
+            continue
 
         expired_at = product.get('expired_at') - lib.time.now(as_type='epoch')
         expired_at_state = lib.base.get_state(expired_at / 24 / 60 / 60, args.WARN, args.CRIT, _operator='le')

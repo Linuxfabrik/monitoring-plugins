@@ -31,7 +31,9 @@ Links:
 
 ```text
 usage: infomaniak-swiss-backup-products [-h] [-V] --account-id ACCOUNT_ID
-                                        [--always-ok] [-c CRIT] [--insecure]
+                                        [--always-ok] [-c CRIT]
+                                        [--ignore-customer IGNORE_CUSTOMER]
+                                        [--ignore-tag IGNORE_TAG] [--insecure]
                                         [--no-proxy] [--severity {warn,crit}]
                                         [--timeout TIMEOUT] --token TOKEN
                                         [--test TEST] [-w WARN]
@@ -46,6 +48,14 @@ options:
   --always-ok           Always returns OK.
   -c, --critical CRIT   Set the critical for the expiration date in days.
                         Default: 3
+  --ignore-customer IGNORE_CUSTOMER
+                        Any product whose customer name matches this python
+                        regex will be ignored (repeating). Example: '(?i)test'
+                        for a case-insensitive search for "test".
+  --ignore-tag IGNORE_TAG
+                        Any product whose tag matches this python regex will
+                        be ignored (repeating). Example: '(?i)deprecated' for
+                        a case-insensitive search for "deprecated".
   --insecure            This option explicitly allows to perform "insecure"
                         SSL connections. Default: False
   --no-proxy            Do not use a proxy. Default: False

@@ -33,6 +33,7 @@ Monitoring Plugins:
 * by-ssh: add alerting on single numeric values
 * by-winrm: executes commands on remote Windows hosts by WinRM, supporting JEA (including the JEA endpoint via `--winrm-configuration-name`)
 * infomaniak-swiss-backup-devices: add `--ignore-customer`, `--ignore-name`, `--ignore-tag`, `--ignore-user` parameters to skip devices by regex
+* infomaniak-swiss-backup-products: add `--ignore-customer`, `--ignore-tag` parameters to skip products by regex
 * nextcloud-enterprise: provides information about an installed Nextcloud Enterprise subscription
 * statuspal: also detect 'emergency-maintenance' state
 * valkey-status: support user and password credentials [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954), thanks to [Claudio Kuenzler](https://github.com/Napsty)
@@ -64,6 +65,7 @@ Monitoring Plugins:
 
 * all plugins: ignore unknown arguments instead of generating an error (this helps with updating Icinga and Nagios service definitions considerably)
 * by-ssh, by-winrm, disk-usage, example, file-ownership, fs-ro, infomaniak-events, journald-query, logfile, matomo-reporting, mysql-logfile, php-status, pip-updates, systemd-unit: fix `append` parameters so that user-specified values replace defaults instead of being appended to them ([#540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
+* disk-io: also monitor normalized iowait on Linux (100% = one fully I/O-saturated core)
 * file-count: stopping when number of files actually exceed thresholds, therefore dramatically faster for large directories
 * file-ownership: `--filename` now merges with the default file list instead of replacing it; use `--no-default-files` to check only user-supplied files
 * file-ownership: extend default file list with CIS benchmark-relevant files (login.defs, sudoers, sysctl, systemd, PAM, etc.)
