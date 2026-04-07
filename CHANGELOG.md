@@ -95,6 +95,7 @@ Build, CI/CD:
 Tools:
 
 * check2basket: fix missing `importlib.machinery` and `importlib.util` imports
+* check2basket: strip argparse `%%` escaping in Icinga Director basket descriptions
 * check2basket: write `[]` as default value for `append` parameters with `default=None` in the Icinga Director basket
 
 
