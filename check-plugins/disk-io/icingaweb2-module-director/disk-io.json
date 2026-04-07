@@ -11,6 +11,12 @@
                 "--critical": {
                     "value": "$disk_io_critical$"
                 },
+                "--iowait-critical": {
+                    "value": "$disk_io_iowait_critical$"
+                },
+                "--iowait-warning": {
+                    "value": "$disk_io_iowait_warning$"
+                },
                 "--match": {
                     "value": "$disk_io_match$"
                 },
@@ -53,6 +59,16 @@
                     "datafield_id": 6,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -76,6 +92,12 @@
                 "--critical": {
                     "value": "$disk_io_windows_critical$"
                 },
+                "--iowait-critical": {
+                    "value": "$disk_io_windows_iowait_critical$"
+                },
+                "--iowait-warning": {
+                    "value": "$disk_io_windows_iowait_warning$"
+                },
                 "--match": {
                     "value": "$disk_io_windows_match$"
                 },
@@ -89,16 +111,6 @@
             "command": "C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\disk-io.exe",
             "disabled": false,
             "fields": [
-                {
-                    "datafield_id": 7,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 8,
-                    "is_required": "n",
-                    "var_filter": null
-                },
                 {
                     "datafield_id": 9,
                     "is_required": "n",
@@ -116,6 +128,26 @@
                 },
                 {
                     "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -178,7 +210,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes. The check records per-disk read/write counters and then derives current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the period\u2019s total bandwidth against the maximum ever observed for that disk (RWmax). WARN/CRIT trigger if the period average exceeds the configured percentage of RWmax for COUNT consecutive runs. Perfdata is emitted for each disk (busy_time, read_bytes, read_time, write_bytes, write_time) so you can graph trends. On Linux the check automatically focuses on \"real\" block devices with mountpoints; on Windows it uses psutil\u2019s disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
+            "notes": "Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes. The check records per-disk read/write counters and then derives current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the period\u2019s total bandwidth against the maximum ever observed for that disk (RWmax). WARN/CRIT trigger if the period average exceeds the configured percentage of RWmax for COUNT consecutive runs. On Linux, the check also monitors the system-wide iowait percentage (CPU time spent waiting for I/O). The raw iowait value is normalized by multiplying it with the number of logical CPUs, so that 100% always means one CPU core is fully I/O-saturated, regardless of the total number of CPUs. This makes the default thresholds (80/90%) work consistently across different hardware. Like bandwidth alerts, iowait alerts require COUNT consecutive threshold violations. Perfdata is emitted for each disk (busy_time, read_bytes, read_time, write_bytes, write_time) and for iowait, so you can graph trends. On Linux the check automatically focuses on \"real\" block devices with mountpoints; on Windows it uses psutil\u2019s disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io",
             "object_name": "tpl-service-disk-io",
             "object_type": "template",
@@ -192,6 +224,8 @@
                 "disk_io_always_ok": false,
                 "disk_io_count": 5,
                 "disk_io_critical": 90,
+                "disk_io_iowait_critical": 90,
+                "disk_io_iowait_warning": 80,
                 "disk_io_match": "",
                 "disk_io_top": 5,
                 "disk_io_warning": 80
@@ -229,7 +263,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes. The check records per-disk read/write counters and then derives current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the period\u2019s total bandwidth against the maximum ever observed for that disk (RWmax). WARN/CRIT trigger if the period average exceeds the configured percentage of RWmax for COUNT consecutive runs. Perfdata is emitted for each disk (busy_time, read_bytes, read_time, write_bytes, write_time) so you can graph trends. On Linux the check automatically focuses on \"real\" block devices with mountpoints; on Windows it uses psutil\u2019s disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
+            "notes": "Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes. The check records per-disk read/write counters and then derives current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the period\u2019s total bandwidth against the maximum ever observed for that disk (RWmax). WARN/CRIT trigger if the period average exceeds the configured percentage of RWmax for COUNT consecutive runs. On Linux, the check also monitors the system-wide iowait percentage (CPU time spent waiting for I/O). The raw iowait value is normalized by multiplying it with the number of logical CPUs, so that 100% always means one CPU core is fully I/O-saturated, regardless of the total number of CPUs. This makes the default thresholds (80/90%) work consistently across different hardware. Like bandwidth alerts, iowait alerts require COUNT consecutive threshold violations. Perfdata is emitted for each disk (busy_time, read_bytes, read_time, write_bytes, write_time) and for iowait, so you can graph trends. On Linux the check automatically focuses on \"real\" block devices with mountpoints; on Windows it uses psutil\u2019s disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io",
             "object_name": "tpl-service-disk-io-windows",
             "object_type": "template",
@@ -243,6 +277,8 @@
                 "disk_io_windows_always_ok": false,
                 "disk_io_windows_count": 5,
                 "disk_io_windows_critical": 90,
+                "disk_io_windows_iowait_critical": 90,
+                "disk_io_windows_iowait_warning": 80,
                 "disk_io_windows_match": ".*",
                 "disk_io_windows_top": 5,
                 "disk_io_windows_warning": 80
@@ -285,6 +321,28 @@
             "uuid": "0505cbe8-a414-4c7c-b74e-c3cce3a0f0f8"
         },
         "4": {
+            "varname": "disk_io_iowait_critical",
+            "caption": "Disk I/O: Iowait Critical",
+            "description": "Set the critical threshold for normalized iowait in percent (Linux only). The iowait value is normalized so that 100% means one CPU core is fully I/O-saturated. Values above 100% indicate that more than one core is waiting for I/O.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "5330e912-6319-49dc-bb40-59f1c91517be"
+        },
+        "5": {
+            "varname": "disk_io_iowait_warning",
+            "caption": "Disk I/O: Iowait Warning",
+            "description": "Set the warning threshold for normalized iowait in percent (Linux only). The iowait value is normalized so that 100% means one CPU core is fully I/O-saturated. Values above 100% indicate that more than one core is waiting for I/O.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "4d650bc6-1030-40e3-9478-3f0ed404921e"
+        },
+        "6": {
             "varname": "disk_io_match",
             "caption": "Disk I/O: Match",
             "description": "Match on disk names. Uses Python regular expressions without any external flags like `re.IGNORECASE`. The regular expression is applied to each line of the output. Examples: `(?i)example` to match the word \"example\" in a case-insensitive manner. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). `(?: ... )*` is a non-capturing group that matches any sequence of characters that satisfy the condition inside it, zero or more times.",
@@ -295,7 +353,7 @@
             },
             "uuid": "799caa91-3402-4421-99d8-b24bdf6dce23"
         },
-        "5": {
+        "7": {
             "varname": "disk_io_top",
             "caption": "Disk I/O: Top",
             "description": "List x \"Top processes that generated the most I/O traffic\". Use `--top=0` to disable this feature.",
@@ -306,7 +364,7 @@
             },
             "uuid": "11d2ba4f-ae3b-4bda-9ab1-2d16790673c9"
         },
-        "6": {
+        "8": {
             "varname": "disk_io_warning",
             "caption": "Disk I/O: Warning",
             "description": "Threshold for disk bandwidth saturation (over the last `--count` measurements) as a percentage of the maximum bandwidth the disk can support.",
@@ -317,7 +375,7 @@
             },
             "uuid": "648f2e2a-bd9f-45f1-9324-c31819472838"
         },
-        "7": {
+        "9": {
             "varname": "disk_io_windows_always_ok",
             "caption": "Disk I/O: Always OK?",
             "description": "Always returns OK.",
@@ -326,7 +384,7 @@
             "settings": {},
             "uuid": "0aeaffd3-218b-4d59-8338-10a5b21b0849"
         },
-        "8": {
+        "10": {
             "varname": "disk_io_windows_count",
             "caption": "Disk I/O: Count",
             "description": "Number of times the value must exceed specified thresholds before alerting.",
@@ -337,7 +395,7 @@
             },
             "uuid": "6a0f4753-34bc-4d85-a66d-2be17f4b218e"
         },
-        "9": {
+        "11": {
             "varname": "disk_io_windows_critical",
             "caption": "Disk I/O: Critical",
             "description": "Threshold for disk bandwidth saturation (over the last `--count` measurements) as a percentage of the maximum bandwidth the disk can support.",
@@ -348,7 +406,29 @@
             },
             "uuid": "6feda2a2-3432-4543-937f-f7677d00c604"
         },
-        "10": {
+        "12": {
+            "varname": "disk_io_windows_iowait_critical",
+            "caption": "Disk I/O: Iowait Critical",
+            "description": "Set the critical threshold for normalized iowait in percent (Linux only). The iowait value is normalized so that 100% means one CPU core is fully I/O-saturated. Values above 100% indicate that more than one core is waiting for I/O.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "0bf8b4a9-4736-48c1-907f-3cca8ffad3ea"
+        },
+        "13": {
+            "varname": "disk_io_windows_iowait_warning",
+            "caption": "Disk I/O: Iowait Warning",
+            "description": "Set the warning threshold for normalized iowait in percent (Linux only). The iowait value is normalized so that 100% means one CPU core is fully I/O-saturated. Values above 100% indicate that more than one core is waiting for I/O.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "f055e158-db5b-4c47-ab59-0ecbaeaaf282"
+        },
+        "14": {
             "varname": "disk_io_windows_match",
             "caption": "Disk I/O: Match",
             "description": "Match on disk names. Uses Python regular expressions without any external flags like `re.IGNORECASE`. The regular expression is applied to each line of the output. Examples: `(?i)example` to match the word \"example\" in a case-insensitive manner. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). `(?: ... )*` is a non-capturing group that matches any sequence of characters that satisfy the condition inside it, zero or more times.",
@@ -359,7 +439,7 @@
             },
             "uuid": "3889d94e-e928-43d8-994a-fc6bd1dd5716"
         },
-        "11": {
+        "15": {
             "varname": "disk_io_windows_top",
             "caption": "Disk I/O: Top",
             "description": "List x \"Top processes that generated the most I/O traffic\". Use `--top=0` to disable this feature.",
@@ -370,7 +450,7 @@
             },
             "uuid": "09d50d40-cf5b-4252-9870-f951faf6a90b"
         },
-        "12": {
+        "16": {
             "varname": "disk_io_windows_warning",
             "caption": "Disk I/O: Warning",
             "description": "Threshold for disk bandwidth saturation (over the last `--count` measurements) as a percentage of the maximum bandwidth the disk can support.",

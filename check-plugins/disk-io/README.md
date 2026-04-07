@@ -8,10 +8,22 @@ On Linux, the check plugin by default tries to find "important" disks automatica
 
 Disk I/O always starts at 10 MiB/sec, but stores the highest measured bandwidth, so it adjusts the `RWmax/s` value accordingly. For this reason, this check takes some time to warm up its (cached) readings: The check will throw some warnings and criticals during the first major disk activities above 10Mib/sec until the maximum bandwidth of the disk has been determined.
 
-Example: The (shortened) result of `./disk-io --count 5 --warning 80 --critical 90` could look like this:
+
+### iowait (Linux only)
+
+On Linux, the check also monitors the system-wide iowait percentage. iowait represents CPU time spent idle while waiting for I/O operations to complete. While technically a CPU metric, its diagnostic value is entirely in the disk I/O context, which is why it is part of this check rather than a separate one.
+
+The raw iowait value is normalized by multiplying it with the number of logical CPUs, so that 100% always means one CPU core is fully I/O-saturated, regardless of the total number of CPUs. Values above 100% indicate that more than one core is waiting for I/O. This normalization approach is inspired by [Glances](https://github.com/nicolargo/glances), which uses `100 / N` (where N = number of CPUs) as its critical threshold for raw iowait. The reason such thresholds appear low in Glances is that raw iowait is reported as a percentage of total CPU time across all cores: on a 4-core system, 25% raw iowait already means one entire core is doing nothing but waiting for I/O. By normalizing the value, the default thresholds (80/90%) work consistently across any hardware.
+
+Like bandwidth alerts, iowait alerts only trigger after `--count` consecutive threshold violations, suppressing short spikes.
+
+
+### Example
+
+The (shortened) result of `./disk-io --count 5 --warning 80 --critical 90` could look like this:
 
 ```text
-/dev/dm-4: 0.0B/s read1, 48.7KiB/s write1, 48.7KiB/s total, 227.9MiB/s max
+iowait: 0.1%. /dev/dm-4: 0.0B/s read1, 48.7KiB/s write1, 48.7KiB/s total, 227.9MiB/s max
 
 Name ! RWmax/s ! R1/s     ! W1/s     ! R5/s     ! W5/s     ! RW5/s              
 -----+---------+----------+----------+----------+----------+--------------------
@@ -20,7 +32,7 @@ dm-1 ! 10.0MiB ! 4.7KiB   ! 4.0KiB   ! 2.0KiB   ! 6.8KiB   ! 8.7KiB
 ...
 ```
 
-The first line always shows the disk with the currently highest bandwidth usage (here `dm-0`).
+The first line shows the current iowait percentage followed by the disk with the currently highest bandwidth usage (here `dm-0`).
 
 The table columns mean:
 
@@ -52,6 +64,7 @@ Hints:
 
 ```text
 usage: disk-io [-h] [-V] [--always-ok] [--count COUNT] [--critical CRIT]
+               [--iowait-critical IOWAIT_CRIT] [--iowait-warning IOWAIT_WARN]
                [--match MATCH] [--top TOP] [--warning WARN]
 
 Checks disk I/O bandwidth over time and alerts on sustained saturation, not
@@ -59,38 +72,59 @@ short spikes. The check records per-disk read/write counters and then derives
 current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the
 period’s total bandwidth against the maximum ever observed for that disk
 (RWmax). WARN/CRIT trigger if the period average exceeds the configured
-percentage of RWmax for COUNT consecutive runs. Perfdata is emitted for each
-disk (busy_time, read_bytes, read_time, write_bytes, write_time) so you can
-graph trends. On Linux the check automatically focuses on "real" block devices
-with mountpoints; on Windows it uses psutil’s disk counters. Optionally,
-`--top` lists the processes that generated the most I/O traffic (read/write
-totals) to help identify offenders. This check is cross-platform and works on
-Linux, Windows, and all psutil-supported systems. The check stores its short
-trend state locally in an SQLite DB to evaluate sustained load across runs.
+percentage of RWmax for COUNT consecutive runs. On Linux, the check also
+monitors the system-wide iowait percentage (CPU time spent waiting for I/O).
+The raw iowait value is normalized by multiplying it with the number of
+logical CPUs, so that 100% always means one CPU core is fully I/O-saturated,
+regardless of the total number of CPUs. This makes the default thresholds
+(80/90%) work consistently across different hardware. Like bandwidth alerts,
+iowait alerts require COUNT consecutive threshold violations. Perfdata is
+emitted for each disk (busy_time, read_bytes, read_time, write_bytes,
+write_time) and for iowait, so you can graph trends. On Linux the check
+automatically focuses on "real" block devices with mountpoints; on Windows it
+uses psutil’s disk counters. Optionally, `--top` lists the processes that
+generated the most I/O traffic (read/write totals) to help identify offenders.
+This check is cross-platform and works on Linux, Windows, and all psutil-
+supported systems. The check stores its short trend state locally in an SQLite
+DB to evaluate sustained load across runs.
 
 options:
-  -h, --help       show this help message and exit
-  -V, --version    show program's version number and exit
-  --always-ok      Always returns OK.
-  --count COUNT    Number of times the value must exceed specified thresholds
-                   before alerting. Default: 5
-  --critical CRIT  Threshold for disk bandwidth saturation (over the last
-                   `--count` measurements) as a percentage of the maximum
-                   bandwidth the disk can support. Default: >= 90
-  --match MATCH    Match on disk names. Uses Python regular expressions
-                   without any external flags like `re.IGNORECASE`. The
-                   regular expression is applied to each line of the output.
-                   Examples: `(?i)example` to match the word "example" in a
-                   case-insensitive manner. `^(?!.*example).*$` to match any
-                   string except "example" (negative lookahead). `(?: ... )*`
-                   is a non-capturing group that matches any sequence of
-                   characters that satisfy the condition inside it, zero or
-                   more times. Default:
-  --top TOP        List x "Top processes that generated the most I/O traffic".
-                   Use `--top=0` to disable this feature. Default: 5
-  --warning WARN   Threshold for disk bandwidth saturation (over the last
-                   `--count` measurements) as a percentage of the maximum
-                   bandwidth the disk can support. Default: >= 80
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
+  --count COUNT         Number of times the value must exceed specified
+                        thresholds before alerting. Default: 5
+  --critical CRIT       Threshold for disk bandwidth saturation (over the last
+                        `--count` measurements) as a percentage of the maximum
+                        bandwidth the disk can support. Default: >= 90
+  --iowait-critical IOWAIT_CRIT
+                        Set the critical threshold for normalized iowait in
+                        percent (Linux only). The iowait value is normalized
+                        so that 100% means one CPU core is fully
+                        I/O-saturated. Values above 100% indicate that more
+                        than one core is waiting for I/O. Default: >= 90
+  --iowait-warning IOWAIT_WARN
+                        Set the warning threshold for normalized iowait in
+                        percent (Linux only). The iowait value is normalized
+                        so that 100% means one CPU core is fully
+                        I/O-saturated. Values above 100% indicate that more
+                        than one core is waiting for I/O. Default: >= 80
+  --match MATCH         Match on disk names. Uses Python regular expressions
+                        without any external flags like `re.IGNORECASE`. The
+                        regular expression is applied to each line of the
+                        output. Examples: `(?i)example` to match the word
+                        "example" in a case-insensitive manner.
+                        `^(?!.*example).*$` to match any string except
+                        "example" (negative lookahead). `(?: ... )*` is a non-
+                        capturing group that matches any sequence of
+                        characters that satisfy the condition inside it, zero
+                        or more times. Default:
+  --top TOP             List x "Top processes that generated the most I/O
+                        traffic". Use `--top=0` to disable this feature.
+                        Default: 5
+  --warning WARN        Threshold for disk bandwidth saturation (over the last
+                        `--count` measurements) as a percentage of the maximum
+                        bandwidth the disk can support. Default: >= 80
 ```
 
 
@@ -111,7 +145,7 @@ Match all disks except `vdc`, `vdh` and `vdz`:
 Example Output:
 
 ```text
-/dev/dm-8: 5.6KiB/s read1, 2.2MiB/s write1, 2.2MiB/s total, 10.0MiB/s max
+iowait: 0.1%. /dev/dm-8: 5.6KiB/s read1, 2.2MiB/s write1, 2.2MiB/s total, 10.0MiB/s max
 
 Name ! MntPnts        ! DvMppr           ! RWmax/s ! R1/s   ! W1/s    ! R5/s   ! W5/s    ! RW5/s   
 -----+----------------+------------------+---------+--------+---------+--------+---------+---------
@@ -138,9 +172,16 @@ Top 5 processes that generate the most I/O traffic (r/w):
 ## States
 
 * WARN or CRIT if the bandwidth over the last n measured values is above a certain percentage, compared to the all time maximum bandwidth of this drive.
+* WARN or CRIT if iowait exceeds the threshold for `--count` consecutive runs (Linux only).
 
 
 ## Perfdata / Metrics
+
+Global:
+
+| Name | Type | Description |
+|----|----|----|
+| iowait | Percentage | System-wide iowait (Linux only). |
 
 Per (matched) disk, where <disk\> is the block device name:
 
