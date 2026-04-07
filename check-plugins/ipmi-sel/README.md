@@ -25,7 +25,7 @@ Hints:
 
 ```text
 usage: ipmi-sel [-h] [-V] [--authtype {NONE,PASSWORD,MD2,MD5,OEM}]
-                [-H HOSTNAME] [--interface {lan,lanplus}]
+                [-H HOSTNAME] [--ignore IGNORE] [--interface {lan,lanplus}]
                 [--password PASSWORD] [--port PORT]
                 [--privlevel {CALLBACK,USER,OPERATOR,ADMINISTRATOR}]
                 [--test TEST] [--username USERNAME]
@@ -42,7 +42,11 @@ options:
                         PASSWORD, MD2, MD5, or OEM.
   -H, --hostname HOSTNAME
                         Remote server address, can be IP address or hostname.
-                        This option is required forlan and lanplus interfaces.
+                        This option is required for lan and lanplus
+                        interfaces.
+  --ignore IGNORE       Ignore SEL entries matching this Python regular
+                        expression (repeating). Example: `--ignore="Log area
+                        reset/cleared"`
   --interface {lan,lanplus}
                         Selects IPMI interface to use. Supported types are
                         "lan" (= IPMI v1.5) or "lanplus" (= IPMI v2.0).
@@ -50,10 +54,10 @@ options:
   --port PORT           Remote server UDP port to connect to. Default: 623
   --privlevel {CALLBACK,USER,OPERATOR,ADMINISTRATOR}
                         Force session privilege level. Can be CALLBACK, USER,
-                        OPERATOR, ADMINISTRATOR.Default is USER.
+                        OPERATOR, ADMINISTRATOR. Default: USER
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
-  --username USERNAME   Remote server username, default is NULL user.
+  --username USERNAME   Remote server username. Default: NULL
 ```
 
 

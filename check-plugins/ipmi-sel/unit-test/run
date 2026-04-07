@@ -51,6 +51,25 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_UNKNOWN)
 
+    def test_if_check_runs_EXAMPLE05_sel_clear_without_ignore(self):
+        """SEL clear entry without --ignore should still warn."""
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE05,,0'))
+        self.assertIn('Log area reset/cleared', stdout)
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE05_sel_clear_with_ignore(self):
+        """SEL clear entry with --ignore should return OK (#982)."""
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE05,,0 --ignore="Log area reset/cleared"'))
+        self.assertIn('Everything is ok.', stdout)
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE01_with_ignore(self):
+        """Ignore pattern should filter matching entries but keep others."""
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0 --ignore="Unknown #0xff"'))
+        self.assertNotIn('Unknown #0xff', stdout)
+        self.assertIn('Physical Security Chassis Intru', stdout)
+        self.assertEqual(retc, STATE_WARN)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -8,6 +8,10 @@
                 "--hostname": {
                     "value": "$ipmi_sel_hostname$"
                 },
+                "--ignore": {
+                    "value": "$ipmi_sel_ignore$",
+                    "repeat_key": true
+                },
                 "--interface": {
                     "value": "$ipmi_sel_interface$"
                 },
@@ -59,6 +63,11 @@
                 },
                 {
                     "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -133,6 +142,7 @@
             "vars": {
                 "criticality": "A",
                 "ipmi_sel_authtype": "NONE",
+                "ipmi_sel_ignore": [],
                 "ipmi_sel_interface": "lan",
                 "ipmi_sel_port": 623,
                 "ipmi_sel_privlevel": "USER",
@@ -339,7 +349,7 @@
         "2": {
             "varname": "ipmi_sel_hostname",
             "caption": "IPMI SEL: Hostname",
-            "description": "Remote server address, can be IP address or hostname. This option is required forlan and lanplus interfaces.",
+            "description": "Remote server address, can be IP address or hostname. This option is required for lan and lanplus interfaces.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -348,6 +358,17 @@
             "uuid": "5f2a7289-7b3a-4d8d-9e4a-e231f14112a4"
         },
         "3": {
+            "varname": "ipmi_sel_ignore",
+            "caption": "IPMI SEL: Ignore",
+            "description": "Ignore SEL entries matching this Python regular expression (repeating). Example: `--ignore=\"Log area reset/cleared\"`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ebd33286-25cc-4985-a8a0-6e5cef5b8e40"
+        },
+        "4": {
             "varname": "ipmi_sel_interface",
             "caption": "IPMI SEL: Interface",
             "description": "Selects IPMI interface to use. Supported types are \"lan\" (= IPMI v1.5) or \"lanplus\" (= IPMI v2.0).",
@@ -360,7 +381,7 @@
             },
             "uuid": "fb046171-1427-4e05-b04b-e2e39cdbc8c9"
         },
-        "4": {
+        "5": {
             "varname": "ipmi_sel_password",
             "caption": "IPMI SEL: Password",
             "description": "Remote server password.",
@@ -371,7 +392,7 @@
             },
             "uuid": "b299923e-1264-4706-8983-f689efce91a4"
         },
-        "5": {
+        "6": {
             "varname": "ipmi_sel_port",
             "caption": "IPMI SEL: Port",
             "description": "Remote server UDP port to connect to.",
@@ -382,10 +403,10 @@
             },
             "uuid": "156a8247-0aad-49f7-8359-2b2ddaaa26e1"
         },
-        "6": {
+        "7": {
             "varname": "ipmi_sel_privlevel",
             "caption": "IPMI SEL: Privlevel",
-            "description": "Force session privilege level. Can be CALLBACK, USER, OPERATOR, ADMINISTRATOR.Default is USER.",
+            "description": "Force session privilege level. Can be CALLBACK, USER, OPERATOR, ADMINISTRATOR.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -395,10 +416,10 @@
             },
             "uuid": "96203070-8db0-49af-ba82-742d0bcf485f"
         },
-        "7": {
+        "8": {
             "varname": "ipmi_sel_username",
             "caption": "IPMI SEL: Username",
-            "description": "Remote server username, default is NULL user.",
+            "description": "Remote server username.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
