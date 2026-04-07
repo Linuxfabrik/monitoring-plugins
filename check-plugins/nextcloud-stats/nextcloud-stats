@@ -20,7 +20,7 @@ import lib.base  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
-from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_CRIT  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2025100601'
@@ -82,6 +82,15 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--failure-is-critical',
+        help='Return CRITICAL instead of UNKNOWN when any failure occurs (timeout, connection error, etc.). '
+             'Default: %(default)s',
+        dest='FAILURE_IS_CRITICAL',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '--url',
         help='Nextcloud API URL. '
              'Default: %(default)s',
@@ -125,15 +134,28 @@ def main():
         'OCS-APIRequest': 'true',
     }
     # and get the info from the API
-    jsonst = lib.base.coe(
-        lib.url.fetch(
-            url,
-            header=header,
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            timeout=args.TIMEOUT,
-        )
+    fetch_result = lib.url.fetch(
+        url,
+        header=header,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
     )
+    # lib.url.fetch returns (False, error_message) on error, or the content on success
+    if isinstance(fetch_result, tuple) and len(fetch_result) == 2 and not fetch_result[0]:
+        # This is an error
+        error_message = fetch_result[1]
+        if args.FAILURE_IS_CRITICAL:
+            lib.base.oao(
+                'Connection failure occurred while fetching Nextcloud API data: {}'.format(error_message),
+                STATE_CRIT,
+            )
+            return  # Exit early, oao() should have already exited but just in case
+        # Let lib.base.coe() handle the error normally (will return UNKNOWN)
+        jsonst = lib.base.coe(fetch_result)
+    else:
+        # Success case
+        jsonst = lib.base.coe(fetch_result)
     try:
         result = json.loads(jsonst)
     except:
