@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+* Fix `--require-hashes` pip install in pre-commit autoupdate workflow by using pinned version instead
+
 ### Changed
 
 * Update and extend pre-commit hooks (add `check-added-large-files`, `check-merge-conflict`, `check-yaml`; update all hook versions)
