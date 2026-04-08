@@ -6,8 +6,9 @@ This check prints cpu and memory statistics for all running Podman containers, u
 
 Hints:
 
+* Podman runs rootless by default. Without `sudo`, the check only sees containers of the executing user. To monitor containers across all users, run the check via `sudo` (the Icinga Director basket and sudoers file are pre-configured for this).
 * Plugin execution may take up to 10 seconds.
-* Since `podman stats` only returns byte-level data in a human-readable format (e.g. *4.82GB*), calculating network I/O (`RX bps`, `TX bps`) and block I/O (`BlockIn/s`, `BlockOut/s`) is imprecise. Therefore, these values are not used at all.
+* Since `podman stats` only returns byte-level data in a human-readable format (e.g. *221.2kB*), calculating network I/O and block I/O is imprecise. Therefore, these values are not used.
 
 
 ## Fact Sheet

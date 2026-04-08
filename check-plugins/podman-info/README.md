@@ -4,6 +4,10 @@
 
 Displays system-wide Podman information. For Docker, use the [docker-info](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/docker-info) check instead.
 
+Hints:
+
+* Podman runs rootless by default. Without `sudo`, the check only sees containers of the executing user. To monitor containers across all users, run the check via `sudo` (the Icinga Director basket and sudoers file are pre-configured for this).
+
 
 ## Fact Sheet
 
