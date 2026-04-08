@@ -83,19 +83,20 @@ myconti_ds_1              ! 0.0   ! 11.42
 
 ## States
 
-Alerts if
+* CRIT on `docker info` or `docker stats` return codes != 0
+* WARN if any container cpu usage is above the warning cpu threshold during the last n checks (default: 5)
+* CRIT if any container cpu usage is above the critical cpu threshold during the last n checks (default: 5)
+* WARN or CRIT if any container memory usage is above the memory thresholds
 
-* any container memory usage is above the memory thresholds
-* any container cpu usage is above the cpu thresholds during the last n checks (default: 5)
+CPU usage is normalized by dividing by the number of host CPUs, so 100% means all host CPUs are fully utilized. On an 8-core system, a container using one core at full capacity would show 12.5%. Memory usage is relative to the container's memory limit if one is set, otherwise relative to the total host memory.
 
 
 ## Perfdata / Metrics
 
-| Name                         | Type       | Description                        |
-|------------------------------|------------|------------------------------------|
-| cpu                          | Number     | Number of Host CPUs                |
-| \<containername\>\_cpu_usage | Percentage | Container's CPU usage (normalized) |
-| \<containername\>\_mem_usage | Percentage | Container's memory usage (Percent) |
+| Name       | Type   | Description                  |
+|------------|--------|------------------------------|
+| containers_running | Number | Number of running containers |
+| cpu        | Number | Number of Host CPUs          |
 
 
 ## Credits, License

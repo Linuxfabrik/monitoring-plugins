@@ -20,12 +20,11 @@ import lib.base
 import lib.db_sqlite
 import lib.lftest
 import lib.shell
-import lib.txt
 from lib.globals import (STATE_CRIT, STATE_OK,
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026040802'
 
 DESCRIPTION = """This check prints cpu and memory statistics for all running Podman
                 containers, using the "podman stats" command. Container CPU usage is divided
@@ -167,60 +166,72 @@ def main():
             lib.shell.shell_exec('podman info --format json'),
         )
         if retc != 0:
-            lib.base.cu(f'{stderr}\n{stdout}')
+            lib.base.oao(f'{stderr}\n{stdout}', STATE_CRIT)
         try:
-            host_cpus = json.loads(stdout)['host']['cpus']
+            podman_info = json.loads(stdout)
+            host_cpus = podman_info['host']['cpus']
+            host_images = podman_info['store']['imageStore']['number']
+            host_ram = podman_info['host']['memTotal']
         except Exception:
             lib.base.cu('Unable to parse podman info output as JSON.')
 
         # get the container statistics for all running containers
         stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('podman stats --no-stream'),
+            lib.shell.shell_exec("podman stats --no-stream --format '{{json .}}'"),
         )
         if retc != 0:
-            lib.base.cu(stderr)
+            lib.base.oao(stderr, STATE_CRIT)
     else:
         # do not call the command, put in test data
         host_cpus = 1
+        host_images = 0
+        host_ram = 0
         stdout, stderr, retc = lib.lftest.test(args.TEST)
 
     # init some vars
     msg = ''
     state = STATE_OK
-    perfdata = lib.base.get_perfdata(
-        'cpu',
-        host_cpus,
-        _min=0,
-    )
+    perfdata = ''
     table_values = []
+    total_block_input = 0
+    total_block_output = 0
+    total_net_rx = 0
+    total_net_tx = 0
 
-    # analyze data
-    containers = lib.txt.mltext2array(stdout, skip_header=True, sort_key=1)
-    for container in containers:
+    # parse newline-delimited JSON output
+    containers = []
+    for line in stdout.strip().splitlines():
+        line = line.strip()
+        if not line:
+            continue
         try:
-            if container[0] == '--':
-                # container without ID and name == '--'
-                continue
-            name = container[1]
-            if not args.FULL_NAME:
-                name = shorten(name)
-            cpu_percent = container[2]
-            mem_usage = container[3]
-            mem_percent = container[6]
-        except Exception:
+            containers.append(json.loads(line))
+        except (json.JSONDecodeError, ValueError):
             continue
 
+    # sort containers by name
+    containers.sort(key=lambda c: c.get('Name', ''))
+
+    # analyze data
+    for container in containers:
+        name = container.get('Name', '')
+        if not name or name == '--':
+            continue
+
+        if not args.FULL_NAME:
+            name = shorten(name)
+
         # divide by number of cores (got by podman info)
-        cpu_usage = round(float(cpu_percent.replace('%', '').strip()) / host_cpus, 1)
-        perfdata += lib.base.get_perfdata(
-            f'{name}_cpu_usage',
-            cpu_usage,
-            uom='%',
-            warn=args.WARN_CPU,
-            crit=args.CRIT_CPU,
-            _min=0,
-            _max=100,
-        )
+        cpu_usage = round(float(container.get('CPU', 0)) / host_cpus, 1)
+        mem_usage = round(float(container.get('MemPerc', 0)), 1)
+
+        # accumulate totals for aggregate perfdata
+        total_block_input += int(container.get('BlockInput', 0))
+        total_block_output += int(container.get('BlockOutput', 0))
+        network = container.get('Network', {})
+        for iface in network.values():
+            total_net_rx += int(iface.get('RxBytes', 0))
+            total_net_tx += int(iface.get('TxBytes', 0))
 
         # save trend data to local sqlite database, limited to "count" rows max.
         lib.base.coe(
@@ -242,16 +253,6 @@ def main():
         state = lib.base.get_worst(cpu_state, state)
 
         # alert when container mem_usage is exceeded
-        mem_usage = float(mem_percent.replace('%', '').strip())
-        perfdata += lib.base.get_perfdata(
-            f'{name}_mem_usage',
-            mem_usage,
-            uom='%',
-            warn=args.WARN_MEM,
-            crit=args.CRIT_MEM,
-            _min=0,
-            _max=100,
-        )
         mem_state = lib.base.get_state(mem_usage, args.WARN_MEM, args.CRIT_MEM)
         if mem_state != STATE_OK:
             msg += f'"{name}" memory {mem_usage}% {lib.base.state2str(mem_state)}, '
@@ -266,6 +267,53 @@ def main():
     # we don't need the database any more: save data and close connection
     lib.db_sqlite.commit(conn)
     lib.db_sqlite.close(conn)
+
+    # build perfdata
+    perfdata += lib.base.get_perfdata(
+        'block_input',
+        total_block_input,
+        uom='B',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'block_output',
+        total_block_output,
+        uom='B',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'containers_running',
+        len(table_values),
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'cpu',
+        host_cpus,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'images',
+        host_images,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'net_rx',
+        total_net_rx,
+        uom='B',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'net_tx',
+        total_net_tx,
+        uom='B',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'ram',
+        host_ram,
+        uom='B',
+        _min=0,
+    )
 
     # create output
     if state == STATE_OK:

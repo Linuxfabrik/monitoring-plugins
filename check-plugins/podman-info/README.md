@@ -51,6 +51,8 @@ Output:
 
 ## States
 
+* WARN on `podman info` warnings
+* CRIT on `podman info` errors
 * CRIT on `podman info` return codes != 0
 
 

@@ -132,6 +132,8 @@ Monitoring Plugins:
 * by-ssh: add missing `--verbose` parameter
 * cpu-usage: fix false 100% readings on Windows with 64+ cores caused by all-zero CPU time samples from psutil ([#626](https://github.com/Linuxfabrik/monitoring-plugins/issues/626))
 * docker-stats: fix memory perfdata using CPU thresholds instead of memory thresholds
+* docker-stats: replace per-container perfdata with aggregate metrics (containers, cpu)
+* podman-stats: use `podman stats --format '{{json .}}'` for precise numeric values; aggregate perfdata includes block I/O and network I/O totals
 * file-age: handle `FileNotFoundError` race condition when files disappear on busy file systems
 * fs-ro: ignore `/run/credentials` (https://systemd.io/CREDENTIALS/)
 * keycloak-stats: fix incorrect symlink for lib
