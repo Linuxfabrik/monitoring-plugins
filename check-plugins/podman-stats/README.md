@@ -1,38 +1,38 @@
-# Check docker-stats
+# Check podman-stats
 
 ## Overview
 
-This check prints cpu and memory statistics for all running Docker containers, using the [docker stats](https://docs.docker.com/engine/reference/commandline/stats/) command. Container CPU usage is divided by the available number of CPU cores ("normalized"). For Podman, use the [podman-stats](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/podman-stats) check instead.
+This check prints cpu and memory statistics for all running Podman containers, using the [podman stats](https://docs.podman.io/en/latest/markdown/podman-stats.1.html) command. Container CPU usage is divided by the available number of CPU cores ("normalized"). For Docker, use the [docker-stats](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/docker-stats) check instead.
 
 Hints:
 
 * Plugin execution may take up to 10 seconds.
-* Since `docker stats` only returns byte-level data in a human-readable format (e.g. *4.82GB*), calculating network I/O (`RX bps`, `TX bps`) and block I/O (`BlockIn/s`, `BlockOut/s`) is imprecise. Therefore, these values are not used at all.
+* Since `podman stats` only returns byte-level data in a human-readable format (e.g. *4.82GB*), calculating network I/O (`RX bps`, `TX bps`) and block I/O (`BlockIn/s`, `BlockOut/s`) is imprecise. Therefore, these values are not used at all.
 
 
 ## Fact Sheet
 
 | Fact | Value |
 |----|----|
-| Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/docker-stats> |
+| Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/podman-stats> |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
 | Handles Periods                       | Yes |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-docker-stats.db` |
+| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-podman-stats.db` |
 
 
 ## Help
 
 ```text
-usage: docker-stats [-h] [-V] [--always-ok] [--count COUNT]
+usage: podman-stats [-h] [-V] [--always-ok] [--count COUNT]
                     [--critical-cpu CRIT_CPU] [--critical-mem CRIT_MEM]
                     [--full-name] [--test TEST] [--warning-cpu WARN_CPU]
                     [--warning-mem WARN_MEM]
 
-This check prints cpu and memory statistics for all running Docker containers,
-using the "docker stats" command. Container CPU usage is divided by the
-available number of CPU cores ("normalized"). For Podman, use the podman-stats
+This check prints cpu and memory statistics for all running Podman containers,
+using the "podman stats" command. Container CPU usage is divided by the
+available number of CPU cores ("normalized"). For Docker, use the docker-stats
 check instead.
 
 options:
@@ -65,7 +65,7 @@ options:
 ## Usage Examples
 
 ```bash
-./docker-stats --count 5 --warning-cpu 70 --critical-cpu 90 --warning-mem 90 --critical-mem 95
+./podman-stats --count 5 --warning-cpu 70 --critical-cpu 90 --warning-mem 90 --critical-mem 95
 ```
 
 Output:

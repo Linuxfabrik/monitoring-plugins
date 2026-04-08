@@ -1,30 +1,30 @@
 {
     "Command": {
-        "cmd-check-docker-stats": {
+        "cmd-check-podman-stats": {
             "arguments": {
                 "--always-ok": {
-                    "set_if": "$docker_stats_always_ok$"
+                    "set_if": "$podman_stats_always_ok$"
                 },
                 "--count": {
-                    "value": "$docker_stats_count$"
+                    "value": "$podman_stats_count$"
                 },
                 "--critical-cpu": {
-                    "value": "$docker_stats_critical_cpu$"
+                    "value": "$podman_stats_critical_cpu$"
                 },
                 "--critical-mem": {
-                    "value": "$docker_stats_critical_mem$"
+                    "value": "$podman_stats_critical_mem$"
                 },
                 "--full-name": {
-                    "set_if": "$docker_stats_full_name$"
+                    "set_if": "$podman_stats_full_name$"
                 },
                 "--warning-cpu": {
-                    "value": "$docker_stats_warning_cpu$"
+                    "value": "$podman_stats_warning_cpu$"
                 },
                 "--warning-mem": {
-                    "value": "$docker_stats_warning_mem$"
+                    "value": "$podman_stats_warning_mem$"
                 }
             },
-            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/docker-stats",
+            "command": "/usr/lib64/nagios/plugins/podman-stats",
             "disabled": false,
             "fields": [
                 {
@@ -66,20 +66,20 @@
             "imports": [],
             "is_string": null,
             "methods_execute": "PluginCheck",
-            "object_name": "cmd-check-docker-stats",
+            "object_name": "cmd-check-podman-stats",
             "object_type": "object",
             "timeout": 20,
             "vars": {},
             "zone": null,
-            "uuid": "3e7e5ca6-ad37-4a5e-b447-2db5b73d256f"
+            "uuid": "abaac484-1466-43bf-85e4-694ceea03862"
         }
     },
     "ServiceTemplate": {
-        "tpl-service-docker-stats": {
+        "tpl-service-podman-stats": {
             "action_url": null,
             "apply_for": null,
             "assign_filter": null,
-            "check_command": "cmd-check-docker-stats",
+            "check_command": "cmd-check-podman-stats",
             "check_interval": 60,
             "check_period": null,
             "check_timeout": null,
@@ -98,15 +98,15 @@
             "flapping_threshold_low": null,
             "groups": [],
             "host": null,
-            "icon_image": "docker-stats.svg",
+            "icon_image": "podman-stats.svg",
             "icon_image_alt": null,
             "imports": [
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "This check prints cpu and memory statistics for all running Docker containers, using the \"docker stats\" command. Container CPU usage is divided by the available number of CPU cores (\"normalized\"). For Podman, use the podman-stats check instead.",
-            "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/docker-stats",
-            "object_name": "tpl-service-docker-stats",
+            "notes": "This check prints cpu and memory statistics for all running Podman containers, using the \"podman stats\" command. Container CPU usage is divided by the available number of CPU cores (\"normalized\"). For Docker, use the docker-stats check instead.",
+            "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/podman-stats",
+            "object_name": "tpl-service-podman-stats",
             "object_type": "template",
             "retry_interval": 15,
             "service_set": null,
@@ -115,92 +115,92 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
-                "docker_stats_always_ok": false,
-                "docker_stats_count": 5,
-                "docker_stats_critical_cpu": 90,
-                "docker_stats_critical_mem": 95,
-                "docker_stats_full_name": false,
-                "docker_stats_warning_cpu": 80,
-                "docker_stats_warning_mem": 90
+                "podman_stats_always_ok": false,
+                "podman_stats_count": 5,
+                "podman_stats_critical_cpu": 90,
+                "podman_stats_critical_mem": 95,
+                "podman_stats_full_name": false,
+                "podman_stats_warning_cpu": 80,
+                "podman_stats_warning_mem": 90
             },
             "volatile": null,
             "zone": null,
-            "uuid": "1311ed5e-ce62-4f88-80ab-15a3096da59b"
+            "uuid": "50bd0d98-8a7e-4410-b441-ef5e79825dad"
         }
     },
     "Datafield": {
         "1": {
-            "varname": "docker_stats_always_ok",
-            "caption": "Docker Stats: Always OK?",
+            "varname": "podman_stats_always_ok",
+            "caption": "Podman Stats: Always OK?",
             "description": "Always returns OK.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
-            "uuid": "d00c3491-40d7-4a0e-9c61-7bede41b2549"
+            "uuid": "a11ddf69-1c02-45ce-bbd9-a3e9e599abf8"
         },
         "2": {
-            "varname": "docker_stats_count",
-            "caption": "Docker Stats: Count",
+            "varname": "podman_stats_count",
+            "caption": "Podman Stats: Count",
             "description": "Number of times the value must exceed specified thresholds before alerting.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "3d687f83-dbc1-4acf-ba04-4163a3801b58"
+            "uuid": "c9af25b4-b459-4c0f-9f59-24cb9d5fa8ad"
         },
         "3": {
-            "varname": "docker_stats_critical_cpu",
-            "caption": "Docker Stats: Critical CPU",
+            "varname": "podman_stats_critical_cpu",
+            "caption": "Podman Stats: Critical CPU",
             "description": "Set the critical threshold CPU Usage Percentage.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "57c71993-6f90-4f7c-958d-ff6b910c8248"
+            "uuid": "b2f9be2c-d37c-483b-8224-6b7d0442a129"
         },
         "4": {
-            "varname": "docker_stats_critical_mem",
-            "caption": "Docker Stats: Critical Memory",
+            "varname": "podman_stats_critical_mem",
+            "caption": "Podman Stats: Critical Memory",
             "description": "Set the critical threshold Memory Usage Percentage.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "a67ef15a-ffb8-4fe4-bc51-9b00882c669f"
+            "uuid": "651e6359-6b8a-4622-861a-4276335c5705"
         },
         "5": {
-            "varname": "docker_stats_full_name",
-            "caption": "Docker Stats: Full Name?",
+            "varname": "podman_stats_full_name",
+            "caption": "Podman Stats: Full Name?",
             "description": "Use full container name, for example `traefik_traefik.2.1idw12p2yqp`. If ommitted, the name will be shortened after the replica number (default behaviour).",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
-            "uuid": "4b20fa55-d44a-4bef-8698-b1816882ec2a"
+            "uuid": "ec607876-1052-41ca-b854-a170f10c81c3"
         },
         "6": {
-            "varname": "docker_stats_warning_cpu",
-            "caption": "Docker Stats: Warning CPU",
+            "varname": "podman_stats_warning_cpu",
+            "caption": "Podman Stats: Warning CPU",
             "description": "Set the warning threshold CPU Usage Percentage.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "6d11fc9e-88cc-49e3-812c-91217fd10dfe"
+            "uuid": "d2580263-e0b7-4637-87a6-32ea6976e2b9"
         },
         "7": {
-            "varname": "docker_stats_warning_mem",
-            "caption": "Docker Stats: Warning Memory",
+            "varname": "podman_stats_warning_mem",
+            "caption": "Podman Stats: Warning Memory",
             "description": "Set the warning threshold Memory Usage Percentage.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "4ace4a19-476a-4f03-b2f3-53e5457fd9ae"
+            "uuid": "69bdb916-c136-412b-9d21-b4d8a8b6f47c"
         }
     }
 }

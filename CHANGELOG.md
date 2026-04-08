@@ -44,6 +44,8 @@ Monitoring Plugins:
 * librenms-alerts: add device-type `management`
 * librenms-health: add device-type `management`
 * nextcloud-enterprise: provides information about an installed Nextcloud Enterprise subscription
+* podman-info: displays system-wide Podman information (dedicated Podman counterpart to docker-info) ([#1023](https://github.com/Linuxfabrik/monitoring-plugins/issues/1023))
+* podman-stats: prints cpu and memory statistics for all running Podman containers (dedicated Podman counterpart to docker-stats) ([#1023](https://github.com/Linuxfabrik/monitoring-plugins/issues/1023))
 * procs: add `--lengthy` parameter for extended `--top` table output with all platform-specific memory fields
 * procs: add `--top` parameter to list the top N processes by CPU time and memory usage
 * procs: add `--warning-cpu-percent` / `--critical-cpu-percent` thresholds for aggregated CPU usage of filtered processes (requires SQLite for delta calculation between runs)
@@ -129,6 +131,7 @@ Monitoring Plugins:
 * about-me: fix various errors with `sys_dimensions` on some machines ([#1006](https://github.com/Linuxfabrik/monitoring-plugins/issues/1006))
 * by-ssh: add missing `--verbose` parameter
 * cpu-usage: fix false 100% readings on Windows with 64+ cores caused by all-zero CPU time samples from psutil ([#626](https://github.com/Linuxfabrik/monitoring-plugins/issues/626))
+* docker-stats: fix memory perfdata using CPU thresholds instead of memory thresholds
 * file-age: handle `FileNotFoundError` race condition when files disappear on busy file systems
 * fs-ro: ignore `/run/credentials` (https://systemd.io/CREDENTIALS/)
 * keycloak-stats: fix incorrect symlink for lib

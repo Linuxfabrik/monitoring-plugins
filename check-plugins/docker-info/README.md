@@ -2,7 +2,7 @@
 
 ## Overview
 
-Displays system-wide docker or podman information.
+Displays system-wide Docker information. For Podman, use the [podman-info](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/podman-info) check instead.
 
 
 ## Fact Sheet
@@ -20,7 +20,8 @@ Displays system-wide docker or podman information.
 ```text
 usage: docker-info [-h] [-V] [--always-ok] [--test TEST]
 
-Displays system-wide docker information.
+Displays system-wide Docker information. For Podman, use the podman-info check
+instead.
 
 options:
   -h, --help     show this help message and exit

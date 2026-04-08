@@ -12,6 +12,7 @@
 """
 
 import argparse
+import json
 import sys
 
 import lib.args
@@ -19,14 +20,15 @@ import lib.base
 import lib.human
 import lib.lftest
 import lib.shell
+import lib.txt
 from lib.globals import (STATE_CRIT, STATE_OK,
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040802'
+__version__ = '2026040801'
 
-DESCRIPTION = ('Displays system-wide Docker information.'
-               ' For Podman, use the podman-info check instead.')
+DESCRIPTION = ('Displays system-wide Podman information.'
+               ' For Docker, use the docker-info check instead.')
 
 
 def parse_args():
@@ -72,18 +74,21 @@ def main():
     # fetch data
     if args.TEST is None:
         stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('docker info'),
+            lib.shell.shell_exec('podman info --format json'),
         )
         if retc != 0:
             lib.base.cu(f'{stderr}\n{stdout}')
-        if 'server version:' not in stdout.lower():
-            lib.base.cu(
-                'Unable to parse docker info output.'
-                ' If you are using Podman, use the podman-info check instead.'
-            )
+        try:
+            result = json.loads(stdout)
+        except Exception:
+            lib.base.cu('Unable to parse podman info output as JSON.')
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
+        try:
+            result = json.loads(stdout)
+        except Exception:
+            lib.base.cu('Unable to parse podman info output as JSON.')
 
     # init some vars
     msg = ''
@@ -94,31 +99,19 @@ def main():
     memory_human = registry = storage_driver = ver = ''
     warn, crit = '', ''
 
-    # analyze data - extract values from docker info text output
-    for row in stdout.strip().split('\n'):
-        lcrow = row.lower()
-        if ' containers: ' in lcrow:
-            containers = lcrow.replace('containers: ', '').strip()
-        if '  paused: ' in lcrow:
-            containers_paused = lcrow.replace('paused: ', '').strip()
-        if '  running: ' in lcrow:
-            containers_running = lcrow.replace('running: ', '').strip()
-        if '  stopped: ' in lcrow:
-            containers_stopped = lcrow.replace('stopped: ', '').strip()
-        if ' cpus: ' in lcrow:
-            cpus = lcrow.replace('cpus: ', '').strip()
-        if ' images: ' in lcrow:
-            images = lcrow.replace('images: ', '').strip()
-        if ' logging driver: ' in lcrow:
-            logging_driver = lcrow.replace('logging driver: ', '').strip()
-        if ' total memory: ' in lcrow:
-            memory_human = row.replace('Total Memory: ', '').strip()
-        if ' registry: ' in lcrow:
-            registry = lcrow.replace('registry: ', '').strip()
-        if ' storage driver: ' in lcrow:
-            storage_driver = lcrow.replace('storage driver: ', '').strip()
-        if ' server version: ' in lcrow:
-            ver = lcrow.replace('server version: ', '').strip()
+    # analyze data - extract values from podman info JSON output
+    containers = result['store']['containerStore']['number']
+    containers_paused = result['store']['containerStore']['paused']
+    containers_running = result['store']['containerStore']['running']
+    containers_stopped = result['store']['containerStore']['stopped']
+    cpus = result['host']['cpus']
+    images = result['store']['imageStore']['number']
+    logging_driver = result['host']['eventLogger']
+    memory_human = lib.human.bytes2human(result['host']['memTotal'])
+    num_registries = len(result['registries']['search'])
+    registry = f"{num_registries} {lib.txt.pluralize('Registr', num_registries, 'y,ies')}"
+    storage_driver = result['store']['graphDriverName']
+    ver = result['version']['Version']
 
     # check stderr for warnings and errors
     for row in stderr.strip().split('\n'):
@@ -161,13 +154,12 @@ def main():
         images,
         _min=0,
     )
-    if memory_human:
-        perfdata += lib.base.get_perfdata(
-            'ram',
-            lib.human.human2bytes(memory_human),
-            uom='B',
-            _min=0,
-        )
+    perfdata += lib.base.get_perfdata(
+        'ram',
+        result['host']['memTotal'],
+        uom='B',
+        _min=0,
+    )
 
     # create output
     if crit:
@@ -190,7 +182,7 @@ def main():
         msg += f', Logging Driver: {logging_driver}'
     if registry != '':
         msg += f', Registry: {registry}'
-    msg += f', Docker v{ver}'
+    msg += f', Podman v{ver}'
     msg += f', {cpus} CPUs'
     msg += f', {memory_human} Memory'
 

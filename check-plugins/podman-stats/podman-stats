@@ -12,6 +12,7 @@
 """
 
 import argparse
+import json
 import sys
 
 import lib.args
@@ -24,12 +25,12 @@ from lib.globals import (STATE_CRIT, STATE_OK,
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040802'
+__version__ = '2026040801'
 
-DESCRIPTION = """This check prints cpu and memory statistics for all running Docker
-                containers, using the "docker stats" command. Container CPU usage is divided
-                by the available number of CPU cores ("normalized"). For Podman, use the
-                podman-stats check instead."""
+DESCRIPTION = """This check prints cpu and memory statistics for all running Podman
+                containers, using the "podman stats" command. Container CPU usage is divided
+                by the available number of CPU cores ("normalized"). For Docker, use the
+                docker-stats check instead."""
 
 DEFAULT_COUNT = 5           # measurements; if check runs once per minute, this is a 5 minute period
 DEFAULT_WARN_CPU  = 80      # %
@@ -154,7 +155,7 @@ def main():
                 cpu_usage REAL NOT NULL
         '''
     conn = lib.base.coe(
-        lib.db_sqlite.connect(filename='linuxfabrik-monitoring-plugins-docker-stats.db'),
+        lib.db_sqlite.connect(filename='linuxfabrik-monitoring-plugins-podman-stats.db'),
     )
     lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='cpu'))
     lib.db_sqlite.create_index(conn, 'container', table='cpu')
@@ -163,22 +164,18 @@ def main():
     if args.TEST is None:
         # get the number of host CPUs
         stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('docker info'),
+            lib.shell.shell_exec('podman info --format json'),
         )
         if retc != 0:
             lib.base.cu(f'{stderr}\n{stdout}')
-        if 'server version:' not in stdout.lower():
-            lib.base.cu(
-                'Unable to parse docker info output.'
-                ' If you are using Podman, use the podman-stats check instead.'
-            )
-        strpos1 = stdout.find('CPUs: ') + 6
-        strpos2 = stdout.find('\n', strpos1)
-        host_cpus = int(stdout[strpos1:strpos2].strip())
+        try:
+            host_cpus = json.loads(stdout)['host']['cpus']
+        except Exception:
+            lib.base.cu('Unable to parse podman info output as JSON.')
 
         # get the container statistics for all running containers
         stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('docker stats --no-stream'),
+            lib.shell.shell_exec('podman stats --no-stream'),
         )
         if retc != 0:
             lib.base.cu(stderr)
@@ -205,7 +202,6 @@ def main():
                 # container without ID and name == '--'
                 continue
             name = container[1]
-            # https://github.com/Linuxfabrik/monitoring-plugins/issues/586
             if not args.FULL_NAME:
                 name = shorten(name)
             cpu_percent = container[2]
@@ -214,7 +210,7 @@ def main():
         except Exception:
             continue
 
-        # divide by number of cores (got by docker info)
+        # divide by number of cores (got by podman info)
         cpu_usage = round(float(cpu_percent.replace('%', '').strip()) / host_cpus, 1)
         perfdata += lib.base.get_perfdata(
             f'{name}_cpu_usage',
