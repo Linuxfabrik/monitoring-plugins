@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+* CONTRIBUTING: add "no continuous counters" policy with rationale and link to example plugin ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
+* CONTRIBUTING: add early reference to example plugin as skeleton for new plugins
+* CONTRIBUTING: add Grafana migration note for grafanactl ([#1062](https://github.com/Linuxfabrik/monitoring-plugins/issues/1062))
+* CONTRIBUTING: rewrite unit-test section with declarative test pattern, naming conventions, and tox usage
+* CONTRIBUTING: run pylint without `--disable` flags
+* CONTRIBUTING: remove inline `pylint: disable` comments from code examples
+* example: rewrite as comprehensive skeleton covering all standard patterns (argparse, SQLite delta calculations, regex filtering, `--lengthy` table output, human-readable formatting, get_state/get_worst, Grafana-compatible perfdata)
 * Update and extend pre-commit hooks (add `check-added-large-files`, `check-merge-conflict`, `check-yaml`; update all hook versions)
 * Unify CONTRIBUTING and enhance it with the official Monitoring Plugins and Nagios Plugin Development Guidelines
 
@@ -32,6 +39,8 @@ Monitoring Plugins:
 
 Build, CI/CD:
 
+* Add `tools/run-unit-tests` runner for discovering and executing all plugin unit tests from the repo root
+* Add `tox.ini` for multi-version testing (Python 3.9 through 3.14)
 * Add MkDocs-based documentation site, deployed automatically to GitHub Pages via `tools/build-docs` and a GitHub Actions workflow
 * Add support for sle15 packages
 * Add support for sle16 packages

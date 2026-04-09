@@ -77,6 +77,8 @@ Code, comments, commit messages, and documentation must be written in English.
 
 ## Check Plugin Developer Guidelines
 
+Use the [example](check-plugins/example/example) plugin as a skeleton for new plugins. It demonstrates all standard patterns, library functions, and coding conventions described below.
+
 
 ### Monitoring of an Application
 
@@ -439,7 +441,7 @@ By the way, when running the compiled variants, this gives the nice and intended
 
 ```python
 try:
-    import psutil  # pylint: disable=C0413
+    import psutil
 except ImportError:
     print('Python module "psutil" is not installed.')
     sys.exit(STATE_UNKNOWN)
@@ -449,7 +451,7 @@ while this leads to an ugly multi-exception stacktrace:
 
 ```python
 try:
-    import psutil  # pylint: disable=C0413
+    import psutil
 except ImportError:
     lib.base.cu('Python module "psutil" is not installed.')
 ```
@@ -559,8 +561,18 @@ no unit specified - assume a number (int or float) of things (eg, users, process
 s - seconds (also us, ms etc.)
 % - percentage
 B - bytes (also KB, MB, TB etc.). Bytes preferred, they are exact.
-c - a continuous counter (such as bytes transmitted on an interface [so instead of 'B'])
+c - a continuous counter (such as bytes transmitted on an interface [so instead of 'B']) - do not use
 ```
+
+**Do not use continuous counters** (`c`). Instead, calculate the delta between two measurements in the plugin itself and emit the result as an absolute value with a real unit ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320)). Store the previous measurement in a local SQLite database using `lib.db_sqlite`. This approach:
+
+* Avoids forcing Grafana to compute `non_negative_difference()` over millions of data points on every panel refresh.
+* Enables correct aggregation in Grafana (`mean()`, `min()`, `max()` work as expected on absolute values, but produce wrong results on cumulative counters).
+* Allows meaningful legend tables (first, min, mean, max, last) in Grafana panels.
+* Preserves the actual unit of measurement (`B`, `%`, `s`, etc.) in perfdata.
+* Saves resources on the monitoring server by doing the calculation once per check run instead of repeatedly in Grafana.
+
+See the [example](check-plugins/example/example) plugin for a complete implementation of this pattern.
 
 Wherever possible, prefer percentages over absolute values to assist users in comparing different systems with different absolute sizes.
 
@@ -584,7 +596,7 @@ We document our [Libraries](https://git.linuxfabrik.ch/linuxfabrik/lib) using [n
 To further improve code quality, we use [PyLint](https://www.pylint.org/) like so:
 
 * Libs: `pylint mylib.py`
-* Monitoring Plugins: `pylint --disable='invalid-name, missing-function-docstring, missing-module-docstring' plugin-name`
+* Monitoring Plugins: `pylint plugin-name`
 
 Have a look at [PyLint's message codes](http://pylint-messages.wikidot.com/all-codes).
 
@@ -604,25 +616,114 @@ isort plugin-name
 
 ### Unit Tests
 
-Unit tests are implemented using the `unittest` framework (<https://docs.python.org/3/library/unittest.html>). Have a look at the `fs-ro` plugin on how to implement unit tests. Rules of thumb:
+Unit tests are implemented using the `unittest` framework (<https://docs.python.org/3/library/unittest.html>) with a declarative, data-driven approach. Test definitions are a list of dicts, executed via `lib.lftest.run()` and `unittest.subTest()`. See the [example](check-plugins/example/unit-test/run) plugin for the reference implementation.
 
-* Within your `unit-test/run` file, call the plugin as a bash command, capture stdout, stderr and its return code (retc), and run your assertions against stdout, stderr and retc.
-* To test a plugin that needs to run some tools that aren't on your machine or that can't provide special output, provide stdout/stderr files in `unit-test/stdout`, `unit-test/stderr` and/or `unit-test/retc` and a `--test` parameter to feed `stdout/stdout-file,stderr/stderr-file,expected-retc` into your plugin. If you get the `--test` parameter, skip the execution of your bash/psutil/whatever function.
+
+#### Test directory structure
+
+```text
+check-plugins/my-check/unit-test/
+├── run                     # the test file
+└── stdout/                 # test data files
+    ├── ok-basic            # descriptive names, not EXAMPLE01
+    ├── warn-threshold
+    └── crit-service-down
+```
+
+Only create `stderr/` if a test actually needs to inject stderr data. Do not create empty `retc/` or `stderr/` directories.
+
+
+#### Test data file naming
+
+Use descriptive, lowercase, hyphenated names that indicate the expected state and scenario:
+
+* `ok-basic`, `ok-empty-result`, `ok-all-healthy`
+* `warn-threshold-exceeded`, `warn-high-load`
+* `crit-service-down`, `crit-disk-full`
+* `unknown-missing-dependency`
+
+
+#### Writing tests
+
+Define a `TESTS` list and use `lib.lftest.run()` to execute each testcase:
+
+```python
+#!/usr/bin/env python3
+import sys
+sys.path.append('..')
+
+import unittest
+
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'ok-basic',
+        'test': 'stdout/ok-basic,,0',
+        'params': '--warning 80 --critical 90',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+    },
+    {
+        'id': 'crit-threshold-exceeded',
+        'test': 'stdout/crit-threshold-exceeded,,0',
+        'params': '--critical 50',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'95.0%.*\[CRITICAL\]',
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../my-check'
+
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
+
+
+if __name__ == '__main__':
+    unittest.main()
+```
+
+Available assertion keys in each testcase dict:
+
+* `assert-retc` (`int`, required): Expected return code (`STATE_OK`, `STATE_WARN`, `STATE_CRIT`, `STATE_UNKNOWN`).
+* `assert-in` (`list` of `str`, optional): Strings that must appear in stdout.
+* `assert-not-in` (`list` of `str`, optional): Strings that must not appear in stdout.
+* `assert-regex` (`str`, optional): Regex pattern that must match stdout.
+* `assert-stderr` (`str`, optional): Expected stderr content. Default: `''`.
+
+
+#### Running tests
+
+```bash
+# single plugin (from its unit-test directory)
+cd check-plugins/my-check/unit-test
+./run
+
+# single plugin (from the repo root)
+python tools/run-unit-tests my-check
+
+# all plugins
+python tools/run-unit-tests
+
+# all plugins across multiple Python versions (via tox)
+tox
+```
+
+
+#### Container-based tests
 
 If you want to implement unit tests based on containers, the following rules apply:
 
 * Each container file does everything necessary to set up a running environment for the check plugin (e.g. install Python if you want to run the plugin inside the container).
 * The `./run` unit test simply calls podman and, for each containerfile found, builds the container, injects the libs and the check plugin, and runs the tests - but does not modify the container in any other way.
 * See the `keycloak-version` plugin for how to do this.
-
-Running a unit test:
-
-```bash
-# cd into the plugin directory, then:
-cd unit-test
-# run the Python based test:
-./run
-```
 
 
 ### sudoers File
@@ -732,6 +833,10 @@ If you want to move a service from one Service Set to another, you have to creat
 ### Grafana Dashboards
 
 The title of the dashboard should be capitalized, the name has to match the folder/plugin name (spaces will be replaced with `-`, `/` will be ignored. eg `Network I/O` will become `network-io`). Each Grafana panel should be meaningful, especially when comparing it to other related panels (eg memory usage and CPU usage).
+
+Dashboard definitions are stored as YAML files in `check-plugins/<plugin-name>/grafana/`. Only define properties that differ from Grafana defaults to keep files minimal and maintainable.
+
+Dashboards are currently managed using [Grizzly](https://github.com/grafana/grizzly) (`apiVersion: grizzly.grafana.com/v1alpha1`). Grizzly is being phased out in favor of [grafanactl](https://github.com/grafana/grafanactl) (`apiVersion: dashboard.grafana.app/v1`), which requires Grafana 12+. Continue using the Grizzly format for now. A migration to grafanactl is planned ([#1062](https://github.com/Linuxfabrik/monitoring-plugins/issues/1062)).
 
 
 ### Plugins and Capabilities

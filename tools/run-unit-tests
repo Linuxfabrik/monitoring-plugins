@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+"""Discover and run all plugin unit tests.
+
+Each unit test is executed from its own directory (check-plugins/<name>/unit-test/)
+because the test files use relative paths for test data and plugin references.
+
+Usage:
+    python tools/run-unit-tests                 # run all
+    python tools/run-unit-tests disk-smart      # run one plugin
+    python tools/run-unit-tests disk-smart xml  # run specific plugins
+"""
+
+import os
+import subprocess
+import sys
+
+
+def main():
+    """Find and run unit tests, report results.
+    """
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    check_plugins = os.path.join(root, 'check-plugins')
+
+    # filter to specific plugins if given as arguments
+    requested = sys.argv[1:] if len(sys.argv) > 1 else None
+
+    # discover tests
+    plugins = []
+    for plugin in sorted(os.listdir(check_plugins)):
+        if requested and plugin not in requested:
+            continue
+        unit_test_dir = os.path.join(check_plugins, plugin, 'unit-test')
+        run_file = os.path.join(unit_test_dir, 'run')
+        if os.path.isfile(run_file):
+            plugins.append(plugin)
+
+    if not plugins:
+        print('No unit tests found.')
+        sys.exit(0)
+
+    passed = []
+    failed = []
+    total = len(plugins)
+
+    for i, plugin in enumerate(plugins, 1):
+        unit_test_dir = os.path.join(check_plugins, plugin, 'unit-test')
+        print(f'[{i}/{total}] {plugin} ... ', end='', flush=True)
+
+        result = subprocess.run(
+            [sys.executable, 'run'],
+            cwd=unit_test_dir,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            passed.append(plugin)
+            print('ok')
+        else:
+            failed.append(plugin)
+            print('FAIL')
+            if result.stdout:
+                for line in result.stdout.strip().splitlines():
+                    print(f'  {line}')
+            if result.stderr:
+                for line in result.stderr.strip().splitlines():
+                    print(f'  {line}')
+
+    # summary
+    print(f'\n{len(passed)} passed, {len(failed)} failed out of {total}')
+    if failed:
+        print(f'Failed: {", ".join(failed)}')
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()

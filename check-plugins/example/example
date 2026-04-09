@@ -12,12 +12,15 @@
 """
 
 import argparse
+import re
 import sys
 
 import lib.args
 import lib.base
-import lib.shell
+import lib.db_sqlite
+import lib.human
 import lib.lftest
+import lib.shell
 import lib.time
 from lib.globals import (STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN)
 
@@ -29,14 +32,18 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026040903'
 
-DESCRIPTION = """A working Linuxfabrik monitoring plugin, written in Python 3, as a basis for
-further development, and much more text to help admins get this check up and
-running."""
+DESCRIPTION = '''Skeleton plugin demonstrating all standard patterns and library functions:
+argparse with append/deprecated/suppress parameters, (success, result) error handling,
+SQLite delta calculations (no continuous counters), regex filtering, --lengthy table output,
+human-readable formatting (bytes, seconds, numbers), perfdata, get_state/get_worst, and
+Grafana-compatible panel design.'''
 
 DEFAULT_CRIT = 90
+DEFAULT_LENGTHY = False
 DEFAULT_MODULE = ['calendar', 'Core', 'ctype', 'date']
+DEFAULT_TIMEOUT = 8
 DEFAULT_WARN = 80
 
 
@@ -48,7 +55,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -88,6 +95,14 @@ def parse_args():
         dest='IGNORE_REGEX',
     )
 
+    parser.add_argument(
+        '--lengthy',
+        help='Extended reporting.',
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
     # Case 2: "not specified" and "empty list" are the same thing, but there
     #         is a non-empty default list that should be used if the user
     #         does not specify any values.
@@ -99,6 +114,14 @@ def parse_args():
         dest='MODULE',
         action='append',
         default=None,
+    )
+
+    # Deprecated parameters: hide from --help using argparse.SUPPRESS,
+    # but still accept them for backward compatibility.
+    parser.add_argument(
+        '--my-old-parameter',
+        help=argparse.SUPPRESS,
+        dest='MY_OLD_PARAMETER',
     )
 
     # Case 3: "not specified" means something different than "empty list".
@@ -123,6 +146,15 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '--token',
         help='Software API token',
         dest='TOKEN',
@@ -142,11 +174,25 @@ def parse_args():
     return args
 
 
+def get_data(cmd, timeout):
+    """Example helper function demonstrating the (success, result) error
+    handling pattern. Returns (True, result) on success, or
+    (False, errormessage) on failure.
+    """
+    success, result = lib.shell.shell_exec(cmd, timeout=timeout)
+    if not success:
+        return (False, result)
+    stdout, stderr, retc = result
+    if stderr:
+        return (False, stderr)
+    return (True, stdout)
+
+
 def main():
-    """The main function. Hier spielt die Musik.
+    """The main function. This is where the magic happens.
     """
 
-    # parse the command line, exit with UNKNOWN if it fails
+    # parse the command line
     try:
         args = parse_args()
     except SystemExit:
@@ -159,48 +205,145 @@ def main():
         args.MODULE = DEFAULT_MODULE
     # args.NAME is not set here          # case 3: None means "check all"
 
+    # create the SQLite database and table for delta calculations
+    conn = lib.base.coe(
+        lib.db_sqlite.connect(
+            filename='linuxfabrik-monitoring-plugins-example.db',
+        ),
+    )
+    definition = '''
+        name        TEXT NOT NULL,
+        rx_bytes    INT NOT NULL,
+        timestamp   INT NOT NULL
+    '''
+    lib.base.coe(lib.db_sqlite.create_table(conn, definition, drop_table_first=False))
+    lib.base.coe(lib.db_sqlite.create_index(conn, 'name'))
+
     # fetch data
     if args.TEST is None:
         cmd = 'cat /etc/os-release'
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
-        if stderr:
-            lib.base.cu(stderr)
+        stdout = lib.base.coe(get_data(cmd, timeout=args.TIMEOUT))
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.lftest.test(args.TEST)
+        stdout, _, _ = lib.lftest.test(args.TEST)
 
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
-    try:
-        compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
-    except:
-        lib.base.cu('Unable to compile regex.')
-
     table_data = []
+
+    # compile user-supplied regex patterns
+    try:
+        compiled_ignore_regex = [
+            re.compile(item) for item in args.IGNORE_REGEX
+        ]
+    except re.error:
+        lib.base.cu('Unable to compile regex.')
 
     # analyze data
     title = 'Lorem ipsum'
     if args.NAME is not None:
         # case 3: user specified --name, so filter
         if title not in args.NAME:
-            pass # in loops: continue
+            pass  # in loops: continue
     if any(item.search(title) for item in compiled_ignore_regex):
-        pass # in loops: continue
+        pass  # in loops: continue
     value = str(lib.time.now())[-2:]
+    uptime = 123456
+    rx_bytes = 1073741824
+    # multiline f-string: use parentheses for implicit concatenation
+    lorem = (
+        f'Lorem ipsum dolor sit amet, consectetur adipiscing elit, {value} sed do eiusmod'
+        f' tempor incididunt ut labore. Ut enim ad minim veniam, quis nostrud exercitation'
+        f' ullamco laboris nisi ut aliquip ex ea commodo consequat.'
+    )
+    item_state = lib.base.get_state(value, args.WARN, args.CRIT)
+    state = lib.base.get_worst(state, item_state)
+
+    # store current measurement and calculate delta from previous run
+    now = lib.time.now()
+    lib.base.coe(lib.db_sqlite.insert(
+        conn,
+        {'name': title, 'rx_bytes': rx_bytes, 'timestamp': now},
+    ))
+    lib.base.coe(lib.db_sqlite.cut(conn, _max=2))
+    lib.base.coe(lib.db_sqlite.commit(conn))
+
+    rows = lib.base.coe(lib.db_sqlite.select(
+        conn,
+        '''
+        SELECT *
+        FROM perfdata
+        WHERE name = :name
+        ORDER BY timestamp DESC
+        ''',
+        {'name': title},
+    ))
+    if len(rows) < 2:
+        lib.db_sqlite.close(conn)
+        lib.base.oao('Waiting for more data.', STATE_OK)
+
+    timestamp_diff = rows[0]['timestamp'] - rows[1]['timestamp']
+    if timestamp_diff == 0:
+        timestamp_diff = 1
+    rx_bytes_per_second = int(
+        float(rows[0]['rx_bytes'] - rows[1]['rx_bytes']) / timestamp_diff,
+    )
+    if any([
+        timestamp_diff < 0,
+        rx_bytes_per_second < 0,
+    ]):
+        # happens after a reboot
+        lib.db_sqlite.close(conn)
+        lib.base.oao('Waiting for more data.', STATE_OK)
+
+    lib.db_sqlite.close(conn)
 
     # build the message
-    state = lib.base.get_state(value, args.WARN, args.CRIT)
-    msg += f"{value}% used{lib.base.state2str(state, prefix=' ')}"
+    msg += (
+        f'{value}% used{lib.base.state2str(item_state, prefix=" ")}'
+        f', up {lib.human.seconds2human(uptime)}'
+        f' since {lib.time.epoch2iso(lib.time.now() - uptime)}'
+        f', {lib.human.bytes2human(rx_bytes_per_second)}/s'
+        f', {lib.human.number2human(42000)} items'
+    )
     perfdata += lib.base.get_perfdata(
         'cpu-usage',
-        cpu_usage,
+        value,
         uom='%',
         warn=args.WARN,
         crit=args.CRIT,
         _min=0,
         _max=100,
+    )
+    perfdata += lib.base.get_perfdata(
+        'rx-bytes-per-second',
+        rx_bytes_per_second,
+        uom='B',
+        _min=0,
+    )
+
+    # build table output
+    if args.LENGTHY:
+        table_data.append({
+            'title': title,
+            'type': 'Lorem',
+            'value': f'{value}%{lib.base.state2str(item_state, prefix=" ")}',
+        })
+        keys = ['title', 'type', 'value']
+        headers = ['Title', 'Type', 'Value']
+    else:
+        table_data.append({
+            'title': title,
+            'value': f'{value}%{lib.base.state2str(item_state, prefix=" ")}',
+        })
+        keys = ['title', 'value']
+        headers = ['Title', 'Value']
+    msg += '\n\n' + lib.base.get_table(
+        table_data,
+        keys,
+        header=headers,
     )
 
     # over and out
@@ -210,5 +353,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:
         lib.base.cu()
