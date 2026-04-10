@@ -22,7 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Rewrite all parameter help texts for consistency: purpose first, format, repeating, example, default as separate sentences
 * Replace stiff "Set the ..." formulations in parameter help texts with concise wording
 * Remove all inline `pylint: disable` comments from plugins, unit tests, and tools
+* Remove false "Supports Nagios ranges" claims from plugins that do not implement range parsing
 * Replace all bare `except:` with `except Exception:` across all plugins and tools
+* CONTRIBUTING: require Nagios range support (`type=str`, `_operator='range'`) for threshold parameters in new plugins ([#1067](https://github.com/Linuxfabrik/monitoring-plugins/issues/1067))
 * CONTRIBUTING: add "no continuous counters" policy with rationale and link to example plugin ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 * CONTRIBUTING: add early reference to example plugin as skeleton for new plugins
 * CONTRIBUTING: add Grafana migration note for grafanactl ([#1062](https://github.com/Linuxfabrik/monitoring-plugins/issues/1062))
