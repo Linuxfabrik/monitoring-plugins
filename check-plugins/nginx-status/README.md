@@ -27,10 +27,6 @@ server {
 * Fetches and parses the output of the NGINX [stub_status](https://nginx.org/en/docs/http/ngx_http_stub_status_module.html) module
 * Reports active connections, accepted/handled connections, total requests, requests per connection, and current connection states (reading, writing, waiting)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -40,6 +36,7 @@ server {
 | Nagios/Icinga Check Name              | `check_nginx_status` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | Enable `stub_status` |
 | Perfdata compatible with Prometheus   | Yes |

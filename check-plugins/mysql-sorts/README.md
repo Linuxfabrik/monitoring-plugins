@@ -16,10 +16,6 @@ Checks sort operations in MySQL/MariaDB, including the rate of sort merge passes
 * Calculates the total number of sorts and the percentage that required temporary tables
 * Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Checks sort operations in MySQL/MariaDB, including the rate of sort merge passes
 | Nagios/Icinga Check Name              | `check_mysql_sorts` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
 

@@ -17,10 +17,6 @@ Checks the security of a Nextcloud (or ownCloud) server using the Nextcloud secu
 * Triggers a re-scan if the result is older than the configured number of days (default: 14)
 * The check does not need to run on the Nextcloud server itself
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Checks the security of a Nextcloud (or ownCloud) server using the Nextcloud secu
 | Nagios/Icinga Check Name              | `check_nextcloud_security_scan` |
 | Check Interval Recommendation         | Once a day or week |
 | Can be called without parameters      | No (`--url` is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

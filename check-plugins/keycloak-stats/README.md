@@ -16,10 +16,6 @@ Reports statistics from a Keycloak server via its HTTP API, including uptime, Ja
 * Queries the Keycloak Admin REST API at `/admin/serverinfo` to retrieve system information and feature flags
 * Enabled/disabled features are available starting with Keycloak 22; on older versions, only disabled features are reported (from `profileInfo`)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Reports statistics from a Keycloak server via its HTTP API, including uptime, Ja
 | Nagios/Icinga Check Name              | `check_keycloak_stats` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

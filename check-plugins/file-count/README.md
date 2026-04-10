@@ -20,10 +20,6 @@ Counts the number of files matching a glob pattern and alerts when the count exc
 * Applies `os.stat()` once per item to determine type and modification time, minimizing syscalls
 * When both `--warning` and `--critical` thresholds are simple numeric values, the check breaks early once the threshold is exceeded (to save time and resources on directories with millions of files)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -33,6 +29,7 @@ Counts the number of files matching a glob pattern and alerts when the count exc
 | Nagios/Icinga Check Name              | `check_file_count` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `PySmbClient`, `smbprotocol` |
 

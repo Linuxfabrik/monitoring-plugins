@@ -16,10 +16,6 @@ Monitors memory utilization on FortiGate appliances running FortiOS via the REST
 * Queries `/api/v2/cmdb/system/global` to read the appliance's globally configured `memory-use-threshold-green` (warning) and `memory-use-threshold-red` (critical); if present, these values override `--warning` and `--critical`
 * Authentication uses a single API token (Token-based authentication)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Monitors memory utilization on FortiGate appliances running FortiOS via the REST
 | Nagios/Icinga Check Name              | `check_fortios_memory_usage` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--hostname` and `--password` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

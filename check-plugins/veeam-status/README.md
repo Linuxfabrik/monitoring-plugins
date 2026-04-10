@@ -17,10 +17,6 @@ Monitors a Veeam Backup & Replication environment via the Veeam Enterprise Manag
 * Queries the Veeam Enterprise Manager REST API endpoints: `/reports/summary/overview`, `/reports/summary/job_statistics`, `/reports/summary/vms_overview`, `/reports/summary/repository`
 * Authenticates via the Veeam session token mechanism using `--username` and `--password`
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Monitors a Veeam Backup & Replication environment via the Veeam Enterprise Manag
 | Nagios/Icinga Check Name              | `check_veeam_status` |
 | Check Interval Recommendation         | Every 8 hours |
 | Can be called without parameters      | No (`--username` and `--password` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | Veeam Enterprise License |
 

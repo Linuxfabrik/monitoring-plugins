@@ -21,10 +21,6 @@ Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the 
 * Calculates the log file to buffer pool size ratio
 * Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_innodb()
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -34,6 +30,7 @@ Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the 
 | Nagios/Icinga Check Name              | `check_mysql_innodb_buffer_pool_size` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
 

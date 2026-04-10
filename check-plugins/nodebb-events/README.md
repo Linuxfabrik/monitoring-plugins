@@ -16,10 +16,6 @@ Retrieves recent events from the NodeBB event log via the admin API. Reports adm
 * Queries the NodeBB Read API endpoint `/api/admin/advanced/events` using Bearer Authentication
 * Displays the latest events with event ID, user ID, display name, event type, timestamp with human-readable age, and IP address
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Retrieves recent events from the NodeBB event log via the admin API. Reports adm
 | Nagios/Icinga Check Name              | `check_nodebb_events` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--token` is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

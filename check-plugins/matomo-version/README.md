@@ -11,10 +11,6 @@ Checks the installed Matomo version against the endoflife.date API and alerts if
 * Compares the installed version against the [endoflife.date API](https://endoflife.date/api/matomo.json) to determine EOL status and available updates
 * Uses SQLite to cache API responses between runs
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -24,6 +20,7 @@ Checks the installed Matomo version against the endoflife.date API and alerts if
 | Nagios/Icinga Check Name              | `check_matomo_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 

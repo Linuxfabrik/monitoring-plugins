@@ -15,10 +15,6 @@ Reports database connection statistics of a Starface PBX, including opened, clos
 * Supports both IPv4 (default) and IPv6
 * Fetched data is cached for up to one minute in a shared SQLite database, so that multiple Starface checks running in parallel do not overload the PBX
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Reports database connection statistics of a Starface PBX, including opened, clos
 | Nagios/Icinga Check Name              | `check_starface_database_stats` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | [Monitoring module for Starface PBX](https://wiki.fluxpunkt.de/display/FPW/Monitoring) |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-starface.db` |

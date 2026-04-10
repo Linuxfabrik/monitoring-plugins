@@ -16,10 +16,6 @@ Monitors NodeBB group statistics via the admin API, including group count and me
 * Queries the NodeBB Read API endpoint `/api/admin/settings/post` using Bearer Authentication
 * Reports the number of groups exempt from the post queue, with details on the newest group including name, visibility, member count, and creation date
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Monitors NodeBB group statistics via the admin API, including group count and me
 | Nagios/Icinga Check Name              | `check_nodebb_groups` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | No (`--token` is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

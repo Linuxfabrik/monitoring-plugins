@@ -20,10 +20,6 @@ Checks if screens attached to Grassfish digital signage players are on or off vi
 * By default, only players in "activated" state are checked
 * Only players with screen warnings are shown in the table output (truncated to 20 entries)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -33,6 +29,7 @@ Checks if screens attached to Grassfish digital signage players are on or off vi
 | Nagios/Icinga Check Name              | `check_grassfish_screens` |
 | Check Interval Recommendation         | Every 8 hours |
 | Can be called without parameters      | No (`--hostname` and `--token` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-grassfish-screens.db` |
 

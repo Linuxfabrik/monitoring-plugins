@@ -16,10 +16,6 @@ Checks system and CPU temperatures on QNAP appliances running QTS via the HTTP A
 * Authenticates against the QTS API and fetches system information via `/cgi-bin/management/manaRequest.cgi`
 * Reads system temperature (`sys_tempc`), CPU temperature (`cpu_tempc`), and the corresponding warning/error thresholds from the QTS configuration
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Checks system and CPU temperatures on QNAP appliances running QTS via the HTTP A
 | Nagios/Icinga Check Name              | `check_qts_temperatures` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--password` and `--url` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `xmltodict` |
 

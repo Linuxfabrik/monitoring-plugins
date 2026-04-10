@@ -15,10 +15,6 @@ Checks the installed FortiOS version against the endoflife.date API and alerts i
 * Compares the installed version against the endoflife.date API (`https://endoflife.date/api/fortios.json`) to determine EOL status and available updates
 * Caches the endoflife.date API response in a local SQLite database (`$TEMP/linuxfabrik-lib-version.db`)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Checks the installed FortiOS version against the endoflife.date API and alerts i
 | Nagios/Icinga Check Name              | `check_fortios_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | No (`--hostname` and `--password` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 

@@ -11,10 +11,6 @@ Checks system clock and RTC settings via `timedatectl status`, including whether
 * Reports NTP synchronization status, NTP service state, and RTC configuration
 * Uses `timedatectl status` (not `timedatectl show`) for compatibility with older systemd versions (e.g. RHEL 7)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -24,6 +20,7 @@ Checks system clock and RTC settings via `timedatectl status`, including whether
 | Nagios/Icinga Check Name              | `check_systemd_timedate_status` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

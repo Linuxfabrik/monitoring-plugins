@@ -23,10 +23,6 @@ ID DIACOS is a coding software for accurate and fast invoicing in hospitals, all
 * Measures the total runtime across all three calls
 * Each API call reports its own `totalTimeMillis` from the server response
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -36,6 +32,7 @@ ID DIACOS is a coding software for accurate and fast invoicing in hospitals, all
 | Nagios/Icinga Check Name              | `check_diacos` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--login-name` and `--login-licence` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

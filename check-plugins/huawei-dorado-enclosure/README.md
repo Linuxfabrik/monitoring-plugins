@@ -17,10 +17,6 @@ Checks the health and running status of all enclosures (controller enclosures an
 * Authenticates via session tokens (iBaseToken + cookie), cached in a SQLite database to avoid repeated logins
 * On transient authorization errors, automatically retries up to 9 times with 1-second intervals
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Checks the health and running status of all enclosures (controller enclosures an
 | Nagios/Icinga Check Name              | `check_huawei_dorado_enclosure` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | No (`--device-id`, `--password`, `--url` and `--username` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
 

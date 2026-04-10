@@ -17,10 +17,6 @@ Lists all OpenStack Nova compute instances (virtual servers) and checks their st
 * Reports server name, ID, last update timestamp, and status for each instance
 * Counts instances per state and tracks the last status change across all servers
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Lists all OpenStack Nova compute instances (virtual servers) and checks their st
 | Nagios/Icinga Check Name              | `check_openstack_nova_list` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `python-novaclient` |
 

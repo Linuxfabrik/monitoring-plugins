@@ -20,10 +20,6 @@ Collects statistics across multiple snapshots in a restic repository, including 
     * `raw-data`: Counts the size of blobs in the repository, regardless of how many files reference them
     * `restore-size`: Counts the size of the restored files (default)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -33,6 +29,7 @@ Collects statistics across multiple snapshots in a restic repository, including 
 | Nagios/Icinga Check Name              | `check_restic_stats` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | No (`--repo` is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

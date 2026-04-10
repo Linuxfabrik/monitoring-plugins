@@ -10,10 +10,6 @@ Monitors the GitHub status page for service disruptions. Reports the overall sta
 * Queries the public GitHub status API at `https://www.githubstatus.com/api/v2/summary.json`
 * Reports a table listing each component with its current status and last update timestamp
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -23,6 +19,7 @@ Monitors the GitHub status page for service disruptions. Reports the overall sta
 | Nagios/Icinga Check Name              | `check_githubstatus` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

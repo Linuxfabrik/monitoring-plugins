@@ -37,10 +37,6 @@ On the subject of Opcache see also:
 * Optionally fetches extended Opcache data from a `monitoring.php` helper script deployed in the web server document root
 * Requires root or sudo to run the PHP CLI commands
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -50,6 +46,7 @@ On the subject of Opcache see also:
 | Nagios/Icinga Check Name              | `check_php_status` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | PHP monitoring script [monitoring.php](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/check-plugins/php-status/monitoring.php) (optional, callable via HTTP(S)) |
 

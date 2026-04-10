@@ -11,10 +11,6 @@ Checks the system-wide file descriptor usage as a percentage of the kernel maxim
 * Reads `/proc/sys/fs/file-nr` to obtain the number of allocated file handles and the system-wide maximum
 * Uses `psutil.process_iter()` to aggregate open file descriptors per process name for the top-N list
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -24,6 +20,7 @@ Checks the system-wide file descriptor usage as a percentage of the kernel maxim
 | Nagios/Icinga Check Name              | `check_file_descriptors` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `psutil` |
 

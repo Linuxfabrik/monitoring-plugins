@@ -11,10 +11,6 @@ Monitors swap space usage as a percentage of total swap. On Linux, optionally li
 * On Linux, also reports cumulative swap-in and swap-out bytes, and scans `/proc` for the top `--top` processes consuming the most swap
 * The top-processes feature is not available on Windows
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -24,6 +20,7 @@ Monitors swap space usage as a percentage of total swap. On Linux, optionally li
 | Nagios/Icinga Check Name              | `check_swap_usage` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
 

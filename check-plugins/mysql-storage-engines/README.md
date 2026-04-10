@@ -20,10 +20,6 @@ Checks storage engine configuration in MySQL/MariaDB, including fragmented table
 * Iterates over all databases to check autoincrement values against maximum integer capacity
 * Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):check_storage_engines()
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -33,6 +29,7 @@ Checks storage engine configuration in MySQL/MariaDB, including fragmented table
 | Nagios/Icinga Check Name              | `check_mysql_storage_engines` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
 

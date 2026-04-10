@@ -11,10 +11,6 @@ Checks the number of currently banned IP addresses across all fail2ban jails. Re
 * Runs `fail2ban-client status` to discover all configured jails
 * Runs `fail2ban-client status <jail>` for each jail to get the current number of banned IPs
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -24,6 +20,7 @@ Checks the number of currently banned IP addresses across all fail2ban jails. Re
 | Nagios/Icinga Check Name              | `check_fail2ban` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 
 

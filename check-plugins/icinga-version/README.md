@@ -16,10 +16,6 @@ Checks the installed Icinga version against the endoflife.date API and alerts if
 * Queries the endoflife.date API (`https://endoflife.date/api/icinga.json`) for EOL and release information
 * Caches API responses in a SQLite database to avoid repeated requests
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Checks the installed Icinga version against the endoflife.date API and alerts if
 | Nagios/Icinga Check Name              | `check_icinga_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 

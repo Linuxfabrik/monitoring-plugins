@@ -19,10 +19,6 @@ Checks the age of the newest snapshot in a restic repository and alerts when the
 * Shows the latest N snapshots per group via `--latest` (default: 3)
 * Supports extended reporting via `--lengthy` (adds a Tags column)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -32,6 +28,7 @@ Checks the age of the newest snapshot in a restic repository and alerts when the
 | Nagios/Icinga Check Name              | `check_restic_snapshots` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | No (`--repo` is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

@@ -17,10 +17,6 @@ Summarizes traffic statistics for all IPv4 and IPv6 firewall policies on FortiGa
 * Aggregates byte counters, session counts, and hit counts across all policies
 * Authentication uses a single API token (Token-based authentication)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Summarizes traffic statistics for all IPv4 and IPv6 firewall policies on FortiGa
 | Nagios/Icinga Check Name              | `check_fortios_firewall_stats` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--hostname` and `--password` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

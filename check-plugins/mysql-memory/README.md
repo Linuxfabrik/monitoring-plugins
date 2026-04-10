@@ -21,10 +21,6 @@ Checks current and maximum possible memory usage specifically for MySQL/MariaDB.
 * Uses `os.sysconf` to determine total physical memory
 * Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -34,6 +30,7 @@ Checks current and maximum possible memory usage specifically for MySQL/MariaDB.
 | Nagios/Icinga Check Name              | `check_mysql_memory` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `psutil`, `pymysql` |
 

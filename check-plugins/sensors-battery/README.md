@@ -13,10 +13,6 @@ Reports battery status information including charge percentage, time remaining, 
 
 * Uses `psutil.sensors_battery()` to read battery charge percentage, time remaining, and power plug status
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -26,6 +22,7 @@ Reports battery status information including charge percentage, time remaining, 
 | Nagios/Icinga Check Name              | `check_sensors_battery` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `psutil` |
 

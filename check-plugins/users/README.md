@@ -15,10 +15,6 @@ Counts the number of currently logged-in users by session type: tty (console) an
 * On Windows: executes `query user` and parses its output
 * A *tty* is a native terminal device (on Windows: Console); a *pts* is a pseudo terminal slave, typically from SSH (on Windows: RDP)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Counts the number of currently logged-in users by session type: tty (console) an
 | Nagios/Icinga Check Name              | `check_users` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 | Requirements                          | `/usr/bin/w` on Linux, `query user` on Windows |
 

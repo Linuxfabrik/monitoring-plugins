@@ -15,10 +15,6 @@ Checks the installed Graylog version against the endoflife.date API and alerts i
 * Compares against the [endoflife.date API](https://endoflife.date/api/graylog.json) to determine EOL status and available updates
 * Caches API responses locally for 24 hours to reduce external requests
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Checks the installed Graylog version against the endoflife.date API and alerts i
 | Nagios/Icinga Check Name              | `check_graylog_version` |
 | Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 | Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 

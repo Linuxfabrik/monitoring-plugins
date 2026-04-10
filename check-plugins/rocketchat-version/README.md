@@ -16,10 +16,6 @@ Checks the installed Rocket.Chat version against the endoflife.date API and aler
 * Supports Rocket.Chat versions before and after 3.0.0 (different API response formats)
 * Queries the endoflife.date API (<https://endoflife.date/api/rocket-chat.json>) and caches the result in a local SQLite database
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Checks the installed Rocket.Chat version against the endoflife.date API and aler
 | Nagios/Icinga Check Name              | `check_rocketchat_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | No (`--username` and `--password` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | Requires a user with strong password and `view-statistics` permission (only). |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |

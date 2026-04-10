@@ -17,10 +17,6 @@ Checks disk SMART values on QNAP appliances running QTS via the API. Reports dri
 * Fetches system information via `/cgi-bin/management/manaRequest.cgi` to retrieve temperature thresholds
 * This check does not run SMART itself. To get the latest values, schedule the built-in SMART check in the QTS web interface.
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Checks disk SMART values on QNAP appliances running QTS via the API. Reports dri
 | Nagios/Icinga Check Name              | `check_qts_disk_smart` |
 | Check Interval Recommendation         | Every 8 hours |
 | Can be called without parameters      | No (`--password` and `--url` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `xmltodict` |
 

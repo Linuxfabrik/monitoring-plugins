@@ -9,10 +9,6 @@ Verifies that the current `tuned` profile matches the expected setting. Useful f
 
 * Executes `tuned-adm active` and compares the result against the expected profile name
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -22,6 +18,7 @@ Verifies that the current `tuned` profile matches the expected setting. Useful f
 | Nagios/Icinga Check Name              | `check_tuned_profile` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 
 

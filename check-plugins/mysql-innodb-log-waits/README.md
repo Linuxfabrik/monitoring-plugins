@@ -15,10 +15,6 @@ Checks how often InnoDB had to wait for log writes to be flushed because the log
 * Queries `SHOW GLOBAL STATUS` for `Innodb_log_waits` and `Innodb_log_writes`
 * Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_innodb(), v1.8.3
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Checks how often InnoDB had to wait for log writes to be flushed because the log
 | Nagios/Icinga Check Name              | `check_mysql_innodb_log_waits` |
 | Check Interval Recommendation         | Once an hour |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
 

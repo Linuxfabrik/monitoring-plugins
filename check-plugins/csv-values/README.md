@@ -78,10 +78,6 @@ Helpful resources:
 * If a query returns one row with one column, that single value is checked against the threshold; otherwise the row count is checked
 * Result tables with more than 10 rows are truncated to the first 5 and last 5 entries
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -91,6 +87,7 @@ Helpful resources:
 | Nagios/Icinga Check Name              | `check_csv_values` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | No (`--columns-query` and at least one query are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `PySmbClient`, `smbprotocol` (only for SMB access) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-csv-values-*.db` |

@@ -18,10 +18,6 @@ Checks whether the GitLab instance is ready to accept traffic by querying the `/
 * Checks the following services: cache, chat, cluster_cache, cluster_shared_state, db, db_load_balancing, feature_flag, gitaly, master, queues, rate_limiting, repository_cache, sessions, shared_state, trace_chunks
 * If any service reports a status other than "ok", the check alerts with the configured severity and truncates the error message to 46 characters
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -31,6 +27,7 @@ Checks whether the GitLab instance is ready to accept traffic by querying the `/
 | Nagios/Icinga Check Name              | `check_gitlab_readiness` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

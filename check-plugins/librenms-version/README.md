@@ -15,10 +15,6 @@ Displays LibreNMS instance information including version, database schema, Pytho
 * Reports LibreNMS version, Git branch, database schema, database server version, Net-SNMP, PHP, Python, and RRDtool versions
 * Requires a LibreNMS API token with "Global Read" permissions (create one via LibreNMS > Gear Icon > API > API Settings)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Displays LibreNMS instance information including version, database schema, Pytho
 | Nagios/Icinga Check Name              | `check_librenms_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | No (`--token` is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

@@ -16,10 +16,6 @@ Checks how long ago the last APT package manager activity occurred (install, upd
 * Runs `dpkg-query --show --showformat='${db-fsys:Last-Modified} ${Package}\n'` to retrieve the last modification timestamp for each installed package
 * Uses the most recent timestamp across all packages as the "last activity" time
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Checks how long ago the last APT package manager activity occurred (install, upd
 | Nagios/Icinga Check Name              | `check_deb_lastactivity` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 
 

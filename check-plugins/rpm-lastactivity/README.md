@@ -9,10 +9,6 @@ Checks how long ago the last RPM package manager activity occurred (install, upd
 
 * Executes `rpm --query --all --queryformat "%{INSTALLTIME} %{NAME}\n"` to determine the timestamp of the most recently installed or updated package
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -22,6 +18,7 @@ Checks how long ago the last RPM package manager activity occurred (install, upd
 | Nagios/Icinga Check Name              | `check_rpm_lastactivity` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 
 

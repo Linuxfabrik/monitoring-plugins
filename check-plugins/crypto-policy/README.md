@@ -14,10 +14,6 @@ Verifies that the system-wide cryptographic policy (as reported by update-crypto
 * Runs `update-crypto-policies --show` to determine the active system-wide crypto policy
 * Compares the result against the expected policy name (case-insensitive)
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -27,6 +23,7 @@ Verifies that the system-wide cryptographic policy (as reported by update-crypto
 | Nagios/Icinga Check Name              | `check_crypto_policy` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 
 

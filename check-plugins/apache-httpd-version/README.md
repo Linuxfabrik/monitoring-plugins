@@ -16,10 +16,6 @@ Checks the installed Apache httpd version against the endoflife.date API and ale
 * Queries the [endoflife.date API](https://endoflife.date/api/apache.json) to determine EOL status and available releases
 * Caches the API response in a local SQLite database to reduce network calls
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Checks the installed Apache httpd version against the endoflife.date API and ale
 | Nagios/Icinga Check Name              | `check_apache_httpd_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 

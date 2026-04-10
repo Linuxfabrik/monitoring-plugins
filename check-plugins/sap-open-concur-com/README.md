@@ -16,10 +16,6 @@ Monitors the SAP Concur Open status page (<https://open.concur.com>) for active 
 * Can check a single service or all services at once via `--service`
 * Available services: Analysis/Intelligence, Compleat (TMC Services), Expense, Imaging, Invoice, Mobile, Request, Travel
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Monitors the SAP Concur Open status page (<https://open.concur.com>) for active 
 | Nagios/Icinga Check Name              | `check_sap_open_concur_com` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--datacenter` is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

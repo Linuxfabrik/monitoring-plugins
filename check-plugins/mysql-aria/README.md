@@ -19,10 +19,6 @@ Checks metrics of the Aria storage engine in MariaDB, including the page cache s
 * Queries `information_schema.tables` to sum all Aria index sizes
 * Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mariadb_aria()
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -32,6 +28,7 @@ Checks metrics of the Aria storage engine in MariaDB, including the page cache s
 | Nagios/Icinga Check Name              | `check_mysql_aria` |
 | Check Interval Recommendation         | Once an hour |
 | Can be called without parameters      | No |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
 

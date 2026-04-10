@@ -20,10 +20,6 @@ Reports CPU and memory usage for all running Podman containers. CPU usage is nor
 * Uses a local SQLite database for CPU trend tracking across runs
 * Container names are shortened after the replica number by default (use `--full-name` for the full name)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -33,6 +29,7 @@ Reports CPU and memory usage for all running Podman containers. CPU usage is nor
 | Nagios/Icinga Check Name              | `check_podman_stats` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Handles Periods                       | Yes |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-podman-stats.db` |

@@ -16,10 +16,6 @@ Checks how effectively MySQL/MariaDB caches threads for re-use. A low cache hit 
 * Queries `SHOW GLOBAL STATUS` for `Connections`, `Threads_created`, and `Uptime`
 * Calculates the hit rate as `100 - (Threads_created / Connections * 100)`
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Checks how effectively MySQL/MariaDB caches threads for re-use. A low cache hit 
 | Nagios/Icinga Check Name              | `check_mysql_thread_cache` |
 | Check Interval Recommendation         | Once an hour |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | User with no privileges, locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |

@@ -17,10 +17,6 @@ Monitors network I/O and link states on all interfaces of FortiGate appliances r
 * On the first run, returns "Waiting for more data." until at least two measurements are available
 * `--count=5` (the default) while checking every minute means the check uses a 5-minute sliding window for threshold evaluation
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Monitors network I/O and link states on all interfaces of FortiGate appliances r
 | Nagios/Icinga Check Name              | `check_fortios_network_io` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--hostname` and `--password` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-fortios-network-io.db` |
 

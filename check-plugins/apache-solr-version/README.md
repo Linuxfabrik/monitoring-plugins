@@ -15,10 +15,6 @@ Checks the installed Apache Solr version against the endoflife.date API and aler
 * Queries the [endoflife.date API](https://endoflife.date/api/solr.json) to determine EOL status and available releases
 * Caches the API response in a local SQLite database to reduce network calls
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Checks the installed Apache Solr version against the endoflife.date API and aler
 | Nagios/Icinga Check Name              | `check_apache_solr_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 

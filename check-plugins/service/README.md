@@ -18,10 +18,6 @@ Checks the state of one or more Windows services. Accepts the case-insensitive s
 * Filters services by name (regex), start type (`--starttype`, default: automatic), and expected status (`--status`, default: running)
 * Counts how many matching services are in the expected status and compares against the threshold ranges
 
-**Compatibility:**
-
-* Windows
-
 
 ## Fact Sheet
 
@@ -31,6 +27,7 @@ Checks the state of one or more Windows services. Accepts the case-insensitive s
 | Nagios/Icinga Check Name              | `check_service` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--service` is required) |
+| Runs on                               | Windows |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
 

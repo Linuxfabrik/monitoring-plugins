@@ -16,10 +16,6 @@ Checks the Jitsi Videobridge health state via the `/about/health` REST endpoint.
 * A HTTP 200 response indicates a healthy state; any other status indicates a problem
 * For details see the [Jitsi Videobridge health check documentation](https://github.com/jitsi/jitsi-videobridge/blob/master/doc/health-checks.md)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Checks the Jitsi Videobridge health state via the `/about/health` REST endpoint.
 | Nagios/Icinga Check Name              | `check_jitsi_videobridge_status` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

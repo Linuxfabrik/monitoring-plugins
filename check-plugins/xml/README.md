@@ -12,10 +12,6 @@ Fetches an XML document via HTTP(S) and checks for a matching string using XPath
 * Namespace prefix-to-URI mappings can be provided via `--namespace` (repeatable)
 * Supports HTTP Basic Authentication via `--username` and `--password`
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -25,6 +21,7 @@ Fetches an XML document via HTTP(S) and checks for a matching string using XPath
 | Nagios/Icinga Check Name              | `check_xml` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--url` and `--xpath` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `lxml` |
 

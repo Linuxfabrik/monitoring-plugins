@@ -16,10 +16,6 @@ Checks the hit rate for open table cache lookups in MySQL/MariaDB. A low hit rat
 * Queries `SHOW GLOBAL STATUS` for `Open_tables`, `Opened_tables`, `Table_open_cache_hits`, and `Table_open_cache_misses`
 * If `Table_open_cache_hits` is available, the hit rate is calculated as `Table_open_cache_hits / (Table_open_cache_hits + Table_open_cache_misses) * 100`. Otherwise falls back to `Open_tables / Opened_tables * 100`.
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Checks the hit rate for open table cache lookups in MySQL/MariaDB. A low hit rat
 | Nagios/Icinga Check Name              | `check_mysql_table_cache` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | User with no privileges, locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |

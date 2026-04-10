@@ -14,10 +14,6 @@ Checks the overall server status of a WildFly/JBoss AS instance via its HTTP-JSO
 * Queries the WildFly management API for `server-state`, `launch-type`, `running-mode`, and `product-version` (falls back to `release-version` if `product-version` is not available)
 * Authenticates via HTTP Digest Auth (`--username`, `--password`)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -27,6 +23,7 @@ Checks the overall server status of a WildFly/JBoss AS instance via its HTTP-JSO
 | Nagios/Icinga Check Name              | `check_wildfly_server_status` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--username` and `--password` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

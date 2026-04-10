@@ -18,10 +18,6 @@ Checks the rate of slow queries in MySQL/MariaDB. A high slow query rate indicat
 * Calculates the percentage of slow queries relative to total queries
 * Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -31,6 +27,7 @@ Checks the rate of slow queries in MySQL/MariaDB. A high slow query rate indicat
 | Nagios/Icinga Check Name              | `check_mysql_slow_queries` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
 

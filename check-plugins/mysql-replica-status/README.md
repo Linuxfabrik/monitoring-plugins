@@ -17,10 +17,6 @@ Checks the replication status of a MySQL/MariaDB replica, including I/O thread s
 * Executes `SHOW REPLICA STATUS` (or `SHOW SLAVE STATUS` on older versions) and `SHOW SLAVE HOSTS`
 * Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):get_replication_status(), v1.9.8
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Checks the replication status of a MySQL/MariaDB replica, including I/O thread s
 | Nagios/Icinga Check Name              | `check_mysql_replica_status` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
 

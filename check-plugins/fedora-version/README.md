@@ -16,10 +16,6 @@ Checks the installed Fedora version against the endoflife.date API and alerts if
 * Queries the [endoflife.date](https://endoflife.date) API to determine the EOL date and available releases
 * Caches the API response in a local SQLite database to avoid repeated network requests
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Checks the installed Fedora version against the endoflife.date API and alerts if
 | Nagios/Icinga Check Name              | `check_fedora_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 

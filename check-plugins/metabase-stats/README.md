@@ -15,10 +15,6 @@ Retrieves recent activity and usage statistics from a Metabase instance via its 
 * Queries `/api/activity` for the most recent activity entry and `/api/util/stats` for aggregated usage statistics
 * Reports site name, Metabase version, user count, analyzed databases, GUI questions, alerts, pulses, collections, CPUs, and RAM
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Retrieves recent activity and usage statistics from a Metabase instance via its 
 | Nagios/Icinga Check Name              | `check_metabase_stats` |
 | Check Interval Recommendation         | Once an hour |
 | Can be called without parameters      | No (`--password` is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-metabase-stats.db` |
 

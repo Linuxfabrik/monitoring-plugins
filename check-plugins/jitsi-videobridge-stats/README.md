@@ -19,10 +19,6 @@ Monitors Jitsi Videobridge performance via the COLIBRI REST API. Reports confere
 * All `total_*` values are reported as continuous counters (uom `c`) so that graphing tools like Grafana can display rates over time correctly
 * For details on the statistics, see the [Jitsi Videobridge statistics documentation](https://github.com/jitsi/jitsi-videobridge/blob/master/doc/statistics.md)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -32,6 +28,7 @@ Monitors Jitsi Videobridge performance via the COLIBRI REST API. Reports confere
 | Nagios/Icinga Check Name              | `check_jitsi_videobridge_stats` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

@@ -17,10 +17,6 @@ Checks IPSec connection states on a strongSwan VPN gateway by connecting to the 
 * Iterates over all IKE SAs and their CHILD SAs, collecting state, timing, and traffic data
 * `--lengthy` provides additional columns: established time, IKE version, local/remote endpoints, encryption/integrity details, and per-child local/remote traffic selectors
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Checks IPSec connection states on a strongSwan VPN gateway by connecting to the 
 | Nagios/Icinga Check Name              | `check_strongswan_connections` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `vici` |
 

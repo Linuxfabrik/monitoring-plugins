@@ -913,7 +913,6 @@ Each plugin README follows a fixed structure. See [check-plugins/example/README.
 
     * **Important Notes** (optional, but comes first if present): Operational edge cases the admin must know before deploying, for example: "Requires sudo", "Only works with Redis 3.0+", "First run returns OK with 'Waiting for more data.'", "After a reboot, counters reset and the check waits for a new baseline". No implementation details - only things that affect deployment and daily operations.
     * **Data Collection**: How data is gathered (shell command, API, psutil, etc.), filtering options, SQLite usage, non-blocking measurement.
-    * **Compatibility**: Supported platforms only (Linux, Windows, Cross-platform). Use "Cross-platform" by default since Python runs everywhere. Only use "Linux" if the plugin uses Linux-specific APIs (`/proc`, `systemd`, `dmesg`, `dnf`/`apt`/`yum`, `journalctl`, etc.). The absence of a `.windows` file does not mean the plugin is Linux-only - it just means we do not compile it for Windows. No version requirements, no tool dependencies, no module requirements - those belong in Important Notes or the Fact Sheet.
 
 2. **Fact Sheet**: Key properties as a table (download link, check name, check interval, parameters required, Windows support, 3rd party modules, state file path, etc.). Only list applicable rows.
 
@@ -923,6 +922,7 @@ Each plugin README follows a fixed structure. See [check-plugins/example/README.
     | Nagios/Icinga Check Name              | `check_example` (for SEO: helps admins find the plugin when searching for the traditional Nagios-style name). Always use underscores, never dashes. |
     | Check Interval Recommendation         | Every minute, Every 5/15/30 minutes, Every hour, Every 4/8/12 hours, Every day, Every week |
     | Can be called without parameters      | Yes/No |
+    | Runs on                               | Cross-platform / Linux / Windows. Use "Cross-platform" by default since Python runs everywhere. Only use "Linux" if the plugin uses Linux-specific APIs (`/proc`, `systemd`, `dmesg`, `dnf`/`apt`/`yum`, `journalctl`, etc.). The absence of a `.windows` file does not mean the plugin is Linux-only. |
     | Compiled for Windows                  | Yes (when `.windows` file exists)/No (runs with Python interpreter) |
     | Requirements                          | command-line tool `foo`; User with higher permissions |
     | 3rd Party Python modules              | `module-name` |

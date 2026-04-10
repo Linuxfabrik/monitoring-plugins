@@ -75,10 +75,6 @@ Default files checked:
 * Resolves numeric UIDs/GIDs to names. If a UID/GID has no corresponding name, the numeric value is displayed
 * Files that do not exist on the system are silently skipped
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -88,6 +84,7 @@ Default files checked:
 | Nagios/Icinga Check Name              | `check_file_ownership` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

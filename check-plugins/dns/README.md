@@ -12,10 +12,6 @@ Performs a DNS lookup and resolves a hostname to one or more IP addresses. Queri
 * When no arguments are given, the check tries to resolve `localhost` on port 53, and the full range of results for any available protocol is returned
 * The connection type can be narrowed down using `--type` (udp, udp6, tcp, tcp6)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -25,6 +21,7 @@ Performs a DNS lookup and resolves a hostname to one or more IP addresses. Queri
 | Nagios/Icinga Check Name              | `check_dns` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 
 

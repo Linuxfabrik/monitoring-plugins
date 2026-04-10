@@ -16,10 +16,6 @@ Retrieves recent server-side errors from NodeBB via the admin API. Alerts when e
 * Queries the NodeBB Read API endpoint `/api/admin/advanced/errors` using Bearer Authentication
 * Reports the count of HTTP 503 (too busy) and HTTP 404 (not found) responses from today
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Retrieves recent server-side errors from NodeBB via the admin API. Alerts when e
 | Nagios/Icinga Check Name              | `check_nodebb_errors` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--token` is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

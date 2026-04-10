@@ -16,10 +16,6 @@ Monitors Apache mod_qos status via the machine-readable status handler. Reports 
 * Parses per-virtual-host connection and request limit entries, including `QS_AllConn`, `QS_LocRequestLimitMatch`, `QS_LocKBytesPerSecLimitMatch`, `QS_CondLocRequestLimitMatch`, and `QS_SrvMaxConn`
 * Perfdata metric names are composed of the mod_qos configuration option suffixed by the request pattern (e.g. `QS_LocRequestLimitMatch_[^.*$]`)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Monitors Apache mod_qos status via the machine-readable status handler. Reports 
 | Nagios/Icinga Check Name              | `check_mod_qos_stats` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | Enable `mod_qos` and configure a `Location` for `SetHandler qos-viewer` |
 

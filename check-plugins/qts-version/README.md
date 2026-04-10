@@ -18,10 +18,6 @@ Checks if firmware updates are available for a QNAP appliance running QTS by que
 * Checks for updates via `/cgi-bin/sys/sysRequest.cgi?subfunc=firm_update`
 * Compares the installed version against the latest available version
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -31,6 +27,7 @@ Checks if firmware updates are available for a QNAP appliance running QTS by que
 | Nagios/Icinga Check Name              | `check_qts_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | No (`--password` and `--url` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `xmltodict` |
 

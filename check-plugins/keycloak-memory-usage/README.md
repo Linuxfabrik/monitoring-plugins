@@ -15,10 +15,6 @@ Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP A
 * Authenticates against the Keycloak OIDC token endpoint using client credentials (`--client-id`, `--username`, `--password`)
 * Queries the Keycloak Admin REST API at `/admin/serverinfo` to retrieve `memoryInfo` (used, total, free, freePercentage)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP A
 | Nagios/Icinga Check Name              | `check_keycloak_memory_usage` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

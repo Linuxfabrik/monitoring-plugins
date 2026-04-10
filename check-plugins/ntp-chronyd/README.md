@@ -15,10 +15,6 @@ Checks the clock offset of chronyd in milliseconds compared to the configured NT
 * Reports Reference ID, Stratum, Ref time, System time, Last offset, RMS offset, Frequency, Residual freq, Skew, Root delay, Root dispersion, Update interval, and Leap status
 * If no NTP server is reachable, additionally runs `chronyc sources` to display the configured NTP servers
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Checks the clock offset of chronyd in milliseconds compared to the configured NT
 | Nagios/Icinga Check Name              | `check_ntp_chronyd` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

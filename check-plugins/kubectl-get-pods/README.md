@@ -17,10 +17,6 @@ Checks the health and status of Kubernetes pods by running `kubectl get pods` an
 * Stores results in a temporary local SQLite database (no persistent history) to enable SQL-based filtering via `--query`
 * Requires a valid kubeconfig file (default: `/var/spool/icinga2/.kubeconfig`)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Checks the health and status of Kubernetes pods by running `kubectl get pods` an
 | Nagios/Icinga Check Name              | `check_kubectl_get_pods` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-kubectl-get-pods.db` |
 

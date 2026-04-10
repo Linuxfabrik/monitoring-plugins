@@ -15,10 +15,6 @@ Monitors available Grassfish digital signage licenses via the Grassfish API. Ale
 * Queries the Grassfish API (`/gv2/webservices/API` by default) to retrieve all license types and their availability
 * Reports total, used, and available license counts per type
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Monitors available Grassfish digital signage licenses via the Grassfish API. Ale
 | Nagios/Icinga Check Name              | `check_grassfish_licenses` |
 | Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | No (`--hostname` and `--token` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

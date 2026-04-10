@@ -51,10 +51,6 @@ List of public Statuspal sites - USA:
 * Recursively flattens nested service trees into a dotted hierarchy (e.g. `Global.DNS`)
 * Lists active incidents with their latest update, and upcoming/ongoing maintenances
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -64,6 +60,7 @@ List of public Statuspal sites - USA:
 | Nagios/Icinga Check Name              | `check_statuspal` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

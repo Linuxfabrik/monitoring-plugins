@@ -34,10 +34,6 @@ Scans the system for approximately 100 known rootkits by checking for their char
 * Scans kernel symbols (`/proc/kallsyms` or `/proc/ksyms`) for rootkit indicators
 * Performs extra checks for Suckit rootkit (link count of `/sbin/init`, hidden file detection via `.xrk` and `.mem` suffixes)
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -47,6 +43,7 @@ Scans the system for approximately 100 known rootkits by checking for their char
 | Nagios/Icinga Check Name              | `check_scanrootkit` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pyyaml` |
 

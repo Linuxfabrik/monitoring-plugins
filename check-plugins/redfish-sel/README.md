@@ -18,10 +18,6 @@ Checks the System Event Log (SEL) of Redfish-compatible servers via the Redfish 
 * Uses the appropriate entry point (`Managers` or `Systems` depending on vendor) and vendor-specific LogServices SEL path
 * Uses HTTP Basic authentication if `--username` and `--password` are provided
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -31,6 +27,7 @@ Checks the System Event Log (SEL) of Redfish-compatible servers via the Redfish 
 | Nagios/Icinga Check Name              | `check_redfish_sel` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

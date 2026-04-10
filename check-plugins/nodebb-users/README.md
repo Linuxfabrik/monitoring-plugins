@@ -16,10 +16,6 @@ Monitors NodeBB user statistics via the admin API, including total user count, a
 * Queries the NodeBB Read API endpoint `/api/admin/manage/users` using Bearer Authentication
 * Reports the total user count, the latest active user, and a table with user ID, slug, last online timestamp, banned status, admin flag, and IP address
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Monitors NodeBB user statistics via the admin API, including total user count, a
 | Nagios/Icinga Check Name              | `check_nodebb_users` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--token` is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

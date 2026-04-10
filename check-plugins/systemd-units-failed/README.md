@@ -10,10 +10,6 @@ Checks for failed systemd units by running `systemctl --state=failed`. Reports a
 * Executes `systemctl --state=failed --no-pager --no-legend`
 * Units can be excluded from the check via `--ignore`, which supports glob patterns according to Python's `fnmatch` module (e.g. `--ignore "sshd@*.service"`)
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -23,6 +19,7 @@ Checks for failed systemd units by running `systemctl --state=failed`. Reports a
 | Nagios/Icinga Check Name              | `check_systemd_units_failed` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 
 

@@ -19,10 +19,6 @@ Scans the MySQL/MariaDB error log for warnings, errors, startup, and shutdown ev
 * Lines can be filtered out using `--ignore-pattern` (simple string match) or `--ignore-regex` (Python regular expression)
 * Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):log_file_recommendations(), v1.9.8
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -32,6 +28,7 @@ Scans the MySQL/MariaDB error log for warnings, errors, startup, and shutdown ev
 | Nagios/Icinga Check Name              | `check_mysql_logfile` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | No |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-mysql-logfile.db` |

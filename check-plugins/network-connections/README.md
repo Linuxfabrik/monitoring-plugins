@@ -35,10 +35,6 @@ Meaning of connection status `--conn-status` parameter:
 * Uses `psutil.net_connections()` to enumerate all system-wide network connections
 * Connections can be filtered by `--conn-type` (tcp, tcp6, udp, udp6) and `--conn-status` (established, listen, close_wait, etc.)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -48,6 +44,7 @@ Meaning of connection status `--conn-status` parameter:
 | Nagios/Icinga Check Name              | `check_network_connections` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
 

@@ -15,9 +15,6 @@ Skeleton plugin demonstrating all standard patterns and library functions: argpa
 * Items can be filtered by `--name` (exact match) and excluded by `--ignore-regex` (Python regular expression)
 * Uses SQLite state persistence between runs to calculate deltas (e.g. bytes per second)
 
-**Compatibility:**
-
-* Cross-platform
 
 ## Fact Sheet
 
@@ -27,6 +24,7 @@ Skeleton plugin demonstrating all standard patterns and library functions: argpa
 | Nagios/Icinga Check Name              | `check_example` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--token` is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `psutil` |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-example.db` |

@@ -15,10 +15,6 @@ Checks Java heap and non-heap memory usage on a WildFly/JBoss AS server via its 
 * Authenticates via HTTP Digest Auth (`--username`, `--password`)
 * Reports used/committed/max for both heap and non-heap memory
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Checks Java heap and non-heap memory usage on a WildFly/JBoss AS server via its 
 | Nagios/Icinga Check Name              | `check_wildfly_memory_usage` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--username` and `--password` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

@@ -15,10 +15,6 @@ Monitors the HIN (Health Info Net) status page for service disruptions. Parses t
 * Looks for the `hin-status-block-status is-ok` CSS class to determine if all services are operational
 * If not found, extracts individual incident descriptions from the status block
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Monitors the HIN (Health Info Net) status page for service disruptions. Parses t
 | Nagios/Icinga Check Name              | `check_hin_status` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `beautifulsoup4` |
 

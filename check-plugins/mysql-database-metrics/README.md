@@ -18,10 +18,6 @@ Checks index sizes, fragmentation, and consistent engine and collation usage acr
 * Queries `information_schema.COLUMNS` for distinct character sets and collations per schema
 * Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_databases(), v1.9.8
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -31,6 +27,7 @@ Checks index sizes, fragmentation, and consistent engine and collation usage acr
 | Nagios/Icinga Check Name              | `check_mysql_database_metrics` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
 

@@ -16,10 +16,6 @@ Checks whether the GitLab application server is running by querying the `/-/heal
 * Sends an HTTP GET request to the GitLab health endpoint (default: `http://localhost/-/health`)
 * Expects the plain-text response "GitLab OK"
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Checks whether the GitLab application server is running by querying the `/-/heal
 | Nagios/Icinga Check Name              | `check_gitlab_health` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

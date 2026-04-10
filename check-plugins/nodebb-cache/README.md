@@ -16,10 +16,6 @@ Monitors NodeBB cache usage via the admin API. Alerts when cache utilization exc
 * Queries the NodeBB Read API endpoint `/api/admin/advanced/cache` using Bearer Authentication
 * Reports status, usage percentage, size, hit/miss counts and hit ratio for each cache: `postCache`, `groupCache`, `localCache`, `objectCache`
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Monitors NodeBB cache usage via the admin API. Alerts when cache utilization exc
 | Nagios/Icinga Check Name              | `check_nodebb_cache` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--token` is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

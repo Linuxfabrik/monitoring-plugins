@@ -17,10 +17,6 @@ Counts down to one or more user-defined expiration dates, such as certificate re
 * No external data is collected; all information is provided via the `--input` parameter
 * Compares each expiration date against the current date and calculates the remaining days
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Counts down to one or more user-defined expiration dates, such as certificate re
 | Nagios/Icinga Check Name              | `check_countdown` |
 | Check Interval Recommendation         | Twice a day |
 | Can be called without parameters      | No (`--input` is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

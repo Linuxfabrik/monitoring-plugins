@@ -30,10 +30,6 @@ object ApiUser "linuxfabrik-check-logfile" {
 * Uses SQLite state persistence to store the file offset and all matching lines between runs
 * Pattern arguments use the Python `in` operator for simple substring matching, which is faster than regex in most cases
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -43,6 +39,7 @@ object ApiUser "linuxfabrik-check-logfile" {
 | Nagios/Icinga Check Name              | `check_logfile` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--filename` and at least one pattern/regex are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-logfile-*.db` |
 

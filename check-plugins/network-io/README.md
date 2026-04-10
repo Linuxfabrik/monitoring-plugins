@@ -18,10 +18,6 @@ Monitors network I/O throughput per interface over time. Calculates bytes per se
 * After a system reboot, counter values may be lower than the previous measurement. The check detects this (negative delta) and returns "Waiting for more data." until the next valid measurement pair.
 * The all-time maximum throughput per interface is stored in the cache and never decreases automatically
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -31,6 +27,7 @@ Monitors network I/O throughput per interface over time. Calculates bytes per se
 | Nagios/Icinga Check Name              | `check_network_io` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-network-io.db` |

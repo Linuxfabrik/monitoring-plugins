@@ -18,10 +18,6 @@ Checks whether transactions in MySQL/MariaDB had to use a temporary disk cache b
 * Calculates the percentage of transactions served from memory vs. disk
 * Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -31,6 +27,7 @@ Checks whether transactions in MySQL/MariaDB had to use a temporary disk cache b
 | Nagios/Icinga Check Name              | `check_mysql_binlog_cache` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
 

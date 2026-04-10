@@ -16,10 +16,6 @@ Checks the current state of a Gemalto SafeNet ProtectServer Network HSM via SSH 
 * Connects to the HSM appliance via SSH using `sshpass` and executes the `hsm state` command
 * Parses the HSM state output and extracts the usage level percentage
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Checks the current state of a Gemalto SafeNet ProtectServer Network HSM via SSH 
 | Nagios/Icinga Check Name              | `check_safenet_hsm_state` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--hostname` and `--password` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | command-line tool `sshpass` |
 

@@ -25,10 +25,6 @@ Detects fast-flapping Icinga services by counting state changes per service with
 * Uses a temporary SQLite database to store and aggregate event data per check run (dropped and recreated each run)
 * Credentials can be provided via command-line parameters or a password INI file (command-line takes precedence)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -38,6 +34,7 @@ Detects fast-flapping Icinga services by counting state changes per service with
 | Nagios/Icinga Check Name              | `check_icinga_topflap_services` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes (if `--pwfile` exists at the default path) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | IcingaDB, read access to `/icingaweb2/icingadb/history` |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-icinga-topflap-services.db` |

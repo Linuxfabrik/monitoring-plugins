@@ -13,10 +13,6 @@ Checks hardware sensor readings (temperature, voltage, fan speed) on FortiGate a
 
 * Queries the FortiOS REST API endpoint `/api/v2/monitor/system/sensor-info/select` to fetch all hardware sensor readings and their thresholds
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -26,6 +22,7 @@ Checks hardware sensor readings (temperature, voltage, fan speed) on FortiGate a
 | Nagios/Icinga Check Name              | `check_fortios_sensor` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | No (`--hostname` and `--password` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

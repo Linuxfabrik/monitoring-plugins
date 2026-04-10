@@ -16,10 +16,6 @@ Checks the clock offset of ntpd in milliseconds compared to the configured NTP s
 * Parses the active peer (marked with `*`) and extracts stratum, delay, offset, and jitter
 * Displays the full `ntpq -p` output for reference
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Checks the clock offset of ntpd in milliseconds compared to the configured NTP s
 | Nagios/Icinga Check Name              | `check_ntp_ntpd` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

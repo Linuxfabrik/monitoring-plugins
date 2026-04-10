@@ -17,10 +17,6 @@ Monitors the health and performance of an Axenita/Achilles installation by query
     * `/api/build-info` - version and build timestamp
     * `/api/login/maintenance-state-active` - maintenance mode status
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Monitors the health and performance of an Axenita/Achilles installation by query
 | Nagios/Icinga Check Name              | `check_axenita_stats` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

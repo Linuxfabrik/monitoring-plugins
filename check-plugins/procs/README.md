@@ -19,10 +19,6 @@ Monitors running processes and alerts on process count, aggregated memory usage,
 * CPU usage (`--warning-cpu-percent`/`--critical-cpu-percent`) requires a local SQLite database for delta calculation between runs. A value of 100% equals one fully utilized CPU core. On multi-core systems, values above 100% are possible.
 * Supports extended reporting via `--lengthy`, which adds all platform-specific `memory_info()` fields to the `--top` table
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -32,6 +28,7 @@ Monitors running processes and alerts on process count, aggregated memory usage,
 | Nagios/Icinga Check Name              | `check_procs` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-procs.db` (only when using `--warning-cpu-percent` or `--critical-cpu-percent`) |

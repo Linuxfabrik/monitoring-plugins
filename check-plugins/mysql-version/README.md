@@ -15,10 +15,6 @@ Checks the installed MySQL/MariaDB version against the endoflife.date API and al
 * Queries the [endoflife.date API](https://endoflife.date/) for MySQL or MariaDB lifecycle data
 * Caches the API response in a local SQLite database to reduce API calls
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Checks the installed MySQL/MariaDB version against the endoflife.date API and al
 | Nagios/Icinga Check Name              | `check_mysql_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
 

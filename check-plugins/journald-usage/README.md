@@ -15,10 +15,6 @@ Checks the current disk usage of all systemd journal files (archived and active 
 * Reads the effective journald configuration via `systemd-analyze cat-config systemd/journald.conf` to report the current `SystemMaxUse` and `SystemKeepFree` values
 * Requires root or sudo privileges to access journal data
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Checks the current disk usage of all systemd journal files (archived and active 
 | Nagios/Icinga Check Name              | `check_journald_usage` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 
 

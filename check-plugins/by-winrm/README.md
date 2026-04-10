@@ -23,10 +23,6 @@ This plugin executes PowerShell commands or scripts on remote Windows hosts via 
 * Configurable severity levels for different failure modes (STDOUT, STDERR, return code, connection timeout)
 * Supports `--skip-stdout` and `--skip-stderr` to ignore all or the first N lines of output
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -36,6 +32,7 @@ This plugin executes PowerShell commands or scripts on remote Windows hosts via 
 | Nagios/Icinga Check Name              | `check_by_winrm` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--command` and `--winrm-hostname` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pypsrp` (supports JEA). Alternative without JEA: `pywinrm`, `pywinrm[kerberos]`, `pywinrm[credssp]` |
 

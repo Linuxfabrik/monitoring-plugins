@@ -22,10 +22,6 @@ Checks Infomaniak Swiss Backup product details via the Infomaniak API. Alerts wh
 * Output table is sorted by the "Tags" column
 * In the table output, the column header "Dev" means the number of devices created, "Maint." stands for "Maintenance", and "Busy" corresponds to the API field `has_operation_in_progress`
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -35,6 +31,7 @@ Checks Infomaniak Swiss Backup product details via the Infomaniak API. Alerts wh
 | Nagios/Icinga Check Name              | `check_infomaniak_swiss_backup_products` |
 | Check Interval Recommendation         | Once an hour |
 | Can be called without parameters      | No (`--account-id` and `--token` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

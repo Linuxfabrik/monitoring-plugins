@@ -10,10 +10,6 @@ Reports the state of network bonding (channel bonding) interfaces. Checks that a
 * Reads bonding interface status from `/proc/net/bonding/`
 * Parses MII status, link failure count, bonding mode, and partner MAC address for each bond and its slave interfaces
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -23,6 +19,7 @@ Reports the state of network bonding (channel bonding) interfaces. Checks that a
 | Nagios/Icinga Check Name              | `check_network_bonding` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 
 

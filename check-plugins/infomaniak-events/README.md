@@ -38,10 +38,6 @@ Monitors the Infomaniak status page for open events and incidents. Alerts when a
 * Requires a Bearer Token with scope "event" from Infomaniak
 * Displays event type, title, services, start/end time, and duration in a table
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -51,6 +47,7 @@ Monitors the Infomaniak status page for open events and incidents. Alerts when a
 | Nagios/Icinga Check Name              | `check_infomaniak_events` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--token` is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

@@ -14,10 +14,6 @@ Reports hardware temperature sensor readings (CPU, disk, chipset, etc.) in Celsi
 * Uses `psutil.sensors_temperatures()` to read temperature data from hardware sensors
 * Uses the hardware-defined high and critical thresholds for each sensor (no manual threshold configuration needed)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -27,6 +23,7 @@ Reports hardware temperature sensor readings (CPU, disk, chipset, etc.) in Celsi
 | Nagios/Icinga Check Name              | `check_sensors_temperatures` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `psutil` |
 

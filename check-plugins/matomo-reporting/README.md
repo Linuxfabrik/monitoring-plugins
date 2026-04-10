@@ -16,10 +16,6 @@ Retrieves common analytics values from a Matomo instance, including visits, uniq
 * Without `--metric`, all available metrics are printed and included as perfdata
 * With `--metric`, only the specified metrics are printed and optionally checked against warning/critical Nagios ranges
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Retrieves common analytics values from a Matomo instance, including visits, uniq
 | Nagios/Icinga Check Name              | `check_matomo_reporting` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

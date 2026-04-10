@@ -14,10 +14,6 @@ Reports the uptime of a WildFly/JBoss AS server via its HTTP-JSON based manageme
 * Queries the WildFly management API at `/core-service/platform-mbean/type/runtime` using the `read-resource` operation with runtime data
 * Authenticates via HTTP Digest Auth (`--username`, `--password`)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -27,6 +23,7 @@ Reports the uptime of a WildFly/JBoss AS server via its HTTP-JSON based manageme
 | Nagios/Icinga Check Name              | `check_wildfly_uptime` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--username` and `--password` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

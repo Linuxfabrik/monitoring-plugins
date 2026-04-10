@@ -11,10 +11,6 @@ Checks the installed WordPress version against the endoflife.date API and alerts
 * Queries the [endoflife.date API](https://endoflife.date/api/wordpress.json) to fetch EOL dates and latest available versions
 * Caches API responses in a SQLite database to reduce network calls
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -24,6 +20,7 @@ Checks the installed WordPress version against the endoflife.date API and alerts
 | Nagios/Icinga Check Name              | `check_wordpress_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
 

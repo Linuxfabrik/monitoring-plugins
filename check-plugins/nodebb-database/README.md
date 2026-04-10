@@ -16,10 +16,6 @@ Monitors NodeBB database statistics via the admin API, including memory usage an
 * Queries the NodeBB Read API endpoint `/api/admin/advanced/database` using Bearer Authentication
 * Reports MongoDB database name, filesystem disk usage, collection count, index count, and object count
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Monitors NodeBB database statistics via the admin API, including memory usage an
 | Nagios/Icinga Check Name              | `check_nodebb_database` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--token` is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

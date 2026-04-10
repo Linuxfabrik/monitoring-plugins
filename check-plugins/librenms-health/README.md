@@ -21,10 +21,6 @@ Retrieves hardware sensor information (temperature, humidity, voltage, power, st
 * Supports filtering by device group (`--device-group`, with SQL wildcards), device hostname (`--device-hostname`, repeatable), and device type (`--device-type`, repeatable)
 * In default (compact) mode, only sensors with alerts are shown; use `--lengthy` to display all sensors with extended details (type, location, sensor class, last update time)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -34,6 +30,7 @@ Retrieves hardware sensor information (temperature, humidity, voltage, power, st
 | Nagios/Icinga Check Name              | `check_librenms_health` |
 | Check Interval Recommendation         | Once an hour |
 | Can be called without parameters      | No (`--defaults-file` with valid MySQL/MariaDB credentials is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
 

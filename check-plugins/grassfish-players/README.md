@@ -18,10 +18,6 @@ Monitors Grassfish digital signage players via the Grassfish API. Lists players 
 * By default, only players in "activated" state are checked
 * Only players with warnings are shown in the table output (truncated to 10 entries)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -31,6 +27,7 @@ Monitors Grassfish digital signage players via the Grassfish API. Lists players 
 | Nagios/Icinga Check Name              | `check_grassfish_players` |
 | Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | No (`--hostname` and `--token` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

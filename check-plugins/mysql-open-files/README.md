@@ -16,10 +16,6 @@ Checks the open file usage in MySQL/MariaDB as a percentage of the configured `o
 * Calculates the percentage of open files relative to the limit
 * Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Checks the open file usage in MySQL/MariaDB as a percentage of the configured `o
 | Nagios/Icinga Check Name              | `check_mysql_open_files` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
 

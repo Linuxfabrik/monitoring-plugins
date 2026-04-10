@@ -17,10 +17,6 @@ Checks the connection usage rate, the rate of aborted connections, and whether n
 * Reports current, peak, and aborted connection statistics
 * Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Checks the connection usage rate, the rate of aborted connections, and whether n
 | Nagios/Icinga Check Name              | `check_mysql_connections` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
 

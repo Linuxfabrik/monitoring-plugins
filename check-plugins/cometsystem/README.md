@@ -31,10 +31,6 @@ Here, the check raises critical for any channel with "temp" in its name on high 
 * Iterates over all channels (`ch1`, `ch2`, ...) and reads their name, value, unit, and alarm state
 * Alarm mode per channel selects the direction: lower than limit (low alarm), higher than limit (high alarm), or disabled
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -44,6 +40,7 @@ Here, the check raises critical for any channel with "temp" in its name on high 
 | Nagios/Icinga Check Name              | `check_cometsystem` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--url` is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

@@ -17,10 +17,6 @@ Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and 
 * Parses the `PercentageInUse` field for each scope (handles locale-dependent decimal separators by truncating the fraction)
 * Reports each scope individually with its usage percentage
 
-**Compatibility:**
-
-* Windows
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and 
 | Nagios/Icinga Check Name              | `check_dhcp_scope_usage` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | No (`--winrm-hostname` and `--winrm-password` are required) |
+| Runs on                               | Windows |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `winrm` (for remote execution via WinRM) |
 

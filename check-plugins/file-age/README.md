@@ -22,10 +22,6 @@ Checks the time since last modification of one or more files or directories. Sup
 * Supports filtering by `--only-files` or `--only-dirs`
 * Files that disappear during the check (e.g. temporary files) are silently skipped
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -35,6 +31,7 @@ Checks the time since last modification of one or more files or directories. Sup
 | Nagios/Icinga Check Name              | `check_file_age` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `PySmbClient`, `smbprotocol` |
 

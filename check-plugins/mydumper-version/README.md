@@ -15,10 +15,6 @@ Checks whether a newer version of mydumper/myloader is available by comparing th
 * Queries the GitHub releases API for the latest version of `mydumper/mydumper`
 * Caches the latest version information locally to reduce API calls (default: 24 hours)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Checks whether a newer version of mydumper/myloader is available by comparing th
 | Nagios/Icinga Check Name              | `check_mydumper_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-mydumper-version.db` |
 

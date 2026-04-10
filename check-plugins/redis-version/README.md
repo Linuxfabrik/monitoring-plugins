@@ -11,10 +11,6 @@ Checks the installed Redis version against the endoflife.date API and alerts if 
 * Queries the endoflife.date API (<https://endoflife.date/api/redis.json>) and caches the result in a local SQLite database
 * Must run on the Redis server itself
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -24,6 +20,7 @@ Checks the installed Redis version against the endoflife.date API and alerts if 
 | Nagios/Icinga Check Name              | `check_redis_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
 

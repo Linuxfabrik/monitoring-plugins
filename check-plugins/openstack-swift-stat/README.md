@@ -17,10 +17,6 @@ Checks OpenStack Swift object storage account statistics, including total contai
 * Reports account-level statistics: container count, object count, total bytes used, and account quota
 * Reports per-container statistics: item count, quota, usage, and remaining free space
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Checks OpenStack Swift object storage account statistics, including total contai
 | Nagios/Icinga Check Name              | `check_openstack_swift_stat` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `python-swiftclient`, `python-keystoneclient` |
 

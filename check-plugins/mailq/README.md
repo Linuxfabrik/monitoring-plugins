@@ -15,10 +15,6 @@ Checks the number of messages in the mail queue using the `mailq` command. Alert
 * Supports different output formats: Postfix-style ("-- 2 Kbytes in 3 Requests."), Exim-style (line counting), and generic ("17 mails to deliver")
 * Also reports any error messages from `mailq` on stderr
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Checks the number of messages in the mail queue using the `mailq` command. Alert
 | Nagios/Icinga Check Name              | `check_mailq` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

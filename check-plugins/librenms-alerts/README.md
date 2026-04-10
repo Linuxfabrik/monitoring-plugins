@@ -19,10 +19,6 @@ Checks for unacknowledged alerts in LibreNMS and reports the most recent alert p
 * Supports filtering by device group (`--device-group`, with SQL wildcards), device hostname (`--device-hostname`, repeatable), and device type (`--device-type`, repeatable)
 * In default (compact) mode, only devices with active alerts are shown; use `--lengthy` to display all devices with extended details (hardware, type, OS, location, uptime)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -32,6 +28,7 @@ Checks for unacknowledged alerts in LibreNMS and reports the most recent alert p
 | Nagios/Icinga Check Name              | `check_librenms_alerts` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--defaults-file` with valid MySQL/MariaDB credentials is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
 

@@ -30,10 +30,6 @@ Alias /fpm-status /dev/null
 * The monitoring request itself is excluded from the process list
 * Supports extended reporting via `--lengthy`, which adds columns for process state, start time, and content length
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -43,6 +39,7 @@ Alias /fpm-status /dev/null
 | Nagios/Icinga Check Name              | `check_php_fpm_status` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

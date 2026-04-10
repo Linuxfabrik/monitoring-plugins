@@ -16,10 +16,6 @@ Monitors the high-availability cluster status on FortiGate appliances running Fo
 * Emits per-member perfdata for sessions, network usage, traffic bytes, CPU usage, and memory usage
 * Authentication uses a single API token (Token-based authentication)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Monitors the high-availability cluster status on FortiGate appliances running Fo
 | Nagios/Icinga Check Name              | `check_fortios_ha_stats` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--hostname` and `--password` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

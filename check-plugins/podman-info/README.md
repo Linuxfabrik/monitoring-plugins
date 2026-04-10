@@ -14,10 +14,6 @@ Displays system-wide Podman information including container counts, image count,
 * Executes `podman info --format json` to collect system-wide Podman information
 * Parses container counts (running, paused, stopped), image count, storage driver, logging driver, registries, Podman version, CPU count, and total memory
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -27,6 +23,7 @@ Displays system-wide Podman information including container counts, image count,
 | Nagios/Icinga Check Name              | `check_podman_info` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

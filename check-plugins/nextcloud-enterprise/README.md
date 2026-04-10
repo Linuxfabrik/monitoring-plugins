@@ -16,10 +16,6 @@ Retrieves and displays information about an installed Nextcloud Enterprise subsc
 * Runs Nextcloud `occ` commands via sudo to retrieve subscription key, last response data, and user limit configuration
 * Displays subscription details including end date, level, account manager, and per-feature subscription status (groupware, talk, collabora, onlyoffice, outlook, sip_bridge)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Retrieves and displays information about an installed Nextcloud Enterprise subsc
 | Nagios/Icinga Check Name              | `check_nextcloud_enterprise` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

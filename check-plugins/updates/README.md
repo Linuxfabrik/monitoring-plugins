@@ -10,10 +10,6 @@ Checks the number of pending Windows updates using the Windows Update COM API.
 * Uses the `Microsoft.Update.Session` COM object to query for updates where `IsInstalled=0`
 * Lists all pending updates with their title and last deployment change time
 
-**Compatibility:**
-
-* Windows
-
 
 ## Fact Sheet
 
@@ -23,6 +19,7 @@ Checks the number of pending Windows updates using the Windows Update COM API.
 | Nagios/Icinga Check Name              | `check_updates` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Windows |
 | Compiled for Windows                  | Yes |
 
 

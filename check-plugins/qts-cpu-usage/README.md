@@ -17,10 +17,6 @@ Monitors CPU utilization on QNAP appliances running QTS via the HTTP API. Alerts
 * Uses a local SQLite database to store historical CPU measurements for trend tracking
 * `--count=5` (the default) while checking every minute means the check reports a warning if the overall CPU usage is above a threshold in the last 5 minutes
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Monitors CPU utilization on QNAP appliances running QTS via the HTTP API. Alerts
 | Nagios/Icinga Check Name              | `check_qts_cpu_usage` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--password` and `--url` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `xmltodict` |
 | Handles Periods                       | Yes |

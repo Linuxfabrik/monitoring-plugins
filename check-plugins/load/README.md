@@ -10,10 +10,6 @@ Reports the average system load per CPU over the last 1, 5, and 15 minutes. Load
 * Uses `psutil.getloadavg()` (psutil >= 5.6.2) for cross-platform support, falls back to `os.getloadavg()` on older psutil versions (Linux only)
 * Divides raw load averages by `psutil.cpu_count()` to normalize per CPU
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -23,6 +19,7 @@ Reports the average system load per CPU over the last 1, 5, and 15 minutes. Load
 | Nagios/Icinga Check Name              | `check_load` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `psutil` |
 

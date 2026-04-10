@@ -17,10 +17,6 @@ Checks for tables without indexes in MySQL/MariaDB. Missing indexes on base tabl
 * Queries `INFORMATION_SCHEMA.tables` to discover user schemas and base tables
 * Queries `INFORMATION_SCHEMA.statistics` to check for indexes on each table
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Checks for tables without indexes in MySQL/MariaDB. Missing indexes on base tabl
 | Nagios/Icinga Check Name              | `check_mysql_table_indexes` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
 

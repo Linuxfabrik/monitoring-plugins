@@ -28,10 +28,6 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 * Disk I/O bandwidth tracking starts at 10 MiB/sec as a baseline, but stores the highest measured bandwidth, so the `RWmax/s` value adjusts accordingly over time. The check may throw warnings during the first major disk activities above 10 MiB/sec until the actual maximum bandwidth of the disk has been determined
 * Disks can be filtered by `--match` (Python regular expression matching block device, device mapper device, or mountpoint)
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -41,6 +37,7 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 | Nagios/Icinga Check Name              | `check_disk_io` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
 | Handles Periods                       | Yes |

@@ -19,10 +19,6 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 * Platform-specific extended metrics where available: context switches, interrupts, soft interrupts (requires psutil >= 4.1.0)
 * Detects and skips all-zero CPU samples (can occur on Windows systems with many cores) to avoid false 100% usage reports
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -32,6 +28,7 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 | Nagios/Icinga Check Name              | `check_cpu_usage` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
 | Handles Periods                       | Yes |

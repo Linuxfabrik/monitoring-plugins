@@ -15,10 +15,6 @@ Monitors a public Atlassian Statuspage for incidents and maintenance windows. Re
 * Maps the Statuspage incident indicator to Nagios states according to the [Atlassian impact calculation](https://support.atlassian.com/statuspage/docs/top-level-status-and-incident-impact-calculations/)
 * Reports the time elapsed since the last status update when an incident is active
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Monitors a public Atlassian Statuspage for incidents and maintenance windows. Re
 | Nagios/Icinga Check Name              | `check_atlassian_statuspage` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

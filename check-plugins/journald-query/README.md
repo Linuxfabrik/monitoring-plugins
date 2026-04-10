@@ -19,10 +19,6 @@ Queries the systemd journal using journalctl and alerts when matching entries ar
 * Messages longer than 80 characters are truncated in the output table
 * The full journalctl command used is always appended to the output for reference
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -32,6 +28,7 @@ Queries the systemd journal using journalctl and alerts when matching entries ar
 | Nagios/Icinga Check Name              | `check_journald_query` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 | Requirements                          | `journalctl` |
 

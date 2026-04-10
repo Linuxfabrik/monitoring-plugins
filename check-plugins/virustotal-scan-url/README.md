@@ -18,10 +18,6 @@ Submits a URL to VirusTotal for analysis and checks the scan results. Alerts whe
 * Retrieves the full analysis report via the VirusTotal Analysis endpoint (`GET /analyses/{id}`)
 * Reports per-engine results for any detection that is not "harmless" or "undetected"
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -31,6 +27,7 @@ Submits a URL to VirusTotal for analysis and checks the scan results. Alerts whe
 | Nagios/Icinga Check Name              | `check_virustotal_scan_url` |
 | Check Interval Recommendation         | Once an hour |
 | Can be called without parameters      | No (`--token` and `--url` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | VirusTotal account and API key; Premium API if used in commercial products/services |
 

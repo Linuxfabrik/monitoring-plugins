@@ -14,10 +14,6 @@ Monitors a [StatusIQ](https://www.site24x7.com/statusiq/) (by Site24x7) status p
 * Fetches the RSS feed of the specified StatusIQ status page (appends `/rss` to the URL)
 * Parses the XML feed using BeautifulSoup to extract component statuses and publication dates
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -27,6 +23,7 @@ Monitors a [StatusIQ](https://www.site24x7.com/statusiq/) (by Site24x7) status p
 | Nagios/Icinga Check Name              | `check_statusiq` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `beautifulsoup4` |
 

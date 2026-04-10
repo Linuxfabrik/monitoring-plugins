@@ -11,10 +11,6 @@ Reports how long the system has been running since the last boot. Optionally dis
 * Stores timestamps in a SQLite database to detect reboots and calculate downtime duration between runs
 * On the first run after a reboot, reports the approximate time and duration of the last power event
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -24,6 +20,7 @@ Reports how long the system has been running since the last boot. Optionally dis
 | Nagios/Icinga Check Name              | `check_uptime` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-uptime.db` |

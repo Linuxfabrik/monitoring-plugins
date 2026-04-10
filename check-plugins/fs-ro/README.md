@@ -11,10 +11,6 @@ Checks for unexpectedly read-only mounted filesystems, such as a root filesystem
 * Skips ramfs and squashfs filesystem types entirely
 * Skips mount points whose path starts with any `--ignore` prefix (default: `/dev/loop`, `/proc`, `/run/credentials`, `/snap`, `/sys/fs`)
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -24,6 +20,7 @@ Checks for unexpectedly read-only mounted filesystems, such as a root filesystem
 | Nagios/Icinga Check Name              | `check_fs_ro` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 
 

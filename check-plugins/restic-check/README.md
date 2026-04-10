@@ -16,10 +16,6 @@ Verifies the integrity of a restic backup repository by running `restic check`. 
 * Always loads all data directly from the repository and does not use a local cache, so execution may take several minutes, especially if the repository is corrupted
 * If the output exceeds 10 lines, it is shortened to the first 5 and last 5 lines
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Verifies the integrity of a restic backup repository by running `restic check`. 
 | Nagios/Icinga Check Name              | `check_restic_check` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | No (`--repo` is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

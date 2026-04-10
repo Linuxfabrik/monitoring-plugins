@@ -16,10 +16,6 @@ Reports how long a QNAP appliance running QTS has been running since the last bo
 * Authenticates against the QTS API and fetches system information via `/cgi-bin/management/manaRequest.cgi`
 * Calculates uptime from the day, hour, minute, and second fields reported by QTS
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Reports how long a QNAP appliance running QTS has been running since the last bo
 | Nagios/Icinga Check Name              | `check_qts_uptime` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | No (`--password` and `--url` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `xmltodict` |
 

@@ -15,10 +15,6 @@ Checks the ratio of on-disk versus in-memory temporary tables in MySQL/MariaDB. 
 * Queries `SHOW GLOBAL STATUS` for `Created_tmp_disk_tables` and `Created_tmp_tables`
 * Calculates the disk temporary table rate as `Created_tmp_disk_tables / Created_tmp_tables * 100`
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Checks the ratio of on-disk versus in-memory temporary tables in MySQL/MariaDB. 
 | Nagios/Icinga Check Name              | `check_mysql_temp_tables` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | User with no privileges, locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |

@@ -16,10 +16,6 @@ Monitors system memory utilization on QNAP appliances running QTS via the HTTP A
 * Authenticates against the QTS API and fetches system information via `/cgi-bin/management/manaRequest.cgi`
 * Calculates memory usage from the total and free memory values reported by QTS
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Monitors system memory utilization on QNAP appliances running QTS via the HTTP A
 | Nagios/Icinga Check Name              | `check_qts_memory_usage` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--password` and `--url` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `xmltodict` |
 

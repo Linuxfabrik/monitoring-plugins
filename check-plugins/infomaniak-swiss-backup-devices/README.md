@@ -24,10 +24,6 @@ Checks each backup device (slot) across all Infomaniak Swiss Backup products via
 * Requires a Bearer Token with scope "swiss-backup" from Infomaniak
 * Output table is sorted by the "Tags" column
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -37,6 +33,7 @@ Checks each backup device (slot) across all Infomaniak Swiss Backup products via
 | Nagios/Icinga Check Name              | `check_infomaniak_swiss_backup_devices` |
 | Check Interval Recommendation         | Once an hour |
 | Can be called without parameters      | No (`--account-id` and `--token` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

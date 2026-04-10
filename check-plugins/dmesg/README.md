@@ -17,10 +17,6 @@ Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, ale
 * Additional messages can be excluded using the `--ignore` parameter (case-sensitive, repeatable)
 * If more than 10 error lines are found, the output is shortened to the first 5 and last 5 lines
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, ale
 | Nagios/Icinga Check Name              | `check_dmesg` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 
 

@@ -10,10 +10,6 @@ Reports internal XFS filesystem statistics from `/proc/fs/xfs/stat`. Useful for 
 * Reads `/proc/fs/xfs/stat` and parses the following statistic groups: extent allocation, allocation B-tree, block mapping, block map B-tree, directory operations, inode operations, vnode, and read/write calls
 * All metrics are reported as continuous counters
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -23,6 +19,7 @@ Reports internal XFS filesystem statistics from `/proc/fs/xfs/stat`. Useful for 
 | Nagios/Icinga Check Name              | `check_fs_xfs_stats` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 
 

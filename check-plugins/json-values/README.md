@@ -12,10 +12,6 @@ Parses a JSON object from a local file, HTTP/HTTPS URL, or SMB share and extract
 * Extracts the perfdata string from the key specified by `--perfdata-key` (default: `perfdata`)
 * Extracts the return state from the key specified by `--state-key` (default: `state`)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -25,6 +21,7 @@ Parses a JSON object from a local file, HTTP/HTTPS URL, or SMB share and extract
 | Nagios/Icinga Check Name              | `check_json_values` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `PySmbClient`, `smbprotocol` (only for SMB access) |
 

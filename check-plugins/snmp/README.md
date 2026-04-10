@@ -23,10 +23,6 @@ Queries SNMP OIDs defined in a CSV file and checks the returned values against o
 * Supports re-calculation of values, custom units, human-readable formatting (bytes, seconds, bps), and computed values using Python expressions
 * Values can be shown in the first output line, filtered from the table, or excluded from perfdata
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -36,6 +32,7 @@ Queries SNMP OIDs defined in a CSV file and checks the returned values against o
 | Nagios/Icinga Check Name              | `check_snmp` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | No (`--hostname` is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | `snmpget` from `net-snmp-utils` |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-snmp.db` |

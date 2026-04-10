@@ -11,10 +11,6 @@ Monitors all configured monitors on a given [UptimeRobot](https://uptimerobot.co
 * Then fetches the monitor list JSON from the discovered API endpoint
 * Reports per-monitor name, type, and state in a table
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -24,6 +20,7 @@ Monitors all configured monitors on a given [UptimeRobot](https://uptimerobot.co
 | Nagios/Icinga Check Name              | `check_uptimerobot` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

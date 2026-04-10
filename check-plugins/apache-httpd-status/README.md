@@ -82,10 +82,6 @@ If you want to configure `/server-status` in a virtual host:
 * Uses a local SQLite database to store previous values and calculate per-interval deltas for accesses, bytes, and duration
 * On the first run (or after a restart), returns "Waiting for more data." until at least two measurements are available
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -95,6 +91,7 @@ If you want to configure `/server-status` in a virtual host:
 | Nagios/Icinga Check Name              | `check_apache_httpd_status` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-apache-httpd-status.db` |
 

@@ -24,10 +24,6 @@ object ApiUser "linuxfabrik-check-api-user" {
 * HTML is stripped from the feed message
 * If `--icinga-callback` is enabled, the check queries the Icinga API for the service acknowledgement state and auto-clears alerts when the service is acknowledged. This requires an Icinga API user with `objects/query/service` permissions
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -37,6 +33,7 @@ object ApiUser "linuxfabrik-check-api-user" {
 | Nagios/Icinga Check Name              | `check_feed` |
 | Check Interval Recommendation         | Once an hour, or every 4 hours |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `BeautifulSoup4` (Version 4) with Python module `lxml` |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-feed.db` |

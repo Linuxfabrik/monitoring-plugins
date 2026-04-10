@@ -14,10 +14,6 @@ Checks MySQL/MariaDB user security settings, including accounts with empty passw
 * Queries `mysql.user` and `mysql.global_priv` (on MariaDB 10.4+) to identify insecure accounts
 * The system users `mysql.sys` and `mariadb.sys` are excluded because they intentionally use invalid passwords as a security measure
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -27,6 +23,7 @@ Checks MySQL/MariaDB user security settings, including accounts with empty passw
 | Nagios/Icinga Check Name              | `check_mysql_user_security` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | User with SELECT privileges on mysql.user, locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |

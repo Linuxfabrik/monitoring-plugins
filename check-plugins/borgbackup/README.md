@@ -18,10 +18,6 @@ Checks the status of the last borgbackup run by parsing the borg logfile. Alerts
 * Checks `/proc/mounts` for active `borgfs` mounts
 * Calculates the time since the last backup started and the backup duration
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -31,6 +27,7 @@ Checks the status of the last borgbackup run by parsing the borg logfile. Alerts
 | Nagios/Icinga Check Name              | `check_borgbackup` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 
 

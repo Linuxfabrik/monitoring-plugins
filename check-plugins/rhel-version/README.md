@@ -16,10 +16,6 @@ Checks the installed Red Hat Enterprise Linux version against the endoflife.date
 * Queries the endoflife.date API (<https://endoflife.date/api/rhel.json>) and caches the result in a local SQLite database
 * Must run on the RHEL server itself
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Checks the installed Red Hat Enterprise Linux version against the endoflife.date
 | Nagios/Icinga Check Name              | `check_rhel_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
 

@@ -17,10 +17,6 @@ Checks the table definition cache size in MySQL/MariaDB. A cache that is too sma
 * Queries `SHOW GLOBAL VARIABLES` for `table_definition_cache`
 * Counts total tables via `SELECT COUNT(*) FROM information_schema.tables`
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Checks the table definition cache size in MySQL/MariaDB. A cache that is too sma
 | Nagios/Icinga Check Name              | `check_mysql_table_definition_cache` |
 | Check Interval Recommendation         | Once an hour |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
 

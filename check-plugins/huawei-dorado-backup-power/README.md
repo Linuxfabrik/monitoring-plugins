@@ -18,10 +18,6 @@ Checks the health status of all backup power modules (BBU) on a Huawei OceanStor
 * Reports health status, running status, charge count, remaining service life, and voltage for each BBU
 * Cookies and iBaseTokens are cached and re-used (the session timeout period is usually 20 minutes, configurable via `--cache-expire`)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -31,6 +27,7 @@ Checks the health status of all backup power modules (BBU) on a Huawei OceanStor
 | Nagios/Icinga Check Name              | `check_huawei_dorado_backup_power` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | No (`--device-id`, `--password`, `--url`, and `--username` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
 

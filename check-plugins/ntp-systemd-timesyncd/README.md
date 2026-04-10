@@ -15,10 +15,6 @@ Checks the state of systemd-timesyncd, including synchronization status, server 
 * Parses the NTP message to extract the stratum value
 * Displays the full timedatectl output including configured NTP servers, server name and address, root distance, poll intervals, NTP message details, and frequency
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Checks the state of systemd-timesyncd, including synchronization status, server 
 | Nagios/Icinga Check Name              | `check_ntp_systemd_timesyncd` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

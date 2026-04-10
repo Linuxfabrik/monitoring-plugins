@@ -15,10 +15,6 @@ Checks whether the installed Moodle version is end-of-life (EOL) by comparing th
 * Queries the endoflife.date API for the latest EOL and release information
 * Caches API responses in a local SQLite database to reduce network calls
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Checks whether the installed Moodle version is end-of-life (EOL) by comparing th
 | Nagios/Icinga Check Name              | `check_moodle_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
 

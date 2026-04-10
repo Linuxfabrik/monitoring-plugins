@@ -13,10 +13,6 @@ Reports hardware fan speeds in RPM (rounds per minute). Returns OK if no fans ar
 
 * Uses `psutil.sensors_fans()` to read fan speed data from hardware sensors
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -26,6 +22,7 @@ Reports hardware fan speeds in RPM (rounds per minute). Returns OK if no fans ar
 | Nagios/Icinga Check Name              | `check_sensors_fans` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `psutil` |
 

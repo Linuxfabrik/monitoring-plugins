@@ -17,10 +17,6 @@ Checks the expiration dates of certificates and CRLs stored in a XCA-managed MyS
 * Queries the `view_certs` and `view_crls` views (prefixed with `--prefix` if configured)
 * Parses certificate and CRL expiration dates using `openssl x509` and `openssl crl`
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Checks the expiration dates of certificates and CRLs stored in a XCA-managed MyS
 | Nagios/Icinga Check Name              | `check_xca_cert` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | User with SELECT privileges on the XCA database, locked down to `127.0.0.1` - for example `monitoring@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |

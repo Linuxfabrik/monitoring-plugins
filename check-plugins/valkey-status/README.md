@@ -19,10 +19,6 @@ Monitors a Valkey server via the `INFO` command and the `MEMORY DOCTOR` subcomma
 * Supports Unix socket connections via `--socket`
 * Supports ACL-based authentication via `--username` and `--password`
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -32,6 +28,7 @@ Monitors a Valkey server via the `INFO` command and the `MEMORY DOCTOR` subcomma
 | Nagios/Icinga Check Name              | `check_valkey_status` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 | Requirements                          | command-line tool `valkey-cli` |
 

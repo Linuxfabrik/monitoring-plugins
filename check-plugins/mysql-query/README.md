@@ -17,10 +17,6 @@ Connects to a MySQL/MariaDB database and runs configurable SQL queries for warni
 * Executes the `SELECT` statement(s) provided via `--warning-query` and/or `--critical-query`
 * Result tables are shown in the output (truncated to the first 5 and last 5 rows if more than 10 rows are returned)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Connects to a MySQL/MariaDB database and runs configurable SQL queries for warni
 | Nagios/Icinga Check Name              | `check_mysql_query` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | No |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
 

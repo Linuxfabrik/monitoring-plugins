@@ -15,10 +15,6 @@ Checks the installed PHP version against the endoflife.date API and alerts if th
 * Queries the endoflife.date API to get the EOL date and latest available releases
 * Caches the API response in a local SQLite database to avoid excessive requests
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Checks the installed PHP version against the endoflife.date API and alerts if th
 | Nagios/Icinga Check Name              | `check_php_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
 

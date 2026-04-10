@@ -15,10 +15,6 @@ Checks the installed GitLab version against the endoflife.date API and alerts if
 * Compares against the [endoflife.date API](https://endoflife.date/api/gitlab.json) to determine EOL status and available updates
 * Caches API responses locally for 24 hours to reduce external requests
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Checks the installed GitLab version against the endoflife.date API and alerts if
 | Nagios/Icinga Check Name              | `check_gitlab_version` |
 | Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 

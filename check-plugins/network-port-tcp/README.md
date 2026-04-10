@@ -14,10 +14,6 @@ Checks whether a TCP network port is reachable by attempting to establish a conn
 * Attempts a TCP socket connection to the specified host and port
 * Supports both IPv4 (`tcp`) and IPv6 (`tcp6`) via the `--type` parameter
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -27,6 +23,7 @@ Checks whether a TCP network port is reachable by attempting to establish a conn
 | Nagios/Icinga Check Name              | `check_network_port_tcp` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 
 

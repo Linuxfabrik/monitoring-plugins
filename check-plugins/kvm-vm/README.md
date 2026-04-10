@@ -24,10 +24,6 @@ Lists all virtual machines on a KVM host using `virsh list --all` and checks the
 * Reports VM ID, name, and state for each virtual machine
 * Requires root or sudo privileges
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -37,6 +33,7 @@ Lists all virtual machines on a KVM host using `virsh list --all` and checks the
 | Nagios/Icinga Check Name              | `check_kvm_vm` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 
 

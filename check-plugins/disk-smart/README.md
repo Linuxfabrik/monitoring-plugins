@@ -18,10 +18,6 @@ Queries SMART (Self-Monitoring, Analysis, and Reporting Technology) data from ha
 * The check tries to identify all disks automatically. Disks without SMART capability can be excluded using the `--ignore` parameter
 * A `smartctl` run can take up to one or two seconds per disk, depending on its health and interface/bus speed
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -31,6 +27,7 @@ Queries SMART (Self-Monitoring, Analysis, and Reporting Technology) data from ha
 | Nagios/Icinga Check Name              | `check_disk_smart` |
 | Check Interval Recommendation         | Every 8 hours |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

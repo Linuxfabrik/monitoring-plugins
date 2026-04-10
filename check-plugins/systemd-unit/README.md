@@ -17,10 +17,6 @@ Checks the state of a specific systemd unit (service, socket, device, mount, tim
 * Optionally supports `--machine` to query units inside local containers (requires systemd >= 209)
 * Optionally supports `--user` to query user-level service manager
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Checks the state of a specific systemd unit (service, socket, device, mount, tim
 | Nagios/Icinga Check Name              | `check_systemd_unit` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--unit` is required) |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 
 

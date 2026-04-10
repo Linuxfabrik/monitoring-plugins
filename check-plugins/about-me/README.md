@@ -19,10 +19,6 @@ Collects and displays key system information: OS and kernel version, CPU configu
 * Lists all network interfaces with IPv4 addresses, listening TCP/UDP ports, non-default packages, non-default users, systemd services/mounts/automounts/timers, and cron jobs
 * Optionally guesses Icinga Director tags for automated host classification (via `--tags`)
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -32,6 +28,7 @@ Collects and displays key system information: OS and kernel version, CPU configu
 | Nagios/Icinga Check Name              | `check_about_me` |
 | Check Interval Recommendation         | Once a day or once a week |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `psutil` (optional) |
 

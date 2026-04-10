@@ -22,10 +22,6 @@ Monitors XA datasource connection pool metrics on a WildFly/JBoss AS server via 
 * Specific datasources can be checked using `--datasource` (repeatable); if omitted, all XA datasources are checked
 * The check detects if statistics are not enabled for a datasource and reports this accordingly
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -35,6 +31,7 @@ Monitors XA datasource connection pool metrics on a WildFly/JBoss AS server via 
 | Nagios/Icinga Check Name              | `check_wildfly_xa_datasource_stats` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--username` and `--password` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

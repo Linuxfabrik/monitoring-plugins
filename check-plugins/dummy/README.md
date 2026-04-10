@@ -5,10 +5,6 @@
 
 Returns a freely configurable message, state, and perfdata. Useful for testing monitoring configurations, simulating alerts, or generating placeholder data. It comes in handy when trying to pass Icinga DSL to the dummy command via the Icinga Director, as this is not currently possible with the Icinga built-in dummy command.
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -18,6 +14,7 @@ Returns a freely configurable message, state, and perfdata. Useful for testing m
 | Nagios/Icinga Check Name              | `check_dummy` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 
 

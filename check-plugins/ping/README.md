@@ -15,10 +15,6 @@ Sends ICMP ECHO_REQUEST packets to a network host using the system's built-in `p
 * Executes the system `ping` command with quiet output (`-q`) to collect summary statistics
 * Works with both IPv4 and IPv6
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Sends ICMP ECHO_REQUEST packets to a network host using the system's built-in `p
 | Nagios/Icinga Check Name              | `check_ping` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

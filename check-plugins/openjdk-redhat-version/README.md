@@ -15,10 +15,6 @@ Checks the installed Red Hat OpenJDK version against the endoflife.date API and 
 * Queries the endoflife.date API at `https://endoflife.date/api/redhat-build-of-openjdk.json` to compare against known EOL dates and available releases
 * Caches the API response in a local SQLite database to reduce network requests
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Checks the installed Red Hat OpenJDK version against the endoflife.date API and 
 | Nagios/Icinga Check Name              | `check_openjdk_redhat_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
 

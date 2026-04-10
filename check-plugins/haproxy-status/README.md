@@ -38,10 +38,6 @@ Monitors HAProxy performance and health via the stats endpoint. Reports frontend
 * Checks queue usage and session rate against the same thresholds
 * For HTTP access, supports Basic authentication (`--username` / `--password`)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -51,6 +47,7 @@ Monitors HAProxy performance and health via the stats endpoint. Reports frontend
 | Nagios/Icinga Check Name              | `check_haproxy_status` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | HAProxy stats directive enabled (socket or HTTP) |
 

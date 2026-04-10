@@ -20,10 +20,6 @@ Checks file sizes against configurable thresholds using human-readable units (e.
 * Reads `st_size` from `os.stat()` for each matched file
 * Directories are silently skipped
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -33,6 +29,7 @@ Checks file sizes against configurable thresholds using human-readable units (e.
 | Nagios/Icinga Check Name              | `check_file_size` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | optional: `PySmbClient`, `smbprotocol` |
 

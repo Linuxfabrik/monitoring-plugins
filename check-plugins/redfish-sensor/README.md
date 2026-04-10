@@ -20,10 +20,6 @@ Checks hardware sensor readings (temperature, voltage, fan speed, power) from th
 * Uses HTTP Basic authentication if `--username` and `--password` are provided
 * Only evaluates sensors and chassis in "Enabled" or "Quiesced" state
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -33,6 +29,7 @@ Checks hardware sensor readings (temperature, voltage, fan speed, power) from th
 | Nagios/Icinga Check Name              | `check_redfish_sensor` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

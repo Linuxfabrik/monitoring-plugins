@@ -13,10 +13,6 @@ Tests if a path is writable and readable by creating, writing, reading, and dele
 * Writes a test string, reads it back, then deletes the temporary file
 * Reports which paths failed and which were tested
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -26,6 +22,7 @@ Tests if a path is writable and readable by creating, writing, reading, and dele
 | Nagios/Icinga Check Name              | `check_path_rw_test` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 
 

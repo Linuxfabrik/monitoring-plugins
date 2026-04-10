@@ -14,10 +14,6 @@ Reports garbage collector statistics from a WildFly/JBoss AS server via its HTTP
 * Queries the WildFly management API at `/core-service/platform-mbean/type/garbage-collector` using the `read-resource` operation with runtime data
 * Authenticates via HTTP Digest Auth (`--username`, `--password`)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -27,6 +23,7 @@ Reports garbage collector statistics from a WildFly/JBoss AS server via its HTTP
 | Nagios/Icinga Check Name              | `check_wildfly_gc_status` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--username` and `--password` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

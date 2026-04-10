@@ -14,10 +14,6 @@ Checks the percentage of used inodes on local filesystems. Fetches a list of loc
 * Uses `os.statvfs()` on each local disk mount point to read total and free inode counts
 * Discovers local disk devices via `lib.disk.get_real_disks()`
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -27,6 +23,7 @@ Checks the percentage of used inodes on local filesystems. Fetches a list of loc
 | Nagios/Icinga Check Name              | `check_fs_inodes` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

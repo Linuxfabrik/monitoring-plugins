@@ -14,10 +14,6 @@ Queries the Name Service Switch (NSS) for entries in system databases such as gr
 
 * Executes `/usr/bin/getent <database> [key ...]` and evaluates the exit code
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -27,6 +23,7 @@ Queries the Name Service Switch (NSS) for entries in system databases such as gr
 | Nagios/Icinga Check Name              | `check_getent` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

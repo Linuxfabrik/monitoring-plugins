@@ -16,10 +16,6 @@ Checks the InnoDB buffer pool instance configuration in MySQL/MariaDB. The numbe
 * Checks the InnoDB storage engine availability before proceeding
 * Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_innodb(), v1.9.8
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Checks the InnoDB buffer pool instance configuration in MySQL/MariaDB. The numbe
 | Nagios/Icinga Check Name              | `check_mysql_innodb_buffer_pool_instances` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
 

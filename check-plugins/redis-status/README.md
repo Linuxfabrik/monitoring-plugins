@@ -18,10 +18,6 @@ Monitors a Redis server via the `INFO` command, reporting memory usage, fragment
 * Supports authentication (username/password) and TLS connections
 * Reads OS-level settings from `/proc/sys/vm/overcommit_memory`, `/sys/kernel/mm/transparent_hugepage/enabled`, `/proc/sys/net/core/somaxconn`, and `/proc/sys/net/ipv4/tcp_max_syn_backlog`
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -31,6 +27,7 @@ Monitors a Redis server via the `INFO` command, reporting memory usage, fragment
 | Nagios/Icinga Check Name              | `check_redis_status` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 | Requirements                          | command-line tool `redis-cli` |
 

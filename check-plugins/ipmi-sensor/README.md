@@ -18,10 +18,6 @@ Checks IPMI sensor readings (temperature, voltage, fan speed, power, etc.) using
 * For remote access, supports both IPMI v1.5 (`--interface=lan`) and IPMI v2.0 (`--interface=lanplus`)
 * Emits perfdata for every threshold-based sensor with IPMI-reported warning, critical, and min/max values
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -31,6 +27,7 @@ Checks IPMI sensor readings (temperature, voltage, fan speed, power, etc.) using
 | Nagios/Icinga Check Name              | `check_ipmi_sensor` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | `ipmitool` |
 

@@ -14,10 +14,6 @@ Checks the rate of table locks that had to wait in MySQL/MariaDB. A high wait ra
 * Queries `SHOW GLOBAL STATUS` for `Table_locks_immediate` and `Table_locks_waited`
 * Calculates the immediate lock rate as `Table_locks_immediate / (Table_locks_waited + Table_locks_immediate) * 100`
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -27,6 +23,7 @@ Checks the rate of table locks that had to wait in MySQL/MariaDB. A high wait ra
 | Nagios/Icinga Check Name              | `check_mysql_table_locks` |
 | Check Interval Recommendation         | Once an hour |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | User with no privileges, locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |

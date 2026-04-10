@@ -27,10 +27,6 @@ Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 * Stores all package and advisory information in a local SQLite database for SQL-based filtering via `--query`
 * Plugin execution may take more than 10 seconds due to yum operations (default timeout: 120 seconds)
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -40,6 +36,7 @@ Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 | Nagios/Icinga Check Name              | `check_rpm_updates` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-rpm-updates.db` |
 

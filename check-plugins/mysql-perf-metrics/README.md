@@ -16,10 +16,6 @@ Checks performance-related best practice configurations for MySQL/MariaDB, inclu
 * Checks the InnoDB storage engine availability
 * Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):check_metadata_perf(), v1.9.8
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Checks performance-related best practice configurations for MySQL/MariaDB, inclu
 | Nagios/Icinga Check Name              | `check_mysql_perf_metrics` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
 

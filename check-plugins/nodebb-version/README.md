@@ -17,10 +17,6 @@ Checks if a NodeBB update is available by comparing the installed version agains
 * Compares the installed NodeBB version against the latest available version
 * Reports the last restart timestamp including the user who triggered it
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Checks if a NodeBB update is available by comparing the installed version agains
 | Nagios/Icinga Check Name              | `check_nodebb_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

@@ -17,10 +17,6 @@ Checks system requirements and kernel settings specifically for MySQL/MariaDB, i
 * Reads Linux kernel parameters via `sysctl`
 * Does not need access to MySQL/MariaDB itself
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Checks system requirements and kernel settings specifically for MySQL/MariaDB, i
 | Nagios/Icinga Check Name              | `check_mysql_system` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `psutil` |
 

@@ -15,10 +15,6 @@ Lists all clients currently connected to an OpenVPN server by parsing the status
 * Parses `CLIENT_LIST` entries to extract client name, external IP, internal IP, and connection time
 * The status log file must be configured on the OpenVPN server using `status /var/log/openvpn-status.log`
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Lists all clients currently connected to an OpenVPN server by parsing the status
 | Nagios/Icinga Check Name              | `check_openvpn_client_list` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

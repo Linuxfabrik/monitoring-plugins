@@ -16,10 +16,6 @@ Checks the installed Nextcloud version against the endoflife.date API and alerts
 * Queries the [endoflife.date API](https://endoflife.date/) for Nextcloud lifecycle data
 * Caches the API response in a local SQLite database to reduce API calls
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Checks the installed Nextcloud version against the endoflife.date API and alerts
 | Nagios/Icinga Check Name              | `check_nextcloud_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
 

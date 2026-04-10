@@ -17,10 +17,6 @@ Checks whether the GitLab application server is alive by querying the `/-/livene
 * Sends an HTTP GET request to the GitLab liveness endpoint (default: `http://localhost/-/liveness`)
 * Expects a JSON response containing a "status" field and no "error" field
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -30,6 +26,7 @@ Checks whether the GitLab application server is alive by querying the `/-/livene
 | Nagios/Icinga Check Name              | `check_gitlab_liveness` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

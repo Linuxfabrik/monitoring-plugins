@@ -19,10 +19,6 @@ Checks used or free disk space for each mounted partition. By default, only phys
 * Mountpoints can be filtered using `--include-pattern`, `--include-regex`, `--exclude-pattern`, and `--exclude-regex`. Includes are matched before excludes
 * Perfdata output can be limited using `--perfdata-regex`
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -32,6 +28,7 @@ Checks used or free disk space for each mounted partition. By default, only phys
 | Nagios/Icinga Check Name              | `check_disk_usage` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
 

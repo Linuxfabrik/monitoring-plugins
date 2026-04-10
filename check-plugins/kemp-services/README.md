@@ -15,10 +15,6 @@ Monitors virtual services on a KEMP LoadMaster appliance via its REST API and al
 * Parses the XML response to extract the NickName and Status of each virtual service
 * Use `--filter` to only check virtual services whose NickName contains a specific string
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Monitors virtual services on a KEMP LoadMaster appliance via its REST API and al
 | Nagios/Icinga Check Name              | `check_kemp_services` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--hostname`, `--username`, and `--password` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

@@ -16,10 +16,6 @@ Checks for outdated Python packages installed via pip. Reports the number of pac
 * Supports all standard pip options for index URLs, exclusions, and package filtering
 * May take more than 10 seconds to execute depending on the number of installed packages and network latency
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Checks for outdated Python packages installed via pip. Reports the number of pac
 | Nagios/Icinga Check Name              | `check_pip_updates` |
 | Check Interval Recommendation         | Once a week |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | `pip` v20.3+ |
 

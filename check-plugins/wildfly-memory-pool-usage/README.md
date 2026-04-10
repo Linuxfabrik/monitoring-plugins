@@ -30,10 +30,6 @@ Checks Java memory pool usage (Eden, Survivor, Old Gen, Metaspace, Compressed Cl
 * Reports used/committed/max for each pool, both for regular usage and collection usage (if available)
 * Peak values are intentionally ignored as they are not relevant in a monitoring scenario with frequent checks
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -43,6 +39,7 @@ Checks Java memory pool usage (Eden, Survivor, Old Gen, Metaspace, Compressed Cl
 | Nagios/Icinga Check Name              | `check_wildfly_memory_pool_usage` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--username` and `--password` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

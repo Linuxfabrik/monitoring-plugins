@@ -29,10 +29,6 @@ Checks whether PHP-FPM is alive by fetching its ping monitoring page. Returns OK
 * Fetches the PHP-FPM ping page via HTTP (default: `http://localhost/fpm-ping`)
 * Compares the response against the expected string (default: "pong")
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -42,6 +38,7 @@ Checks whether PHP-FPM is alive by fetching its ping monitoring page. Returns OK
 | Nagios/Icinga Check Name              | `check_php_fpm_ping` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

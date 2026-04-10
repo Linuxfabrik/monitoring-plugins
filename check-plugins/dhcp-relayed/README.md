@@ -22,10 +22,6 @@ Tests if a DHCP server can offer IPv4 addresses by emulating a DHCP client. Send
 * Waits for a DHCPOFFER response matching the transaction ID
 * Extracts the offered IP address, server ID, subnet mask, and broadcast address from the response
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -35,6 +31,7 @@ Tests if a DHCP server can offer IPv4 addresses by emulating a DHCP client. Send
 | Nagios/Icinga Check Name              | `check_dhcp_relayed` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

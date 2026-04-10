@@ -18,10 +18,6 @@ Checks the IPMI System Event Log (SEL) for entries and alerts when events are fo
 * For remote access, supports both IPMI v1.5 (`--interface=lan`) and IPMI v2.0 (`--interface=lanplus`)
 * Output lines are displayed in reverse chronological order with pipe characters replaced by semicolons
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -31,6 +27,7 @@ Checks the IPMI System Event Log (SEL) for entries and alerts when events are fo
 | Nagios/Icinga Check Name              | `check_ipmi_sel` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | `ipmitool` |
 

@@ -14,10 +14,6 @@ Monitors OnlyOffice Document Server statistics and license usage via the HTTP AP
 * Fetches statistics from the OnlyOffice `info/info.json` endpoint via HTTP
 * Reports maximum licensed connections, license status and expiration, hourly view and edit connection statistics (min/avg/max), unique user count, and server version
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -27,6 +23,7 @@ Monitors OnlyOffice Document Server statistics and license usage via the HTTP AP
 | Nagios/Icinga Check Name              | `check_onlyoffice_stats` |
 | Check Interval Recommendation         | Every 30 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

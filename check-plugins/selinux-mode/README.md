@@ -9,10 +9,6 @@ Verifies that the current SELinux mode (enforcing, permissive, or disabled) matc
 
 * Executes `getenforce` to determine the current SELinux mode
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -22,6 +18,7 @@ Verifies that the current SELinux mode (enforcing, permissive, or disabled) matc
 | Nagios/Icinga Check Name              | `check_selinux_mode` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 
 

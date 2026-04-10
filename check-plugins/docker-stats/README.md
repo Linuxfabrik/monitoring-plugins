@@ -19,10 +19,6 @@ Reports CPU and memory usage for all running Docker containers. CPU usage is nor
 * Stores per-container CPU usage values in a local SQLite database to track trends across consecutive runs
 * Since `docker stats` only returns byte-level data in a human-readable format (e.g. "4.82GB"), network I/O and block I/O values are not used due to imprecision
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -32,6 +28,7 @@ Reports CPU and memory usage for all running Docker containers. CPU usage is nor
 | Nagios/Icinga Check Name              | `check_docker_stats` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Handles Periods                       | Yes |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-docker-stats.db` |

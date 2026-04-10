@@ -16,10 +16,6 @@ Checks for processes that were started before they or one of their dependencies 
 * On Red Hat: Uses the `needs-restarting` command. First checks `needs-restarting --reboothint` (return code 1 means reboot required), then `needs-restarting` for a process list of updated services.
 * On Debian: Uses `needrestart -b` if available, which reports kernel status and services needing restart. Falls back to checking `/var/run/reboot-required`.
 
-**Compatibility:**
-
-* Linux
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Checks for processes that were started before they or one of their dependencies 
 | Nagios/Icinga Check Name              | `check_needs_restarting` |
 | Check Interval Recommendation         | Once a day (or after a system update only) |
 | Can be called without parameters      | Yes |
+| Runs on                               | Linux |
 | Compiled for Windows                  | No |
 | Requirements                          | RHEL: `needs-restarting`, Debian: None, optional `needrestart` |
 

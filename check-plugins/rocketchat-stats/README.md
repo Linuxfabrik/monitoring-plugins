@@ -15,10 +15,6 @@ Monitors Rocket.Chat server statistics via the API, including total users, activ
 * Authenticates against the Rocket.Chat REST API and queries the statistics endpoint
 * Reports users (total, online, busy, away, offline), types and distribution (connected, activated, deactivated, app users), uploads (count and size), rooms (channels, private groups, direct messages, discussions, omnichannel), and messages (total, threads, per room type)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Monitors Rocket.Chat server statistics via the API, including total users, activ
 | Nagios/Icinga Check Name              | `check_rocketchat_stats` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | No (`--username` and `--password` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | Requires a user with strong password and `view-statistics` permission (only). |
 

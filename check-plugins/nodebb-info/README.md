@@ -16,10 +16,6 @@ Retrieves NodeBB process and system information via the admin API, including Nod
 * Queries the NodeBB Read API endpoint `/api/admin/development/info` using Bearer Authentication
 * Reports the NodeBB instance ID, Node.js binary path and version, heap usage (used vs. total), RSS (Resident Set Size), and process uptime
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -29,6 +25,7 @@ Retrieves NodeBB process and system information via the admin API, including Nod
 | Nagios/Icinga Check Name              | `check_nodebb_info` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--token` is required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

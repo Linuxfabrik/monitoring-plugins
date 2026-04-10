@@ -21,10 +21,6 @@ Executes a command on a remote host via SSH and evaluates the result. Returns ST
 * Configurable severity levels for different failure modes (STDOUT, STDERR, return code, connection timeout)
 * Supports `--skip-stdout` and `--skip-stderr` to ignore all or the first N lines of output
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -34,6 +30,7 @@ Executes a command on a remote host via SSH and evaluates the result. Returns ST
 | Nagios/Icinga Check Name              | `check_by_ssh` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--command` and `--hostname` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

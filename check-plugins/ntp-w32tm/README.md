@@ -14,10 +14,6 @@ Checks the Windows Time Service (w32tm) status, including clock offset, stratum,
 * Executes `w32tm /query /status /verbose` to obtain detailed time synchronization status
 * Parses Leap Indicator, Stratum, Precision, Root Delay, Root Dispersion, Phase Offset, Clock Rate, Last Sync Error, and Time since Last Good Sync Time
 
-**Compatibility:**
-
-* Windows
-
 
 ## Fact Sheet
 
@@ -27,6 +23,7 @@ Checks the Windows Time Service (w32tm) status, including clock offset, stratum,
 | Nagios/Icinga Check Name              | `check_ntp_w32tm` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Windows |
 | Compiled for Windows                  | Yes |
 
 

@@ -51,10 +51,6 @@ Note the api_identifier and the api_secret. You will need both to configure this
 * Authenticates via WHMCS API identifier and secret (`--identifier`, `--secret`)
 * Supports optional HTTP Basic Authentication (`--username`, `--password`)
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -64,6 +60,7 @@ Note the api_identifier and the api_secret. You will need both to configure this
 | Nagios/Icinga Check Name              | `check_whmcs_status` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | No (`--identifier` and `--secret` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

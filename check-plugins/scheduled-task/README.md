@@ -10,10 +10,6 @@ Checks the status of a Windows Scheduled Task. Alerts when the task is not in th
 * Executes `schtasks /query /fo csv /nh` to list all scheduled tasks and their statuses
 * Matches the specified task name exactly
 
-**Compatibility:**
-
-* Windows
-
 
 ## Fact Sheet
 
@@ -23,6 +19,7 @@ Checks the status of a Windows Scheduled Task. Alerts when the task is not in th
 | Nagios/Icinga Check Name              | `check_scheduled_task` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--task` is required) |
+| Runs on                               | Windows |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
 

@@ -10,10 +10,6 @@ Displays system-wide Docker information including container counts (running, pau
 * Executes `docker info` and parses the text output for container counts, image count, storage driver, logging driver, registry, Docker version, CPUs, and total memory
 * Monitors `docker info` stderr output for warning and error messages from the Docker daemon
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -23,6 +19,7 @@ Displays system-wide Docker information including container counts (running, pau
 | Nagios/Icinga Check Name              | `check_docker_info` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

@@ -15,10 +15,6 @@ Checks the deployment status of applications on a WildFly/JBoss AS server via it
 * Authenticates via HTTP Digest Auth (`--username`, `--password`)
 * Specific deployments can be checked using `--deployment` (repeatable); if omitted, all deployments are checked
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -28,6 +24,7 @@ Checks the deployment status of applications on a WildFly/JBoss AS server via it
 | Nagios/Icinga Check Name              | `check_wildfly_deployment_status` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | No (`--username` and `--password` are required) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 
 

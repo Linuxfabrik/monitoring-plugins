@@ -18,10 +18,6 @@ Monitors system memory usage and alerts when the overall usage percentage exceed
 * Platform-specific metrics on Linux/BSD: shared, buffers, cached
 * Optional top-N memory-consuming processes by RSS (`--top`, default: 5), aggregated by process name
 
-**Compatibility:**
-
-* Cross-platform
-
 
 ## Fact Sheet
 
@@ -31,6 +27,7 @@ Monitors system memory usage and alerts when the overall usage percentage exceed
 | Nagios/Icinga Check Name              | `check_memory_usage` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
 
