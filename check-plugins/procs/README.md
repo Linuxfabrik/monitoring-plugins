@@ -83,22 +83,21 @@ options:
                         (case-insensitive). Example:
                         `--command="^(apache|httpd)"`
   -c, --critical CRIT   CRIT threshold for the number of matching processes.
-                        Supports Nagios ranges. Default: None
+                        Default: None
   --critical-age CRIT_AGE
                         CRIT threshold for age of the oldest matching process,
-                        in seconds. Supports Nagios ranges. Default: None
+                        in seconds. Default: None
   --critical-cpu-percent CRIT_CPU_PERCENT
                         CRIT threshold for aggregated CPU usage of all
                         matching processes, in percent. Requires two
                         consecutive check runs to calculate. 100% equals one
-                        fully utilized CPU core. Supports Nagios ranges.
-                        Default: None
+                        fully utilized CPU core. Default: None
   --critical-mem CRIT_MEM
                         CRIT threshold for aggregated memory usage, in bytes.
-                        Supports Nagios ranges. Default: None
+                        Default: None
   --critical-mem-percent CRIT_MEM_PERCENT
                         CRIT threshold for aggregated memory usage, in
-                        percent. Supports Nagios ranges. Default: None
+                        percent. Default: None
   --lengthy             Extended reporting.
   --no-kthreads         Exclude kernel threads from the scan (Linux only).
   --status {dead,disk-sleep,idle,locked,parked,running,sleeping,stopped,suspended,tracing-stop,waiting,wake-kill,waking,zombie}
@@ -110,22 +109,21 @@ options:
                         insensitive). Example: `--username="^(apache|www-
                         data)$"`
   -w, --warning WARN    WARN threshold for the number of matching processes.
-                        Supports Nagios ranges. Default: None
+                        Default: None
   --warning-age WARN_AGE
                         WARN threshold for age of the oldest matching process,
-                        in seconds. Supports Nagios ranges. Default: None
+                        in seconds. Default: None
   --warning-cpu-percent WARN_CPU_PERCENT
                         WARN threshold for aggregated CPU usage of all
                         matching processes, in percent. Requires two
                         consecutive check runs to calculate. 100% equals one
-                        fully utilized CPU core. Supports Nagios ranges.
-                        Default: None
+                        fully utilized CPU core. Default: None
   --warning-mem WARN_MEM
                         WARN threshold for aggregated memory usage, in bytes.
-                        Supports Nagios ranges. Default: None
+                        Default: None
   --warning-mem-percent WARN_MEM_PERCENT
                         WARN threshold for aggregated memory usage, in
-                        percent. Supports Nagios ranges. Default: None
+                        percent. Default: None
 ```
 
 

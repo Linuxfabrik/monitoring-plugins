@@ -63,10 +63,10 @@ options:
   --conn-type {all,tcp,tcp6,udp,udp6}
                         Filter connections by family/type. Can be specified
                         multiple times. Default: None
-  -c, --critical CRIT   CRIT threshold for the number of connections. Supports
-                        Nagios ranges. Default: None
-  -w, --warning WARN    WARN threshold for the number of connections. Supports
-                        Nagios ranges. Default: None
+  -c, --critical CRIT   CRIT threshold for the number of connections. Default:
+                        None
+  -w, --warning WARN    WARN threshold for the number of connections. Default:
+                        None
 ```
 
 

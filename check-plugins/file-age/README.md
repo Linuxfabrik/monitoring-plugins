@@ -37,11 +37,11 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   CRIT threshold for file age in seconds. Supports
-                        Nagios ranges. Default: >= 31536000 (365d).
+  -c, --critical CRIT   CRIT threshold for file age in seconds. Default: >=
+                        31536000 (365d).
   --critical-count CRIT_COUNT
                         CRIT threshold for the number of files exceeding the
-                        critical age. Supports Nagios ranges. Default: > 0.
+                        critical age. Default: > 0.
   --filename FILENAME   File or directory name to check (supports glob
                         patterns). Beware of recursive globs. Mutually
                         exclusive with --url.
@@ -58,11 +58,11 @@ options:
   -u, --url URL         SMB URL of the file or directory to check, starting
                         with `smb://`. Mutually exclusive with --filename.
   --username USERNAME   Username for SMB authentication.
-  -w, --warning WARN    WARN threshold for file age in seconds. Supports
-                        Nagios ranges. Default: >= 2592000 (30d).
+  -w, --warning WARN    WARN threshold for file age in seconds. Default: >=
+                        2592000 (30d).
   --warning-count WARN_COUNT
                         WARN threshold for the number of files exceeding the
-                        warning age. Supports Nagios ranges. Default: > 0.
+                        warning age. Default: > 0.
 ```
 
 

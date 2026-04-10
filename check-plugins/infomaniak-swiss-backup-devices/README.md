@@ -53,8 +53,7 @@ options:
   --account-id ACCOUNT_ID
                         Infomaniak account ID.
   --always-ok           Always returns OK.
-  -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
-                        Default: >= 95
+  -c, --critical CRIT   CRIT threshold in percent. Default: >= 95
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --no-proxy            Do not use a proxy.
@@ -81,8 +80,7 @@ options:
   --token TOKEN         Infomaniak API token.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
-  -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
-                        Default: >= 90
+  -w, --warning WARN    WARN threshold in percent. Default: >= 90
 ```
 
 

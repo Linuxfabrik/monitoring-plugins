@@ -48,7 +48,7 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
-                        Default: >= 90
+                        Default: 90
   --ignore-regex IGNORE_REGEX
                         Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
@@ -69,7 +69,7 @@ options:
   --token TOKEN         Software API token.
   --url URL             URL to the endpoint. Default: http://localhost
   -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
-                        Default: >= 80
+                        Default: 80
 ```
 
 

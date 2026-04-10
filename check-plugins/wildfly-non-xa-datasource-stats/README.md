@@ -50,8 +50,7 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --critical CRIT       CRIT threshold in percent. Supports Nagios ranges.
-                        Default: >= 90
+  --critical CRIT       CRIT threshold in percent. Default: >= 90
   --datasource DATASOURCE
                         Non-XA datasource name to check. Can be specified
                         multiple times. If not specified, all non-XA
@@ -71,8 +70,7 @@ options:
                         http://localhost:9990
   --username USERNAME   WildFly management API username. Default: wildfly-
                         monitoring
-  --warning WARN        WARN threshold in percent. Supports Nagios ranges.
-                        Default: >= 80
+  --warning WARN        WARN threshold in percent. Default: >= 80
 ```
 
 

@@ -42,16 +42,14 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
-                        Default: >= 90
+  -c, --critical CRIT   CRIT threshold in percent. Default: >= 90
   -H, --hostname HOSTNAME
                         Specifies the DNS name, or IPv4 or IPv6 address, of
                         the target computer that runs the DHCP server service.
                         Default: localhost
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
-  -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
-                        Default: >= 80
+  -w, --warning WARN    WARN threshold in percent. Default: >= 80
   --winrm-domain WINRM_DOMAIN
                         WinRM Domain Name. Default: None
   --winrm-hostname WINRM_HOSTNAME

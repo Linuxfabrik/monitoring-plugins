@@ -38,8 +38,7 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --critical CRIT       CRIT threshold in percent. Supports Nagios ranges.
-                        Default: >= 366
+  --critical CRIT       CRIT threshold in percent. Default: >= 366
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --instance INSTANCE   WildFly instance (server-config) to check when running
@@ -55,8 +54,7 @@ options:
                         http://localhost:9990
   --username USERNAME   WildFly management API username. Default: wildfly-
                         monitoring
-  --warning WARN        WARN threshold in percent. Supports Nagios ranges.
-                        Default: >= 180
+  --warning WARN        WARN threshold in percent. Default: >= 180
 ```
 
 

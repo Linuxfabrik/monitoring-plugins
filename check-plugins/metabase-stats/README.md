@@ -36,8 +36,7 @@ options:
   --cache-expire CACHE_EXPIRE
                         Time after which the credential cache expires, in
                         hours. Default: 335
-  -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
-                        Default: >= 90
+  -c, --critical CRIT   CRIT threshold in percent. Default: >= 90
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --no-proxy            Do not use a proxy.
@@ -48,8 +47,7 @@ options:
                         http://localhost:3000
   --username USERNAME   Username for authenticating against the Metabase API.
                         Default: metabase-admin
-  -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
-                        Default: >= 80
+  -w, --warning WARN    WARN threshold in percent. Default: >= 80
 ```
 
 

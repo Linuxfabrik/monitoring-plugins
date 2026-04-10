@@ -36,7 +36,6 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold for the number of matching files.
-                        Supports Nagios ranges.
   --filename FILENAME   File or directory name to check (supports glob
                         patterns). Beware of recursive globs. Mutually
                         exclusive with --url.
@@ -49,12 +48,11 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3
   --timerange TIMERANGE
                         Only count files modified within this time range in
-                        seconds. Supports Nagios ranges.
+                        seconds.
   -u, --url URL         SMB URL of the file or directory to check, starting
                         with `smb://`. Mutually exclusive with --filename.
   --username USERNAME   Username for SMB authentication.
   -w, --warning WARN    WARN threshold for the number of matching files.
-                        Supports Nagios ranges.
 ```
 
 

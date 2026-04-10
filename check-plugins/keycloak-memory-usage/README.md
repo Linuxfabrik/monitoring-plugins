@@ -38,8 +38,7 @@ options:
   --always-ok           Always returns OK.
   --client-id CLIENT_ID
                         Keycloak API Client-ID. Default: admin-cli
-  --critical CRIT       CRIT threshold in percent. Supports Nagios ranges.
-                        Default: >= 90
+  --critical CRIT       CRIT threshold in percent. Default: >= 90
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --no-proxy            Do not use a proxy.
@@ -49,8 +48,7 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             Keycloak API URL. Default: http://127.0.0.1:8080
   --username USERNAME   Keycloak API username. Default: admin
-  --warning WARN        WARN threshold in percent. Supports Nagios ranges.
-                        Default: >= 80
+  --warning WARN        WARN threshold in percent. Default: >= 80
 ```
 
 

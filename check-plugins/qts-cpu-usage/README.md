@@ -41,8 +41,7 @@ options:
   --always-ok          Always returns OK.
   --count COUNT        Number of consecutive checks the threshold must be
                        exceeded before alerting. Default: 5
-  -c, --critical CRIT  CRIT threshold in percent. Supports Nagios ranges.
-                       Default: >= 90
+  -c, --critical CRIT  CRIT threshold in percent. Default: >= 90
   --insecure           This option explicitly allows insecure SSL connections.
   --no-proxy           Do not use a proxy.
   --password PASSWORD  QTS API password.
@@ -50,8 +49,7 @@ options:
   --url URL            QTS-based appliance URL. Example:
                        `https://192.0.2.10:8080`.
   --username USERNAME  QTS API username. Default: admin
-  -w, --warning WARN   WARN threshold in percent. Supports Nagios ranges.
-                       Default: >= 80
+  -w, --warning WARN   WARN threshold in percent. Default: >= 80
 ```
 
 

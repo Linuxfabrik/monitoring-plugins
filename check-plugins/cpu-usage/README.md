@@ -58,10 +58,8 @@ options:
   --always-ok          Always returns OK.
   --count COUNT        Number of consecutive checks the threshold must be
                        exceeded before alerting. Default: 5
-  -c, --critical CRIT  CRIT threshold in percent. Supports Nagios ranges.
-                       Default: >= 90
-  -w, --warning WARN   WARN threshold in percent. Supports Nagios ranges.
-                       Default: >= 80
+  -c, --critical CRIT  CRIT threshold in percent. Default: >= 90
+  -w, --warning WARN   WARN threshold in percent. Default: >= 80
 ```
 
 

@@ -37,8 +37,7 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
-                        Default: >= 90
+  -c, --critical CRIT   CRIT threshold in percent. Default: >= 90
   -H, --hostname HOSTNAME
                         SafeNet HSM hostname or IP address.
   -p, --password PASSWORD
@@ -51,8 +50,7 @@ options:
   -u, --username {admin,pseoperator}
                         SafeNet HSM username. Example: `--username admin`.
                         Default: pseoperator
-  -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
-                        Default: >= 80
+  -w, --warning WARN    WARN threshold in percent. Default: >= 80
 ```
 
 

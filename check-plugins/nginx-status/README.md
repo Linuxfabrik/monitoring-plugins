@@ -49,14 +49,14 @@ options:
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for the number of active connections.
-                       Supports Nagios ranges. Default: >= 486
+                       Default: >= 486
   --insecure           This option explicitly allows insecure SSL connections.
   --no-proxy           Do not use a proxy.
   --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
   -u, --url URL        NGINX stub_status URL. Default:
                        http://localhost/server-status
   -w, --warning WARN   WARN threshold for the number of active connections.
-                       Supports Nagios ranges. Default: >= 460
+                       Default: >= 460
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".
 ```

@@ -41,8 +41,7 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
-                        Default: >= 90
+  -c, --critical CRIT   CRIT threshold in percent. Default: >= 90
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --no-proxy            Do not use a proxy.
@@ -54,8 +53,7 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -p, --token TOKEN     NodeBB API bearer token.
   --url URL             NodeBB API URL. Default: http://localhost:4567/forum
-  -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
-                        Default: >= 80
+  -w, --warning WARN    WARN threshold in percent. Default: >= 80
 ```
 
 

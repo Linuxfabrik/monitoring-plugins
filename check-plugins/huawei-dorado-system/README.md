@@ -44,8 +44,7 @@ options:
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15
-  -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
-                        Default: >= 95
+  -c, --critical CRIT   CRIT threshold in percent. Default: >= 95
   --device-id DEVICE_ID
                         Huawei OceanStor Dorado API device ID.
   --insecure            This option explicitly allows insecure SSL
@@ -58,8 +57,7 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.
-  -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
-                        Default: >= 90
+  -w, --warning WARN    WARN threshold in percent. Default: >= 90
 ```
 
 

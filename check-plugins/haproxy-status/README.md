@@ -56,8 +56,7 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
-                        Default: >= 95
+  -c, --critical CRIT   CRIT threshold in percent. Default: >= 95
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --lengthy             Extended reporting.
@@ -74,8 +73,7 @@ options:
                         Default: unix:///run/haproxy.sock
   --username USERNAME   HAProxy stats auth username. Not needed for socket
                         access. Default: haproxy-stats
-  -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
-                        Default: >= 80
+  -w, --warning WARN    WARN threshold in percent. Default: >= 80
 ```
 
 

@@ -45,8 +45,8 @@ options:
   --count COUNT         Number of consecutive checks the threshold must be
                         exceeded before alerting. Default: 5
   --critical-cpu CRIT_CPU
-                        CRIT threshold for CPU usage in percent. Supports
-                        Nagios ranges. Default: >= 90
+                        CRIT threshold for CPU usage in percent. Default: >=
+                        90
   --critical-mem CRIT_MEM
                         CRIT threshold for memory usage in percent. Default:
                         95
@@ -56,8 +56,8 @@ options:
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --warning-cpu WARN_CPU
-                        WARN threshold for CPU usage in percent. Supports
-                        Nagios ranges. Default: >= 80
+                        WARN threshold for CPU usage in percent. Default: >=
+                        80
   --warning-mem WARN_MEM
                         WARN threshold for memory usage in percent. Default:
                         90

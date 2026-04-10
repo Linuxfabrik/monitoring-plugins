@@ -52,10 +52,10 @@ options:
                         Example: `--component-severity
                         hikariConnectionPool,DEGRADED,crit`.
   --detail-severity COMPONENT_NAME,DETAIL_NAME,WARN,CRIT
-                        Threshold for a numeric component detail value.
-                        Supports Nagios ranges. Can be specified multiple
-                        times. Format: `component-name,detail-name,warn,crit`.
-                        Example: `--detail-severity
+                        Threshold for a numeric component detail value. Can be
+                        specified multiple times. Format: `component-
+                        name,detail-name,warn,crit`. Example: `--detail-
+                        severity
                         hikariConnectionPool,activeConnections,@10:20,@0:9`.
   --insecure            This option explicitly allows insecure SSL
                         connections.
