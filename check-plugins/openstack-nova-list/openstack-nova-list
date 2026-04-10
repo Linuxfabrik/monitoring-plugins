@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -20,8 +19,12 @@ import lib.disk  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 try:
     from novaclient import client
@@ -42,14 +45,14 @@ DEFAULT_SEVERITY = 'crit'
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -63,8 +66,8 @@ def parse_args():
     parser.add_argument(
         '--rc-file',
         help='Specifies a rc file to read connection parameters like OS_USERNAME from '
-             '(instead of specifying them on the command line), '
-             'for example `/var/spool/icinga2/.openstack.cnf`. Default: %(default)s',
+        '(instead of specifying them on the command line), '
+        'for example `/var/spool/icinga2/.openstack.cnf`. Default: %(default)s',
         dest='RC_FILE',
         default=DEFAULT_RC_FILE,
     )
@@ -180,8 +183,7 @@ def get_state(vm_state):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -274,7 +276,9 @@ def main():
 
     perfdata += lib.base.get_perfdata('total', len(servers), None, None, None, 0, None)
     for vm_state, cnt in vm_state_count.items():
-        perfdata += lib.base.get_perfdata(vm_state, cnt, None, None, None, 0, len(servers))
+        perfdata += lib.base.get_perfdata(
+            vm_state, cnt, None, None, None, 0, len(servers)
+        )
 
     # build the message
     server_count = len(servers)
@@ -289,10 +293,7 @@ def main():
     ago = lib.human.seconds2human(
         lib.time.timestrdiff(lib.time.now(as_type='iso'), max_last_update),
     )
-    msg += (
-        f'Last status change {max_last_update} UTC'
-        f' ({ago} ago).'
-    )
+    msg += f'Last status change {max_last_update} UTC ({ago} ago).'
     if table_data:
         keys = [
             'name',
@@ -321,5 +322,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

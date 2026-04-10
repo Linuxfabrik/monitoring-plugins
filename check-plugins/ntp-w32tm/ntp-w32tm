@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse
 import sys
@@ -20,34 +19,35 @@ import lib.human
 import lib.lftest
 import lib.shell
 import lib.txt
-from lib.globals import (STATE_OK, STATE_UNKNOWN, STATE_WARN)
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2025120201'
 
-DESCRIPTION = '''This monitoring plugin runs `w32tm /query /status /verbose` (Windows)
-                 to help diagnose problems with the time settings.'''
+DESCRIPTION = """This monitoring plugin runs `w32tm /query /status /verbose` (Windows)
+                 to help diagnose problems with the time settings."""
 
-DEFAULT_CRIT = 129600 # s (36h)
+DEFAULT_CRIT = 129600  # s (36h)
 DEFAULT_STRATUM = 6
 DEFAULT_WARN = 28800  # s (8h)
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Set the critical threshold for the time since "Last Good Sync", in s. '
-             'Default: %(default)ss',
+        'Default: %(default)ss',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
@@ -55,8 +55,7 @@ def parse_args():
 
     parser.add_argument(
         '--stratum',
-        help=lib.args.help('--stratum') + ' '
-             + 'Default: %(default)s',
+        help=lib.args.help('--stratum') + ' ' + 'Default: %(default)s',
         dest='STRATUM',
         type=int,
         default=DEFAULT_STRATUM,
@@ -70,9 +69,10 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the warning threshold for the time since "Last Good Sync", in s. '
-             'Default: %(default)ss',
+        'Default: %(default)ss',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -83,8 +83,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -137,16 +136,24 @@ def main():
         if line.startswith('Precision'):
             precision = lib.txt.extract_str(line, ': ', '(').strip()
         if line.startswith('Root Delay'):
-            root_delay = float(line.split()[-1].replace('s', '')) * 1000  # convert to ms
+            root_delay = (
+                float(line.split()[-1].replace('s', '')) * 1000
+            )  # convert to ms
             continue
         if line.startswith('Root Dispersion'):
-            root_dispersion = float(line.split()[-1].replace('s', '')) * 1000  # convert to ms
+            root_dispersion = (
+                float(line.split()[-1].replace('s', '')) * 1000
+            )  # convert to ms
             continue
         if line.startswith('Phase Offset'):
-            phase_offset = float(line.split()[-1].replace('s', '')) * 1000  # convert to ms
+            phase_offset = (
+                float(line.split()[-1].replace('s', '')) * 1000
+            )  # convert to ms
             continue
         if line.startswith('ClockRate'):
-            clock_rate = float(line.split()[-1].replace('s', '')) * 1000  # convert to ms
+            clock_rate = (
+                float(line.split()[-1].replace('s', '')) * 1000
+            )  # convert to ms
             continue
         if line.startswith('Last Sync Error'):
             if 'Last Sync Error: 0' not in line:
@@ -155,7 +162,9 @@ def main():
             continue
         if line.startswith('Time since Last Good Sync Time'):
             time_since_last_good_sync_time = float(line.split()[-1].replace('s', ''))
-            local_state = lib.base.get_state(time_since_last_good_sync_time, args.WARN, args.CRIT)
+            local_state = lib.base.get_state(
+                time_since_last_good_sync_time, args.WARN, args.CRIT
+            )
             if local_state != STATE_OK:
                 msg.append(f'{line} {lib.base.state2str(STATE_WARN)}')
             state = lib.base.get_worst(local_state, state)
@@ -237,7 +246,6 @@ def main():
         _max=None,
     )
 
-
     # over and out
     lib.base.oao(', '.join(msg) + '\n\n' + stdout, state, perfdata)
 
@@ -245,5 +253,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

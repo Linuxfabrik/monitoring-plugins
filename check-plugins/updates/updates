@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -18,7 +17,7 @@ import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.powershell  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN)
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -27,18 +26,18 @@ __version__ = '2025103001'
 DESCRIPTION = 'Checks the number of pending Windows updates.'
 
 DEFAULT_CRIT = 50  # #updates
-DEFAULT_WARN = 2   # #updates
+DEFAULT_WARN = 2  # #updates
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -50,11 +49,12 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         default=DEFAULT_CRIT,
         dest='CRIT',
         help='Set the critical threshold for the number of pending updates. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         type=lib.args.int_or_none,
     )
 
@@ -67,11 +67,12 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         default=DEFAULT_WARN,
         dest='WARN',
         help='Set the warning threshold for the number of pending updates. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         type=lib.args.int_or_none,
     )
 
@@ -80,8 +81,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -90,7 +90,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    cmd = '''
+    cmd = """
     $WindowsUpdates = New-Object -ComObject 'Microsoft.Update.Session';
     $SearchIndex = $WindowsUpdates.CreateUpdateSearcher();
     $Pending = $SearchIndex.Search('IsInstalled=0');
@@ -98,7 +98,7 @@ def main():
         $name = "{0} [{1}]" -f $update.Title, $update.LastDeploymentChangeTime;
         Write-Output $name;
     }
-    '''
+    """
 
     # execute the shell command and return its result and exit code
     result = lib.powershell.run_ps(cmd)
@@ -107,26 +107,30 @@ def main():
     result = result['stdout'].strip()
 
     count = sum(1 for line in result.splitlines())
-    perfdata = lib.base.get_perfdata('pending_updates', count, None, args.WARN, args.CRIT, 0, None)
+    perfdata = lib.base.get_perfdata(
+        'pending_updates', count, None, args.WARN, args.CRIT, 0, None
+    )
 
     if count:
         state = lib.base.get_state(count, args.WARN, args.CRIT)
         lib.base.oao(
             (
-                f"There {lib.txt.pluralize('', count, 'is,are')} {count} pending "
-                f"{lib.txt.pluralize('update', count)}:\n\n"
-                f"* {result.replace('\n', '\n* ')}"
+                f'There {lib.txt.pluralize("", count, "is,are")} {count} pending '
+                f'{lib.txt.pluralize("update", count)}:\n\n'
+                f'* {result.replace("\n", "\n* ")}'
             ),
             state,
             perfdata,
             always_ok=args.ALWAYS_OK,
         )
 
-    lib.base.oao('There are no pending updates.', STATE_OK, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        'There are no pending updates.', STATE_OK, perfdata, always_ok=args.ALWAYS_OK
+    )
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

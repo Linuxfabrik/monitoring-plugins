@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -17,8 +16,12 @@ import sys  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
 import lib.version  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026033101'
@@ -28,28 +31,28 @@ DESCRIPTION = """Checks the state of a service, socket, device, mount, automount
                 service "sshd" is running, use `systemd-unit --substate=running --unit=sshd`. Have a
                 look at the README for more details."""
 
-DEFAULT_ACTIVESTATE  = []
-DEFAULT_LOADSTATE  = 'loaded'
+DEFAULT_ACTIVESTATE = []
+DEFAULT_LOADSTATE = 'loaded'
 DEFAULT_SEVERITY = 'warn'
-DEFAULT_SUBSTATE  = []
+DEFAULT_SUBSTATE = []
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
         '--activestate',
         help='Expected systemd ActiveState (repeating). This is the high-level unit activation '
-             'state(s), i.e. generalization of SUB. '
-             'If ommited or set to "None", the unit\'s active state will not be checked.',
+        'state(s), i.e. generalization of SUB. '
+        'If ommited or set to "None", the unit\'s active state will not be checked.',
         dest='ACTIVESTATE',
         default=None,
         action='append',
@@ -66,9 +69,9 @@ def parse_args():
     parser.add_argument(
         '--loadstate',
         help='Expected systemd LoadState. Reflects whether the unit definition was properly '
-             'loaded. '
-             'If ommited or set to "None", the unit\'s load state will not be checked. '
-             'Default: %(default)s',
+        'loaded. '
+        'If ommited or set to "None", the unit\'s load state will not be checked. '
+        'Default: %(default)s',
         dest='LOADSTATE',
         default=DEFAULT_LOADSTATE,
         choices=[
@@ -89,20 +92,19 @@ def parse_args():
     parser.add_argument(
         '--machine',
         help='Execute operation on a local container. Specify a container name to connect to, '
-             'optionally prefixed by a user name to connect as and a separating "@" character. If '
-             'the special string ".host" is used in place of the container name, a connection to '
-             'the local system is made (which is useful to connect to a specific user\'s user '
-             'bus: "--user --machine=lennart@.host"). If the "@" syntax is not used, the '
-             'connection is made as root user. If the "@" syntax is used either the left hand '
-             'side or the right hand side may be omitted (but not both) in which case the local '
-             'user name and ".host" are implied.',
+        'optionally prefixed by a user name to connect as and a separating "@" character. If '
+        'the special string ".host" is used in place of the container name, a connection to '
+        "the local system is made (which is useful to connect to a specific user's user "
+        'bus: "--user --machine=lennart@.host"). If the "@" syntax is not used, the '
+        'connection is made as root user. If the "@" syntax is used either the left hand '
+        'side or the right hand side may be omitted (but not both) in which case the local '
+        'user name and ".host" are implied.',
         dest='MACHINE',
     )
 
     parser.add_argument(
         '--severity',
-        help='Severity for alerting. '
-             'Default: %(default)s',
+        help='Severity for alerting. Default: %(default)s',
         dest='SEVERITY',
         default=DEFAULT_SEVERITY,
         choices=['warn', 'crit'],
@@ -111,8 +113,8 @@ def parse_args():
     parser.add_argument(
         '--substate',
         help='Expected systemd SubState (repeating). This is the low-level unit activation '
-             'state(s); values depend on unit type. '
-             'If ommited or set to "None", the unit\'s substate will not be checked.',
+        'state(s); values depend on unit type. '
+        'If ommited or set to "None", the unit\'s substate will not be checked.',
         dest='SUBSTATE',
         default=None,
         action='append',
@@ -168,16 +170,16 @@ def parse_args():
     parser.add_argument(
         '--unit',
         help='The unit name (service, timer, mount etc.). Required. For example "sshd", '
-             '"sshd.service", "my-samba-mount.mount" etc.',
+        '"sshd.service", "my-samba-mount.mount" etc.',
         dest='UNIT',
-        required = True,
+        required=True,
     )
 
     parser.add_argument(
         '--unitfilestate',
         help='Expected systemd UnitFileState. '
-             'If set to "empty", checks exactly for `UnitFileState=""`. '
-             'If ommited or set to "None", the unit\'s unit-file state will not be checked. ',
+        'If set to "empty", checks exactly for `UnitFileState=""`. '
+        'If ommited or set to "None", the unit\'s unit-file state will not be checked. ',
         dest='UNITFILESTATE',
         choices=[
             'None',
@@ -194,13 +196,13 @@ def parse_args():
             'masked-runtime',
             'static',
             'transient',
-        ]
+        ],
     )
 
     parser.add_argument(
         '--user',
         help='Talk to the service manager of the calling user, rather than the service manager of '
-             'the system.',
+        'the system.',
         dest='USER',
         action='store_true',
         default=False,
@@ -211,8 +213,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -234,9 +235,10 @@ def main():
         #   systemd 256 (256.12-1.fc41)
         systemd_version = (stdout.split()[1:2] or ['unknown'])[0]
         if lib.version.version(systemd_version) < lib.version.version('209'):
-            lib.base.oao((
-                f'Current systemd version "{systemd_version}" does not support '
-                 'the `--machine` argument'
+            lib.base.oao(
+                (
+                    f'Current systemd version "{systemd_version}" does not support '
+                    'the `--machine` argument'
                 ),
                 STATE_UNKNOWN,
             )
@@ -246,21 +248,19 @@ def main():
         options.append('--user')
     options = ' '.join(options)
 
-    command = (
-        f'systemctl {options} show -p LoadState,ActiveState,SubState,UnitFileState {args.UNIT}'
-    )
+    command = f'systemctl {options} show -p LoadState,ActiveState,SubState,UnitFileState {args.UNIT}'
 
     stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(command))
-    if (stderr or retc != 0):
+    if stderr or retc != 0:
         lib.base.oao(
             f'Bash command `{command}` failed.\nStdout: {stdout}\nStderr: {stderr}',
             STATE_UNKNOWN,
         )
     result = stdout.split('\n')
 
-    loadstate     = result[0].replace('LoadState=', '')
-    activestate   = result[1].replace('ActiveState=', '')
-    substate      = result[2].replace('SubState=', '')
+    loadstate = result[0].replace('LoadState=', '')
+    activestate = result[1].replace('ActiveState=', '')
+    substate = result[2].replace('SubState=', '')
     unitfilestate = result[3].replace('UnitFileState=', '')
 
     state = STATE_OK
@@ -290,24 +290,24 @@ def main():
     else:
         if args.LOADSTATE is not None and args.LOADSTATE != loadstate:
             problem = True
-            problem_msg += f'LoadState is "{loadstate}", but supposed to be "{args.LOADSTATE}"; '
+            problem_msg += (
+                f'LoadState is "{loadstate}", but supposed to be "{args.LOADSTATE}"; '
+            )
         if args.ACTIVESTATE and activestate not in args.ACTIVESTATE:
             # ACTIVESTATE is not None and not empty
             problem = True
-            problem_msg += (
-                f'ActiveState is "{activestate}", but supposed to be "{args.ACTIVESTATE}"; '
-            )
+            problem_msg += f'ActiveState is "{activestate}", but supposed to be "{args.ACTIVESTATE}"; '
         if args.SUBSTATE and substate not in args.SUBSTATE:
             # SUBSTATE is not None and not empty
             problem = True
-            problem_msg += f'SubState is "{substate}", but supposed to be "{args.SUBSTATE}"; '
+            problem_msg += (
+                f'SubState is "{substate}", but supposed to be "{args.SUBSTATE}"; '
+            )
         if unitfilestate == '':
             unitfilestate = 'empty'
         if args.UNITFILESTATE is not None and args.UNITFILESTATE != unitfilestate:
             problem = True
-            problem_msg += (
-                f'UnitFileState is "{unitfilestate}", but supposed to be "{args.UNITFILESTATE}"; '
-            )
+            problem_msg += f'UnitFileState is "{unitfilestate}", but supposed to be "{args.UNITFILESTATE}"; '
 
     if problem:
         msg = f'{args.UNIT} - {problem_msg[:-2]}'
@@ -320,5 +320,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

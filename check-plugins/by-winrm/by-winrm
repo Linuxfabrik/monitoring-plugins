@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse
 import re
@@ -20,7 +19,7 @@ import lib.base
 import lib.lftest
 import lib.time
 import lib.winrm
-from lib.globals import (STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN)
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -42,14 +41,14 @@ DEFAULT_WINRM_TRANSPORT = 'ntlm'
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -63,23 +62,24 @@ def parse_args():
     parser.add_argument(
         '--command',
         help='PowerShell command or script to execute on the remote host. '
-             'Supports pipelines and complex expressions.',
+        'Supports pipelines and complex expressions.',
         dest='COMMAND',
         required=True,
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='CRIT threshold for single numeric return values. '
-             'Supports Nagios ranges. '
-             'Example: `@10:20` alerts if STDOUT is in range 10..20.',
+        'Supports Nagios ranges. '
+        'Example: `@10:20` alerts if STDOUT is in range 10..20.',
         dest='CRIT',
     )
 
     parser.add_argument(
         '--critical-pattern',
         help='Any line matching this pattern (case-insensitive) will count as a critical. '
-             'Can be specified multiple times.',
+        'Can be specified multiple times.',
         dest='CRIT_PATTERN',
         action='append',
         default=None,
@@ -88,7 +88,7 @@ def parse_args():
     parser.add_argument(
         '--critical-regex',
         help='Any line matching this python regex (case-insensitive) will count as a critical. '
-             'Can be specified multiple times.',
+        'Can be specified multiple times.',
         dest='CRIT_REGEX',
         action='append',
         default=None,
@@ -97,7 +97,7 @@ def parse_args():
     parser.add_argument(
         '--severity-retc',
         help='Severity for alerting if there is a return code != 0. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='SEVERITY_RETC',
         default=DEFAULT_SEVERITY_RETC,
         choices=['ok', 'warn', 'crit', 'unknown'],
@@ -106,7 +106,7 @@ def parse_args():
     parser.add_argument(
         '--severity-stderr',
         help='Severity for alerting if there is an output on STDERR. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='SEVERITY_STDERR',
         default=DEFAULT_SEVERITY_STDERR,
         choices=['ok', 'warn', 'crit', 'unknown'],
@@ -115,7 +115,7 @@ def parse_args():
     parser.add_argument(
         '--severity-stdout',
         help='Severity for alerting if there is an output on STDOUT. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='SEVERITY_STDOUT',
         default=DEFAULT_SEVERITY_STDOUT,
         choices=['ok', 'warn', 'crit', 'unknown'],
@@ -123,8 +123,7 @@ def parse_args():
 
     parser.add_argument(
         '--severity-timeout',
-        help='Severity on connection problems. '
-             'Default: %(default)s',
+        help='Severity on connection problems. Default: %(default)s',
         dest='SEVERITY_CONNTIMEOUT',
         default=DEFAULT_SEVERITY_CONNTIMEOUT,
         choices=['ok', 'warn', 'crit', 'unknown'],
@@ -133,7 +132,7 @@ def parse_args():
     parser.add_argument(
         '--skip-stderr',
         help='Ignore all (0) or first n lines on STDERR. '
-             'Default: %(default)s (no ignore)',
+        'Default: %(default)s (no ignore)',
         dest='SKIP_STDERR',
         type=int,
         default=-1,
@@ -142,7 +141,7 @@ def parse_args():
     parser.add_argument(
         '--skip-stdout',
         help='Ignore all (0) or first n lines on STDOUT. '
-             'Default: %(default)s (no ignore)',
+        'Default: %(default)s (no ignore)',
         dest='SKIP_STDOUT',
         type=int,
         default=-1,
@@ -157,25 +156,25 @@ def parse_args():
 
     parser.add_argument(
         '--verbose',
-        help=lib.args.help('--verbose') + ' ' +
-             'Default: %(default)s',
+        help=lib.args.help('--verbose') + ' ' + 'Default: %(default)s',
         dest='VERBOSE',
         action='store_true',
         default=DEFAULT_VERBOSE,
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='WARN threshold for single numeric return values. '
-             'Supports Nagios ranges. '
-             'Example: `@10:20` alerts if STDOUT is in range 10..20.',
+        'Supports Nagios ranges. '
+        'Example: `@10:20` alerts if STDOUT is in range 10..20.',
         dest='WARN',
     )
 
     parser.add_argument(
         '--warning-pattern',
         help='Any line matching this pattern (case-insensitive) will count as a warning. '
-             'Can be specified multiple times.',
+        'Can be specified multiple times.',
         dest='WARN_PATTERN',
         action='append',
         default=None,
@@ -184,7 +183,7 @@ def parse_args():
     parser.add_argument(
         '--warning-regex',
         help='Any line matching this python regex (case-insensitive) will count as a warning. '
-             'Can be specified multiple times.',
+        'Can be specified multiple times.',
         dest='WARN_REGEX',
         action='append',
         default=None,
@@ -193,16 +192,16 @@ def parse_args():
     parser.add_argument(
         '--winrm-configuration-name',
         help='PowerShell session configuration name (JEA endpoint). '
-             'Only supported with pypsrp.',
+        'Only supported with pypsrp.',
         dest='WINRM_CONFIGURATION_NAME',
     )
 
     parser.add_argument(
         '--winrm-domain',
         help='AD domain name for NTLM authentication. '
-             'When set, username is sent as user@DOMAIN. '
-             'Not needed for Kerberos or local accounts. '
-             'Default: %(default)s',
+        'When set, username is sent as user@DOMAIN. '
+        'Not needed for Kerberos or local accounts. '
+        'Default: %(default)s',
         dest='WINRM_DOMAIN',
         default=DEFAULT_WINRM_DOMAIN,
     )
@@ -217,14 +216,13 @@ def parse_args():
     parser.add_argument(
         '--winrm-password',
         help='WinRM account password. '
-             'Optional for Kerberos (uses credential cache from kinit).',
+        'Optional for Kerberos (uses credential cache from kinit).',
         dest='WINRM_PASSWORD',
     )
 
     parser.add_argument(
         '--winrm-transport',
-        help='WinRM transport type. '
-             'Default: %(default)s',
+        help='WinRM transport type. Default: %(default)s',
         dest='WINRM_TRANSPORT',
         choices=['basic', 'ntlm', 'kerberos', 'credssp', 'plaintext'],
         default=DEFAULT_WINRM_TRANSPORT,
@@ -233,7 +231,7 @@ def parse_args():
     parser.add_argument(
         '--winrm-username',
         help='WinRM account name. '
-             'Optional for Kerberos (uses credential cache from kinit).',
+        'Optional for Kerberos (uses credential cache from kinit).',
         dest='WINRM_USERNAME',
     )
 
@@ -242,8 +240,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -286,12 +283,12 @@ def main():
         # ignore all lines on STDOUT
         stdout = ''
     if args.SKIP_STDOUT > 0:
-        stdout = '\n'.join(stdout.splitlines()[args.SKIP_STDOUT:])
+        stdout = '\n'.join(stdout.splitlines()[args.SKIP_STDOUT :])
     if args.SKIP_STDERR == 0:
         # ignore all lines on STDERR
         stderr = ''
     if args.SKIP_STDERR > 0:
-        stderr = '\n'.join(stderr.splitlines()[args.SKIP_STDERR:])
+        stderr = '\n'.join(stderr.splitlines()[args.SKIP_STDERR :])
     stdout = stdout.strip()
     stderr = stderr.strip()
 
@@ -309,13 +306,17 @@ def main():
 
     # check stdout - alert with given severity if there is any output at all
     if stdout:
-        stdout_state = lib.base.str2state(args.SEVERITY_STDOUT)  # if SEVERITY_STDOUT != 'ok'
+        stdout_state = lib.base.str2state(
+            args.SEVERITY_STDOUT
+        )  # if SEVERITY_STDOUT != 'ok'
         state = lib.base.get_worst(state, stdout_state)
 
     # check stdout - alert with given severity on a single numeric value
     try:
         float(stdout)
-        stdout_state = lib.base.get_state(stdout, args.WARN, args.CRIT, _operator='range')
+        stdout_state = lib.base.get_state(
+            stdout, args.WARN, args.CRIT, _operator='range'
+        )
         state = lib.base.get_worst(state, stdout_state)
     except:
         if args.VERBOSE:
@@ -325,11 +326,13 @@ def main():
     compiled_warn_regex = [re.compile(item) for item in args.WARN_REGEX]
     compiled_crit_regex = [re.compile(item) for item in args.CRIT_REGEX]
     haystack = stdout.lower()
-    if any(warn_pattern.lower() in haystack for warn_pattern in args.WARN_PATTERN) \
-    or any(item.search(haystack) for item in compiled_warn_regex):
+    if any(
+        warn_pattern.lower() in haystack for warn_pattern in args.WARN_PATTERN
+    ) or any(item.search(haystack) for item in compiled_warn_regex):
         stdout_state = STATE_WARN
-    if any(crit_pattern.lower() in haystack for crit_pattern in args.CRIT_PATTERN) \
-    or any(item.search(haystack) for item in compiled_crit_regex):
+    if any(
+        crit_pattern.lower() in haystack for crit_pattern in args.CRIT_PATTERN
+    ) or any(item.search(haystack) for item in compiled_crit_regex):
         stdout_state = STATE_CRIT
     state = lib.base.get_worst(state, stdout_state)
 
@@ -362,5 +365,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

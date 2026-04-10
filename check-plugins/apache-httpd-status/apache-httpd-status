@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -20,31 +19,35 @@ import lib.cache  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
 DESCRIPTION = 'Checks how well an Apache httpd server is performing.'
 
-DEFAULT_CRIT = 95       # %
+DEFAULT_CRIT = 95  # %
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 8
 DEFAULT_URL = 'http://localhost/server-status'
-DEFAULT_WARN = 80       # %
+DEFAULT_WARN = 80  # %
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -56,9 +59,10 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Set the CRIT threshold for the number of workers processing '
-             'requests in percent. Default: >= %(default)s',
+        'requests in percent. Default: >= %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
@@ -67,7 +71,7 @@ def parse_args():
     parser.add_argument(
         '--insecure',
         help='This option explicitly allows to perform "insecure" SSL connections. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -75,8 +79,7 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. '
-             'Default: %(default)s',
+        help='Do not use a proxy. Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -91,24 +94,25 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. '
-             'Default: %(default)s (seconds)',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
-        '-u', '--url',
+        '-u',
+        '--url',
         help='Apache Server Status URL. Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the WARN threshold for the number of workers processing '
-             'requests in percent. Default: >= %(default)s',
+        'requests in percent. Default: >= %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -119,8 +123,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -139,12 +142,14 @@ def main():
         URL = URL + '?auto'
 
         # fetch the URL
-        result = lib.base.coe(lib.url.fetch(
-            URL,
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            timeout=args.TIMEOUT,
-        ))
+        result = lib.base.coe(
+            lib.url.fetch(
+                URL,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+            )
+        )
         if 'Scoreboard: ' not in result:
             lib.base.cu('Malformed Apache server info.')
     else:
@@ -181,7 +186,7 @@ def main():
             continue
 
         if key == 'ServerUptimeSeconds':
-            apache['ServerUptimeSeconds'] = int(value) # continous counter
+            apache['ServerUptimeSeconds'] = int(value)  # continous counter
             continue
         if key == 'Total Accesses':
             apache['Total Accesses'] = int(value)
@@ -190,11 +195,10 @@ def main():
             apache['Total Bytes'] = int(value) * 1024
             continue
         if key == 'Total Duration':
-            apache['Total Duration'] = float(value) / 1000    # convert msec to sec
+            apache['Total Duration'] = float(value) / 1000  # convert msec to sec
             continue
 
         apache[key] = value
-
 
     # === The Bascis ===============================================================================
     # first analyze all the items we get even if "Extended Status" is "Off"
@@ -204,40 +208,126 @@ def main():
     if apache['TotalWorkers'] == 0:
         lib.base.cu('Malformed Apache server info.')
 
-                                                                # from mod_status.c:
-    workers['closing'] = apache['Scoreboard'].count('C')        # SERVER_CLOSING
-    workers['dns'] = apache['Scoreboard'].count('D')            # SERVER_BUSY_DNS
-    workers['finishing'] = apache['Scoreboard'].count('G')      # SERVER_GRACEFUL
-    workers['free'] = apache['Scoreboard'].count('.')           # SERVER_DEAD
-    workers['idle'] = apache['Scoreboard'].count('I')           # SERVER_IDLE_KILL
-    workers['keepalive'] = apache['Scoreboard'].count('K')      # SERVER_BUSY_KEEPALIVE
-    workers['logging'] = apache['Scoreboard'].count('L')        # SERVER_BUSY_LOG
-    workers['reading'] = apache['Scoreboard'].count('R')        # SERVER_BUSY_READ
-    workers['replying'] = apache['Scoreboard'].count('W')       # SERVER_BUSY_WRITE
-    workers['starting'] = apache['Scoreboard'].count('S')       # SERVER_STARTING
-    workers['waiting'] = apache['Scoreboard'].count('_')        # SERVER_READY
+        # from mod_status.c:
+    workers['closing'] = apache['Scoreboard'].count('C')  # SERVER_CLOSING
+    workers['dns'] = apache['Scoreboard'].count('D')  # SERVER_BUSY_DNS
+    workers['finishing'] = apache['Scoreboard'].count('G')  # SERVER_GRACEFUL
+    workers['free'] = apache['Scoreboard'].count('.')  # SERVER_DEAD
+    workers['idle'] = apache['Scoreboard'].count('I')  # SERVER_IDLE_KILL
+    workers['keepalive'] = apache['Scoreboard'].count('K')  # SERVER_BUSY_KEEPALIVE
+    workers['logging'] = apache['Scoreboard'].count('L')  # SERVER_BUSY_LOG
+    workers['reading'] = apache['Scoreboard'].count('R')  # SERVER_BUSY_READ
+    workers['replying'] = apache['Scoreboard'].count('W')  # SERVER_BUSY_WRITE
+    workers['starting'] = apache['Scoreboard'].count('S')  # SERVER_STARTING
+    workers['waiting'] = apache['Scoreboard'].count('_')  # SERVER_READY
 
     # currently the only value we warn about
-    apache['WorkerUsagePercentage'] = round(int(apache['BusyWorkers']) / int(apache['TotalWorkers']) * 100.0, 1) # pylint: disable=C0301
+    apache['WorkerUsagePercentage'] = round(
+        int(apache['BusyWorkers']) / int(apache['TotalWorkers']) * 100.0, 1
+    )  # pylint: disable=C0301
     state = lib.base.get_state(apache['WorkerUsagePercentage'], args.WARN, args.CRIT)
 
-    perfdata += lib.base.get_perfdata('WorkerUsagePercentage', apache['WorkerUsagePercentage'], '%', args.WARN, args.CRIT, 0, 100) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'WorkerUsagePercentage',
+        apache['WorkerUsagePercentage'],
+        '%',
+        args.WARN,
+        args.CRIT,
+        0,
+        100,
+    )  # pylint: disable=C0301
 
-    perfdata += lib.base.get_perfdata('BusyWorkers', apache['BusyWorkers'], None, None, None, 0, None) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('IdleWorkers', apache['IdleWorkers'], None, None, None, 0, None) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('TotalWorkers', apache['TotalWorkers'], None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'BusyWorkers', apache['BusyWorkers'], None, None, None, 0, None
+    )  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'IdleWorkers', apache['IdleWorkers'], None, None, None, 0, None
+    )  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'TotalWorkers', apache['TotalWorkers'], None, None, None, 0, None
+    )  # pylint: disable=C0301
 
-    perfdata += lib.base.get_perfdata('workers_closing', workers['closing'], None, None, None, 0, apache['TotalWorkers']) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('workers_dns', workers['dns'], None, None, None, 0, apache['TotalWorkers']) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('workers_finishing', workers['finishing'], None, None, None, 0, apache['TotalWorkers']) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('workers_free', workers['free'], None, None, None, 0, apache['TotalWorkers']) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('workers_idle', workers['idle'], None, None, None, 0, apache['TotalWorkers']) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('workers_keepalive', workers['keepalive'], None, None, None, 0, apache['TotalWorkers']) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('workers_logging', workers['logging'], None, None, None, 0, apache['TotalWorkers']) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('workers_reading', workers['reading'], None, None, None, 0, apache['TotalWorkers']) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('workers_replying', workers['replying'], None, None, None, 0, apache['TotalWorkers']) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('workers_starting', workers['starting'], None, None, None, 0, apache['TotalWorkers']) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('workers_waiting', workers['waiting'], None, None, None, 0, apache['TotalWorkers']) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'workers_closing',
+        workers['closing'],
+        None,
+        None,
+        None,
+        0,
+        apache['TotalWorkers'],
+    )  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'workers_dns', workers['dns'], None, None, None, 0, apache['TotalWorkers']
+    )  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'workers_finishing',
+        workers['finishing'],
+        None,
+        None,
+        None,
+        0,
+        apache['TotalWorkers'],
+    )  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'workers_free', workers['free'], None, None, None, 0, apache['TotalWorkers']
+    )  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'workers_idle', workers['idle'], None, None, None, 0, apache['TotalWorkers']
+    )  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'workers_keepalive',
+        workers['keepalive'],
+        None,
+        None,
+        None,
+        0,
+        apache['TotalWorkers'],
+    )  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'workers_logging',
+        workers['logging'],
+        None,
+        None,
+        None,
+        0,
+        apache['TotalWorkers'],
+    )  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'workers_reading',
+        workers['reading'],
+        None,
+        None,
+        None,
+        0,
+        apache['TotalWorkers'],
+    )  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'workers_replying',
+        workers['replying'],
+        None,
+        None,
+        None,
+        0,
+        apache['TotalWorkers'],
+    )  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'workers_starting',
+        workers['starting'],
+        None,
+        None,
+        None,
+        0,
+        apache['TotalWorkers'],
+    )  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'workers_waiting',
+        workers['waiting'],
+        None,
+        None,
+        None,
+        0,
+        apache['TotalWorkers'],
+    )  # pylint: disable=C0301
 
     # If ExtendedStatus is off:
     if 'Uptime' not in apache:
@@ -254,7 +344,6 @@ def main():
 
         # over and out
         lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
-
 
     # === Second Stage==============================================================================
     # ExtendedStatus is on, but not all values are always present due to different versions of
@@ -300,10 +389,20 @@ def main():
     if uptime_diff <= 0 or apache['Total Accesses'] <= 0 or apache['Total Bytes'] < 0:
         lib.base.oao('Waiting for more data (2).', STATE_OK)
 
-    perfdata += lib.base.get_perfdata('Accesses', apache['Total Accesses'], None, None, None, 0, None) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('Bytes', apache['Total Bytes'], 'B', None, None, 0, None) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('CPULoad', apache['CPULoad'], None, None, None, 0, None) if 'CPULoad' in apache else '' # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('Uptime', apache['Uptime'], 's', None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'Accesses', apache['Total Accesses'], None, None, None, 0, None
+    )  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'Bytes', apache['Total Bytes'], 'B', None, None, 0, None
+    )  # pylint: disable=C0301
+    perfdata += (
+        lib.base.get_perfdata('CPULoad', apache['CPULoad'], None, None, None, 0, None)
+        if 'CPULoad' in apache
+        else ''
+    )  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'Uptime', apache['Uptime'], 's', None, None, 0, None
+    )  # pylint: disable=C0301
 
     if 'Total Duration' not in apache:
         msg = (
@@ -321,7 +420,6 @@ def main():
 
         # over and out
         lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
-
 
     # === Third Stage===============================================================================
     # Some more variables in newer versions of mod_status
@@ -343,18 +441,98 @@ def main():
     if duration_diff <= 0 or apache['Total Accesses'] <= 0 or apache['Total Bytes'] < 0:
         lib.base.oao('Waiting for more data (4).', STATE_OK)
 
-    perfdata += lib.base.get_perfdata('ConnsAsyncClosing', apache['ConnsAsyncClosing'], None, None, None, 0, None) if 'ConnsAsyncClosing' in apache else '' # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('ConnsAsyncKeepAlive', apache['ConnsAsyncKeepAlive'], None, None, None, 0, None) if 'ConnsAsyncKeepAlive' in apache else '' # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('ConnsAsyncWriting', apache['ConnsAsyncWriting'], None, None, None, 0, None) if 'ConnsAsyncWriting' in apache else '' # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('ConnsTotal', apache['ConnsTotal'], None, None, None, 0, None) if 'ConnsTotal' in apache else '' # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('Load1', apache['Load1'], None, None, None, 0, None) if 'Load1' in apache else '' # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('Load5', apache['Load5'], None, None, None, 0, None) if 'Load5' in apache else '' # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('Load15', apache['Load15'], None, None, None, 0, None) if 'Load15' in apache else '' # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('ParentServerConfigGeneration', apache['ParentServerConfigGeneration'], None, None, None, 0, None) if 'ParentServerConfigGeneration' in apache else '' # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('ParentServerMPMGeneration', apache['ParentServerMPMGeneration'], None, None, None, 0, None) if 'ParentServerMPMGeneration' in apache else '' # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('Processes', apache['Processes'], None, None, None, 0, None) if 'Processes' in apache else '' # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('Stopping', apache['Stopping'], None, None, None, 0, None) if 'Stopping' in apache else '' # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('Total Duration', duration_diff, 's', None, None, 0, None) if 'Total Duration' in apache else '' # pylint: disable=C0301
+    perfdata += (
+        lib.base.get_perfdata(
+            'ConnsAsyncClosing', apache['ConnsAsyncClosing'], None, None, None, 0, None
+        )
+        if 'ConnsAsyncClosing' in apache
+        else ''
+    )  # pylint: disable=C0301
+    perfdata += (
+        lib.base.get_perfdata(
+            'ConnsAsyncKeepAlive',
+            apache['ConnsAsyncKeepAlive'],
+            None,
+            None,
+            None,
+            0,
+            None,
+        )
+        if 'ConnsAsyncKeepAlive' in apache
+        else ''
+    )  # pylint: disable=C0301
+    perfdata += (
+        lib.base.get_perfdata(
+            'ConnsAsyncWriting', apache['ConnsAsyncWriting'], None, None, None, 0, None
+        )
+        if 'ConnsAsyncWriting' in apache
+        else ''
+    )  # pylint: disable=C0301
+    perfdata += (
+        lib.base.get_perfdata(
+            'ConnsTotal', apache['ConnsTotal'], None, None, None, 0, None
+        )
+        if 'ConnsTotal' in apache
+        else ''
+    )  # pylint: disable=C0301
+    perfdata += (
+        lib.base.get_perfdata('Load1', apache['Load1'], None, None, None, 0, None)
+        if 'Load1' in apache
+        else ''
+    )  # pylint: disable=C0301
+    perfdata += (
+        lib.base.get_perfdata('Load5', apache['Load5'], None, None, None, 0, None)
+        if 'Load5' in apache
+        else ''
+    )  # pylint: disable=C0301
+    perfdata += (
+        lib.base.get_perfdata('Load15', apache['Load15'], None, None, None, 0, None)
+        if 'Load15' in apache
+        else ''
+    )  # pylint: disable=C0301
+    perfdata += (
+        lib.base.get_perfdata(
+            'ParentServerConfigGeneration',
+            apache['ParentServerConfigGeneration'],
+            None,
+            None,
+            None,
+            0,
+            None,
+        )
+        if 'ParentServerConfigGeneration' in apache
+        else ''
+    )  # pylint: disable=C0301
+    perfdata += (
+        lib.base.get_perfdata(
+            'ParentServerMPMGeneration',
+            apache['ParentServerMPMGeneration'],
+            None,
+            None,
+            None,
+            0,
+            None,
+        )
+        if 'ParentServerMPMGeneration' in apache
+        else ''
+    )  # pylint: disable=C0301
+    perfdata += (
+        lib.base.get_perfdata(
+            'Processes', apache['Processes'], None, None, None, 0, None
+        )
+        if 'Processes' in apache
+        else ''
+    )  # pylint: disable=C0301
+    perfdata += (
+        lib.base.get_perfdata('Stopping', apache['Stopping'], None, None, None, 0, None)
+        if 'Stopping' in apache
+        else ''
+    )  # pylint: disable=C0301
+    perfdata += (
+        lib.base.get_perfdata('Total Duration', duration_diff, 's', None, None, 0, None)
+        if 'Total Duration' in apache
+        else ''
+    )  # pylint: disable=C0301
 
     msg = (
         f'{apache["ServerName"]}:'
@@ -371,121 +549,174 @@ def main():
     )
 
     table_values = []
-    table_values.append({
-        'key': 'Current Time',
-        'value': apache['CurrentTime'],
-    })
-    table_values.append({
-        'key': 'Restart Time',
-        'value': apache['RestartTime'],
-    })
-    table_values.append({
-        'key': 'Check Interval',
-        'value': lib.human.seconds2human(uptime_diff),
-    })
-    table_values.append({
-        'key': 'Uptime',
-        'value': lib.human.seconds2human(apache['Uptime']),
-    })
+    table_values.append(
+        {
+            'key': 'Current Time',
+            'value': apache['CurrentTime'],
+        }
+    )
+    table_values.append(
+        {
+            'key': 'Restart Time',
+            'value': apache['RestartTime'],
+        }
+    )
+    table_values.append(
+        {
+            'key': 'Check Interval',
+            'value': lib.human.seconds2human(uptime_diff),
+        }
+    )
+    table_values.append(
+        {
+            'key': 'Uptime',
+            'value': lib.human.seconds2human(apache['Uptime']),
+        }
+    )
     if 'ConnsTotal' in apache:
-        table_values.append({
-            'key': 'Connections',
-            'value': apache['ConnsTotal'],
-        })
+        table_values.append(
+            {
+                'key': 'Connections',
+                'value': apache['ConnsTotal'],
+            }
+        )
     if 'ConnsAsyncWriting' in apache:
-        table_values.append({
-            'key': '  Async Writing',
-            'value': apache['ConnsAsyncWriting'],
-        })
+        table_values.append(
+            {
+                'key': '  Async Writing',
+                'value': apache['ConnsAsyncWriting'],
+            }
+        )
     if 'ConnsAsyncKeepAlive' in apache:
-        table_values.append({
-            'key': '  Async KeepAlive',
-            'value': apache['ConnsAsyncKeepAlive'],
-        })
+        table_values.append(
+            {
+                'key': '  Async KeepAlive',
+                'value': apache['ConnsAsyncKeepAlive'],
+            }
+        )
     if 'ConnsAsyncClosing' in apache:
-        table_values.append({
-            'key': '  Async Closing',
-            'value': apache['ConnsAsyncClosing'],
-        })
-    table_values.append({
-        'key': 'Requests',
-        'value': lib.human.number2human(apache['Total Accesses']),
-    })
-    table_values.append({
-        'key': 'Bytes',
-        'value': lib.human.bytes2human(apache['Total Bytes']),
-    })
-    table_values.append({
-        'key': 'Request Duration',
-        'value': lib.human.seconds2human(duration_diff),
-    })
+        table_values.append(
+            {
+                'key': '  Async Closing',
+                'value': apache['ConnsAsyncClosing'],
+            }
+        )
+    table_values.append(
+        {
+            'key': 'Requests',
+            'value': lib.human.number2human(apache['Total Accesses']),
+        }
+    )
+    table_values.append(
+        {
+            'key': 'Bytes',
+            'value': lib.human.bytes2human(apache['Total Bytes']),
+        }
+    )
+    table_values.append(
+        {
+            'key': 'Request Duration',
+            'value': lib.human.seconds2human(duration_diff),
+        }
+    )
     if 'Load1' in apache:
-        table_values.append({
-            'key': 'Load1',
-            'value': apache['Load1'],
-        })
+        table_values.append(
+            {
+                'key': 'Load1',
+                'value': apache['Load1'],
+            }
+        )
     if 'Load15' in apache:
-        table_values.append({
-            'key': 'Load5',
-            'value': apache['Load5'],
-        })
+        table_values.append(
+            {
+                'key': 'Load5',
+                'value': apache['Load5'],
+            }
+        )
     if 'Load15' in apache:
-        table_values.append({
-            'key': 'Load15',
-            'value': apache['Load15'],
-        })
+        table_values.append(
+            {
+                'key': 'Load15',
+                'value': apache['Load15'],
+            }
+        )
     if 'Processes' in apache:
-        table_values.append({
-            'key': 'Processes',
-            'value': apache['Processes'],
-        })
+        table_values.append(
+            {
+                'key': 'Processes',
+                'value': apache['Processes'],
+            }
+        )
     if 'Stopping' in apache:
-        table_values.append({
-            'key': '  Stopping',
-            'value': apache['Stopping'],
-        })
-    table_values.append({
-        'key': 'Workers Total',
-        'value': apache['TotalWorkers'],
-    })
-    table_values.append({
-        'key': '  Busy',
-        'value': apache['BusyWorkers'],
-    })
-    table_values.append({
-        'key': '  Idle',
-        'value': apache['IdleWorkers'],
-    })
-    table_values.append({
-        'key': '  Usage (%)',
-        'value': str(apache['WorkerUsagePercentage']) + lib.base.state2str(state, prefix=' '),
-    })
+        table_values.append(
+            {
+                'key': '  Stopping',
+                'value': apache['Stopping'],
+            }
+        )
+    table_values.append(
+        {
+            'key': 'Workers Total',
+            'value': apache['TotalWorkers'],
+        }
+    )
+    table_values.append(
+        {
+            'key': '  Busy',
+            'value': apache['BusyWorkers'],
+        }
+    )
+    table_values.append(
+        {
+            'key': '  Idle',
+            'value': apache['IdleWorkers'],
+        }
+    )
+    table_values.append(
+        {
+            'key': '  Usage (%)',
+            'value': str(apache['WorkerUsagePercentage'])
+            + lib.base.state2str(state, prefix=' '),
+        }
+    )
     if 'ParentServerConfigGeneration' in apache:
-        table_values.append({
-            'key': 'Parent Server ConfigGeneration',
-            'value': apache['ParentServerConfigGeneration'],
-        })
+        table_values.append(
+            {
+                'key': 'Parent Server ConfigGeneration',
+                'value': apache['ParentServerConfigGeneration'],
+            }
+        )
     if 'ParentServerMPMGeneration' in apache:
-        table_values.append({
-            'key': 'Parent Server MPMGeneration',
-            'value': apache['ParentServerMPMGeneration'],
-        })
-    table_values.append({
-        'key': 'Server Name',
-        'value': apache['ServerName'],
-    })
-    table_values.append({
-        'key': 'Server MPM',
-        'value': apache['ServerMPM'],
-    })
-    table_values.append({
-        'key': 'Server Version',
-        'value': apache['ServerVersion'],
-    })
-    table_values.append({
-        'key': 'Server Built',
-        'value': apache['Server Built'],
-    })
+        table_values.append(
+            {
+                'key': 'Parent Server MPMGeneration',
+                'value': apache['ParentServerMPMGeneration'],
+            }
+        )
+    table_values.append(
+        {
+            'key': 'Server Name',
+            'value': apache['ServerName'],
+        }
+    )
+    table_values.append(
+        {
+            'key': 'Server MPM',
+            'value': apache['ServerMPM'],
+        }
+    )
+    table_values.append(
+        {
+            'key': 'Server Version',
+            'value': apache['ServerVersion'],
+        }
+    )
+    table_values.append(
+        {
+            'key': 'Server Built',
+            'value': apache['Server Built'],
+        }
+    )
 
     msg = msg + '\n\n'
     msg += lib.base.get_table(
@@ -502,5 +733,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

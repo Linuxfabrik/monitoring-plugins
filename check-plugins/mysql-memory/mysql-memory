@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import os  # pylint: disable=C0413
@@ -19,11 +18,15 @@ import lib.base  # pylint: disable=C0413
 import lib.db_mysql  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.version  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
-                          STATE_WARN)
+from lib.globals import (
+    STATE_OK,
+    STATE_UNKNOWN,  # pylint: disable=C0413
+    STATE_WARN,
+)
 
 try:
     import psutil  # pylint: disable=C0413
+
     HAVE_PSUTIL = True
 except ImportError:
     HAVE_PSUTIL = False
@@ -37,18 +40,18 @@ DESCRIPTION = """Checks memory metrics for MySQL/MariaDB."""
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_TIMEOUT = 3
-DEFAULT_WARN = 95 # % max peak memory usage
+DEFAULT_WARN = 95  # % max peak memory usage
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -62,8 +65,8 @@ def parse_args():
     parser.add_argument(
         '--defaults-file',
         help='Specifies a cnf file to read parameters like user, host and password from '
-             '(instead of specifying them on the command line), '
-             'for example `/var/spool/icinga2/.my.cnf`. Default: %(default)s',
+        '(instead of specifying them on the command line), '
+        'for example `/var/spool/icinga2/.my.cnf`. Default: %(default)s',
         dest='DEFAULTS_FILE',
         default=DEFAULT_DEFAULTS_FILE,
     )
@@ -173,7 +176,10 @@ def get_other_process_memory():
             pass
     else:
         try:
-            for p in [x.as_dict(attrs=['name', 'cmdline', 'memory_info']) for x in psutil.process_iter()]:
+            for p in [
+                x.as_dict(attrs=['name', 'cmdline', 'memory_info'])
+                for x in psutil.process_iter()
+            ]:
                 if not cmdline.strip():
                     continue
                 if 'PID' in cmdline:
@@ -195,8 +201,7 @@ def get_other_process_memory():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # logic taken from mysqltuner.pl:mysql_stats(), section # Memory usage, v1.9.8
     # including variable names
@@ -208,9 +213,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     mysql_connection = {
-        'defaults_file':  args.DEFAULTS_FILE,
+        'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
-        'timeout':        args.TIMEOUT,
+        'timeout': args.TIMEOUT,
     }
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
     lib.base.coe(lib.db_mysql.check_select_privileges(conn))
@@ -225,8 +230,12 @@ def main():
 
     # calculations
     mycalc = {}
-    mycalc['max_tmp_table_size'] = max(int(myvar['max_heap_table_size']), int(myvar['tmp_table_size']))
-    mycalc['server_buffers'] = int(myvar['key_buffer_size']) + mycalc['max_tmp_table_size']
+    mycalc['max_tmp_table_size'] = max(
+        int(myvar['max_heap_table_size']), int(myvar['tmp_table_size'])
+    )
+    mycalc['server_buffers'] = (
+        int(myvar['key_buffer_size']) + mycalc['max_tmp_table_size']
+    )
     mycalc['server_buffers'] += int(myvar.get('innodb_buffer_pool_size', 0))
     mycalc['server_buffers'] += int(myvar.get('innodb_additional_mem_pool_size', 0))
     mycalc['server_buffers'] += int(myvar.get('innodb_log_buffer_size', 0))
@@ -238,18 +247,34 @@ def main():
     mycalc['per_thread_buffers'] += int(myvar['thread_stack'])
     mycalc['per_thread_buffers'] += int(myvar['max_allowed_packet'])
     mycalc['per_thread_buffers'] += int(myvar['join_buffer_size'])
-    mycalc['max_total_per_thread_buffers'] = mycalc['per_thread_buffers'] * int(mystat['Max_used_connections'])
-    mycalc['total_per_thread_buffers'] = mycalc['per_thread_buffers'] * int(myvar['max_connections'])
+    mycalc['max_total_per_thread_buffers'] = mycalc['per_thread_buffers'] * int(
+        mystat['Max_used_connections']
+    )
+    mycalc['total_per_thread_buffers'] = mycalc['per_thread_buffers'] * int(
+        myvar['max_connections']
+    )
 
     # Global memory
     # Max used memory is memory used by MySQL based on Max_used_connections
     # This is the max memory used theoretically calculated with the max concurrent connection number reached by mysql
     mycalc['pf_memory'] = get_pf_memory(conn, myvar)
-    mycalc['max_used_memory'] = mycalc['server_buffers'] + mycalc['max_total_per_thread_buffers'] + mycalc['pf_memory']
-    mycalc['max_peak_memory'] = mycalc['server_buffers'] + mycalc['total_per_thread_buffers'] + mycalc['pf_memory']
+    mycalc['max_used_memory'] = (
+        mycalc['server_buffers']
+        + mycalc['max_total_per_thread_buffers']
+        + mycalc['pf_memory']
+    )
+    mycalc['max_peak_memory'] = (
+        mycalc['server_buffers']
+        + mycalc['total_per_thread_buffers']
+        + mycalc['pf_memory']
+    )
     physical_memory = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
-    mycalc['pct_max_used_memory'] = round(mycalc['max_used_memory'] / physical_memory * 100, 1)
-    mycalc['pct_max_physical_memory'] = round(mycalc['max_peak_memory'] / physical_memory * 100, 1)
+    mycalc['pct_max_used_memory'] = round(
+        mycalc['max_used_memory'] / physical_memory * 100, 1
+    )
+    mycalc['pct_max_physical_memory'] = round(
+        mycalc['max_peak_memory'] / physical_memory * 100, 1
+    )
 
     lib.db_mysql.close(conn)
 
@@ -299,9 +324,9 @@ def main():
         f' pfm = {lib.human.bytes2human(mycalc["pf_memory"])}\n'
     )
 
-    msg += f"* Server Buffers: sb = {lib.human.bytes2human(mycalc['server_buffers'])}\n"
-    msg += f"      {lib.human.bytes2human(int(myvar['key_buffer_size']))} key_buffer_size\n"
-    msg += f"    + {lib.human.bytes2human(mycalc['max_tmp_table_size'])} max_tmp_table_size\n"
+    msg += f'* Server Buffers: sb = {lib.human.bytes2human(mycalc["server_buffers"])}\n'
+    msg += f'      {lib.human.bytes2human(int(myvar["key_buffer_size"]))} key_buffer_size\n'
+    msg += f'    + {lib.human.bytes2human(mycalc["max_tmp_table_size"])} max_tmp_table_size\n'
     msg += (
         f'    +'
         f' {lib.human.bytes2human(int(myvar.get("innodb_buffer_pool_size", 0)))}'
@@ -328,17 +353,17 @@ def main():
         f' aria_pagecache_buffer_size\n'
     )
 
-    msg += f"* Per Thread Buffers: ptb = {lib.human.bytes2human(mycalc['per_thread_buffers'])}\n"
-    msg += f"      {lib.human.bytes2human(int(myvar['read_buffer_size']))} read_buffer_size\n"
+    msg += f'* Per Thread Buffers: ptb = {lib.human.bytes2human(mycalc["per_thread_buffers"])}\n'
+    msg += f'      {lib.human.bytes2human(int(myvar["read_buffer_size"]))} read_buffer_size\n'
     msg += (
         f'    +'
         f' {lib.human.bytes2human(int(myvar["read_rnd_buffer_size"]))}'
         f' read_rnd_buffer_size\n'
     )
-    msg += f"    + {lib.human.bytes2human(int(myvar['sort_buffer_size']))} sort_buffer_size\n"
-    msg += f"    + {lib.human.bytes2human(int(myvar['thread_stack']))} thread_stack\n"
-    msg += f"    + {lib.human.bytes2human(int(myvar['max_allowed_packet']))} max_allowed_packet\n"
-    msg += f"    + {lib.human.bytes2human(int(myvar['join_buffer_size']))} join_buffer_size\n"
+    msg += f'    + {lib.human.bytes2human(int(myvar["sort_buffer_size"]))} sort_buffer_size\n'
+    msg += f'    + {lib.human.bytes2human(int(myvar["thread_stack"]))} thread_stack\n'
+    msg += f'    + {lib.human.bytes2human(int(myvar["max_allowed_packet"]))} max_allowed_packet\n'
+    msg += f'    + {lib.human.bytes2human(int(myvar["join_buffer_size"]))} join_buffer_size\n'
 
     msg += (
         f'* Max Total per Thread Buffers:'
@@ -386,33 +411,167 @@ def main():
     )
 
     # perfdata
-    perfdata += lib.base.get_perfdata('mysql_aria_pagecache_buffer_size', myvar.get('aria_pagecache_buffer_size', 0), 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_innodb_buffer_pool_size', myvar['innodb_buffer_pool_size'], 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_innodb_log_buffer_size', myvar['innodb_log_buffer_size'], 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_join_buffer_size', myvar['join_buffer_size'], 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_key_buffer_size', myvar['key_buffer_size'], 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_max_allowed_packet', myvar['max_allowed_packet'], 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_max_connections', myvar['max_connections'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_max_heap_table_size', myvar['max_heap_table_size'], 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_query_cache_size', myvar.get('query_cache_size', 0), 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_read_buffer_size', myvar['read_buffer_size'], 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_read_rnd_buffer_size', myvar['read_rnd_buffer_size'], 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_sort_buffer_size', myvar['sort_buffer_size'], 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_thread_stack', myvar['thread_stack'], 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_tmp_table_size', myvar['tmp_table_size'], 'B', None, None, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'mysql_aria_pagecache_buffer_size',
+        myvar.get('aria_pagecache_buffer_size', 0),
+        'B',
+        None,
+        None,
+        0,
+        None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_innodb_buffer_pool_size',
+        myvar['innodb_buffer_pool_size'],
+        'B',
+        None,
+        None,
+        0,
+        None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_innodb_log_buffer_size',
+        myvar['innodb_log_buffer_size'],
+        'B',
+        None,
+        None,
+        0,
+        None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_join_buffer_size', myvar['join_buffer_size'], 'B', None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_key_buffer_size', myvar['key_buffer_size'], 'B', None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_max_allowed_packet',
+        myvar['max_allowed_packet'],
+        'B',
+        None,
+        None,
+        0,
+        None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_max_connections', myvar['max_connections'], None, None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_max_heap_table_size',
+        myvar['max_heap_table_size'],
+        'B',
+        None,
+        None,
+        0,
+        None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_query_cache_size',
+        myvar.get('query_cache_size', 0),
+        'B',
+        None,
+        None,
+        0,
+        None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_read_buffer_size', myvar['read_buffer_size'], 'B', None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_read_rnd_buffer_size',
+        myvar['read_rnd_buffer_size'],
+        'B',
+        None,
+        None,
+        0,
+        None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_sort_buffer_size', myvar['sort_buffer_size'], 'B', None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_thread_stack', myvar['thread_stack'], 'B', None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_tmp_table_size', myvar['tmp_table_size'], 'B', None, None, 0, None
+    )
 
-    perfdata += lib.base.get_perfdata('mysql_max_used_connections', mystat['Max_used_connections'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'mysql_max_used_connections',
+        mystat['Max_used_connections'],
+        None,
+        None,
+        None,
+        0,
+        None,
+    )
 
-    perfdata += lib.base.get_perfdata('mysql_physical_memory', physical_memory, 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_max_peak_memory', mycalc['max_peak_memory'], 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_max_tmp_table_size', mycalc['max_tmp_table_size'], 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_max_total_per_thread_buffers', mycalc['max_total_per_thread_buffers'], 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_max_used_memory', mycalc['max_used_memory'], 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_pct_max_physical_memory', mycalc['pct_max_physical_memory'], '%', None, None, 0, 100)
-    perfdata += lib.base.get_perfdata('mysql_pct_max_used_memory', mycalc['pct_max_used_memory'], '%', None, None, 0, 100)
-    perfdata += lib.base.get_perfdata('mysql_per_thread_buffers', mycalc['per_thread_buffers'], 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_server_buffers', mycalc['server_buffers'], 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_total_per_thread_buffers', mycalc['total_per_thread_buffers'], 'B', None, None, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'mysql_physical_memory', physical_memory, 'B', None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_max_peak_memory', mycalc['max_peak_memory'], 'B', None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_max_tmp_table_size',
+        mycalc['max_tmp_table_size'],
+        'B',
+        None,
+        None,
+        0,
+        None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_max_total_per_thread_buffers',
+        mycalc['max_total_per_thread_buffers'],
+        'B',
+        None,
+        None,
+        0,
+        None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_max_used_memory', mycalc['max_used_memory'], 'B', None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_pct_max_physical_memory',
+        mycalc['pct_max_physical_memory'],
+        '%',
+        None,
+        None,
+        0,
+        100,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_pct_max_used_memory',
+        mycalc['pct_max_used_memory'],
+        '%',
+        None,
+        None,
+        0,
+        100,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_per_thread_buffers',
+        mycalc['per_thread_buffers'],
+        'B',
+        None,
+        None,
+        0,
+        None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_server_buffers', mycalc['server_buffers'], 'B', None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_total_per_thread_buffers',
+        mycalc['total_per_thread_buffers'],
+        'B',
+        None,
+        None,
+        0,
+        None,
+    )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
@@ -421,5 +580,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -19,34 +18,41 @@ import lib.db_mysql  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
-DESCRIPTION = 'Checks expiration date of certificates in a XCA based MySQL/MariaDB database.'
+DESCRIPTION = (
+    'Checks expiration date of certificates in a XCA based MySQL/MariaDB database.'
+)
 
 DEFAULT_CRIT = 5  # days
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_TIMEOUT = 3
-DEFAULT_WARN = 14 # days
+DEFAULT_WARN = 14  # days
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Set the critical for the expiration date in days. Default: %(default)s',
         dest='CRIT',
         type=int,
@@ -56,8 +62,8 @@ def parse_args():
     parser.add_argument(
         '--defaults-file',
         help='Specifies a cnf file to read parameters like user, host and password from '
-             '(instead of specifying them on the command line), '
-             'for example `/var/spool/icinga2/.my.cnf`. Default: %(default)s',
+        '(instead of specifying them on the command line), '
+        'for example `/var/spool/icinga2/.my.cnf`. Default: %(default)s',
         dest='DEFAULTS_FILE',
         default=DEFAULT_DEFAULTS_FILE,
     )
@@ -85,7 +91,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the warning for the expiration date in days. Default: %(default)s',
         dest='WARN',
         type=int,
@@ -97,14 +104,13 @@ def parse_args():
 
 
 def check_crts(conn, args, state):
-    """Check certificates for expiration.
-    """
+    """Check certificates for expiration."""
     result = lib.base.coe(
         lib.db_mysql.select(
             conn,
             f'select name, cert, ca, {args.PREFIX}certs_serial '
             f'from xca.{args.PREFIX}view_certs '
-            f'where invaldate is null'
+            f'where invaldate is null',
         )
     )
 
@@ -127,21 +133,26 @@ def check_crts(conn, args, state):
                     f'{row[cert][10:]}\n'
                     f'-----END CERTIFICATE-----'
                 ),
-        ))
+            )
+        )
         for line in stdout.splitlines():
             if not line.startswith('notAfter='):
                 continue
-            timestr = line.split('=')[1]       # Oct 29 08:41:00 2028 GMT
+            timestr = line.split('=')[1]  # Oct 29 08:41:00 2028 GMT
             timestr = lib.time.timestr2datetime(timestr, pattern='%b %d %H:%M:%S %Y %Z')
             delta = timestr - lib.time.now(as_type='datetime')
-            local_state = lib.base.get_state(delta.days, args.WARN, args.CRIT, _operator='le')
-            table_crts.append({
-                'name': row[name],
-                'ca': 'y' if row[ca] == 1 else 'n',
-                'serial': row[serial],
-                'state': lib.base.state2str(local_state, empty_ok=False),
-                'timestr': f'{timestr}',
-            })
+            local_state = lib.base.get_state(
+                delta.days, args.WARN, args.CRIT, _operator='le'
+            )
+            table_crts.append(
+                {
+                    'name': row[name],
+                    'ca': 'y' if row[ca] == 1 else 'n',
+                    'serial': row[serial],
+                    'state': lib.base.state2str(local_state, empty_ok=False),
+                    'timestr': f'{timestr}',
+                }
+            )
             if local_state != STATE_OK:
                 expiring_crts += 1
                 state = lib.base.get_worst(state, local_state)
@@ -150,8 +161,7 @@ def check_crts(conn, args, state):
 
 
 def check_crls(conn, args, state):
-    """Check CRLs for their next update.
-    """
+    """Check CRLs for their next update."""
     result = lib.base.coe(
         lib.db_mysql.select(
             conn,
@@ -172,19 +182,24 @@ def check_crls(conn, args, state):
             lib.shell.shell_exec(
                 'openssl crl -noout -nextupdate -in /dev/stdin',
                 stdin=f'-----BEGIN X509 CRL-----\n{row[cert]}\n-----END X509 CRL-----',
-        ))
+            )
+        )
         for line in stdout.splitlines():
             if not line.startswith('nextUpdate='):
                 continue
-            timestr = line.split('=')[1]       # Oct 29 08:41:00 2028 GMT
+            timestr = line.split('=')[1]  # Oct 29 08:41:00 2028 GMT
             timestr = lib.time.timestr2datetime(timestr, pattern='%b %d %H:%M:%S %Y %Z')
             delta = timestr - lib.time.now(as_type='datetime')
-            local_state = lib.base.get_state(delta.days, args.WARN, args.CRIT, _operator='le')
-            table_crls.append({
-                'name': row[name],
-                'state': lib.base.state2str(local_state, empty_ok=False),
-                'timestr': f'{timestr}',
-            })
+            local_state = lib.base.get_state(
+                delta.days, args.WARN, args.CRIT, _operator='le'
+            )
+            table_crls.append(
+                {
+                    'name': row[name],
+                    'state': lib.base.state2str(local_state, empty_ok=False),
+                    'timestr': f'{timestr}',
+                }
+            )
             if local_state != STATE_OK:
                 expiring_crls += 1
                 state = lib.base.get_worst(state, local_state)
@@ -193,8 +208,7 @@ def check_crls(conn, args, state):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -204,9 +218,9 @@ def main():
 
     # fetch data
     mysql_connection = {
-        'defaults_file':  args.DEFAULTS_FILE,
+        'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
-        'timeout':        args.TIMEOUT,
+        'timeout': args.TIMEOUT,
     }
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
 
@@ -260,5 +274,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

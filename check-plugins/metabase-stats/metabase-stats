@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -20,15 +19,21 @@ import lib.human  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
 DESCRIPTION = """This check gets some recent activity from Metabase."""
 
-DEFAULT_CACHE_EXPIRE = 13*24 + 23 # hours; in Metabase, by default, sessions are good for 14 days
+DEFAULT_CACHE_EXPIRE = (
+    13 * 24 + 23
+)  # hours; in Metabase, by default, sessions are good for 14 days
 DEFAULT_CRIT = 90
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
@@ -39,29 +44,29 @@ DEFAULT_WARN = 80
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
         '--cache-expire',
         help='The amount of time after which the credential cache expires, in hours. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='CACHE_EXPIRE',
         type=int,
         default=DEFAULT_CACHE_EXPIRE,
     )
 
     parser.add_argument(
-        '-c', '--critical',
-        help='Set the CRIT threshold as a percentage. '
-             'Default: >= %(default)s',
+        '-c',
+        '--critical',
+        help='Set the CRIT threshold as a percentage. Default: >= %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
@@ -70,7 +75,7 @@ def parse_args():
     parser.add_argument(
         '--insecure',
         help='This option explicitly allows to perform "insecure" SSL connections. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -78,15 +83,15 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. '
-             'Default: %(default)s',
+        help='Do not use a proxy. Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
     )
 
     parser.add_argument(
-        '-p', '--password',
+        '-p',
+        '--password',
         help='Metabase API password.',
         dest='PASSWORD',
         required=True,
@@ -94,8 +99,7 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. '
-             'Default: %(default)s (seconds)',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -103,24 +107,22 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='Metabase API URL. '
-             'Default: %(default)s',
+        help='Metabase API URL. Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
 
     parser.add_argument(
         '--username',
-        help='Metabase API username. '
-             'Default: %(default)s',
+        help='Metabase API username. Default: %(default)s',
         dest='USERNAME',
         default=DEFAULT_USERNAME,
     )
 
     parser.add_argument(
-        '-w', '--warning',
-        help='Set the WARN threshold as a percentage. '
-             'Default: >= %(default)s',
+        '-w',
+        '--warning',
+        help='Set the WARN threshold as a percentage. Default: >= %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -140,18 +142,20 @@ def get_token(metabase_url, user, password, expire):
     $     http://localhost:3000/api/session
     """
     # we cache credentials to reuse them until they expire, because logins are rate-limited for security
-    token = lib.cache.get('metabase-token', filename='linuxfabrik-monitoring-plugins-metabase-stats.db')
+    token = lib.cache.get(
+        'metabase-token', filename='linuxfabrik-monitoring-plugins-metabase-stats.db'
+    )
     if token:
         return (True, token)
 
     metabase_url += '/api/session'
     header = {
         'Content-Type': 'application/json',
-        }
+    }
     data = {
         'username': user,
         'password': password,
-        }
+    }
     success, result = lib.url.fetch_json(
         metabase_url,
         header=header,
@@ -168,7 +172,12 @@ def get_token(metabase_url, user, password, expire):
     if 'id' not in result:
         return (False, 'Something went wrong, maybe wrong username/password.')
     token = result['id']
-    lib.cache.set('metabase-token', token, lib.time.now() + expire, filename='linuxfabrik-monitoring-plugins-metabase-stats.db')
+    lib.cache.set(
+        'metabase-token',
+        token,
+        lib.time.now() + expire,
+        filename='linuxfabrik-monitoring-plugins-metabase-stats.db',
+    )
     return (True, token)
 
 
@@ -176,7 +185,7 @@ def get_data(metabase_url, token, data={}):
     header = {
         'Content-Type': 'application/json',
         'X-Metabase-Session': token,
-        }
+    }
     return lib.url.fetch(
         metabase_url,
         header=header,
@@ -192,7 +201,7 @@ def get_json(metabase_url, token, data={}):
     header = {
         'Content-Type': 'application/json',
         'X-Metabase-Session': token,
-        }
+    }
     return lib.url.fetch_json(
         metabase_url,
         header=header,
@@ -205,8 +214,7 @@ def get_json(metabase_url, token, data={}):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -219,30 +227,32 @@ def main():
     state = STATE_OK
     perfdata = ''
 
-    token = lib.base.coe(get_token(args.URL, args.USERNAME, args.PASSWORD, args.CACHE_EXPIRE*60*60))
+    token = lib.base.coe(
+        get_token(args.URL, args.USERNAME, args.PASSWORD, args.CACHE_EXPIRE * 60 * 60)
+    )
 
     # fetch data
     activity = lib.base.coe(get_json(args.URL + '/api/activity', token))[0]
 
-    settings = lib.base.coe(get_data(args.URL + '/api/setting/site-name', token))  # /api/setting/:key returns plain text, not json
+    settings = lib.base.coe(
+        get_data(args.URL + '/api/setting/site-name', token)
+    )  # /api/setting/:key returns plain text, not json
     stats = lib.base.coe(get_json(args.URL + '/api/util/stats', token))
 
     # build the message
     msg += f'{settings} on '
-    msg += f"Metabase {stats['version']}; "
+    msg += f'Metabase {stats["version"]}; '
 
-    msg += f"{stats['stats']['user']['users']['total']} {lib.txt.pluralize('user', stats['stats']['user']['users']['total'])}, "
-    msg += f"{stats['stats']['database']['databases']['analyzed']} {lib.txt.pluralize('DB', stats['stats']['database']['databases']['analyzed'])} analyzed, "
-    msg += f"{stats['stats']['question']['questions']['gui']} {lib.txt.pluralize('question', stats['stats']['question']['questions']['gui'])} (GUI), "
-    msg += f"{stats['stats']['alert']['alerts']} {lib.txt.pluralize('alert', stats['stats']['alert']['alerts'])}, "
-    msg += f"{stats['stats']['pulse']['pulses']} {lib.txt.pluralize('pulse', stats['stats']['pulse']['pulses'])}, "
-    msg += f"{stats['stats']['collection']['collections']} {lib.txt.pluralize('collection', stats['stats']['collection']['collections'])}; "
-    msg += f"{stats['stats']['system']['processors']} CPUs, {stats['stats']['system']['max_memory']} MiB RAM"
+    msg += f'{stats["stats"]["user"]["users"]["total"]} {lib.txt.pluralize("user", stats["stats"]["user"]["users"]["total"])}, '
+    msg += f'{stats["stats"]["database"]["databases"]["analyzed"]} {lib.txt.pluralize("DB", stats["stats"]["database"]["databases"]["analyzed"])} analyzed, '
+    msg += f'{stats["stats"]["question"]["questions"]["gui"]} {lib.txt.pluralize("question", stats["stats"]["question"]["questions"]["gui"])} (GUI), '
+    msg += f'{stats["stats"]["alert"]["alerts"]} {lib.txt.pluralize("alert", stats["stats"]["alert"]["alerts"])}, '
+    msg += f'{stats["stats"]["pulse"]["pulses"]} {lib.txt.pluralize("pulse", stats["stats"]["pulse"]["pulses"])}, '
+    msg += f'{stats["stats"]["collection"]["collections"]} {lib.txt.pluralize("collection", stats["stats"]["collection"]["collections"])}; '
+    msg += f'{stats["stats"]["system"]["processors"]} CPUs, {stats["stats"]["system"]["max_memory"]} MiB RAM'
 
     detail_name = (
-        '/' + activity['details']['name']
-        if 'name' in activity['details']
-        else ''
+        '/' + activity['details']['name'] if 'name' in activity['details'] else ''
     )
     time_ago = lib.human.seconds2human(
         lib.time.timestrdiff(
@@ -257,14 +267,48 @@ def main():
         f' ({time_ago} ago)'
     )
 
-    perfdata += lib.base.get_perfdata('alerts', stats['stats']['alert']['alerts'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('collections', stats['stats']['collection']['collections'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('cpu', stats['stats']['system']['processors'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('dbs_analyzed', stats['stats']['database']['databases']['total'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('pulses', stats['stats']['pulse']['pulses'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('questions_gui', stats['stats']['question']['questions']['gui'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('ram', stats['stats']['system']['max_memory'], 'MB', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('users', stats['stats']['user']['users']['total'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'alerts', stats['stats']['alert']['alerts'], None, None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'collections',
+        stats['stats']['collection']['collections'],
+        None,
+        None,
+        None,
+        0,
+        None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'cpu', stats['stats']['system']['processors'], None, None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'dbs_analyzed',
+        stats['stats']['database']['databases']['total'],
+        None,
+        None,
+        None,
+        0,
+        None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'pulses', stats['stats']['pulse']['pulses'], None, None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'questions_gui',
+        stats['stats']['question']['questions']['gui'],
+        None,
+        None,
+        None,
+        0,
+        None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'ram', stats['stats']['system']['max_memory'], 'MB', None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'users', stats['stats']['user']['users']['total'], None, None, None, 0, None
+    )
 
     # over and out
     lib.base.oao(msg, state, perfdata)
@@ -273,5 +317,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

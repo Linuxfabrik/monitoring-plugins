@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import re  # pylint: disable=C0413
@@ -20,8 +19,12 @@ import lib.base  # pylint: disable=C0413
 import lib.powershell  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.winrm  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -37,14 +40,14 @@ DEFAULT_WINRM_USERNAME = 'Administrator'
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -56,7 +59,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Set the CRIT threshold as a percentage. Default: >= %(default)s',
         dest='CRIT',
         type=int,
@@ -64,7 +68,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-H', '--hostname',
+        '-H',
+        '--hostname',
         help='Specifies the DNS name, or IPv4 or IPv6 address, of the target computer that runs the DHCP server service. Default: %(default)s',
         dest='HOSTNAME',
         default=DEFAULT_HOSTNAME,
@@ -78,7 +83,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the WARN threshold as a percentage. Default: >= %(default)s',
         dest='WARN',
         type=int,
@@ -87,8 +93,7 @@ def parse_args():
 
     parser.add_argument(
         '--winrm-domain',
-        help='WinRM Domain Name. '
-             'Default: %(default)s',
+        help='WinRM Domain Name. Default: %(default)s',
         dest='WINRM_DOMAIN',
         default=DEFAULT_WINRM_DOMAIN,
     )
@@ -109,8 +114,7 @@ def parse_args():
 
     parser.add_argument(
         '--winrm-transport',
-        help='WinRM transport type. '
-             'Default: %(default)s',
+        help='WinRM transport type. Default: %(default)s',
         dest='WINRM_TRANSPORT',
         choices=['basic', 'ntlm', 'kerberos', 'credssp', 'plaintext'],
         default=DEFAULT_WINRM_TRANSPORT,
@@ -118,20 +122,17 @@ def parse_args():
 
     parser.add_argument(
         '--winrm-username',
-        help='WinRM Account Name. '
-             'Default: %(default)s',
+        help='WinRM Account Name. Default: %(default)s',
         dest='WINRM_USERNAME',
         default=DEFAULT_WINRM_USERNAME,
     )
-
 
     args, _ = parser.parse_known_args()
     return args
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -147,7 +148,9 @@ def main():
             result = lib.winrm.run_ps(args, cmd)
         else:
             if lib.base.LINUX:
-                lib.base.cu('Running this check plugin directly on Linux is not supported. Use the --winrm parameters.')
+                lib.base.cu(
+                    'Running this check plugin directly on Linux is not supported. Use the --winrm parameters.'
+                )
             result = lib.powershell.run_ps(cmd)
         stdout, stderr, retc = result['stdout'], result['stderr'], result['retc']
     else:
@@ -186,8 +189,10 @@ def main():
 
         scope_state = lib.base.get_state(scope_used, args.WARN, args.CRIT)
         state = lib.base.get_worst(scope_state, state)
-        msg += f"* {scope_id}: {scope_used}% used{lib.base.state2str(scope_state, prefix=' ')}\n"
-        perfdata += lib.base.get_perfdata(f'scope_{scope_id}', scope_used, '%', args.WARN, args.CRIT, 0, 100)
+        msg += f'* {scope_id}: {scope_used}% used{lib.base.state2str(scope_state, prefix=" ")}\n'
+        perfdata += lib.base.get_perfdata(
+            f'scope_{scope_id}', scope_used, '%', args.WARN, args.CRIT, 0, 100
+        )
 
     # over and out
     if state == STATE_CRIT:
@@ -202,5 +207,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

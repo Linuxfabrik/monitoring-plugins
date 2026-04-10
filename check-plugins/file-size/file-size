@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import glob  # pylint: disable=C0413
@@ -22,14 +21,19 @@ import lib.human  # pylint: disable=C0413
 
 try:
     import lib.smb  # pylint: disable=C0413
+
     HAVE_SMB = True
 except ModuleNotFoundError as e:
     HAVE_SMB = False
     PYTHON_MOD = e.name
 import lib.lftest  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -44,14 +48,14 @@ DEFAULT_WARN = '25M'
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -63,13 +67,14 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Threshold for the file size in a human readable format '
-             '(base is always 1024; valid qualifiers are '
-             'b, k/kb/kib, m/mb/mib, g/gb/gib etc.). '
-             'Supports Nagios ranges. '
-             'Example: `:1G` alerts if size is greater than 1 GiB.'
-             'Default: %(default)s',
+        '(base is always 1024; valid qualifiers are '
+        'b, k/kb/kib, m/mb/mib, g/gb/gib etc.). '
+        'Supports Nagios ranges. '
+        'Example: `:1G` alerts if size is greater than 1 GiB.'
+        'Default: %(default)s',
         dest='CRIT',
         default=DEFAULT_CRIT,
     )
@@ -77,18 +82,18 @@ def parse_args():
     parser.add_argument(
         '--filename',
         help='File name to check. Supports glob in accordance with '
-             'https://docs.python.org/2.7/library/glob.html. Note that using recursive globs '
-             'can cause high memory usage. '
-             'This is mutually exclusive with `-u` / `--url`.',
+        'https://docs.python.org/2.7/library/glob.html. Note that using recursive globs '
+        'can cause high memory usage. '
+        'This is mutually exclusive with `-u` / `--url`.',
         dest='FILENAME',
     )
 
     parser.add_argument(
         '--pattern',
         help='The search string to match against the names of SMB directories or files. '
-             'This pattern can use "*"" as a wildcard for multiple chars and "?"" as a wildcard '
-             'for a single char. Does not support regex patterns. '
-             'Default: %(default)s.',
+        'This pattern can use "*"" as a wildcard for multiple chars and "?"" as a wildcard '
+        'for a single char. Does not support regex patterns. '
+        'Default: %(default)s.',
         dest='PATTERN',
         default=DEFAULT_PATTERN,
     )
@@ -101,17 +106,17 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. '
-             'Default: %(default)s (seconds)',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
-        '-u', '--url',
+        '-u',
+        '--url',
         help='Set the url of the file to check, starting with "smb://". '
-             'This is mutually exclusive with `--filename`.',
+        'This is mutually exclusive with `--filename`.',
         dest='URL',
         type=str,
     )
@@ -123,13 +128,14 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Threshold for the file size in a human readable format '
-             '(base is always 1024; valid qualifiers are '
-             'b, k/kb/kib, m/mb/mib, g/gb/gib etc.). '
-             'Supports Nagios ranges. '
-             'Example: `:1G` alerts if size is greater than 1 GiB.'
-             'Default: %(default)s',
+        '(base is always 1024; valid qualifiers are '
+        'b, k/kb/kib, m/mb/mib, g/gb/gib etc.). '
+        'Supports Nagios ranges. '
+        'Example: `:1G` alerts if size is greater than 1 GiB.'
+        'Default: %(default)s',
         dest='WARN',
         default=DEFAULT_WARN,
     )
@@ -139,8 +145,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -149,7 +154,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     if args.FILENAME and args.URL:
-        lib.base.cu('The `--filename` and `-u` / `--url` parameters are mutually exclusive. Please use only one.') # pylint: disable=C0301
+        lib.base.cu(
+            'The `--filename` and `-u` / `--url` parameters are mutually exclusive. Please use only one.'
+        )  # pylint: disable=C0301
 
     # init some vars
     state = STATE_OK
@@ -169,10 +176,12 @@ def main():
             # filesystems, and never is the size of the contents
             if os.path.isdir(item):
                 continue
-            table_data.append({
-                'filename': item,
-                'size': os.stat(item).st_size,
-            })
+            table_data.append(
+                {
+                    'filename': item,
+                    'size': os.stat(item).st_size,
+                }
+            )
 
     # or fetch data from remote
     if args.URL:
@@ -182,16 +191,26 @@ def main():
         proto, url = split_url
         if proto == 'smb':
             if not HAVE_SMB:
-                lib.base.cu(f'Python module "{PYTHON_MOD}" is not installed.') # pylint: disable=E0601
-            for item in lib.base.coe(lib.smb.glob(url, args.USERNAME, args.PASSWORD, args.TIMEOUT, pattern=args.PATTERN)): # pylint: disable=C0301
+                lib.base.cu(f'Python module "{PYTHON_MOD}" is not installed.')  # pylint: disable=E0601
+            for item in lib.base.coe(
+                lib.smb.glob(
+                    url,
+                    args.USERNAME,
+                    args.PASSWORD,
+                    args.TIMEOUT,
+                    pattern=args.PATTERN,
+                )
+            ):  # pylint: disable=C0301
                 # ignoring directories as the size of a directory is not consistently defined across
                 # filesystems, and never is the size of the contents
                 if item.is_dir():
                     continue
-                table_data.append({
-                    'filename': item,
-                    'size': item.stat().st_size,
-                })
+                table_data.append(
+                    {
+                        'filename': item,
+                        'size': item.stat().st_size,
+                    }
+                )
         else:
             lib.base.cu(f'The protocol "{proto}" is not supported.')
 
@@ -208,13 +227,15 @@ def main():
             CRIT,
             _operator='range',
         )
-        table_data[i]['state_hr'] = lib.base.state2str(table_data[i]['state'], empty_ok=False)
+        table_data[i]['state_hr'] = lib.base.state2str(
+            table_data[i]['state'], empty_ok=False
+        )
         if table_data[i]['state']:
             alert_count += 1
         state = lib.base.get_worst(state, table_data[i]['state'])
 
     # build the message
-    msg += f"{len(table_data)} {lib.txt.pluralize('file', len(table_data))} checked. "
+    msg += f'{len(table_data)} {lib.txt.pluralize("file", len(table_data))} checked. '
     if state == STATE_OK:
         msg += (
             f'{lib.txt.pluralize("", len(table_data), "It is,All are")}'
@@ -257,5 +278,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

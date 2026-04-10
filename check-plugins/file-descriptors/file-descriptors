@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -18,8 +17,12 @@ from collections import Counter  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.version  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 try:
     import psutil  # pylint: disable=C0413
@@ -33,20 +36,20 @@ __version__ = '2026040801'
 
 DESCRIPTION = 'Checks the number of allocated file handles in percent.'
 
-DEFAULT_CRIT  = 95      # %
+DEFAULT_CRIT = 95  # %
 DEFAULT_TOP = 5
-DEFAULT_WARN  = 90      # %
+DEFAULT_WARN = 90  # %
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -58,7 +61,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Set the critical threshold for file descriptor usage (in percent). Default: %(default)s',
         dest='CRIT',
         type=int,
@@ -67,15 +71,15 @@ def parse_args():
 
     parser.add_argument(
         '--top',
-        help='List x "Top processes opening file descriptors". '
-             'Default: %(default)s',
+        help='List x "Top processes opening file descriptors". Default: %(default)s',
         dest='TOP',
         type=int,
         default=DEFAULT_TOP,
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the warning threshold for file descriptor usage (in percent). Default: %(default)s',
         dest='WARN',
         type=int,
@@ -87,8 +91,7 @@ def parse_args():
 
 
 def top(count):
-    """Get top X processes opening file descriptors.
-    """
+    """Get top X processes opening file descriptors."""
     cnt = Counter()
     msg = f'\nTop {count} processes opening file descriptors:\n'
     if lib.version.version(psutil.__version__) >= lib.version.version('5.3.0'):
@@ -100,7 +103,9 @@ def top(count):
             pass
     else:
         try:
-            for p in [x.as_dict(attrs=['name', 'num_fds']) for x in psutil.process_iter()]:
+            for p in [
+                x.as_dict(attrs=['name', 'num_fds']) for x in psutil.process_iter()
+            ]:
                 if p['num_fds']:
                     cnt[p['name']] += p['num_fds']
         except psutil.NoSuchProcess:
@@ -112,8 +117,7 @@ def top(count):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -128,8 +132,8 @@ def main():
     with open('/proc/sys/fs/file-nr') as file:
         fs = [float(item) for item in file.readline().split('\t')]
 
-    files_allocated = fs[0]     # The number of allocated file handles
-    files_max = fs[2]           # The number of system-wide maximum number of file handles
+    files_allocated = fs[0]  # The number of allocated file handles
+    files_max = fs[2]  # The number of system-wide maximum number of file handles
     # fs[1] is the number of unused-but-allocated file handles
     files_percent = round(files_allocated / files_max * 100, 1)
 
@@ -138,7 +142,9 @@ def main():
         f' ({lib.human.number2human(files_allocated)}'
         f'/{lib.human.number2human(files_max)})\n'
     )
-    perfdata += lib.base.get_perfdata('fd', files_percent, '%', args.WARN, args.CRIT, 0, 100)
+    perfdata += lib.base.get_perfdata(
+        'fd', files_percent, '%', args.WARN, args.CRIT, 0, 100
+    )
     state = lib.base.get_state(files_percent, args.WARN, args.CRIT, 'ge')
 
     # Top X processes opening file descriptors
@@ -151,5 +157,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

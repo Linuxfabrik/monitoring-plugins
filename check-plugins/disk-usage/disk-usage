@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import re  # pylint: disable=C0413
@@ -18,8 +17,12 @@ import sys  # pylint: disable=C0413
 import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 try:
     import psutil  # pylint: disable=C0413
@@ -38,14 +41,14 @@ DEFAULT_CRIT = '95%USED'
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -57,18 +60,19 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Critical threshold, '
-             'of the form "<number>[unit][method]", where unit is '
-             'one of `%%|K|M|G|T|P` and method is one of `USED|FREE`. If "unit" is omitted, '
-             '`%%` is assumed. `K` means `kibibyte` etc. If "method" is omitted, '
-             '`USED` is assumed. `USED` means "number ore more", `FREE` means "number or less". '
-             'Examples: '
-             '`95` = alert at 95%% usage or more. '
-             '`9.5M` = alert when 9.5 MiB or more is used. '
-             'Other self-explanatory examples are '
-             '`95%%USED`, `5%%FREE`, `9.5GFREE`, `1400GUSED`. '
-             'Default: %(default)s',
+        'of the form "<number>[unit][method]", where unit is '
+        'one of `%%|K|M|G|T|P` and method is one of `USED|FREE`. If "unit" is omitted, '
+        '`%%` is assumed. `K` means `kibibyte` etc. If "method" is omitted, '
+        '`USED` is assumed. `USED` means "number ore more", `FREE` means "number or less". '
+        'Examples: '
+        '`95` = alert at 95%% usage or more. '
+        '`9.5M` = alert when 9.5 MiB or more is used. '
+        'Other self-explanatory examples are '
+        '`95%%USED`, `5%%FREE`, `9.5GFREE`, `1400GUSED`. '
+        'Default: %(default)s',
         dest='CRIT',
         type=lib.args.number_unit_method,
         default=DEFAULT_CRIT,
@@ -77,11 +81,11 @@ def parse_args():
     parser.add_argument(
         '--exclude-pattern',
         help='Any mountpoint matching this pattern (case-insensitive) will count as an exclude. '
-             'The mountpoint is excluded if it contains the specified value. '
-             'Example: "boot" excludes "/boot" as well as "/boot/efi". '
-             'Can be specified multiple times. '
-             'On Windows, use drive letters without backslash ("Y:" or "Y"). '
-             'Includes are matched before excludes.',
+        'The mountpoint is excluded if it contains the specified value. '
+        'Example: "boot" excludes "/boot" as well as "/boot/efi". '
+        'Can be specified multiple times. '
+        'On Windows, use drive letters without backslash ("Y:" or "Y"). '
+        'Includes are matched before excludes.',
         dest='EXCLUDE_PATTERN',
         action='append',
         default=None,
@@ -90,10 +94,10 @@ def parse_args():
     parser.add_argument(
         '--exclude-regex',
         help='Any mountpoint matching this python regex (case-insensitive) will count '
-             'as an exclude. '
-             'Can be specified multiple times. '
-             'On Windows, use drive letters without backslash ("Y:" or "Y"). '
-             'Includes are matched before excludes.',
+        'as an exclude. '
+        'Can be specified multiple times. '
+        'On Windows, use drive letters without backslash ("Y:" or "Y"). '
+        'Includes are matched before excludes.',
         dest='EXCLUDE_REGEX',
         action='append',
         default=None,
@@ -102,12 +106,12 @@ def parse_args():
     parser.add_argument(
         '--fstype',
         help='By default, this plugin only checks physical devices (e.g. hard disks, '
-             'CD-ROM drives, USB keys) and ignores all others (e.g. pseudo, memory, duplicate, '
-             'inaccessible file systems). You can override this behaviour with this parameter by '
-             'specifying which file system types should be checked explicitly. '
-             'Can be specified multiple times. '
-             'To get a list of file system types you can specify, run `disk-usage --list-fstype` '
-             'first (as file system types are machine dependent).',
+        'CD-ROM drives, USB keys) and ignores all others (e.g. pseudo, memory, duplicate, '
+        'inaccessible file systems). You can override this behaviour with this parameter by '
+        'specifying which file system types should be checked explicitly. '
+        'Can be specified multiple times. '
+        'To get a list of file system types you can specify, run `disk-usage --list-fstype` '
+        'first (as file system types are machine dependent).',
         dest='FSTYPE',
         action='append',
         default=None,
@@ -116,11 +120,11 @@ def parse_args():
     parser.add_argument(
         '--include-pattern',
         help='Any mountpoint matching this pattern (case-insensitive) will count as an include. '
-             'The mountpoint is included if it contains the specified value. '
-             'Example: "boot" includes "/boot" as well as "/boot/efi". '
-             'Can be specified multiple times. '
-             'On Windows, use drive letters without backslash ("Y:" or "Y"). '
-             'Includes are matched before excludes.',
+        'The mountpoint is included if it contains the specified value. '
+        'Example: "boot" includes "/boot" as well as "/boot/efi". '
+        'Can be specified multiple times. '
+        'On Windows, use drive letters without backslash ("Y:" or "Y"). '
+        'Includes are matched before excludes.',
         dest='INCLUDE_PATTERN',
         action='append',
         default=None,
@@ -129,10 +133,10 @@ def parse_args():
     parser.add_argument(
         '--include-regex',
         help='Any mountpoint matching this python regex (case-insensitive) will count '
-             'as an include. '
-             'Can be specified multiple times. '
-             'On Windows, use drive letters without backslash ("Y:" or "Y"). '
-             'Includes are matched before excludes.',
+        'as an include. '
+        'Can be specified multiple times. '
+        'On Windows, use drive letters without backslash ("Y:" or "Y"). '
+        'Includes are matched before excludes.',
         dest='INCLUDE_REGEX',
         action='append',
         default=None,
@@ -149,26 +153,27 @@ def parse_args():
     parser.add_argument(
         '--perfdata-regex',
         help='Only print perfdata keys matching this python regex. '
-             'For a list of perfdata keys, have a look at the README and run this plugin. '
-             'Can be specified multiple times.',
+        'For a list of perfdata keys, have a look at the README and run this plugin. '
+        'Can be specified multiple times.',
         action='append',
         dest='PERFDATA_REGEX',
         default=None,
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Warning threshold, '
-             'of the form "<number>[unit][method]", where unit is '
-             'one of `%%|K|M|G|T|P` and method is one of `USED|FREE`. If "unit" is omitted, '
-             '`%%` is assumed. `K` means `kibibyte` etc. If "method" is omitted, '
-             '`USED` is assumed. `USED` means "number ore more", `FREE` means "number or less". '
-             'Examples: '
-             '`95` = alert at 95%% usage. '
-             '`9.5M` = alert when 9.5 MiB is used. '
-             'Other self-explanatory examples are '
-             '`95%%USED`, `5%%FREE`, `9.5GFREE`, `1400GUSED`. '
-             'Default: %(default)s',
+        'of the form "<number>[unit][method]", where unit is '
+        'one of `%%|K|M|G|T|P` and method is one of `USED|FREE`. If "unit" is omitted, '
+        '`%%` is assumed. `K` means `kibibyte` etc. If "method" is omitted, '
+        '`USED` is assumed. `USED` means "number ore more", `FREE` means "number or less". '
+        'Examples: '
+        '`95` = alert at 95%% usage. '
+        '`9.5M` = alert when 9.5 MiB is used. '
+        'Other self-explanatory examples are '
+        '`95%%USED`, `5%%FREE`, `9.5GFREE`, `1400GUSED`. '
+        'Default: %(default)s',
         dest='WARN',
         type=lib.args.number_unit_method,
         default=DEFAULT_WARN,
@@ -179,8 +184,7 @@ def parse_args():
 
 
 def compile_regex(regex, what):
-    """Return a compiled regex.
-    """
+    """Return a compiled regex."""
     try:
         return [re.compile(item, re.IGNORECASE) for item in regex]
     except re.error as e:
@@ -192,18 +196,19 @@ def compile_regex(regex, what):
 
 
 def list_fstypes():
-    """Print a nice table showing which file system types exist and which are checked by default.
-    """
+    """Print a nice table showing which file system types exist and which are checked by default."""
     # get all partitions, no matter which ones
     parts = psutil.disk_partitions(all=True)
     table_data = []
     for part in parts:
-        table_data.append({
-            'fstype': part.fstype,
-            'mountpoint': part.mountpoint,
-            'device': part.device,
-            'checked': False,
-        })
+        table_data.append(
+            {
+                'fstype': part.fstype,
+                'mountpoint': part.mountpoint,
+                'device': part.device,
+                'checked': False,
+            }
+        )
 
     # get which ones are checked by default
     try:
@@ -217,18 +222,15 @@ def list_fstypes():
                 continue
 
     # sort table by fstype, mountpoint
-    keys = [
-      'fstype',
-      'mountpoint',
-      'device',
-      'checked'
-    ]
-    lib.base.oao(lib.base.get_table(table_data, keys, header=keys, sort_by_key='fstype'), STATE_OK)
+    keys = ['fstype', 'mountpoint', 'device', 'checked']
+    lib.base.oao(
+        lib.base.get_table(table_data, keys, header=keys, sort_by_key='fstype'),
+        STATE_OK,
+    )
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -279,7 +281,9 @@ def main():
         try:
             parts = psutil.disk_partitions(all=False)
         except AttributeError:
-            lib.base.cu('Did not find physical devices (e.g. hard disks, cd-rom drives, USB keys).')
+            lib.base.cu(
+                'Did not find physical devices (e.g. hard disks, cd-rom drives, USB keys).'
+            )
 
     for part in parts:
         # sdiskpart(device='/dev/vda2', mountpoint='/', fstype='ext4', opts='rw,relatime')
@@ -296,7 +300,9 @@ def main():
                 continue
         else:
             # default behaviour - ignore read-only and some other filesystems
-            if part.fstype in ['CDFS', 'iso9660', 'squashfs', 'UDF'] or part.opts in ['cdrom']:
+            if part.fstype in ['CDFS', 'iso9660', 'squashfs', 'UDF'] or part.opts in [
+                'cdrom'
+            ]:
                 continue
 
         # include (first) and exclude (second) specific partitions
@@ -304,25 +310,31 @@ def main():
         # impossible to specify a "Y:\" on the command line ('Y:\' or 'Y:\\' all don't work).
         mountpoint = part.mountpoint.lower()
         if args.INCLUDE_PATTERN or args.INCLUDE_REGEX:
-            if not any(include_pattern.lower() in mountpoint for include_pattern in args.INCLUDE_PATTERN) \
-            and not any(item.search(mountpoint) for item in compiled_include_regex):
+            if not any(
+                include_pattern.lower() in mountpoint
+                for include_pattern in args.INCLUDE_PATTERN
+            ) and not any(item.search(mountpoint) for item in compiled_include_regex):
                 continue
         if args.EXCLUDE_PATTERN or args.EXCLUDE_REGEX:
-            if any(exclude_pattern.lower() in mountpoint for exclude_pattern in args.EXCLUDE_PATTERN) \
-            or any(item.search(mountpoint) for item in compiled_exclude_regex):
+            if any(
+                exclude_pattern.lower() in mountpoint
+                for exclude_pattern in args.EXCLUDE_PATTERN
+            ) or any(item.search(mountpoint) for item in compiled_exclude_regex):
                 continue
 
         try:
             usage = psutil.disk_usage(part.mountpoint)
         except (PermissionError, FileNotFoundError, OSError):
-            table_data.append({
-                'mountpoint': f'{part.mountpoint}',
-                'type': f'{part.fstype}',
-                'used': 'N/A',
-                'avail': 'N/A',
-                'size': 'N/A',
-                'percent': 'N/A',
-            })
+            table_data.append(
+                {
+                    'mountpoint': f'{part.mountpoint}',
+                    'type': f'{part.fstype}',
+                    'used': 'N/A',
+                    'avail': 'N/A',
+                    'size': 'N/A',
+                    'percent': 'N/A',
+                }
+            )
             continue
 
         # check % vs. USED|FREE and K|M|G|T|P vs. USED|FREE, first WARN, then CRIT
@@ -401,8 +413,9 @@ def main():
         state = lib.base.get_worst(state, disk_state)
 
         perfdata_key = f'{part.mountpoint}-usage'
-        if not args.PERFDATA_REGEX \
-        or any(item.search(perfdata_key) for item in compiled_perfdata_regex):
+        if not args.PERFDATA_REGEX or any(
+            item.search(perfdata_key) for item in compiled_perfdata_regex
+        ):
             perfdata += lib.base.get_perfdata(
                 perfdata_key,
                 usage.used,
@@ -413,8 +426,9 @@ def main():
                 _max=usage.total,
             )
         perfdata_key = f'{part.mountpoint}-total'
-        if not args.PERFDATA_REGEX \
-        or any(item.search(perfdata_key) for item in compiled_perfdata_regex):
+        if not args.PERFDATA_REGEX or any(
+            item.search(perfdata_key) for item in compiled_perfdata_regex
+        ):
             perfdata += lib.base.get_perfdata(
                 perfdata_key,
                 usage.total,
@@ -425,8 +439,9 @@ def main():
                 _max=usage.total,
             )
         perfdata_key = f'{part.mountpoint}-percent'
-        if not args.PERFDATA_REGEX \
-        or any(item.search(perfdata_key) for item in compiled_perfdata_regex):
+        if not args.PERFDATA_REGEX or any(
+            item.search(perfdata_key) for item in compiled_perfdata_regex
+        ):
             perfdata += lib.base.get_perfdata(
                 perfdata_key,
                 usage.percent,
@@ -436,14 +451,16 @@ def main():
                 _min=0,
                 _max=100,
             )
-        table_data.append({
-            'mountpoint': f'{part.mountpoint}',
-            'type': f'{part.fstype}',
-            'used': lib.human.bytes2human(usage.used),
-            'avail': lib.human.bytes2human(usage.free),
-            'size': lib.human.bytes2human(usage.total),
-            'percent': f"{usage.percent}%{lib.base.state2str(disk_state, prefix=' ')}",
-        })
+        table_data.append(
+            {
+                'mountpoint': f'{part.mountpoint}',
+                'type': f'{part.fstype}',
+                'used': lib.human.bytes2human(usage.used),
+                'avail': lib.human.bytes2human(usage.free),
+                'size': lib.human.bytes2human(usage.total),
+                'percent': f'{usage.percent}%{lib.base.state2str(disk_state, prefix=" ")}',
+            }
+        )
 
     # build the message
     if not table_data:
@@ -471,12 +488,7 @@ def main():
             ['Mountpoint', 'Type', 'Size', 'Used', 'Avail', 'Use%'],
             'percent',
         )
-        msg = (
-            f'{msg}'
-            f' (warn={"".join(args.WARN)}'
-            f' crit={"".join(args.CRIT)})'
-            f'\n\n{table}'
-        )
+        msg = f'{msg} (warn={"".join(args.WARN)} crit={"".join(args.CRIT)})\n\n{table}'
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
@@ -485,5 +497,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

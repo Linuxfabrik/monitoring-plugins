@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse
 import hashlib
@@ -23,7 +22,7 @@ import lib.db_sqlite
 import lib.human
 import lib.time
 import lib.txt
-from lib.globals import (STATE_OK, STATE_UNKNOWN)
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 try:
     import psutil
@@ -56,14 +55,14 @@ DEFAULT_WARN_MEM_PERCENT = None
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -77,24 +76,25 @@ def parse_args():
     parser.add_argument(
         '--argument',
         help='Filter: Search only for processes where the command line matches '
-             'ARGUMENT as a regular expression (case-insensitive). '
-             'Example: `--argument="--config.*production"`',
+        'ARGUMENT as a regular expression (case-insensitive). '
+        'Example: `--argument="--config.*production"`',
         dest='ARGUMENT',
     )
 
     parser.add_argument(
         '--command',
         help='Filter: Search only for processes whose name matches '
-             'COMMAND as a regular expression (case-insensitive). '
-             'Example: `--command="^(apache|httpd)"`',
+        'COMMAND as a regular expression (case-insensitive). '
+        'Example: `--command="^(apache|httpd)"`',
         dest='COMMAND',
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Threshold for the number of processes. '
-             'Type: None or Range. '
-             'Default: %(default)s',
+        'Type: None or Range. '
+        'Default: %(default)s',
         default=DEFAULT_CRIT,
         dest='CRIT',
     )
@@ -102,8 +102,8 @@ def parse_args():
     parser.add_argument(
         '--critical-age',
         help='Threshold for age of the process, in seconds. '
-             'Type: None or Range. '
-             'Default: %(default)s',
+        'Type: None or Range. '
+        'Default: %(default)s',
         default=DEFAULT_CRIT_AGE,
         dest='CRIT_AGE',
     )
@@ -111,10 +111,10 @@ def parse_args():
     parser.add_argument(
         '--critical-cpu-percent',
         help='Threshold for CPU usage of all matching processes, in percent. '
-             'Requires two consecutive check runs to calculate. '
-             'A value of 100%% equals one fully utilized CPU core. '
-             'Type: None or Range. '
-             'Default: %(default)s',
+        'Requires two consecutive check runs to calculate. '
+        'A value of 100%% equals one fully utilized CPU core. '
+        'Type: None or Range. '
+        'Default: %(default)s',
         default=DEFAULT_CRIT_CPU_PERCENT,
         dest='CRIT_CPU_PERCENT',
     )
@@ -122,8 +122,8 @@ def parse_args():
     parser.add_argument(
         '--critical-mem',
         help='Threshold for memory usage, in bytes. '
-             'Type: None or Range. '
-             'Default: %(default)s',
+        'Type: None or Range. '
+        'Default: %(default)s',
         default=DEFAULT_CRIT_MEM,
         dest='CRIT_MEM',
     )
@@ -131,8 +131,8 @@ def parse_args():
     parser.add_argument(
         '--critical-mem-percent',
         help='Threshold for memory usage, in percent. '
-             'Type: None or Range. '
-             'Default: %(default)s',
+        'Type: None or Range. '
+        'Default: %(default)s',
         default=DEFAULT_CRIT_MEM_PERCENT,
         dest='CRIT_MEM_PERCENT',
     )
@@ -148,7 +148,7 @@ def parse_args():
     parser.add_argument(
         '--no-kthreads',
         help='Filter: Only scan for non kernel threads (works on Linux only). '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='NO_KTHREADS',
         default=DEFAULT_NO_KTHREADS,
         action='store_true',
@@ -157,21 +157,21 @@ def parse_args():
     parser.add_argument(
         '--status',
         help='Filter: Search only for processes that have a specific status. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='STATUS',
         default=DEFAULT_STATUS,
         choices=[
             'dead',
             'disk-sleep',
-            'idle',         # Linux, macOS, FreeBSD
-            'locked',       # FreeBSD
-            'parked',       # Linux
+            'idle',  # Linux, macOS, FreeBSD
+            'locked',  # FreeBSD
+            'parked',  # Linux
             'running',
             'sleeping',
             'stopped',
-            'suspended',    # NetBSD
+            'suspended',  # NetBSD
             'tracing-stop',
-            'waiting',      # FreeBSD
+            'waiting',  # FreeBSD
             'wake-kill',
             'waking',
             'zombie',
@@ -181,9 +181,9 @@ def parse_args():
     parser.add_argument(
         '--top',
         help='List the top N processes using the most CPU time. '
-             'Processes with zero CPU time are excluded from the table. '
-             'Use `--top=0` to disable this feature. '
-             'Default: %(default)s',
+        'Processes with zero CPU time are excluded from the table. '
+        'Use `--top=0` to disable this feature. '
+        'Default: %(default)s',
         dest='TOP',
         type=int,
         default=DEFAULT_TOP,
@@ -192,16 +192,17 @@ def parse_args():
     parser.add_argument(
         '--username',
         help='Filter: Search only for processes whose user name matches '
-             'USERNAME as a regular expression (case-insensitive). '
-             'Example: `--username="^(apache|www-data)$"`',
+        'USERNAME as a regular expression (case-insensitive). '
+        'Example: `--username="^(apache|www-data)$"`',
         dest='USERNAME',
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Threshold for the number of processes. '
-             'Type: None or Range. '
-             'Default: %(default)s',
+        'Type: None or Range. '
+        'Default: %(default)s',
         dest='WARN',
         default=DEFAULT_WARN,
     )
@@ -209,8 +210,8 @@ def parse_args():
     parser.add_argument(
         '--warning-age',
         help='Threshold for age of the process, in seconds. '
-             'Type: None or Range. '
-             'Default: %(default)s',
+        'Type: None or Range. '
+        'Default: %(default)s',
         default=DEFAULT_WARN_AGE,
         dest='WARN_AGE',
     )
@@ -218,10 +219,10 @@ def parse_args():
     parser.add_argument(
         '--warning-cpu-percent',
         help='Threshold for CPU usage of all matching processes, in percent. '
-             'Requires two consecutive check runs to calculate. '
-             'A value of 100%% equals one fully utilized CPU core. '
-             'Type: None or Range. '
-             'Default: %(default)s',
+        'Requires two consecutive check runs to calculate. '
+        'A value of 100%% equals one fully utilized CPU core. '
+        'Type: None or Range. '
+        'Default: %(default)s',
         default=DEFAULT_WARN_CPU_PERCENT,
         dest='WARN_CPU_PERCENT',
     )
@@ -229,8 +230,8 @@ def parse_args():
     parser.add_argument(
         '--warning-mem',
         help='Threshold for memory usage, in bytes. '
-             'Type: None or Range. '
-             'Default: %(default)s',
+        'Type: None or Range. '
+        'Default: %(default)s',
         default=DEFAULT_WARN_MEM,
         dest='WARN_MEM',
     )
@@ -238,8 +239,8 @@ def parse_args():
     parser.add_argument(
         '--warning-mem-percent',
         help='Threshold for memory usage, in percent. '
-             'Type: None or Range. '
-             'Default: %(default)s',
+        'Type: None or Range. '
+        'Default: %(default)s',
         default=DEFAULT_WARN_MEM_PERCENT,
         dest='WARN_MEM_PERCENT',
     )
@@ -249,8 +250,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -362,9 +362,13 @@ def main():
 
     # Precompile regex filters once
     try:
-        re_username = re.compile(args.USERNAME, re.IGNORECASE) if need_username else None
+        re_username = (
+            re.compile(args.USERNAME, re.IGNORECASE) if need_username else None
+        )
         re_command = re.compile(args.COMMAND, re.IGNORECASE) if need_command else None
-        re_argument = re.compile(args.ARGUMENT, re.IGNORECASE) if need_argument else None
+        re_argument = (
+            re.compile(args.ARGUMENT, re.IGNORECASE) if need_argument else None
+        )
     except re.error as e:
         lib.base.cu(f'Invalid regular expression: {e}')
 
@@ -484,7 +488,7 @@ def main():
                     cput = info.get('cpu_times')
                     if cput:
                         top_procs[pname]['user'] += cput.user or 0
-                        top_procs[pname]['system'] += (getattr(cput, 'system', 0) or 0)
+                        top_procs[pname]['system'] += getattr(cput, 'system', 0) or 0
                     meminfo = info.get('memory_info')
                     if meminfo:
                         for attr, _, _ in mem_fields:
@@ -505,9 +509,7 @@ def main():
 
     # compute CPU% via SQLite delta if thresholds are set
     if need_cpu_percent:
-        total_cpu_time = sum(
-            d['user'] + d['system'] for d in top_procs.values()
-        )
+        total_cpu_time = sum(d['user'] + d['system'] for d in top_procs.values())
         now = lib.time.now()
 
         # use a hash of the filter parameters to separate data for different
@@ -520,22 +522,26 @@ def main():
         )
         filter_hash = hashlib.sha256(filter_key.encode()).hexdigest()
 
-        conn = lib.base.coe(lib.db_sqlite.connect(
-            filename='linuxfabrik-monitoring-plugins-procs.db',
-        ))
-        definition = '''
+        conn = lib.base.coe(
+            lib.db_sqlite.connect(
+                filename='linuxfabrik-monitoring-plugins-procs.db',
+            )
+        )
+        definition = """
             filter_hash TEXT PRIMARY KEY,
             cpu_time REAL NOT NULL,
             ts REAL NOT NULL
-        '''
+        """
         lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='cpu_snapshot'))
 
-        old = lib.base.coe(lib.db_sqlite.select(
-            conn,
-            'SELECT cpu_time, ts FROM cpu_snapshot WHERE filter_hash = :filter_hash',
-            {'filter_hash': filter_hash},
-            fetchone=True,
-        ))
+        old = lib.base.coe(
+            lib.db_sqlite.select(
+                conn,
+                'SELECT cpu_time, ts FROM cpu_snapshot WHERE filter_hash = :filter_hash',
+                {'filter_hash': filter_hash},
+                fetchone=True,
+            )
+        )
 
         if old:
             delta_time = now - old['ts']
@@ -544,16 +550,20 @@ def main():
                 procs_cpu_percent = (delta_cpu / delta_time) * 100.0
 
         # store current snapshot
-        lib.base.coe(lib.db_sqlite.delete(
-            conn,
-            'DELETE FROM cpu_snapshot WHERE filter_hash = :filter_hash',
-            {'filter_hash': filter_hash},
-        ))
-        lib.base.coe(lib.db_sqlite.insert(
-            conn,
-            {'filter_hash': filter_hash, 'cpu_time': total_cpu_time, 'ts': now},
-            table='cpu_snapshot',
-        ))
+        lib.base.coe(
+            lib.db_sqlite.delete(
+                conn,
+                'DELETE FROM cpu_snapshot WHERE filter_hash = :filter_hash',
+                {'filter_hash': filter_hash},
+            )
+        )
+        lib.base.coe(
+            lib.db_sqlite.insert(
+                conn,
+                {'filter_hash': filter_hash, 'cpu_time': total_cpu_time, 'ts': now},
+                table='cpu_snapshot',
+            )
+        )
         lib.base.coe(lib.db_sqlite.commit(conn))
         lib.db_sqlite.close(conn)
 
@@ -580,14 +590,18 @@ def main():
     # number of processes
     local_state = lib.base.get_state(procs_count, args.WARN, args.CRIT, 'range')
     state = lib.base.get_worst(state, local_state)
-    msg = f'{procs_count} {lib.txt.pluralize("proc", procs_count)}' \
-          f'{msg_filter}{lib.base.state2str(local_state, prefix=" ")}'
+    msg = (
+        f'{procs_count} {lib.txt.pluralize("proc", procs_count)}'
+        f'{msg_filter}{lib.base.state2str(local_state, prefix=" ")}'
+    )
 
     # memory usage (bytes)
     local_state = lib.base.get_state(procs_mem, args.WARN_MEM, args.CRIT_MEM, 'range')
     state = lib.base.get_worst(state, local_state)
-    msg += f' using {lib.human.bytes2human(procs_mem)} RAM' \
-           f'{lib.base.state2str(local_state, prefix=" ")}, '
+    msg += (
+        f' using {lib.human.bytes2human(procs_mem)} RAM'
+        f'{lib.base.state2str(local_state, prefix=" ")}, '
+    )
 
     # memory usage (percent)
     local_state = lib.base.get_state(
@@ -597,8 +611,10 @@ def main():
         'range',
     )
     state = lib.base.get_worst(state, local_state)
-    msg = msg[:-2] + f' ({round(procs_mem_percent, 1)}%)' \
-          f'{lib.base.state2str(local_state, prefix=" ")}, '
+    msg = (
+        msg[:-2] + f' ({round(procs_mem_percent, 1)}%)'
+        f'{lib.base.state2str(local_state, prefix=" ")}, '
+    )
 
     # CPU usage (percent)
     if need_cpu_percent:
@@ -609,23 +625,29 @@ def main():
             'range',
         )
         state = lib.base.get_worst(state, local_state)
-        msg += f'{round(procs_cpu_percent, 1)}% CPU' \
-               f'{lib.base.state2str(local_state, prefix=" ")}, '
+        msg += (
+            f'{round(procs_cpu_percent, 1)}% CPU'
+            f'{lib.base.state2str(local_state, prefix=" ")}, '
+        )
 
     # age (seconds)
     local_state = lib.base.get_state(procs_age, args.WARN_AGE, args.CRIT_AGE, 'range')
     state = lib.base.get_worst(state, local_state)
     if need_age and procs_count > 1:
         msg += 'oldest proc '
-        msg += f'created {lib.human.seconds2human(procs_age)} ago' \
-               f'{lib.base.state2str(local_state, prefix=" ")}, '
+        msg += (
+            f'created {lib.human.seconds2human(procs_age)} ago'
+            f'{lib.base.state2str(local_state, prefix=" ")}, '
+        )
 
     if proc_states[psutil.STATUS_DEAD]:
         msg += f'{proc_states[psutil.STATUS_DEAD]} dead, '
 
     if proc_states[psutil.STATUS_DISK_SLEEP]:
-        msg += f'{proc_states[psutil.STATUS_DISK_SLEEP]} ' \
-               f'{lib.txt.pluralize("uninterruptible", proc_states[psutil.STATUS_DISK_SLEEP])} ('
+        msg += (
+            f'{proc_states[psutil.STATUS_DISK_SLEEP]} '
+            f'{lib.txt.pluralize("uninterruptible", proc_states[psutil.STATUS_DISK_SLEEP])} ('
+        )
         for name, cnt in uninterruptibles.items():
             msg += f'{cnt}x {name}, '
         msg = msg[:-2] + '), '
@@ -643,8 +665,10 @@ def main():
         msg += f'{proc_states[psutil.STATUS_STOPPED]} stopped, '
 
     if proc_states[psutil.STATUS_ZOMBIE]:
-        msg += f'{proc_states[psutil.STATUS_ZOMBIE]} ' \
-               f'{lib.txt.pluralize("zombie", proc_states[psutil.STATUS_ZOMBIE])} ('
+        msg += (
+            f'{proc_states[psutil.STATUS_ZOMBIE]} '
+            f'{lib.txt.pluralize("zombie", proc_states[psutil.STATUS_ZOMBIE])} ('
+        )
         for name, cnt in zombies.items():
             msg += f'{cnt}x {name}, '
         msg = msg[:-2] + '), '
@@ -685,7 +709,7 @@ def main():
                     row[attr] = data[attr]
             table_data.append(row)
         table_data.sort(key=lambda x: x['_total_raw'], reverse=True)
-        table_data = table_data[:args.TOP]
+        table_data = table_data[: args.TOP]
         for row in table_data:
             del row['_total_raw']
         if table_data:
@@ -814,5 +838,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse
 import sys
@@ -21,28 +20,30 @@ from lib.globals import STATE_OK, STATE_UNKNOWN
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2025100601'
 
-DESCRIPTION = """Provides information about an installed Nextcloud Enterprise subscription."""
+DESCRIPTION = (
+    """Provides information about an installed Nextcloud Enterprise subscription."""
+)
 
 DEFAULT_PATH = '/var/www/html/nextcloud'
 DEFAULT_TIMEOUT = 8
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
         '--path',
-        help='Local path to your Nextcloud installation, typically within your Webserver\'s '
-             'Document Root. '
-             'Default: %(default)s',
+        help="Local path to your Nextcloud installation, typically within your Webserver's "
+        'Document Root. '
+        'Default: %(default)s',
         dest='PATH',
         default=DEFAULT_PATH,
     )
@@ -52,8 +53,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -100,12 +100,16 @@ def main():
 
     msg += '\n'
     msg += f'Subscr. Renewal: {last_response.get("subscriptionRenewal", "N/A")}, '
-    msg += f'Count active users only: {last_response.get("onlyCountActiveUsers", "N/A")}, '
+    msg += (
+        f'Count active users only: {last_response.get("onlyCountActiveUsers", "N/A")}, '
+    )
     msg += f'Hard User Limit: {last_response.get("hasHardUserLimit", "N/A")}, '
     msg += f'Extended Support: {last_response.get("extendedSupport", "N/A")}, '
     msg += f'Branding: {last_response.get("hasBrandingOption", "N/A")}, '
     msg += f'Branding Plus: {last_response.get("hasBrandingPlusOption", "N/A")}, '
-    msg += f'Customization Service: {last_response.get("hasCustomizationService", "N/A")}'
+    msg += (
+        f'Customization Service: {last_response.get("hasCustomizationService", "N/A")}'
+    )
 
     msg += '\n'
     msg += 'Account Manager: '
@@ -113,20 +117,41 @@ def main():
     msg += f'{last_response.get("accountManagerInfo", {}).get("phone", "N/A")}, '
     msg += f'{last_response.get("accountManagerInfo", {}).get("email", "N/A")}'
 
-    for feature in ['groupware', 'talk', 'collabora', 'onlyoffice', 'outlook', 'sip_bridge']:
-        table_data.append({
-            'feature': feature,
-            'hasSubscription': last_response.get(feature, {}).get('hasSubscription', ''),
-            'users': last_response.get(feature, {}).get('users', ''),
-            'endDate': last_response.get(feature, {}).get('endDate', ''),
-            'mcuOption': last_response.get(feature, {}).get('mcuOption', ''),
-            'mcuOptionUsers': last_response.get(feature, {}).get('mcuOptionUsers', ''),
-            'level': last_response.get(feature, {}).get('level', ''),
-        })
+    for feature in [
+        'groupware',
+        'talk',
+        'collabora',
+        'onlyoffice',
+        'outlook',
+        'sip_bridge',
+    ]:
+        table_data.append(
+            {
+                'feature': feature,
+                'hasSubscription': last_response.get(feature, {}).get(
+                    'hasSubscription', ''
+                ),
+                'users': last_response.get(feature, {}).get('users', ''),
+                'endDate': last_response.get(feature, {}).get('endDate', ''),
+                'mcuOption': last_response.get(feature, {}).get('mcuOption', ''),
+                'mcuOptionUsers': last_response.get(feature, {}).get(
+                    'mcuOptionUsers', ''
+                ),
+                'level': last_response.get(feature, {}).get('level', ''),
+            }
+        )
     msg += '\n\n'
     msg += lib.base.get_table(
         table_data,
-        ['feature', 'hasSubscription', 'users', 'endDate', 'mcuOption', 'mcuOptionUsers', 'level'],
+        [
+            'feature',
+            'hasSubscription',
+            'users',
+            'endDate',
+            'mcuOption',
+            'mcuOptionUsers',
+            'level',
+        ],
         header=['', 'hasSubscription', 'users', 'endDate', 'mcu', 'mcuUsers', 'level'],
         strip=False,
     )
@@ -148,5 +173,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

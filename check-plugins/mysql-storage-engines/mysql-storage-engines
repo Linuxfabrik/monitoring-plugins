@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -18,8 +17,11 @@ import lib.base  # pylint: disable=C0413
 import lib.db_mysql  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
-                          STATE_WARN)
+from lib.globals import (
+    STATE_OK,
+    STATE_UNKNOWN,  # pylint: disable=C0413
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -32,14 +34,14 @@ DEFAULT_TIMEOUT = 3
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -53,8 +55,8 @@ def parse_args():
     parser.add_argument(
         '--defaults-file',
         help='Specifies a cnf file to read parameters like user, host and password from '
-             '(instead of specifying them on the command line), '
-             'for example `/var/spool/icinga2/.my.cnf`. Default: %(default)s',
+        '(instead of specifying them on the command line), '
+        'for example `/var/spool/icinga2/.my.cnf`. Default: %(default)s',
         dest='DEFAULTS_FILE',
         default=DEFAULT_DEFAULTS_FILE,
     )
@@ -91,8 +93,7 @@ def get_vars(conn):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # logic taken from mysqltuner.pl:check_storage_engines(), v1.9.8
     # including variable names
@@ -104,9 +105,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     mysql_connection = {
-        'defaults_file':  args.DEFAULTS_FILE,
+        'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
-        'timeout':        args.TIMEOUT,
+        'timeout': args.TIMEOUT,
     }
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
     lib.base.coe(lib.db_mysql.check_select_privileges(conn))
@@ -120,7 +121,7 @@ def main():
 
     # MySQL 5.1.5+ servers can have table sizes calculated quickly from information schema
     enginestats = {}
-    sql = '''
+    sql = """
         select ENGINE as engine,
             sum(DATA_LENGTH+INDEX_LENGTH) as size,
             count(ENGINE) as count,
@@ -131,7 +132,7 @@ def main():
             and ENGINE is not null
         group by ENGINE
         order by ENGINE asc;
-    '''
+    """
     templist = lib.base.coe(lib.db_mysql.select(conn, sql))
     for temp in templist:
         if not temp:
@@ -140,18 +141,24 @@ def main():
         enginestats[engine] = temp.get('size', 0)
 
     # If the storage engine isn't being used, recommend it to be disabled
-    if enginestats.get('InnoDB', None) is None \
-    and engines.get('have_innodb', '') \
-    and engines['have_innodb'] == 'YES':
-        msg += '* InnoDB is enabled but isn\'t being used. Add skip-innodb to MySQL configuration to disable InnoDB\n'
-    if enginestats.get('BerkeleyDB', None) is None \
-    and engines.get('have_bdb', '') \
-    and engines['have_bdb'] == 'YES':
-        msg += '* BDB is enabled but isn\'t being used. Add skip-bdb to MySQL configuration to disable BDB\n'
-    if enginestats.get('ISAM', None) is None \
-    and engines.get('have_isam', '') \
-    and engines['have_isam'] == 'YES':
-        msg += '* MYISAM is enabled but isn\'t being used. Add skip-isam to MySQL configuration to disable ISAM (MySQL 4.1.0+)\n'
+    if (
+        enginestats.get('InnoDB', None) is None
+        and engines.get('have_innodb', '')
+        and engines['have_innodb'] == 'YES'
+    ):
+        msg += "* InnoDB is enabled but isn't being used. Add skip-innodb to MySQL configuration to disable InnoDB\n"
+    if (
+        enginestats.get('BerkeleyDB', None) is None
+        and engines.get('have_bdb', '')
+        and engines['have_bdb'] == 'YES'
+    ):
+        msg += "* BDB is enabled but isn't being used. Add skip-bdb to MySQL configuration to disable BDB\n"
+    if (
+        enginestats.get('ISAM', None) is None
+        and engines.get('have_isam', '')
+        and engines['have_isam'] == 'YES'
+    ):
+        msg += "* MYISAM is enabled but isn't being used. Add skip-isam to MySQL configuration to disable ISAM (MySQL 4.1.0+)\n"
 
     # Fragmented tables
     not_innodb = ''
@@ -159,7 +166,7 @@ def main():
         not_innodb = 'and not ENGINE="InnoDB"'
     elif myvar['innodb_file_per_table'] == 'OFF':
         not_innodb = 'and not ENGINE="InnoDB"'
-    sql = f'''
+    sql = f"""
         select concat(concat(TABLE_SCHEMA, '.'),TABLE_NAME) as full_table_name,
             cast(DATA_FREE as signed) as data_free
         from information_schema.tables
@@ -168,13 +175,15 @@ def main():
             and cast(DATA_FREE as signed)*100/(DATA_LENGTH+INDEX_LENGTH+cast(DATA_FREE as signed)) > 10
             and not ENGINE='MEMORY'
             {not_innodb}
-    '''
+    """
     fragtables = lib.base.coe(lib.db_mysql.select(conn, sql))
     if len(fragtables) > 0:
-        msg += f"* {len(fragtables)} fragmented {lib.txt.pluralize('table', len(fragtables))}\n"
+        msg += f'* {len(fragtables)} fragmented {lib.txt.pluralize("table", len(fragtables))}\n'
         total_free = 0
         for fragtable in fragtables:
-            table_schema, table_name = fragtable['full_table_name'].rsplit('.', 1)  # my.schema.my_table
+            table_schema, table_name = fragtable['full_table_name'].rsplit(
+                '.', 1
+            )  # my.schema.my_table
             data_free = fragtable.get('data_free', 0)
             total_free += data_free
             msg += (
@@ -186,11 +195,11 @@ def main():
             f' {lib.human.bytes2human(total_free)}\n'
         )
 
-    sql = '''
+    sql = """
         select ENGINE as engine, SUPPORT as support
         from information_schema.engines
         order by ENGINE asc;
-    '''
+    """
     engineresults = lib.base.coe(lib.db_mysql.select(conn, sql))
 
     # Auto increments
@@ -207,7 +216,7 @@ def main():
     for db in dblist:
         if db['Database'] == 'information_schema':
             continue
-        sql = f"show table status from `{db['Database']}`;"
+        sql = f'show table status from `{db["Database"]}`;'
         tblist = lib.base.coe(lib.db_mysql.select(conn, sql))
         for tbl in tblist:
             if not tbl['Auto_increment']:
@@ -235,5 +244,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

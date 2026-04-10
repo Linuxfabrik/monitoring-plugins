@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import json  # pylint: disable=C0413
@@ -22,8 +21,12 @@ import lib.shell  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -34,24 +37,25 @@ DEFAULT_CRIT = None
 DEFAULT_GROUP_BY = 'host,paths'
 DEFAULT_LATEST = 3  # count
 DEFAULT_LENGTHY = False
-DEFAULT_WARN = 24   # hours
+DEFAULT_WARN = 24  # hours
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Set the critical threshold for the time difference to the start of the last backup '
-             '(in each group) (in hours). Default: %(default)s',
+        '(in each group) (in hours). Default: %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
@@ -112,7 +116,7 @@ def parse_args():
     parser.add_argument(
         '--tag',
         help='Only consider snapshots which include this taglist in the format `tag[,tag,...]` '
-             '(can be specified multiple times).',
+        '(can be specified multiple times).',
         dest='TAG',
         action='append',
         default=None,
@@ -126,9 +130,10 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the warning threshold for the time difference to the start of the last backup '
-             '(in each group) (in hours). Default: %(default)s',
+        '(in each group) (in hours). Default: %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -139,21 +144,23 @@ def parse_args():
 
 
 def get_snapshot_data(snapshot, args):
-    """Enrich data returned from retic's snapshot command.
-    """
-    snapshot['ts'] = snapshot['time'][0:19].replace('T', ' ')   # 2022-11-28T16:22:43.896818692Z
+    """Enrich data returned from retic's snapshot command."""
+    snapshot['ts'] = snapshot['time'][0:19].replace(
+        'T', ' '
+    )  # 2022-11-28T16:22:43.896818692Z
     snapshot['age'] = lib.time.timestrdiff(lib.time.now('iso'), snapshot['ts'])
-    snapshot['age_hr'] = lib.human.seconds2human(snapshot['age']) # human-readable
+    snapshot['age_hr'] = lib.human.seconds2human(snapshot['age'])  # human-readable
     snapshot['p'] = ' '.join(snapshot['paths'])
     snapshot['tags'] = ','.join(snapshot['tags']) if 'tags' in snapshot.keys() else ''
-    snapshot['state'] = lib.base.get_state(int(snapshot['age'] / 3600), args.WARN, args.CRIT)
+    snapshot['state'] = lib.base.get_state(
+        int(snapshot['age'] / 3600), args.WARN, args.CRIT
+    )
 
     return snapshot
 
 
 def get_message(table_data, args):
-    """Build the message. Show latest/newest snapshot on top, which is the last one in the list.
-    """
+    """Build the message. Show latest/newest snapshot on top, which is the last one in the list."""
     latest = table_data[-1]
     snap_count = len(table_data)
     msg = (
@@ -215,8 +222,7 @@ def get_message(table_data, args):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -240,7 +246,7 @@ def main():
         if args.GROUP_BY:
             cmd += f' --group-by={args.GROUP_BY}'
         cmd += ' snapshots'
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))  # pylint: disable=W0612
         if stderr:
             lib.base.cu(stderr)
     else:
@@ -282,7 +288,9 @@ def main():
         msg, state = get_message(table_data, args)
         snapshot_count = len(table_data)
 
-    perfdata += lib.base.get_perfdata('snapshots', snapshot_count, '', None, None, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'snapshots', snapshot_count, '', None, None, 0, None
+    )
 
     if state == STATE_CRIT:
         msg = 'There are critical errors.' + msg
@@ -298,5 +306,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

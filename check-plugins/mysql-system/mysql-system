@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import os  # pylint: disable=C0413
@@ -17,11 +16,15 @@ import sys  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
-                          STATE_WARN)
+from lib.globals import (
+    STATE_OK,
+    STATE_UNKNOWN,  # pylint: disable=C0413
+    STATE_WARN,
+)
 
 try:
     import psutil  # pylint: disable=C0413
+
     HAVE_PSUTIL = True
 except ImportError:
     HAVE_PSUTIL = False
@@ -30,20 +33,22 @@ except ImportError:
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
-DESCRIPTION = """Checks system requirements and kernel settings specifically for MySQL/MariaDB."""
+DESCRIPTION = (
+    """Checks system requirements and kernel settings specifically for MySQL/MariaDB."""
+)
 
 DEFAULT_MAXPORTSALLOWED = 0
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -80,8 +85,7 @@ def get_sysctl(key):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # logic taken from mysqltuner.pl:get_kernel_info(), v1.9.8
 
@@ -111,7 +115,9 @@ def main():
                 f' database installation with less services'
                 f' running on). '
             )
-    perfdata += lib.base.get_perfdata('mysql_opened_ports', opened_ports, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'mysql_opened_ports', opened_ports, None, None, None, 0, None
+    )
 
     # get kernel settings on linux
     if lib.base.LINUX:
@@ -126,7 +132,9 @@ def main():
                 f' (use `echo 10 >'
                 f' /proc/sys/vm/swappiness`). '
             )
-        perfdata += lib.base.get_perfdata('mysql_kernel_vm.swappiness', result, '%', None, None, 0, 100)
+        perfdata += lib.base.get_perfdata(
+            'mysql_kernel_vm.swappiness', result, '%', None, None, 0, 100
+        )
 
         # only if /proc/sys/sunrpc exists
         if os.path.isdir('/proc/sys/sunrpc'):
@@ -139,7 +147,15 @@ def main():
                     f' (use `echo 128 > /proc/sys/sunrpc'
                     f'/tcp_slot_table_entries`). '
                 )
-            perfdata += lib.base.get_perfdata('mysql_kernel_sunrpc.tcp_slot_table_entries', result, None, None, None, 0, None)
+            perfdata += lib.base.get_perfdata(
+                'mysql_kernel_sunrpc.tcp_slot_table_entries',
+                result,
+                None,
+                None,
+                None,
+                0,
+                None,
+            )
 
         if os.path.isfile('/proc/sys/fs/aio-max-nr'):
             result = get_sysctl('fs.aio-max-nr')
@@ -151,7 +167,9 @@ def main():
                     f' (use `echo 1048576 >'
                     f' /proc/sys/fs/aio-max-nr`). '
                 )
-            perfdata += lib.base.get_perfdata('mysql_kernel_fs.aio-max-nr', result, None, None, None, 0, None)
+            perfdata += lib.base.get_perfdata(
+                'mysql_kernel_fs.aio-max-nr', result, None, None, None, 0, None
+            )
 
     if not msg:
         msg = 'Everything is ok.'
@@ -163,5 +181,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

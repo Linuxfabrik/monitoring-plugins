@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import datetime  # pylint: disable=C0413
@@ -24,7 +23,7 @@ import lib.human  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN)
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -57,14 +56,14 @@ DEFAULT_SEVERITY = 'crit'
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -78,8 +77,8 @@ def parse_args():
     parser.add_argument(
         '--all-namespaces',
         help='If present, list the requested object(s) across all namespaces. Namespace in current '
-             'context is ignored even if specified with `--namespace`. '
-             'Default: %(default)s',
+        'context is ignored even if specified with `--namespace`. '
+        'Default: %(default)s',
         dest='ALL_NAMESPACES',
         action='store_true',
         default=DEFAULT_ALL_NAMESPACES,
@@ -87,8 +86,7 @@ def parse_args():
 
     parser.add_argument(
         '--kubeconfig',
-        help='Path to the kubeconfig file. '
-             'Default: %(default)s',
+        help='Path to the kubeconfig file. Default: %(default)s',
         dest='KUBECONFIG',
         default=DEFAULT_KUBECONFIG,
     )
@@ -96,18 +94,17 @@ def parse_args():
     parser.add_argument(
         '--query',
         help='Provide the SQL `WHEN` statement part to narrow down results. '
-             ' Example: '
-             "`namespace = 'mynamespace' and name like 'prod-%%' and status != 'running'`. "
-             'Have a look at the README for a list of available columns. '
-             'Default: %(default)s',
+        ' Example: '
+        "`namespace = 'mynamespace' and name like 'prod-%%' and status != 'running'`. "
+        'Have a look at the README for a list of available columns. '
+        'Default: %(default)s',
         dest='QUERY',
         default=DEFAULT_QUERY,
     )
 
     parser.add_argument(
         '--severity',
-        help='Severity for alerting. '
-             'Default: %(default)s',
+        help='Severity for alerting. Default: %(default)s',
         dest='SEVERITY',
         default=DEFAULT_SEVERITY,
         choices=['warn', 'crit'],
@@ -125,8 +122,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -138,7 +134,8 @@ def main():
     cmd = [
         'kubectl',
         f'--kubeconfig={args.KUBECONFIG.replace("~", os.path.expanduser("~"))}',
-        'get', 'pods',
+        'get',
+        'pods',
         '--all-namespaces' if args.ALL_NAMESPACES else '',
         '--output=json',
         '--request-timeout=8',
@@ -168,7 +165,7 @@ def main():
     table_data = []
 
     # create the db table
-    definition = '''
+    definition = """
         namespace TEXT DEFAULT NULL,
         name TEXT DEFAULT NULL,
         ready TEXT DEFAULT NULL,
@@ -176,16 +173,20 @@ def main():
         restarts INT DEFAULT NULL,
         age INT DEFAULT NULL,
         ip TEXT DEFAULT NULL
-    '''
-    conn = lib.base.coe(lib.db_sqlite.connect(
-        filename='linuxfabrik-monitoring-plugins-kubectl-get-pods.db',
-    ))
-    lib.base.coe(lib.db_sqlite.create_table(
-        conn,
-        definition,
-        table='kubectl_get_pods',
-        drop_table_first=True,  # we don't need historical data
-    ))
+    """
+    conn = lib.base.coe(
+        lib.db_sqlite.connect(
+            filename='linuxfabrik-monitoring-plugins-kubectl-get-pods.db',
+        )
+    )
+    lib.base.coe(
+        lib.db_sqlite.create_table(
+            conn,
+            definition,
+            table='kubectl_get_pods',
+            drop_table_first=True,  # we don't need historical data
+        )
+    )
 
     # fetch data
     now = lib.time.now()
@@ -197,7 +198,8 @@ def main():
         age = item['status'].get('startTime', 0)
         if age:
             age = lib.human.seconds2human(
-                now - lib.time.timestr2epoch(
+                now
+                - lib.time.timestr2epoch(
                     age,
                     pattern='%Y-%m-%dT%H:%M:%SZ',
                     tzinfo=datetime.timezone.utc,
@@ -219,7 +221,9 @@ def main():
         }
         if 'containerStatuses' in item['status']:
             data['ready'] = f'{ready}/{len(item["status"]["containerStatuses"])}'
-            data['restarts'] = item['status']['containerStatuses'][0].get('restartCount', 0)
+            data['restarts'] = item['status']['containerStatuses'][0].get(
+                'restartCount', 0
+            )
 
         lib.base.coe(lib.db_sqlite.insert(conn, data, table='kubectl_get_pods'))
         table_data.append(data)
@@ -228,12 +232,12 @@ def main():
     lib.base.coe(lib.db_sqlite.commit(conn))
 
     # fetch desired objects only, and set sqlite3 to be case insensitive when string comparing
-    sql = f'''
+    sql = f"""
         SELECT *
         FROM kubectl_get_pods
         WHERE {args.QUERY}
         COLLATE NOCASE
-    '''
+    """
     result = lib.base.coe(lib.db_sqlite.select(conn, sql))
     lib.db_sqlite.close(conn)
 
@@ -260,18 +264,24 @@ def main():
     if state == STATE_OK:
         msg += 'Everything is ok.\n'
     elif state == STATE_UNKNOWN:
-        msg += ('State of a pod could not be obtained, usually due to an error in communicating '
-                'with the host where the pod is supposed to be running.\n')
+        msg += (
+            'State of a pod could not be obtained, usually due to an error in communicating '
+            'with the host where the pod is supposed to be running.\n'
+        )
     else:
         if pod_states['Failed']:
-            msg += ('Failed Pods: At least one container in the pod has terminated in failure. '
-                    'A container is considered to have failed if it exited with a non-zero '
-                    'status.\n')
+            msg += (
+                'Failed Pods: At least one container in the pod has terminated in failure. '
+                'A container is considered to have failed if it exited with a non-zero '
+                'status.\n'
+            )
         if pod_states['Pending']:
-            msg += ('Pending Pods: Have been accepted by the Kubernetes system, but one or more '
-                    'of the container images have not been created. This could be because the '
-                    'system is pulling the image from a remote registry, there is insufficient '
-                    'capacity in the cluster, or some other scheduling issue.\n')
+            msg += (
+                'Pending Pods: Have been accepted by the Kubernetes system, but one or more '
+                'of the container images have not been created. This could be because the '
+                'system is pulling the image from a remote registry, there is insufficient '
+                'capacity in the cluster, or some other scheduling issue.\n'
+            )
     if result:
         keys = [
             'namespace',
@@ -291,7 +301,7 @@ def main():
             'IP',
             'STATUS',
         ]
-        msg +=  '\n' + lib.base.get_table(result, keys, header=headers)
+        msg += '\n' + lib.base.get_table(result, keys, header=headers)
     for key, value in pod_states.items():
         perfdata += lib.base.get_perfdata(
             key.lower(),
@@ -306,5 +316,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

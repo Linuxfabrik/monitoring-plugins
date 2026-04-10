@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import os  # pylint: disable=C0413
@@ -19,7 +18,7 @@ import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.disk  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_WARN, STATE_UNKNOWN)  # pylint: disable=C0413
+from lib.globals import STATE_OK, STATE_WARN, STATE_UNKNOWN  # pylint: disable=C0413
 
 try:
     import yaml  # pylint: disable=C0413
@@ -39,14 +38,14 @@ DEFAULT_SERVERITY = 'crit'
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -89,15 +88,16 @@ def extra_rootkit_checks():
     for file in files:
         lib.base.coe(lib.disk.write_file(file, 'suckitexttest'))
         if not lib.disk.file_exists(file):
-            result.append(f'* `{file}` created and is now hidden. Check for Suckit Rootkit.')
+            result.append(
+                f'* `{file}` created and is now hidden. Check for Suckit Rootkit.'
+            )
         _, _ = lib.disk.rm_file(file)
 
     return result
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -143,17 +143,17 @@ def main():
                 if lib.disk.file_exists(item, allow_empty=True):
                     # if confidence level is below 100%, it *could* be a rootkit
                     if 'cl' in rk and rk['cl'] < 100:
-                        rkpossible.append(f"* {rk['name']}: {item} (File)")
+                        rkpossible.append(f'* {rk["name"]}: {item} (File)')
                     else:
-                        rkfound.append(f"* {rk['name']}: {item} (File)")
+                        rkfound.append(f'* {rk["name"]}: {item} (File)')
 
             # see if any of the directories exist
             for item in rk['dirs']:
                 if lib.disk.file_exists(item, allow_empty=True):
                     if 'cl' in rk and rk['cl'] < 100:
-                        rkpossible.append(f"* {rk['name']}: {item} (Dir)")
+                        rkpossible.append(f'* {rk["name"]}: {item} (Dir)')
                     else:
-                        rkfound.append(f"* {rk['name']}: {item} (Dir)")
+                        rkfound.append(f'* {rk["name"]}: {item} (Dir)')
 
             # scan kernel symbols for signs of rootkits or other malicious software
             if not ksyms_file:
@@ -161,9 +161,9 @@ def main():
             for item in rk['ksyms']:
                 if item in ksyms_file:
                     if 'cl' in rk and rk['cl'] < 100:
-                        rkpossible.append(f"* {rk['name']}: {item} (Kernel Symbol)")
+                        rkpossible.append(f'* {rk["name"]}: {item} (Kernel Symbol)')
                     else:
-                        rkfound.append(f"* {rk['name']}: {item} (Kernel Symbol)")
+                        rkfound.append(f'* {rk["name"]}: {item} (Kernel Symbol)')
 
         except KeyError as e:
             # missing an yaml attribute like 'files' or 'dirs'
@@ -197,13 +197,19 @@ def main():
             f' found. {lib.base.state2str(state)}'
         )
         msg += '\nRootkits:\n' + '\n'.join(rkfound) if rkfound else ''
-        msg += '\nIn-depth scan:\n'+ '\n'.join(rkextra) if rkextra else ''
+        msg += '\nIn-depth scan:\n' + '\n'.join(rkextra) if rkextra else ''
         msg += '\nPossible Rootkits:\n' + '\n'.join(rkpossible) if rkpossible else ''
     msg += '\nScanfile Errors:\n' + '\n'.join(errors) if errors else ''
 
-    perfdata += lib.base.get_perfdata('rootkit_items', len(rkfound), None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rootkit_extra', len(rkextra), None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rootkit_possible', len(rkpossible), None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'rootkit_items', len(rkfound), None, None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'rootkit_extra', len(rkextra), None, None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'rootkit_possible', len(rkpossible), None, None, None, 0, None
+    )
 
     # over and out
     lib.base.oao(msg, state, perfdata)
@@ -212,5 +218,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

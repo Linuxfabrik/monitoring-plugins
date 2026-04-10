@@ -8,19 +8,22 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
-import argparse # pylint: disable=C0413
-import sys # pylint: disable=C0413
-import json # pylint: disable=C0413
+import argparse  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+import json  # pylint: disable=C0413
 
-import lib.args # pylint: disable=C0413
-import lib.base # pylint: disable=C0413
-import lib.lftest # pylint: disable=C0413
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 
 __author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
@@ -36,14 +39,14 @@ DEFAULT_TIMEOUT = 5
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -57,7 +60,7 @@ def parse_args():
     parser.add_argument(
         '--insecure',
         help='This option explicitly allows to perform "insecure" SSL connections. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -74,10 +77,10 @@ def parse_args():
     parser.add_argument(
         '--severity',
         help='Severity for alerting, order matters, first match on part of a channel name wins. '
-             'Have a look at the README for details. Example: '
-             '`--severity temp:high:crit --severity dew:low:crit --severity humi:ok '
-             '--severity warn`. '
-             'Repeating. Default: warn',
+        'Have a look at the README for details. Example: '
+        '`--severity temp:high:crit --severity dew:low:crit --severity humi:ok '
+        '--severity warn`. '
+        'Repeating. Default: warn',
         dest='SEVERITY',
         action='append',
         default=None,
@@ -99,7 +102,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-u', '--url',
+        '-u',
+        '--url',
         help='Comet system URL pointing to the JSON file (http://example.com/values.json).',
         dest='URL',
         required=True,
@@ -126,23 +130,26 @@ def get_channel_state(channel, args):
             else:
                 # "humi:low:warn", "temp:high:crit"
                 # alarm == 1: high alarm
-                if sev[0].lower() in channel['name'].lower() \
-                and sev[1].lower().startswith('high') \
-                and channel['alarm'] == 1:
+                if (
+                    sev[0].lower() in channel['name'].lower()
+                    and sev[1].lower().startswith('high')
+                    and channel['alarm'] == 1
+                ):
                     return lib.base.str2state(sev[2])
                 # alarm == 2: low alarm
-                if sev[0].lower() in channel['name'].lower() \
-                and sev[1].lower().startswith('low') \
-                and channel['alarm'] == 2:
+                if (
+                    sev[0].lower() in channel['name'].lower()
+                    and sev[1].lower().startswith('low')
+                    and channel['alarm'] == 2
+                ):
                     return lib.base.str2state(sev[2])
     if not channel['alarm']:
         return STATE_OK
-    return STATE_WARN # the default state for any alarm, no matter if high or low
+    return STATE_WARN  # the default state for any alarm, no matter if high or low
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -158,12 +165,14 @@ def main():
                 STATE_UNKNOWN,
             )
         # fetch the URL
-        result = lib.base.coe(lib.url.fetch_json(
-            args.URL,
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            timeout=args.TIMEOUT,
-        ))
+        result = lib.base.coe(
+            lib.url.fetch_json(
+                args.URL,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+            )
+        )
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
@@ -181,11 +190,13 @@ def main():
     for key, value in result.items():
         if key.startswith('ch'):  # this is a channel
             if '%' in value['unit']:
-                perfdata += lib.base.get_perfdata(value['name'], value['aval'], '%', _min=0, _max=100) # pylint: disable=C0301
+                perfdata += lib.base.get_perfdata(
+                    value['name'], value['aval'], '%', _min=0, _max=100
+                )  # pylint: disable=C0301
             else:
                 perfdata += lib.base.get_perfdata(value['name'], value['aval'])
             value['ch'] = key
-            if value['unit'].endswith('C') or value['unit'].endswith('F'): # strip °
+            if value['unit'].endswith('C') or value['unit'].endswith('F'):  # strip °
                 value['unit'] = value['unit'][-1]
             channel_state = get_channel_state(value, args)
             state = lib.base.get_worst(channel_state, state)
@@ -203,7 +214,7 @@ def main():
             table_data.append(value)
 
     # build the message
-    msg += f" on {result['devname']} SN {result['devsn']}.\n\n"
+    msg += f' on {result["devname"]} SN {result["devsn"]}.\n\n'
     if table_data:
         msg += lib.base.get_table(
             table_data,
@@ -227,5 +238,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

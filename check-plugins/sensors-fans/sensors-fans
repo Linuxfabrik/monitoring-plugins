@@ -8,15 +8,18 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 try:
     import psutil  # pylint: disable=C0413
@@ -28,21 +31,23 @@ except ImportError:
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
-DESCRIPTION = 'Return hardware fans speed. Fan speed is expressed in RPM (rounds per minute).'
+DESCRIPTION = (
+    'Return hardware fans speed. Fan speed is expressed in RPM (rounds per minute).'
+)
 
-DEFAULT_WARN  = 10000      # RPM
-DEFAULT_CRIT  = 20000      # RPM
+DEFAULT_WARN = 10000  # RPM
+DEFAULT_CRIT = 20000  # RPM
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -54,7 +59,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Set the critical threshold for fan speed in RPM. Default: %(default)s',
         dest='CRIT',
         type=int,
@@ -62,7 +68,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the warning threshold for fan speed in RPM. Default: %(default)s',
         dest='WARN',
         type=int,
@@ -74,8 +81,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -98,9 +104,17 @@ def main():
     for name, entries in fans.items():
         msg += f'{name}: '
         for entry in entries:
-            perfdata += lib.base.get_perfdata(f'{name}_{entry.label}'.replace(' ', '_').lower(), entry.current, None, args.WARN, args.CRIT, 0, None)
+            perfdata += lib.base.get_perfdata(
+                f'{name}_{entry.label}'.replace(' ', '_').lower(),
+                entry.current,
+                None,
+                args.WARN,
+                args.CRIT,
+                0,
+                None,
+            )
             sensor_state = lib.base.get_state(entry.current, args.WARN, args.CRIT, 'ge')
-            msg += f"{entry.label or name} = {entry.current} RPM{lib.base.state2str(sensor_state, prefix=' (', suffix=')')}, "
+            msg += f'{entry.label or name} = {entry.current} RPM{lib.base.state2str(sensor_state, prefix=" (", suffix=")")}, '
             state = lib.base.get_worst(state, sensor_state)
         msg = msg[:-2] + '; '
 
@@ -111,5 +125,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

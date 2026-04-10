@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import os  # pylint: disable=C0413
@@ -17,7 +16,7 @@ import sys  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
 import lib.version  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN)
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 try:
     import psutil  # pylint: disable=C0413
@@ -39,14 +38,14 @@ DEFAULT_CRIT = 5.00  # load divided by all cpus
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -58,18 +57,18 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
-        help='Set the critical threshold for load15 per CPU. '
-             'Default: %(default)s',
+        '-c',
+        '--critical',
+        help='Set the critical threshold for load15 per CPU. Default: %(default)s',
         dest='CRIT',
         type=float,
         default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
-        '-w', '--warning',
-        help='Set the warning threshold for load15 per CPU. '
-             'Default: %(default)s',
+        '-w',
+        '--warning',
+        help='Set the warning threshold for load15 per CPU. Default: %(default)s',
         dest='WARN',
         type=float,
         default=DEFAULT_WARN,
@@ -80,8 +79,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -99,14 +97,22 @@ def main():
 
     # init some vars
     msg = ''
-    state = lib.base.get_state(load15, float(args.WARN), float(args.CRIT), _operator='ge')
+    state = lib.base.get_state(
+        load15, float(args.WARN), float(args.CRIT), _operator='ge'
+    )
     perfdata = ''
 
     # build the message
     msg += f'Avg per CPU: {load1:0.2f} {load5:0.2f} {load15:0.2f}'
-    perfdata += lib.base.get_perfdata('load1', load1, None, args.WARN, args.CRIT, 0, None)
-    perfdata += lib.base.get_perfdata('load5', load5, None, args.WARN, args.CRIT, 0, None)
-    perfdata += lib.base.get_perfdata('load15', load15, None, args.WARN, args.CRIT, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'load1', load1, None, args.WARN, args.CRIT, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'load5', load5, None, args.WARN, args.CRIT, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'load15', load15, None, args.WARN, args.CRIT, 0, None
+    )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
@@ -115,5 +121,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

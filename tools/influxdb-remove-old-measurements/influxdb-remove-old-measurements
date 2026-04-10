@@ -28,17 +28,18 @@ DESCRIPTION = """This tool removes old measurements in InfluxDB, therefore to re
 
 DEFAULT_HOSTNAME = 'localhost'
 DEFAULT_PORT = 8086
-DEFAULT_THRESHOLD = 90 # days
+DEFAULT_THRESHOLD = 90  # days
+
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -93,8 +94,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -118,10 +118,12 @@ def main():
     threshold = datetime.timedelta(days=args.THRESHOLD)
 
     for measurement in client.get_list_measurements():
-        measurement = measurement["name"]
+        measurement = measurement['name']
 
         print(f'Analysing measurement "{measurement}"...', end='')
-        hosts = client.query(f'SELECT * FROM "{measurement}" GROUP BY "hostname" ORDER BY time DESC LIMIT 1')
+        hosts = client.query(
+            f'SELECT * FROM "{measurement}" GROUP BY "hostname" ORDER BY time DESC LIMIT 1'
+        )
         print(' done')
 
         for key, generator in hosts.items():
@@ -145,10 +147,11 @@ def main():
                     client.delete_series(
                         measurement=measurement,
                         tags={
-                            "hostname": hostname,
+                            'hostname': hostname,
                         },
                     )
                 print(' done')
+
 
 if __name__ == '__main__':
     main()

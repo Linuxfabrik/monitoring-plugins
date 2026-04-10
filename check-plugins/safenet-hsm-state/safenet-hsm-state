@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -19,8 +18,12 @@ import lib.base  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 
 __author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
@@ -40,14 +43,14 @@ DEFAULT_WARN = 80
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -59,7 +62,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Set the CRIT threshold as a percentage. Default: >= %(default)s',
         dest='CRIT',
         type=int,
@@ -67,14 +71,16 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-H', '--hostname',
+        '-H',
+        '--hostname',
         help='SafeNet HSM hostname',
         dest='HOSTNAME',
         required=True,
     )
 
     parser.add_argument(
-        '-p', '--password',
+        '-p',
+        '--password',
         help='SafeNet HSM password',
         dest='PASSWORD',
         required=True,
@@ -104,7 +110,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-u', '--username',
+        '-u',
+        '--username',
         help='SafeNet HSM Username, for example "admin" or "pseoperator". Default: %(default)s',
         dest='USERNAME',
         choices=['admin', 'pseoperator'],
@@ -112,7 +119,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the WARN threshold as a percentage. Default: >= %(default)s',
         dest='WARN',
         type=int,
@@ -124,8 +132,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -158,21 +165,21 @@ def main():
     perfdata = ''
 
     # analyze data
-    stdout = stdout.strip() # remove the empty line at the start of the output
-    if 'HSM in NORMAL MODE' not in stdout \
-    or 'Command Result : 0' not in stdout:
+    stdout = stdout.strip()  # remove the empty line at the start of the output
+    if 'HSM in NORMAL MODE' not in stdout or 'Command Result : 0' not in stdout:
         state = lib.base.str2state(args.SEVERITY)
     value = lib.txt.extract_str(stdout, 'Level=', '%')
     if value:
-        state = lib.base.get_worst(state, lib.base.get_state(value, args.WARN, args.CRIT))
-        perfdata += lib.base.get_perfdata('usage_percent', value, '%', args.WARN, args.CRIT, 0, 100) # pylint: disable=C0301
+        state = lib.base.get_worst(
+            state, lib.base.get_state(value, args.WARN, args.CRIT)
+        )
+        perfdata += lib.base.get_perfdata(
+            'usage_percent', value, '%', args.WARN, args.CRIT, 0, 100
+        )  # pylint: disable=C0301
 
     # build the message
     first_line = ' '.join(stdout.partition('\n')[0].split())
-    msg = (
-        f'{first_line}'
-        f'{lib.base.state2str(state, prefix=" ")}'
-    )
+    msg = f'{first_line}{lib.base.state2str(state, prefix=" ")}'
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
@@ -181,5 +188,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

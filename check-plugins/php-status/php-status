@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse
 import sys
@@ -19,7 +18,7 @@ import lib.base
 import lib.human
 import lib.shell
 import lib.url
-from lib.globals import (STATE_OK, STATE_UNKNOWN, STATE_WARN)
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -28,15 +27,36 @@ __version__ = '2026033101'
 DESCRIPTION = """This plugin checks for PHP startup errors, missing modules and misconfigured
 php.ini directives."""
 
-DEFAULT_CONFIG = [ 'date.timezone=Europe' ]
+DEFAULT_CONFIG = ['date.timezone=Europe']
 DEFAULT_CRIT = None
 DEFAULT_INSECURE = False
 DEFAULT_MODULES = [
-    'calendar', 'Core', 'ctype', 'date', 'exif',
-    'fileinfo', 'filter', 'ftp', 'gettext', 'hash', 'iconv',
-    'json', 'libxml', 'openssl', 'pcntl', 'pcre', 'Phar',
-    'readline', 'Reflection', 'session',
-    'sockets', 'SPL', 'standard', 'tokenizer', 'xml', 'zlib',
+    'calendar',
+    'Core',
+    'ctype',
+    'date',
+    'exif',
+    'fileinfo',
+    'filter',
+    'ftp',
+    'gettext',
+    'hash',
+    'iconv',
+    'json',
+    'libxml',
+    'openssl',
+    'pcntl',
+    'pcre',
+    'Phar',
+    'readline',
+    'Reflection',
+    'session',
+    'sockets',
+    'SPL',
+    'standard',
+    'tokenizer',
+    'xml',
+    'zlib',
 ]
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 8
@@ -45,14 +65,14 @@ DEFAULT_WARN = 90
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -64,9 +84,10 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Set the CRIT threshold for Opcache usage as a percentage. '
-             'Default: >= %(default)s',
+        'Default: >= %(default)s',
         dest='CRIT',
         type=lib.args.int_or_none,
         default=DEFAULT_CRIT,
@@ -75,7 +96,7 @@ def parse_args():
     parser.add_argument(
         '--config',
         help='"key=value" pairs to check (startswith), for example '
-             '`--config "memory_limit=128M"` (repeating)',
+        '`--config "memory_limit=128M"` (repeating)',
         dest='CONFIG',
         action='append',
         default=None,
@@ -84,7 +105,7 @@ def parse_args():
     parser.add_argument(
         '--dev',
         help='Be more tolerant in development environments: Allow `display_errors=On` and '
-             '`display_startup_errors=On`.',
+        '`display_startup_errors=On`.',
         dest='DEV',
         action='store_true',
         default=False,
@@ -93,7 +114,7 @@ def parse_args():
     parser.add_argument(
         '--module',
         help='"modulename" to check (startswith), for example '
-             '`--module json --module mbstring` (repeating)',
+        '`--module json --module mbstring` (repeating)',
         dest='MODULES',
         action='append',
         default=None,
@@ -102,7 +123,7 @@ def parse_args():
     parser.add_argument(
         '--insecure',
         help='This option explicitly allows to perform "insecure" SSL connections. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -110,8 +131,7 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. '
-             'Default: %(default)s',
+        help='Do not use a proxy. Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -119,26 +139,27 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. '
-             'Default: %(default)s (seconds)',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
     )
 
-    parser.add_argument('--url',
+    parser.add_argument(
+        '--url',
         help='URL to optional PHP `monitoring.php` script. '
-             'The plugin will work, but its accuracy will be reduced if the `monitoring.php` file '
-             'cannot be fetched via HTTP(S). '
-             'Default: %(default)s',
+        'The plugin will work, but its accuracy will be reduced if the `monitoring.php` file '
+        'cannot be fetched via HTTP(S). '
+        'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the WARN threshold for Opcache usage as a percentage. '
-             'Default: >= %(default)s',
+        'Default: >= %(default)s',
         dest='WARN',
         type=lib.args.int_or_none,
         default=DEFAULT_WARN,
@@ -191,8 +212,7 @@ def get_module(args):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -230,14 +250,18 @@ def main():
 
     # section "php.ini" from monitoring.php, print as key-value-table
     if isinstance(php, dict) and php.get('php.ini'):
-        table_values.append({
-            'key': 'date.timezone',
-            'val': php.get('php.ini').get('date.timezone', 'N/A')
-        })
-        table_values.append({
-            'key': 'default_socket_timeout',
-            'val': php.get('php.ini').get('default_socket_timeout', 'N/A')
-        })
+        table_values.append(
+            {
+                'key': 'date.timezone',
+                'val': php.get('php.ini').get('date.timezone', 'N/A'),
+            }
+        )
+        table_values.append(
+            {
+                'key': 'default_socket_timeout',
+                'val': php.get('php.ini').get('default_socket_timeout', 'N/A'),
+            }
+        )
         val = php.get('php.ini').get('display_errors', 'N/A')
         if val in ('On', '1', 'N/A') and not args.DEV:
             val = val + lib.base.state2str(STATE_WARN, prefix=' ')
@@ -247,62 +271,73 @@ def main():
         if val in ('On', '1', 'N/A') and not args.DEV:
             val = val + lib.base.state2str(STATE_WARN, prefix=' ')
             state = lib.base.get_worst(state, STATE_WARN)
-        table_values.append({
-            'key': 'display_startup_errors',
-            'val': val
-        })
-        table_values.append({
-            'key': 'error_reporting',
-            'val': php.get('php.ini').get('error_reporting', 'N/A')
-        })
+        table_values.append({'key': 'display_startup_errors', 'val': val})
+        table_values.append(
+            {
+                'key': 'error_reporting',
+                'val': php.get('php.ini').get('error_reporting', 'N/A'),
+            }
+        )
         val = php.get('php.ini').get('expose_php', 'N/A')
         if val in ('On', '1', 'N/A'):
             val = val + lib.base.state2str(STATE_WARN, prefix=' ')
             state = lib.base.get_worst(state, STATE_WARN)
-        table_values.append({
-            'key': 'expose_php',
-            'val': val
-        })
-        table_values.append({
-            'key': 'max_execution_time',
-            'val': php.get('php.ini').get('max_execution_time', 'N/A')
-        })
-        table_values.append({
-            'key': 'max_file_uploads',
-            'val': php.get('php.ini').get('max_file_uploads', 'N/A')
-        })
-        table_values.append({
-            'key': 'max_input_time',
-            'val': php.get('php.ini').get('max_input_time', 'N/A')
-        })
-        table_values.append({
-            'key': 'memory_limit',
-            'val': php.get('php.ini').get('memory_limit', 'N/A')
-        })
-        table_values.append({
-            'key': 'post_max_size',
-            'val': php.get('php.ini').get('post_max_size', 'N/A')
-        })
-        table_values.append({
-            'key': 'SMTP',
-            'val': php.get('php.ini').get('SMTP', 'N/A')
-        })
-        table_values.append({
-            'key': 'upload_max_filesize',
-            'val': php.get('php.ini').get('upload_max_filesize', 'N/A')
-        })
+        table_values.append({'key': 'expose_php', 'val': val})
+        table_values.append(
+            {
+                'key': 'max_execution_time',
+                'val': php.get('php.ini').get('max_execution_time', 'N/A'),
+            }
+        )
+        table_values.append(
+            {
+                'key': 'max_file_uploads',
+                'val': php.get('php.ini').get('max_file_uploads', 'N/A'),
+            }
+        )
+        table_values.append(
+            {
+                'key': 'max_input_time',
+                'val': php.get('php.ini').get('max_input_time', 'N/A'),
+            }
+        )
+        table_values.append(
+            {
+                'key': 'memory_limit',
+                'val': php.get('php.ini').get('memory_limit', 'N/A'),
+            }
+        )
+        table_values.append(
+            {
+                'key': 'post_max_size',
+                'val': php.get('php.ini').get('post_max_size', 'N/A'),
+            }
+        )
+        table_values.append(
+            {'key': 'SMTP', 'val': php.get('php.ini').get('SMTP', 'N/A')}
+        )
+        table_values.append(
+            {
+                'key': 'upload_max_filesize',
+                'val': php.get('php.ini').get('upload_max_filesize', 'N/A'),
+            }
+        )
 
     # checking PHP Opcache module
     # section "opcache_status" from monitoring.php
-    if isinstance(php, dict) \
-    and php.get('opcache_status') \
-    and php.get('opcache_status').get('opcache_enabled') is True:
+    if (
+        isinstance(php, dict)
+        and php.get('opcache_status')
+        and php.get('opcache_status').get('opcache_enabled') is True
+    ):
         if php.get('opcache_status').get('cache_full', 'N/A') is True:
             state = lib.base.get_worst(state, STATE_WARN)
             msg += f'Opcache is full{lib.base.state2str(STATE_WARN, prefix=" ")}, '
         if php.get('opcache_status').get('restart_pending', 'N/A') is True:
             state = lib.base.get_worst(state, STATE_WARN)
-            msg += f'Opcache pending restart{lib.base.state2str(STATE_WARN, prefix=" ")}, '
+            msg += (
+                f'Opcache pending restart{lib.base.state2str(STATE_WARN, prefix=" ")}, '
+            )
         if php.get('opcache_status').get('restart_in_progress', 'N/A') is True:
             state = lib.base.get_worst(state, STATE_WARN)
             msg += f'Opcache restarting{lib.base.state2str(STATE_WARN, prefix=" ")}, '
@@ -314,9 +349,11 @@ def main():
         mem_used_percentage = round(float(mem_used) / float(mem_total) * 100, 1)
         opcache_state = lib.base.get_state(mem_used_percentage, args.WARN, args.CRIT)
         state = lib.base.get_worst(opcache_state, state)
-        msg += f'Opcache Mem {mem_used_percentage}% used ({lib.human.bytes2human(mem_used)}/' \
-               f'{lib.human.bytes2human(mem_total)})' \
-               f'{lib.base.state2str(opcache_state, prefix=" ")}, '
+        msg += (
+            f'Opcache Mem {mem_used_percentage}% used ({lib.human.bytes2human(mem_used)}/'
+            f'{lib.human.bytes2human(mem_total)})'
+            f'{lib.base.state2str(opcache_state, prefix=" ")}, '
+        )
 
         wmem_used = php.get('opcache_status').get('memory_usage').get('wasted_memory')
         wmem_used_percentage = round(
@@ -328,62 +365,83 @@ def main():
         wmem_total_percentage = (
             php.get('opcache_config')
             .get('directives')
-            .get('opcache.max_wasted_percentage') * 100
+            .get('opcache.max_wasted_percentage')
+            * 100
         )  # Default: 5%
-        msg += f'Wasted {wmem_used_percentage}% ' \
-               f'({lib.human.bytes2human(wmem_used)}, max. {wmem_total_percentage}%), '
+        msg += (
+            f'Wasted {wmem_used_percentage}% '
+            f'({lib.human.bytes2human(wmem_used)}, max. {wmem_total_percentage}%), '
+        )
 
         # Opcache Key Usage (opcache.max_accelerated_files)
-        keys_cached = php.get('opcache_status').get('opcache_statistics').get('num_cached_keys')
+        keys_cached = (
+            php.get('opcache_status').get('opcache_statistics').get('num_cached_keys')
+        )
         #  number out of a set of prime numbers "ge" to opcache.max_accelerated_files:
-        keys_total = php.get('opcache_status').get('opcache_statistics').get('max_cached_keys')
+        keys_total = (
+            php.get('opcache_status').get('opcache_statistics').get('max_cached_keys')
+        )
         keys_free = keys_total - keys_cached
         keys_cached_percentage = round(float(keys_cached) / float(keys_total) * 100, 1)
         opcache_state = lib.base.get_state(keys_cached_percentage, args.WARN, args.CRIT)
         state = lib.base.get_worst(opcache_state, state)
-        msg += f'Keys {keys_cached_percentage}% used ' \
-               f'({keys_cached}/{keys_total}){lib.base.state2str(opcache_state, prefix=" ")}, '
+        msg += (
+            f'Keys {keys_cached_percentage}% used '
+            f'({keys_cached}/{keys_total}){lib.base.state2str(opcache_state, prefix=" ")}, '
+        )
 
         # Opcache Hit Rate
         cache_hits = php.get('opcache_status').get('opcache_statistics').get('hits')
         cache_misses = php.get('opcache_status').get('opcache_statistics').get('misses')
         cache_hit_rate = round(
-            php.get('opcache_status')
-            .get('opcache_statistics')
-            .get('opcache_hit_rate'),
+            php.get('opcache_status').get('opcache_statistics').get('opcache_hit_rate'),
             1,
         )
-        msg += f'Hit Rate {cache_hit_rate}% ({lib.human.number2human(cache_hits)} hits, ' \
-               f'{lib.human.number2human(cache_misses)} misses), '
+        msg += (
+            f'Hit Rate {cache_hit_rate}% ({lib.human.number2human(cache_hits)} hits, '
+            f'{lib.human.number2human(cache_misses)} misses), '
+        )
 
         # Opcache Interned String Buffer (opcache.interned_strings_buffer)
-        string_total = php.get('opcache_status').get('interned_strings_usage').get('buffer_size')
-        string_used = php.get('opcache_status').get('interned_strings_usage').get('used_memory')
-        string_free = php.get('opcache_status').get('interned_strings_usage').get('free_memory')
+        string_total = (
+            php.get('opcache_status').get('interned_strings_usage').get('buffer_size')
+        )
+        string_used = (
+            php.get('opcache_status').get('interned_strings_usage').get('used_memory')
+        )
+        string_free = (
+            php.get('opcache_status').get('interned_strings_usage').get('free_memory')
+        )
         string_number = (
-            php.get('opcache_status').
-            get('interned_strings_usage').
-            get('number_of_strings')
+            php.get('opcache_status')
+            .get('interned_strings_usage')
+            .get('number_of_strings')
         )
         string_percentage = round(float(string_used) / float(string_total) * 100, 1)
         opcache_state = lib.base.get_state(string_percentage, args.WARN, args.CRIT)
         state = lib.base.get_worst(opcache_state, state)
-        msg += f'Interned Strings {string_percentage}% used ' \
-               f'({lib.human.bytes2human(string_used)}/{lib.human.bytes2human(string_total)}, ' \
-               f'{string_number} Strings){lib.base.state2str(opcache_state, prefix=" ")}, '
+        msg += (
+            f'Interned Strings {string_percentage}% used '
+            f'({lib.human.bytes2human(string_used)}/{lib.human.bytes2human(string_total)}, '
+            f'{string_number} Strings){lib.base.state2str(opcache_state, prefix=" ")}, '
+        )
 
         # Opcache Restarts
-        restarts_oom = php.get('opcache_status').get('opcache_statistics').get('oom_restarts')
-        restarts_manual = (
-            php.get('opcache_status')
-            .get('opcache_statistics')
-            .get('manual_restarts')
+        restarts_oom = (
+            php.get('opcache_status').get('opcache_statistics').get('oom_restarts')
         )
-        restarts_keys = php.get('opcache_status').get('opcache_statistics').get('hash_restarts')
+        restarts_manual = (
+            php.get('opcache_status').get('opcache_statistics').get('manual_restarts')
+        )
+        restarts_keys = (
+            php.get('opcache_status').get('opcache_statistics').get('hash_restarts')
+        )
         opcache_state = lib.base.get_state(restarts_oom, 1, None)
         state = lib.base.get_worst(opcache_state, state)
-        msg += f'{restarts_oom} OOM{lib.base.state2str(opcache_state, prefix=" ")} / ' \
-               f'{restarts_manual} manual / {restarts_keys} key restarts, '
+        msg += (
+            f'{restarts_oom} OOM{lib.base.state2str(opcache_state, prefix=" ")} / '
+            f'{restarts_manual} manual / {restarts_keys} key restarts, '
+        )
 
         perfdata += lib.base.get_perfdata(
             'php-opcache-memory_usage-percentage',
@@ -433,7 +491,9 @@ def main():
 
         perfdata += lib.base.get_perfdata(
             'php-opcache-opcache_statistics-num_cached_scripts',
-            php.get('opcache_status').get('opcache_statistics').get('num_cached_scripts'),
+            php.get('opcache_status')
+            .get('opcache_statistics')
+            .get('num_cached_scripts'),
             uom=None,
             warn=None,
             crit=None,
@@ -572,7 +632,9 @@ def main():
         )
         perfdata += lib.base.get_perfdata(
             'php-opcache-opcache_statistics-blacklist_miss_ratio',
-            php.get('opcache_status').get('opcache_statistics').get('blacklist_miss_ratio'),
+            php.get('opcache_status')
+            .get('opcache_statistics')
+            .get('blacklist_miss_ratio'),
             uom='%',
             warn=args.WARN,
             crit=args.CRIT,
@@ -580,56 +642,96 @@ def main():
             _max=100,
         )
 
-        table_values.append({
-            'key': 'opcache.blacklist_filename',
-            'val': php.get('opcache_config').get('directives').get('opcache.blacklist_filename')
-        })
-        table_values.append({
-            'key': 'opcache.enable',
-            'val': php.get('opcache_config').get('directives').get('opcache.enable')
-        })
-        table_values.append({
-            'key': 'opcache.enable_cli',
-            'val': php.get('opcache_config').get('directives').get('opcache.enable_cli')
-        })
-        table_values.append({
-            'key': 'opcache.huge_code_pages',
-            'val': php.get('opcache_config').get('directives').get('opcache.huge_code_pages')
-        })
-        table_values.append({
-            'key': 'opcache.interned_strings_buffer',
-            'val': php.get('opcache_config')
-                      .get('directives')
-                      .get('opcache.interned_strings_buffer')
-        })
-        table_values.append({
-            'key': 'opcache.max_accelerated_files',
-            'val': php.get('opcache_config').get('directives').get('opcache.max_accelerated_files')
-        })
-        table_values.append({
-            'key': 'opcache.memory_consumption',
-            'val': lib.human.bytes2human(
-                       php.get('opcache_config').get('directives').get('opcache.memory_consumption')
-                   )
-        })
-        table_values.append({
-            'key': 'opcache.revalidate_freq',
-            'val': php.get('opcache_config').get('directives').get('opcache.revalidate_freq')
-        })
-        table_values.append({
-            'key': 'opcache.save_comments',
-            'val': php.get('opcache_config').get('directives').get('opcache.save_comments')
-        })
-        table_values.append({
-            'key': 'opcache.validate_timestamps',
-            'val': 'True' if php.get('opcache_config')
-                                .get('directives')
-                                .get('opcache.validate_timestamps') else 'False'
-        })
+        table_values.append(
+            {
+                'key': 'opcache.blacklist_filename',
+                'val': php.get('opcache_config')
+                .get('directives')
+                .get('opcache.blacklist_filename'),
+            }
+        )
+        table_values.append(
+            {
+                'key': 'opcache.enable',
+                'val': php.get('opcache_config')
+                .get('directives')
+                .get('opcache.enable'),
+            }
+        )
+        table_values.append(
+            {
+                'key': 'opcache.enable_cli',
+                'val': php.get('opcache_config')
+                .get('directives')
+                .get('opcache.enable_cli'),
+            }
+        )
+        table_values.append(
+            {
+                'key': 'opcache.huge_code_pages',
+                'val': php.get('opcache_config')
+                .get('directives')
+                .get('opcache.huge_code_pages'),
+            }
+        )
+        table_values.append(
+            {
+                'key': 'opcache.interned_strings_buffer',
+                'val': php.get('opcache_config')
+                .get('directives')
+                .get('opcache.interned_strings_buffer'),
+            }
+        )
+        table_values.append(
+            {
+                'key': 'opcache.max_accelerated_files',
+                'val': php.get('opcache_config')
+                .get('directives')
+                .get('opcache.max_accelerated_files'),
+            }
+        )
+        table_values.append(
+            {
+                'key': 'opcache.memory_consumption',
+                'val': lib.human.bytes2human(
+                    php.get('opcache_config')
+                    .get('directives')
+                    .get('opcache.memory_consumption')
+                ),
+            }
+        )
+        table_values.append(
+            {
+                'key': 'opcache.revalidate_freq',
+                'val': php.get('opcache_config')
+                .get('directives')
+                .get('opcache.revalidate_freq'),
+            }
+        )
+        table_values.append(
+            {
+                'key': 'opcache.save_comments',
+                'val': php.get('opcache_config')
+                .get('directives')
+                .get('opcache.save_comments'),
+            }
+        )
+        table_values.append(
+            {
+                'key': 'opcache.validate_timestamps',
+                'val': 'True'
+                if php.get('opcache_config')
+                .get('directives')
+                .get('opcache.validate_timestamps')
+                else 'False',
+            }
+        )
 
-    if isinstance(php, dict) \
-    and php.get('opcache_status') \
-    and php.get('opcache_status').get('opcache_enabled') is False:
+    if (
+        isinstance(php, dict)
+        and php.get('opcache_status')
+        and php.get('opcache_status').get('opcache_enabled') is False
+    ):
         msg += f'Opcache not installed or not enabled{lib.base.state2str(STATE_WARN, prefix=" ")}, '
         state = lib.base.get_worst(state, STATE_WARN)
 
@@ -660,8 +762,10 @@ def main():
 
     config_errors = get_config_errors(args)
     if config_errors:
-        msg += f'Config expected but not found: {config_errors[:-2]} ' \
-               f'{lib.base.state2str(STATE_WARN, prefix="")}, '
+        msg += (
+            f'Config expected but not found: {config_errors[:-2]} '
+            f'{lib.base.state2str(STATE_WARN, prefix="")}, '
+        )
         state = lib.base.get_worst(state, STATE_WARN)
         perfdata += lib.base.get_perfdata(
             'php-config-errors',
@@ -686,8 +790,10 @@ def main():
 
     module_errors = get_module(args)
     if module_errors:
-        msg += f'Modules expected but not found: {module_errors[:-2]} ' \
-               f'{lib.base.state2str(STATE_WARN, prefix="")}, '
+        msg += (
+            f'Modules expected but not found: {module_errors[:-2]} '
+            f'{lib.base.state2str(STATE_WARN, prefix="")}, '
+        )
         state = lib.base.get_worst(state, STATE_WARN)
         perfdata += lib.base.get_perfdata(
             'php-module-errors',
@@ -729,5 +835,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

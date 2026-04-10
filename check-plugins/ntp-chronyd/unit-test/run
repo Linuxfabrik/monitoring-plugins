@@ -9,8 +9,8 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-sys.path.append("..") # Adds higher directory to python modules path.
 
+sys.path.append('..')  # Adds higher directory to python modules path.
 
 
 import unittest
@@ -21,24 +21,35 @@ import lib.shell
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../ntp-chronyd'
 
-    #self.assertEqual(retc, STATE_CRIT)
-    #self.assertIn('Waiting for more data (1).', stdout)
-    #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
+    # self.assertEqual(retc, STATE_CRIT)
+    # self.assertIn('Waiting for more data (1).', stdout)
+    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0'))
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0')
+        )
         self.assertIn('NTP server not reachable. No NTP server is used.', stdout)
-        self.assertIn('MS Name/IP address         Stratum Poll Reach LastRx Last sample               ', stdout)
-        self.assertIn('===============================================================================', stdout)
+        self.assertIn(
+            'MS Name/IP address         Stratum Poll Reach LastRx Last sample               ',
+            stdout,
+        )
+        self.assertIn(
+            '===============================================================================',
+            stdout,
+        )
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0'))
-        self.assertIn('NTP offset is -2.589ms, Stratum is 3, Leap status is Normal', stdout)
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0')
+        )
+        self.assertIn(
+            'NTP offset is -2.589ms, Stratum is 3, Leap status is Normal', stdout
+        )
         self.assertIn('Reference ID    : D42D9003', stdout)
         self.assertIn('Stratum         : 3', stdout)
         self.assertEqual(stderr, '')

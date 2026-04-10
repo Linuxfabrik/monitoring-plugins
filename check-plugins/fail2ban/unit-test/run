@@ -9,8 +9,8 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-sys.path.append("..") # Adds higher directory to python modules path.
 
+sys.path.append('..')  # Adds higher directory to python modules path.
 
 
 import unittest
@@ -21,17 +21,20 @@ import lib.shell
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../fail2ban'
 
     def test_if_check_runs_EXAMPLE01_ping_nok(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,1'))
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,1')
+        )
         self.assertIn('Problem while testing if the fail2ban server is alive.', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_UNKNOWN)
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0'))
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0')
+        )
         self.assertIn('5434 IPs banned', stdout)
         self.assertIn('* 2 in jail "apache-dos"', stdout)
         self.assertIn('* 0 in jail "portscan"', stdout)
@@ -40,7 +43,9 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0'))
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0')
+        )
         self.assertIn('0 IPs banned', stdout)
         self.assertIn('* 0 in jail "apache-dos"', stdout)
         self.assertIn('* 0 in jail "portscan"', stdout)
@@ -49,7 +54,9 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE99(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE99,,0'))
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE99,,0')
+        )
         self.assertIn('No jails found.', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_UNKNOWN)

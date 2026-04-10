@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import os  # pylint: disable=C0413
@@ -17,30 +16,34 @@ import sys  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
 import lib.disk  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2025100601'
 
-DESCRIPTION = '''Checks the percentage of inode space used. To do this, this plugin fetches a list
+DESCRIPTION = """Checks the percentage of inode space used. To do this, this plugin fetches a list
                  of local devices that are in use and have a filesystem on them. Filesystems that do
-                 not report inode usage are skipped.'''
+                 not report inode usage are skipped."""
 
-DEFAULT_WARN  = 90
-DEFAULT_CRIT  = 95
+DEFAULT_WARN = 90
+DEFAULT_CRIT = 95
 DEFAULT_MOUNT = '/, /tmp, /boot'
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -52,7 +55,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Set the critical threshold inode usage percentage. Default: %(default)s',
         dest='CRIT',
         type=float,
@@ -61,7 +65,7 @@ def parse_args():
 
     parser.add_argument(
         '--mount',
-        #help='The mount point, in the format "mount1,mount2". Default: "%(default)s"',
+        # help='The mount point, in the format "mount1,mount2". Default: "%(default)s"',
         help=argparse.SUPPRESS,  # deprecated parameter
         dest='MOUNT',
         type=lambda s: [str(item).strip() for item in s.split(',')],
@@ -69,7 +73,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the warning threshold inode usage percentage. Default: %(default)s',
         dest='WARN',
         type=float,
@@ -81,8 +86,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -110,8 +114,12 @@ def main():
             local_state = lib.base.get_state(inodes_used, args.WARN, args.CRIT)
             state = lib.base.get_worst(local_state, state)
 
-            msg.append(f'{mount} {inodes_used}%{lib.base.state2str(local_state, prefix=" ")}')
-            perfdata += lib.base.get_perfdata(mount, inodes_used, '%', args.WARN, args.CRIT, 0, 100)
+            msg.append(
+                f'{mount} {inodes_used}%{lib.base.state2str(local_state, prefix=" ")}'
+            )
+            perfdata += lib.base.get_perfdata(
+                mount, inodes_used, '%', args.WARN, args.CRIT, 0, 100
+            )
         except Exception:
             lib.base.cu('Something seems to be wrong with the input parameter')
 
@@ -129,5 +137,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

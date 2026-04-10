@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -20,14 +19,17 @@ import lib.feedparser  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.icinga  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
-                          STATE_WARN)
+from lib.globals import (
+    STATE_OK,
+    STATE_UNKNOWN,  # pylint: disable=C0413
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
-DESCRIPTION = '''Warns on new feed items of an RSS or Atom feed. Does not warn any more
-    if you acknowledge the warning in Icingaweb2, and/or if a given amount of time is over.'''
+DESCRIPTION = """Warns on new feed items of an RSS or Atom feed. Does not warn any more
+    if you acknowledge the warning in Icingaweb2, and/or if a given amount of time is over."""
 
 DEFAULT_FEED_URL = 'https://www.heise.de/security/rss/alert-news-atom.xml'
 DEFAULT_ICINGA_CALLBACK = False
@@ -36,16 +38,17 @@ DEFAULT_LATEST = False
 DEFAULT_NO_PROXY = False
 DEFAULT_NO_SUMMARY = False
 DEFAULT_TIMEOUT = 5
-DEFAULT_WARN = 4320     # = minutes (3 days)
+DEFAULT_WARN = 4320  # = minutes (3 days)
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -59,8 +62,8 @@ def parse_args():
     parser.add_argument(
         '--icinga-service-name',
         help='Unique name of the service using this check within Icinga. '
-             'Take it from the `__name` service attribute, for example '
-             '`icinga-server!my-service-name`.',
+        'Take it from the `__name` service attribute, for example '
+        '`icinga-server!my-service-name`.',
         dest='ICINGA_SERVICE_NAME',
     )
 
@@ -84,17 +87,16 @@ def parse_args():
 
     parser.add_argument(
         '--icinga-callback',
-        help='Get the service acknowledgement from Icinga. '
-             'Default: %(default)s',
+        help='Get the service acknowledgement from Icinga. Default: %(default)s',
         dest='ICINGA_CALLBACK',
         action='store_true',
-        default=DEFAULT_ICINGA_CALLBACK,   # False
+        default=DEFAULT_ICINGA_CALLBACK,  # False
     )
 
     parser.add_argument(
         '--insecure',
         help='This option explicitly allows to perform "insecure" SSL connections. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -110,8 +112,7 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. '
-             'Default: %(default)s',
+        help='Do not use a proxy. Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -119,17 +120,15 @@ def parse_args():
 
     parser.add_argument(
         '--no-summary',
-        help='Do not show the feed item summary. '
-             'Default: %(default)s',
+        help='Do not show the feed item summary. Default: %(default)s',
         dest='NO_SUMMARY',
         action='store_true',
-        default=DEFAULT_NO_SUMMARY,   # False
+        default=DEFAULT_NO_SUMMARY,  # False
     )
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. '
-             'Default: %(default)s (seconds)',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -137,16 +136,16 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='The Feed URL. '
-             'Default: %(default)s',
+        help='The Feed URL. Default: %(default)s',
         dest='FEED_URL',
         default=DEFAULT_FEED_URL,
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='How long should this check return a warning on new entries? '
-             'Default: %(default)s (minutes)',
+        'Default: %(default)s (minutes)',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -171,8 +170,7 @@ def fetch_feed_latest_item(feed_url, insecure=False, no_proxy=False, timeout=5):
 
 
 def fetch_feed_todays_item(feed_url, insecure=False, no_proxy=False, timeout=5):
-    """Fetch the newest feed item starting from now/today, or older.
-    """
+    """Fetch the newest feed item starting from now/today, or older."""
     success, myfeed = lib.feedparser.parse(
         feed_url,
         insecure=insecure,
@@ -186,7 +184,9 @@ def fetch_feed_todays_item(feed_url, insecure=False, no_proxy=False, timeout=5):
     prev_delta = None
     idx = 0
     for i, item in enumerate(myfeed['entries']):
-        delta = lib.time.now(as_type='datetime') - item.get('updated_parsed', lib.time.now(as_type='datetime'))
+        delta = lib.time.now(as_type='datetime') - item.get(
+            'updated_parsed', lib.time.now(as_type='datetime')
+        )
         if delta.total_seconds() < 0:
             continue
         if prev_delta is None or delta < prev_delta:
@@ -215,7 +215,7 @@ def get_feed_state(feed_id, delta, args):
         return STATE_OK (feed item is not of interest any more)
     """
 
-    if delta < args.WARN*60:
+    if delta < args.WARN * 60:
         if not args.ICINGA_CALLBACK:
             return STATE_WARN
         cached_item = lib.cache.get(
@@ -251,7 +251,7 @@ def get_feed_state(feed_id, delta, args):
             lib.cache.set(
                 f'feed-{feed_id}',
                 'unacked',
-                lib.time.now() + args.WARN*60,
+                lib.time.now() + args.WARN * 60,
                 filename='linuxfabrik-monitoring-plugins-feed.db',
             )
             return STATE_WARN
@@ -266,43 +266,51 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    if args.ICINGA_CALLBACK \
-    and (
-        not args.ICINGA_URL \
-        or not args.ICINGA_PASSWORD \
-        or not args.ICINGA_USERNAME \
+    if args.ICINGA_CALLBACK and (
+        not args.ICINGA_URL
+        or not args.ICINGA_PASSWORD
+        or not args.ICINGA_USERNAME
         or not args.ICINGA_SERVICE_NAME
     ):
-        lib.base.cu('--icinga-callback requires --icinga-url, --icinga-password, --icinga-username and --icinga-service-name')
+        lib.base.cu(
+            '--icinga-callback requires --icinga-url, --icinga-password, --icinga-username and --icinga-service-name'
+        )
 
     if args.LATEST:
         # get the newest/latest feed item, even if it is in the future
-        feed_item = lib.base.coe(fetch_feed_latest_item(
-            args.FEED_URL,
-            args.INSECURE,
-            args.NO_PROXY,
-            args.TIMEOUT,
-        ))
+        feed_item = lib.base.coe(
+            fetch_feed_latest_item(
+                args.FEED_URL,
+                args.INSECURE,
+                args.NO_PROXY,
+                args.TIMEOUT,
+            )
+        )
     else:
         # get the latest feed item starting from today
-        feed_item = lib.base.coe(fetch_feed_todays_item(
-            args.FEED_URL,
-            args.INSECURE,
-            args.NO_PROXY,
-            args.TIMEOUT,
-        ))
+        feed_item = lib.base.coe(
+            fetch_feed_todays_item(
+                args.FEED_URL,
+                args.INSECURE,
+                args.NO_PROXY,
+                args.TIMEOUT,
+            )
+        )
 
     # feed with 0 entries
     if not feed_item:
         lib.base.oao('No news are good news.', STATE_OK)
 
-    delta = abs(lib.time.now(as_type='datetime') - feed_item.get('updated_parsed', lib.time.now(as_type='datetime')))
-    delta = delta.total_seconds()   # this is the age of the newest feed item, in seconds
+    delta = abs(
+        lib.time.now(as_type='datetime')
+        - feed_item.get('updated_parsed', lib.time.now(as_type='datetime'))
+    )
+    delta = delta.total_seconds()  # this is the age of the newest feed item, in seconds
 
     state = get_feed_state(feed_item['id'], delta, args)
 
     if args.NO_SUMMARY:
-        msg = f"{feed_item.get('title', 'No title').strip()} ({lib.human.seconds2human(delta)} ago)"
+        msg = f'{feed_item.get("title", "No title").strip()} ({lib.human.seconds2human(delta)} ago)'
     else:
         msg = (
             f'{feed_item.get("title", "No title").strip()}'

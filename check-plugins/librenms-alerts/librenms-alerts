@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse
 import sys
@@ -19,8 +18,7 @@ import lib.db_mysql
 import lib.human
 import lib.librenms
 import lib.txt
-from lib.globals import (STATE_CRIT, STATE_OK,
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -45,14 +43,14 @@ DEFAULT_TIMEOUT = 3
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -66,17 +64,16 @@ def parse_args():
     parser.add_argument(
         '--defaults-file',
         help='Specifies a cnf file to read parameters like user, host and '
-             'password from (instead of specifying them on the command line), '
-             'for example `/var/spool/icinga2/.my.cnf`. '
-             'Default: %(default)s',
+        'password from (instead of specifying them on the command line), '
+        'for example `/var/spool/icinga2/.my.cnf`. '
+        'Default: %(default)s',
         dest='DEFAULTS_FILE',
         default=DEFAULT_DEFAULTS_FILE,
     )
 
     parser.add_argument(
         '--defaults-group',
-        help='Group/section to read from in the cnf file. '
-             'Default: %(default)s',
+        help='Group/section to read from in the cnf file. Default: %(default)s',
         dest='DEFAULTS_GROUP',
         default=DEFAULT_DEFAULTS_GROUP,
     )
@@ -99,7 +96,7 @@ def parse_args():
         help='Filter by LibreNMS Device Type (repeating).',
         dest='DEVICE_TYPE',
         action='append',
-        choices=[ # taken from the librenms source file resources/definitions/config_definitions.json
+        choices=[  # taken from the librenms source file resources/definitions/config_definitions.json
             'appliance',
             'collaboration',
             'environment',
@@ -126,8 +123,7 @@ def parse_args():
 
     parser.add_argument(
         '--severity',
-        help='Severity for alerts. One of "warn" or "crit". '
-             'Default: %(default)s',
+        help='Severity for alerts. One of "warn" or "crit". Default: %(default)s',
         dest='SEVERITY',
         default=DEFAULT_SERVERITY,
         choices=['warn', 'crit'],
@@ -135,8 +131,7 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. '
-             'Default: %(default)s (seconds)',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -147,8 +142,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -157,9 +151,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     mysql_connection = {
-        'defaults_file':  args.DEFAULTS_FILE,
+        'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
-        'timeout':        args.TIMEOUT,
+        'timeout': args.TIMEOUT,
     }
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
     lib.base.coe(lib.db_mysql.check_select_privileges(conn))
@@ -171,7 +165,7 @@ def main():
     alert_count = 0
 
     # fetch data
-    sql = '''
+    sql = """
         SELECT
             d.hardware,
             d.hostname,
@@ -198,7 +192,7 @@ def main():
             alert_rules AS ar ON ar.id = a.rule_id
         WHERE
             disable_notify = 0
-    '''
+    """
     data = []
     if args.DEVICE_GROUP:
         sql += ' AND dg.name LIKE %s '
@@ -237,8 +231,10 @@ def main():
     if state == STATE_OK:
         msg = 'Everything is ok. '
     else:
-        msg = f'There {lib.txt.pluralize("", alert_count, "is,are")} ' \
-              f'{alert_count} {lib.txt.pluralize("alert", alert_count)}. '
+        msg = (
+            f'There {lib.txt.pluralize("", alert_count, "is,are")} '
+            f'{alert_count} {lib.txt.pluralize("alert", alert_count)}. '
+        )
     msg += f'Checked {device_count} {lib.txt.pluralize("device", device_count)}.'
     msg += '\n\n'
 

@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse
 import sys
@@ -19,7 +18,7 @@ import lib.base
 import lib.db_sqlite
 import lib.human
 import lib.version
-from lib.globals import (STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN)
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 try:
     import psutil
@@ -47,20 +46,22 @@ The check stores its short trend state locally in an SQLite DB to evaluate susta
 runs."""
 
 
-DEFAULT_COUNT = 5 # measurements; if check runs once per minute, this is a 5 minute interval
-DEFAULT_CRIT = 90 # %
-DEFAULT_WARN = 80 # %
+DEFAULT_COUNT = (
+    5  # measurements; if check runs once per minute, this is a 5 minute interval
+)
+DEFAULT_CRIT = 90  # %
+DEFAULT_WARN = 80  # %
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -74,25 +75,25 @@ def parse_args():
     parser.add_argument(
         '--count',
         help='Number of times the value must exceed specified thresholds before alerting. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='COUNT',
         type=int,
         default=DEFAULT_COUNT,
     )
 
     parser.add_argument(
-        '-c', '--critical',
-        help='Set the critical threshold CPU Usage Percentage. '
-             'Default: %(default)s',
+        '-c',
+        '--critical',
+        help='Set the critical threshold CPU Usage Percentage. Default: %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
-        '-w', '--warning',
-        help='Set the warning threshold CPU Usage Percentage. '
-             'Default: %(default)s',
+        '-w',
+        '--warning',
+        help='Set the warning threshold CPU Usage Percentage. Default: %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -103,8 +104,7 @@ def parse_args():
 
 
 def _cpu_times_to_dict(ct):
-    """Return a dict of cpu_times fields present on this platform.
-    """
+    """Return a dict of cpu_times fields present on this platform."""
     # psutil returns a namedtuple; only keep fields that exist on this OS
     fields = (
         'user',
@@ -131,12 +131,13 @@ def _cpu_times_to_dict(ct):
 # This is how psutil computes internally for interval>0, just that we do it across runs instead
 # of sleeping within a run.
 
+
 def cpu_times_percent_nonblocking(conn):
     """Compute a non-blocking equivalent of psutil.cpu_times_percent(percpu=False).
     Falls back to a short blocking sample only on the very first run.
     """
     # create one-row table for the last raw snapshot, if not exists
-    definition = '''
+    definition = """
         ts REAL NOT NULL,
         user REAL DEFAULT 0,
         nice REAL DEFAULT 0,
@@ -148,15 +149,17 @@ def cpu_times_percent_nonblocking(conn):
         steal REAL DEFAULT 0,
         guest REAL DEFAULT 0,
         guest_nice REAL DEFAULT 0
-    '''
+    """
     lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='raw_last'))
 
     # read last row (if any)
-    last = lib.base.coe(lib.db_sqlite.select(
-        conn,
-        'SELECT * FROM raw_last LIMIT 1',
-        fetchone=True,
-    ))
+    last = lib.base.coe(
+        lib.db_sqlite.select(
+            conn,
+            'SELECT * FROM raw_last LIMIT 1',
+            fetchone=True,
+        )
+    )
 
     now_ct = psutil.cpu_times()
     now = lib.time.now()
@@ -167,13 +170,15 @@ def cpu_times_percent_nonblocking(conn):
         deltas = {}
         total = 0.0
         for k, v in now_d.items():
-            dv = max(0.0, v - float(last.get(k, 0.0)))  # guard against clock/counter oddities
+            dv = max(
+                0.0, v - float(last.get(k, 0.0))
+            )  # guard against clock/counter oddities
             deltas[k] = dv
             total += dv
 
         # update snapshot for next run
         lib.base.coe(lib.db_sqlite.delete(conn, 'DELETE FROM raw_last WHERE 1=1'))
-        lib.base.coe(lib.db_sqlite.insert(conn, {"ts": now, **now_d}, table='raw_last'))
+        lib.base.coe(lib.db_sqlite.insert(conn, {'ts': now, **now_d}, table='raw_last'))
         lib.base.coe(lib.db_sqlite.commit(conn))
 
         # if total is ~0 (very short time elapsed), fall back to tiny blocking sample
@@ -187,7 +192,7 @@ def cpu_times_percent_nonblocking(conn):
         return pct
 
     # first run: store snapshot and do a short, blocking read to produce sane output
-    lib.base.coe(lib.db_sqlite.insert(conn, {"ts": now, **now_d}, table='raw_last'))
+    lib.base.coe(lib.db_sqlite.insert(conn, {'ts': now, **now_d}, table='raw_last'))
     lib.base.coe(lib.db_sqlite.commit(conn))
     # short window to avoid a 1.25s stall like in previos versions while
     # still getting stable numbers
@@ -204,30 +209,31 @@ def get_from_db(conn, threshold):
     Returns:
         int: Count of rows exceeding the threshold.
     """
-    result = lib.base.coe(lib.db_sqlite.select(
-        conn,
-        '''
+    result = lib.base.coe(
+        lib.db_sqlite.select(
+            conn,
+            """
         SELECT count(*) as cnt
         FROM perfdata
         WHERE user > :user
            or system > :system
            or iowait > :iowait
            or cpu_usage > :cpu_usage
-        ''',
-        {
-            'user': threshold,
-            'system': threshold,
-            'iowait': threshold,
-            'cpu_usage': threshold,
-        },
-        fetchone=True,
-    ))
+        """,
+            {
+                'user': threshold,
+                'system': threshold,
+                'iowait': threshold,
+                'cpu_usage': threshold,
+            },
+            fetchone=True,
+        )
+    )
     return int(result['cnt'])
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -243,7 +249,7 @@ def main():
     extstats = {}
 
     # create the db table
-    definition = '''
+    definition = """
         guest REAL DEFAULT NULL,
         guest_nice REAL DEFAULT NULL,
         idle REAL DEFAULT NULL,
@@ -255,10 +261,12 @@ def main():
         system REAL DEFAULT NULL,
         user REAL DEFAULT NULL,
         cpu_usage REAL NOT NULL
-    '''
-    conn = lib.base.coe(lib.db_sqlite.connect(
-        filename='linuxfabrik-monitoring-plugins-cpu-usage.db',
-    ))
+    """
+    conn = lib.base.coe(
+        lib.db_sqlite.connect(
+            filename='linuxfabrik-monitoring-plugins-cpu-usage.db',
+        )
+    )
     lib.base.coe(lib.db_sqlite.create_table(conn, definition))
 
     # Best-effort: reduce IO stalls and file locking on Windows without changing outputs
@@ -315,10 +323,7 @@ def main():
         )
 
     # this is what we want to warn about: 100% - idle - nice
-    stats['cpu_usage'] = round(
-        100.0 - stats['idle'] - stats['nice'],
-        1
-    )
+    stats['cpu_usage'] = round(100.0 - stats['idle'] - stats['nice'], 1)
 
     # save trend data to local sqlite database, limited to "count" rows max.
     lib.base.coe(lib.db_sqlite.insert(conn, stats))

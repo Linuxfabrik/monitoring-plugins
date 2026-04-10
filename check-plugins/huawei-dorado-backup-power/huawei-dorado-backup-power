@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import json  # pylint: disable=C0413
@@ -21,8 +20,12 @@ import lib.huawei  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -30,22 +33,22 @@ __version__ = '2026040801'
 DESCRIPTION = """Batch querying all backup power modules of a Huawei OceanStor Dorado
                  storage system via the REST Interface, using the ``/backup_power`` endpoint."""
 
-DEFAULT_CACHE_EXPIRE = 15 # minutes; default session timeout period is 20 minutes
+DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_INSECURE = True
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = 0
-DEFAULT_TIMEOUT  = 3
+DEFAULT_TIMEOUT = 3
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -59,7 +62,7 @@ def parse_args():
     parser.add_argument(
         '--cache-expire',
         help='The amount of time after which the credential cache expires, in minutes. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='CACHE_EXPIRE',
         type=int,
         default=DEFAULT_CACHE_EXPIRE,
@@ -75,7 +78,7 @@ def parse_args():
     parser.add_argument(
         '--insecure',
         help='This option explicitly allows to perform "insecure" SSL connections. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -83,8 +86,7 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. '
-             'Default: %(default)s',
+        help='Do not use a proxy. Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -113,15 +115,15 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. '
-             'Default: %(default)s (seconds)',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
-        '-u', '--url',
+        '-u',
+        '--url',
         help='Huawei OceanStor Dorado API URL.',
         dest='URL',
         required=True,
@@ -139,8 +141,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -164,8 +165,8 @@ def main():
         lib.base.cu(f'Got no valuable response from {args.URL}.')
     if result.get('error').get('code') != 0:
         lib.base.oao(
-            f"{result.get('error').get('description')}"
-            f" {result.get('error').get('suggestion')}",
+            f'{result.get("error").get("description")}'
+            f' {result.get("error").get("suggestion")}',
             STATE_UNKNOWN,
         )
 
@@ -185,24 +186,62 @@ def main():
         power['UUID'] = lib.huawei.get_uuid(power)
 
         running_state = STATE_OK
-        if lib.huawei.get_running_status(power.get('RUNNINGSTATUS')) != 'Normal (1)' and \
-           lib.huawei.get_running_status(power.get('RUNNINGSTATUS')) != 'Running (2)' and \
-           lib.huawei.get_running_status(power.get('RUNNINGSTATUS')) != 'Online (27)' and \
-           lib.huawei.get_running_status(power.get('RUNNINGSTATUS')) != 'Charging (48)' and \
-           lib.huawei.get_running_status(power.get('RUNNINGSTATUS')) != 'Charging completed (49)':
+        if (
+            lib.huawei.get_running_status(power.get('RUNNINGSTATUS')) != 'Normal (1)'
+            and lib.huawei.get_running_status(power.get('RUNNINGSTATUS'))
+            != 'Running (2)'
+            and lib.huawei.get_running_status(power.get('RUNNINGSTATUS'))
+            != 'Online (27)'
+            and lib.huawei.get_running_status(power.get('RUNNINGSTATUS'))
+            != 'Charging (48)'
+            and lib.huawei.get_running_status(power.get('RUNNINGSTATUS'))
+            != 'Charging completed (49)'
+        ):
             running_state = STATE_WARN
             state = lib.base.get_worst(state, running_state)
 
         power['REMAINLIFEDAYS'] = int(power['REMAINLIFEDAYS'])
         if power['REMAINLIFEDAYS'] > 0:
-            power['REMAINLIFEDAYS'] = power['REMAINLIFEDAYS'] * 24*60*60
+            power['REMAINLIFEDAYS'] = power['REMAINLIFEDAYS'] * 24 * 60 * 60
         power['VOLTAGE'] = float(power['VOLTAGE']) / 10
 
-        perfdata += lib.base.get_perfdata(f"{power['UUID']}_HEALTHSTATUS", power['HEALTHSTATUS'], None, None, 2, 0, 2)
-        perfdata += lib.base.get_perfdata(f"{power['UUID']}_RUNNINGSTATUS", power['RUNNINGSTATUS'], None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata(f"{power['UUID']}_CHARGETIMES", power['CHARGETIMES'], None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata(f"{power['UUID']}_REMAINLIFEDAYS", power['REMAINLIFEDAYS'], 's', None, None, 0, None) if power['REMAINLIFEDAYS'] > 0 else ''
-        perfdata += lib.base.get_perfdata(f"{power['UUID']}_VOLTAGE", power['VOLTAGE'], None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata(
+            f'{power["UUID"]}_HEALTHSTATUS', power['HEALTHSTATUS'], None, None, 2, 0, 2
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{power["UUID"]}_RUNNINGSTATUS',
+            power['RUNNINGSTATUS'],
+            None,
+            None,
+            None,
+            0,
+            None,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{power["UUID"]}_CHARGETIMES',
+            power['CHARGETIMES'],
+            None,
+            None,
+            None,
+            0,
+            None,
+        )
+        perfdata += (
+            lib.base.get_perfdata(
+                f'{power["UUID"]}_REMAINLIFEDAYS',
+                power['REMAINLIFEDAYS'],
+                's',
+                None,
+                None,
+                0,
+                None,
+            )
+            if power['REMAINLIFEDAYS'] > 0
+            else ''
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{power["UUID"]}_VOLTAGE', power['VOLTAGE'], None, None, None, 0, None
+        )
 
         power['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         power['running_state'] = lib.base.state2str(running_state, empty_ok=False)
@@ -212,13 +251,33 @@ def main():
         table_data.append(power)
 
     if table_data:
-        keys = ['UUID', 'LOCATION', 'MANUFACTUREDDATE', 'CONTROLLERID', 'CHARGETIMES', 'REMAINLIFEDAYS', 'VOLTAGE', 'health_state', 'running_state']
-        headers = ['UUID', 'Location', 'Produced', 'ControllerID', '#Charged', 'Remain', 'Volt', 'Health', 'Running']
+        keys = [
+            'UUID',
+            'LOCATION',
+            'MANUFACTUREDDATE',
+            'CONTROLLERID',
+            'CHARGETIMES',
+            'REMAINLIFEDAYS',
+            'VOLTAGE',
+            'health_state',
+            'running_state',
+        ]
+        headers = [
+            'UUID',
+            'Location',
+            'Produced',
+            'ControllerID',
+            '#Charged',
+            'Remain',
+            'Volt',
+            'Health',
+            'Running',
+        ]
         msg += lib.base.get_table(table_data, keys, header=headers)
 
     msg += (
-        f"\nFetched API {result.get('counter', 0)}"
-        f" {lib.txt.pluralize('time', result.get('counter', 0))}"
+        f'\nFetched API {result.get("counter", 0)}'
+        f' {lib.txt.pluralize("time", result.get("counter", 0))}'
     )
 
     if state == STATE_CRIT:
@@ -235,5 +294,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

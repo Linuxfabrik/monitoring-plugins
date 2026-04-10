@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import socket  # pylint: disable=C0413
@@ -22,8 +21,11 @@ import lib.shell  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
-                          STATE_WARN)
+from lib.globals import (
+    STATE_OK,
+    STATE_UNKNOWN,  # pylint: disable=C0413
+    STATE_WARN,
+)
 
 try:
     import vici  # pylint: disable=C0413
@@ -46,14 +48,14 @@ DEFAULT_SOCKET = '/run/strongswan/charon.vici'
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -125,8 +127,8 @@ def format_sas_data(sas):
         if key == 'integ-alg' and not value:
             continue
         # handle different versions:
-        if key == 'reauth-time': # v5.7
-            data['rekey-time'] = data['reauth-time'] # v5.9
+        if key == 'reauth-time':  # v5.7
+            data['rekey-time'] = data['reauth-time']  # v5.9
 
     if 'integ-alg' not in data:
         # If a connection uses AES GCM encryption (or probably an other AEAD algorithm) the vici
@@ -143,18 +145,22 @@ def format_sas_data(sas):
         lib.time.now(as_type='epoch') - int(data['established'])
     )
     if data['local-id'] != data['local-host']:
-        data['local'] = f"{data['local-host']}:{data['local-port']} (\"{data['local-id']}\")"
+        data['local'] = (
+            f'{data["local-host"]}:{data["local-port"]} ("{data["local-id"]}")'
+        )
     else:
-        data['local'] = f"{data['local-host']}:{data['local-port']}"
+        data['local'] = f'{data["local-host"]}:{data["local-port"]}'
     data['rekey-time-hr'] = lib.time.epoch2iso(
         lib.time.now(as_type='epoch') + int(data['rekey-time'])
     )
     if data['remote-id'] != data['remote-host']:
-        data['remote'] = f"{data['remote-host']}:{data['remote-port']} (\"{data['remote-id']}\")"
+        data['remote'] = (
+            f'{data["remote-host"]}:{data["remote-port"]} ("{data["remote-id"]}")'
+        )
     else:
-        data['remote'] = f"{data['remote-host']}:{data['remote-port']}"
+        data['remote'] = f'{data["remote-host"]}:{data["remote-port"]}'
     data['state'] = data['state'].replace('ESTABLISHED', 'EST')
-    data['version'] = f"v{data['version']}"
+    data['version'] = f'v{data["version"]}'
 
     return data
 
@@ -196,7 +202,7 @@ def format_child_data(child):
     data['child-life-time-hr'] = lib.time.epoch2iso(
         lib.time.now(as_type='epoch') + data['child-life-time']
     )
-    data['child-mode-state'] = f"{data['child-mode']}:{data['child-state']}"
+    data['child-mode-state'] = f'{data["child-mode"]}:{data["child-state"]}'
     data['child-rekey-time-hr'] = lib.time.epoch2iso(
         lib.time.now(as_type='epoch') + data['child-rekey-time']
     )
@@ -205,8 +211,7 @@ def format_child_data(child):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -228,17 +233,30 @@ def main():
     else:
         # do not call the command, put in test data
         import json
-        possible_connection_keys, stderr, retc = lib.lftest.test([args.TEST[0] + '-possible_connection_keys', args.TEST[1], args.TEST[2]])
+
+        possible_connection_keys, stderr, retc = lib.lftest.test(
+            [args.TEST[0] + '-possible_connection_keys', args.TEST[1], args.TEST[2]]
+        )
         possible_connection_keys = json.loads(possible_connection_keys)
-        active_connection_keys, stderr, retc = lib.lftest.test([args.TEST[0] + '-active_connection_keys', args.TEST[1], args.TEST[2]])
+        active_connection_keys, stderr, retc = lib.lftest.test(
+            [args.TEST[0] + '-active_connection_keys', args.TEST[1], args.TEST[2]]
+        )
         active_connection_keys = json.loads(active_connection_keys)
-        list_sas, stderr, retc = lib.lftest.test([args.TEST[0] + '-list_sas', args.TEST[1], args.TEST[2]])
+        list_sas, stderr, retc = lib.lftest.test(
+            [args.TEST[0] + '-list_sas', args.TEST[1], args.TEST[2]]
+        )
         list_sas = json.loads(list_sas)
 
     if not possible_connection_keys:
-        lib.base.oao('No connections configured.', STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
+        lib.base.oao(
+            'No connections configured.', STATE_UNKNOWN, always_ok=args.ALWAYS_OK
+        )
     if not active_connection_keys:
-        lib.base.oao('There are no active connections at all.', STATE_WARN, always_ok=args.ALWAYS_OK)
+        lib.base.oao(
+            'There are no active connections at all.',
+            STATE_WARN,
+            always_ok=args.ALWAYS_OK,
+        )
 
     # init some vars
     msg = ''
@@ -256,15 +274,19 @@ def main():
         )
 
     # analyze data
-    for sas in list_sas: # generator object, which has no attribute 'items'
+    for sas in list_sas:  # generator object, which has no attribute 'items'
         for key in active_connection_keys:
             try:
                 row = format_sas_data(sas[key])
             except:
                 continue
             row['conn'] = key
-            perfdata += lib.base.get_perfdata(f'{key}_established', row['established'], 's', None, None, 0, None)
-            perfdata += lib.base.get_perfdata(f'{key}_rekey-time', row['rekey-time'], 's', None, None, 0, None)
+            perfdata += lib.base.get_perfdata(
+                f'{key}_established', row['established'], 's', None, None, 0, None
+            )
+            perfdata += lib.base.get_perfdata(
+                f'{key}_rekey-time', row['rekey-time'], 's', None, None, 0, None
+            )
 
             children = None
             try:
@@ -278,12 +300,54 @@ def main():
                 for child_key in children:
                     child_row = format_child_data(children[child_key])
                     # combine two dictionaries using dictionary comprehension
-                    table_data.append({k:v for d in (row, child_row) for k,v in d.items()})
-                    perfdata += lib.base.get_perfdata(f"{key}_{child_row['child-name']}_bytes-in", child_row['child-bytes-in'], 'B', None, None, 0, None)
-                    perfdata += lib.base.get_perfdata(f"{key}_{child_row['child-name']}_bytes-out", child_row['child-bytes-out'], 'B', None, None, 0, None)
-                    perfdata += lib.base.get_perfdata(f"{key}_{child_row['child-name']}_install-time", child_row['child-install-time'], 's', None, None, 0, None)
-                    perfdata += lib.base.get_perfdata(f"{key}_{child_row['child-name']}_life-time", child_row['child-life-time'], 's', None, None, 0, None)
-                    perfdata += lib.base.get_perfdata(f"{key}_{child_row['child-name']}_rekey-time", child_row['child-rekey-time'], 's', None, None, 0, None)
+                    table_data.append(
+                        {k: v for d in (row, child_row) for k, v in d.items()}
+                    )
+                    perfdata += lib.base.get_perfdata(
+                        f'{key}_{child_row["child-name"]}_bytes-in',
+                        child_row['child-bytes-in'],
+                        'B',
+                        None,
+                        None,
+                        0,
+                        None,
+                    )
+                    perfdata += lib.base.get_perfdata(
+                        f'{key}_{child_row["child-name"]}_bytes-out',
+                        child_row['child-bytes-out'],
+                        'B',
+                        None,
+                        None,
+                        0,
+                        None,
+                    )
+                    perfdata += lib.base.get_perfdata(
+                        f'{key}_{child_row["child-name"]}_install-time',
+                        child_row['child-install-time'],
+                        's',
+                        None,
+                        None,
+                        0,
+                        None,
+                    )
+                    perfdata += lib.base.get_perfdata(
+                        f'{key}_{child_row["child-name"]}_life-time',
+                        child_row['child-life-time'],
+                        's',
+                        None,
+                        None,
+                        0,
+                        None,
+                    )
+                    perfdata += lib.base.get_perfdata(
+                        f'{key}_{child_row["child-name"]}_rekey-time',
+                        child_row['child-rekey-time'],
+                        's',
+                        None,
+                        None,
+                        0,
+                        None,
+                    )
             else:
                 child_state = STATE_WARN
                 state = lib.base.get_worst(state, child_state)
@@ -363,9 +427,10 @@ def main():
                 'Tx',
             ]
         lib.base.oao(
-            f'{msg}\n\n'
-            f'{lib.base.get_table(table_data, keys, header=headers)}',
-            state, perfdata, always_ok=args.ALWAYS_OK,
+            f'{msg}\n\n{lib.base.get_table(table_data, keys, header=headers)}',
+            state,
+            perfdata,
+            always_ok=args.ALWAYS_OK,
         )
     else:
         lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
@@ -374,5 +439,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

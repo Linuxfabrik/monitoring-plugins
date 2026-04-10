@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -18,8 +17,12 @@ import urllib.parse  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -28,18 +31,18 @@ DESCRIPTION = 'Checks FortiOS sensor information in detail.'
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
-DEFAULT_TIMEOUT  = 3
+DEFAULT_TIMEOUT = 3
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -51,10 +54,11 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-H', '--hostname',
+        '-H',
+        '--hostname',
         help='FortiOS-based Appliance address, optional including port ("192.168.1.1:443").',
         dest='HOSTNAME',
-        required = True,
+        required=True,
     )
 
     parser.add_argument(
@@ -77,7 +81,7 @@ def parse_args():
         '--password',
         help='FortiOS REST API Single Access Token.',
         dest='PASSWORD',
-        required = True,
+        required=True,
     )
 
     parser.add_argument(
@@ -105,8 +109,7 @@ def shorten_uom(uom):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -117,7 +120,11 @@ def main():
     # fetch data
     # Resource to get sensor data from
     url = f'https://{args.HOSTNAME}/api/v2/monitor/system/sensor-info/select?access_token={urllib.parse.quote(args.PASSWORD)}'
-    result = lib.base.coe(lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base.coe(
+        lib.url.fetch_json(
+            url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT
+        )
+    )
 
     msg_header, msg_body = '', ''
     perfdata = ''
@@ -145,25 +152,43 @@ def main():
 
         sensor_state = STATE_OK
         if 'lower_non_critical' in sensor['thresholds']:
-            sensor_state = lib.base.get_state(sensor['value'], sensor['thresholds']['lower_non_critical'], sensor['thresholds']['lower_critical'], _operator='le')
+            sensor_state = lib.base.get_state(
+                sensor['value'],
+                sensor['thresholds']['lower_non_critical'],
+                sensor['thresholds']['lower_critical'],
+                _operator='le',
+            )
             state = lib.base.get_worst(sensor_state, state)
             if sensor_state in (STATE_WARN, STATE_CRIT):
-                msg_body += f"\n* {sensor['name']} ({sensor['value']} {shorten_uom(sensor['type'])}) is less or equal to a certain threshold ({sensor['thresholds']['lower_non_critical']}/{sensor['thresholds']['lower_critical']})"
+                msg_body += f'\n* {sensor["name"]} ({sensor["value"]} {shorten_uom(sensor["type"])}) is less or equal to a certain threshold ({sensor["thresholds"]["lower_non_critical"]}/{sensor["thresholds"]["lower_critical"]})'
         if 'upper_non_critical' in sensor['thresholds']:
-            sensor_state = lib.base.get_state(sensor['value'], sensor['thresholds']['upper_non_critical'], sensor['thresholds']['upper_critical'], _operator='ge')
+            sensor_state = lib.base.get_state(
+                sensor['value'],
+                sensor['thresholds']['upper_non_critical'],
+                sensor['thresholds']['upper_critical'],
+                _operator='ge',
+            )
             state = lib.base.get_worst(sensor_state, state)
             if sensor_state in (STATE_WARN, STATE_CRIT):
-                msg_body += f"\n* {sensor['name']} ({sensor['value']} {shorten_uom(sensor['type'])}) is greater or equal to a certain threshold ({sensor['thresholds']['upper_non_critical']}/{sensor['thresholds']['upper_critical']})"
+                msg_body += f'\n* {sensor["name"]} ({sensor["value"]} {shorten_uom(sensor["type"])}) is greater or equal to a certain threshold ({sensor["thresholds"]["upper_non_critical"]}/{sensor["thresholds"]["upper_critical"]})'
 
-        perfdata += lib.base.get_perfdata(sensor['id'], sensor['value'], None, sensor['thresholds']['upper_non_critical'], sensor['thresholds']['upper_critical'], sensor['thresholds'].get('lower_non_recoverable', 0), sensor['thresholds']['upper_non_recoverable'])
+        perfdata += lib.base.get_perfdata(
+            sensor['id'],
+            sensor['value'],
+            None,
+            sensor['thresholds']['upper_non_critical'],
+            sensor['thresholds']['upper_critical'],
+            sensor['thresholds'].get('lower_non_recoverable', 0),
+            sensor['thresholds']['upper_non_recoverable'],
+        )
         sensor_counter += 1
 
     if state == STATE_CRIT:
-        msg_header = f"Checked {sensor_counter} {lib.txt.pluralize('sensor', sensor_counter)}. There are critical errors."
+        msg_header = f'Checked {sensor_counter} {lib.txt.pluralize("sensor", sensor_counter)}. There are critical errors.'
     elif state == STATE_WARN:
-        msg_header = f"Checked {sensor_counter} {lib.txt.pluralize('sensor', sensor_counter)}. There are warnings."
+        msg_header = f'Checked {sensor_counter} {lib.txt.pluralize("sensor", sensor_counter)}. There are warnings.'
     else:
-        msg_header = f"Checked {sensor_counter} {lib.txt.pluralize('sensor', sensor_counter)}, all are ok."
+        msg_header = f'Checked {sensor_counter} {lib.txt.pluralize("sensor", sensor_counter)}, all are ok.'
 
     # over and out
     lib.base.oao(msg_header + msg_body, state, perfdata)
@@ -172,5 +197,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

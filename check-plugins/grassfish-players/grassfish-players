@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import json  # pylint: disable=C0413
@@ -22,8 +21,11 @@ import lib.grassfish  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
-                          STATE_WARN)
+from lib.globals import (
+    STATE_OK,
+    STATE_UNKNOWN,  # pylint: disable=C0413
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -51,14 +53,14 @@ DEFAULT_WARN = 8  # hours
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -71,8 +73,7 @@ def parse_args():
 
     parser.add_argument(
         '--api-version',
-        help='Grassfish API Version. '
-             'Default: %(default)s',
+        help='Grassfish API Version. Default: %(default)s',
         dest='API_VERSION',
         default=DEFAULT_API_VERSION,
     )
@@ -104,9 +105,9 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-H', '--hostname',
-        help='Grassfish hostname. '
-             'Default: %(default)s',
+        '-H',
+        '--hostname',
+        help='Grassfish hostname. Default: %(default)s',
         dest='HOSTNAME',
         required=True,
     )
@@ -114,7 +115,7 @@ def parse_args():
     parser.add_argument(
         '--insecure',
         help='This option explicitly allows to perform "insecure" SSL connections. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -152,8 +153,7 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. '
-             'Default: %(default)s',
+        help='Do not use a proxy. Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -161,8 +161,7 @@ def parse_args():
 
     parser.add_argument(
         '--port',
-        help='Grassfish port. '
-             'Default: %(default)s',
+        help='Grassfish port. Default: %(default)s',
         dest='PORT',
         type=int,
         default=DEFAULT_PORT,
@@ -177,8 +176,7 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. '
-             'Default: %(default)s (seconds)',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -204,18 +202,19 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the WARN threshold for Last Access in hours (considers player is offline). '
-             'Default: > %(default)s h',
+        'Default: > %(default)s h',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
     )
 
     parser.add_argument(
-        '-u', '--url',
-        help='Grassfish API URL. '
-             'Default: %(default)s',
+        '-u',
+        '--url',
+        help='Grassfish API URL. Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
@@ -225,8 +224,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -257,17 +255,19 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        players = lib.base.coe(lib.grassfish.fetch_json(
-            args.TOKEN,
-            args.HOSTNAME,
-            args.PORT,
-            args.URL,
-            args.API_VERSION,
-            'Players',
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            timeout=args.TIMEOUT,
-        ))
+        players = lib.base.coe(
+            lib.grassfish.fetch_json(
+                args.TOKEN,
+                args.HOSTNAME,
+                args.PORT,
+                args.URL,
+                args.API_VERSION,
+                'Players',
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+            )
+        )
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
@@ -326,24 +326,36 @@ def main():
 
         # timestamp handling
         ts = player['LastAccess'].replace('T', ' ').replace('Z', '')
-        player['LastAccessDelta'] = lib.time.timestrdiff(lib.time.now(as_type='iso'), ts)
-        player['LastAccess'] = f"{ts} ({lib.human.seconds2human(player['LastAccessDelta'])} ago)"
+        player['LastAccessDelta'] = lib.time.timestrdiff(
+            lib.time.now(as_type='iso'), ts
+        )
+        player['LastAccess'] = (
+            f'{ts} ({lib.human.seconds2human(player["LastAccessDelta"])} ago)'
+        )
 
         # warn (and only append players with warnings)
-        if not player['IsLicensed'] \
-        or player['TransferStatus'].lower() == 'overdue' \
-        or player['LastAccessDelta'] > args.WARN*60*60:
+        if (
+            not player['IsLicensed']
+            or player['TransferStatus'].lower() == 'overdue'
+            or player['LastAccessDelta'] > args.WARN * 60 * 60
+        ):
             cnt['warnings'] += 1
             state = STATE_WARN
             if not player['IsLicensed']:
                 cnt['unlicensed'] += 1
-                player['IsLicensed'] = str(player['IsLicensed']) + lib.base.state2str(STATE_WARN, prefix=' ')
+                player['IsLicensed'] = str(player['IsLicensed']) + lib.base.state2str(
+                    STATE_WARN, prefix=' '
+                )
             if player['TransferStatus'].lower() == 'overdue':
                 cnt['transfer_overdue'] += 1
-                player['TransferStatus'] = player['TransferStatus'] + lib.base.state2str(STATE_WARN, prefix=' ')
-            if player['LastAccessDelta'] > args.WARN*60*60:
+                player['TransferStatus'] = player[
+                    'TransferStatus'
+                ] + lib.base.state2str(STATE_WARN, prefix=' ')
+            if player['LastAccessDelta'] > args.WARN * 60 * 60:
                 cnt['access_overdue'] += 1
-                player['LastAccess'] = player['LastAccess'] + lib.base.state2str(STATE_WARN, prefix=' ')
+                player['LastAccess'] = player['LastAccess'] + lib.base.state2str(
+                    STATE_WARN, prefix=' '
+                )
             if len(table_data) < 10:
                 table_data.append(player)
             else:
@@ -354,16 +366,16 @@ def main():
         msg = 'Everything is ok. '
     else:
         msg = (
-            f"There {lib.txt.pluralize('', cnt['warnings'], 'is,are')}"
-            f" {cnt['warnings']}"
-            f" {lib.txt.pluralize('player', cnt['warnings'])}"
-            f" with warnings: {cnt['unlicensed']} unlicensed,"
-            f" {cnt['transfer_overdue']} transfer overdue,"
-            f" {cnt['access_overdue']} accessed"
+            f'There {lib.txt.pluralize("", cnt["warnings"], "is,are")}'
+            f' {cnt["warnings"]}'
+            f' {lib.txt.pluralize("player", cnt["warnings"])}'
+            f' with warnings: {cnt["unlicensed"]} unlicensed,'
+            f' {cnt["transfer_overdue"]} transfer overdue,'
+            f' {cnt["access_overdue"]} accessed'
             f' > {args.WARN}'
-            f" {lib.txt.pluralize('hour', args.WARN)} ago. "
+            f' {lib.txt.pluralize("hour", args.WARN)} ago. '
         )
-    msg += f"{cnt['players']} {lib.txt.pluralize('player', cnt['players'])} checked. "
+    msg += f'{cnt["players"]} {lib.txt.pluralize("player", cnt["players"])} checked. '
 
     _filter = ''
     if args.BOX_ID:
@@ -383,7 +395,7 @@ def main():
 
     if table_data:
         if shortened:
-            msg += 'Attention: Table below is truncated, showing first 10 items.\n\n'''
+            msg += 'Attention: Table below is truncated, showing first 10 items.\n\n'
         if not args.LENGTHY:
             keys = [
                 # 'Id',
@@ -484,11 +496,39 @@ def main():
             ]
         msg += lib.base.get_table(table_data, keys, header=headers)
 
-    perfdata += lib.base.get_perfdata('grassfish_play_players', cnt['players'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('grassfish_play_unlicensed', cnt['unlicensed'], None, None, None, 0, cnt['players'])
-    perfdata += lib.base.get_perfdata('grassfish_play_transfer_overdue', cnt['transfer_overdue'], None, None, args.WARN, 0, cnt['players'])
-    perfdata += lib.base.get_perfdata('grassfish_play_access_overdue', cnt['access_overdue'], None, None, None, 0, cnt['players'])
-    perfdata += lib.base.get_perfdata('grassfish_play_warnings', cnt['warnings'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'grassfish_play_players', cnt['players'], None, None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'grassfish_play_unlicensed',
+        cnt['unlicensed'],
+        None,
+        None,
+        None,
+        0,
+        cnt['players'],
+    )
+    perfdata += lib.base.get_perfdata(
+        'grassfish_play_transfer_overdue',
+        cnt['transfer_overdue'],
+        None,
+        None,
+        args.WARN,
+        0,
+        cnt['players'],
+    )
+    perfdata += lib.base.get_perfdata(
+        'grassfish_play_access_overdue',
+        cnt['access_overdue'],
+        None,
+        None,
+        None,
+        0,
+        cnt['players'],
+    )
+    perfdata += lib.base.get_perfdata(
+        'grassfish_play_warnings', cnt['warnings'], None, None, None, 0, None
+    )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
@@ -497,5 +537,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

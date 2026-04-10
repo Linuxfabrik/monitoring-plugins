@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse
 import sys
@@ -17,7 +16,7 @@ import sys
 import lib.base
 import lib.human
 import lib.version
-from lib.globals import (STATE_OK, STATE_UNKNOWN)
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 try:
     import psutil
@@ -42,14 +41,14 @@ DEFAULT_WARN = 90  # %
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -61,9 +60,10 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Set the critical threshold for memory usage (in percent). '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
@@ -72,17 +72,18 @@ def parse_args():
     parser.add_argument(
         '--top',
         help='List x "Top most memory consuming processes". '
-             'Use `--top=0` to disable this feature. '
-             'Default: %(default)s',
+        'Use `--top=0` to disable this feature. '
+        'Default: %(default)s',
         dest='TOP',
         type=int,
         default=DEFAULT_TOP,
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the warning threshold for memory usage (in percent). '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -93,8 +94,7 @@ def parse_args():
 
 
 def top(count):
-    """Get top X most memory consuming processes.
-    """
+    """Get top X most memory consuming processes."""
     # Fast path: nothing to print, so nothing to scan
     if count <= 0:
         return ''
@@ -105,7 +105,9 @@ def top(count):
     # Prefer attrs path (psutil >= 5.3.0): fewer syscalls, fewer exceptions
     if lib.version.version(psutil.__version__) >= lib.version.version('5.3.0'):
         try:
-            for p in psutil.process_iter(attrs=['name', 'memory_percent', 'memory_info'], ad_value=None):  # pylint: disable=C0301
+            for p in psutil.process_iter(
+                attrs=['name', 'memory_percent', 'memory_info'], ad_value=None
+            ):  # pylint: disable=C0301
                 try:
                     info = p.info
                     name = info.get('name') or ''
@@ -116,7 +118,11 @@ def top(count):
                     entry = procs.setdefault(name, {'%': 0.0, 'rss': 0})
                     entry['%'] += mem_pct
                     entry['rss'] += rss
-                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                except (
+                    psutil.NoSuchProcess,
+                    psutil.AccessDenied,
+                    psutil.ZombieProcess,
+                ):
                     continue
         except Exception:
             # Defensive: if psutil attrs path misbehaves on some platform/version, fall back below.
@@ -128,7 +134,11 @@ def top(count):
             for proc in psutil.process_iter():
                 try:
                     info = proc.as_dict(attrs=['name', 'memory_percent', 'memory_info'])
-                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                except (
+                    psutil.NoSuchProcess,
+                    psutil.AccessDenied,
+                    psutil.ZombieProcess,
+                ):
                     continue
                 name = info.get('name') or ''
                 mem_pct = float(info.get('memory_percent') or 0.0)
@@ -147,13 +157,14 @@ def top(count):
     ranked = sorted(procs.items(), key=lambda kv: kv[1]['%'], reverse=True)[:count]
     lines = [f'\nTop {count} most memory consuming processes:']
     for i, (name, agg) in enumerate(ranked, start=1):
-        lines.append(f'{i}. {name}: {lib.human.bytes2human(agg["rss"])} ({agg["%"]:.1f}%)')
+        lines.append(
+            f'{i}. {name}: {lib.human.bytes2human(agg["rss"])} ({agg["%"]:.1f}%)'
+        )
     return '\n'.join(lines) + '\n'
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:

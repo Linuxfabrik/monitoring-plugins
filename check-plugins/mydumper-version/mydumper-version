@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import re  # pylint: disable=C0413
@@ -21,26 +20,29 @@ import lib.shell  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
 import lib.version  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
-                          STATE_WARN)
+from lib.globals import (
+    STATE_OK,
+    STATE_UNKNOWN,  # pylint: disable=C0413
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
 DESCRIPTION = 'This plugin lets you track if mydumper updates are available.'
 
-DEFAULT_CACHE_EXPIRE = 24 # hours
+DEFAULT_CACHE_EXPIRE = 24  # hours
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -54,7 +56,7 @@ def parse_args():
     parser.add_argument(
         '--cache-expire',
         help='The amount of time after which the update check cache expires, in hours. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='CACHE_EXPIRE',
         type=int,
         default=DEFAULT_CACHE_EXPIRE,
@@ -86,7 +88,9 @@ def get_latest_version(expire):
         return (True, latest_version)
 
     # nothing found in cache, get the latest version from github
-    success, latest_version = lib.url.get_latest_version_from_github('mydumper', 'mydumper')
+    success, latest_version = lib.url.get_latest_version_from_github(
+        'mydumper', 'mydumper'
+    )
     if not success:
         return (success, latest_version)
 
@@ -95,8 +99,7 @@ def get_latest_version(expire):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -108,8 +111,16 @@ def main():
     if not installed_version:
         lib.base.cu('mydumper/myloader not found.')
 
-    latest_version = lib.base.coe(get_latest_version(args.CACHE_EXPIRE*60*60))
-    perfdata = lib.base.get_perfdata('mydumper-version', lib.version.version2float(installed_version), None, None, None, 0, None) # pylint: disable=C0301
+    latest_version = lib.base.coe(get_latest_version(args.CACHE_EXPIRE * 60 * 60))
+    perfdata = lib.base.get_perfdata(
+        'mydumper-version',
+        lib.version.version2float(installed_version),
+        None,
+        None,
+        None,
+        0,
+        None,
+    )  # pylint: disable=C0301
 
     if lib.version.version(installed_version) >= lib.version.version(latest_version):
         lib.base.oao(
@@ -134,5 +145,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

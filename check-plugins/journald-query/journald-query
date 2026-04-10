@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import json  # pylint: disable=C0413
@@ -22,8 +21,12 @@ import lib.human  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -53,14 +56,14 @@ JOURNALD_PRIOS = [
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -74,8 +77,8 @@ def parse_args():
     parser.add_argument(
         '--facility',
         help='journalctl: Filter output by syslog facility. Takes a '
-             'comma-separated list of numbers or facility names. '
-             'Default: %(default)s',
+        'comma-separated list of numbers or facility names. '
+        'Default: %(default)s',
         dest='FACILITY',
         default=DEFAULT_FACILITY,
     )
@@ -83,7 +86,7 @@ def parse_args():
     parser.add_argument(
         '--identifier',
         help='journalctl: Show messages for the specified syslog identifier. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='IDENTIFIER',
         default=DEFAULT_IDENTIFIER,
     )
@@ -91,8 +94,8 @@ def parse_args():
     parser.add_argument(
         '--ignore-pattern',
         help='Any line containing this case-sensitive pattern on the MESSAGE field will be '
-             'ignored (repeating). So, unlike `journalctl`, you can easily use '
-             'strings to ignore certain messages.',
+        'ignored (repeating). So, unlike `journalctl`, you can easily use '
+        'strings to ignore certain messages.',
         action='append',
         default=None,
         dest='IGNORE_PATTERN',
@@ -101,10 +104,10 @@ def parse_args():
     parser.add_argument(
         '--ignore-regex',
         help='Any line matching this Python regex on the MESSAGE field will be '
-             'ignored (repeating). So, unlike `journalctl`, you can easily use '
-             'a regex to ignore certain messages. '
-             'Example: \'(?i)linuxfabrik\' for a case-insensitive search for '
-             '"linuxfabrik".',
+        'ignored (repeating). So, unlike `journalctl`, you can easily use '
+        'a regex to ignore certain messages. '
+        "Example: '(?i)linuxfabrik' for a case-insensitive search for "
+        '"linuxfabrik".',
         action='append',
         default=None,
         dest='IGNORE_REGEX',
@@ -113,8 +116,8 @@ def parse_args():
     parser.add_argument(
         '--priority',
         help='journalctl: Filter output by message priorities or priority '
-             'ranges. '
-             'Default: %(default)s',
+        'ranges. '
+        'Default: %(default)s',
         dest='PRIORITY',
         default=DEFAULT_PRIORITY,
     )
@@ -122,8 +125,8 @@ def parse_args():
     parser.add_argument(
         '--severity',
         help='Severity for alerts if journalctl returns results. One of '
-             '"warn" or "crit". '
-             'Default: %(default)s',
+        '"warn" or "crit". '
+        'Default: %(default)s',
         dest='SEVERITY',
         default=DEFAULT_SERVERITY,
         choices=['warn', 'crit'],
@@ -132,8 +135,8 @@ def parse_args():
     parser.add_argument(
         '--since',
         help='journalctl: Start showing entries on or newer than the '
-             'specified date. '
-             'Default: >= %(default)s',
+        'specified date. '
+        'Default: >= %(default)s',
         dest='SINCE',
         default=DEFAULT_SINCE,
     )
@@ -141,7 +144,7 @@ def parse_args():
     parser.add_argument(
         '--test',
         help='For unit tests. '
-             'Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        'Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
         type=lib.args.csv,
     )
@@ -149,8 +152,8 @@ def parse_args():
     parser.add_argument(
         '--unit',
         help='journalctl: Show messages for the specified systemd unit '
-             'UNIT|PATTERN. This parameter can be specified multiple times. '
-             'Default: %(default)s',
+        'UNIT|PATTERN. This parameter can be specified multiple times. '
+        'Default: %(default)s',
         dest='UNIT',
         default=DEFAULT_UNIT,
         action='append',
@@ -159,8 +162,8 @@ def parse_args():
     parser.add_argument(
         '--user-unit',
         help='journalctl: Show messages for the specified user session unit. '
-             'This parameter can be specified multiple times. '
-             'Default: %(default)s',
+        'This parameter can be specified multiple times. '
+        'Default: %(default)s',
         dest='USER_UNIT',
         default=DEFAULT_USER_UNIT,
         action='append',
@@ -171,8 +174,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -200,7 +202,7 @@ def main():
         if args.IDENTIFIER:
             cmd += f'--identifier={args.IDENTIFIER} '
         # unfortunately only for newer journalctl commands:
-        #cmd += '--output-fields=UNIT,_SYSTEMD_UNIT,_SYSTEMD_SLICE,PRIORITY,MESSAGE '
+        # cmd += '--output-fields=UNIT,_SYSTEMD_UNIT,_SYSTEMD_SLICE,PRIORITY,MESSAGE '
         if args.UNIT is None and args.USER_UNIT is None:
             # Pre-define a standard set on basic system services we want to warn about,
             # found on fresh rhel 7+, ubuntu 16+ and debian 9+ systems altogether, if no unit
@@ -251,7 +253,7 @@ def main():
             for unit in args.USER_UNIT:
                 cmd += f'--user-unit="{unit}" '
         cmd = cmd.strip()
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))  # pylint: disable=W0612
         if stderr:
             lib.base.cu(stderr)
     else:
@@ -278,8 +280,10 @@ def main():
 
             if event['MESSAGE'] is None:
                 continue
-            if any(ignore_pattern in event['MESSAGE'] for ignore_pattern in args.IGNORE_PATTERN) \
-            or any(item.search(event['MESSAGE']) for item in compiled_ignore_regex):
+            if any(
+                ignore_pattern in event['MESSAGE']
+                for ignore_pattern in args.IGNORE_PATTERN
+            ) or any(item.search(event['MESSAGE']) for item in compiled_ignore_regex):
                 continue
             # shorten message if necessary
             if len(event['MESSAGE']) > 80:
@@ -310,7 +314,8 @@ def main():
     # build the message
     if table_data:
         sev_str = lib.base.state2str(
-            lib.base.str2state(args.SEVERITY), prefix=' ',
+            lib.base.str2state(args.SEVERITY),
+            prefix=' ',
         )
         msg = (
             f'{cnt}'
@@ -321,21 +326,23 @@ def main():
             f' `{table_data[0]["MESSAGE"]}`{sev_str}'
         )
         if shortened:
-            msg += '\nAttention: Table below is truncated, showing the 5 newest and ' \
-                   'the 5 oldest messages.'
+            msg += (
+                '\nAttention: Table below is truncated, showing the 5 newest and '
+                'the 5 oldest messages.'
+            )
         msg += '\n\n' + lib.base.get_table(
             table_data,
             [
-              'timestamp',
-              'unit',
-              'priority',
-              'MESSAGE',
+                'timestamp',
+                'unit',
+                'priority',
+                'MESSAGE',
             ],
             header=[
-              'Timestamp',
-              'Unit',
-              'Prio',
-              'Message',
+                'Timestamp',
+                'Unit',
+                'Prio',
+                'Message',
             ],
         )
         if args.UNIT is None:
@@ -354,11 +361,17 @@ def main():
         msg = 'Everything is ok.'
         state = STATE_OK
 
-    full_cmd = cmd.replace(
-        ' --quiet', '',
-    ).replace(
-        ' --output=json', '',
-    ).replace('\\', '')
+    full_cmd = (
+        cmd.replace(
+            ' --quiet',
+            '',
+        )
+        .replace(
+            ' --output=json',
+            '',
+        )
+        .replace('\\', '')
+    )
     msg += f'\nThe full command used was:\n`{full_cmd}`'
     perfdata = lib.base.get_perfdata('journald-query', cnt, None, None, None, 0, None)
 
@@ -369,5 +382,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

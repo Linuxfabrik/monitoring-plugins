@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse
 import sys
@@ -19,34 +18,35 @@ import lib.base
 import lib.human
 import lib.lftest
 import lib.shell
-from lib.globals import (STATE_OK, STATE_UNKNOWN, STATE_WARN)
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2025100601'
 
-DESCRIPTION = '''This plugin compares the chronyd clock offset in milliseconds to that of
-                 the NTP servers.'''
+DESCRIPTION = """This plugin compares the chronyd clock offset in milliseconds to that of
+                 the NTP servers."""
 
-DEFAULT_CRIT = 86400000 # 24h in ms offset
+DEFAULT_CRIT = 86400000  # 24h in ms offset
 DEFAULT_STRATUM = 6
 DEFAULT_WARN = 800  # ms offset
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Set the critical threshold for the ntp time offset, in ms. '
-             'Default: %(default)sms',
+        'Default: %(default)sms',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
@@ -54,8 +54,7 @@ def parse_args():
 
     parser.add_argument(
         '--stratum',
-        help=lib.args.help('--stratum') + ' '
-             + 'Default: %(default)s',
+        help=lib.args.help('--stratum') + ' ' + 'Default: %(default)s',
         dest='STRATUM',
         type=int,
         default=DEFAULT_STRATUM,
@@ -69,9 +68,10 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the warning threshold for the ntp time offset, in ms. '
-             'Default: %(default)sms',
+        'Default: %(default)sms',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -82,8 +82,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -157,9 +156,11 @@ def main():
     # build the message
     offset_state = lib.base.get_state(abs(last_offset), args.WARN, args.CRIT)
     state = lib.base.get_worst(state, offset_state)
-    msg += f'NTP offset is {round(last_offset, 3)}ms' \
-           f'{lib.base.state2str(offset_state, prefix=" ")}, ' \
-           f'Stratum is {stratum}'
+    msg += (
+        f'NTP offset is {round(last_offset, 3)}ms'
+        f'{lib.base.state2str(offset_state, prefix=" ")}, '
+        f'Stratum is {stratum}'
+    )
     if stratum >= args.STRATUM:
         stratum_state = STATE_WARN
         state = lib.base.get_worst(state, stratum_state)
@@ -246,5 +247,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

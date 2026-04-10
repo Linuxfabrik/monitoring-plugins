@@ -8,16 +8,18 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
-                          STATE_WARN)
+from lib.globals import (
+    STATE_OK,
+    STATE_UNKNOWN,  # pylint: disable=C0413
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -30,12 +32,12 @@ DEFAULT_TUNED_PROFILE = 'virtual-guest'
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
     )
@@ -53,7 +55,7 @@ def parse_args():
         default=DEFAULT_TUNED_PROFILE,
         dest='TUNED_PROFILE',
         help='The expected tuned profile (full name), for example "virtual-guest"'
-             ' (case-insensitive). Default: %(default)s',
+        ' (case-insensitive). Default: %(default)s',
     )
 
     args, _ = parser.parse_known_args()
@@ -61,8 +63,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -82,7 +83,8 @@ def main():
     tuned_profile = tuned_profile.lower().replace('current active profile: ', '')
     if tuned_profile == args.TUNED_PROFILE.lower():
         lib.base.oao(f'tuned profile is "{tuned_profile}" (as expected).', STATE_OK)
-    lib.base.oao(f'tuned profile is "{tuned_profile}", but supposed to be "{args.TUNED_PROFILE}".',
+    lib.base.oao(
+        f'tuned profile is "{tuned_profile}", but supposed to be "{args.TUNED_PROFILE}".',
         STATE_WARN,
         always_ok=args.ALWAYS_OK,
     )
@@ -91,5 +93,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

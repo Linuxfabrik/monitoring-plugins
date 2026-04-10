@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import os  # pylint: disable=C0413
@@ -18,8 +17,12 @@ import sys  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 try:
     import psutil  # pylint: disable=C0413
@@ -34,18 +37,18 @@ __version__ = '2026040801'
 DESCRIPTION = """Displays amount of free and used swap space in the system, checks against used swap
                  in percent."""
 
-DEFAULT_CRIT  = 90  # %
+DEFAULT_CRIT = 90  # %
 DEFAULT_TOP = 5
-DEFAULT_WARN  = 70  # %
+DEFAULT_WARN = 70  # %
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
     )
@@ -59,29 +62,31 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         default=DEFAULT_CRIT,
         dest='CRIT',
         help='Set the critical threshold for swap usage (in percent). '
-             'Default: %(default)s',
+        'Default: %(default)s',
         type=int,
     )
 
     parser.add_argument(
         '--top',
         help='List x "Top processes that use the most swap space" (except on Windows). '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='TOP',
         type=int,
         default=DEFAULT_TOP,
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         default=DEFAULT_WARN,
         dest='WARN',
         help='Set the warning threshold for swap usage (in percent). '
-             'Default: %(default)s',
+        'Default: %(default)s',
         type=int,
     )
 
@@ -90,8 +95,7 @@ def parse_args():
 
 
 def get_swap_and_name(pid):
-    """Scan for usage details in /proc-files.
-    """
+    """Scan for usage details in /proc-files."""
     try:
         with open(f'/proc/{pid}/status') as file:
             content = file.read()
@@ -107,12 +111,11 @@ def get_swap_and_name(pid):
 
 
 def top(count):
-    """Get top X processes causing swap usage.
-    """
+    """Get top X processes causing swap usage."""
     process_info = {}
     for pid in os.listdir('/proc'):
         if pid.isdigit():
-            name, usage = get_swap_and_name(pid) # usage is in kB
+            name, usage = get_swap_and_name(pid)  # usage is in kB
             try:
                 process_info[name] += usage * 1024
             except:
@@ -125,8 +128,7 @@ def top(count):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -138,7 +140,7 @@ def main():
         swap = psutil.swap_memory()
     except RuntimeError as e:
         lib.base.oao(
-            'Performance counters may be corrupt or disabled. If the counters are corrupt, attempt to [rebuild them](https://docs.microsoft.com/en-us/troubleshoot/windows-server/performance/rebuild-performance-counter-library-values). If the counters are disabled, check the registry `HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Perflib` and make sure there is no key "Disable" (or set it to 0).', # pylint: disable=C0301
+            'Performance counters may be corrupt or disabled. If the counters are corrupt, attempt to [rebuild them](https://docs.microsoft.com/en-us/troubleshoot/windows-server/performance/rebuild-performance-counter-library-values). If the counters are disabled, check the registry `HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Perflib` and make sure there is no key "Disable" (or set it to 0).',  # pylint: disable=C0301
             STATE_UNKNOWN,
         )
     swap_usage_percent = swap.percent
@@ -150,8 +152,12 @@ def main():
         f'free: {lib.human.bytes2human(swap.free)}'
     )
 
-    perfdata =  lib.base.get_perfdata('usage_percent', swap_usage_percent, '%', args.WARN, args.CRIT, 0, 100) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('total', swap.total, 'B', None, None, 0, swap.total)
+    perfdata = lib.base.get_perfdata(
+        'usage_percent', swap_usage_percent, '%', args.WARN, args.CRIT, 0, 100
+    )  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'total', swap.total, 'B', None, None, 0, swap.total
+    )
     perfdata += lib.base.get_perfdata('used', swap.used, 'B', None, None, 0, swap.total)
     perfdata += lib.base.get_perfdata('free', swap.free, 'B', None, None, 0, swap.total)
 
@@ -164,8 +170,12 @@ def main():
             f'{lib.human.bytes2human(getattr(swap, "sout", 0))}'
             f' (both cumulative)'
         )
-        perfdata += lib.base.get_perfdata('sin', getattr(swap, 'sin', 0), 'B', None, None, 0, None)
-        perfdata += lib.base.get_perfdata('sout', getattr(swap, 'sout', 0), 'B', None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(
+            'sin', getattr(swap, 'sin', 0), 'B', None, None, 0, None
+        )
+        perfdata += lib.base.get_perfdata(
+            'sout', getattr(swap, 'sout', 0), 'B', None, None, 0, None
+        )  # pylint: disable=C0301
 
     # On Linux only, get the top processes causing swap usage
     if not lib.base.WINDOWS and swap_usage_percent > 0:
@@ -175,11 +185,13 @@ def main():
     state = lib.base.get_state(swap_usage_percent, args.WARN, args.CRIT)
 
     # over and out
-    lib.base.oao(msg_header + '\n' + msg_body, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg_header + '\n' + msg_body, state, perfdata, always_ok=args.ALWAYS_OK
+    )
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

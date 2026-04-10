@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -32,22 +31,22 @@ DESCRIPTION = """Returns the account statistics of the Starface PBX.
                 IPv6. Fetched data is cached up to one minute, so that other Starface plugins
                 running in parallel do not query the data again and overload the PBX."""
 
-DEFAULT_CACHE_EXPIRE = 1        # minutes
+DEFAULT_CACHE_EXPIRE = 1  # minutes
 DEFAULT_HOSTNAME = 'localhost'
 DEFAULT_IPV6 = False
 DEFAULT_PORT = 6556
-DEFAULT_TIMEOUT = 8             # seconds
+DEFAULT_TIMEOUT = 8  # seconds
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -59,7 +58,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-H', '--hostname',
+        '-H',
+        '--hostname',
         help='Starface PBX address, can be IP address or hostname. Default: %(default)s',
         dest='HOSTNAME',
         default=DEFAULT_HOSTNAME,
@@ -101,8 +101,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -113,10 +112,19 @@ def main():
     # fetch data
     if args.TEST is None:
         # fetch data from PBX, but first from cache
-        data = lib.cache.get(args.HOSTNAME, filename='linuxfabrik-monitoring-plugins-starface.db')
+        data = lib.cache.get(
+            args.HOSTNAME, filename='linuxfabrik-monitoring-plugins-starface.db'
+        )
         if not data:
-            data = lib.base.coe(lib.net.fetch(args.HOSTNAME, args.PORT, timeout=args.TIMEOUT))
-            lib.cache.set(args.HOSTNAME, data, lib.time.now() + args.CACHE_EXPIRE*60, filename='linuxfabrik-monitoring-plugins-starface.db')
+            data = lib.base.coe(
+                lib.net.fetch(args.HOSTNAME, args.PORT, timeout=args.TIMEOUT)
+            )
+            lib.cache.set(
+                args.HOSTNAME,
+                data,
+                lib.time.now() + args.CACHE_EXPIRE * 60,
+                filename='linuxfabrik-monitoring-plugins-starface.db',
+            )
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
@@ -161,12 +169,24 @@ def main():
         f'{admin_accounts} of them are admin accounts'
     )
 
-    perfdata += lib.base.get_perfdata('active_accounts', active_accounts, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('admin_accounts', admin_accounts, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('available_accounts', available_accounts, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('ringing_accounts', ringing_accounts, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('total_accounts', total_accounts, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('unavailable_accounts', unavailable_accounts, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'active_accounts', active_accounts, None, None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'admin_accounts', admin_accounts, None, None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'available_accounts', available_accounts, None, None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'ringing_accounts', ringing_accounts, None, None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'total_accounts', total_accounts, None, None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'unavailable_accounts', unavailable_accounts, None, None, None, 0, None
+    )
 
     # over and out
     lib.base.oao(msg, state, perfdata)
@@ -175,5 +195,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse
 import os
@@ -25,7 +24,7 @@ import lib.human
 import lib.time
 import lib.txt
 import lib.version
-from lib.globals import (STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN)
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 try:
     import psutil
@@ -61,26 +60,28 @@ runs."""
 
 
 DEFAULT_CACHE_EXPIRE = 90
-DEFAULT_COUNT = 5    # measurements; if check runs once per minute, this is a 5 minute interval
-DEFAULT_CRIT = 90    # %
+DEFAULT_COUNT = (
+    5  # measurements; if check runs once per minute, this is a 5 minute interval
+)
+DEFAULT_CRIT = 90  # %
 DEFAULT_MATCH = ''
 DEFAULT_TOP = 5
-DEFAULT_WARN = 80    # %
+DEFAULT_WARN = 80  # %
 
-DEFAULT_IOWAIT_CRIT = 90    # %; normalized so that 100% = one fully I/O-saturated core
-DEFAULT_IOWAIT_WARN = 80    # %
+DEFAULT_IOWAIT_CRIT = 90  # %; normalized so that 100% = one fully I/O-saturated core
+DEFAULT_IOWAIT_WARN = 80  # %
 cpu_count = os.cpu_count() or 1
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -94,7 +95,7 @@ def parse_args():
     parser.add_argument(
         '--count',
         help='Number of times the value must exceed specified thresholds before alerting. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='COUNT',
         type=int,
         default=DEFAULT_COUNT,
@@ -103,8 +104,8 @@ def parse_args():
     parser.add_argument(
         '--critical',
         help='Threshold for disk bandwidth saturation (over the last `--count` measurements) as a '
-             'percentage of the maximum bandwidth the disk can support. '
-             'Default: >= %(default)s',
+        'percentage of the maximum bandwidth the disk can support. '
+        'Default: >= %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
@@ -113,10 +114,10 @@ def parse_args():
     parser.add_argument(
         '--iowait-critical',
         help='Set the critical threshold for normalized iowait in percent '
-             '(Linux only). The iowait value is normalized so that 100%% means '
-             'one CPU core is fully I/O-saturated. Values above 100%% indicate '
-             'that more than one core is waiting for I/O. '
-             'Default: >= %(default)s',
+        '(Linux only). The iowait value is normalized so that 100%% means '
+        'one CPU core is fully I/O-saturated. Values above 100%% indicate '
+        'that more than one core is waiting for I/O. '
+        'Default: >= %(default)s',
         dest='IOWAIT_CRIT',
         type=int,
         default=DEFAULT_IOWAIT_CRIT,
@@ -125,10 +126,10 @@ def parse_args():
     parser.add_argument(
         '--iowait-warning',
         help='Set the warning threshold for normalized iowait in percent '
-             '(Linux only). The iowait value is normalized so that 100%% means '
-             'one CPU core is fully I/O-saturated. Values above 100%% indicate '
-             'that more than one core is waiting for I/O. '
-             'Default: >= %(default)s',
+        '(Linux only). The iowait value is normalized so that 100%% means '
+        'one CPU core is fully I/O-saturated. Values above 100%% indicate '
+        'that more than one core is waiting for I/O. '
+        'Default: >= %(default)s',
         dest='IOWAIT_WARN',
         type=int,
         default=DEFAULT_IOWAIT_WARN,
@@ -137,8 +138,9 @@ def parse_args():
     parser.add_argument(
         '--match',
         help='Match on disk names. '
-             + lib.args.help('--match') + ' '
-             + 'Default: %(default)s',
+        + lib.args.help('--match')
+        + ' '
+        + 'Default: %(default)s',
         dest='MATCH',
         default=DEFAULT_MATCH,
     )
@@ -146,8 +148,8 @@ def parse_args():
     parser.add_argument(
         '--top',
         help='List x "Top processes that generated the most I/O traffic". '
-             'Use `--top=0` to disable this feature. '
-             'Default: %(default)s',
+        'Use `--top=0` to disable this feature. '
+        'Default: %(default)s',
         dest='TOP',
         type=int,
         default=DEFAULT_TOP,
@@ -156,8 +158,8 @@ def parse_args():
     parser.add_argument(
         '--warning',
         help='Threshold for disk bandwidth saturation (over the last `--count` measurements) as a '
-             'percentage of the maximum bandwidth the disk can support. '
-             'Default: >= %(default)s',
+        'percentage of the maximum bandwidth the disk can support. '
+        'Default: >= %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -168,8 +170,7 @@ def parse_args():
 
 
 def get_max_bandwidth(disk, current_bandwidth):
-    """Store the maximum measured bandwidth for the secific disk in cache table.
-    """
+    """Store the maximum measured bandwidth for the secific disk in cache table."""
     historic_bandwidth = lib.cache.get(
         f'disk-io-{disk}-bandwidth-max',
         filename='linuxfabrik-monitoring-plugins-disk-io.db',
@@ -189,8 +190,7 @@ def get_max_bandwidth(disk, current_bandwidth):
 
 
 def get_rate(ts1, ts2, r1, r2, w1, w2):
-    """Given two read-, write- and timestamp-values, return the read- and write-rate plus bandwidth.
-    """
+    """Given two read-, write- and timestamp-values, return the read- and write-rate plus bandwidth."""
     timediff = abs(ts1 - ts2)  # in seconds
     if timediff == 0:
         return 0, 0, 0, 0
@@ -210,7 +210,7 @@ def get_iowait(conn):
     if not lib.base.LINUX:
         return None
 
-    definition = '''
+    definition = """
         ts REAL NOT NULL,
         guest REAL DEFAULT 0,
         guest_nice REAL DEFAULT 0,
@@ -222,14 +222,16 @@ def get_iowait(conn):
         steal REAL DEFAULT 0,
         system REAL DEFAULT 0,
         user REAL DEFAULT 0
-    '''
+    """
     lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='iowait_raw'))
 
-    last = lib.base.coe(lib.db_sqlite.select(
-        conn,
-        'SELECT * FROM iowait_raw LIMIT 1',
-        fetchone=True,
-    ))
+    last = lib.base.coe(
+        lib.db_sqlite.select(
+            conn,
+            'SELECT * FROM iowait_raw LIMIT 1',
+            fetchone=True,
+        )
+    )
 
     now_ct = psutil.cpu_times()
     now = lib.time.now()
@@ -257,7 +259,9 @@ def get_iowait(conn):
                 iowait_delta = dv
 
         lib.base.coe(lib.db_sqlite.delete(conn, 'DELETE FROM iowait_raw WHERE 1=1'))
-        lib.base.coe(lib.db_sqlite.insert(conn, {'ts': now, **now_d}, table='iowait_raw'))
+        lib.base.coe(
+            lib.db_sqlite.insert(conn, {'ts': now, **now_d}, table='iowait_raw')
+        )
         lib.base.coe(lib.db_sqlite.commit(conn))
 
         if total <= 0.0:
@@ -272,20 +276,20 @@ def get_iowait(conn):
 
 
 def get_iowait_from_db(conn, threshold):
-    """Return the number of iowait_trend rows where iowait exceeds the given threshold.
-    """
-    result = lib.base.coe(lib.db_sqlite.select(
-        conn,
-        'SELECT count(*) as cnt FROM iowait_trend WHERE iowait > :threshold',
-        {'threshold': threshold},
-        fetchone=True,
-    ))
+    """Return the number of iowait_trend rows where iowait exceeds the given threshold."""
+    result = lib.base.coe(
+        lib.db_sqlite.select(
+            conn,
+            'SELECT count(*) as cnt FROM iowait_trend WHERE iowait > :threshold',
+            {'threshold': threshold},
+            fetchone=True,
+        )
+    )
     return int(result['cnt'])
 
 
 def top(count):
-    """Get top X processes that generated the most I/O traffic.
-    """
+    """Get top X processes that generated the most I/O traffic."""
     # Fast path: nothing to print, so nothing to scan
     if count <= 0:
         return ''
@@ -307,7 +311,11 @@ def top(count):
                     # accumulate read/write bytes; guard against None
                     entry['r'] += getattr(ioc, 'read_bytes', 0) or 0
                     entry['w'] += getattr(ioc, 'write_bytes', 0) or 0
-                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                except (
+                    psutil.NoSuchProcess,
+                    psutil.AccessDenied,
+                    psutil.ZombieProcess,
+                ):
                     # process vanished or denied: skip and continue
                     continue
         except Exception:
@@ -320,7 +328,11 @@ def top(count):
             for proc in psutil.process_iter():
                 try:
                     info = proc.as_dict(attrs=['name', 'io_counters'])
-                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                except (
+                    psutil.NoSuchProcess,
+                    psutil.AccessDenied,
+                    psutil.ZombieProcess,
+                ):
                     continue
                 name = info.get('name') or ''
                 ioc = info.get('io_counters')
@@ -336,24 +348,25 @@ def top(count):
         return msg
 
     # Sort by total bytes (read+write) desc and show the top N
-    ranked = sorted(totals.items(), key=lambda kv: kv[1]['r'] + kv[1]['w'], reverse=True)[:count]
+    ranked = sorted(
+        totals.items(), key=lambda kv: kv[1]['r'] + kv[1]['w'], reverse=True
+    )[:count]
 
     # If everything is truly zero, keep output empty
     if ranked and (ranked[0][1]['r'] + ranked[0][1]['w'] > 0):
-        lines = [f"\nTop {count} processes that generate the most I/O traffic (r/w):"]
+        lines = [f'\nTop {count} processes that generate the most I/O traffic (r/w):']
         for i, (name, io) in enumerate(ranked, start=1):
             lines.append(
-                f"{i}. {name}: "
-                f"{lib.human.bytes2human(io['r'])}/"
-                f"{lib.human.bytes2human(io['w'])}"
+                f'{i}. {name}: '
+                f'{lib.human.bytes2human(io["r"])}/'
+                f'{lib.human.bytes2human(io["w"])}'
             )
-        msg = "\n".join(lines) + "\n"
+        msg = '\n'.join(lines) + '\n'
     return msg
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -368,17 +381,20 @@ def main():
     # change after the one for 4.18, which recently added 4 fields.
     # To prevent "ValueError: not sure how to interpret line",
     # we check the version of psutil first.
-    if lib.base.LINUX and all([
-        lib.version.version(platform.release()) >= lib.version.version('4.18.0'),
-        lib.version.version(psutil.__version__) < lib.version.version('5.7.0')
-    ]):
-        lib.base.oao('Nothing checked. '
-                     'Running Kernel >= 4.18, this check needs the Python module '
-                     f'psutil v5.7.0+ (installed {psutil.__version__}; have a look at '
-                     'https://github.com/giampaolo/psutil/pull/1665 '
-                     'for details).',
-                     STATE_OK,
-                     always_ok=args.ALWAYS_OK,
+    if lib.base.LINUX and all(
+        [
+            lib.version.version(platform.release()) >= lib.version.version('4.18.0'),
+            lib.version.version(psutil.__version__) < lib.version.version('5.7.0'),
+        ]
+    ):
+        lib.base.oao(
+            'Nothing checked. '
+            'Running Kernel >= 4.18, this check needs the Python module '
+            f'psutil v5.7.0+ (installed {psutil.__version__}; have a look at '
+            'https://github.com/giampaolo/psutil/pull/1665 '
+            'for details).',
+            STATE_OK,
+            always_ok=args.ALWAYS_OK,
         )
 
     # bd: block device; dmd: device mapper device, mp: mountpoint
@@ -396,7 +412,7 @@ def main():
         pass
 
     # same structure for Linux and Windows, makes life easier
-    definition = '''
+    definition = """
         bd TEXT NOT NULL,
         dmd TEXT,
         mp TEXT,
@@ -408,25 +424,29 @@ def main():
         write_merged_count INT DEFAULT 0,
         write_time INT DEFAULT 0,
         timestamp INT DEFAULT 0
-    '''
+    """
     lib.base.coe(lib.db_sqlite.create_table(conn, definition, drop_table_first=False))
     lib.base.coe(lib.db_sqlite.create_index(conn, 'bd'))
 
     # iowait tracking (Linux only)
-    lib.base.coe(lib.db_sqlite.create_table(
-        conn,
-        'iowait REAL NOT NULL',
-        table='iowait_trend',
-    ))
+    lib.base.coe(
+        lib.db_sqlite.create_table(
+            conn,
+            'iowait REAL NOT NULL',
+            table='iowait_trend',
+        )
+    )
     iowait_pct = get_iowait(conn)
     if iowait_pct is not None:
         # normalize: multiply by cpu_count so that 100% = one fully I/O-saturated core
         iowait_pct = round(iowait_pct * cpu_count, 1)
-        lib.base.coe(lib.db_sqlite.insert(
-            conn,
-            {'iowait': iowait_pct},
-            table='iowait_trend',
-        ))
+        lib.base.coe(
+            lib.db_sqlite.insert(
+                conn,
+                {'iowait': iowait_pct},
+                table='iowait_trend',
+            )
+        )
 
     # init some vars
     msg = f'No I/O on `{args.MATCH}`.' if args.MATCH else 'No I/O.'
@@ -448,7 +468,9 @@ def main():
     if lib.base.WINDOWS:
         for disk, values in disk_io_counters.items():
             # filter devices that do not match
-            if args.MATCH and not lib.base.coe(lib.txt.match_regex(compiled_regex, disk)):
+            if args.MATCH and not lib.base.coe(
+                lib.txt.match_regex(compiled_regex, disk)
+            ):
                 continue
 
             # read_count and write_count are the same value for all disks, so simply ignore them
@@ -474,12 +496,13 @@ def main():
         real_disks = lib.disk.get_real_disks()
         for disk in real_disks:
             # filter devices that do not match
-            if args.MATCH \
-               and not any((
-                   lib.base.coe(lib.txt.match_regex(compiled_regex, disk['bd'])),
-                   lib.base.coe(lib.txt.match_regex(compiled_regex, disk['dmd'])),
-                   lib.base.coe(lib.txt.match_regex(compiled_regex, disk['mp'])),
-               )):
+            if args.MATCH and not any(
+                (
+                    lib.base.coe(lib.txt.match_regex(compiled_regex, disk['bd'])),
+                    lib.base.coe(lib.txt.match_regex(compiled_regex, disk['dmd'])),
+                    lib.base.coe(lib.txt.match_regex(compiled_regex, disk['mp'])),
+                )
+            ):
                 continue
 
             psutil_name = os.path.basename(disk['bd'])
@@ -494,12 +517,18 @@ def main():
             data['busy_time'] = getattr(disk_io_counters[psutil_name], 'busy_time', 0)
             data['read_bytes'] = getattr(disk_io_counters[psutil_name], 'read_bytes', 0)
             data['read_merged_count'] = getattr(
-                disk_io_counters[psutil_name], 'read_merged_count', 0,
+                disk_io_counters[psutil_name],
+                'read_merged_count',
+                0,
             )
             data['read_time'] = getattr(disk_io_counters[psutil_name], 'read_time', 0)
-            data['write_bytes'] = getattr(disk_io_counters[psutil_name], 'write_bytes', 0)
+            data['write_bytes'] = getattr(
+                disk_io_counters[psutil_name], 'write_bytes', 0
+            )
             data['write_merged_count'] = getattr(
-                disk_io_counters[psutil_name], 'write_merged_count', 0,
+                disk_io_counters[psutil_name],
+                'write_merged_count',
+                0,
             )
             data['write_time'] = getattr(disk_io_counters[psutil_name], 'write_time', 0)
             data['timestamp'] = now
@@ -527,26 +556,33 @@ def main():
     # (what might be a peak only)
     for disk in disks:
         # get all historical data rows for a specific disk, newest item first
-        data = lib.base.coe(lib.db_sqlite.select(
-            conn,
-            '''
+        data = lib.base.coe(
+            lib.db_sqlite.select(
+                conn,
+                """
             SELECT *
             FROM perfdata
             WHERE bd = :name
             ORDER BY timestamp DESC
-            ''',
-            {'name': disk['bd']},
-        ))
+            """,
+                {'name': disk['bd']},
+            )
+        )
 
         if len(data) < 2:
             lib.db_sqlite.close(conn)
             lib.base.oao('Waiting for more data.', state)
 
         # calculate current rates (like "load1")
-        timediff, read_bytes_per_second1, write_bytes_per_second1, bandwidth1 = get_rate(
-            data[0]['timestamp'], data[1]['timestamp'],
-            data[0]['read_bytes'], data[1]['read_bytes'],
-            data[0]['write_bytes'], data[1]['write_bytes'],
+        timediff, read_bytes_per_second1, write_bytes_per_second1, bandwidth1 = (
+            get_rate(
+                data[0]['timestamp'],
+                data[1]['timestamp'],
+                data[0]['read_bytes'],
+                data[1]['read_bytes'],
+                data[0]['write_bytes'],
+                data[1]['write_bytes'],
+            )
         )
         if timediff <= 0:  # often happens after a reboot
             lib.db_sqlite.close(conn)
@@ -557,11 +593,13 @@ def main():
 
         if bandwidth1 > busiest_disk:
             # get the current busiest disk for the first line of the message
-            msg = f'{disk["bd"]}: ' \
-                  f'{lib.human.bytes2human(read_bytes_per_second1)}/s read1, ' \
-                  f'{lib.human.bytes2human(write_bytes_per_second1)}/s write1, ' \
-                  f'{lib.human.bytes2human(bandwidth1)}/s total, ' \
-                  f'{lib.human.bytes2human(bandwidth_max)}/s max'
+            msg = (
+                f'{disk["bd"]}: '
+                f'{lib.human.bytes2human(read_bytes_per_second1)}/s read1, '
+                f'{lib.human.bytes2human(write_bytes_per_second1)}/s write1, '
+                f'{lib.human.bytes2human(bandwidth1)}/s total, '
+                f'{lib.human.bytes2human(bandwidth_max)}/s max'
+            )
             if args.MATCH:
                 msg += f' (disks matching `{args.MATCH}`).'
             busiest_disk = bandwidth1
@@ -570,10 +608,15 @@ def main():
         if len(data) != args.COUNT:  # not enough data yet
             continue
 
-        timediff, read_bytes_per_second15, write_bytes_per_second15, bandwidth15 = get_rate(
-            data[0]['timestamp'], data[args.COUNT - 1]['timestamp'],
-            data[0]['read_bytes'], data[args.COUNT - 1]['read_bytes'],
-            data[0]['write_bytes'], data[args.COUNT - 1]['write_bytes'],
+        timediff, read_bytes_per_second15, write_bytes_per_second15, bandwidth15 = (
+            get_rate(
+                data[0]['timestamp'],
+                data[args.COUNT - 1]['timestamp'],
+                data[0]['read_bytes'],
+                data[args.COUNT - 1]['read_bytes'],
+                data[0]['write_bytes'],
+                data[args.COUNT - 1]['write_bytes'],
+            )
         )
         if timediff <= 0:  # often happens after a reboot
             lib.db_sqlite.close(conn)
@@ -588,17 +631,20 @@ def main():
         state = lib.base.get_worst(local_state, state)
 
         bd = disk['bd'].replace('/dev/', '')
-        table_values.append({
-            'bd': bd,
-            'dmd': disk['dmd'].replace('/dev/mapper/', ''),
-            'mp': disk['mp'],
-            'max': lib.human.bytes2human(bandwidth_max),
-            'r1': lib.human.bytes2human(read_bytes_per_second1),
-            'w1': lib.human.bytes2human(write_bytes_per_second1),
-            'r15': lib.human.bytes2human(read_bytes_per_second15),
-            'w15': lib.human.bytes2human(write_bytes_per_second15),
-            't15': lib.human.bytes2human(bandwidth15) + lib.base.state2str(local_state, prefix=' '),
-        })
+        table_values.append(
+            {
+                'bd': bd,
+                'dmd': disk['dmd'].replace('/dev/mapper/', ''),
+                'mp': disk['mp'],
+                'max': lib.human.bytes2human(bandwidth_max),
+                'r1': lib.human.bytes2human(read_bytes_per_second1),
+                'w1': lib.human.bytes2human(write_bytes_per_second1),
+                'r15': lib.human.bytes2human(read_bytes_per_second15),
+                'w15': lib.human.bytes2human(write_bytes_per_second15),
+                't15': lib.human.bytes2human(bandwidth15)
+                + lib.base.state2str(local_state, prefix=' '),
+            }
+        )
 
         # perfdata
         try:
@@ -663,7 +709,9 @@ def main():
 
     # prepend iowait to the message
     if iowait_pct is not None:
-        iowait_msg = f'iowait: {iowait_pct}%{lib.base.state2str(iowait_state, prefix=" ")}'
+        iowait_msg = (
+            f'iowait: {iowait_pct}%{lib.base.state2str(iowait_state, prefix=" ")}'
+        )
         msg = f'{iowait_msg}. {msg}'
         perfdata += lib.base.get_perfdata(
             'iowait',
@@ -708,7 +756,9 @@ def main():
     msg += top(args.TOP)
 
     # over and out
-    lib.base.oao(msg.replace('\n\n\n', '\n\n'), state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg.replace('\n\n\n', '\n\n'), state, perfdata, always_ok=args.ALWAYS_OK
+    )
 
 
 if __name__ == '__main__':

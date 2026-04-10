@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -22,10 +21,10 @@ from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
-DESCRIPTION = '''This check displays LibreNMS instance information, using
+DESCRIPTION = """This check displays LibreNMS instance information, using
                  its API. This is not a "is there a new version out there"
                  check as LibreNMS is capable of updating itself
-                 (if running the Git version).'''
+                 (if running the Git version)."""
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
@@ -34,21 +33,21 @@ DEFAULT_URL = 'http://localhost'
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
         '--insecure',
         help='This option explicitly allows to perform "insecure" SSL '
-             'connections. '
-             'Default: %(default)s',
+        'connections. '
+        'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -56,8 +55,7 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. '
-             'Default: %(default)s',
+        help='Do not use a proxy. Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -65,8 +63,7 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. '
-             'Default: %(default)s (seconds)',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -81,8 +78,7 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='LibreNMS API URL. '
-             'Default: %(default)s',
+        help='LibreNMS API URL. Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
@@ -92,8 +88,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -124,30 +119,85 @@ def main():
     #     "netsnmp_ver": "5.8"
     # }
 
-
-    msg += f"LibreNMS {result['local_ver']}"
+    msg += f'LibreNMS {result["local_ver"]}'
     if 'local_branch' in result:
-        msg += f" (Git: {result['local_branch']})"
+        msg += f' (Git: {result["local_branch"]})'
     msg += ', '
-    msg += f"DB-Schema {result['db_schema']}, "
+    msg += f'DB-Schema {result["db_schema"]}, '
     try:
-        msg += f"{result['database_ver']}, "
+        msg += f'{result["database_ver"]}, '
     except:
-        msg += f"{result['mysql_ver']}, "
-    msg += f"Net-SNMP {result['netsnmp_ver']}, "
-    msg += f"PHP {result['php_ver']}, "
-    msg += f"Python {result['python_ver']}, "
-    msg += f"RRD-Tool {result['rrdtool_ver']}"
+        msg += f'{result["mysql_ver"]}, '
+    msg += f'Net-SNMP {result["netsnmp_ver"]}, '
+    msg += f'PHP {result["php_ver"]}, '
+    msg += f'Python {result["python_ver"]}, '
+    msg += f'RRD-Tool {result["rrdtool_ver"]}'
 
-    perfdata += lib.base.get_perfdata('librenms-version', lib.version.version2float(result['local_ver']), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'librenms-version',
+        lib.version.version2float(result['local_ver']),
+        None,
+        None,
+        None,
+        0,
+        None,
+    )  # pylint: disable=C0301
     try:
-        perfdata += lib.base.get_perfdata('db-version', lib.version.version2float(result['database_ver']), None, None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(
+            'db-version',
+            lib.version.version2float(result['database_ver']),
+            None,
+            None,
+            None,
+            0,
+            None,
+        )  # pylint: disable=C0301
     except:
-        perfdata += lib.base.get_perfdata('db-version', lib.version.version2float(result['mysql_ver']), None, None, None, 0, None) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('netsnmp-version', lib.version.version2float(result['netsnmp_ver']), None, None, None, 0, None) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('php-version', lib.version.version2float(result['php_ver']), None, None, None, 0, None) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('python-version', lib.version.version2float(result['python_ver']), None, None, None, 0, None) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('rrdtool-version', lib.version.version2float(result['rrdtool_ver']), None, None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(
+            'db-version',
+            lib.version.version2float(result['mysql_ver']),
+            None,
+            None,
+            None,
+            0,
+            None,
+        )  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'netsnmp-version',
+        lib.version.version2float(result['netsnmp_ver']),
+        None,
+        None,
+        None,
+        0,
+        None,
+    )  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'php-version',
+        lib.version.version2float(result['php_ver']),
+        None,
+        None,
+        None,
+        0,
+        None,
+    )  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'python-version',
+        lib.version.version2float(result['python_ver']),
+        None,
+        None,
+        None,
+        0,
+        None,
+    )  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'rrdtool-version',
+        lib.version.version2float(result['rrdtool_ver']),
+        None,
+        None,
+        None,
+        0,
+        None,
+    )  # pylint: disable=C0301
 
     # over and out
     lib.base.oao(msg, state, perfdata)
@@ -156,5 +206,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

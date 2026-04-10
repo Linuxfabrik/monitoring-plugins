@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import re  # pylint: disable=C0413
@@ -21,8 +20,12 @@ import lib.shell  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -44,14 +47,14 @@ DEFAULT_VERBOSE = False
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -72,25 +75,26 @@ def parse_args():
     parser.add_argument(
         '--configfile',
         help='SSH: Specifies an alternative per-user configuration file. If a configuration '
-             'file is given on the command line, the system-wide '
-             'configuration file (`/etc/ssh/ssh_config`) will be ignored. The '
-             'default for the per-user configuration file is `~/.ssh/config`. If '
-             'set to `none`, no configuration files will be read.',
+        'file is given on the command line, the system-wide '
+        'configuration file (`/etc/ssh/ssh_config`) will be ignored. The '
+        'default for the per-user configuration file is `~/.ssh/config`. If '
+        'set to `none`, no configuration files will be read.',
         dest='CONFIGFILE',
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='CRIT threshold for single numeric return values. '
-             'Supports Nagios ranges. '
-             'Example: `@10:20` alerts if STDOUT is in range 10..20.',
+        'Supports Nagios ranges. '
+        'Example: `@10:20` alerts if STDOUT is in range 10..20.',
         dest='CRIT',
     )
 
     parser.add_argument(
         '--critical-pattern',
         help='Any line matching this pattern (case-insensitive) will count as a critical. '
-             'Can be specified multiple times.',
+        'Can be specified multiple times.',
         dest='CRIT_PATTERN',
         action='append',
         default=None,
@@ -99,7 +103,7 @@ def parse_args():
     parser.add_argument(
         '--critical-regex',
         help='Any line matching this python regex (case-insensitive) will count as a critical. '
-             'Can be specified multiple times.',
+        'Can be specified multiple times.',
         dest='CRIT_REGEX',
         action='append',
         default=None,
@@ -114,7 +118,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-H', '--hostname',
+        '-H',
+        '--hostname',
         help='SSH: Hostname',
         dest='HOSTNAME',
         required=True,
@@ -123,18 +128,18 @@ def parse_args():
     parser.add_argument(
         '--identity',
         help='SSH: Selects a file from which the identity (private key) for public '
-             'key authentication is read. You can also specify a public key '
-             'file to use the corresponding private key that is loaded in '
-             'ssh-agent(1) when the private key file is not present locally. '
-             'The default is `~/.ssh/id_dsa`, `~/.ssh/id_ecdsa`, '
-             '`~/.ssh/id_ecdsa_sk`, `~/.ssh/id_ed25519`, `~/.ssh/id_ed25519_sk` and '
-             '`~/.ssh/id_rsa`. Identity files may also be specified on a per-'
-             'host basis in the configuration file. It is possible to have '
-             'multiple --identity options (and multiple identities specified in configuration '
-             'files). If no certificates have been explicitly specified by the '
-             'CertificateFile directive, ssh will also try to load '
-             'certificate information from the filename obtained by appending '
-             '`-cert.pub` to identity filenames.',
+        'key authentication is read. You can also specify a public key '
+        'file to use the corresponding private key that is loaded in '
+        'ssh-agent(1) when the private key file is not present locally. '
+        'The default is `~/.ssh/id_dsa`, `~/.ssh/id_ecdsa`, '
+        '`~/.ssh/id_ecdsa_sk`, `~/.ssh/id_ed25519`, `~/.ssh/id_ed25519_sk` and '
+        '`~/.ssh/id_rsa`. Identity files may also be specified on a per-'
+        'host basis in the configuration file. It is possible to have '
+        'multiple --identity options (and multiple identities specified in configuration '
+        'files). If no certificates have been explicitly specified by the '
+        'CertificateFile directive, ssh will also try to load '
+        'certificate information from the filename obtained by appending '
+        '`-cert.pub` to identity filenames.',
         dest='IDENTITY',
         action='append',
     )
@@ -156,10 +161,11 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-p', '--password',
+        '-p',
+        '--password',
         help='SSH: Password authentication. NOT RECOMMENDED. Requires `sshpass`. '
-             'If you need to use password-based SSH login, run this plugin only on trusted hosts. '
-             '`ps` will expose the SSH password.',
+        'If you need to use password-based SSH login, run this plugin only on trusted hosts. '
+        '`ps` will expose the SSH password.',
         dest='PASSWORD',
         default=None,
     )
@@ -167,7 +173,7 @@ def parse_args():
     parser.add_argument(
         '--port',
         help='SSH: Port to connect to on the remote host. This can be specified on '
-             'a per-host basis in the configuration file. Default: %(default)s',
+        'a per-host basis in the configuration file. Default: %(default)s',
         dest='PORT',
         default=DEFAULT_PORT,
     )
@@ -175,7 +181,7 @@ def parse_args():
     parser.add_argument(
         '--quiet',
         help='SSH: Quiet mode. Causes most warning and diagnostic messages to be '
-             'suppressed.',
+        'suppressed.',
         dest='QUIET',
         action='store_true',
         default=False,
@@ -232,9 +238,9 @@ def parse_args():
     parser.add_argument(
         '--ssh-option',
         help='SSH: Can be used to give options in the format used in the configuration file. '
-             'This is useful for specifying options for which there '
-             'is no separate command-line flag. For full details of the options, '
-             'and their possible values, see ssh_config(5). Can be specified multiple times.',
+        'This is useful for specifying options for which there '
+        'is no separate command-line flag. For full details of the options, '
+        'and their possible values, see ssh_config(5). Can be specified multiple times.',
         dest='SSH_OPTION',
         action='append',
     )
@@ -242,9 +248,9 @@ def parse_args():
     parser.add_argument(
         '--shell',
         help='If specified, allows you to expand '
-            'environment variables and file globs according to the shell\'s usual '
-            'mechanism, which can be a security hazard. Default: You just can '
-            'run simple shell command without globs, pipes etc.',
+        "environment variables and file globs according to the shell's usual "
+        'mechanism, which can be a security hazard. Default: You just can '
+        'run simple shell command without globs, pipes etc.',
         dest='SHELL',
         action='store_true',
         default=False,
@@ -258,7 +264,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-u', '--username',
+        '-u',
+        '--username',
         help='SSH: Username. Default: %(default)s',
         dest='USERNAME',
         default=DEFAULT_USERNAME,
@@ -266,25 +273,25 @@ def parse_args():
 
     parser.add_argument(
         '--verbose',
-        help=lib.args.help('--verbose') + ' ' +
-             'Default: %(default)s',
+        help=lib.args.help('--verbose') + ' ' + 'Default: %(default)s',
         dest='VERBOSE',
         action='store_true',
         default=DEFAULT_VERBOSE,
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='WARN threshold for single numeric return values. '
-             'Supports Nagios ranges. '
-             'Example: `@10:20` alerts if STDOUT is in range 10..20.',
+        'Supports Nagios ranges. '
+        'Example: `@10:20` alerts if STDOUT is in range 10..20.',
         dest='WARN',
     )
 
     parser.add_argument(
         '--warning-pattern',
         help='Any line matching this pattern (case-insensitive) will count as a warning. '
-             'Can be specified multiple times.',
+        'Can be specified multiple times.',
         dest='WARN_PATTERN',
         action='append',
         default=None,
@@ -293,7 +300,7 @@ def parse_args():
     parser.add_argument(
         '--warning-regex',
         help='Any line matching this python regex (case-insensitive) will count as a warning. '
-             'Can be specified multiple times.',
+        'Can be specified multiple times.',
         dest='WARN_REGEX',
         action='append',
         default=None,
@@ -304,8 +311,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -328,16 +334,16 @@ def main():
         f'ssh'
         f' {"-4" if args.IPV4 else ""}'
         f' {"-6" if args.IPV6 else ""}'
-        f""" {f"-F '{args.CONFIGFILE}'" if args.CONFIGFILE else ""}"""
-        f""" {"-i '" + "' -i '".join(args.IDENTITY) + "'" if args.IDENTITY else ""}"""
-        f""" {"-o '" + "' -o '".join(args.SSH_OPTION) + "'" if args.SSH_OPTION else ""}"""
+        f""" {f"-F '{args.CONFIGFILE}'" if args.CONFIGFILE else ''}"""
+        f""" {"-i '" + "' -i '".join(args.IDENTITY) + "'" if args.IDENTITY else ''}"""
+        f""" {"-o '" + "' -o '".join(args.SSH_OPTION) + "'" if args.SSH_OPTION else ''}"""
         f' {f"-p {args.PORT}" if args.PORT else ""}'
         f' {"-q" if args.QUIET else ""}'
         f' {"-T" if args.DISABLE_PSEUDO_TERMINAL else ""}'
         f" '{args.USERNAME}'@'{args.HOSTNAME}'"
         f" '{args.COMMAND}'"
     )
-    cmd = ' '.join(cmd.split()) # strip all whitespaces
+    cmd = ' '.join(cmd.split())  # strip all whitespaces
     if args.PASSWORD:
         # add sshpass in front of it
         cmd = f'sshpass -p {args.PASSWORD} {cmd}'
@@ -348,19 +354,21 @@ def main():
         # something like stderr = "Permission denied" with retc 127 or 255
         stderr = f'sshpass: {lib.shell.RETC_SSHPASS[retc]}'
 
-    perfdata = lib.base.get_perfdata('remote_runtime', lib.time.now('float') - timer_start, 's')
+    perfdata = lib.base.get_perfdata(
+        'remote_runtime', lib.time.now('float') - timer_start, 's'
+    )
 
     # strip output
     if args.SKIP_STDOUT == 0:
         # ignore all lines on STDOUT
         stdout = ''
     if args.SKIP_STDOUT > 0:
-        stdout = '\n'.join(stdout.splitlines()[args.SKIP_STDOUT:])
+        stdout = '\n'.join(stdout.splitlines()[args.SKIP_STDOUT :])
     if args.SKIP_STDERR == 0:
         # ignore all lines on STDERR
         stderr = ''
     if args.SKIP_STDERR > 0:
-        stderr = '\n'.join(stderr.splitlines()[args.SKIP_STDERR:])
+        stderr = '\n'.join(stderr.splitlines()[args.SKIP_STDERR :])
     stdout = stdout.strip()
     stderr = stderr.strip()
 
@@ -372,13 +380,17 @@ def main():
 
     # check stdout - alert with given severity if there is any output at all
     if stdout:
-        stdout_state = lib.base.str2state(args.SEVERITY_STDOUT)  # if SEVERITY_STDOUT != 'ok'
+        stdout_state = lib.base.str2state(
+            args.SEVERITY_STDOUT
+        )  # if SEVERITY_STDOUT != 'ok'
         state = lib.base.get_worst(state, stdout_state)
 
     # check stdout - alert with given severity on a single numeric value
     try:
         float(stdout)
-        stdout_state = lib.base.get_state(stdout, args.WARN, args.CRIT, _operator='range')
+        stdout_state = lib.base.get_state(
+            stdout, args.WARN, args.CRIT, _operator='range'
+        )
         state = lib.base.get_worst(state, stdout_state)
     except:
         if args.VERBOSE:
@@ -388,11 +400,13 @@ def main():
     compiled_warn_regex = [re.compile(item) for item in args.WARN_REGEX]
     compiled_crit_regex = [re.compile(item) for item in args.CRIT_REGEX]
     haystack = stdout.lower()
-    if any(warn_pattern.lower() in haystack for warn_pattern in args.WARN_PATTERN) \
-    or any(item.search(haystack) for item in compiled_warn_regex):
+    if any(
+        warn_pattern.lower() in haystack for warn_pattern in args.WARN_PATTERN
+    ) or any(item.search(haystack) for item in compiled_warn_regex):
         stdout_state = STATE_WARN
-    if any(crit_pattern.lower() in haystack for crit_pattern in args.CRIT_PATTERN) \
-    or any(item.search(haystack) for item in compiled_crit_regex):
+    if any(
+        crit_pattern.lower() in haystack for crit_pattern in args.CRIT_PATTERN
+    ) or any(item.search(haystack) for item in compiled_crit_regex):
         stdout_state = STATE_CRIT
     state = lib.base.get_worst(state, stdout_state)
 
@@ -412,10 +426,10 @@ def main():
 
     # build the message
     if retc:
-        msg += f"retc: {retc}{lib.base.state2str(retc_state, prefix=' ')}; "
+        msg += f'retc: {retc}{lib.base.state2str(retc_state, prefix=" ")}; '
     if stderr:
-        msg += f"stderr: {stderr}{lib.base.state2str(stderr_state, prefix=' ')}; "
-    msg += f"{stdout if stdout else 'stdout: None'}{lib.base.state2str(stdout_state, prefix=' ')}"
+        msg += f'stderr: {stderr}{lib.base.state2str(stderr_state, prefix=" ")}; '
+    msg += f'{stdout if stdout else "stdout: None"}{lib.base.state2str(stdout_state, prefix=" ")}'
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
@@ -424,5 +438,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

@@ -9,8 +9,8 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-sys.path.append("..") # Adds higher directory to python modules path.
 
+sys.path.append('..')  # Adds higher directory to python modules path.
 
 
 import unittest
@@ -21,36 +21,66 @@ import lib.shell
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../statuspal'
 
-    #self.assertEqual(retc, STATE_CRIT)
-    #self.assertIn('Waiting for more data (1).', stdout)
-    #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
+    # self.assertEqual(retc, STATE_CRIT)
+    # self.assertIn('Waiting for more data (1).', stdout)
+    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0'))
-        self.assertIn('Ongoing maintenance since 2022-01-01 00:00:00: We are having issues with the DB connection', stdout)
-        self.assertIn('Major incidents @ Google (google.com, TZ Etc/UTC): We are having issues with the DB connection / We have detected an issue with our CDN (2022-01-01 00:00:00) (see https://status.google.com/incidents/123)', stdout)
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0')
+        )
+        self.assertIn(
+            'Ongoing maintenance since 2022-01-01 00:00:00: We are having issues with the DB connection',
+            stdout,
+        )
+        self.assertIn(
+            'Major incidents @ Google (google.com, TZ Etc/UTC): We are having issues with the DB connection / We have detected an issue with our CDN (2022-01-01 00:00:00) (see https://status.google.com/incidents/123)',
+            stdout,
+        )
         self.assertIn('', stdout)
         self.assertIn('Service            ! State     ', stdout)
         self.assertIn('-------------------+-----------', stdout)
         self.assertIn('Monitoring service ! [CRITICAL]', stdout)
         self.assertIn('', stdout)
-        self.assertIn('Maintenance                                 ! Type      ! Start               ! End                ', stdout)
-        self.assertIn('--------------------------------------------+-----------+---------------------+--------------------', stdout)
-        self.assertIn('We are having issues with the DB connection ! scheduled ! 2022-01-01 00:00:00 ! 2022-01-01 00:00:00', stdout)
+        self.assertIn(
+            'Maintenance                                 ! Type      ! Start               ! End                ',
+            stdout,
+        )
+        self.assertIn(
+            '--------------------------------------------+-----------+---------------------+--------------------',
+            stdout,
+        )
+        self.assertIn(
+            'We are having issues with the DB connection ! scheduled ! 2022-01-01 00:00:00 ! 2022-01-01 00:00:00',
+            stdout,
+        )
         self.assertIn('', stdout)
-        self.assertIn('Upcoming Maintenance                        ! Type      ! Start               ! End                ', stdout)
-        self.assertIn('--------------------------------------------+-----------+---------------------+--------------------', stdout)
-        self.assertIn('We are having issues with the DB connection ! scheduled ! 2022-01-01 00:00:00 ! 2022-01-01 00:00:00', stdout)
+        self.assertIn(
+            'Upcoming Maintenance                        ! Type      ! Start               ! End                ',
+            stdout,
+        )
+        self.assertIn(
+            '--------------------------------------------+-----------+---------------------+--------------------',
+            stdout,
+        )
+        self.assertIn(
+            'We are having issues with the DB connection ! scheduled ! 2022-01-01 00:00:00 ! 2022-01-01 00:00:00',
+            stdout,
+        )
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
 
     def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0'))
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0')
+        )
 
-        self.assertIn('All systems operational @ Exoscale (exoscale.com, TZ Europe/Zurich)', stdout)
+        self.assertIn(
+            'All systems operational @ Exoscale (exoscale.com, TZ Europe/Zurich)',
+            stdout,
+        )
         self.assertIn('', stdout)
         self.assertIn('Service                            ! State', stdout)
         self.assertIn('-----------------------------------+------', stdout)
@@ -106,16 +136,30 @@ class TestCheck(unittest.TestCase):
         self.assertIn('BG-SOF-1.Network Load Balancer NLB ! [OK] ', stdout)
         self.assertIn('BG-SOF-1.Object Storage SOS        ! [OK] ', stdout)
         self.assertIn('', stdout)
-        self.assertIn('Upcoming Maintenance                                ! Type      ! Start               ! End     ', stdout)
-        self.assertIn('----------------------------------------------------+-----------+---------------------+---------', stdout)
-        self.assertIn('Core Network Architecture - Internal routing update ! scheduled ! 2023-09-20 07:00:00 ! open end', stdout)
+        self.assertIn(
+            'Upcoming Maintenance                                ! Type      ! Start               ! End     ',
+            stdout,
+        )
+        self.assertIn(
+            '----------------------------------------------------+-----------+---------------------+---------',
+            stdout,
+        )
+        self.assertIn(
+            'Core Network Architecture - Internal routing update ! scheduled ! 2023-09-20 07:00:00 ! open end',
+            stdout,
+        )
 
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0'))
-        self.assertIn('Major incidents @ Ascent Global Logistics (ascentlogistics.com, TZ America/Detroit): Service PEAK - Customer API  Production seems to be down', stdout)
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0')
+        )
+        self.assertIn(
+            'Major incidents @ Ascent Global Logistics (ascentlogistics.com, TZ America/Detroit): Service PEAK - Customer API  Production seems to be down',
+            stdout,
+        )
         self.assertIn('', stdout)
         self.assertIn('Service                               ! State     ', stdout)
         self.assertIn('--------------------------------------+-----------', stdout)
@@ -146,8 +190,13 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_CRIT)
 
     def test_if_check_runs_EXAMPLE04(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04,,0'))
-        self.assertIn('Minor incidents @ hosttech GmbH (www.hosttech.eu, TZ Europe/Zurich): Serverausfall / Sehr geehrte Kundin', stdout)
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04,,0')
+        )
+        self.assertIn(
+            'Minor incidents @ hosttech GmbH (www.hosttech.eu, TZ Europe/Zurich): Serverausfall / Sehr geehrte Kundin',
+            stdout,
+        )
         self.assertIn('Service                                 ! State    ', stdout)
         self.assertIn('----------------------------------------+----------', stdout)
         self.assertIn('Webhosting & Reseller                   ! [WARNING]', stdout)
@@ -167,8 +216,13 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE05(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE05,,0'))
-        self.assertIn('Major incidents @ Maslak API Platform (www.maslak.io, TZ Europe/Istanbul): Service TeamDefinex Web seems to be down', stdout)
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE05,,0')
+        )
+        self.assertIn(
+            'Major incidents @ Maslak API Platform (www.maslak.io, TZ Europe/Istanbul): Service TeamDefinex Web seems to be down',
+            stdout,
+        )
         self.assertIn('', stdout)
         self.assertIn('Service         ! State     ', stdout)
         self.assertIn('----------------+-----------', stdout)
@@ -178,9 +232,17 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_CRIT)
 
     def test_if_check_runs_EXAMPLE06(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE06,,0'))
-        self.assertIn('All systems operational @ Exoscale (exoscale.com, TZ Europe/Zurich): [AT-VIE-2] Network connectivity issue', stdout)
-        self.assertIn('You could encounter some issue to connect your workload. (2025-03-08 08:47:23) (see https://exoscalestatus.com/incidents/187842)', stdout)
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE06,,0')
+        )
+        self.assertIn(
+            'All systems operational @ Exoscale (exoscale.com, TZ Europe/Zurich): [AT-VIE-2] Network connectivity issue',
+            stdout,
+        )
+        self.assertIn(
+            'You could encounter some issue to connect your workload. (2025-03-08 08:47:23) (see https://exoscalestatus.com/incidents/187842)',
+            stdout,
+        )
         self.assertIn('', stdout)
         self.assertIn('Service                            ! State', stdout)
         self.assertIn('-----------------------------------+------', stdout)
@@ -250,188 +312,552 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE07(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE07,,0'))
-        self.assertIn('Minor incidents @ Exoscale (exoscale.com, TZ Europe/Zurich): [Network] Increased internet network latencies and packet loss / The issue has been identified. Mitigation has been applied. (2025-07-18 08:49:50) (see https://exoscalestatus.com/incidents/198647)', stdout)
-        self.assertIn('Service                                        ! State    ', stdout)
-        self.assertIn('-----------------------------------------------+----------', stdout)
-        self.assertIn('Global.DNS                                     ! [OK]     ', stdout)
-        self.assertIn('Global.Portal                                  ! [OK]     ', stdout)
-        self.assertIn('Global.Support Hotline                         ! [OK]     ', stdout)
-        self.assertIn('CH-GVA-2                                       ! [OK]     ', stdout)
-        self.assertIn('CH-GVA-2.API                                   ! [OK]     ', stdout)
-        self.assertIn('CH-GVA-2.Block Storage                         ! [OK]     ', stdout)
-        self.assertIn('CH-GVA-2.Compute                               ! [OK]     ', stdout)
-        self.assertIn('CH-GVA-2.Managed Database service DBaaS        ! [OK]     ', stdout)
-        self.assertIn('CH-GVA-2.Managed Private Networks              ! [OK]     ', stdout)
-        self.assertIn('CH-GVA-2.Managed Kubernetes SKS                ! [OK]     ', stdout)
-        self.assertIn('CH-GVA-2.Network Internet Transit Connectivity ! [OK]     ', stdout)
-        self.assertIn('CH-GVA-2.Network Load Balancer NLB             ! [OK]     ', stdout)
-        self.assertIn('CH-GVA-2.Object Storage SOS                    ! [OK]     ', stdout)
-        self.assertIn('CH-DK-2                                        ! [WARNING]', stdout)
-        self.assertIn('CH-DK-2.API                                    ! [OK]     ', stdout)
-        self.assertIn('CH-DK-2.Block Storage                          ! [OK]     ', stdout)
-        self.assertIn('CH-DK-2.Compute                                ! [OK]     ', stdout)
-        self.assertIn('CH-DK-2.Managed Database service DBaaS         ! [OK]     ', stdout)
-        self.assertIn('CH-DK-2.Managed Kubernetes SKS                 ! [OK]     ', stdout)
-        self.assertIn('CH-DK-2.Managed Private Networks               ! [OK]     ', stdout)
-        self.assertIn('CH-DK-2.Network Internet Transit Connectivity  ! [WARNING]', stdout)
-        self.assertIn('CH-DK-2.Network Load Balancer NLB              ! [OK]     ', stdout)
-        self.assertIn('CH-DK-2.Object Storage SOS                     ! [OK]     ', stdout)
-        self.assertIn('DE-FRA-1                                       ! [OK]     ', stdout)
-        self.assertIn('DE-FRA-1.API                                   ! [OK]     ', stdout)
-        self.assertIn('DE-FRA-1.Block Storage                         ! [OK]     ', stdout)
-        self.assertIn('DE-FRA-1.Compute                               ! [OK]     ', stdout)
-        self.assertIn('DE-FRA-1.Managed Database service DBaaS        ! [OK]     ', stdout)
-        self.assertIn('DE-FRA-1.Managed Kubernetes SKS                ! [OK]     ', stdout)
-        self.assertIn('DE-FRA-1.Managed Private Networks              ! [OK]     ', stdout)
-        self.assertIn('DE-FRA-1.Network Internet Transit Connectivity ! [OK]     ', stdout)
-        self.assertIn('DE-FRA-1.Network Load Balancer NLB             ! [OK]     ', stdout)
-        self.assertIn('DE-FRA-1.Object Storage SOS                    ! [OK]     ', stdout)
-        self.assertIn('DE-MUC-1                                       ! [OK]     ', stdout)
-        self.assertIn('DE-MUC-1.API                                   ! [OK]     ', stdout)
-        self.assertIn('DE-MUC-1.Compute                               ! [OK]     ', stdout)
-        self.assertIn('DE-MUC-1.Managed Database service DBaaS        ! [OK]     ', stdout)
-        self.assertIn('DE-MUC-1.Managed Kubernetes SKS                ! [OK]     ', stdout)
-        self.assertIn('DE-MUC-1.Managed Private Networks              ! [OK]     ', stdout)
-        self.assertIn('DE-MUC-1.Network Internet Transit Connectivity ! [OK]     ', stdout)
-        self.assertIn('DE-MUC-1.Network Load Balancer NLB             ! [OK]     ', stdout)
-        self.assertIn('DE-MUC-1.Object Storage SOS                    ! [OK]     ', stdout)
-        self.assertIn('AT-VIE-1                                       ! [OK]     ', stdout)
-        self.assertIn('AT-VIE-1.API                                   ! [OK]     ', stdout)
-        self.assertIn('AT-VIE-1.Block Storage                         ! [OK]     ', stdout)
-        self.assertIn('AT-VIE-1.Compute                               ! [OK]     ', stdout)
-        self.assertIn('AT-VIE-1.Managed Database service DBaaS        ! [OK]     ', stdout)
-        self.assertIn('AT-VIE-1.Managed Kubernetes SKS                ! [OK]     ', stdout)
-        self.assertIn('AT-VIE-1.Managed Private Networks              ! [OK]     ', stdout)
-        self.assertIn('AT-VIE-1.Network Internet Transit Connectivity ! [OK]     ', stdout)
-        self.assertIn('AT-VIE-1.Network Load Balancer NLB             ! [OK]     ', stdout)
-        self.assertIn('AT-VIE-1.Object Storage SOS                    ! [OK]     ', stdout)
-        self.assertIn('AT-VIE-2                                       ! [OK]     ', stdout)
-        self.assertIn('AT-VIE-2.API                                   ! [OK]     ', stdout)
-        self.assertIn('AT-VIE-2.Block Storage                         ! [OK]     ', stdout)
-        self.assertIn('AT-VIE-2.Compute                               ! [OK]     ', stdout)
-        self.assertIn('AT-VIE-2.Managed Database service DBaaS        ! [OK]     ', stdout)
-        self.assertIn('AT-VIE-2.Managed Kubernetes SKS                ! [OK]     ', stdout)
-        self.assertIn('AT-VIE-2.Managed Private Networks              ! [OK]     ', stdout)
-        self.assertIn('AT-VIE-2.Network Internet Transit Connectivity ! [OK]     ', stdout)
-        self.assertIn('AT-VIE-2.Network Load Balancer NLB             ! [OK]     ', stdout)
-        self.assertIn('AT-VIE-2.Object Storage SOS                    ! [OK]     ', stdout)
-        self.assertIn('BG-SOF-1                                       ! [OK]     ', stdout)
-        self.assertIn('BG-SOF-1.API                                   ! [OK]     ', stdout)
-        self.assertIn('BG-SOF-1.Block Storage                         ! [OK]     ', stdout)
-        self.assertIn('BG-SOF-1.Compute                               ! [OK]     ', stdout)
-        self.assertIn('BG-SOF-1.Managed Database service DBaaS        ! [OK]     ', stdout)
-        self.assertIn('BG-SOF-1.Managed Kubernetes SKS                ! [OK]     ', stdout)
-        self.assertIn('BG-SOF-1.Managed Private Networks              ! [OK]     ', stdout)
-        self.assertIn('BG-SOF-1.Network Internet Transit Connectivity ! [OK]     ', stdout)
-        self.assertIn('BG-SOF-1.Network Load Balancer NLB             ! [OK]     ', stdout)
-        self.assertIn('BG-SOF-1.Object Storage SOS                    ! [OK]     ', stdout)
-        self.assertIn('HR-ZAG-1                                       ! [OK]     ', stdout)
-        self.assertIn('HR-ZAG-1.API                                   ! [OK]     ', stdout)
-        self.assertIn('HR-ZAG-1.Block Storage                         ! [OK]     ', stdout)
-        self.assertIn('HR-ZAG-1.Compute                               ! [OK]     ', stdout)
-        self.assertIn('HR-ZAG-1.Managed Database service DBaaS        ! [OK]     ', stdout)
-        self.assertIn('HR-ZAG-1.Managed Kubernetes SKS                ! [OK]     ', stdout)
-        self.assertIn('HR-ZAG-1.Managed Private Networks              ! [OK]     ', stdout)
-        self.assertIn('HR-ZAG-1.Network Internet Transit Connectivity ! [OK]     ', stdout)
-        self.assertIn('HR-ZAG-1.Network Load Balancer NLB             ! [OK]     ', stdout)
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE07,,0')
+        )
+        self.assertIn(
+            'Minor incidents @ Exoscale (exoscale.com, TZ Europe/Zurich): [Network] Increased internet network latencies and packet loss / The issue has been identified. Mitigation has been applied. (2025-07-18 08:49:50) (see https://exoscalestatus.com/incidents/198647)',
+            stdout,
+        )
+        self.assertIn(
+            'Service                                        ! State    ', stdout
+        )
+        self.assertIn(
+            '-----------------------------------------------+----------', stdout
+        )
+        self.assertIn(
+            'Global.DNS                                     ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'Global.Portal                                  ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'Global.Support Hotline                         ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'CH-GVA-2                                       ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'CH-GVA-2.API                                   ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'CH-GVA-2.Block Storage                         ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'CH-GVA-2.Compute                               ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'CH-GVA-2.Managed Database service DBaaS        ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'CH-GVA-2.Managed Private Networks              ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'CH-GVA-2.Managed Kubernetes SKS                ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'CH-GVA-2.Network Internet Transit Connectivity ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'CH-GVA-2.Network Load Balancer NLB             ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'CH-GVA-2.Object Storage SOS                    ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'CH-DK-2                                        ! [WARNING]', stdout
+        )
+        self.assertIn(
+            'CH-DK-2.API                                    ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'CH-DK-2.Block Storage                          ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'CH-DK-2.Compute                                ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'CH-DK-2.Managed Database service DBaaS         ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'CH-DK-2.Managed Kubernetes SKS                 ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'CH-DK-2.Managed Private Networks               ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'CH-DK-2.Network Internet Transit Connectivity  ! [WARNING]', stdout
+        )
+        self.assertIn(
+            'CH-DK-2.Network Load Balancer NLB              ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'CH-DK-2.Object Storage SOS                     ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'DE-FRA-1                                       ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'DE-FRA-1.API                                   ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'DE-FRA-1.Block Storage                         ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'DE-FRA-1.Compute                               ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'DE-FRA-1.Managed Database service DBaaS        ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'DE-FRA-1.Managed Kubernetes SKS                ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'DE-FRA-1.Managed Private Networks              ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'DE-FRA-1.Network Internet Transit Connectivity ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'DE-FRA-1.Network Load Balancer NLB             ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'DE-FRA-1.Object Storage SOS                    ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'DE-MUC-1                                       ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'DE-MUC-1.API                                   ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'DE-MUC-1.Compute                               ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'DE-MUC-1.Managed Database service DBaaS        ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'DE-MUC-1.Managed Kubernetes SKS                ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'DE-MUC-1.Managed Private Networks              ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'DE-MUC-1.Network Internet Transit Connectivity ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'DE-MUC-1.Network Load Balancer NLB             ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'DE-MUC-1.Object Storage SOS                    ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-1                                       ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-1.API                                   ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-1.Block Storage                         ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-1.Compute                               ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-1.Managed Database service DBaaS        ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-1.Managed Kubernetes SKS                ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-1.Managed Private Networks              ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-1.Network Internet Transit Connectivity ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-1.Network Load Balancer NLB             ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-1.Object Storage SOS                    ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-2                                       ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-2.API                                   ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-2.Block Storage                         ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-2.Compute                               ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-2.Managed Database service DBaaS        ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-2.Managed Kubernetes SKS                ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-2.Managed Private Networks              ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-2.Network Internet Transit Connectivity ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-2.Network Load Balancer NLB             ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-2.Object Storage SOS                    ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'BG-SOF-1                                       ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'BG-SOF-1.API                                   ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'BG-SOF-1.Block Storage                         ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'BG-SOF-1.Compute                               ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'BG-SOF-1.Managed Database service DBaaS        ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'BG-SOF-1.Managed Kubernetes SKS                ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'BG-SOF-1.Managed Private Networks              ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'BG-SOF-1.Network Internet Transit Connectivity ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'BG-SOF-1.Network Load Balancer NLB             ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'BG-SOF-1.Object Storage SOS                    ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'HR-ZAG-1                                       ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'HR-ZAG-1.API                                   ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'HR-ZAG-1.Block Storage                         ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'HR-ZAG-1.Compute                               ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'HR-ZAG-1.Managed Database service DBaaS        ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'HR-ZAG-1.Managed Kubernetes SKS                ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'HR-ZAG-1.Managed Private Networks              ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'HR-ZAG-1.Network Internet Transit Connectivity ! [OK]     ', stdout
+        )
+        self.assertIn(
+            'HR-ZAG-1.Network Load Balancer NLB             ! [OK]     ', stdout
+        )
         self.assertIn('HR-ZAG-1.Object Storage SOS                    ! [OK]', stdout)
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE08(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE08,,0'))
-        self.assertIn('Ongoing maintenance since 2025-10-17 11:44:56: [AT-VIE-2] Network Maintenance - Core Router Upgrade from 2025-10-17 14:00 to 2025-10-17 16:00', stdout)
-        self.assertIn('Major incidents @ Exoscale (exoscale.com, TZ Europe/Zurich)', stdout)
-        self.assertIn('Service                                        ! State     ', stdout)
-        self.assertIn('-----------------------------------------------+-----------', stdout)
-        self.assertIn('Global.DNS                                     ! [OK]      ', stdout)
-        self.assertIn('Global.Portal                                  ! [OK]      ', stdout)
-        self.assertIn('Global.Support Hotline                         ! [OK]      ', stdout)
-        self.assertIn('CH-GVA-2                                       ! [OK]      ', stdout)
-        self.assertIn('CH-GVA-2.API                                   ! [OK]      ', stdout)
-        self.assertIn('CH-GVA-2.Block Storage                         ! [OK]      ', stdout)
-        self.assertIn('CH-GVA-2.Compute                               ! [OK]      ', stdout)
-        self.assertIn('CH-GVA-2.Managed Database service DBaaS        ! [OK]      ', stdout)
-        self.assertIn('CH-GVA-2.Managed Private Networks              ! [OK]      ', stdout)
-        self.assertIn('CH-GVA-2.Managed Kubernetes SKS                ! [OK]      ', stdout)
-        self.assertIn('CH-GVA-2.Network Internet Transit Connectivity ! [OK]      ', stdout)
-        self.assertIn('CH-GVA-2.Network Load Balancer NLB             ! [OK]      ', stdout)
-        self.assertIn('CH-GVA-2.Object Storage SOS                    ! [OK]      ', stdout)
-        self.assertIn('CH-DK-2                                        ! [OK]      ', stdout)
-        self.assertIn('CH-DK-2.API                                    ! [OK]      ', stdout)
-        self.assertIn('CH-DK-2.Block Storage                          ! [OK]      ', stdout)
-        self.assertIn('CH-DK-2.Compute                                ! [OK]      ', stdout)
-        self.assertIn('CH-DK-2.Managed Database service DBaaS         ! [OK]      ', stdout)
-        self.assertIn('CH-DK-2.Managed Kubernetes SKS                 ! [OK]      ', stdout)
-        self.assertIn('CH-DK-2.Managed Private Networks               ! [OK]      ', stdout)
-        self.assertIn('CH-DK-2.Network Internet Transit Connectivity  ! [OK]      ', stdout)
-        self.assertIn('CH-DK-2.Network Load Balancer NLB              ! [OK]      ', stdout)
-        self.assertIn('CH-DK-2.Object Storage SOS                     ! [OK]      ', stdout)
-        self.assertIn('DE-FRA-1                                       ! [OK]      ', stdout)
-        self.assertIn('DE-FRA-1.API                                   ! [OK]      ', stdout)
-        self.assertIn('DE-FRA-1.Block Storage                         ! [OK]      ', stdout)
-        self.assertIn('DE-FRA-1.Compute                               ! [OK]      ', stdout)
-        self.assertIn('DE-FRA-1.Managed Database service DBaaS        ! [OK]      ', stdout)
-        self.assertIn('DE-FRA-1.Managed Kubernetes SKS                ! [OK]      ', stdout)
-        self.assertIn('DE-FRA-1.Managed Private Networks              ! [OK]      ', stdout)
-        self.assertIn('DE-FRA-1.Network Internet Transit Connectivity ! [OK]      ', stdout)
-        self.assertIn('DE-FRA-1.Network Load Balancer NLB             ! [OK]      ', stdout)
-        self.assertIn('DE-FRA-1.Object Storage SOS                    ! [OK]      ', stdout)
-        self.assertIn('DE-MUC-1                                       ! [OK]      ', stdout)
-        self.assertIn('DE-MUC-1.API                                   ! [OK]      ', stdout)
-        self.assertIn('DE-MUC-1.Compute                               ! [OK]      ', stdout)
-        self.assertIn('DE-MUC-1.Managed Database service DBaaS        ! [OK]      ', stdout)
-        self.assertIn('DE-MUC-1.Managed Kubernetes SKS                ! [OK]      ', stdout)
-        self.assertIn('DE-MUC-1.Managed Private Networks              ! [OK]      ', stdout)
-        self.assertIn('DE-MUC-1.Network Internet Transit Connectivity ! [OK]      ', stdout)
-        self.assertIn('DE-MUC-1.Network Load Balancer NLB             ! [OK]      ', stdout)
-        self.assertIn('DE-MUC-1.Object Storage SOS                    ! [OK]      ', stdout)
-        self.assertIn('AT-VIE-1                                       ! [OK]      ', stdout)
-        self.assertIn('AT-VIE-1.API                                   ! [OK]      ', stdout)
-        self.assertIn('AT-VIE-1.Block Storage                         ! [OK]      ', stdout)
-        self.assertIn('AT-VIE-1.Compute                               ! [OK]      ', stdout)
-        self.assertIn('AT-VIE-1.Managed Database service DBaaS        ! [OK]      ', stdout)
-        self.assertIn('AT-VIE-1.Managed Kubernetes SKS                ! [OK]      ', stdout)
-        self.assertIn('AT-VIE-1.Managed Private Networks              ! [OK]      ', stdout)
-        self.assertIn('AT-VIE-1.Network Internet Transit Connectivity ! [OK]      ', stdout)
-        self.assertIn('AT-VIE-1.Network Load Balancer NLB             ! [OK]      ', stdout)
-        self.assertIn('AT-VIE-1.Object Storage SOS                    ! [OK]      ', stdout)
-        self.assertIn('AT-VIE-2                                       ! [CRITICAL]', stdout)
-        self.assertIn('AT-VIE-2.API                                   ! [CRITICAL]', stdout)
-        self.assertIn('AT-VIE-2.Block Storage                         ! [CRITICAL]', stdout)
-        self.assertIn('AT-VIE-2.Compute                               ! [CRITICAL]', stdout)
-        self.assertIn('AT-VIE-2.Managed Database service DBaaS        ! [CRITICAL]', stdout)
-        self.assertIn('AT-VIE-2.Managed Kubernetes SKS                ! [CRITICAL]', stdout)
-        self.assertIn('AT-VIE-2.Managed Private Networks              ! [CRITICAL]', stdout)
-        self.assertIn('AT-VIE-2.Network Internet Transit Connectivity ! [CRITICAL]', stdout)
-        self.assertIn('AT-VIE-2.Network Load Balancer NLB             ! [CRITICAL]', stdout)
-        self.assertIn('AT-VIE-2.Object Storage SOS                    ! [CRITICAL]', stdout)
-        self.assertIn('BG-SOF-1                                       ! [OK]      ', stdout)
-        self.assertIn('BG-SOF-1.API                                   ! [OK]      ', stdout)
-        self.assertIn('BG-SOF-1.Block Storage                         ! [OK]      ', stdout)
-        self.assertIn('BG-SOF-1.Compute                               ! [OK]      ', stdout)
-        self.assertIn('BG-SOF-1.Managed Database service DBaaS        ! [OK]      ', stdout)
-        self.assertIn('BG-SOF-1.Managed Kubernetes SKS                ! [OK]      ', stdout)
-        self.assertIn('BG-SOF-1.Managed Private Networks              ! [OK]      ', stdout)
-        self.assertIn('BG-SOF-1.Network Internet Transit Connectivity ! [OK]      ', stdout)
-        self.assertIn('BG-SOF-1.Network Load Balancer NLB             ! [OK]      ', stdout)
-        self.assertIn('BG-SOF-1.Object Storage SOS                    ! [OK]      ', stdout)
-        self.assertIn('HR-ZAG-1                                       ! [OK]      ', stdout)
-        self.assertIn('HR-ZAG-1.API                                   ! [OK]      ', stdout)
-        self.assertIn('HR-ZAG-1.Block Storage                         ! [OK]      ', stdout)
-        self.assertIn('HR-ZAG-1.Compute                               ! [OK]      ', stdout)
-        self.assertIn('HR-ZAG-1.Managed Database service DBaaS        ! [OK]      ', stdout)
-        self.assertIn('HR-ZAG-1.Managed Kubernetes SKS                ! [OK]      ', stdout)
-        self.assertIn('HR-ZAG-1.Managed Private Networks              ! [OK]      ', stdout)
-        self.assertIn('HR-ZAG-1.Network Internet Transit Connectivity ! [OK]      ', stdout)
-        self.assertIn('HR-ZAG-1.Network Load Balancer NLB             ! [OK]      ', stdout)
-        self.assertIn('HR-ZAG-1.Object Storage SOS                    ! [OK]      ', stdout)
-        self.assertIn('Maintenance                                                                                    ! Type                  ! Start               ! End        ', stdout)
-        self.assertIn('-----------------------------------------------------------------------------------------------+-----------------------+---------------------+------------', stdout)
-        self.assertIn('[AT-VIE-2] Network Maintenance - Core Router Upgrade from 2025-10-17 14:00 to 2025-10-17 16:00 ! emergency-maintenance ! 2025-10-17 11:44:56 ! in progress', stdout)
-        self.assertIn('Upcoming Maintenance            ! Type      ! Start               ! End                ', stdout)
-        self.assertIn('--------------------------------+-----------+---------------------+--------------------', stdout)
-        self.assertIn('Datacenter power generator test ! scheduled ! 2025-11-13 21:00:00 ! 2025-11-14 05:00:00', stdout)
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE08,,0')
+        )
+        self.assertIn(
+            'Ongoing maintenance since 2025-10-17 11:44:56: [AT-VIE-2] Network Maintenance - Core Router Upgrade from 2025-10-17 14:00 to 2025-10-17 16:00',
+            stdout,
+        )
+        self.assertIn(
+            'Major incidents @ Exoscale (exoscale.com, TZ Europe/Zurich)', stdout
+        )
+        self.assertIn(
+            'Service                                        ! State     ', stdout
+        )
+        self.assertIn(
+            '-----------------------------------------------+-----------', stdout
+        )
+        self.assertIn(
+            'Global.DNS                                     ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'Global.Portal                                  ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'Global.Support Hotline                         ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'CH-GVA-2                                       ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'CH-GVA-2.API                                   ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'CH-GVA-2.Block Storage                         ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'CH-GVA-2.Compute                               ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'CH-GVA-2.Managed Database service DBaaS        ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'CH-GVA-2.Managed Private Networks              ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'CH-GVA-2.Managed Kubernetes SKS                ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'CH-GVA-2.Network Internet Transit Connectivity ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'CH-GVA-2.Network Load Balancer NLB             ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'CH-GVA-2.Object Storage SOS                    ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'CH-DK-2                                        ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'CH-DK-2.API                                    ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'CH-DK-2.Block Storage                          ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'CH-DK-2.Compute                                ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'CH-DK-2.Managed Database service DBaaS         ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'CH-DK-2.Managed Kubernetes SKS                 ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'CH-DK-2.Managed Private Networks               ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'CH-DK-2.Network Internet Transit Connectivity  ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'CH-DK-2.Network Load Balancer NLB              ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'CH-DK-2.Object Storage SOS                     ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'DE-FRA-1                                       ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'DE-FRA-1.API                                   ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'DE-FRA-1.Block Storage                         ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'DE-FRA-1.Compute                               ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'DE-FRA-1.Managed Database service DBaaS        ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'DE-FRA-1.Managed Kubernetes SKS                ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'DE-FRA-1.Managed Private Networks              ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'DE-FRA-1.Network Internet Transit Connectivity ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'DE-FRA-1.Network Load Balancer NLB             ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'DE-FRA-1.Object Storage SOS                    ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'DE-MUC-1                                       ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'DE-MUC-1.API                                   ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'DE-MUC-1.Compute                               ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'DE-MUC-1.Managed Database service DBaaS        ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'DE-MUC-1.Managed Kubernetes SKS                ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'DE-MUC-1.Managed Private Networks              ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'DE-MUC-1.Network Internet Transit Connectivity ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'DE-MUC-1.Network Load Balancer NLB             ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'DE-MUC-1.Object Storage SOS                    ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-1                                       ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-1.API                                   ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-1.Block Storage                         ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-1.Compute                               ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-1.Managed Database service DBaaS        ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-1.Managed Kubernetes SKS                ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-1.Managed Private Networks              ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-1.Network Internet Transit Connectivity ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-1.Network Load Balancer NLB             ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-1.Object Storage SOS                    ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'AT-VIE-2                                       ! [CRITICAL]', stdout
+        )
+        self.assertIn(
+            'AT-VIE-2.API                                   ! [CRITICAL]', stdout
+        )
+        self.assertIn(
+            'AT-VIE-2.Block Storage                         ! [CRITICAL]', stdout
+        )
+        self.assertIn(
+            'AT-VIE-2.Compute                               ! [CRITICAL]', stdout
+        )
+        self.assertIn(
+            'AT-VIE-2.Managed Database service DBaaS        ! [CRITICAL]', stdout
+        )
+        self.assertIn(
+            'AT-VIE-2.Managed Kubernetes SKS                ! [CRITICAL]', stdout
+        )
+        self.assertIn(
+            'AT-VIE-2.Managed Private Networks              ! [CRITICAL]', stdout
+        )
+        self.assertIn(
+            'AT-VIE-2.Network Internet Transit Connectivity ! [CRITICAL]', stdout
+        )
+        self.assertIn(
+            'AT-VIE-2.Network Load Balancer NLB             ! [CRITICAL]', stdout
+        )
+        self.assertIn(
+            'AT-VIE-2.Object Storage SOS                    ! [CRITICAL]', stdout
+        )
+        self.assertIn(
+            'BG-SOF-1                                       ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'BG-SOF-1.API                                   ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'BG-SOF-1.Block Storage                         ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'BG-SOF-1.Compute                               ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'BG-SOF-1.Managed Database service DBaaS        ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'BG-SOF-1.Managed Kubernetes SKS                ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'BG-SOF-1.Managed Private Networks              ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'BG-SOF-1.Network Internet Transit Connectivity ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'BG-SOF-1.Network Load Balancer NLB             ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'BG-SOF-1.Object Storage SOS                    ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'HR-ZAG-1                                       ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'HR-ZAG-1.API                                   ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'HR-ZAG-1.Block Storage                         ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'HR-ZAG-1.Compute                               ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'HR-ZAG-1.Managed Database service DBaaS        ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'HR-ZAG-1.Managed Kubernetes SKS                ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'HR-ZAG-1.Managed Private Networks              ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'HR-ZAG-1.Network Internet Transit Connectivity ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'HR-ZAG-1.Network Load Balancer NLB             ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'HR-ZAG-1.Object Storage SOS                    ! [OK]      ', stdout
+        )
+        self.assertIn(
+            'Maintenance                                                                                    ! Type                  ! Start               ! End        ',
+            stdout,
+        )
+        self.assertIn(
+            '-----------------------------------------------------------------------------------------------+-----------------------+---------------------+------------',
+            stdout,
+        )
+        self.assertIn(
+            '[AT-VIE-2] Network Maintenance - Core Router Upgrade from 2025-10-17 14:00 to 2025-10-17 16:00 ! emergency-maintenance ! 2025-10-17 11:44:56 ! in progress',
+            stdout,
+        )
+        self.assertIn(
+            'Upcoming Maintenance            ! Type      ! Start               ! End                ',
+            stdout,
+        )
+        self.assertIn(
+            '--------------------------------+-----------+---------------------+--------------------',
+            stdout,
+        )
+        self.assertIn(
+            'Datacenter power generator test ! scheduled ! 2025-11-13 21:00:00 ! 2025-11-14 05:00:00',
+            stdout,
+        )
         self.assertEqual(retc, STATE_CRIT)
 
 

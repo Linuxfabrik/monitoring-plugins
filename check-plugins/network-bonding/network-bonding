@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import os  # pylint: disable=C0413
@@ -17,26 +16,30 @@ import sys  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
-DESCRIPTION = '''Reports the state of a channel bonding interface. Channel bonding enables two or
+DESCRIPTION = """Reports the state of a channel bonding interface. Channel bonding enables two or
     more network interfaces to act as one, simultaneously increasing the bandwidth and providing
-    redundancy.'''
+    redundancy."""
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -59,8 +62,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -102,8 +104,13 @@ def main():
                     if in_interface_section:
                         perfdata += lib.base.get_perfdata(
                             f'{bonding_interface}_{slave_interface}_link_failure_count',
-                            link_failure_count, None, 1, None, 0, None
-                            )
+                            link_failure_count,
+                            None,
+                            1,
+                            None,
+                            0,
+                            None,
+                        )
                         if mii_status != 'up':
                             submsg += (
                                 f'    * {slave_interface}'
@@ -128,17 +135,24 @@ def main():
                 if key == 'Slave Interface':
                     slave_interface = value
                     in_interface_section = True
-                if  key == 'Partner Mac Address' \
-                and value == '00:00:00:00:00:00' \
-                and bonding_mode == 'IEEE 802.3ad Dynamic link aggregation':
+                if (
+                    key == 'Partner Mac Address'
+                    and value == '00:00:00:00:00:00'
+                    and bonding_mode == 'IEEE 802.3ad Dynamic link aggregation'
+                ):
                     submsg += '    * Could not detect the MAC Address of the switch. This could indicate that LACP is not configured properly.\n'
                     substate = state = STATE_WARN
 
             if in_interface_section:
                 perfdata += lib.base.get_perfdata(
                     f'{bonding_interface}_{slave_interface}_link_failure_count',
-                    link_failure_count, None, 1, None, 0, None
-                    )
+                    link_failure_count,
+                    None,
+                    1,
+                    None,
+                    0,
+                    None,
+                )
                 if mii_status != 'up':
                     submsg += (
                         f'    * {slave_interface}'
@@ -150,7 +164,10 @@ def main():
                     )
                     substate = state = STATE_WARN
 
-            msg += f"* {lib.base.state2str(substate, suffix=' ')}{bonding_interface} ({bonding_mode})\n" + submsg
+            msg += (
+                f'* {lib.base.state2str(substate, suffix=" ")}{bonding_interface} ({bonding_mode})\n'
+                + submsg
+            )
 
     if state == STATE_OK:
         msg = 'Everything is ok.\n\n' + msg
@@ -164,5 +181,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

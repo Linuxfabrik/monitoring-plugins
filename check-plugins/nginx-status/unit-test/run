@@ -9,8 +9,8 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-sys.path.append("..") # Adds higher directory to python modules path.
 
+sys.path.append('..')  # Adds higher directory to python modules path.
 
 
 import unittest
@@ -21,12 +21,16 @@ import lib.shell
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../nginx-status'
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,'))
-        self.assertIn('291 active concurrent conns; 16.6M accepted conns, 16.6M handled conns, 31.1M reqs;', stdout)
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,')
+        )
+        self.assertIn(
+            '291 active concurrent conns; 16.6M accepted conns, 16.6M handled conns, 31.1M reqs;',
+            stdout,
+        )
         self.assertIn("connections_waiting'=106;;;0", stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)

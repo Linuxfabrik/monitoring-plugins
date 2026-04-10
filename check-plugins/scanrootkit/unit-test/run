@@ -9,8 +9,8 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-sys.path.append("..") # Adds higher directory to python modules path.
 
+sys.path.append('..')  # Adds higher directory to python modules path.
 
 
 import unittest
@@ -22,7 +22,6 @@ import lib.shell
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../scanrootkit'
 
     def test_if_check_runs_EXAMPLE01(self):
@@ -34,7 +33,10 @@ class TestCheck(unittest.TestCase):
     def test_if_check_runs_EXAMPLE02(self):
         lib.disk.write_file('/tmp/.cinik', 'test02')
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check))
-        self.assertIn('Found 2 rootkit items and 0 extra items. 0 possible rootkit items found. [CRITICAL]', stdout)
+        self.assertIn(
+            'Found 2 rootkit items and 0 extra items. 0 possible rootkit items found. [CRITICAL]',
+            stdout,
+        )
         self.assertIn('Rootkits:', stdout)
         self.assertIn('* CiNIK Worm (Slapper.B variant): /tmp/.cinik (File)', stdout)
         self.assertIn('* Slapper Worm: /tmp/.cinik (File)', stdout)
@@ -44,9 +46,14 @@ class TestCheck(unittest.TestCase):
 
     def test_if_check_runs_EXAMPLE03(self):
         lib.disk.write_file('/tmp/.cinik', 'test03')
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --severity=warn'))
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --severity=warn')
+        )
 
-        self.assertIn('Found 2 rootkit items and 0 extra items. 0 possible rootkit items found. [WARNING]', stdout)
+        self.assertIn(
+            'Found 2 rootkit items and 0 extra items. 0 possible rootkit items found. [WARNING]',
+            stdout,
+        )
         self.assertIn('Rootkits:', stdout)
         self.assertIn('* CiNIK Worm (Slapper.B variant): /tmp/.cinik (File)', stdout)
         self.assertIn('* Slapper Worm: /tmp/.cinik (File)', stdout)

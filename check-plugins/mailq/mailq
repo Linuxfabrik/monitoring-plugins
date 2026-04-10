@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import re  # pylint: disable=C0413
@@ -20,27 +19,31 @@ import lib.base  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
 DESCRIPTION = 'Checks the mail queue.'
 
-DEFAULT_WARN  =    2     # mails
-DEFAULT_CRIT  =  250     # mails
+DEFAULT_WARN = 2  # mails
+DEFAULT_CRIT = 250  # mails
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -52,7 +55,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Set the critical threshold for mails in the queue. Default: %(default)s',
         dest='CRIT',
         type=int,
@@ -67,7 +71,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the warning threshold for mails in the queue. Default: %(default)s',
         dest='WARN',
         type=int,
@@ -79,8 +84,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -125,11 +129,13 @@ def main():
     if mailq_err_msg:
         msg += f'{mailq_err_msg}. '
     if mailq_count:
-        msg += f"{mailq_count} {lib.txt.pluralize('mail', mailq_count)} to deliver."
+        msg += f'{mailq_count} {lib.txt.pluralize("mail", mailq_count)} to deliver.'
     else:
         msg += 'Mail queue is empty.'
 
-    perfdata += lib.base.get_perfdata('mailq', mailq_count, None, args.WARN, args.CRIT, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'mailq', mailq_count, None, args.WARN, args.CRIT, 0, None
+    )
 
     state = lib.base.get_state(mailq_count, args.WARN, args.CRIT, _operator='ge')
     if mailq_err_msg:
@@ -142,5 +148,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

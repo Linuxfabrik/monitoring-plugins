@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -19,8 +18,12 @@ import lib.base  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -34,18 +37,18 @@ DESCRIPTION = """Returns statistics for members of HA cluster from Forti Applian
 DEFAULT_COUNT = 2
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
-DEFAULT_TIMEOUT  = 3
+DEFAULT_TIMEOUT = 3
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -65,7 +68,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-H', '--hostname',
+        '-H',
+        '--hostname',
         help='FortiOS-based Appliance address, optional including port ("192.168.1.1:443").',
         dest='HOSTNAME',
         required=True,
@@ -107,8 +111,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -118,7 +121,11 @@ def main():
 
     # fetch data
     url = f'https://{args.HOSTNAME}/api/v2/monitor/system/ha-statistics/select/?access_token={urllib.parse.quote(args.PASSWORD)}'
-    result = lib.base.coe(lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base.coe(
+        lib.url.fetch_json(
+            url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT
+        )
+    )
     member_count = len(result['results'])
 
     # we expect for example 2 members in our ha cluster
@@ -127,9 +134,7 @@ def main():
     else:
         state = STATE_OK
 
-    total_sessions = sum(
-        item['sessions'] for item in result['results']
-    )
+    total_sessions = sum(item['sessions'] for item in result['results'])
     total_traffic = lib.human.bytes2human(
         sum(item['tbyte'] for item in result['results'])
     )
@@ -144,11 +149,21 @@ def main():
     perfdata = ''
     for sensor in result['results']:
         name = sensor['hostname']
-        perfdata += lib.base.get_perfdata(f'{name}_sessions', sensor['sessions'], None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata(f'{name}_net_usage', sensor['net_usage'], '%', None, None, 0, 100)
-        perfdata += lib.base.get_perfdata(f'{name}_tbyte', sensor['tbyte'], None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata(f'{name}_cpu_usage', sensor['cpu_usage'], '%', None, None, 0, 100)
-        perfdata += lib.base.get_perfdata(f'{name}_mem_usage', sensor['mem_usage'], '%', None, None, 0, 100)
+        perfdata += lib.base.get_perfdata(
+            f'{name}_sessions', sensor['sessions'], None, None, None, 0, None
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{name}_net_usage', sensor['net_usage'], '%', None, None, 0, 100
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{name}_tbyte', sensor['tbyte'], None, None, None, 0, None
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{name}_cpu_usage', sensor['cpu_usage'], '%', None, None, 0, 100
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{name}_mem_usage', sensor['mem_usage'], '%', None, None, 0, 100
+        )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
@@ -157,5 +172,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

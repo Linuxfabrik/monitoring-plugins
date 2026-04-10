@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import socket  # pylint: disable=C0413
@@ -18,8 +17,11 @@ import time  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
 import lib.net  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
-                          STATE_WARN)
+from lib.globals import (
+    STATE_OK,
+    STATE_UNKNOWN,  # pylint: disable=C0413
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -34,14 +36,14 @@ DEFAULT_PORT = 53
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -53,7 +55,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Return critical if elapsed time in ms exceeds value. Default: %(default)s',
         dest='CRIT',
         type=float,
@@ -61,14 +64,16 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-H', '--hostname',
+        '-H',
+        '--hostname',
         help='The host or ip address to check. Default: %(default)s',
         dest='HOSTNAME',
         default=DEFAULT_HOSTNAME,
     )
 
     parser.add_argument(
-        '-p', '--port',
+        '-p',
+        '--port',
         help='The port number. Default: %(default)s',
         dest='PORT',
         type=int,
@@ -83,7 +88,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Return warning if elapsed time in ms exceeds value. Default: %(default)s',
         dest='WARN',
         type=float,
@@ -95,8 +101,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -119,22 +124,55 @@ def main():
     start_time = time.time()
     try:
         if args.TYPE == 'udp':
-            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net.AF_INET, lib.net.SOCK_UDP, lib.net.PROTO_UDP)
+            result = socket.getaddrinfo(
+                args.HOSTNAME,
+                args.PORT,
+                lib.net.AF_INET,
+                lib.net.SOCK_UDP,
+                lib.net.PROTO_UDP,
+            )
         elif args.TYPE == 'udp6':
-            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net.AF_INET6, lib.net.SOCK_UDP, lib.net.PROTO_UDP)
+            result = socket.getaddrinfo(
+                args.HOSTNAME,
+                args.PORT,
+                lib.net.AF_INET6,
+                lib.net.SOCK_UDP,
+                lib.net.PROTO_UDP,
+            )
         elif args.TYPE == 'tcp':
-            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net.AF_INET, lib.net.SOCK_TCP, lib.net.PROTO_TCP)
+            result = socket.getaddrinfo(
+                args.HOSTNAME,
+                args.PORT,
+                lib.net.AF_INET,
+                lib.net.SOCK_TCP,
+                lib.net.PROTO_TCP,
+            )
         elif args.TYPE == 'tcp6':
-            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net.AF_INET6, lib.net.SOCK_TCP, lib.net.PROTO_TCP)
+            result = socket.getaddrinfo(
+                args.HOSTNAME,
+                args.PORT,
+                lib.net.AF_INET6,
+                lib.net.SOCK_TCP,
+                lib.net.PROTO_TCP,
+            )
         else:
             result = socket.getaddrinfo(args.HOSTNAME, args.PORT)
     except socket.error as e:
-        lib.base.oao(f'Socket error "{e}" for {args.HOSTNAME}:{args.PORT}/{args.TYPE}.', STATE_WARN)
+        lib.base.oao(
+            f'Socket error "{e}" for {args.HOSTNAME}:{args.PORT}/{args.TYPE}.',
+            STATE_WARN,
+        )
     except socket.herror as e:
-        lib.base.oao(f'Address related Socket error "{e}" for {args.HOSTNAME}:{args.PORT}/{args.TYPE}.', STATE_WARN)
+        lib.base.oao(
+            f'Address related Socket error "{e}" for {args.HOSTNAME}:{args.PORT}/{args.TYPE}.',
+            STATE_WARN,
+        )
     except socket.gaierror as e:
-        lib.base.oao(f'Address related Socket error "{e}" for {args.HOSTNAME}:{args.PORT}/{args.TYPE}.', STATE_WARN)
-    runtime = (time.time() - start_time) * 1000     # we get seconds and want ms
+        lib.base.oao(
+            f'Address related Socket error "{e}" for {args.HOSTNAME}:{args.PORT}/{args.TYPE}.',
+            STATE_WARN,
+        )
+    runtime = (time.time() - start_time) * 1000  # we get seconds and want ms
 
     msg = f'Lookup for {args.HOSTNAME} returns '
     for res in result:
@@ -142,7 +180,9 @@ def main():
         msg += f'{sa[0]} ({lib.net.PROTOSTR[proto]}{lib.net.FAMILIYSTR[af]}:{sa[1]}), '
 
     state = lib.base.get_state(runtime, args.WARN, args.CRIT, _operator='ge')
-    perfdata = lib.base.get_perfdata('time', runtime, 'ms', args.WARN, args.CRIT, 0, None)
+    perfdata = lib.base.get_perfdata(
+        'time', runtime, 'ms', args.WARN, args.CRIT, 0, None
+    )
 
     lib.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
 
@@ -150,5 +190,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

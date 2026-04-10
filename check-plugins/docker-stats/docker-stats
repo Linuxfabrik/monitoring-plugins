@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse
 import sys
@@ -20,8 +19,7 @@ import lib.db_sqlite
 import lib.lftest
 import lib.shell
 import lib.txt
-from lib.globals import (STATE_CRIT, STATE_OK,
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040803'
@@ -31,22 +29,24 @@ DESCRIPTION = """This check prints cpu and memory statistics for all running Doc
                 by the available number of CPU cores ("normalized"). For Podman, use the
                 podman-stats check instead."""
 
-DEFAULT_COUNT = 5           # measurements; if check runs once per minute, this is a 5 minute period
-DEFAULT_WARN_CPU  = 80      # %
-DEFAULT_CRIT_CPU  = 90      # %
-DEFAULT_WARN_MEM  = 90      # %
-DEFAULT_CRIT_MEM  = 95      # %
+DEFAULT_COUNT = (
+    5  # measurements; if check runs once per minute, this is a 5 minute period
+)
+DEFAULT_WARN_CPU = 80  # %
+DEFAULT_CRIT_CPU = 90  # %
+DEFAULT_WARN_MEM = 90  # %
+DEFAULT_CRIT_MEM = 95  # %
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -60,7 +60,7 @@ def parse_args():
     parser.add_argument(
         '--count',
         help='Number of times the value must exceed specified thresholds before alerting. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='COUNT',
         type=int,
         default=DEFAULT_COUNT,
@@ -83,7 +83,7 @@ def parse_args():
     parser.add_argument(
         '--full-name',
         help='Use full container name, for example `traefik_traefik.2.1idw12p2yqp`. If ommitted, '
-             'the name will be shortened after the replica number (default behaviour).',
+        'the name will be shortened after the replica number (default behaviour).',
         dest='FULL_NAME',
         action='store_true',
         default=False,
@@ -115,18 +115,19 @@ def parse_args():
 
 
 def get_cpu_from_db(conn, container, threshold):
-    """Return the number of rows where cpu_usage >= threshold for a container.
-    """
-    result = lib.base.coe(lib.db_sqlite.select(
-        conn,
-        '''
+    """Return the number of rows where cpu_usage >= threshold for a container."""
+    result = lib.base.coe(
+        lib.db_sqlite.select(
+            conn,
+            """
         SELECT count(*) as cnt
         FROM cpu
         WHERE container = :container and cpu_usage >= :threshold
-        ''',
-        {'container': container, 'threshold': threshold},
-        fetchone=True,
-    ))
+        """,
+            {'container': container, 'threshold': threshold},
+            fetchone=True,
+        )
+    )
     return int(result['cnt'])
 
 
@@ -139,8 +140,7 @@ def shorten(name):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -149,12 +149,14 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # create the db tables
-    definition = '''
+    definition = """
                 container TEXT NOT NULL,
                 cpu_usage REAL NOT NULL
-        '''
+        """
     conn = lib.base.coe(
-        lib.db_sqlite.connect(filename='linuxfabrik-monitoring-plugins-docker-stats.db'),
+        lib.db_sqlite.connect(
+            filename='linuxfabrik-monitoring-plugins-docker-stats.db'
+        ),
     )
     lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='cpu'))
     lib.db_sqlite.create_index(conn, 'container', table='cpu')
@@ -215,9 +217,13 @@ def main():
 
         # save trend data to local sqlite database, limited to "count" rows max.
         lib.base.coe(
-            lib.db_sqlite.insert(conn, {'container': name, 'cpu_usage': cpu_usage}, table='cpu'),
+            lib.db_sqlite.insert(
+                conn, {'container': name, 'cpu_usage': cpu_usage}, table='cpu'
+            ),
         )
-        lib.base.coe(lib.db_sqlite.cut(conn, _max=args.COUNT*len(containers), table='cpu'))
+        lib.base.coe(
+            lib.db_sqlite.cut(conn, _max=args.COUNT * len(containers), table='cpu')
+        )
 
         # alert when container cpu_usage is exceeded
         # my container state is not ok, if in every of my historic rows the cpu value
@@ -238,11 +244,13 @@ def main():
             msg += f'"{name}" memory {mem_usage}% {lib.base.state2str(mem_state)}, '
         state = lib.base.get_worst(mem_state, state)
 
-        table_values.append({
-            'name': name,
-            'cpu_usage': f"{cpu_usage}{lib.base.state2str(cpu_state, prefix=' ')}",
-            'mem_usage': f"{mem_usage}{lib.base.state2str(mem_state, prefix=' ')}",
-        })
+        table_values.append(
+            {
+                'name': name,
+                'cpu_usage': f'{cpu_usage}{lib.base.state2str(cpu_state, prefix=" ")}',
+                'mem_usage': f'{mem_usage}{lib.base.state2str(mem_state, prefix=" ")}',
+            }
+        )
 
     # we don't need the database any more: save data and close connection
     lib.db_sqlite.commit(conn)

@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -22,8 +21,12 @@ import lib.net  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -34,24 +37,24 @@ DESCRIPTION = """Checks the status of the newest backups of the Starface PBX.
                 IPv6. Fetched data is cached up to one minute, so that other Starface plugins
                 running in parallel do not query the data again and overload the PBX."""
 
-DEFAULT_CACHE_EXPIRE = 1        # minutes
-DEFAULT_CRIT = None             # hours
+DEFAULT_CACHE_EXPIRE = 1  # minutes
+DEFAULT_CRIT = None  # hours
 DEFAULT_HOSTNAME = 'localhost'
 DEFAULT_IPV6 = False
 DEFAULT_PORT = 6556
-DEFAULT_TIMEOUT = 8             # seconds
-DEFAULT_WARN = 24               # hours
+DEFAULT_TIMEOUT = 8  # seconds
+DEFAULT_WARN = 24  # hours
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -71,7 +74,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Set the critical threshold for the time difference to the start of the last backup (in hours). Default: %(default)s',
         dest='CRIT',
         type=int,
@@ -79,7 +83,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-H', '--hostname',
+        '-H',
+        '--hostname',
         help='Starface PBX address, can be IP address or hostname. Default: %(default)s',
         dest='HOSTNAME',
         default=DEFAULT_HOSTNAME,
@@ -109,7 +114,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the warning threshold for the time difference to the start of the last backup (in hours). Default: %(default)s',
         dest='WARN',
         type=int,
@@ -129,8 +135,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -141,10 +146,19 @@ def main():
     # fetch data
     if args.TEST is None:
         # fetch data from PBX, but first from cache
-        data = lib.cache.get(args.HOSTNAME, filename='linuxfabrik-monitoring-plugins-starface.db')
+        data = lib.cache.get(
+            args.HOSTNAME, filename='linuxfabrik-monitoring-plugins-starface.db'
+        )
         if not data:
-            data = lib.base.coe(lib.net.fetch(args.HOSTNAME, args.PORT, timeout=args.TIMEOUT))
-            lib.cache.set(args.HOSTNAME, data, lib.time.now() + args.CACHE_EXPIRE*60, filename='linuxfabrik-monitoring-plugins-starface.db')
+            data = lib.base.coe(
+                lib.net.fetch(args.HOSTNAME, args.PORT, timeout=args.TIMEOUT)
+            )
+            lib.cache.set(
+                args.HOSTNAME,
+                data,
+                lib.time.now() + args.CACHE_EXPIRE * 60,
+                filename='linuxfabrik-monitoring-plugins-starface.db',
+            )
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
@@ -169,7 +183,7 @@ def main():
         # [HDD] 1623885428016 de.vertico.backup.successful'
         # [SMB]192.168.1.6:/Backup_Starface 1556666025340 de.vertico.backup.mountfail
         row = row.split(' ')
-        row[1] = int(row[1])/1000
+        row[1] = int(row[1]) / 1000
         if row[1] > old_timestamp:
             # we found a more recent backup
             target = row[0]
@@ -180,9 +194,10 @@ def main():
     # get the states
     now = lib.time.now()
     delta = now - timestamp
-    delta_state = lib.base.get_state(delta,
+    delta_state = lib.base.get_state(
+        delta,
         args.WARN * 60 * 60 if args.WARN is not None else None,
-        args.CRIT * 60 * 60 if args.CRIT is not None else None
+        args.CRIT * 60 * 60 if args.CRIT is not None else None,
     )
     state = lib.base.get_worst(delta_state, state)
 
@@ -206,5 +221,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

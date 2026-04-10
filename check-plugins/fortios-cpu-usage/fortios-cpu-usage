@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -18,8 +17,12 @@ import urllib.parse  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.db_sqlite  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -33,23 +36,25 @@ DESCRIPTION = """Returns the current system-wide CPU utilization as a percentage
                  first; only if there is no value, the check\'s command line values (or their
                  defaults) are used."""
 
-DEFAULT_WARN = 80        # %
-DEFAULT_CRIT = 90        # %
-DEFAULT_COUNT = 5        # measurements; if check runs once per minute, this is a 5 minute interval
+DEFAULT_WARN = 80  # %
+DEFAULT_CRIT = 90  # %
+DEFAULT_COUNT = (
+    5  # measurements; if check runs once per minute, this is a 5 minute interval
+)
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 3
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -63,14 +68,15 @@ def parse_args():
     parser.add_argument(
         '--count',
         help='Number of times the value must exceed specified thresholds before alerting. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='COUNT',
         type=int,
         default=DEFAULT_COUNT,
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help="Set the critical threshold CPU Usage Percentage. Hint: This plugin tries to check against the global configured `cpu-use-threshold` first; only if there is no value, the check's command line values (or their defaults) are used. Default: %(default)s",
         dest='CRIT',
         type=int,
@@ -78,10 +84,11 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-H', '--hostname',
+        '-H',
+        '--hostname',
         help='FortiOS-based Appliance address, optional including port ("192.168.1.1:443").',
         dest='HOSTNAME',
-        required = True,
+        required=True,
     )
 
     parser.add_argument(
@@ -104,7 +111,7 @@ def parse_args():
         '--password',
         help='FortiOS REST API Single Access Token.',
         dest='PASSWORD',
-        required = True,
+        required=True,
     )
 
     parser.add_argument(
@@ -116,7 +123,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help="Set the warning threshold CPU Usage Percentage. Hint: This plugin tries to check against the global configured `cpu-use-threshold` first; only if there is no value, the check's command line values (or their defaults) are used. Default: %(default)s",
         dest='WARN',
         type=int,
@@ -128,21 +136,23 @@ def parse_args():
 
 
 def get_from_db(conn, threshold):
-    result = lib.base.coe(lib.db_sqlite.select(conn,
-        '''
+    result = lib.base.coe(
+        lib.db_sqlite.select(
+            conn,
+            """
         SELECT count(*) as cnt
         FROM perfdata
         WHERE cpu_usage > :cpu_usage
-        ''',
-        {'cpu_usage': threshold},
-        fetchone=True
-    ))
+        """,
+            {'cpu_usage': threshold},
+            fetchone=True,
+        )
+    )
     return int(result['cnt'])
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -153,16 +163,24 @@ def main():
     # fetch data
     # Resource to get usage data for [cpu|memory|disk|sessions|lograte].
     url = f'https://{args.HOSTNAME}/api/v2/monitor/system/resource/usage?resource=cpu&interval=1-min&access_token={urllib.parse.quote(args.PASSWORD)}'
-    result = lib.base.coe(lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base.coe(
+        lib.url.fetch_json(
+            url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT
+        )
+    )
 
     stats = {}
     stats['cpu_usage'] = result['results']['cpu'][0]['current']
 
     # create the db table
-    definition = '''
+    definition = """
                 cpu_usage REAL NOT NULL
-        '''
-    conn = lib.base.coe(lib.db_sqlite.connect(filename='linuxfabrik-monitoring-plugins-fortios-cpu-usage.db'))
+        """
+    conn = lib.base.coe(
+        lib.db_sqlite.connect(
+            filename='linuxfabrik-monitoring-plugins-fortios-cpu-usage.db'
+        )
+    )
     lib.base.coe(lib.db_sqlite.create_table(conn, definition))
 
     # save trend data to local sqlite database, limited to "count" rows max.
@@ -173,7 +191,11 @@ def main():
     # try to get the global configured cpu warning threshold from Forti OS
     # if success, use it, otherwise our from args.WARN etc.
     url = f'https://{args.HOSTNAME}/api/v2/cmdb/system/global?access_token={urllib.parse.quote(args.PASSWORD)}'
-    thresholds = lib.base.coe(lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    thresholds = lib.base.coe(
+        lib.url.fetch_json(
+            url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT
+        )
+    )
     warn = thresholds['results'].get('cpu-use-threshold', args.WARN)
 
     # now, calculate the WARN or CRIT.
@@ -188,8 +210,10 @@ def main():
     lib.db_sqlite.close(conn)
 
     # build the message
-    msg = f"{stats['cpu_usage']}%"
-    perfdata = lib.base.get_perfdata('cpu-usage', stats['cpu_usage'], '%', warn, args.CRIT, 0, 100)
+    msg = f'{stats["cpu_usage"]}%'
+    perfdata = lib.base.get_perfdata(
+        'cpu-usage', stats['cpu_usage'], '%', warn, args.CRIT, 0, 100
+    )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
@@ -198,5 +222,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

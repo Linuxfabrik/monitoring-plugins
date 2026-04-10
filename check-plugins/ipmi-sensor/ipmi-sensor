@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -19,35 +18,39 @@ import lib.base  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
 DESCRIPTION = 'Checks IPMI sensor information in detail.'
 
-COL_SENSOR  = 0
-COL_VALUE   = 1
-COL_UOM     = 2     # Unit Of Measurement
-COL_STATE   = 3
-COL_LOWERNR = 4     # NR = non-recoverable
-COL_LOWERCT = 5     # CT = critical
-COL_LOWERNC = 6     # NC = non-critical
-COL_UPPERNC = 7     # NC = non-critical
-COL_UPPERCT = 8     # CT = critical
-COL_UPPERNR = 9     # NR = non-recoverable
+COL_SENSOR = 0
+COL_VALUE = 1
+COL_UOM = 2  # Unit Of Measurement
+COL_STATE = 3
+COL_LOWERNR = 4  # NR = non-recoverable
+COL_LOWERCT = 5  # CT = critical
+COL_LOWERNC = 6  # NC = non-critical
+COL_UPPERNC = 7  # NC = non-critical
+COL_UPPERCT = 8  # CT = critical
+COL_UPPERNR = 9  # NR = non-recoverable
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -59,7 +62,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-H', '--hostname',
+        '-H',
+        '--hostname',
         help='Remote server address, can be IP address or hostname. This option is required for lan and lanplus interfaces.',
         dest='HOSTNAME',
         default=None,
@@ -125,8 +129,7 @@ def shorten_uom(uom):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -176,12 +179,18 @@ def main():
         if cols[COL_STATE] == 'na' or cols[COL_STATE] == 'ns':
             continue
 
-        perfuom  = None
+        perfuom = None
         perfwarn = None if cols[COL_UPPERNC] == 'na' else cols[COL_UPPERNC]
         perfcrit = None if cols[COL_UPPERCT] == 'na' else cols[COL_UPPERCT]
-        perfmin  = None if cols[COL_LOWERNR] == 'na' else cols[COL_LOWERNR]
-        perfmin  = 0    if perfmin and float(perfmin) > 0 else perfmin
-        perfmax  = 100  if cols[COL_UOM] == 'percent' else None if cols[COL_UPPERNR] == 'na' else cols[COL_UPPERNR]
+        perfmin = None if cols[COL_LOWERNR] == 'na' else cols[COL_LOWERNR]
+        perfmin = 0 if perfmin and float(perfmin) > 0 else perfmin
+        perfmax = (
+            100
+            if cols[COL_UOM] == 'percent'
+            else None
+            if cols[COL_UPPERNR] == 'na'
+            else cols[COL_UPPERNR]
+        )
         perfdata += lib.base.get_perfdata(
             cols[COL_SENSOR].replace(' ', '_'),
             cols[COL_VALUE],
@@ -216,11 +225,20 @@ def main():
         state = lib.base.get_worst(sensor_state, state)
 
     if state == STATE_CRIT:
-        msg = f"Checked {sensor_counter} {lib.txt.pluralize('sensor', sensor_counter)}. There are critical errors." + msg
+        msg = (
+            f'Checked {sensor_counter} {lib.txt.pluralize("sensor", sensor_counter)}. There are critical errors.'
+            + msg
+        )
     elif state == STATE_WARN:
-        msg = f"Checked {sensor_counter} {lib.txt.pluralize('sensor', sensor_counter)}. There are warnings." + msg
+        msg = (
+            f'Checked {sensor_counter} {lib.txt.pluralize("sensor", sensor_counter)}. There are warnings.'
+            + msg
+        )
     else:
-        msg = f"Everything is ok, checked {sensor_counter} {lib.txt.pluralize('sensor', sensor_counter)}." + msg
+        msg = (
+            f'Everything is ok, checked {sensor_counter} {lib.txt.pluralize("sensor", sensor_counter)}.'
+            + msg
+        )
 
     # over and out
     lib.base.oao(msg, state, perfdata)
@@ -229,5 +247,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -20,8 +19,12 @@ import lib.db_sqlite  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -31,22 +34,24 @@ DESCRIPTION = """This plugin checks network I/O and link states on all interface
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
-DEFAULT_COUNT = 5       # measurements; if check runs once per minute, this is a 5 minute interval
+DEFAULT_COUNT = (
+    5  # measurements; if check runs once per minute, this is a 5 minute interval
+)
 DEFAULT_TIMEOUT = 3
-DEFAULT_WARN = int(1e9*0.8) # 80% of 1'000'000'000 bit/s
-DEFAULT_CRIT = int(1e9*0.9) # 90% of 1'000'000'000 bit/s
+DEFAULT_WARN = int(1e9 * 0.8)  # 80% of 1'000'000'000 bit/s
+DEFAULT_CRIT = int(1e9 * 0.9)  # 90% of 1'000'000'000 bit/s
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
-        )
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
 
     parser.add_argument(
         '--always-ok',
@@ -59,14 +64,15 @@ def parse_args():
     parser.add_argument(
         '--count',
         help='Number of times the value must exceed specified thresholds before alerting. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='COUNT',
         type=int,
         default=DEFAULT_COUNT,
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Set the critical threshold for link saturation for <count> checks, in bps. Default: %(default)s',
         dest='CRIT',
         type=int,
@@ -74,10 +80,11 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-H', '--hostname',
+        '-H',
+        '--hostname',
         help='FortiOS-based Appliance address, optional including port ("192.168.1.1:443").',
         dest='HOSTNAME',
-        required = True,
+        required=True,
     )
 
     parser.add_argument(
@@ -100,7 +107,7 @@ def parse_args():
         '--password',
         help='FortiOS REST API Single Access Token.',
         dest='PASSWORD',
-        required = True,
+        required=True,
     )
 
     parser.add_argument(
@@ -112,7 +119,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the warning threshold for link saturation for <count> checks, in bps. Default: %(default)s',
         dest='WARN',
         type=int,
@@ -125,20 +133,20 @@ def parse_args():
 
 def get_interface_states_from_db(conn, table, interface):
     table = lib.db_sqlite.__filter_str(table)
-    return lib.db_sqlite.select(conn,
-        f'''
+    return lib.db_sqlite.select(
+        conn,
+        f"""
         SELECT *
         FROM {table}
         WHERE interface = :interface
-        ''',
+        """,
         {'interface': interface},
-        fetchone=True
+        fetchone=True,
     )
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -149,30 +157,46 @@ def main():
     # fetch data
     # Resource to get interface data from
     url = f'https://{args.HOSTNAME}/api/v2/monitor/system/interface/select?access_token={urllib.parse.quote(args.PASSWORD)}'
-    result = lib.base.coe(lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base.coe(
+        lib.url.fetch_json(
+            url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT
+        )
+    )
 
-    conn = lib.base.coe(lib.db_sqlite.connect(filename='linuxfabrik-monitoring-plugins-fortios-network-io.db'))
+    conn = lib.base.coe(
+        lib.db_sqlite.connect(
+            filename='linuxfabrik-monitoring-plugins-fortios-network-io.db'
+        )
+    )
 
     # create the db inventory table for the link states - there we only
     # want to insert records once if they do not exist
     # so set a unique constraint and ignore any insert errors later on
-    definition = '''
+    definition = """
             interface  TEXT NOT NULL,
             link       INT NOT NULL,
             speed      REAL NOT NULL,
             duplex     INT NOT NULL
-        '''
-    lib.base.coe(lib.db_sqlite.create_table(conn, definition, table=f'state_{args.HOSTNAME}'))
-    lib.base.coe(lib.db_sqlite.create_index(conn, column_list='interface', table=f'state_{args.HOSTNAME}', unique=True))
+        """
+    lib.base.coe(
+        lib.db_sqlite.create_table(conn, definition, table=f'state_{args.HOSTNAME}')
+    )
+    lib.base.coe(
+        lib.db_sqlite.create_index(
+            conn, column_list='interface', table=f'state_{args.HOSTNAME}', unique=True
+        )
+    )
 
     # create the db table for perfdata
-    definition = '''
+    definition = """
             interface  TEXT NOT NULL,
             tx_bytes   INT NOT NULL,
             rx_bytes   INT NOT NULL,
             timestamp  INT NOT NULL
-        '''
-    lib.base.coe(lib.db_sqlite.create_table(conn, definition, table=f'perfdata_{args.HOSTNAME}'))
+        """
+    lib.base.coe(
+        lib.db_sqlite.create_table(conn, definition, table=f'perfdata_{args.HOSTNAME}')
+    )
 
     msg_link = ''
     state = STATE_OK
@@ -186,14 +210,18 @@ def main():
         data['tx_bytes'] = interface['tx_bytes']
         data['rx_bytes'] = interface['rx_bytes']
         data['timestamp'] = timestamp
-        lib.base.coe(lib.db_sqlite.insert(conn, data, table=f'perfdata_{args.HOSTNAME}'))
+        lib.base.coe(
+            lib.db_sqlite.insert(conn, data, table=f'perfdata_{args.HOSTNAME}')
+        )
 
         data = {}
         data['interface'] = interface['name']
         data['link'] = int(interface.get('link', 0))
         data['speed'] = interface['speed']
         data['duplex'] = interface['duplex']
-        _, first = get_interface_states_from_db(conn, f'state_{args.HOSTNAME}', data['interface'])
+        _, first = get_interface_states_from_db(
+            conn, f'state_{args.HOSTNAME}', data['interface']
+        )
 
         if first:  # if inventorized
             # we got something from DB, so there is inventorized data, so compare against current values
@@ -202,25 +230,35 @@ def main():
             # * speed rate changes from higher to lower value
             # * duplex mode changes from higher to lower value
             if data['link'] != first['link']:
-                msg_link += f"Link state for {data['interface']} changed from {first['link']} to {data['link']} (WARN). "
+                msg_link += f'Link state for {data["interface"]} changed from {first["link"]} to {data["link"]} (WARN). '
                 state = lib.base.get_worst(state, STATE_WARN)
             if data['speed'] != first['speed']:
-                msg_link += f"Speed rate for {data['interface']} changed from {first['speed']} to {data['speed']} (WARN). "
+                msg_link += f'Speed rate for {data["interface"]} changed from {first["speed"]} to {data["speed"]} (WARN). '
                 state = lib.base.get_worst(state, STATE_WARN)
             if data['duplex'] != first['duplex']:
-                msg_link += f"Duplex mode for {data['interface']} changed from {first['duplex']} to {data['duplex']} (WARN). "
+                msg_link += f'Duplex mode for {data["interface"]} changed from {first["duplex"]} to {data["duplex"]} (WARN). '
                 state = lib.base.get_worst(state, STATE_WARN)
         else:
             # network states are not saved at all (first time), so we got `False` (an error) in `inventorized`
             # save the states one time (only if not exist)
             _, _ = lib.db_sqlite.insert(conn, data, table=f'state_{args.HOSTNAME}')
 
-    max_count = args.COUNT*len(result['results'])
-    lib.base.coe(lib.db_sqlite.cut(conn, table=f'perfdata_{args.HOSTNAME}', _max=max_count))
+    max_count = args.COUNT * len(result['results'])
+    lib.base.coe(
+        lib.db_sqlite.cut(conn, table=f'perfdata_{args.HOSTNAME}', _max=max_count)
+    )
     lib.base.coe(lib.db_sqlite.commit(conn))
 
     # compute the load1 and loadn (load-n is what we want to alert about later on)
-    loads = lib.base.coe(lib.db_sqlite.compute_load(conn, sensorcol='interface', datacols=['tx_bytes', 'rx_bytes'], count=args.COUNT, table=f'perfdata_{args.HOSTNAME}'))
+    loads = lib.base.coe(
+        lib.db_sqlite.compute_load(
+            conn,
+            sensorcol='interface',
+            datacols=['tx_bytes', 'rx_bytes'],
+            count=args.COUNT,
+            table=f'perfdata_{args.HOSTNAME}',
+        )
+    )
     if not loads:
         lib.base.oao('Waiting for more data.', STATE_OK)
 
@@ -231,15 +269,15 @@ def main():
     max_load = 0
 
     for interface in loads:
-        rx1bps = interface['rx_bytes1']*8
-        tx1bps = interface['tx_bytes1']*8
-        rxnbps = interface['rx_bytesn']*8
-        txnbps = interface['tx_bytesn']*8
+        rx1bps = interface['rx_bytes1'] * 8
+        tx1bps = interface['tx_bytes1'] * 8
+        rxnbps = interface['rx_bytesn'] * 8
+        txnbps = interface['tx_bytesn'] * 8
         sum1bps = rx1bps + tx1bps
 
         if sum1bps > max_load:
             msg_header = (
-                f"{interface['interface']}: "
+                f'{interface["interface"]}: '
                 f'{lib.human.bits2human(rx1bps)}/'
                 f'{lib.human.bits2human(tx1bps)}'
                 f' bps (rx/tx, current).'
@@ -250,11 +288,14 @@ def main():
         # * link saturation is above a certain threshold
         #   (on duplex lines and 1 gbps alert if saturation is >= 80/90% on each rx/tx compared to loadn)
         sensor_state = lib.base.get_state(rxnbps, args.WARN, args.CRIT, _operator='ge')
-        sensor_state = lib.base.get_worst(sensor_state, lib.base.get_state(txnbps, args.WARN, args.CRIT, _operator='ge'))
+        sensor_state = lib.base.get_worst(
+            sensor_state,
+            lib.base.get_state(txnbps, args.WARN, args.CRIT, _operator='ge'),
+        )
         if sensor_state in (STATE_WARN, STATE_CRIT):
             msg_saturation += (
                 f'Bandwidth saturation for '
-                f"{interface['interface']}: "
+                f'{interface["interface"]}: '
                 f'{lib.human.bits2human(rxnbps)}/'
                 f'{lib.human.bits2human(txnbps)}'
                 f' bps (rx/tx) is too high'
@@ -262,26 +303,66 @@ def main():
                 f'. '
             )
 
-        perfdata += lib.base.get_perfdata(f"{interface['interface']}_rx1", interface['rx_bytes1'], 'B', args.WARN/8, args.CRIT/8, 0, None)
-        perfdata += lib.base.get_perfdata(f"{interface['interface']}_tx1", interface['tx_bytes1'], 'B', args.WARN/8, args.CRIT/8, 0, None)
-        perfdata += lib.base.get_perfdata(f"{interface['interface']}_rxn", interface['rx_bytesn'], 'B', args.WARN/8, args.CRIT/8, 0, None)
-        perfdata += lib.base.get_perfdata(f"{interface['interface']}_txn", interface['tx_bytesn'], 'B', args.WARN/8, args.CRIT/8, 0, None)
+        perfdata += lib.base.get_perfdata(
+            f'{interface["interface"]}_rx1',
+            interface['rx_bytes1'],
+            'B',
+            args.WARN / 8,
+            args.CRIT / 8,
+            0,
+            None,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{interface["interface"]}_tx1',
+            interface['tx_bytes1'],
+            'B',
+            args.WARN / 8,
+            args.CRIT / 8,
+            0,
+            None,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{interface["interface"]}_rxn',
+            interface['rx_bytesn'],
+            'B',
+            args.WARN / 8,
+            args.CRIT / 8,
+            0,
+            None,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{interface["interface"]}_txn',
+            interface['tx_bytesn'],
+            'B',
+            args.WARN / 8,
+            args.CRIT / 8,
+            0,
+            None,
+        )
 
-        table_data.append({
-            'interface': f"{interface['interface']}{lib.base.state2str(sensor_state, prefix=' (', suffix=')')}",
-            'rx1': lib.human.bits2human(rx1bps),
-            'tx1': lib.human.bits2human(tx1bps),
-            f'rx{args.COUNT}': lib.human.bits2human(rxnbps),
-            f'tx{args.COUNT}': lib.human.bits2human(txnbps),
-            })
+        table_data.append(
+            {
+                'interface': f'{interface["interface"]}{lib.base.state2str(sensor_state, prefix=" (", suffix=")")}',
+                'rx1': lib.human.bits2human(rx1bps),
+                'tx1': lib.human.bits2human(tx1bps),
+                f'rx{args.COUNT}': lib.human.bits2human(rxnbps),
+                f'tx{args.COUNT}': lib.human.bits2human(txnbps),
+            }
+        )
         state = lib.base.get_worst(state, sensor_state)
 
     # get_table(data, keys, header=None, sort_by_key=None, sort_order_reverse=False):
     table = lib.base.get_table(
         table_data,
         ['interface', 'rx1', 'tx1', f'rx{args.COUNT}', f'tx{args.COUNT}'],
-        header=['interface', 'rx1bps', 'tx1bps', f'rx{args.COUNT}bps', f'tx{args.COUNT}bps'],
-        )
+        header=[
+            'interface',
+            'rx1bps',
+            'tx1bps',
+            f'rx{args.COUNT}bps',
+            f'tx{args.COUNT}bps',
+        ],
+    )
 
     # over and out
     if not msg_link and not msg_saturation:
@@ -293,5 +374,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

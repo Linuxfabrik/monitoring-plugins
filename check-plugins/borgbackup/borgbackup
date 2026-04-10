@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import os  # pylint: disable=C0413
@@ -18,44 +17,52 @@ import sys  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
-DESCRIPTION = 'Checks the date and return code of the last borgbackup, according to the logfile.'
+DESCRIPTION = (
+    'Checks the date and return code of the last borgbackup, according to the logfile.'
+)
 
 DEFAULT_CRIT = None
 DEFAULT_WARN = 24
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Set the critical threshold for the time difference to the start of the '
-             'last backup (in hours). '
-             'Default: %(default)s',
+        'last backup (in hours). '
+        'Default: %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the warning threshold for the time difference to the start of the '
-             'last backup (in hours). '
-             'Default: %(default)s',
+        'last backup (in hours). '
+        'Default: %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -66,8 +73,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -79,10 +85,10 @@ def main():
     path = '/var/log/borg/borg.log'
 
     # content of the log file:
-        # start: 2020-04-08 23:00:01
-        # prune_retc: 0
-        # create_retc: 0
-        # end: 2020-04-08 23:00:13
+    # start: 2020-04-08 23:00:01
+    # prune_retc: 0
+    # create_retc: 0
+    # end: 2020-04-08 23:00:13
 
     if os.path.exists(path) <= 0 and not os.path.isfile(path):
         lib.base.cu(f'Logfile {path} not found or empty.')
@@ -96,20 +102,19 @@ def main():
     if mount_lines:
         lib.base.oao(f'There are active borg mounts.\n\n{mount_lines}', STATE_WARN)
 
-
     logfile = open(path, 'r')
     for line in logfile:
         if line.startswith('start'):
-            starttime = line.split(": ")[1].strip()
+            starttime = line.split(': ')[1].strip()
 
         if line.startswith('end'):
-            endtime = line.split(": ")[1].strip()
+            endtime = line.split(': ')[1].strip()
 
         if line.startswith('create_retc'):
-            create_retc = int(line.split(": ")[1])
+            create_retc = int(line.split(': ')[1])
 
         if line.startswith('prune_retc'):
-            prune_retc = int(line.split(": ")[1])
+            prune_retc = int(line.split(': ')[1])
 
     # check if all variables are defined (looks a little bit weird, pylint complains:
     # Statement seems to have no effect (pointless-statement) ;-)
@@ -134,10 +139,14 @@ def main():
     now = lib.time.now(as_type='iso')
     delta = lib.time.timestrdiff(now, starttime)
 
-    last_starttime_state = lib.base.get_state(delta, args.WARN * 60 * 60 if args.WARN is not None else None, args.CRIT * 60 * 60 if args.CRIT is not None else None)
+    last_starttime_state = lib.base.get_state(
+        delta,
+        args.WARN * 60 * 60 if args.WARN is not None else None,
+        args.CRIT * 60 * 60 if args.CRIT is not None else None,
+    )
     state = lib.base.get_worst(state, last_starttime_state)
 
-    duration = lib.time.timestrdiff(endtime, starttime)     # in seconds
+    duration = lib.time.timestrdiff(endtime, starttime)  # in seconds
     perfdata += lib.base.get_perfdata('duration', duration, 's', None, None, 0, None)
 
     msg = f'Last Backup started {starttime}, ended {endtime}, took {lib.human.seconds2human(duration)}.\n'
@@ -156,5 +165,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

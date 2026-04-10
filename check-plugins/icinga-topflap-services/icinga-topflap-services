@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import base64  # pylint: disable=C0413
@@ -25,8 +24,12 @@ import lib.human  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2025100601'
@@ -43,7 +46,7 @@ DESCRIPTION = """This check plugin counts the number of state changes per servic
 
 DEFAULT_CRIT = 19
 DEFAULT_INSECURE = False
-DEFAULT_LOOKBACK = 4*3600
+DEFAULT_LOOKBACK = 4 * 3600
 DEFAULT_NO_PROXY = False
 DEFAULT_PWFILE = '/var/spool/icinga2/.icingaweb'
 DEFAULT_TIMEOUT = 8
@@ -51,14 +54,14 @@ DEFAULT_WARN = 7
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -70,10 +73,11 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Critical number of state changes per service within the "lookback" period. '
-             'Supports Nagios ranges. '
-             'Default: %(default)s',
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
@@ -82,7 +86,7 @@ def parse_args():
     parser.add_argument(
         '--insecure',
         help='This option explicitly allows to perform "insecure" SSL connections. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -91,7 +95,7 @@ def parse_args():
     parser.add_argument(
         '--lookback',
         help='Seconds in the past that the plugin should consider when looking for data. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='LOOKBACK',
         type=int,
         default=DEFAULT_LOOKBACK,
@@ -99,8 +103,7 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. '
-             'Default: %(default)s',
+        help='Do not use a proxy. Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -108,25 +111,23 @@ def parse_args():
 
     parser.add_argument(
         '--password',
-        help='IcingaWeb Password. '
-             'Takes precedence over setting in `--password-file`.',
+        help='IcingaWeb Password. Takes precedence over setting in `--password-file`.',
         dest='PASSWORD',
     )
 
     parser.add_argument(
         '--pwfile',
         help='Specifies a password file to read "url", "user" or "password" for IcingaWeb from '
-             '(instead of specifying them on the command line), '
-             'for example `/var/spool/icinga2/.icingaweb`. '
-             'Default: %(default)s',
+        '(instead of specifying them on the command line), '
+        'for example `/var/spool/icinga2/.icingaweb`. '
+        'Default: %(default)s',
         dest='PWFILE',
         default=DEFAULT_PWFILE,
     )
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. '
-             'Default: %(default)s (seconds)',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -135,23 +136,23 @@ def parse_args():
     parser.add_argument(
         '--url',
         help='URL to IcingaDB > History > Event Overview, including filter parameters. '
-             'Takes precedence over setting in `--password-file`.'
-             'Something like `https:/icinga//icingaweb2/icingadb/history?limit=250',
+        'Takes precedence over setting in `--password-file`.'
+        'Something like `https:/icinga//icingaweb2/icingadb/history?limit=250',
         dest='URL',
     )
 
     parser.add_argument(
         '--username',
-        help='IcingaWeb Username. '
-             'Takes precedence over setting in `--password-file`.',
+        help='IcingaWeb Username. Takes precedence over setting in `--password-file`.',
         dest='USERNAME',
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Warning number of state changes per service within the "lookback" period. '
-             'Supports Nagios ranges. '
-             'Default: %(default)s',
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -162,8 +163,7 @@ def parse_args():
 
 
 def get_data(args):
-    """Login to Icinga, call the URL and return JSON data.
-    """
+    """Login to Icinga, call the URL and return JSON data."""
     header = {}
     auth = f'{args.USERNAME}:{args.PASSWORD}'
     encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
@@ -179,8 +179,7 @@ def get_data(args):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -192,8 +191,8 @@ def main():
     have_pwfile = args.PWFILE
     if not (have_creds or have_pwfile):
         lib.base.cu(
-            'The three parameters `--url`, `--username` and `--password` are required. ' \
-            'Alternatively, you can provide a password file for IcingaWeb to read ' \
+            'The three parameters `--url`, `--username` and `--password` are required. '
+            'Alternatively, you can provide a password file for IcingaWeb to read '
             'the "url", "user" or "password" from, using `--pwfile`.'
         )
 
@@ -217,8 +216,10 @@ def main():
     have_creds = args.USERNAME and args.PASSWORD and args.URL
     if not have_creds:
         lib.base.cu(
-            'Either the username, password or URL is not specified' + \
-            f' in `{args.PWFILE}`.' if args.PWFILE else '.'
+            'Either the username, password or URL is not specified'
+            + f' in `{args.PWFILE}`.'
+            if args.PWFILE
+            else '.'
         )
 
     # init some vars
@@ -226,15 +227,17 @@ def main():
     state = STATE_OK
 
     # create the db table
-    definition = '''
+    definition = """
         host_id                 TEXT NOT NULL,
         host_display_name       TEXT NOT NULL,
         service_id              TEXT NOT NULL,
         service_display_name    TEXT NOT NULL,
         state_event_time        TEXT NOT NULL
-    '''
+    """
     conn = lib.base.coe(
-        lib.db_sqlite.connect(filename='linuxfabrik-monitoring-plugins-icinga-topflap-services.db'),
+        lib.db_sqlite.connect(
+            filename='linuxfabrik-monitoring-plugins-icinga-topflap-services.db'
+        ),
     )
     lib.base.coe(lib.db_sqlite.create_table(conn, definition, drop_table_first=True))
     lib.base.coe(lib.db_sqlite.create_index(conn, 'host_id, service_id'))
@@ -254,8 +257,8 @@ def main():
             continue
         data['state_event_time'] = lib.time.timestr2epoch(
             data['state_event_time'][:19],  # 2025-02-26T13:45:15.207+00:00
-            pattern='%Y-%m-%dT%H:%M:%S',    # 2025-02-26T13:45:15
-            tzinfo=datetime.timezone.utc,   # icinga works with UTC timezone format
+            pattern='%Y-%m-%dT%H:%M:%S',  # 2025-02-26T13:45:15
+            tzinfo=datetime.timezone.utc,  # icinga works with UTC timezone format
         )
         # ignore if event is outside lookback interval
         if abs(now - data['state_event_time']) > args.LOOKBACK:
@@ -267,8 +270,10 @@ def main():
             continue
 
         # ignore myself
-        if 'top' in data['service_display_name'].lower() and \
-            'flap' in data['service_display_name'].lower():
+        if (
+            'top' in data['service_display_name'].lower()
+            and 'flap' in data['service_display_name'].lower()
+        ):
             continue
 
         data['host_id'] = event.get('host').get('id')
@@ -279,16 +284,18 @@ def main():
 
     # analyze data
     # from here on just working on the database
-    data = lib.base.coe(lib.db_sqlite.select(
-        conn,
-        '''
+    data = lib.base.coe(
+        lib.db_sqlite.select(
+            conn,
+            """
         select host_display_name, service_display_name, count(*) as cnt
         from perfdata
         where 1
         group by host_id, service_id
         order by cnt desc
-        ''',
-    ))
+        """,
+        )
+    )
     lib.db_sqlite.close(conn)
 
     for i, item in enumerate(data):
@@ -304,11 +311,11 @@ def main():
     # build the message
     msg = {
         STATE_CRIT: 'There are critical errors.',
-        STATE_WARN: 'There are warnings.'
+        STATE_WARN: 'There are warnings.',
     }.get(state, 'Everything is ok.')
     msg += f' (lookback={lib.human.seconds2human(args.LOOKBACK)} warn={args.WARN} crit={args.CRIT})'
     if data:
-        msg +=  '\n\n' + lib.base.get_table(
+        msg += '\n\n' + lib.base.get_table(
             data,
             [
                 'host_display_name',
@@ -331,5 +338,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

@@ -16,6 +16,7 @@ import sys
 
 try:
     import colorama
+
     colorama.init(autoreset=True)
 except ImportError:
     colorama = False
@@ -90,11 +91,12 @@ class BasketJoiner:
         self.uuids2datafields = {}
         self.highest_datafield_id = 0
 
-
     def save_json_to_file(self, filename):
         try:
             with open(filename, 'w') as file:
-                json.dump(self.data, file, sort_keys=False, indent=4, separators=(',', ': '))
+                json.dump(
+                    self.data, file, sort_keys=False, indent=4, separators=(',', ': ')
+                )
                 file.write('\n')
                 print(f'Written to file {filename}')
         except FileNotFoundError as e:
@@ -102,14 +104,15 @@ class BasketJoiner:
             return False
         return True
 
-
     def join_with_file(self, basket_file):
-        new_datafield_ids = {} # this is reset for each file
+        new_datafield_ids = {}  # this is reset for each file
         if os.path.isfile(basket_file):
             print(f'File: {basket_file}')
             with open(basket_file, 'rb') as file:
                 try:
-                    basket_data = json.load(file, object_pairs_hook=raise_on_duplicate_keys)
+                    basket_data = json.load(
+                        file, object_pairs_hook=raise_on_duplicate_keys
+                    )
                 except json.decoder.JSONDecodeError:
                     err_print('Could not parse basket file. Skipping...')
                     return False
@@ -122,7 +125,9 @@ class BasketJoiner:
                     for key, value in basket_data['Datafield'].items():
                         uuid = value.get('uuid')
                         if uuid in self.uuids2datafields:
-                            current_value = self.data['Datafield'][self.uuids2datafields[uuid]]
+                            current_value = self.data['Datafield'][
+                                self.uuids2datafields[uuid]
+                            ]
                             if current_value != value:
                                 err_print(
                                     f'The objects "[Datafield]'
@@ -138,8 +143,12 @@ class BasketJoiner:
                         else:
                             self.highest_datafield_id += 1
                             if uuid:
-                                self.uuids2datafields[uuid] = str(self.highest_datafield_id)
-                            self.data['Datafield'][str(self.highest_datafield_id)] = value
+                                self.uuids2datafields[uuid] = str(
+                                    self.highest_datafield_id
+                                )
+                            self.data['Datafield'][str(self.highest_datafield_id)] = (
+                                value
+                            )
                             new_datafield_ids[key] = self.highest_datafield_id
             except:
                 err_print(f'Invalid basket definition file {basket_file}')
@@ -155,10 +164,11 @@ class BasketJoiner:
                         if fields:
                             for field in fields:
                                 old_datafield_id = field['datafield_id']
-                                field['datafield_id'] = new_datafield_ids[str(old_datafield_id)]
+                                field['datafield_id'] = new_datafield_ids[
+                                    str(old_datafield_id)
+                                ]
                         self.data[parent_key][key] = value
         return True
-
 
     def validate_uuids(self):
         uuids = []
@@ -169,7 +179,9 @@ class BasketJoiner:
                     uuids.append(value['uuid'])
                 else:
                     if parent_key == 'Datafield':
-                        objects_without_uuids.append(f"[{parent_key}][{value['varname']}] (Datafield)")
+                        objects_without_uuids.append(
+                            f'[{parent_key}][{value["varname"]}] (Datafield)'
+                        )
                     else:
                         objects_without_uuids.append(f'[{parent_key}][{key}]')
 
@@ -179,7 +191,9 @@ class BasketJoiner:
                         if 'uuid' in service_value:
                             uuids.append(service_value['uuid'])
                         else:
-                            objects_without_uuids.append(f'[{parent_key}][{key}][{service_key}] (Service)')
+                            objects_without_uuids.append(
+                                f'[{parent_key}][{key}][{service_key}] (Service)'
+                            )
 
         if objects_without_uuids:
             warn_print('\nFound objects without uuids:')
@@ -201,7 +215,12 @@ def main():
     args = parse_args()
 
     basket_joiner = BasketJoiner()
-    if basket_joiner.join_with_file('assets/icingaweb2-module-director/all-the-rest.json') is False:
+    if (
+        basket_joiner.join_with_file(
+            'assets/icingaweb2-module-director/all-the-rest.json'
+        )
+        is False
+    ):
         sys.exit(3)
 
     directories = os.listdir('check-plugins')
@@ -209,7 +228,12 @@ def main():
         if directory in skip_plugins:
             continue
 
-        basket_file = os.path.join('check-plugins', directory, 'icingaweb2-module-director', f'{directory}.json')
+        basket_file = os.path.join(
+            'check-plugins',
+            directory,
+            'icingaweb2-module-director',
+            f'{directory}.json',
+        )
         if basket_joiner.join_with_file(basket_file) is False:
             sys.exit(3)
 
@@ -218,7 +242,12 @@ def main():
         if directory in skip_plugins:
             continue
 
-        basket_file = os.path.join('notification-plugins', directory, 'icingaweb2-module-director', f'{directory}.json')
+        basket_file = os.path.join(
+            'notification-plugins',
+            directory,
+            'icingaweb2-module-director',
+            f'{directory}.json',
+        )
         if basket_joiner.join_with_file(basket_file) is False:
             sys.exit(3)
     if basket_joiner.validate_uuids() is False:
@@ -226,6 +255,7 @@ def main():
 
     if basket_joiner.save_json_to_file(args.OUTPUT_FILE) is False:
         sys.exit(3)
+
 
 if __name__ == '__main__':
     main()

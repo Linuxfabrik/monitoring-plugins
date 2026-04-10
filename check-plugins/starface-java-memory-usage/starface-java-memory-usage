@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -22,8 +21,12 @@ import lib.net  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -35,24 +38,24 @@ DESCRIPTION = """Monitors the heap and non-heap memory usage of the Java VM of t
                 IPv6. Fetched data is cached up to one minute, so that other Starface plugins
                 running in parallel do not query the data again and overload the PBX."""
 
-DEFAULT_CACHE_EXPIRE = 1        # minutes
-DEFAULT_CRIT = 90               # %
+DEFAULT_CACHE_EXPIRE = 1  # minutes
+DEFAULT_CRIT = 90  # %
 DEFAULT_HOSTNAME = 'localhost'
 DEFAULT_IPV6 = False
 DEFAULT_PORT = 6556
-DEFAULT_TIMEOUT = 8             # seconds
-DEFAULT_WARN = 80               # %
+DEFAULT_TIMEOUT = 8  # seconds
+DEFAULT_WARN = 80  # %
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -79,7 +82,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-H', '--hostname',
+        '-H',
+        '--hostname',
         help='Starface PBX address, can be IP address or hostname. Default: %(default)s',
         dest='HOSTNAME',
         default=DEFAULT_HOSTNAME,
@@ -128,8 +132,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -140,10 +143,19 @@ def main():
     # fetch data
     if args.TEST is None:
         # fetch data from PBX, but first from cache
-        data = lib.cache.get(args.HOSTNAME, filename='linuxfabrik-monitoring-plugins-starface.db')
+        data = lib.cache.get(
+            args.HOSTNAME, filename='linuxfabrik-monitoring-plugins-starface.db'
+        )
         if not data:
-            data = lib.base.coe(lib.net.fetch(args.HOSTNAME, args.PORT, timeout=args.TIMEOUT))
-            lib.cache.set(args.HOSTNAME, data, lib.time.now() + args.CACHE_EXPIRE*60, filename='linuxfabrik-monitoring-plugins-starface.db')
+            data = lib.base.coe(
+                lib.net.fetch(args.HOSTNAME, args.PORT, timeout=args.TIMEOUT)
+            )
+            lib.cache.set(
+                args.HOSTNAME,
+                data,
+                lib.time.now() + args.CACHE_EXPIRE * 60,
+                filename='linuxfabrik-monitoring-plugins-starface.db',
+            )
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
@@ -172,10 +184,14 @@ def main():
             if mem_max == -1:
                 # unlimited memory usage allowed
                 msg += f'Heap used: {lib.human.bytes2human(mem_used)} (unlimited memory usage allowed), '
-                perfdata += lib.base.get_perfdata('heap-used', mem_used, 'B', None, None, 0, None)
+                perfdata += lib.base.get_perfdata(
+                    'heap-used', mem_used, 'B', None, None, 0, None
+                )
             else:
                 used_percent = round(mem_used / mem_max * 100, 1)
-                used_state = lib.base.get_state(used_percent, args.WARN, args.CRIT, 'ge')
+                used_state = lib.base.get_state(
+                    used_percent, args.WARN, args.CRIT, 'ge'
+                )
                 msg += (
                     f'Heap used: {used_percent}% '
                     f'({lib.human.bytes2human(mem_used)} '
@@ -183,9 +199,15 @@ def main():
                     f'{lib.base.state2str(used_state, prefix=" ")}, '
                 )
                 state += lib.base.get_worst(used_state, state)
-                perfdata += lib.base.get_perfdata('heap-used-percent', used_percent, '%', args.WARN, args.CRIT, 0, 100)
-                perfdata += lib.base.get_perfdata('heap-used', mem_used, 'B', None, None, 0, mem_max)
-                perfdata += lib.base.get_perfdata('heap-max', mem_max, 'B', None, None, 0, mem_max)
+                perfdata += lib.base.get_perfdata(
+                    'heap-used-percent', used_percent, '%', args.WARN, args.CRIT, 0, 100
+                )
+                perfdata += lib.base.get_perfdata(
+                    'heap-used', mem_used, 'B', None, None, 0, mem_max
+                )
+                perfdata += lib.base.get_perfdata(
+                    'heap-max', mem_max, 'B', None, None, 0, mem_max
+                )
 
         if row.startswith('java_non_heap_memory'):
             mem_used, mem_max = row.replace('java_non_heap_memory ', '').split('/')
@@ -194,10 +216,14 @@ def main():
             if mem_max == -1:
                 # unlimited memory usage allowed
                 msg += f'Non-Heap used: {lib.human.bytes2human(mem_used)} (unlimited memory usage allowed), '
-                perfdata += lib.base.get_perfdata('non-heap-used', mem_used, 'B', None, None, 0, None)
+                perfdata += lib.base.get_perfdata(
+                    'non-heap-used', mem_used, 'B', None, None, 0, None
+                )
             else:
                 used_percent = round(mem_used / mem_max * 100, 1)
-                used_state = lib.base.get_state(used_percent, args.WARN, args.CRIT, 'ge')
+                used_state = lib.base.get_state(
+                    used_percent, args.WARN, args.CRIT, 'ge'
+                )
                 msg += (
                     f'Non-Heap used: {used_percent}% '
                     f'({lib.human.bytes2human(mem_used)} '
@@ -205,9 +231,21 @@ def main():
                     f'{lib.base.state2str(used_state, prefix=" ")}, '
                 )
                 state += lib.base.get_worst(used_state, state)
-                perfdata += lib.base.get_perfdata('non-heap-used-percent', used_percent, '%', args.WARN, args.CRIT, 0, 100)
-                perfdata += lib.base.get_perfdata('non-heap-used', mem_used, 'B', None, None, 0, mem_max)
-                perfdata += lib.base.get_perfdata('non-heap-max', mem_max, 'B', None, None, 0, mem_max)
+                perfdata += lib.base.get_perfdata(
+                    'non-heap-used-percent',
+                    used_percent,
+                    '%',
+                    args.WARN,
+                    args.CRIT,
+                    0,
+                    100,
+                )
+                perfdata += lib.base.get_perfdata(
+                    'non-heap-used', mem_used, 'B', None, None, 0, mem_max
+                )
+                perfdata += lib.base.get_perfdata(
+                    'non-heap-max', mem_max, 'B', None, None, 0, mem_max
+                )
 
     # over and out
     lib.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
@@ -216,5 +254,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

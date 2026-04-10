@@ -9,8 +9,8 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-sys.path.append("..") # Adds higher directory to python modules path.
 
+sys.path.append('..')  # Adds higher directory to python modules path.
 
 
 import unittest
@@ -24,32 +24,35 @@ import lib.version
 # Attention: NOT testing the check (as usual), but testing the library function directly
 # Here, we have MAJOR.MINOR.PATCH (or sometimes MAJOR.MINOR.PATCH.MICRO) releases.
 
-class TestCheck(unittest.TestCase):
 
-    #self.assertEqual(retc, STATE_CRIT)
-    #self.assertIn('Waiting for more data (1).', stdout)
-    #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
+class TestCheck(unittest.TestCase):
+    # self.assertEqual(retc, STATE_CRIT)
+    # self.assertIn('Waiting for more data (1).', stdout)
+    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
 
     def test_if_check_runs_php01(self):
         retc, msg = lib.version.check_eol(
             'https://endoflife.date/api/php.json',
             '7.3.0',
-            offset_eol = -30,
-            check_major = False,
-            check_minor = False,
-            check_patch = False,
+            offset_eol=-30,
+            check_major=False,
+            check_minor=False,
+            check_patch=False,
         )
-        self.assertRegex(msg, r'full support ended on 2020-12-06; EOL 2021-12-06 -30d \[WARNING\], major .* available')
+        self.assertRegex(
+            msg,
+            r'full support ended on 2020-12-06; EOL 2021-12-06 -30d \[WARNING\], major .* available',
+        )
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_php02(self):
         retc, msg = lib.version.check_eol(
             'https://endoflife.date/api/php.json',
             '999.999.999',
-            offset_eol = -30,
-            check_major = False,
-            check_minor = False,
-            check_patch = False,
+            offset_eol=-30,
+            check_major=False,
+            check_minor=False,
+            check_patch=False,
         )
         self.assertIn('version 999.999.999 unknown', msg)
         self.assertEqual(retc, STATE_UNKNOWN)
@@ -58,36 +61,45 @@ class TestCheck(unittest.TestCase):
         retc, msg = lib.version.check_eol(
             'https://endoflife.date/api/php.json',
             '7.3.0',
-            offset_eol = +9999,
-            check_major = False,
-            check_minor = False,
-            check_patch = False,
+            offset_eol=+9999,
+            check_major=False,
+            check_minor=False,
+            check_patch=False,
         )
-        self.assertRegex(msg, r'full support ended on 2020-12-06; EOL 2021-12-06 \+9999d, major .* available')
+        self.assertRegex(
+            msg,
+            r'full support ended on 2020-12-06; EOL 2021-12-06 \+9999d, major .* available',
+        )
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_php04(self):
         retc, msg = lib.version.check_eol(
             'https://endoflife.date/api/php.json',
             '7.3.0',
-            offset_eol = -30,
-            check_major = True,
-            check_minor = False,
-            check_patch = False,
+            offset_eol=-30,
+            check_major=True,
+            check_minor=False,
+            check_patch=False,
         )
-        self.assertRegex(msg, r'full support ended on 2020-12-06; EOL 2021-12-06 -30d \[WARNING\], major .* available')
+        self.assertRegex(
+            msg,
+            r'full support ended on 2020-12-06; EOL 2021-12-06 -30d \[WARNING\], major .* available',
+        )
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_php05(self):
         retc, msg = lib.version.check_eol(
             'https://endoflife.date/api/php.json',
             '8.1.73.alpha',
-            offset_eol = -30,
-            check_major = True,
-            check_minor = True,
-            check_patch = True,
+            offset_eol=-30,
+            check_major=True,
+            check_minor=True,
+            check_patch=True,
         )
-        self.assertRegex(msg, r'full support ended on 2023-11-25; EOL 2025-12-31 -30d.*, minor 8\..* available')
+        self.assertRegex(
+            msg,
+            r'full support ended on 2023-11-25; EOL 2025-12-31 -30d.*, minor 8\..* available',
+        )
         self.assertEqual(retc, STATE_WARN)
 
 

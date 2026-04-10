@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -19,8 +18,12 @@ import lib.base  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -32,14 +35,14 @@ DEFAULT_WARN = 2500
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -51,7 +54,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Set the critical threshold for banned IPs per jail. Default: %(default)s',
         dest='CRIT',
         type=int,
@@ -66,7 +70,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the warning threshold for banned IPs per jail. Default: %(default)s',
         dest='WARN',
         type=int,
@@ -78,8 +83,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -90,19 +94,27 @@ def main():
     # fetch data
     # fail2ban-client ping
     if args.TEST is None:
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec('fail2ban-client ping'))
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec('fail2ban-client ping')
+        )
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.lftest.test([args.TEST[0] + '-ping', args.TEST[1], args.TEST[2]])
+        stdout, stderr, retc = lib.lftest.test(
+            [args.TEST[0] + '-ping', args.TEST[1], args.TEST[2]]
+        )
     if retc != 0:
         lib.base.cu('Problem while testing if the fail2ban server is alive.')
 
     # fail2ban-client status
     if args.TEST is None:
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec('fail2ban-client status'))
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec('fail2ban-client status')
+        )
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.lftest.test([args.TEST[0] + '-status', args.TEST[1], args.TEST[2]])
+        stdout, stderr, retc = lib.lftest.test(
+            [args.TEST[0] + '-status', args.TEST[1], args.TEST[2]]
+        )
     if retc != 0:
         lib.base.cu('Problem while testing the status of the fail2ban server.')
 
@@ -129,9 +141,7 @@ def main():
         else:
             # do not call the command, put in test data
             stdout, stderr, retc = lib.lftest.test(
-                [args.TEST[0] + f'-status-{jail}',
-                args.TEST[1],
-                args.TEST[2]],
+                [args.TEST[0] + f'-status-{jail}', args.TEST[1], args.TEST[2]],
             )
         if retc != 0:
             lib.base.oao(
@@ -153,15 +163,17 @@ def main():
             f'* {f2b_currently_banned} in jail "{jail}"'
             f'{lib.base.state2str(state, prefix=" ")}\n'
         )
-        perfdata += lib.base.get_perfdata(jail, f2b_currently_banned, None, args.WARN, args.CRIT, 0, None) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(
+            jail, f2b_currently_banned, None, args.WARN, args.CRIT, 0, None
+        )  # pylint: disable=C0301
 
     # over and out
-    msg = f"{count} {lib.txt.pluralize('IP', count)} banned\n{msg}"
+    msg = f'{count} {lib.txt.pluralize("IP", count)} banned\n{msg}'
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

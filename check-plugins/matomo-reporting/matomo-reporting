@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -18,8 +17,12 @@ import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -27,28 +30,28 @@ __version__ = '2026040801'
 DESCRIPTION = """This plugin lets you check the most common analytics values from Matomo, for one
                  or several websites and for any given date and period."""
 
-DEFAULT_URL      = 'https://demo.matomo.org'
-DEFAULT_IDSITE   = 1
-DEFAULT_PERIOD   = 'day'
-DEFAULT_DATE     = 'today'
+DEFAULT_URL = 'https://demo.matomo.org'
+DEFAULT_IDSITE = 1
+DEFAULT_PERIOD = 'day'
+DEFAULT_DATE = 'today'
 DEFAULT_PASSWORD = 'anonymous'
 
-DEFAULT_METRIC   = []
+DEFAULT_METRIC = []
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
-DEFAULT_TIMEOUT  = 3
+DEFAULT_TIMEOUT = 3
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -121,7 +124,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-u', '--url',
+        '-u',
+        '--url',
         help='Matomo URL. Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
@@ -132,8 +136,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -146,8 +149,16 @@ def main():
         args.METRIC = DEFAULT_METRIC
 
     # fetch data
-    url = args.URL + ('/' if not args.URL.endswith('/') else '') + f'index.php?method=API.get&idSite={args.IDSITE}&period={args.PERIOD}&date={args.DATE}&module=API&token_auth={args.PASSWORD}&format=json&filter_limit=1'
-    result = lib.base.coe(lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    url = (
+        args.URL
+        + ('/' if not args.URL.endswith('/') else '')
+        + f'index.php?method=API.get&idSite={args.IDSITE}&period={args.PERIOD}&date={args.DATE}&module=API&token_auth={args.PASSWORD}&format=json&filter_limit=1'
+    )
+    result = lib.base.coe(
+        lib.url.fetch_json(
+            url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT
+        )
+    )
     if 'result' in result and result['result'] == 'error':
         lib.base.cu(result['message'])
 
@@ -180,7 +191,7 @@ def main():
             else:
                 sensor_state = STATE_OK
 
-            msg += f"{key}: {lib.human.number2human(value)}{lib.base.state2str(sensor_state, prefix=' (', suffix=')')}, "
+            msg += f'{key}: {lib.human.number2human(value)}{lib.base.state2str(sensor_state, prefix=" (", suffix=")")}, '
             state = lib.base.get_worst(state, sensor_state)
             if 'time' in key:
                 perfdata += lib.base.get_perfdata(key, value, 's', None, None, 0, None)
@@ -192,7 +203,9 @@ def main():
         for key, value in lib.base.sort(result, reverse=False, sort_by_key=True):
             # print all values
             msg += f'{key}: {lib.human.number2human(value)}, '
-            perfdata += lib.base.get_perfdata(key, value, 's' if 'time' in key else None, None, None, 0, None)
+            perfdata += lib.base.get_perfdata(
+                key, value, 's' if 'time' in key else None, None, None, 0, None
+            )
 
     # over and out
     lib.base.oao(f'{msg[:-2]}', state, perfdata, always_ok=args.ALWAYS_OK)
@@ -201,5 +214,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -31,14 +30,14 @@ DEFAULT_TIMEOUT = 3
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -52,8 +51,8 @@ def parse_args():
     parser.add_argument(
         '--defaults-file',
         help='Specifies a cnf file to read parameters like user, host and password from '
-             '(instead of specifying them on the command line), '
-             'for example `/var/spool/icinga2/.my.cnf`. Default: %(default)s',
+        '(instead of specifying them on the command line), '
+        'for example `/var/spool/icinga2/.my.cnf`. Default: %(default)s',
         dest='DEFAULTS_FILE',
         default=DEFAULT_DEFAULTS_FILE,
     )
@@ -106,8 +105,7 @@ def get_vars(conn):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # logic taken from mysqltuner.pl:get_replication_status(), v1.9.8
     # including variable names
@@ -119,9 +117,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     mysql_connection = {
-        'defaults_file':  args.DEFAULTS_FILE,
+        'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
-        'timeout':        args.TIMEOUT,
+        'timeout': args.TIMEOUT,
     }
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
     lib.base.coe(lib.db_mysql.check_select_privileges(conn))
@@ -147,7 +145,7 @@ def main():
     state = STATE_OK
 
     # Replication Metrics
-    msg += f"Galera Synchronous replication: {myvar['have_galera']}. "
+    msg += f'Galera Synchronous replication: {myvar["have_galera"]}. '
     if len(myslaves) != 0:
         msg += (
             f'This server is acting as primary for'
@@ -161,7 +159,9 @@ def main():
     )
 
     msg += 'Semi synchronous Primary: '
-    if myvar.get('rpl_semi_sync_master_enabled', 0) or myvar.get('rpl_semi_sync_source_enabled', 0):
+    if myvar.get('rpl_semi_sync_master_enabled', 0) or myvar.get(
+        'rpl_semi_sync_source_enabled', 0
+    ):
         msg += (
             f'{myvar.get("rpl_semi_sync_master_enabled", "")}'
             f'{myvar.get("rpl_semi_sync_source_enabled", "")}. '
@@ -169,7 +169,9 @@ def main():
     else:
         msg += 'Not Activated. '
     msg += 'Semi synchronous Replica: '
-    if myvar.get('rpl_semi_sync_slave_enabled', 0) or myvar.get('rpl_semi_sync_replica_enabled', 0):
+    if myvar.get('rpl_semi_sync_slave_enabled', 0) or myvar.get(
+        'rpl_semi_sync_replica_enabled', 0
+    ):
         msg += (
             f'{myvar.get("rpl_semi_sync_slave_enabled", "")}'
             f'{myvar.get("rpl_semi_sync_replica_enabled", "")}. '
@@ -208,10 +210,12 @@ def main():
                 f' read_only option disabled'
                 f'{lib.base.state2str(state, prefix=" ")}. '
             )
-        if myrepl[0].get('Seconds_Behind_Master', 0) is None \
-        or myrepl[0].get('Seconds_Behind_Source', 0) is None \
-        or myrepl[0].get('Seconds_Behind_Master', 0) > 0 \
-        or myrepl[0].get('Seconds_Behind_Source', 0) > 0:
+        if (
+            myrepl[0].get('Seconds_Behind_Master', 0) is None
+            or myrepl[0].get('Seconds_Behind_Source', 0) is None
+            or myrepl[0].get('Seconds_Behind_Master', 0) > 0
+            or myrepl[0].get('Seconds_Behind_Source', 0) > 0
+        ):
             state = lib.base.str2state(args.SEVERITY)
             msg += (
                 f'This Replica is lagging behind Primary'
@@ -227,5 +231,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

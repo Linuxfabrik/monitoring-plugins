@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -18,8 +17,11 @@ import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
-                          STATE_WARN)
+from lib.globals import (
+    STATE_OK,
+    STATE_UNKNOWN,  # pylint: disable=C0413
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -29,14 +31,14 @@ DESCRIPTION = """Checks current settings of the system clock and RTC, including 
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -59,8 +61,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -74,7 +75,7 @@ def main():
         # systemd versions, as this is only available since 2018-05 (and therefore not on RHEL 7).
         # Use `timedatectl status` instead.
         cmd = 'timedatectl status'
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))  # pylint: disable=W0612
         if stderr:
             lib.base.oao(f'{stderr}', STATE_WARN)
     else:
@@ -87,24 +88,36 @@ def main():
 
     # analyze data and build the message
     # i->ntp_synced
-    msg += lib.txt.extract_str(stdout, 'NTP synchronized: ', '\n', include_fromto=True).replace('\n', ', ')
-    msg += lib.txt.extract_str(stdout, 'System clock synchronized: ', '\n', include_fromto=True).replace('\n', ', ')
+    msg += lib.txt.extract_str(
+        stdout, 'NTP synchronized: ', '\n', include_fromto=True
+    ).replace('\n', ', ')
+    msg += lib.txt.extract_str(
+        stdout, 'System clock synchronized: ', '\n', include_fromto=True
+    ).replace('\n', ', ')
 
     # yes_no(i->ntp), i->ntp_capable
-    msg += lib.txt.extract_str(stdout, 'NTP enabled: ', '\n', include_fromto=True).replace('\n', ', ')
-    msg += lib.txt.extract_str(stdout, 'systemd-timesyncd.service active: ', '\n', include_fromto=True).replace('\n', ', ')
-    msg += lib.txt.extract_str(stdout, 'NTP service: ', '\n', include_fromto=True).replace('\n', ', ')
+    msg += lib.txt.extract_str(
+        stdout, 'NTP enabled: ', '\n', include_fromto=True
+    ).replace('\n', ', ')
+    msg += lib.txt.extract_str(
+        stdout, 'systemd-timesyncd.service active: ', '\n', include_fromto=True
+    ).replace('\n', ', ')
+    msg += lib.txt.extract_str(
+        stdout, 'NTP service: ', '\n', include_fromto=True
+    ).replace('\n', ', ')
 
     msg = msg[:-2]
 
     if 'RTC in local TZ: yes' in stdout:
         state = STATE_WARN
-        msg += '. The system is configured to read the RTC time in the local time zone. ' \
-               'This mode cannot be fully supported. It will create various problems ' \
-               'with time zone changes and daylight saving time adjustments. The RTC ' \
-               'time is never updated, it relies on external facilities to maintain it. ' \
-               'If at all possible, use RTC in UTC by calling ' \
-               f'`timedatectl set-local-rtc 0`{lib.base.state2str(state, prefix=" ")}.'
+        msg += (
+            '. The system is configured to read the RTC time in the local time zone. '
+            'This mode cannot be fully supported. It will create various problems '
+            'with time zone changes and daylight saving time adjustments. The RTC '
+            'time is never updated, it relies on external facilities to maintain it. '
+            'If at all possible, use RTC in UTC by calling '
+            f'`timedatectl set-local-rtc 0`{lib.base.state2str(state, prefix=" ")}.'
+        )
     else:
         msg += ', RTC in local TZ: no'
 
@@ -115,5 +128,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

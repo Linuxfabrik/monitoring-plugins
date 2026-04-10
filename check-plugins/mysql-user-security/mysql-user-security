@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import random  # pylint: disable=C0413
@@ -33,14 +32,14 @@ DEFAULT_TIMEOUT = 3
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -54,8 +53,8 @@ def parse_args():
     parser.add_argument(
         '--defaults-file',
         help='Specifies a cnf file to read parameters like user, host and password from '
-             '(instead of specifying them on the command line), '
-             'for example `/var/spool/icinga2/.my.cnf`. Default: %(default)s',
+        '(instead of specifying them on the command line), '
+        'for example `/var/spool/icinga2/.my.cnf`. Default: %(default)s',
         dest='DEFAULTS_FILE',
         default=DEFAULT_DEFAULTS_FILE,
     )
@@ -88,8 +87,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # logic taken from mysqltuner.pl:security_recommendations(), v1.9.8
     # including variable names
@@ -101,9 +99,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     mysql_connection = {
-        'defaults_file':  args.DEFAULTS_FILE,
+        'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
-        'timeout':        args.TIMEOUT,
+        'timeout': args.TIMEOUT,
     }
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
     lib.base.coe(lib.db_mysql.check_select_privileges(conn))
@@ -113,12 +111,12 @@ def main():
     state = STATE_OK
 
     # Looking for Anonymous users
-    sql = '''
+    sql = """
         select concat(quote(user), "@", quote(host)) as user
         from mysql.user
         where trim(user) = ""
             or user is null;
-    '''
+    """
     users = lib.base.coe(lib.db_mysql.select(conn, sql))
     if len(users):
         state = lib.base.str2state(args.SEVERITY)
@@ -130,7 +128,7 @@ def main():
         )
         msg_body += '\nRemove anonymous users:\n'
         for user in users:
-            msg_body += f"* DROP USER {user['user']};\n"
+            msg_body += f'* DROP USER {user["user"]};\n'
 
     # possible password column names:
     pass_column_names = [
@@ -141,7 +139,7 @@ def main():
 
     # Looking for users having empty passwords
     # MariaDB 10.4+:
-    sql = '''
+    sql = """
         select concat(quote(user), "@", quote(host)) as user
         from mysql.global_priv
         where user != ""
@@ -150,12 +148,12 @@ def main():
             and json_contains(priv, '"mysql_native_password"', "$.plugin")
             and json_contains(priv, '""', "$.authentication_string")
             and not json_contains(priv, '"true"', "$.account_locked");
-    '''
+    """
     success, users = lib.db_mysql.select(conn, sql)
     if not success:
         # all other versions:
         for pass_column_name in pass_column_names:
-            sql = f'''
+            sql = f"""
                 select concat(quote(user), "@", quote(host)) as user
                 from mysql.user
                 where ({pass_column_name} = "" or {pass_column_name} is null)
@@ -164,7 +162,7 @@ def main():
                     and user != "mysql.sys"
                     /*!50501 and plugin not in ("auth_socket", "unix_socket", "win_socket", "auth_pam_compat") */
                     /*!80000 and account_locked = "N" and password_expired = "N" */;
-            '''
+            """
             success, users = lib.db_mysql.select(conn, sql)
             if success:
                 break
@@ -180,18 +178,16 @@ def main():
         msg_body += '\nSet user passwords:\n'
         for user in users:
             random_pw = ''.join(
-                random.choice(string.ascii_letters + string.digits)
-                for i in range(40)
+                random.choice(string.ascii_letters + string.digits) for i in range(40)
             )
             msg_body += (
-                f'* SET PASSWORD FOR {user["user"]}'
-                f' = PASSWORD("{random_pw}");\n'
+                f'* SET PASSWORD FOR {user["user"]} = PASSWORD("{random_pw}");\n'
             )
 
     # Looking for users with user / uppercase / capitalise user as password
     # does not work on MySQL 8
     for pass_column_name in pass_column_names:
-        sql = f'''
+        sql = f"""
             select concat(quote(user), "@", quote(host)) as user
             from mysql.user
             where user != ""
@@ -202,7 +198,7 @@ def main():
                     or cast({pass_column_name} as binary) = password(upper(user))
                     or cast({pass_column_name} as binary) = password(concat(upper(left(user, 1)), substring(user, 2, length(user))))
                 );
-        '''
+        """
         success, users = lib.db_mysql.select(conn, sql)
         if success:
             break
@@ -218,20 +214,18 @@ def main():
         msg_body += '\nChange user passwords:\n'
         for user in users:
             random_pw = ''.join(
-                random.choice(string.ascii_letters + string.digits)
-                for i in range(40)
+                random.choice(string.ascii_letters + string.digits) for i in range(40)
             )
             msg_body += (
-                f'* SET PASSWORD FOR {user["user"]}'
-                f' = PASSWORD("{random_pw}");\n'
+                f'* SET PASSWORD FOR {user["user"]} = PASSWORD("{random_pw}");\n'
             )
 
     # Looking for users without hostname restriction
-    sql = '''
+    sql = """
         select concat(quote(user), "@", quote(host)) as user
         from mysql.user
         where host = "%";
-    '''
+    """
     users = lib.base.coe(lib.db_mysql.select(conn, sql))
     if len(users):
         state = lib.base.str2state(args.SEVERITY)
@@ -245,12 +239,10 @@ def main():
         msg_body += '\nRestrict users:\n'
         for user in users:
             renamed = user['user'].replace(
-                "'%", "'LimitedIPRangeOrLocalhost",
+                "'%",
+                "'LimitedIPRangeOrLocalhost",
             )
-            msg_body += (
-                f'* RENAME USER {user["user"]}'
-                f' TO {renamed};\n'
-            )
+            msg_body += f'* RENAME USER {user["user"]} TO {renamed};\n'
 
     lib.db_mysql.close(conn)
 
@@ -265,5 +257,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

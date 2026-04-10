@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import json  # pylint: disable=C0413
@@ -33,14 +32,14 @@ DEFAULT_MODE = 'restore-size'
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -83,7 +82,7 @@ def parse_args():
     parser.add_argument(
         '--tag',
         help='Only consider snapshots which include this taglist in the format `tag[,tag,...]` '
-             '(can be specified multiple times).',
+        '(can be specified multiple times).',
         dest='TAG',
         action='append',
         default=None,
@@ -101,8 +100,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -124,7 +122,7 @@ def main():
         if args.TAG:
             cmd += ' --tag=' + ' --tag='.join(args.TAG)
         cmd += ' stats'
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))  # pylint: disable=W0612
         if stderr:
             lib.base.cu(stderr)
     else:
@@ -140,8 +138,12 @@ def main():
     state = STATE_OK
     perfdata = ''
 
-    perfdata += lib.base.get_perfdata('total_file_count', stats['total_file_count'], '', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('total_size', stats['total_size'], '', None, None, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'total_file_count', stats['total_file_count'], '', None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'total_size', stats['total_size'], '', None, None, 0, None
+    )
 
     # analyze data and build the message
     msg = (
@@ -159,5 +161,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

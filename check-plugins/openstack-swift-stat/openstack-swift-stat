@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import json  # pylint: disable=C0413
@@ -22,7 +21,7 @@ import lib.human  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN) # pylint: disable=C0413
+from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
 
 try:
     from swiftclient.service import SwiftService
@@ -41,18 +40,18 @@ DESCRIPTION = """The OpenStack Object Store project, known as Swift, offers clou
 
 DEFAULT_CRIT = 10  # GiB free space left
 DEFAULT_RC_FILE = '/var/spool/icinga2/.openstack.cnf'
-DEFAULT_WARN = 50 # GiB free space left
+DEFAULT_WARN = 50  # GiB free space left
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -64,7 +63,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='CRIT when only so many GiB are available. Default: <= %(default)s',
         dest='CRIT',
         type=int,
@@ -74,8 +74,8 @@ def parse_args():
     parser.add_argument(
         '--rc-file',
         help='Specifies a rc file to read connection parameters like OS_USERNAME from '
-             '(instead of specifying them on the command line), '
-             'for example `/var/spool/icinga2/.openstack.cnf`. Default: %(default)s',
+        '(instead of specifying them on the command line), '
+        'for example `/var/spool/icinga2/.openstack.cnf`. Default: %(default)s',
         dest='RC_FILE',
         default=DEFAULT_RC_FILE,
     )
@@ -88,7 +88,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='WARN when only so many GiB are available. Default: <= %(default)s',
         dest='WARN',
         type=int,
@@ -100,8 +101,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -112,7 +112,7 @@ def main():
     # fetch data
     # https://github.com/openstack/python-swiftclient/tree/master/examples
     if args.TEST is None:
-    # set a bunch of possible OpenStack credentials
+        # set a bunch of possible OpenStack credentials
         env = lib.base.coe(lib.disk.read_env(args.RC_FILE))
         _opts = {
             'auth_version': env.get('ST_AUTH_VERSION', 3),  # Should be '3'
@@ -132,7 +132,7 @@ def main():
         with SwiftService(options=_opts) as swift:
             # general statistics
             stat_account = swift.stat()
-            if 'error' in stat_account and isinstance(stat_account["error"], Exception):
+            if 'error' in stat_account and isinstance(stat_account['error'], Exception):
                 lib.base.cu(str(stat_account['error']))
             # get stat for each container
             containers = {}
@@ -144,12 +144,20 @@ def main():
     else:
         # do not call the command, put in test data
         # general statistics
-        stat_account = json.loads(lib.base.coe(lib.disk.read_file(f'{args.TEST[0]}-stat_account')))
+        stat_account = json.loads(
+            lib.base.coe(lib.disk.read_file(f'{args.TEST[0]}-stat_account'))
+        )
         # get stat for each container
         containers = {}
-        list_account_part = json.loads(lib.base.coe(lib.disk.read_file(f'{args.TEST[0]}-list_account_part'))) # pylint: disable=C0301
+        list_account_part = json.loads(
+            lib.base.coe(lib.disk.read_file(f'{args.TEST[0]}-list_account_part'))
+        )  # pylint: disable=C0301
         for lap in list_account_part['listing']:
-            stat_container = json.loads(lib.base.coe(lib.disk.read_file(f"{args.TEST[0]}-stat_container-{lap['name']}"))) # pylint: disable=C0301
+            stat_container = json.loads(
+                lib.base.coe(
+                    lib.disk.read_file(f'{args.TEST[0]}-stat_container-{lap["name"]}')
+                )
+            )  # pylint: disable=C0301
             if stat_container['success']:
                 containers[lap['name']] = stat_container['headers']
 
@@ -168,17 +176,27 @@ def main():
             'content-type': container.get('content-type', None),
             'date': container.get('date', None),
             'last-modified': container.get('last-modified', None),
-            'strict-transport-security': container.get('strict-transport-security', None),
+            'strict-transport-security': container.get(
+                'strict-transport-security', None
+            ),
             'vary': container.get('vary', None),
             'x-container-bytes-used': int(container.get('x-container-bytes-used', 0)),
-            'x-container-meta-quota-bytes': int(container.get('x-container-meta-quota-bytes', 0)),
-            'x-container-object-count': lib.human.number2human(int(container.get('x-container-object-count', 0))), # pylint: disable=C0301
+            'x-container-meta-quota-bytes': int(
+                container.get('x-container-meta-quota-bytes', 0)
+            ),
+            'x-container-object-count': lib.human.number2human(
+                int(container.get('x-container-object-count', 0))
+            ),  # pylint: disable=C0301
             'x-openstack-request-id': container.get('x-openstack-request-id', None),
             'x-storage-policy': container.get('x-storage-policy', None),
             'x-timestamp': container.get('x-timestamp', None),
             'x-trans-id': container.get('x-trans-id', None),
-            'used': lib.human.bytes2human(int(container.get('x-container-bytes-used', 0))),
-            'quota': lib.human.bytes2human(int(container.get('x-container-meta-quota-bytes', 0))),
+            'used': lib.human.bytes2human(
+                int(container.get('x-container-bytes-used', 0))
+            ),
+            'quota': lib.human.bytes2human(
+                int(container.get('x-container-meta-quota-bytes', 0))
+            ),
         }
         if item['x-container-meta-quota-bytes']:
             # quota is set
@@ -198,7 +216,9 @@ def main():
                 f'{lib.base.state2str(container_state, prefix=" ")}'
             )
             percent = round(
-                float(item['x-container-bytes-used']) / float(item['x-container-meta-quota-bytes']) * 100, # pylint: disable=C0301
+                float(item['x-container-bytes-used'])
+                / float(item['x-container-meta-quota-bytes'])
+                * 100,  # pylint: disable=C0301
                 1,
             )
             item['used'] += f' ({percent}%)'
@@ -206,31 +226,48 @@ def main():
             item['free'] = ''
         table_data.append(item)
 
-        perfdata += lib.base.get_perfdata(f'{name}_items', container.get('x-container-object-count', 0), None, None, None, 0, None) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata(f'{name}_used', container.get('x-container-bytes-used', 0), 'B', None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(
+            f'{name}_items',
+            container.get('x-container-object-count', 0),
+            None,
+            None,
+            None,
+            0,
+            None,
+        )  # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata(
+            f'{name}_used',
+            container.get('x-container-bytes-used', 0),
+            'B',
+            None,
+            None,
+            0,
+            None,
+        )  # pylint: disable=C0301
 
     # build the message
     msg += 'Account: '
-    if 'x-account-container-count' in stat_account['headers'] \
-    and int(stat_account['headers']['x-account-container-count']):
+    if 'x-account-container-count' in stat_account['headers'] and int(
+        stat_account['headers']['x-account-container-count']
+    ):
         cnt = stat_account['headers']['x-account-container-count']
-        msg += (
-            f'{cnt}'
-            f' {lib.txt.pluralize("container", int(cnt))}, '
-        )
-    if 'x-account-object-count' in stat_account['headers'] \
-    and int(stat_account['headers']['x-account-object-count']):
+        msg += f'{cnt} {lib.txt.pluralize("container", int(cnt))}, '
+    if 'x-account-object-count' in stat_account['headers'] and int(
+        stat_account['headers']['x-account-object-count']
+    ):
         obj_cnt = stat_account['headers']['x-account-object-count']
         msg += (
             f'{lib.human.number2human(obj_cnt)}'
             f' {lib.txt.pluralize("object", int(obj_cnt))}, '
         )
-    if 'x-account-meta-quota-bytes' in stat_account['headers'] \
-    and int(stat_account['headers']['x-account-bytes-used']):
+    if 'x-account-meta-quota-bytes' in stat_account['headers'] and int(
+        stat_account['headers']['x-account-bytes-used']
+    ):
         bytes_used = int(stat_account['headers']['x-account-bytes-used'])
         msg += f'{lib.human.bytes2human(bytes_used)} used, '
-    if 'x-account-meta-quota-bytes' in stat_account['headers'] \
-    and int(stat_account['headers']['x-account-meta-quota-bytes']):
+    if 'x-account-meta-quota-bytes' in stat_account['headers'] and int(
+        stat_account['headers']['x-account-meta-quota-bytes']
+    ):
         quota = int(stat_account['headers']['x-account-meta-quota-bytes'])
         msg += f'{lib.human.bytes2human(quota)} quota, '
     if msg.endswith(', '):
@@ -262,5 +299,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import json  # pylint: disable=C0413
@@ -19,14 +18,19 @@ import lib.base  # pylint: disable=C0413
 
 try:
     import lib.smb  # pylint: disable=C0413
+
     HAVE_SMB = True
 except ModuleNotFoundError as e:
     HAVE_SMB = False
     missing_lib = e.name
 import lib.txt  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -43,14 +47,14 @@ DEFAULT_TIMEOUT = 3
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -124,7 +128,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-u', '--url',
+        '-u',
+        '--url',
         help='Set the url of the json file, either starting with "http://", "https://" or "smb://". This is mutually exclusive with --filename.',
         dest='URL',
         type=str,
@@ -141,8 +146,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -151,7 +155,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     if args.FILENAME and args.URL:
-        lib.base.cu('The --filename and -u / --url parameter are mutually exclusive. Please only use one.')
+        lib.base.cu(
+            'The --filename and -u / --url parameter are mutually exclusive. Please only use one.'
+        )
 
     result = None
     if args.FILENAME:
@@ -165,14 +171,20 @@ def main():
         proto, url = split_url
 
         if proto in ['http', 'https']:
-            result = lib.base.coe(lib.url.fetch_json(
-                args.URL, insecure=args.INSECURE, no_proxy=args.NO_PROXY,
-                timeout=args.TIMEOUT
-            ))
+            result = lib.base.coe(
+                lib.url.fetch_json(
+                    args.URL,
+                    insecure=args.INSECURE,
+                    no_proxy=args.NO_PROXY,
+                    timeout=args.TIMEOUT,
+                )
+            )
         elif proto == 'smb':
             if not HAVE_SMB:
                 lib.base.cu(f'Python module "{missing_lib}" is not installed.')
-            with lib.base.coe(lib.smb.open_file(url, args.USERNAME, args.PASSWORD, args.TIMEOUT)) as fd:
+            with lib.base.coe(
+                lib.smb.open_file(url, args.USERNAME, args.PASSWORD, args.TIMEOUT)
+            ) as fd:
                 try:
                     result = json.loads(lib.txt.to_text(fd.read()))
                 except:
@@ -183,8 +195,10 @@ def main():
     if result is None:
         lib.base.cu('Nothing returned.')
 
-    msg = result.get(args.MESSAGE_KEY, "") if args.MESSAGE_KEY else ""
-    state = result.get(args.STATE_KEY, STATE_UNKNOWN) if args.STATE_KEY else STATE_UNKNOWN
+    msg = result.get(args.MESSAGE_KEY, '') if args.MESSAGE_KEY else ''
+    state = (
+        result.get(args.STATE_KEY, STATE_UNKNOWN) if args.STATE_KEY else STATE_UNKNOWN
+    )
     perfdata = result.get(args.PERFDATA_KEY) if args.PERFDATA_KEY else None
 
     # over and out
@@ -194,5 +208,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import json  # pylint: disable=C0413
@@ -20,7 +19,7 @@ import lib.base  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN)
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026033101'
@@ -32,14 +31,14 @@ DEFAULT_CRIT = 100
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -51,9 +50,10 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Set the critical threshold for the number of pending updates. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='CRIT',
         default=DEFAULT_CRIT,
         type=lib.args.int_or_none,
@@ -69,8 +69,8 @@ def parse_args():
     parser.add_argument(
         '--extra-index-url',
         help='Extra URLs of package indexes to use in addition to '
-             '--index-url. Should follow the same rules as '
-             '--index-url.',
+        '--index-url. Should follow the same rules as '
+        '--index-url.',
         dest='EXTRA_INDEX_URL',
         action='append',
         default=None,
@@ -79,10 +79,10 @@ def parse_args():
     parser.add_argument(
         '--find-links',
         help='If a URL or path to an html file, then parse for links to '
-             'archives such as sdist (.tar.gz) or wheel (.whl) files. '
-             'If a local path or file:// URL that\'s a directory, '
-             'then look for archives in the directory listing. '
-             'Links to VCS project URLs are not supported.',
+        'archives such as sdist (.tar.gz) or wheel (.whl) files. '
+        "If a local path or file:// URL that's a directory, "
+        'then look for archives in the directory listing. '
+        'Links to VCS project URLs are not supported.',
         dest='FIND_LINKS',
         action='append',
         default=None,
@@ -91,16 +91,16 @@ def parse_args():
     parser.add_argument(
         '--index-url',
         help='Base URL of the Python Package Index. '
-             'This should point to a repository compliant with PEP 503 '
-             '(the simple repository API) or a local directory laid out '
-             'in the same format.',
+        'This should point to a repository compliant with PEP 503 '
+        '(the simple repository API) or a local directory laid out '
+        'in the same format.',
         dest='INDEX_URL',
     )
 
     parser.add_argument(
         '--local',
         help='If in a virtualenv that has global access, do not list '
-             'globally-installed packages.',
+        'globally-installed packages.',
         dest='LOCAL',
         action='store_true',
         default=False,
@@ -125,7 +125,7 @@ def parse_args():
     parser.add_argument(
         '--pre',
         help='Include pre-release and development versions. By default, '
-             'pip only finds stable versions.',
+        'pip only finds stable versions.',
         dest='PRE',
         action='store_true',
         default=False,
@@ -149,14 +149,15 @@ def parse_args():
     parser.add_argument(
         '--virtualenv',
         help='Path to the virtualenv that will be activated before checking for updates. '
-             'Example: `/opt/sphinx-venv/bin/activate`',
+        'Example: `/opt/sphinx-venv/bin/activate`',
         dest='VIRTUALENV',
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the warning threshold for the number of pending updates. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='WARN',
         default=DEFAULT_WARN,
         type=lib.args.int_or_none,
@@ -167,8 +168,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -189,7 +189,9 @@ def main():
         if args.EXCLUDE:
             cmd += f' --exclude={" --exclude=".join(args.EXCLUDE)}'
         if args.EXTRA_INDEX_URL:
-            cmd += f' --extra-index-url={" --extra-index-url=".join(args.EXTRA_INDEX_URL)}'
+            cmd += (
+                f' --extra-index-url={" --extra-index-url=".join(args.EXTRA_INDEX_URL)}'
+            )
         if args.FIND_LINKS:
             cmd += f' --find-links={" --find-links=".join(args.FIND_LINKS)}'
         if args.INDEX_URL:
@@ -250,8 +252,10 @@ def main():
     elif stderr and state != STATE_OK:
         msg += 'pip is complaining about something or about itself, plus '
     if len(packages) > 0:
-        msg += f'{len(packages)} outdated {lib.txt.pluralize("package", len(packages))}' \
-               f'{lib.base.state2str(state, prefix=" ")}. '
+        msg += (
+            f'{len(packages)} outdated {lib.txt.pluralize("package", len(packages))}'
+            f'{lib.base.state2str(state, prefix=" ")}. '
+        )
     msg += f'Executed command: `{cmd.replace(" --format=json", "")}`'
 
     if packages:
@@ -277,5 +281,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

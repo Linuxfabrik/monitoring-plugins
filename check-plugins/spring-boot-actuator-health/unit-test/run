@@ -11,7 +11,7 @@
 import sys
 import unittest
 
-sys.path.append("..")  # Adds higher directory to python modules path.
+sys.path.append('..')  # Adds higher directory to python modules path.
 
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
 import lib.base
@@ -19,12 +19,15 @@ import lib.shell
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../spring-boot-actuator-health'  # path to your plugin
 
     def test_if_check_runs_EXAMPLE01a(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0'))
-        self.assertIn('Overall status of the application: UP, API Status Code: 200', stdout)
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0')
+        )
+        self.assertIn(
+            'Overall status of the application: UP, API Status Code: 200', stdout
+        )
         self.assertIn('Component            ! Status ! State', stdout)
         self.assertIn('---------------------+--------+------', stdout)
         self.assertIn('db                   ! UP     ! [OK] ', stdout)
@@ -33,24 +36,56 @@ class TestCheck(unittest.TestCase):
         self.assertIn('indexStatus          ! GREEN  ! [OK] ', stdout)
         self.assertIn('indexSynchronization ! GREEN  ! [OK] ', stdout)
         self.assertIn('ping                 ! UP     ! [OK]', stdout)
-        self.assertIn('Component            ! Detail            ! value       ! State', stdout)
-        self.assertIn('---------------------+-------------------+-------------+------', stdout)
-        self.assertIn('db                   ! database          ! Oracle      ! [OK] ', stdout)
-        self.assertIn('db                   ! validationQuery   ! isValid()   ! [OK] ', stdout)
-        self.assertIn('diskSpace            ! exists            ! True        ! [OK] ', stdout)
-        self.assertIn('diskSpace            ! free              ! 34581540864 ! [OK] ', stdout)
-        self.assertIn('diskSpace            ! threshold         ! 10485760    ! [OK] ', stdout)
-        self.assertIn('diskSpace            ! total             ! 61041709056 ! [OK] ', stdout)
-        self.assertIn('hikariConnectionPool ! activeConnections ! 17          ! [OK] ', stdout)
-        self.assertIn('hikariConnectionPool ! maxPoolSize       ! 40          ! [OK] ', stdout)
-        self.assertIn('indexSynchronization ! erroredEntries    ! 0           ! [OK] ', stdout)
-        self.assertIn('indexSynchronization ! queuedEntries     ! 0           ! [OK]', stdout)
+        self.assertIn(
+            'Component            ! Detail            ! value       ! State', stdout
+        )
+        self.assertIn(
+            '---------------------+-------------------+-------------+------', stdout
+        )
+        self.assertIn(
+            'db                   ! database          ! Oracle      ! [OK] ', stdout
+        )
+        self.assertIn(
+            'db                   ! validationQuery   ! isValid()   ! [OK] ', stdout
+        )
+        self.assertIn(
+            'diskSpace            ! exists            ! True        ! [OK] ', stdout
+        )
+        self.assertIn(
+            'diskSpace            ! free              ! 34581540864 ! [OK] ', stdout
+        )
+        self.assertIn(
+            'diskSpace            ! threshold         ! 10485760    ! [OK] ', stdout
+        )
+        self.assertIn(
+            'diskSpace            ! total             ! 61041709056 ! [OK] ', stdout
+        )
+        self.assertIn(
+            'hikariConnectionPool ! activeConnections ! 17          ! [OK] ', stdout
+        )
+        self.assertIn(
+            'hikariConnectionPool ! maxPoolSize       ! 40          ! [OK] ', stdout
+        )
+        self.assertIn(
+            'indexSynchronization ! erroredEntries    ! 0           ! [OK] ', stdout
+        )
+        self.assertIn(
+            'indexSynchronization ! queuedEntries     ! 0           ! [OK]', stdout
+        )
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE01b(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0 --detail-severity=hikariConnectionPool,activeConnections,@10:20,@0:9'))
-        self.assertIn('Overall status of the application: UP, API Status Code: 200 [WARNING]', stdout)
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                self.check
+                + ' --test=stdout/EXAMPLE01,,0 --detail-severity=hikariConnectionPool,activeConnections,@10:20,@0:9'
+            )
+        )
+        self.assertIn(
+            'Overall status of the application: UP, API Status Code: 200 [WARNING]',
+            stdout,
+        )
         self.assertIn('Component            ! Status ! State', stdout)
         self.assertIn('---------------------+--------+------', stdout)
         self.assertIn('db                   ! UP     ! [OK] ', stdout)
@@ -59,24 +94,67 @@ class TestCheck(unittest.TestCase):
         self.assertIn('indexStatus          ! GREEN  ! [OK] ', stdout)
         self.assertIn('indexSynchronization ! GREEN  ! [OK] ', stdout)
         self.assertIn('ping                 ! UP     ! [OK]', stdout)
-        self.assertIn('Component            ! Detail            ! value            ! State    ', stdout)
-        self.assertIn('---------------------+-------------------+------------------+----------', stdout)
-        self.assertIn('db                   ! database          ! Oracle           ! [OK]     ', stdout)
-        self.assertIn('db                   ! validationQuery   ! isValid()        ! [OK]     ', stdout)
-        self.assertIn('diskSpace            ! exists            ! True             ! [OK]     ', stdout)
-        self.assertIn('diskSpace            ! free              ! 34581540864      ! [OK]     ', stdout)
-        self.assertIn('diskSpace            ! threshold         ! 10485760         ! [OK]     ', stdout)
-        self.assertIn('diskSpace            ! total             ! 61041709056      ! [OK]     ', stdout)
-        self.assertIn("hikariConnectionPool ! activeConnections ! 17 ' @10:20,@0:9 ! [WARNING]", stdout)
-        self.assertIn('hikariConnectionPool ! maxPoolSize       ! 40               ! [OK]     ', stdout)
-        self.assertIn('indexSynchronization ! erroredEntries    ! 0                ! [OK]     ', stdout)
-        self.assertIn('indexSynchronization ! queuedEntries     ! 0                ! [OK]', stdout)
+        self.assertIn(
+            'Component            ! Detail            ! value            ! State    ',
+            stdout,
+        )
+        self.assertIn(
+            '---------------------+-------------------+------------------+----------',
+            stdout,
+        )
+        self.assertIn(
+            'db                   ! database          ! Oracle           ! [OK]     ',
+            stdout,
+        )
+        self.assertIn(
+            'db                   ! validationQuery   ! isValid()        ! [OK]     ',
+            stdout,
+        )
+        self.assertIn(
+            'diskSpace            ! exists            ! True             ! [OK]     ',
+            stdout,
+        )
+        self.assertIn(
+            'diskSpace            ! free              ! 34581540864      ! [OK]     ',
+            stdout,
+        )
+        self.assertIn(
+            'diskSpace            ! threshold         ! 10485760         ! [OK]     ',
+            stdout,
+        )
+        self.assertIn(
+            'diskSpace            ! total             ! 61041709056      ! [OK]     ',
+            stdout,
+        )
+        self.assertIn(
+            "hikariConnectionPool ! activeConnections ! 17 ' @10:20,@0:9 ! [WARNING]",
+            stdout,
+        )
+        self.assertIn(
+            'hikariConnectionPool ! maxPoolSize       ! 40               ! [OK]     ',
+            stdout,
+        )
+        self.assertIn(
+            'indexSynchronization ! erroredEntries    ! 0                ! [OK]     ',
+            stdout,
+        )
+        self.assertIn(
+            'indexSynchronization ! queuedEntries     ! 0                ! [OK]', stdout
+        )
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE01c(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0 --component-severity=diskSpace,UP,warnings --detail-severity=hikariConnectionPool,activeConnections,@10:20,@0:9 --detail-severity=diskSpace,free,20000000,200000000'))
-        self.assertIn('Overall status of the application: UP, API Status Code: 200 [CRITICAL]', stdout)
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                self.check
+                + ' --test=stdout/EXAMPLE01,,0 --component-severity=diskSpace,UP,warnings --detail-severity=hikariConnectionPool,activeConnections,@10:20,@0:9 --detail-severity=diskSpace,free,20000000,200000000'
+            )
+        )
+        self.assertIn(
+            'Overall status of the application: UP, API Status Code: 200 [CRITICAL]',
+            stdout,
+        )
         self.assertIn('Component            ! Status        ! State    ', stdout)
         self.assertIn('---------------------+---------------+----------', stdout)
         self.assertIn('db                   ! UP            ! [OK]     ', stdout)
@@ -85,24 +163,65 @@ class TestCheck(unittest.TestCase):
         self.assertIn('indexStatus          ! GREEN         ! [OK]     ', stdout)
         self.assertIn('indexSynchronization ! GREEN         ! [OK]     ', stdout)
         self.assertIn('ping                 ! UP            ! [OK]', stdout)
-        self.assertIn('Component            ! Detail            ! value                            ! State     ', stdout)
-        self.assertIn('---------------------+-------------------+----------------------------------+-----------', stdout)
-        self.assertIn('db                   ! database          ! Oracle                           ! [OK]      ', stdout)
-        self.assertIn('db                   ! validationQuery   ! isValid()                        ! [OK]      ', stdout)
-        self.assertIn('diskSpace            ! exists            ! True                             ! [OK]      ', stdout)
-        self.assertIn("diskSpace            ! free              ! 34581540864 ' 20000000,200000000 ! [CRITICAL]", stdout)
-        self.assertIn('diskSpace            ! threshold         ! 10485760                         ! [OK]      ', stdout)
-        self.assertIn('diskSpace            ! total             ! 61041709056                      ! [OK]      ', stdout)
-        self.assertIn("hikariConnectionPool ! activeConnections ! 17 ' @10:20,@0:9                 ! [WARNING] ", stdout)
-        self.assertIn('hikariConnectionPool ! maxPoolSize       ! 40                               ! [OK]      ', stdout)
-        self.assertIn('indexSynchronization ! erroredEntries    ! 0                                ! [OK]      ', stdout)
-        self.assertIn('indexSynchronization ! queuedEntries     ! 0                                ! [OK]', stdout)
+        self.assertIn(
+            'Component            ! Detail            ! value                            ! State     ',
+            stdout,
+        )
+        self.assertIn(
+            '---------------------+-------------------+----------------------------------+-----------',
+            stdout,
+        )
+        self.assertIn(
+            'db                   ! database          ! Oracle                           ! [OK]      ',
+            stdout,
+        )
+        self.assertIn(
+            'db                   ! validationQuery   ! isValid()                        ! [OK]      ',
+            stdout,
+        )
+        self.assertIn(
+            'diskSpace            ! exists            ! True                             ! [OK]      ',
+            stdout,
+        )
+        self.assertIn(
+            "diskSpace            ! free              ! 34581540864 ' 20000000,200000000 ! [CRITICAL]",
+            stdout,
+        )
+        self.assertIn(
+            'diskSpace            ! threshold         ! 10485760                         ! [OK]      ',
+            stdout,
+        )
+        self.assertIn(
+            'diskSpace            ! total             ! 61041709056                      ! [OK]      ',
+            stdout,
+        )
+        self.assertIn(
+            "hikariConnectionPool ! activeConnections ! 17 ' @10:20,@0:9                 ! [WARNING] ",
+            stdout,
+        )
+        self.assertIn(
+            'hikariConnectionPool ! maxPoolSize       ! 40                               ! [OK]      ',
+            stdout,
+        )
+        self.assertIn(
+            'indexSynchronization ! erroredEntries    ! 0                                ! [OK]      ',
+            stdout,
+        )
+        self.assertIn(
+            'indexSynchronization ! queuedEntries     ! 0                                ! [OK]',
+            stdout,
+        )
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
 
     def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0'))
-        self.assertIn('Overall status of the application: DOWN, API Status Code: 503 [CRITICAL]', stdout)
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0')
+        )
+        self.assertIn(
+            'Overall status of the application: DOWN, API Status Code: 503 [CRITICAL]',
+            stdout,
+        )
         self.assertIn('Component            ! Status ! State', stdout)
         self.assertIn('---------------------+--------+------', stdout)
         self.assertIn('db                   ! UP     ! [OK] ', stdout)
@@ -111,24 +230,53 @@ class TestCheck(unittest.TestCase):
         self.assertIn('indexStatus          ! GREEN  ! [OK] ', stdout)
         self.assertIn('indexSynchronization ! GREEN  ! [OK] ', stdout)
         self.assertIn('ping                 ! UP     ! [OK]', stdout)
-        self.assertIn('Component            ! Detail            ! value       ! State', stdout)
-        self.assertIn('---------------------+-------------------+-------------+------', stdout)
-        self.assertIn('db                   ! database          ! Oracle      ! [OK] ', stdout)
-        self.assertIn('db                   ! validationQuery   ! isValid()   ! [OK] ', stdout)
-        self.assertIn('diskSpace            ! exists            ! True        ! [OK] ', stdout)
-        self.assertIn('diskSpace            ! free              ! 34581540864 ! [OK] ', stdout)
-        self.assertIn('diskSpace            ! threshold         ! 10485760    ! [OK] ', stdout)
-        self.assertIn('diskSpace            ! total             ! 61041709056 ! [OK] ', stdout)
-        self.assertIn('hikariConnectionPool ! activeConnections ! 0           ! [OK] ', stdout)
-        self.assertIn('hikariConnectionPool ! maxPoolSize       ! 40          ! [OK] ', stdout)
-        self.assertIn('indexSynchronization ! erroredEntries    ! 0           ! [OK] ', stdout)
-        self.assertIn('indexSynchronization ! queuedEntries     ! 0           ! [OK]', stdout)
+        self.assertIn(
+            'Component            ! Detail            ! value       ! State', stdout
+        )
+        self.assertIn(
+            '---------------------+-------------------+-------------+------', stdout
+        )
+        self.assertIn(
+            'db                   ! database          ! Oracle      ! [OK] ', stdout
+        )
+        self.assertIn(
+            'db                   ! validationQuery   ! isValid()   ! [OK] ', stdout
+        )
+        self.assertIn(
+            'diskSpace            ! exists            ! True        ! [OK] ', stdout
+        )
+        self.assertIn(
+            'diskSpace            ! free              ! 34581540864 ! [OK] ', stdout
+        )
+        self.assertIn(
+            'diskSpace            ! threshold         ! 10485760    ! [OK] ', stdout
+        )
+        self.assertIn(
+            'diskSpace            ! total             ! 61041709056 ! [OK] ', stdout
+        )
+        self.assertIn(
+            'hikariConnectionPool ! activeConnections ! 0           ! [OK] ', stdout
+        )
+        self.assertIn(
+            'hikariConnectionPool ! maxPoolSize       ! 40          ! [OK] ', stdout
+        )
+        self.assertIn(
+            'indexSynchronization ! erroredEntries    ! 0           ! [OK] ', stdout
+        )
+        self.assertIn(
+            'indexSynchronization ! queuedEntries     ! 0           ! [OK]', stdout
+        )
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
 
     def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0'))
-        self.assertIn('Overall status of the application: DEGRADED, API Status Code: 503 [WARNING]', stdout)
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0')
+        )
+        self.assertIn(
+            'Overall status of the application: DEGRADED, API Status Code: 503 [WARNING]',
+            stdout,
+        )
         self.assertIn('Component            ! Status ! State', stdout)
         self.assertIn('---------------------+--------+------', stdout)
         self.assertIn('db                   ! UP     ! [OK] ', stdout)
@@ -137,24 +285,53 @@ class TestCheck(unittest.TestCase):
         self.assertIn('indexStatus          ! GREEN  ! [OK] ', stdout)
         self.assertIn('indexSynchronization ! GREEN  ! [OK] ', stdout)
         self.assertIn('ping                 ! UP     ! [OK]', stdout)
-        self.assertIn('Component            ! Detail            ! value       ! State', stdout)
-        self.assertIn('---------------------+-------------------+-------------+------', stdout)
-        self.assertIn('db                   ! database          ! Oracle      ! [OK] ', stdout)
-        self.assertIn('db                   ! validationQuery   ! isValid()   ! [OK] ', stdout)
-        self.assertIn('diskSpace            ! exists            ! True        ! [OK] ', stdout)
-        self.assertIn('diskSpace            ! free              ! 34581540864 ! [OK] ', stdout)
-        self.assertIn('diskSpace            ! threshold         ! 10485760    ! [OK] ', stdout)
-        self.assertIn('diskSpace            ! total             ! 61041709056 ! [OK] ', stdout)
-        self.assertIn('hikariConnectionPool ! activeConnections ! 0           ! [OK] ', stdout)
-        self.assertIn('hikariConnectionPool ! maxPoolSize       ! 40          ! [OK] ', stdout)
-        self.assertIn('indexSynchronization ! erroredEntries    ! 0           ! [OK] ', stdout)
-        self.assertIn('indexSynchronization ! queuedEntries     ! 0           ! [OK]', stdout)
+        self.assertIn(
+            'Component            ! Detail            ! value       ! State', stdout
+        )
+        self.assertIn(
+            '---------------------+-------------------+-------------+------', stdout
+        )
+        self.assertIn(
+            'db                   ! database          ! Oracle      ! [OK] ', stdout
+        )
+        self.assertIn(
+            'db                   ! validationQuery   ! isValid()   ! [OK] ', stdout
+        )
+        self.assertIn(
+            'diskSpace            ! exists            ! True        ! [OK] ', stdout
+        )
+        self.assertIn(
+            'diskSpace            ! free              ! 34581540864 ! [OK] ', stdout
+        )
+        self.assertIn(
+            'diskSpace            ! threshold         ! 10485760    ! [OK] ', stdout
+        )
+        self.assertIn(
+            'diskSpace            ! total             ! 61041709056 ! [OK] ', stdout
+        )
+        self.assertIn(
+            'hikariConnectionPool ! activeConnections ! 0           ! [OK] ', stdout
+        )
+        self.assertIn(
+            'hikariConnectionPool ! maxPoolSize       ! 40          ! [OK] ', stdout
+        )
+        self.assertIn(
+            'indexSynchronization ! erroredEntries    ! 0           ! [OK] ', stdout
+        )
+        self.assertIn(
+            'indexSynchronization ! queuedEntries     ! 0           ! [OK]', stdout
+        )
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE04(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04,,0'))
-        self.assertIn('Overall status of the application: UP, API Status Code: 503 [WARNING]', stdout)
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04,,0')
+        )
+        self.assertIn(
+            'Overall status of the application: UP, API Status Code: 503 [WARNING]',
+            stdout,
+        )
         self.assertIn('Component            ! Status   ! State    ', stdout)
         self.assertIn('---------------------+----------+----------', stdout)
         self.assertIn('db                   ! UP       ! [OK]     ', stdout)
@@ -163,24 +340,52 @@ class TestCheck(unittest.TestCase):
         self.assertIn('indexStatus          ! GREEN    ! [OK]     ', stdout)
         self.assertIn('indexSynchronization ! GREEN    ! [OK]     ', stdout)
         self.assertIn('ping                 ! UP       ! [OK]', stdout)
-        self.assertIn('Component            ! Detail            ! value       ! State', stdout)
-        self.assertIn('---------------------+-------------------+-------------+------', stdout)
-        self.assertIn('db                   ! database          ! Oracle      ! [OK] ', stdout)
-        self.assertIn('db                   ! validationQuery   ! isValid()   ! [OK] ', stdout)
-        self.assertIn('diskSpace            ! exists            ! True        ! [OK] ', stdout)
-        self.assertIn('diskSpace            ! free              ! 34581540864 ! [OK] ', stdout)
-        self.assertIn('diskSpace            ! threshold         ! 10485760    ! [OK] ', stdout)
-        self.assertIn('diskSpace            ! total             ! 61041709056 ! [OK] ', stdout)
-        self.assertIn('hikariConnectionPool ! activeConnections ! 0           ! [OK] ', stdout)
-        self.assertIn('hikariConnectionPool ! maxPoolSize       ! 40          ! [OK] ', stdout)
-        self.assertIn('indexSynchronization ! erroredEntries    ! 0           ! [OK] ', stdout)
-        self.assertIn('indexSynchronization ! queuedEntries     ! 0           ! [OK]', stdout)
+        self.assertIn(
+            'Component            ! Detail            ! value       ! State', stdout
+        )
+        self.assertIn(
+            '---------------------+-------------------+-------------+------', stdout
+        )
+        self.assertIn(
+            'db                   ! database          ! Oracle      ! [OK] ', stdout
+        )
+        self.assertIn(
+            'db                   ! validationQuery   ! isValid()   ! [OK] ', stdout
+        )
+        self.assertIn(
+            'diskSpace            ! exists            ! True        ! [OK] ', stdout
+        )
+        self.assertIn(
+            'diskSpace            ! free              ! 34581540864 ! [OK] ', stdout
+        )
+        self.assertIn(
+            'diskSpace            ! threshold         ! 10485760    ! [OK] ', stdout
+        )
+        self.assertIn(
+            'diskSpace            ! total             ! 61041709056 ! [OK] ', stdout
+        )
+        self.assertIn(
+            'hikariConnectionPool ! activeConnections ! 0           ! [OK] ', stdout
+        )
+        self.assertIn(
+            'hikariConnectionPool ! maxPoolSize       ! 40          ! [OK] ', stdout
+        )
+        self.assertIn(
+            'indexSynchronization ! erroredEntries    ! 0           ! [OK] ', stdout
+        )
+        self.assertIn(
+            'indexSynchronization ! queuedEntries     ! 0           ! [OK]', stdout
+        )
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE05(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE05,,0'))
-        self.assertIn('Overall status of the application: UP, API Status Code: 200', stdout)
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE05,,0')
+        )
+        self.assertIn(
+            'Overall status of the application: UP, API Status Code: 200', stdout
+        )
         self.assertIn('Component ! Status ! State', stdout)
         self.assertIn('----------+--------+------', stdout)
         self.assertIn('db        ! UP     ! [OK] ', stdout)
@@ -202,8 +407,12 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE06(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE06,,0'))
-        self.assertIn('Overall status of the application: UP, API Status Code: 207', stdout)
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE06,,0')
+        )
+        self.assertIn(
+            'Overall status of the application: UP, API Status Code: 207', stdout
+        )
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 

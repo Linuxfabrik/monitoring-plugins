@@ -9,8 +9,8 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-sys.path.append("..") # Adds higher directory to python modules path.
 
+sys.path.append('..')  # Adds higher directory to python modules path.
 
 
 import unittest
@@ -21,23 +21,38 @@ import lib.shell
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../openstack-swift-stat'
 
-    #self.assertEqual(retc, STATE_CRIT)
-    #self.assertIn('Waiting for more data (1).', stdout)
-    #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
+    # self.assertEqual(retc, STATE_CRIT)
+    # self.assertIn('Waiting for more data (1).', stdout)
+    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0'))
-        self.assertIn('Account: 4 containers, 2.8M objects, 5.4TiB used, 90.9TiB quota', stdout)
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0')
+        )
+        self.assertIn(
+            'Account: 4 containers, 2.8M objects, 5.4TiB used, 90.9TiB quota', stdout
+        )
         self.assertIn('', stdout)
-        self.assertIn('Container ! Items  ! Quota    ! Used           ! Free             ', stdout)
-        self.assertIn('----------+--------+----------+----------------+------------------', stdout)
-        self.assertIn('01        ! 2.4M   ! 0.0B     ! 2.2TiB         !                  ', stdout)
-        self.assertIn('02        ! 324.4K ! 3.1TiB   ! 3.1TiB (99.5%) ! 17.2GiB [WARNING]', stdout)
-        self.assertIn('03        ! 107.7K ! 0.0B     ! 111.8GiB       !                  ', stdout)
-        self.assertIn('04        ! 2.0    ! 204.9GiB ! 2.0GiB (1.0%)  ! 202.9GiB', stdout)
+        self.assertIn(
+            'Container ! Items  ! Quota    ! Used           ! Free             ', stdout
+        )
+        self.assertIn(
+            '----------+--------+----------+----------------+------------------', stdout
+        )
+        self.assertIn(
+            '01        ! 2.4M   ! 0.0B     ! 2.2TiB         !                  ', stdout
+        )
+        self.assertIn(
+            '02        ! 324.4K ! 3.1TiB   ! 3.1TiB (99.5%) ! 17.2GiB [WARNING]', stdout
+        )
+        self.assertIn(
+            '03        ! 107.7K ! 0.0B     ! 111.8GiB       !                  ', stdout
+        )
+        self.assertIn(
+            '04        ! 2.0    ! 204.9GiB ! 2.0GiB (1.0%)  ! 202.9GiB', stdout
+        )
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 

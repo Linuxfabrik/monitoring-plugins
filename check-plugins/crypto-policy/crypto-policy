@@ -8,16 +8,18 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
-                          STATE_WARN)
+from lib.globals import (
+    STATE_OK,
+    STATE_UNKNOWN,  # pylint: disable=C0413
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -30,12 +32,12 @@ DEFAULT_CRYPTO_POLICY = 'DEFAULT'
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
     )
@@ -53,7 +55,7 @@ def parse_args():
         default=DEFAULT_CRYPTO_POLICY,
         dest='CRYPTO_POLICY',
         help='The expected crypto policy (full name), for example "FUTURE"'
-             ' (case-insensitive). Default: %(default)s',
+        ' (case-insensitive). Default: %(default)s',
     )
 
     args, _ = parser.parse_known_args()
@@ -61,8 +63,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -81,7 +82,8 @@ def main():
     # calculating the final check state
     if crypto_policy.lower() == args.CRYPTO_POLICY.lower():
         lib.base.oao(f'Crypto policy is "{crypto_policy}" (as expected).', STATE_OK)
-    lib.base.oao(f'Crypto policy is "{crypto_policy}", but supposed to be "{args.CRYPTO_POLICY}".',
+    lib.base.oao(
+        f'Crypto policy is "{crypto_policy}", but supposed to be "{args.CRYPTO_POLICY}".',
         STATE_WARN,
         always_ok=args.ALWAYS_OK,
     )
@@ -90,5 +92,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

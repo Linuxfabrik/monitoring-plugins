@@ -9,8 +9,8 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-sys.path.append("..") # Adds higher directory to python modules path.
 
+sys.path.append('..')  # Adds higher directory to python modules path.
 
 
 import unittest
@@ -21,22 +21,28 @@ import lib.shell
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../pip-updates'
 
-    #self.assertEqual(retc, STATE_CRIT)
-    #self.assertIn('Waiting for more data (1).', stdout)
-    #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
+    # self.assertEqual(retc, STATE_CRIT)
+    # self.assertIn('Waiting for more data (1).', stdout)
+    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0'))
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0')
+        )
         self.assertIn('Failed to parse JSON.', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_UNKNOWN)
 
     def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0'))
-        self.assertIn('Not running in a venv. 18 outdated packages [WARNING]. Executed command: `python3 -m pip list --outdated`', stdout)
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0')
+        )
+        self.assertIn(
+            'Not running in a venv. 18 outdated packages [WARNING]. Executed command: `python3 -m pip list --outdated`',
+            stdout,
+        )
         self.assertIn('Package                  ! Version ! Latest  ! Type ', stdout)
         self.assertIn('-------------------------+---------+---------+------', stdout)
         self.assertIn('ansible                  ! 7.1.0   ! 7.2.0   ! wheel', stdout)

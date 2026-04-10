@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse
 import sys
@@ -20,7 +19,7 @@ import lib.human
 import lib.shell
 import lib.lftest
 import lib.txt
-from lib.globals import (STATE_OK, STATE_UNKNOWN, STATE_WARN)
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = """
 Linuxfabrik GmbH, Zurich/Switzerland;
@@ -45,14 +44,14 @@ DEFAULT_WARN = 90
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -65,33 +64,32 @@ def parse_args():
 
     parser.add_argument(
         '--cacert',
-        help='CA Certificate file to verify with. Needs `--tls`. '
-             'Default: %(default)s',
+        help='CA Certificate file to verify with. Needs `--tls`. Default: %(default)s',
         dest='CACERT',
         default=DEFAULT_CACERT,
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Set the CRIT memory usage threshold as a percentage. '
-             'Default: >= %(default)s',
+        'Default: >= %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
-        '-H', '--hostname',
-        help='Valkey server hostname. '
-             'Default: %(default)s',
+        '-H',
+        '--hostname',
+        help='Valkey server hostname. Default: %(default)s',
         dest='HOSTNAME',
         default=DEFAULT_HOSTNAME,
     )
 
     parser.add_argument(
         '--ignore-maxmemory0',
-        help='Don\'t warn about Valkey\' maxmemory=0. '
-             'Default: %(default)s',
+        help="Don't warn about Valkey' maxmemory=0. Default: %(default)s",
         dest='IGNORE_MAXMEMORY0',
         default=DEFAULT_IGNORE_MAXMEMORY0,
         action='store_true',
@@ -99,8 +97,7 @@ def parse_args():
 
     parser.add_argument(
         '--ignore-overcommit',
-        help='Don\'t warn about vm.overcommit_memory<>1. '
-             'Default: %(default)s',
+        help="Don't warn about vm.overcommit_memory<>1. Default: %(default)s",
         dest='IGNORE_OVERCOMMIT',
         default=DEFAULT_IGNORE_OVERCOMMIT,
         action='store_true',
@@ -108,8 +105,8 @@ def parse_args():
 
     parser.add_argument(
         '--ignore-somaxconn',
-        help='Don\'t warn about net.core.somaxconn < net.ipv4.tcp_max_syn_backlog. '
-             'Default: %(default)s',
+        help="Don't warn about net.core.somaxconn < net.ipv4.tcp_max_syn_backlog. "
+        'Default: %(default)s',
         dest='IGNORE_SOMAXCONN',
         default=DEFAULT_IGNORE_SOMAXCONN,
         action='store_true',
@@ -117,9 +114,9 @@ def parse_args():
 
     parser.add_argument(
         '--ignore-sync-partial-err',
-        help='Don\'t warn about partial sync errors (because if you have an asynchronous '
-             'replication, a small number of "denied partial resync requests" might be normal). '
-             'Default: %(default)s',
+        help="Don't warn about partial sync errors (because if you have an asynchronous "
+        'replication, a small number of "denied partial resync requests" might be normal). '
+        'Default: %(default)s',
         dest='IGNORE_SYNCPARTIALERR',
         default=DEFAULT_IGNORE_SYNCPARTIALERR,
         action='store_true',
@@ -127,23 +124,22 @@ def parse_args():
 
     parser.add_argument(
         '--ignore-thp',
-        help='Don\'t warn about transparent huge page setting. '
-             'Default: %(default)s',
+        help="Don't warn about transparent huge page setting. Default: %(default)s",
         dest='IGNORE_THP',
         default=DEFAULT_IGNORE_THP,
         action='store_true',
     )
 
     parser.add_argument(
-        '-p', '--password',
+        '-p',
+        '--password',
         help='Password to use when connecting to the Valkey server.',
         dest='PASSWORD',
     )
 
     parser.add_argument(
         '--port',
-        help='Valkey server port. '
-             'Default: %(default)s',
+        help='Valkey server port. Default: %(default)s',
         dest='PORT',
         type=int,
         default=DEFAULT_PORT,
@@ -179,17 +175,17 @@ def parse_args():
 
     parser.add_argument(
         '--verbose',
-        help=lib.args.help('--verbose') + ' ' +
-             'Default: %(default)s',
+        help=lib.args.help('--verbose') + ' ' + 'Default: %(default)s',
         dest='VERBOSE',
         action='store_true',
         default=DEFAULT_VERBOSE,
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the WARN memory usage threshold as a percentage. '
-             'Default: >= %(default)s',
+        'Default: >= %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -200,8 +196,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -311,10 +306,10 @@ def main():
     state = lib.base.get_worst(state, mem_state)
     msg += f'{mem_usage}% memory usage{lib.base.state2str(mem_state, prefix=" ")} ('
     msg += f'{lib.human.bytes2human(result["used_memory"])}/'
-    if result["maxmemory"] != 0:
-        msg += lib.human.bytes2human(result["maxmemory"])
+    if result['maxmemory'] != 0:
+        msg += lib.human.bytes2human(result['maxmemory'])
     else:
-        msg += lib.human.bytes2human(result["total_system_memory"])
+        msg += lib.human.bytes2human(result['total_system_memory'])
     msg += ', '
     msg += f'{lib.human.bytes2human(result["used_memory_peak"])} peak, '
     msg += f'{lib.human.bytes2human(result["used_memory_rss"])} RSS), '
@@ -355,7 +350,7 @@ def main():
                 )
                 perfdata += lib.base.get_perfdata(
                     f'keyspace_{key}_avg_ttl',
-                    float(avg_ttl.replace('avg_ttl=', ''))/1000,
+                    float(avg_ttl.replace('avg_ttl=', '')) / 1000,
                     uom='s',
                     warn=None,
                     crit=None,
@@ -387,7 +382,9 @@ def main():
         )
     if result['keyspace_hits'] + result['keyspace_misses'] != 0:
         keyspace_hit_rate = round(
-            result['keyspace_hits'] / (result['keyspace_hits'] + result['keyspace_misses']) * 100,
+            result['keyspace_hits']
+            / (result['keyspace_hits'] + result['keyspace_misses'])
+            * 100,
             1,
         )
     else:
@@ -404,7 +401,9 @@ def main():
     # see https://valkey.io/topics/admin for details
 
     # vm.overcommit_memory is not set to 1
-    overcommit_memory = lib.base.coe(lib.disk.read_file('/proc/sys/vm/overcommit_memory'))
+    overcommit_memory = lib.base.coe(
+        lib.disk.read_file('/proc/sys/vm/overcommit_memory')
+    )
     overcommit_memory = int(overcommit_memory)
     if overcommit_memory != 1:
         msg += 'vm.overcommit_memory is not set to 1'
@@ -465,8 +464,10 @@ def main():
         #   the Valkey instance with more data. If the memory peak was only occasional and you
         #   want to try to reclaim memory, please try the MEMORY PURGE command, otherwise
         #   the only other option is to shutdown and restart the instance.\n\n");
-        if ' * Peak memory: ' in result['memory_doctor'] \
-        and result['memory_doctor'].count(' * ') == 1:
+        if (
+            ' * Peak memory: ' in result['memory_doctor']
+            and result['memory_doctor'].count(' * ') == 1
+        ):
             # just this one warning, which is harmless, so ignore this
             local_state = STATE_OK
 
@@ -526,7 +527,9 @@ def main():
         #   periodically, the scripts' caches may end up consuming most of your memory.\n\n");
 
         msg = f'{msg[:-2]}. '
-        msg += f'{result["memory_doctor"]}{lib.base.state2str(local_state, prefix=" ")}, '
+        msg += (
+            f'{result["memory_doctor"]}{lib.base.state2str(local_state, prefix=" ")}, '
+        )
         state = lib.base.get_worst(state, local_state)
 
     # prepare perfdata
@@ -782,13 +785,13 @@ def main():
     )
     perfdata += lib.base.get_perfdata(
         'stats_instantaneous_input',
-        int(float(result['instantaneous_input_kbps'])/8000),
+        int(float(result['instantaneous_input_kbps']) / 8000),
         uom='B',
         warn=None,
         crit=None,
         _min=0,
         _max=None,
-    ) # Bytes/sec
+    )  # Bytes/sec
     perfdata += lib.base.get_perfdata(
         'stats_instantaneous_ops_per_sec',
         result['instantaneous_ops_per_sec'],
@@ -800,7 +803,7 @@ def main():
     )
     perfdata += lib.base.get_perfdata(
         'stats_instantaneous_output',
-        int(float(result['instantaneous_output_kbps'])/8000),
+        int(float(result['instantaneous_output_kbps']) / 8000),
         uom='B',  # Bytes/sec
         warn=None,
         crit=None,
@@ -941,5 +944,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

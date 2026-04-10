@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -18,8 +17,11 @@ import lib.base  # pylint: disable=C0413
 import lib.db_mysql  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
-                          STATE_WARN)
+from lib.globals import (
+    STATE_OK,
+    STATE_UNKNOWN,  # pylint: disable=C0413
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -34,14 +36,14 @@ DEFAULT_TIMEOUT = 3
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -55,8 +57,8 @@ def parse_args():
     parser.add_argument(
         '--defaults-file',
         help='Specifies a cnf file to read parameters like user, host and password from '
-             '(instead of specifying them on the command line), '
-             'for example `/var/spool/icinga2/.my.cnf`. Default: %(default)s',
+        '(instead of specifying them on the command line), '
+        'for example `/var/spool/icinga2/.my.cnf`. Default: %(default)s',
         dest='DEFAULTS_FILE',
         default=DEFAULT_DEFAULTS_FILE,
     )
@@ -121,8 +123,7 @@ def get_status(conn):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # logic taken from mysqltuner.pl:mysql_stats(), section # Connections, v1.9.8
     # including variable names
@@ -134,9 +135,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     mysql_connection = {
-        'defaults_file':  args.DEFAULTS_FILE,
+        'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
-        'timeout':        args.TIMEOUT,
+        'timeout': args.TIMEOUT,
     }
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
     lib.base.coe(lib.db_mysql.check_select_privileges(conn))
@@ -154,15 +155,20 @@ def main():
 
     # Aborted Connections
     aborted_connections_state = STATE_OK
-    mycalc['pct_connections_aborted'] = round(int(mystat['Aborted_connects']) / int(mystat['Connections']) * 100, 1)
+    mycalc['pct_connections_aborted'] = round(
+        int(mystat['Aborted_connects']) / int(mystat['Connections']) * 100, 1
+    )
     if mycalc['pct_connections_aborted'] > 3:
         aborted_connections_state = STATE_WARN
         state = lib.base.get_worst(state, aborted_connections_state)
-        recommendations += '* Reduce or eliminate unclosed connections and network issues.\n'
+        recommendations += (
+            '* Reduce or eliminate unclosed connections and network issues.\n'
+        )
     aborted = lib.human.number2human(mystat['Aborted_connects'])
     total_conn = lib.human.number2human(mystat['Connections'])
     aborted_str = lib.base.state2str(
-        aborted_connections_state, prefix=' ',
+        aborted_connections_state,
+        prefix=' ',
     )
     msg += (
         f'{mycalc["pct_connections_aborted"]}%'
@@ -172,8 +178,12 @@ def main():
 
     # currently used Connections
     cur_connections_state = STATE_OK
-    mycalc['pct_connections_used'] = round(int(mystat['Threads_connected']) / int(myvar['max_connections']) * 100, 1)
-    mycalc['pct_connections_used'] = min(100, mycalc['pct_connections_used']) # value cannot be higher than 100
+    mycalc['pct_connections_used'] = round(
+        int(mystat['Threads_connected']) / int(myvar['max_connections']) * 100, 1
+    )
+    mycalc['pct_connections_used'] = min(
+        100, mycalc['pct_connections_used']
+    )  # value cannot be higher than 100
     if mycalc['pct_connections_used'] > 85:
         cur_connections_state = STATE_WARN
         state = lib.base.get_worst(state, cur_connections_state)
@@ -188,10 +198,12 @@ def main():
             f' < {myvar["interactive_timeout"]}).\n'
         )
     threads_plr = lib.txt.pluralize(
-        'thread', mystat['Threads_running'],
+        'thread',
+        mystat['Threads_running'],
     )
     cur_str = lib.base.state2str(
-        cur_connections_state, prefix=' ',
+        cur_connections_state,
+        prefix=' ',
     )
     msg += (
         f'current {mycalc["pct_connections_used"]}%'
@@ -202,8 +214,12 @@ def main():
     )
 
     # Max. used Connections
-    mycalc['pct_max_connections_used'] = round(int(mystat['Max_used_connections']) / int(myvar['max_connections']) * 100, 1)
-    mycalc['pct_max_connections_used'] = min(100, mycalc['pct_max_connections_used']) # value cannot be higher than 100
+    mycalc['pct_max_connections_used'] = round(
+        int(mystat['Max_used_connections']) / int(myvar['max_connections']) * 100, 1
+    )
+    mycalc['pct_max_connections_used'] = min(
+        100, mycalc['pct_max_connections_used']
+    )  # value cannot be higher than 100
     peak_time = (
         f' at {mystat["Max_used_connections_time"]}'
         if mystat.get('Max_used_connections_time')
@@ -222,10 +238,7 @@ def main():
     w_timeout = lib.human.seconds2human(
         myvar['wait_timeout'],
     )
-    msg += (
-        f'interactive_timeout = {i_timeout},'
-        f' wait_timeout = {w_timeout}; '
-    )
+    msg += f'interactive_timeout = {i_timeout}, wait_timeout = {w_timeout}; '
 
     # name resolution
     if not args.IGNORE_NAME_RESOLUTION and myvar.get('skip_name_resolve'):
@@ -233,25 +246,76 @@ def main():
             name_resolution_state = STATE_WARN
             state = lib.base.get_worst(state, name_resolution_state)
             nr_str = lib.base.state2str(
-                name_resolution_state, prefix=' ',
+                name_resolution_state,
+                prefix=' ',
             )
             msg += f'Name resolution is active{nr_str}; '
             recommendations += '* A reverse name resolution is made for each new connection and can reduce performance. Configure your accounts with ip or subnets only, then update your configuration with skip-name-resolve=ON.'
 
-    perfdata += lib.base.get_perfdata('mysql_interactive_timeout', myvar['interactive_timeout'], 's', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_max_connections', myvar['max_connections'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_wait_timeout', myvar['wait_timeout'], 's', None, None, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'mysql_interactive_timeout',
+        myvar['interactive_timeout'],
+        's',
+        None,
+        None,
+        0,
+        None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_max_connections', myvar['max_connections'], None, None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_wait_timeout', myvar['wait_timeout'], 's', None, None, 0, None
+    )
 
-    perfdata += lib.base.get_perfdata('mysql_aborted_connects', mystat['Aborted_connects'], 'c', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_connections', mystat['Connections'], 'c', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_max_used_connections', mystat['Max_used_connections'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_threads_connected', mystat['Threads_connected'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_threads_running', mystat['Threads_running'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'mysql_aborted_connects', mystat['Aborted_connects'], 'c', None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_connections', mystat['Connections'], 'c', None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_max_used_connections',
+        mystat['Max_used_connections'],
+        None,
+        None,
+        None,
+        0,
+        None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_threads_connected',
+        mystat['Threads_connected'],
+        None,
+        None,
+        None,
+        0,
+        None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_threads_running', mystat['Threads_running'], None, None, None, 0, None
+    )
 
-    perfdata += lib.base.get_perfdata('mysql_pct_connections_aborted', mycalc['pct_connections_aborted'], '%', None, None, 0, 100)
-    perfdata += lib.base.get_perfdata('mysql_pct_connections_used', mycalc['pct_connections_used'], '%', None, None, 0, 100)
+    perfdata += lib.base.get_perfdata(
+        'mysql_pct_connections_aborted',
+        mycalc['pct_connections_aborted'],
+        '%',
+        None,
+        None,
+        0,
+        100,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_pct_connections_used',
+        mycalc['pct_connections_used'],
+        '%',
+        None,
+        None,
+        0,
+        100,
+    )
 
-    msg = msg[:-2] # remove trailing "; "
+    msg = msg[:-2]  # remove trailing "; "
     if recommendations:
         msg += '\n\nRecommendations:\n'
         msg += recommendations
@@ -263,5 +327,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import json  # pylint: disable=C0413
@@ -21,8 +20,12 @@ import lib.shell  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -34,19 +37,19 @@ DESCRIPTION = """Statuspal is a status page provider from Germany. This check pl
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
-DEFAULT_TIMEOUT  = 8
+DEFAULT_TIMEOUT = 8
 DEFAULT_URL = 'https://statuspal.eu/api/v2/status_pages/exoscalestatus/summary'
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -60,7 +63,7 @@ def parse_args():
     parser.add_argument(
         '--insecure',
         help='This option explicitly allows to perform "insecure" SSL connections. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -68,8 +71,7 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. '
-             'Default: %(default)s',
+        help='Do not use a proxy. Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -84,8 +86,7 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. '
-             'Default: %(default)s (seconds)',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -93,8 +94,7 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='Statuspal API URL. '
-             'Default: %(default)s',
+        help='Statuspal API URL. Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
@@ -107,9 +107,15 @@ def flatten_services(services, parent_name=''):
     """Recursively flatten the services tree into a list of dicts with
     'name' (dotted hierarchy) and 'current_incident_type'.
 
-    >>> services = [{'name': 'Global', 'current_incident_type': None, 'children': [
-    ...     {'name': 'DNS', 'current_incident_type': None, 'children': []}
-    ... ]}]
+    >>> services = [
+    ...     {
+    ...         'name': 'Global',
+    ...         'current_incident_type': None,
+    ...         'children': [
+    ...             {'name': 'DNS', 'current_incident_type': None, 'children': []}
+    ...         ],
+    ...     }
+    ... ]
     >>> flatten_services(services)
     [{'name': 'Global', 'current_incident_type': None},
      {'name': 'Global.DNS', 'current_incident_type': None}]
@@ -118,19 +124,22 @@ def flatten_services(services, parent_name=''):
     for service in services:
         if not service.get('name'):
             continue
-        full_name = f"{parent_name}.{service['name']}" if parent_name else service['name']
-        result.append({
-            'name': full_name,
-            'current_incident_type': service.get('current_incident_type'),
-        })
+        full_name = (
+            f'{parent_name}.{service["name"]}' if parent_name else service['name']
+        )
+        result.append(
+            {
+                'name': full_name,
+                'current_incident_type': service.get('current_incident_type'),
+            }
+        )
         for child in service.get('children') or []:
             result.extend(flatten_services([child], full_name))
     return result
 
 
 def statuspalstate2state(sps):
-    """Convert Statuspal's incident level to the Nagios world.
-    """
+    """Convert Statuspal's incident level to the Nagios world."""
     if sps is None:
         return STATE_OK
     sps = sps.lower()
@@ -144,8 +153,7 @@ def statuspalstate2state(sps):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # https://www.statuspal.io/api-docs/v2
 
@@ -157,12 +165,14 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        result = lib.base.coe(lib.url.fetch_json(
-            args.URL,
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            timeout=args.TIMEOUT,
-        ))
+        result = lib.base.coe(
+            lib.url.fetch_json(
+                args.URL,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+            )
+        )
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
@@ -203,12 +213,20 @@ def main():
 
     # incidents - get newest incident message only and print it on top
     if result['incidents']:
-        msg += f": {result['incidents'][0]['title'].strip()}"
+        msg += f': {result["incidents"][0]["title"].strip()}'
         if result['incidents'][0]['updates']:
             description = result['incidents'][0]['updates'][0]['description'].strip()
-            updated_at = result['incidents'][0]['updates'][0]['updated_at'].replace('T', ' ').strip()
+            updated_at = (
+                result['incidents'][0]['updates'][0]['updated_at']
+                .replace('T', ' ')
+                .strip()
+            )
             msg += f' / {description} ({updated_at})'
-        msg += f" (see {result['incidents'][0]['url']})" if result['incidents'][0]['url'] else '' # pylint: disable=C0301
+        msg += (
+            f' (see {result["incidents"][0]["url"]})'
+            if result['incidents'][0]['url']
+            else ''
+        )  # pylint: disable=C0301
 
     # services - search for any incidents in services
     for service in flatten_services(result['services']):
@@ -217,10 +235,12 @@ def main():
             cnt_warn += 1
         if service_state == STATE_CRIT:
             cnt_crit += 1
-        table_data.append({
-            'name': service['name'],
-            'state': lib.base.state2str(service_state, empty_ok=False),
-        })
+        table_data.append(
+            {
+                'name': service['name'],
+                'state': lib.base.state2str(service_state, empty_ok=False),
+            }
+        )
     if table_data:
         msg += '\n\n'
         msg += lib.base.get_table(
@@ -232,17 +252,19 @@ def main():
     # maintenance
     table_data = []
     for maint in result['maintenances']:
-        table_data.append({
-            'type': maint['type'],
-            'title': maint['title'],
-            'starts_at': f'{lib.time.timestr2datetime(maint["starts_at"], pattern="%Y-%m-%dT%H:%M:%S")}',
-            # in case of an ongoing maint, ends_at is "None"
-            'ends_at': (
-                f'{lib.time.timestr2datetime(maint["ends_at"], pattern="%Y-%m-%dT%H:%M:%S")}'
-                if maint.get('ends_at') is not None
-                else 'in progress'
-            ),
-        })
+        table_data.append(
+            {
+                'type': maint['type'],
+                'title': maint['title'],
+                'starts_at': f'{lib.time.timestr2datetime(maint["starts_at"], pattern="%Y-%m-%dT%H:%M:%S")}',
+                # in case of an ongoing maint, ends_at is "None"
+                'ends_at': (
+                    f'{lib.time.timestr2datetime(maint["ends_at"], pattern="%Y-%m-%dT%H:%M:%S")}'
+                    if maint.get('ends_at') is not None
+                    else 'in progress'
+                ),
+            }
+        )
     if table_data:
         msg += '\n'
         msg += lib.base.get_table(
@@ -262,17 +284,19 @@ def main():
     # upcoming_maintenances (just fyi)
     table_data = []
     for maint in result['upcoming_maintenances']:
-        table_data.append({
-            'type': maint['type'],
-            'title': maint['title'],
-            'starts_at': f'{lib.time.timestr2datetime(maint["starts_at"], pattern="%Y-%m-%dT%H:%M:%S")}',
-            # in case of an ongoing maint, ends_at is "None"
-            'ends_at': (
-                f'{lib.time.timestr2datetime(maint["ends_at"], pattern="%Y-%m-%dT%H:%M:%S")}'
-                if maint.get('ends_at') is not None
-                else 'open end'
-            ),
-        })
+        table_data.append(
+            {
+                'type': maint['type'],
+                'title': maint['title'],
+                'starts_at': f'{lib.time.timestr2datetime(maint["starts_at"], pattern="%Y-%m-%dT%H:%M:%S")}',
+                # in case of an ongoing maint, ends_at is "None"
+                'ends_at': (
+                    f'{lib.time.timestr2datetime(maint["ends_at"], pattern="%Y-%m-%dT%H:%M:%S")}'
+                    if maint.get('ends_at') is not None
+                    else 'open end'
+                ),
+            }
+        )
     if table_data:
         msg += '\n'
         msg += lib.base.get_table(
@@ -306,5 +330,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import base64  # pylint: disable=C0413
@@ -19,8 +18,12 @@ import lib.base  # pylint: disable=C0413
 import lib.redfish  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -35,14 +38,14 @@ DEFAULT_URL = 'https://localhost:5000'
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -56,7 +59,7 @@ def parse_args():
     parser.add_argument(
         '--insecure',
         help='This option explicitly allows to perform "insecure" SSL connections. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -64,8 +67,7 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. '
-             'Default: %(default)s',
+        help='Do not use a proxy. Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -79,16 +81,14 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. '
-             'Default: %(default)s (seconds)',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
     )
     parser.add_argument(
         '--url',
-        help='Redfish API URL. '
-             'Default: %(default)s',
+        help='Redfish API URL. Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
@@ -104,8 +104,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -127,13 +126,15 @@ def main():
 
     # "/redfish/v1/Systems"
     url = f'{base_url}/redfish/v1/Systems'
-    result = lib.base.coe(lib.url.fetch_json(
-        url,
-        header=header,
-        insecure=args.INSECURE,
-        no_proxy=args.NO_PROXY,
-        timeout=args.TIMEOUT,
-    ))
+    result = lib.base.coe(
+        lib.url.fetch_json(
+            url,
+            header=header,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        )
+    )
     # "Members": [
     #     {
     #         "@odata.id": "/redfish/v1/Systems/437XR1138R2"
@@ -151,14 +152,16 @@ def main():
     # fetch and analyze data by following the "Members" found
     for member in result.get('Members', []):
         # "/redfish/v1/Systems/437XR1138R2"
-        url = f"{base_url}{member['@odata.id']}"
-        systems = lib.base.coe(lib.url.fetch_json(
-            url,
-            header=header,
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            timeout=args.TIMEOUT,
-        ))
+        url = f'{base_url}{member["@odata.id"]}'
+        systems = lib.base.coe(
+            lib.url.fetch_json(
+                url,
+                header=header,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+            )
+        )
         systems = lib.redfish.get_systems(systems)
         if systems['Status_State'] not in ['Enabled', 'Quiesced']:
             continue
@@ -167,19 +170,27 @@ def main():
         state = lib.base.get_worst(state, systems_state)
 
         msg += 'Member:'
-        msg += f" {systems['Manufacturer']}" if systems['Manufacturer'] else ''
-        msg += f" {systems['Model']}" if systems['Model'] else ''
+        msg += f' {systems["Manufacturer"]}' if systems['Manufacturer'] else ''
+        msg += f' {systems["Model"]}' if systems['Model'] else ''
         msg += ', '
-        msg += f"HostName: {systems['HostName']}, " if systems['HostName'] else ''
-        msg += f"Processors: {systems['ProcessorSummary_Count']}x"
-        msg += f" {systems['ProcessorSummary_Model']}" if systems['ProcessorSummary_Model'] else ''
-        msg += f" ({systems['ProcessorSummary_LogicalProcessorCount']} logical)" if systems['ProcessorSummary_LogicalProcessorCount'] else ''
+        msg += f'HostName: {systems["HostName"]}, ' if systems['HostName'] else ''
+        msg += f'Processors: {systems["ProcessorSummary_Count"]}x'
+        msg += (
+            f' {systems["ProcessorSummary_Model"]}'
+            if systems['ProcessorSummary_Model']
+            else ''
+        )
+        msg += (
+            f' ({systems["ProcessorSummary_LogicalProcessorCount"]} logical)'
+            if systems['ProcessorSummary_LogicalProcessorCount']
+            else ''
+        )
         msg += ', '
-        msg += f"BIOS: {systems['BiosVersion']}, "
-        msg += f"Power: {systems['PowerState']}, " if systems['PowerState'] else ''
-        msg += f"LED: {systems['IndicatorLED']}, " if systems['IndicatorLED'] else ''
-        msg += f"SKU: {systems['SKU']}, " if systems['SKU'] else ''
-        msg += f"SerNo: {systems['SerialNumber']}, " if systems['SerialNumber'] else ''
+        msg += f'BIOS: {systems["BiosVersion"]}, '
+        msg += f'Power: {systems["PowerState"]}, ' if systems['PowerState'] else ''
+        msg += f'LED: {systems["IndicatorLED"]}, ' if systems['IndicatorLED'] else ''
+        msg += f'SKU: {systems["SKU"]}, ' if systems['SKU'] else ''
+        msg += f'SerNo: {systems["SerialNumber"]}, ' if systems['SerialNumber'] else ''
         msg = msg[:-2] + lib.base.state2str(systems_state, prefix=' ')
 
         # get all available storage links for the member
@@ -188,45 +199,53 @@ def main():
             continue
 
         # "/redfish/v1/Systems/437XR1138R2/Storage"
-        url = f"{base_url}{systems['Storage_@odata.id']}"
-        storages = lib.base.coe(lib.url.fetch_json(
-            url,
-            header=header,
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            timeout=args.TIMEOUT,
-        ))
-        table_data = []
-        table_data_drive = []
-        for storage in storages.get('Members', []):
-            # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1"
-            url = f"{base_url}{storage['@odata.id']}"
-            storage_data = lib.base.coe(lib.url.fetch_json(
+        url = f'{base_url}{systems["Storage_@odata.id"]}'
+        storages = lib.base.coe(
+            lib.url.fetch_json(
                 url,
                 header=header,
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
                 timeout=args.TIMEOUT,
-            ))
-
-            # get drives attached to the storage member
-            for drive in storage_data.get('Drives', []):
-                # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1/Drives/Disk.Bay.0:Enclosure.Internal.0-1:RAID.SL.7-1"
-                url = f"{base_url}{drive['@odata.id']}"
-                drive_data = lib.base.coe(lib.url.fetch_json(
+            )
+        )
+        table_data = []
+        table_data_drive = []
+        for storage in storages.get('Members', []):
+            # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1"
+            url = f'{base_url}{storage["@odata.id"]}'
+            storage_data = lib.base.coe(
+                lib.url.fetch_json(
                     url,
                     header=header,
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,
                     timeout=args.TIMEOUT,
-                ))
+                )
+            )
+
+            # get drives attached to the storage member
+            for drive in storage_data.get('Drives', []):
+                # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1/Drives/Disk.Bay.0:Enclosure.Internal.0-1:RAID.SL.7-1"
+                url = f'{base_url}{drive["@odata.id"]}'
+                drive_data = lib.base.coe(
+                    lib.url.fetch_json(
+                        url,
+                        header=header,
+                        insecure=args.INSECURE,
+                        no_proxy=args.NO_PROXY,
+                        timeout=args.TIMEOUT,
+                    )
+                )
                 drive_data = lib.redfish.get_systems_storage_drives(drive_data)
                 if drive_data['Status_State'] not in ['Enabled', 'Quiesced']:
                     continue
                 # is the storage_data state healthy at all?
                 drive_data_state = lib.redfish.get_state(drive_data)
                 state = lib.base.get_worst(state, drive_data_state)
-                drive_data['State'] = lib.base.state2str(drive_data_state, empty_ok=False)
+                drive_data['State'] = lib.base.state2str(
+                    drive_data_state, empty_ok=False
+                )
                 table_data_drive.append(drive_data)
 
             storage_data = lib.redfish.get_systems_storage(storage_data)
@@ -235,12 +254,34 @@ def main():
             # is the storage_data state healthy at all?
             storage_data_state = lib.redfish.get_state(storage_data)
             state = lib.base.get_worst(state, storage_data_state)
-            storage_data['State'] = lib.base.state2str(storage_data_state, empty_ok=False)
+            storage_data['State'] = lib.base.state2str(
+                storage_data_state, empty_ok=False
+            )
             table_data.append(storage_data)
 
         if table_data_drive:
-            keys = ['Name', 'MediaType', 'Protocol', 'Manufacturer', 'Model', 'SerialNumber', 'CapacityBytes', 'PredictedMediaLifeLeftPercent', 'State']
-            headers = ['Disk', 'Type', 'Proto', 'Manufacturer', 'Model', 'SerialNumber', 'Size', 'LifeLeft %', 'State']
+            keys = [
+                'Name',
+                'MediaType',
+                'Protocol',
+                'Manufacturer',
+                'Model',
+                'SerialNumber',
+                'CapacityBytes',
+                'PredictedMediaLifeLeftPercent',
+                'State',
+            ]
+            headers = [
+                'Disk',
+                'Type',
+                'Proto',
+                'Manufacturer',
+                'Model',
+                'SerialNumber',
+                'Size',
+                'LifeLeft %',
+                'State',
+            ]
             msg += '\n\n' + lib.base.get_table(table_data_drive, keys, header=headers)
 
         if table_data:
@@ -258,13 +299,11 @@ def main():
         ) + msg
     elif state == STATE_WARN:
         msg = (
-            f'Checked storage on {member_count} {members}.'
-            f' There are warnings.\n\n'
+            f'Checked storage on {member_count} {members}. There are warnings.\n\n'
         ) + msg
     else:
         msg = (
-            f'Everything is ok, checked storage on'
-            f' {member_count} {members}.\n\n'
+            f'Everything is ok, checked storage on {member_count} {members}.\n\n'
         ) + msg
 
     # over and out
@@ -274,5 +313,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

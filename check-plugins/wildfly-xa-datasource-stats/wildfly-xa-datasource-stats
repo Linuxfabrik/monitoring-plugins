@@ -8,16 +8,19 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
 import lib.wildfly  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -34,14 +37,14 @@ DEFAULT_WARN = 80
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -61,8 +64,7 @@ def parse_args():
 
     parser.add_argument(
         '--datasource',
-        help='The name of a specific datasource (repeating). '
-             'Default: %(default)s',
+        help='The name of a specific datasource (repeating). Default: %(default)s',
         dest='DATASOURCE',
         action='append',
         default=None,
@@ -71,7 +73,7 @@ def parse_args():
     parser.add_argument(
         '--insecure',
         help='This option explicitly allows to perform "insecure" SSL connections. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -93,8 +95,7 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. '
-             'Default: %(default)s',
+        help='Do not use a proxy. Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -107,7 +108,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-p', '--password',
+        '-p',
+        '--password',
         help='WildFly API password.',
         dest='PASSWORD',
         required=True,
@@ -115,8 +117,7 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. '
-             'Default: %(default)s (seconds)',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -124,16 +125,14 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='WildFly API URL. '
-             'Default: %(default)s',
+        help='WildFly API URL. Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
 
     parser.add_argument(
         '--username',
-        help='WildFly API username. '
-             'Default: %(default)s',
+        help='WildFly API username. Default: %(default)s',
         dest='USERNAME',
         default=DEFAULT_USERNAME,
         required=True,
@@ -156,7 +155,11 @@ def check_xa_datasource(args):
         'include-runtime': 'true',
         'recursive': 'true',
         # /subsystem/datasources/xa-data-source/" + ds_name + "/statistics/pool/
-        'address': [{'subsystem': 'datasources'}, {'xa-data-source': '*'}, {'statistics': 'pool'}],
+        'address': [
+            {'subsystem': 'datasources'},
+            {'xa-data-source': '*'},
+            {'statistics': 'pool'},
+        ],
         'json': 1,
     }
     res = lib.wildfly.get_data(args, data)
@@ -212,24 +215,42 @@ def check_xa_datasource(args):
             max_used_pct = 0
 
         local_state = lib.base.get_state(active_pct, args.WARN, args.CRIT)
-        msg += f"{active_pct}% active used ({active}/{available}){lib.base.state2str(local_state, prefix=' ')}, "
+        msg += f'{active_pct}% active used ({active}/{available}){lib.base.state2str(local_state, prefix=" ")}, '
         state = lib.base.get_worst(local_state, state)
 
         local_state = lib.base.get_state(active_pct, args.WARN, args.CRIT)
-        msg += f"{max_used_pct}% max used ({max_used}/{available}){lib.base.state2str(local_state, prefix=' ')}, "
+        msg += f'{max_used_pct}% max used ({max_used}/{available}){lib.base.state2str(local_state, prefix=" ")}, '
         state = lib.base.get_worst(local_state, state)
 
-        perfdata += lib.base.get_perfdata(f'xa-ds-{name}-available', available, None, None, None, 0, available)
-        perfdata += lib.base.get_perfdata(f'xa-ds-{name}-active', active, None, None, None, 0, available)
-        perfdata += lib.base.get_perfdata(f'xa-ds-{name}-active-pct', active_pct, '%', args.WARN, args.CRIT, 0, 100)
-        perfdata += lib.base.get_perfdata(f'xa-ds-{name}-maxused', max_used, None, None, None, 0, available)
-        perfdata += lib.base.get_perfdata(f'xa-ds-{name}-maxused-pct', max_used_pct, '%', args.WARN, args.CRIT, 0, 100)
+        perfdata += lib.base.get_perfdata(
+            f'xa-ds-{name}-available', available, None, None, None, 0, available
+        )
+        perfdata += lib.base.get_perfdata(
+            f'xa-ds-{name}-active', active, None, None, None, 0, available
+        )
+        perfdata += lib.base.get_perfdata(
+            f'xa-ds-{name}-active-pct', active_pct, '%', args.WARN, args.CRIT, 0, 100
+        )
+        perfdata += lib.base.get_perfdata(
+            f'xa-ds-{name}-maxused', max_used, None, None, None, 0, available
+        )
+        perfdata += lib.base.get_perfdata(
+            f'xa-ds-{name}-maxused-pct', max_used_pct, '%', args.WARN, args.CRIT, 0, 100
+        )
 
         for metric in ds_stat_types:
             if metric in ds['result']:
                 if ds['result'][metric] > 0:
-                    msg += f"{metric}={ds['result'][metric]}, "
-                perfdata += lib.base.get_perfdata(f'xa-ds-{name}-{metric.lower()}', ds['result'][metric], None, None, None, 0, None)
+                    msg += f'{metric}={ds["result"][metric]}, '
+                perfdata += lib.base.get_perfdata(
+                    f'xa-ds-{name}-{metric.lower()}',
+                    ds['result'][metric],
+                    None,
+                    None,
+                    None,
+                    0,
+                    None,
+                )
         msg = msg[:-2] + '; '
 
     if msg:
@@ -239,8 +260,7 @@ def check_xa_datasource(args):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -256,5 +276,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

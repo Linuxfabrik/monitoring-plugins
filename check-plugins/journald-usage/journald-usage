@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -20,7 +19,7 @@ import lib.human  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN)
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2025100601'
@@ -34,14 +33,14 @@ SYSTEMD_DEFAULT_KEEP_FREE = '1M'
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -60,9 +59,9 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
-        help='Set the WARN threshold in GiB. '
-             'Default: >= %(default)s',
+        '-w',
+        '--warning',
+        help='Set the WARN threshold in GiB. Default: >= %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -94,8 +93,7 @@ def extract_config(output):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -106,13 +104,13 @@ def main():
     # fetch data
     if args.TEST is None:
         cmd = 'journalctl --disk-usage'
-        stdout, stderr, _ = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
+        stdout, stderr, _ = lib.base.coe(lib.shell.shell_exec(cmd))  # pylint: disable=W0612
         if stderr:
             lib.base.cu(stderr)
 
         # get journald's thresholds
         cmd = 'systemd-analyze cat-config systemd/journald.conf'
-        config, stderr, _ = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
+        config, stderr, _ = lib.base.coe(lib.shell.shell_exec(cmd))  # pylint: disable=W0612
         if stderr:
             lib.base.cu(stderr)
         max_use, keep_free = extract_config(config)
@@ -129,19 +127,25 @@ def main():
     #   Archived and active journals take up %s on disk.\n
     #   Archived and active journals take up %s in the file system.\n
     #   Journals take up %s on disk.\n
-    value = lib.txt.extract_str(stdout, ' take up ', ' ', include_fromto=False, be_tolerant=False)
+    value = lib.txt.extract_str(
+        stdout, ' take up ', ' ', include_fromto=False, be_tolerant=False
+    )
     value = lib.human.human2bytes(value)
 
     # build the message
     state = lib.base.get_state(value, args.WARN * 1024 * 1024 * 1024, None)
-    msg += f'{lib.human.bytes2human(value)} used{lib.base.state2str(state, prefix=" ")} ' \
-           '(sum of all archived and active journal files; ' \
-           f'SystemMaxUse={max_use} SystemKeepFree={keep_free})'
+    msg += (
+        f'{lib.human.bytes2human(value)} used{lib.base.state2str(state, prefix=" ")} '
+        '(sum of all archived and active journal files; '
+        f'SystemMaxUse={max_use} SystemKeepFree={keep_free})'
+    )
     if state != STATE_OK:
-        msg += '. Configure `SystemMaxUse` and `SystemKeepFree` in ' \
-               '`/etc/systemd/journald.conf/`, ' \
-               'or remove the oldest archived journal files by using ' \
-               '`journalctl --vacuum-size=`, `--vacuum-time=` and/or `--vacuum-files=`.'
+        msg += (
+            '. Configure `SystemMaxUse` and `SystemKeepFree` in '
+            '`/etc/systemd/journald.conf/`, '
+            'or remove the oldest archived journal files by using '
+            '`journalctl --vacuum-size=`, `--vacuum-time=` and/or `--vacuum-files=`.'
+        )
     perfdata += lib.base.get_perfdata(
         'journald-usage',
         value,
@@ -159,5 +163,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

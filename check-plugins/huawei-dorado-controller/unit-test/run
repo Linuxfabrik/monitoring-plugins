@@ -9,8 +9,8 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-sys.path.append("..") # Adds higher directory to python modules path.
 
+sys.path.append('..')  # Adds higher directory to python modules path.
 
 
 import unittest
@@ -21,19 +21,32 @@ import lib.shell
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../huawei-dorado-controller'
 
-    #self.assertEqual(retc, STATE_CRIT)
-    #self.assertIn('Waiting for more data (1).', stdout)
-    #self.assertRegexpMatches(stdout, r'1 error in Kernel Ring Buffer.')
+    # self.assertEqual(retc, STATE_CRIT)
+    # self.assertIn('Waiting for more data (1).', stdout)
+    # self.assertRegexpMatches(stdout, r'1 error in Kernel Ring Buffer.')
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --device-id=1 --password=pass --url=https://localhost --username=admin --test=stdout/EXAMPLE01,,0'))
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                self.check
+                + ' --device-id=1 --password=pass --url=https://localhost --username=admin --test=stdout/EXAMPLE01,,0'
+            )
+        )
         self.assertIn('There are critical errors.', stdout)
-        self.assertIn('UUID   ! Location ! Model                               ! Role      ! Master ! CPU (%) ! Mem (%) ! Volt ! Health     ! Running', stdout)
-        self.assertIn('-------+----------+-------------------------------------+-----------+--------+---------+---------+------+------------+--------', stdout)
-        self.assertIn('207:0A ! CTE0.A   ! Unknown                             ! Primary   ! -      ! 3       ! 75      ! 120  ! [CRITICAL] ! [OK]   ', stdout)
+        self.assertIn(
+            'UUID   ! Location ! Model                               ! Role      ! Master ! CPU (%) ! Mem (%) ! Volt ! Health     ! Running',
+            stdout,
+        )
+        self.assertIn(
+            '-------+----------+-------------------------------------+-----------+--------+---------+---------+------+------------+--------',
+            stdout,
+        )
+        self.assertIn(
+            '207:0A ! CTE0.A   ! Unknown                             ! Primary   ! -      ! 3       ! 75      ! 120  ! [CRITICAL] ! [OK]   ',
+            stdout,
+        )
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
 

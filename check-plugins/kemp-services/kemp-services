@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import base64  # pylint: disable=C0413
@@ -21,12 +20,14 @@ import lib.base  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
-from lib.globals import (STATE_UNKNOWN, STATE_OK)  # pylint: disable=C0413
+from lib.globals import STATE_UNKNOWN, STATE_OK  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
-DESCRIPTION = '''Warns if virtual services provided by a kemp loadbalancer appliance are down.'''
+DESCRIPTION = (
+    """Warns if virtual services provided by a kemp loadbalancer appliance are down."""
+)
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
@@ -36,14 +37,14 @@ DEFAULT_TIMEOUT = 3
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -62,7 +63,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-H', '--hostname',
+        '-H',
+        '--hostname',
         help='KEMP Appliance address.',
         dest='HOSTNAME',
         required=True,
@@ -123,7 +125,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-u', '--username',
+        '-u',
+        '--username',
         help='API Username.',
         dest='USERNAME',
         required=True,
@@ -134,8 +137,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -153,13 +155,15 @@ def main():
         auth = f'{args.USERNAME}:{args.PASSWORD}'
         encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
 
-        result = lib.base.coe(lib.url.fetch(
-            url,
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            timeout=args.TIMEOUT,
-            header={'Authorization': f'Basic {encoded_auth}'},
-        ))
+        result = lib.base.coe(
+            lib.url.fetch(
+                url,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+                header={'Authorization': f'Basic {encoded_auth}'},
+            )
+        )
     else:
         # do not call the command, put in test data
         result, stderr, retc = lib.lftest.test(args.TEST)
@@ -178,15 +182,17 @@ def main():
             status = service.find('Status').text  # = Up, Down, Unchecked
             if status.lower() == 'down':
                 service_state = lib.base.str2state(args.SEVERITY)
-                status = f"{status}{lib.base.state2str(service_state, prefix=' ')}"
+                status = f'{status}{lib.base.state2str(service_state, prefix=" ")}'
                 state = lib.base.get_worst(state, service_state)
-            table.append({
-                'name': name,
-                'status': status,
-            })
+            table.append(
+                {
+                    'name': name,
+                    'status': status,
+                }
+            )
 
     # build the message
-    msg = f"{count} {lib.txt.pluralize('service', count)} checked. "
+    msg = f'{count} {lib.txt.pluralize("service", count)} checked. '
     if len(table) > 0:
         msg += '\n\n' + lib.base.get_table(
             table,
@@ -202,5 +208,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

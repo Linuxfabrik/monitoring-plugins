@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -18,8 +17,12 @@ import lib.base  # pylint: disable=C0413
 import lib.qts  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 try:
     import xmltodict
@@ -40,14 +43,14 @@ DEFAULT_USERNAME = 'admin'
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -61,7 +64,7 @@ def parse_args():
     parser.add_argument(
         '--insecure',
         help='This option explicitly allows to perform "insecure" SSL connections. '
-             'Default: %(default)s',
+        'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -69,8 +72,7 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. '
-             'Default: %(default)s',
+        help='Do not use a proxy. Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -85,8 +87,7 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. '
-             'Default: %(default)s (seconds)',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -101,8 +102,7 @@ def parse_args():
 
     parser.add_argument(
         '--username',
-        help='QTS User. '
-             'Default: %(default)s',
+        help='QTS User. Default: %(default)s',
         dest='USERNAME',
         default=DEFAULT_USERNAME,
     )
@@ -112,8 +112,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -126,7 +125,9 @@ def main():
     # get all HDD/SSD data
     url = f'{args.URL}/cgi-bin/disk/qsmart.cgi?func=all_hd_data&sid={auth_sid}'
     result = lib.base.coe(
-        lib.url.fetch(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT)
+        lib.url.fetch(
+            url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT
+        )
     )
     data = xmltodict.parse(result)['QDocRoot']
     if data['authPassed'] == '0':
@@ -139,7 +140,9 @@ def main():
         f'&hd=no&multicpu=1&sid={auth_sid}'
     )
     result = lib.base.coe(
-        lib.url.fetch(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT)
+        lib.url.fetch(
+            url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT
+        )
     )
     sysinfo = xmltodict.parse(result)['QDocRoot']
     if sysinfo['authPassed'] == '0':
@@ -153,7 +156,7 @@ def main():
 
     # analyze data
     for disk in data['Disk_Info']['entry']:
-        if disk['Serial']: # skip empty entries
+        if disk['Serial']:  # skip empty entries
             disk_count += 1
             disk_state = STATE_OK
 
@@ -180,7 +183,9 @@ def main():
                 None,
             )
 
-            disk_state = lib.base.get_state(disk_temperature, warn, crit, _operator='ge')
+            disk_state = lib.base.get_state(
+                disk_temperature, warn, crit, _operator='ge'
+            )
             if disk['Health'] != 'OK':
                 disk_state = STATE_WARN
 
@@ -196,7 +201,7 @@ def main():
 
     # build the message
     if disk_count:
-        msg_header = f"Checked {disk_count} {lib.txt.pluralize('disk', disk_count)}."
+        msg_header = f'Checked {disk_count} {lib.txt.pluralize("disk", disk_count)}.'
         if state == STATE_CRIT:
             msg_header += ' There are critical errors.'
         elif state == STATE_WARN:
@@ -218,5 +223,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

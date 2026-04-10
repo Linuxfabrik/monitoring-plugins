@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -20,14 +19,19 @@ import lib.human  # pylint: disable=C0413
 
 try:
     import lib.smb  # pylint: disable=C0413
+
     HAVE_SMB = True
 except ModuleNotFoundError as e:
     HAVE_SMB = False
     missing_lib = e.name
 import lib.time  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 missing_smb_lib = False
 try:
@@ -39,11 +43,13 @@ except ImportError as e:
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
-DESCRIPTION = 'Checks the time of last data modification for a file or directory, in seconds.'
+DESCRIPTION = (
+    'Checks the time of last data modification for a file or directory, in seconds.'
+)
 
 
-DEFAULT_CRIT = 60*60*24*365     # sec
-DEFAULT_WARN = 60*60*24*30      # sec
+DEFAULT_CRIT = 60 * 60 * 24 * 365  # sec
+DEFAULT_WARN = 60 * 60 * 24 * 30  # sec
 DEFAULT_CRIT_COUNT = 0
 DEFAULT_WARN_COUNT = 0
 DEFAULT_PATTERN = '*'
@@ -52,14 +58,14 @@ DEFAULT_PERFDATA_MODE = None
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -71,10 +77,11 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Set the critical age threshold in seconds. '
-             'Supports ranges. '
-             'Default: >= %(default)ss (365d)',
+        'Supports ranges. '
+        'Default: >= %(default)ss (365d)',
         dest='CRIT',
         default=DEFAULT_CRIT,
     )
@@ -82,8 +89,8 @@ def parse_args():
     parser.add_argument(
         '--critical-count',
         help='Set the critical threshold for the number of files found within the critical age. '
-             'Supports ranges. '
-             'Default: > %(default)s',
+        'Supports ranges. '
+        'Default: > %(default)s',
         dest='CRIT_COUNT',
         default=DEFAULT_CRIT_COUNT,
     )
@@ -91,8 +98,8 @@ def parse_args():
     parser.add_argument(
         '--filename',
         help='File or directory name to check. '
-             'Supports glob in accordance with https://docs.python.org/2.7/library/glob.html. '
-             'Beware of using recursive globs. This is mutually exclusive with -u / --url.',
+        'Supports glob in accordance with https://docs.python.org/2.7/library/glob.html. '
+        'Beware of using recursive globs. This is mutually exclusive with -u / --url.',
         dest='FILENAME',
     )
 
@@ -120,18 +127,17 @@ def parse_args():
 
     parser.add_argument(
         '--pattern',
-        help="SMB: The search string to match against the names of SMB directories or files. "
-             "This pattern can use '*' as a wildcard for multiple chars and '?' as a wildcard for "
-             "a single char. Does not support regex patterns. "
-             "Default: %(default)s.",
+        help='SMB: The search string to match against the names of SMB directories or files. '
+        "This pattern can use '*' as a wildcard for multiple chars and '?' as a wildcard for "
+        'a single char. Does not support regex patterns. '
+        'Default: %(default)s.',
         dest='PATTERN',
         default=DEFAULT_PATTERN,
     )
 
     parser.add_argument(
         '--perfdata-mode',
-        help='Set the performance data aggregation mode. '
-             'Default: %(default)s.',
+        help='Set the performance data aggregation mode. Default: %(default)s.',
         dest='PERFDATA_MODE',
         default=DEFAULT_PERFDATA_MODE,
         choices=[
@@ -143,17 +149,17 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. '
-             'Default: %(default)s (seconds)',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
-        '-u', '--url',
+        '-u',
+        '--url',
         help='SMB: Set the url of the file (or directory) to check, starting with "smb://". '
-             'This is mutually exclusive with --filename.',
+        'This is mutually exclusive with --filename.',
         dest='URL',
         type=str,
     )
@@ -165,10 +171,11 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Set the warning age threshold in seconds. '
-             'Supports ranges. '
-             'Default: >= %(default)ss (30d)',
+        'Supports ranges. '
+        'Default: >= %(default)ss (30d)',
         dest='WARN',
         default=DEFAULT_WARN,
     )
@@ -176,8 +183,8 @@ def parse_args():
     parser.add_argument(
         '--warning-count',
         help='Set the warning threshold for the number of files found within the warning age. '
-             'Supports ranges. '
-             'Default: > %(default)s (30d)',
+        'Supports ranges. '
+        'Default: > %(default)s (30d)',
         dest='WARN_COUNT',
         default=DEFAULT_WARN_COUNT,
     )
@@ -187,8 +194,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -197,7 +203,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     if args.FILENAME and args.URL:
-        lib.base.cu('The --filename and -u / --url parameter are mutually exclusive. Please only use one.')
+        lib.base.cu(
+            'The --filename and -u / --url parameter are mutually exclusive. Please only use one.'
+        )
     if args.URL:
         split_url = args.URL.split('://')
         if len(split_url) != 2:
@@ -248,7 +256,11 @@ def main():
     if args.URL:
         if not HAVE_SMB:
             lib.base.cu(f'Python module "{missing_lib}" is not installed.')
-        for item in lib.base.coe(lib.smb.glob(url, args.USERNAME, args.PASSWORD, args.TIMEOUT, pattern=args.PATTERN)):
+        for item in lib.base.coe(
+            lib.smb.glob(
+                url, args.USERNAME, args.PASSWORD, args.TIMEOUT, pattern=args.PATTERN
+            )
+        ):
             try:
                 if item.is_file() and args.ONLY_DIRS:
                     continue
@@ -285,7 +297,6 @@ def main():
         state = STATE_WARN
     else:
         state = STATE_OK
-
 
     if file_msg.count('\n') + 1 > 10:
         # shorten the message
@@ -350,18 +361,24 @@ def main():
     # calc perfdata if requested
     perfdata = ''
     if args.PERFDATA_MODE == 'mean' and len(ages) > 0:
-        perfdata += lib.base.get_perfdata(label='mean-ages', value=round(float(sum(ages) / len(ages)), 3), uom='s')
+        perfdata += lib.base.get_perfdata(
+            label='mean-ages', value=round(float(sum(ages) / len(ages)), 3), uom='s'
+        )
     elif args.PERFDATA_MODE == 'median' and len(ages) > 0:
         ages_sorted = sorted(ages)
         middle_index = int(len(ages_sorted) / 2)
         # differentiate even / uneven list
         if len(ages_sorted) % 2 == 0:
             # even
-            median = float((ages_sorted[middle_index] + ages_sorted[middle_index - 1]) / 2)
+            median = float(
+                (ages_sorted[middle_index] + ages_sorted[middle_index - 1]) / 2
+            )
         else:
             # uneven (manually "flooring" it up)
             median = float(ages_sorted[int(middle_index + 0.5)])
-        perfdata += lib.base.get_perfdata(label='median-ages', value=round(median, 3), uom='s')
+        perfdata += lib.base.get_perfdata(
+            label='median-ages', value=round(median, 3), uom='s'
+        )
 
     # over and out
     lib.base.oao(msg, state, perfdata=perfdata, always_ok=args.ALWAYS_OK)
@@ -370,5 +387,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

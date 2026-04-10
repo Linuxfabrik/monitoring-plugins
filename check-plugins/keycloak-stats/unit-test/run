@@ -14,7 +14,9 @@ import time
 import unittest
 
 CHECK_PLUGIN = 'keycloak-stats'
-REMOTE_DIR = '/tmp'  # work dir in container (where to find the CHECK_PLUGIN in the container)
+REMOTE_DIR = (
+    '/tmp'  # work dir in container (where to find the CHECK_PLUGIN in the container)
+)
 LOCAL_DIR = '..'  # local work dir (where to find the CHECK_PLUGIN locally)
 TIMEOUT = 30
 TESTS = [
@@ -25,7 +27,7 @@ TESTS = [
             {
                 'run-where': 'localhost',
                 'plugin-params': '',
-                'assert-regex': r"Up .*, running under user `keycloak`; Java v",
+                'assert-regex': r'Up .*, running under user `keycloak`; Java v',
                 'assert-retc': 0,
             },
         ],
@@ -37,7 +39,7 @@ TESTS = [
             {
                 'run-where': 'localhost',
                 'plugin-params': '',
-                'assert-regex': r"Up .*, running under user `keycloak`; Java v",
+                'assert-regex': r'Up .*, running under user `keycloak`; Java v',
                 'assert-retc': 0,
             },
         ],
@@ -49,7 +51,7 @@ TESTS = [
             {
                 'run-where': 'localhost',
                 'plugin-params': '',
-                'assert-regex': r"Up .*, running under user `keycloak`; Java v",
+                'assert-regex': r'Up .*, running under user `keycloak`; Java v',
                 'assert-retc': 0,
             },
         ],
@@ -61,7 +63,7 @@ TESTS = [
             {
                 'run-where': 'localhost',
                 'plugin-params': '',
-                'assert-regex': r"Up .*, running under user `keycloak`; Java v",
+                'assert-regex': r'Up .*, running under user `keycloak`; Java v',
                 'assert-retc': 0,
             },
         ],
@@ -73,7 +75,7 @@ TESTS = [
             {
                 'run-where': 'localhost',
                 'plugin-params': '',
-                'assert-regex': r"Up .*, running under user `keycloak`; Java v",
+                'assert-regex': r'Up .*, running under user `keycloak`; Java v',
                 'assert-retc': 0,
             },
         ],
@@ -97,7 +99,7 @@ TESTS = [
             {
                 'run-where': 'localhost',
                 'plugin-params': '',
-                'assert-regex': r"Up .*, running under user `keycloak`; Java v",
+                'assert-regex': r'Up .*, running under user `keycloak`; Java v',
                 'assert-retc': 0,
             },
         ],
@@ -109,7 +111,7 @@ TESTS = [
             {
                 'run-where': 'localhost',
                 'plugin-params': '',
-                'assert-regex': r"Up .*, running under user `keycloak`; Java v",
+                'assert-regex': r'Up .*, running under user `keycloak`; Java v',
                 'assert-retc': 0,
             },
         ],
@@ -121,15 +123,15 @@ TESTS = [
             {
                 'run-where': 'localhost',
                 'plugin-params': '',
-                'assert-regex': r"Up .*, running under user `keycloak`; Java v",
+                'assert-regex': r'Up .*, running under user `keycloak`; Java v',
                 'assert-retc': 0,
             },
         ],
     },
 ]
 
-class TestCheck(unittest.TestCase):
 
+class TestCheck(unittest.TestCase):
     def test(self):
         """
         Test all Dockerfiles in the 'unit-test/containerfiles' directory.
@@ -137,23 +139,25 @@ class TestCheck(unittest.TestCase):
         """
         for testcase in TESTS:
             if not os.path.isfile(testcase['containerfile']):
-                self.fail(f"Containerfile {testcase['containerfile']} not found.")
+                self.fail(f'Containerfile {testcase["containerfile"]} not found.')
 
-            print(f"\n=== Testing {os.path.basename(testcase['containerfile'])} ===")
-            image_name = f"lfmp-{os.path.basename(testcase['containerfile']).replace('-v', ':')}"
-            container_name = f"lfmp-{os.path.basename(testcase['containerfile'])}"
+            print(f'\n=== Testing {os.path.basename(testcase["containerfile"])} ===')
+            image_name = (
+                f'lfmp-{os.path.basename(testcase["containerfile"]).replace("-v", ":")}'
+            )
+            container_name = f'lfmp-{os.path.basename(testcase["containerfile"])}'
 
             try:
                 # Build the container image
                 podman_cmd = [
-                    "podman",
-                    "build",
-                    "--file",
+                    'podman',
+                    'build',
+                    '--file',
                     testcase['containerfile'],
-                    "--tag",
+                    '--tag',
                     image_name,
                 ]
-                print(f"Build the container image: {' '.join(podman_cmd)}")
+                print(f'Build the container image: {" ".join(podman_cmd)}')
                 subprocess.run(
                     podman_cmd,
                     check=True,
@@ -161,13 +165,19 @@ class TestCheck(unittest.TestCase):
                     stderr=subprocess.PIPE,
                 )
 
-                podman_cmd = [
-                    "podman", "run",
-                    "--name", container_name,
-                    "--replace",
-                    "--detach",  # run in detached mode
-                ] + testcase['podman-run-params'].split() + image_name.split()
-                print(f"Run the container: {' '.join(podman_cmd)}")
+                podman_cmd = (
+                    [
+                        'podman',
+                        'run',
+                        '--name',
+                        container_name,
+                        '--replace',
+                        '--detach',  # run in detached mode
+                    ]
+                    + testcase['podman-run-params'].split()
+                    + image_name.split()
+                )
+                print(f'Run the container: {" ".join(podman_cmd)}')
                 subprocess.run(
                     podman_cmd,
                     check=True,
@@ -175,16 +185,16 @@ class TestCheck(unittest.TestCase):
                     stderr=subprocess.PIPE,
                 )
 
-                print("Give the container a few seconds to start up")
+                print('Give the container a few seconds to start up')
                 time.sleep(3)
 
                 podman_cmd = [
-                    "podman",
-                    "cp",
-                    "../lib",
-                    f"{container_name}:{REMOTE_DIR}/",
+                    'podman',
+                    'cp',
+                    '../lib',
+                    f'{container_name}:{REMOTE_DIR}/',
                 ]
-                print(f"Copy local files into container: {' '.join(podman_cmd)}")
+                print(f'Copy local files into container: {" ".join(podman_cmd)}')
                 subprocess.run(
                     podman_cmd,
                     check=True,
@@ -192,12 +202,12 @@ class TestCheck(unittest.TestCase):
                     stderr=subprocess.PIPE,
                 )
                 podman_cmd = [
-                    "podman",
-                    "cp",
-                    f"../{CHECK_PLUGIN}",
-                    f"{container_name}:{REMOTE_DIR}/{CHECK_PLUGIN}",
+                    'podman',
+                    'cp',
+                    f'../{CHECK_PLUGIN}',
+                    f'{container_name}:{REMOTE_DIR}/{CHECK_PLUGIN}',
                 ]
-                print(f"Copy local files into container: {' '.join(podman_cmd)}")
+                print(f'Copy local files into container: {" ".join(podman_cmd)}')
                 subprocess.run(
                     podman_cmd,
                     check=True,
@@ -207,37 +217,60 @@ class TestCheck(unittest.TestCase):
 
                 # Check if /tmp/venv exists in the container
                 podman_cmd = [
-                    "podman", "exec", container_name,
-                    "sh", "-c", "test -d /tmp/venv && echo 'venv exists'"
+                    'podman',
+                    'exec',
+                    container_name,
+                    'sh',
+                    '-c',
+                    "test -d /tmp/venv && echo 'venv exists'",
                 ]
-                print(f"Check if /tmp/venv exists in the container: {' '.join(podman_cmd)}")
-                venv_exists = subprocess.run(
-                    podman_cmd,
-                    check=False,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                ).stdout.strip() == "venv exists"
-                print(f"Check if /tmp/venv exists in the container: {venv_exists}")
+                print(
+                    f'Check if /tmp/venv exists in the container: {" ".join(podman_cmd)}'
+                )
+                venv_exists = (
+                    subprocess.run(
+                        podman_cmd,
+                        check=False,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                    ).stdout.strip()
+                    == 'venv exists'
+                )
+                print(f'Check if /tmp/venv exists in the container: {venv_exists}')
 
-                print("Give server daemons a few seconds to start up")
+                print('Give server daemons a few seconds to start up')
                 time.sleep(TIMEOUT)
 
-                print("Run the test cases...")
+                print('Run the test cases...')
                 for test in testcase['tests']:
                     if test['run-where'] == 'container':
-                        cmdline = f"python3 {CHECK_PLUGIN} {test['plugin-params']}".strip()
+                        cmdline = (
+                            f'python3 {CHECK_PLUGIN} {test["plugin-params"]}'.strip()
+                        )
                         if venv_exists:
                             podman_cmd = [
-                                "podman", "exec", "--workdir", REMOTE_DIR, container_name,
-                                "sh", "-c", f". /tmp/venv/bin/activate && {cmdline}"
+                                'podman',
+                                'exec',
+                                '--workdir',
+                                REMOTE_DIR,
+                                container_name,
+                                'sh',
+                                '-c',
+                                f'. /tmp/venv/bin/activate && {cmdline}',
                             ]
-                            print(f"Run test in container in venv: `{' '.join(podman_cmd)}`")
+                            print(
+                                f'Run test in container in venv: `{" ".join(podman_cmd)}`'
+                            )
                         else:
                             podman_cmd = [
-                                "podman", "exec", "--workdir", REMOTE_DIR, container_name,
+                                'podman',
+                                'exec',
+                                '--workdir',
+                                REMOTE_DIR,
+                                container_name,
                             ] + cmdline.split()
-                            print(f"Run test in container: `{' '.join(podman_cmd)}`")
+                            print(f'Run test in container: `{" ".join(podman_cmd)}`')
                         result = subprocess.run(
                             podman_cmd,
                             check=False,  # We'll handle checking the output ourselves
@@ -247,10 +280,10 @@ class TestCheck(unittest.TestCase):
                         )
                     else:
                         local_cmd = [
-                            "python3",
+                            'python3',
                             os.path.join(LOCAL_DIR, CHECK_PLUGIN),
                         ] + test['plugin-params'].strip().split()
-                        print(f"Run test locally: `{' '.join(local_cmd)}`")
+                        print(f'Run test locally: `{" ".join(local_cmd)}`')
                         result = subprocess.run(
                             local_cmd,
                             check=False,  # We'll handle checking the output ourselves
@@ -260,17 +293,19 @@ class TestCheck(unittest.TestCase):
                         )
 
                     # Check the output
-                    output = result.stdout + "\n" + result.stderr
-                    print(f"Script output:\n{output.strip()}")
+                    output = result.stdout + '\n' + result.stderr
+                    print(f'Script output:\n{output.strip()}')
 
                     # the unit test result
-                    self.assertRegex(result.stdout + result.stderr, test['assert-regex'])
+                    self.assertRegex(
+                        result.stdout + result.stderr, test['assert-regex']
+                    )
                     self.assertEqual(result.returncode, test['assert-retc'])
 
             finally:
                 # Stop and remove the container no matter what
-                podman_cmd = ["podman", "rm", "--force", container_name]
-                print(f"Stop and remove container: {' '.join(podman_cmd)}")
+                podman_cmd = ['podman', 'rm', '--force', container_name]
+                print(f'Stop and remove container: {" ".join(podman_cmd)}')
                 subprocess.run(
                     podman_cmd,
                     check=False,

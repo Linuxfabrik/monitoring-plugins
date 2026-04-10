@@ -9,8 +9,8 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-sys.path.append("..") # Adds higher directory to python modules path.
 
+sys.path.append('..')  # Adds higher directory to python modules path.
 
 
 import unittest
@@ -21,22 +21,44 @@ import lib.shell
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../huawei-dorado-power'
 
-    #self.assertEqual(retc, STATE_CRIT)
-    #self.assertIn('Waiting for more data (1).', stdout)
-    #self.assertRegexpMatches(stdout, r'1 error in Kernel Ring Buffer.')
+    # self.assertEqual(retc, STATE_CRIT)
+    # self.assertIn('Waiting for more data (1).', stdout)
+    # self.assertRegexpMatches(stdout, r'1 error in Kernel Ring Buffer.')
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --device-id=1 --password=pass --url=https://localhost --username=admin --test=stdout/EXAMPLE01,,0'))
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                self.check
+                + ' --device-id=1 --password=pass --url=https://localhost --username=admin --test=stdout/EXAMPLE01,,0'
+            )
+        )
         self.assertIn('There are warnings.', stdout)
-        self.assertIn('UUID       ! Location    ! Manufacturer ! Model         ! SerialNumber         ! Produced   ! In (MV) ! Out (MV) ! Temp ! Health    ! Running  ', stdout)
-        self.assertIn('-----------+-------------+--------------+---------------+----------------------+------------+---------+----------+------+-----------+----------', stdout)
-        self.assertIn('23:23.0.0  ! CTE0.PSU0   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0       ! 0        ! 0    ! [OK]      ! [OK]     ', stdout)
-        self.assertIn('23:23.0.1  ! CTE0.PSU1   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0       ! 0        ! 0    ! [OK]      ! [OK]     ', stdout)
-        self.assertIn('23:23.0.2  ! CTE0.PSU2   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-21 ! 0       ! 0        ! 0    ! [OK]      ! [OK]     ', stdout)
-        self.assertIn('23:23.0.3  ! CTE0.PSU3   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0       ! 0        ! 0    ! [OK]      ! [OK]     ', stdout)
+        self.assertIn(
+            'UUID       ! Location    ! Manufacturer ! Model         ! SerialNumber         ! Produced   ! In (MV) ! Out (MV) ! Temp ! Health    ! Running  ',
+            stdout,
+        )
+        self.assertIn(
+            '-----------+-------------+--------------+---------------+----------------------+------------+---------+----------+------+-----------+----------',
+            stdout,
+        )
+        self.assertIn(
+            '23:23.0.0  ! CTE0.PSU0   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0       ! 0        ! 0    ! [OK]      ! [OK]     ',
+            stdout,
+        )
+        self.assertIn(
+            '23:23.0.1  ! CTE0.PSU1   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0       ! 0        ! 0    ! [OK]      ! [OK]     ',
+            stdout,
+        )
+        self.assertIn(
+            '23:23.0.2  ! CTE0.PSU2   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-21 ! 0       ! 0        ! 0    ! [OK]      ! [OK]     ',
+            stdout,
+        )
+        self.assertIn(
+            '23:23.0.3  ! CTE0.PSU3   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0       ! 0        ! 0    ! [OK]      ! [OK]     ',
+            stdout,
+        )
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 

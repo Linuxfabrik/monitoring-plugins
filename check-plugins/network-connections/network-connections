@@ -8,16 +8,19 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
 import lib.net  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 try:
     import psutil  # pylint: disable=C0413
@@ -29,10 +32,10 @@ except ImportError:
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
-DESCRIPTION = '''Counts system-wide socket connections like tcp, tcp6, udp or udp6. If you have
+DESCRIPTION = """Counts system-wide socket connections like tcp, tcp6, udp or udp6. If you have
                  too many connections like TCP_CLOSE and therefore get errors like 
                  "too many files open", reconfigure and/or restart the application that is
-                 receiving or processing those connections.'''
+                 receiving or processing those connections."""
 
 DEFAULT_CONN_STATUS = 'all'
 DEFAULT_CONN_TYPE = 'all'
@@ -41,20 +44,20 @@ DEFAULT_WARN = None
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
         '--conn-status',
         help='Filter the status of the connections (repeating). Default: %(default)s',
-        default=None,   # due to https://bugs.python.org/issue16399, see in main() below
+        default=None,  # due to https://bugs.python.org/issue16399, see in main() below
         dest='CONN_STATUS',
         action='append',
         choices=[
@@ -77,7 +80,7 @@ def parse_args():
     parser.add_argument(
         '--conn-type',
         help='Filter the family/type of the connections (repeating). Default: %(default)s',
-        default=None,   # due to https://bugs.python.org/issue16399, see in main() below
+        default=None,  # due to https://bugs.python.org/issue16399, see in main() below
         dest='CONN_TYPE',
         action='append',
         choices=[
@@ -90,14 +93,16 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
+        '-c',
+        '--critical',
         help='Threshold for the number of connections. Type: None or Range. Default: %(default)s',
         default=DEFAULT_CRIT,
         dest='CRIT',
     )
 
     parser.add_argument(
-        '-w', '--warning',
+        '-w',
+        '--warning',
         help='Threshold for the number of connections. Type: None or Range. Default: %(default)s',
         default=DEFAULT_WARN,
         dest='WARN',
@@ -108,8 +113,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -126,11 +130,12 @@ def main():
     # fetch data
     stats = {}
     for c in psutil.net_connections(kind='inet'):
-        if 'all' not in args.CONN_STATUS \
-            and c.status.lower() not in args.CONN_STATUS:
+        if 'all' not in args.CONN_STATUS and c.status.lower() not in args.CONN_STATUS:
             continue
-        if 'all' not in args.CONN_TYPE \
-            and lib.net.PROTO_MAP[(c.family, c.type)] not in args.CONN_TYPE:
+        if (
+            'all' not in args.CONN_TYPE
+            and lib.net.PROTO_MAP[(c.family, c.type)] not in args.CONN_TYPE
+        ):
             continue
         key = f'{lib.net.PROTO_MAP[c.family, c.type]}_{c.status}'
         if key in stats:
@@ -176,5 +181,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

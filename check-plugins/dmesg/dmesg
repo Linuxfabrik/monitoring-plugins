@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -19,8 +18,12 @@ import lib.base  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (
+    STATE_CRIT,
+    STATE_OK,  # pylint: disable=C0413
+    STATE_UNKNOWN,
+    STATE_WARN,
+)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -37,40 +40,40 @@ cmd = 'dmesg --level=emerg,alert,crit,err --ctime'
 DEFAULT_IGNORE = [
     ' Asking for cache data failed',
     ' Assuming drive cache: write through',
-    ' brcmfmac: brcmf_c_preinit_dcmds: Firmware: BCM4345/6',                                # Raspbian
+    ' brcmfmac: brcmf_c_preinit_dcmds: Firmware: BCM4345/6',  # Raspbian
     ' brcmfmac: brcmf_fw_alloc_request: using brcm/brcmfmac43455-sdio for chip BCM4345/6',  # Raspbian
     ' CIFS VFS: Free previous auth_key.response = ',
     ' cpufreq: __cpufreq_add_dev: ->get() failed',
-    ' EFI MOKvar config table is not in EFI runtime memory',    # https://rockylinux.org/news/rocky-linux-8-5-ga-release/
+    ' EFI MOKvar config table is not in EFI runtime memory',  # https://rockylinux.org/news/rocky-linux-8-5-ga-release/
     ' ERST: Failed to get Error Log Address Range.',
-    ' flip_done timed out',                                     # https://access.redhat.com/solutions/4490391
+    ' flip_done timed out',  # https://access.redhat.com/solutions/4490391
     ' i8042: No controller found',
     ' Ignoring unsafe software power cap!',
-    ' integrity: Problem loading X.509 certificate -126',       # https://access.redhat.com/solutions/7049158
-    ' ioctl error in smb2_get_dfs_refer rc=-5',                 # https://access.redhat.com/solutions/3496971
-    ' kvm_set_msr_common: MSR_IA32_DEBUGCTLMSR ',               # is mostly caused by Windows-VMs on KVM/oVirt
-    ' mokvar: EFI MOKvar config table is not in EFI runtime memory', # https://rockylinux.org/news/rocky-linux-8-5-ga-release/
+    ' integrity: Problem loading X.509 certificate -126',  # https://access.redhat.com/solutions/7049158
+    ' ioctl error in smb2_get_dfs_refer rc=-5',  # https://access.redhat.com/solutions/3496971
+    ' kvm_set_msr_common: MSR_IA32_DEBUGCTLMSR ',  # is mostly caused by Windows-VMs on KVM/oVirt
+    ' mokvar: EFI MOKvar config table is not in EFI runtime memory',  # https://rockylinux.org/news/rocky-linux-8-5-ga-release/
     ' No Caching mode page found',
-    ' SMBus base address uninitialized - upgrade BIOS or use ', # https://access.redhat.com/solutions/2115401
+    ' SMBus base address uninitialized - upgrade BIOS or use ',  # https://access.redhat.com/solutions/2115401
     ' SMBus Host Controller not enabled!',
     ' tsc: Fast TSC calibration failed',
-    ' unhandled rdmsr: ',                                       # https://access.redhat.com/solutions/59299
-    ' unhandled wrmsr: ',                                       # https://bugzilla.redhat.com/show_bug.cgi?id=874627
-    ' vcpu0 disabled perfctr wrmsr',                            # https://access.redhat.com/solutions/2188061
-    ' Warning: Deprecated Driver is detected', # can be ignored during daily runtime - driver is still supported/running, and it is just a warning
-    ' Warning: Unmaintained driver is detected', # can be ignored during daily runtime - driver is still supported/running, and it is just a warning
+    ' unhandled rdmsr: ',  # https://access.redhat.com/solutions/59299
+    ' unhandled wrmsr: ',  # https://bugzilla.redhat.com/show_bug.cgi?id=874627
+    ' vcpu0 disabled perfctr wrmsr',  # https://access.redhat.com/solutions/2188061
+    ' Warning: Deprecated Driver is detected',  # can be ignored during daily runtime - driver is still supported/running, and it is just a warning
+    ' Warning: Unmaintained driver is detected',  # can be ignored during daily runtime - driver is still supported/running, and it is just a warning
 ]
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
@@ -109,8 +112,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -122,7 +124,7 @@ def main():
     if args.TEST is None:
         # execute the shell command and return its result and exit code
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
-        if (stderr or retc != 0):
+        if stderr or retc != 0:
             lib.base.cu(stderr)
     else:
         # do not call the command, put in test data
@@ -140,7 +142,7 @@ def main():
             result = result.split('\n')
             result = result[0:5] + ['...'] + result[-5:]
             result = '\n'.join(result)
-        msg = f"{cnt} {lib.txt.pluralize('error', cnt)} in Kernel Ring Buffer.\n\n{result}"
+        msg = f'{cnt} {lib.txt.pluralize("error", cnt)} in Kernel Ring Buffer.\n\n{result}'
         state = STATE_CRIT if args.SEVERITY == 'crit' else STATE_WARN
     else:
         msg = 'Everything is ok.'
@@ -153,5 +155,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()

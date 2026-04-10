@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse
 import grp
@@ -23,88 +22,90 @@ from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040101'
 
-DESCRIPTION = 'Checks the ownership (owner and group, both have to be names) of a list of files.'
+DESCRIPTION = (
+    'Checks the ownership (owner and group, both have to be names) of a list of files.'
+)
 
 # sorted by path
 DEFAULT_FILES = [
-    'root:root,/boot/grub/grub.cfg',            # GRUB config (Debian/Ubuntu)
-    'root:root,/boot/grub/grub.conf',           # GRUB config (legacy)
-    'root:root,/boot/grub2/grub.cfg',           # GRUB2 config (RHEL/Fedora)
-    'root:root,/boot/grub2/grubenv',            # GRUB2 environment
-    'root:root,/boot/grub2/user.cfg',           # GRUB2 user config
-    'root:root,/etc/anacrontab',                # anacron job table
-    'root:root,/etc/at.allow',                  # at access control
-    'root:root,/etc/cron.allow',                # cron access control
-    'root:root,/etc/cron.d',                    # cron drop-in directory
-    'root:root,/etc/cron.daily',                # daily cron jobs
-    'root:root,/etc/cron.hourly',               # hourly cron jobs
-    'root:root,/etc/cron.monthly',              # monthly cron jobs
-    'root:root,/etc/cron.weekly',               # weekly cron jobs
-    'root:root,/etc/crontab',                   # system crontab
-    'root:root,/etc/default/grub',              # GRUB boot defaults
-    'root:root,/etc/fstab',                     # filesystem mount table
-    'graylog:graylog,/etc/graylog/certs',       # Graylog TLS certificates
-    'root:root,/etc/group',                     # group database
-    'root:root,/etc/group-',                    # group database backup
+    'root:root,/boot/grub/grub.cfg',  # GRUB config (Debian/Ubuntu)
+    'root:root,/boot/grub/grub.conf',  # GRUB config (legacy)
+    'root:root,/boot/grub2/grub.cfg',  # GRUB2 config (RHEL/Fedora)
+    'root:root,/boot/grub2/grubenv',  # GRUB2 environment
+    'root:root,/boot/grub2/user.cfg',  # GRUB2 user config
+    'root:root,/etc/anacrontab',  # anacron job table
+    'root:root,/etc/at.allow',  # at access control
+    'root:root,/etc/cron.allow',  # cron access control
+    'root:root,/etc/cron.d',  # cron drop-in directory
+    'root:root,/etc/cron.daily',  # daily cron jobs
+    'root:root,/etc/cron.hourly',  # hourly cron jobs
+    'root:root,/etc/cron.monthly',  # monthly cron jobs
+    'root:root,/etc/cron.weekly',  # weekly cron jobs
+    'root:root,/etc/crontab',  # system crontab
+    'root:root,/etc/default/grub',  # GRUB boot defaults
+    'root:root,/etc/fstab',  # filesystem mount table
+    'graylog:graylog,/etc/graylog/certs',  # Graylog TLS certificates
+    'root:root,/etc/group',  # group database
+    'root:root,/etc/group-',  # group database backup
     #'root:root,/etc/gshadow',                  # different on Debian and Ubuntu
     #'root:root,/etc/gshadow-',                 # different on Debian and Ubuntu
-    'root:root,/etc/hosts',                     # host resolution
-    'root:root,/etc/hosts.allow',               # TCP wrappers allow
-    'root:root,/etc/hosts.deny',                # TCP wrappers deny
-    'root:root,/etc/issue',                     # pre-login banner (local)
-    'root:root,/etc/issue.net',                 # pre-login banner (remote)
-    'root:root,/etc/login.defs',                # login defaults (password aging, UID/GID ranges)
-    'root:root,/etc/logrotate.conf',            # log rotation config
-    'root:root,/etc/logrotate.d',               # log rotation drop-in directory
-    'lool:lool,/etc/loolwsd/loolwsd.xml',       # LibreOffice Online config
-    'root:root,/etc/motd',                      # message of the day
-    'root:named,/etc/named.conf',               # BIND DNS config
-    'root:root,/etc/pam.d',                     # PAM configuration directory
-    'root:root,/etc/passwd',                    # user database
-    'root:root,/etc/passwd-',                   # user database backup
-    'root:root,/etc/profile',                   # system-wide shell profile
-    'root:root,/etc/rsyslog.conf',              # syslog config
-    'root:root,/etc/security/access.conf',      # PAM access control
-    'root:root,/etc/security/limits.conf',      # PAM resource limits
+    'root:root,/etc/hosts',  # host resolution
+    'root:root,/etc/hosts.allow',  # TCP wrappers allow
+    'root:root,/etc/hosts.deny',  # TCP wrappers deny
+    'root:root,/etc/issue',  # pre-login banner (local)
+    'root:root,/etc/issue.net',  # pre-login banner (remote)
+    'root:root,/etc/login.defs',  # login defaults (password aging, UID/GID ranges)
+    'root:root,/etc/logrotate.conf',  # log rotation config
+    'root:root,/etc/logrotate.d',  # log rotation drop-in directory
+    'lool:lool,/etc/loolwsd/loolwsd.xml',  # LibreOffice Online config
+    'root:root,/etc/motd',  # message of the day
+    'root:named,/etc/named.conf',  # BIND DNS config
+    'root:root,/etc/pam.d',  # PAM configuration directory
+    'root:root,/etc/passwd',  # user database
+    'root:root,/etc/passwd-',  # user database backup
+    'root:root,/etc/profile',  # system-wide shell profile
+    'root:root,/etc/rsyslog.conf',  # syslog config
+    'root:root,/etc/security/access.conf',  # PAM access control
+    'root:root,/etc/security/limits.conf',  # PAM resource limits
     #'root:root,/etc/shadow',                   # different on Debian and Ubuntu
     #'root:root,/etc/shadow-',                  # different on SLES (15)
-    'root:root,/etc/shells',                    # valid login shells
-    'root:root,/etc/ssh/ssh_config',            # SSH client config
-    'root:root,/etc/ssh/sshd_config',           # SSH server config
-    'root:root,/etc/sssd/sssd.conf',            # SSSD config
-    'root:root,/etc/sudoers',                   # sudo policy
-    'root:root,/etc/sudoers.d',                 # sudo drop-in directory
-    'root:root,/etc/sysctl.conf',               # kernel parameter config
-    'root:root,/etc/sysctl.d',                  # kernel parameter drop-in directory
-    'root:root,/etc/systemd/coredump.conf',     # core dump handling
-    'root:root,/etc/systemd/journald.conf',     # journal logging config
-    'root:root,/etc/systemd/logind.conf',       # login manager config
-    'root:root,/etc/systemd/system.conf',       # systemd system manager config
-    'vdsm:kvm,/home/ovirt',                     # oVirt host agent
-    'root:root,/tmp',                           # temporary files
-    'icinga:icinga,/tmp/linuxfabrik-monitoring-plugins-sqlite.db', # monitoring plugins database
-    'hnet:hnet,/var/hnet',                      # hnet data directory
-    'unbound:unbound,/var/lib/unbound/root.key', # DNS root trust anchor
-    'ldap:ldap,/var/run/openldap',              # OpenLDAP runtime directory
+    'root:root,/etc/shells',  # valid login shells
+    'root:root,/etc/ssh/ssh_config',  # SSH client config
+    'root:root,/etc/ssh/sshd_config',  # SSH server config
+    'root:root,/etc/sssd/sssd.conf',  # SSSD config
+    'root:root,/etc/sudoers',  # sudo policy
+    'root:root,/etc/sudoers.d',  # sudo drop-in directory
+    'root:root,/etc/sysctl.conf',  # kernel parameter config
+    'root:root,/etc/sysctl.d',  # kernel parameter drop-in directory
+    'root:root,/etc/systemd/coredump.conf',  # core dump handling
+    'root:root,/etc/systemd/journald.conf',  # journal logging config
+    'root:root,/etc/systemd/logind.conf',  # login manager config
+    'root:root,/etc/systemd/system.conf',  # systemd system manager config
+    'vdsm:kvm,/home/ovirt',  # oVirt host agent
+    'root:root,/tmp',  # temporary files
+    'icinga:icinga,/tmp/linuxfabrik-monitoring-plugins-sqlite.db',  # monitoring plugins database
+    'hnet:hnet,/var/hnet',  # hnet data directory
+    'unbound:unbound,/var/lib/unbound/root.key',  # DNS root trust anchor
+    'ldap:ldap,/var/run/openldap',  # OpenLDAP runtime directory
 ]
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
         '--filename',
         help='File to be checked, in the format `owner:group,path` (repeatable). '
-             'User-supplied entries are merged with the default file list. '
-             'If the same path appears in both, the user-supplied entry wins.',
+        'User-supplied entries are merged with the default file list. '
+        'If the same path appears in both, the user-supplied entry wins.',
         action='append',
         dest='FILES',
         default=None,
@@ -165,8 +166,7 @@ def check_file(file_spec):
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -218,5 +218,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0718
+    except Exception:  # pylint: disable=W0718
         lib.base.cu()

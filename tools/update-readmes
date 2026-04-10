@@ -28,22 +28,21 @@ DEFAULT_PATH = '.'
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     return parser.parse_args()
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. Hier spielt die Musik."""
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -67,11 +66,13 @@ def main():
         # get the plugin name
         plugin = readme_path.replace('check-plugins/', '').replace('/README.md', '')
         # run `plugin-name --help`
-        _help, stderr, retc = lib.base.coe(lib.shell.shell_exec(
-            f'check-plugins/{plugin}/{plugin} --help'
-        ))
+        _help, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(f'check-plugins/{plugin}/{plugin} --help')
+        )
         # prepend 4 spaces to every non-empty line of the output
-        _help = '\n'.join(f'{line}' if line.strip() else line for line in _help.split('\n'))
+        _help = '\n'.join(
+            f'{line}' if line.strip() else line for line in _help.split('\n')
+        )
         _help = _help.strip()
 
         # got the plugin name, it's help output and the path to the README.
@@ -83,7 +84,7 @@ def main():
             r'## Help\s*```text\s*?(.*?)\s*```\s*## Usage Examples',
             f'## Help\n\n```text\n{_help}\n```\n\n\n## Usage Examples',
             readme,
-            flags=re.DOTALL, # to match dots across all lines
+            flags=re.DOTALL,  # to match dots across all lines
         )
         lib.base.coe(lib.disk.write_file(readme_path, readme))
 
@@ -93,5 +94,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()
