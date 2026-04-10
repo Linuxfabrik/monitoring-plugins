@@ -272,7 +272,7 @@ def main():
         for item in result:
             try:
                 event = json.loads(item)
-            except:
+            except Exception:
                 lib.base.cu(f'Unable to interpret journald event: {item}')
 
             if event['MESSAGE'] is None:
@@ -288,10 +288,10 @@ def main():
 
             try:
                 event['unit'] = event['UNIT'].replace('.service', '')
-            except:
+            except Exception:
                 try:
                     event['unit'] = event['_SYSTEMD_UNIT'].replace('.service', '')
-                except:
+                except Exception:
                     event['unit'] = event['_SYSTEMD_SLICE'].replace('.service', '')
             event['priority'] = JOURNALD_PRIOS[int(event['PRIORITY'])]
             event['timestamp'] = lib.time.epoch2iso(
