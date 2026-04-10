@@ -24,10 +24,12 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040802'
 
-DESCRIPTION = """This check prints cpu and memory statistics for all running Podman
-                containers, using the "podman stats" command. Container CPU usage is divided
-                by the available number of CPU cores ("normalized"). For Docker, use the
-                docker-stats check instead."""
+DESCRIPTION = """Reports CPU and memory usage for all running Podman containers. CPU usage is
+normalized by dividing by the number of available host CPU cores. CPU alerts only
+trigger after the threshold has been exceeded for a configurable number of consecutive
+check runs (default: 5), suppressing short spikes. Memory alerts trigger immediately.
+Uses a local SQLite database for CPU trend tracking across runs. For Docker, use the
+docker-stats check instead."""
 
 DEFAULT_COUNT = (
     5  # measurements; if check runs once per minute, this is a 5 minute period
