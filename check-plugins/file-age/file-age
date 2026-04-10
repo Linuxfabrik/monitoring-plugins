@@ -14,6 +14,7 @@ import argparse
 import sys
 from pathlib import Path
 
+import lib.args
 import lib.base
 import lib.human
 
@@ -67,7 +68,7 @@ def parse_args():
 
     parser.add_argument(
         '--always-ok',
-        help='Always returns OK.',
+        help=lib.args.help('--always-ok'),
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
@@ -76,7 +77,7 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='Set the critical age threshold in seconds. '
+        help='CRIT threshold for file age in seconds. '
         'Supports ranges. '
         'Default: >= %(default)ss (365d)',
         dest='CRIT',
@@ -85,7 +86,7 @@ def parse_args():
 
     parser.add_argument(
         '--critical-count',
-        help='Set the critical threshold for the number of files found within the critical age. '
+        help='CRIT threshold for the number of files found within the critical age. '
         'Supports ranges. '
         'Default: > %(default)s',
         dest='CRIT_COUNT',
@@ -134,7 +135,7 @@ def parse_args():
 
     parser.add_argument(
         '--perfdata-mode',
-        help='Set the performance data aggregation mode. Default: %(default)s.',
+        help='Performance data aggregation mode. Default: %(default)s.',
         dest='PERFDATA_MODE',
         default=DEFAULT_PERFDATA_MODE,
         choices=[
@@ -146,7 +147,7 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        help=lib.args.help('--timeout'),
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -155,7 +156,7 @@ def parse_args():
     parser.add_argument(
         '-u',
         '--url',
-        help='SMB: Set the url of the file (or directory) to check, starting with "smb://". '
+        help='SMB: URL of the file (or directory) to check, starting with "smb://". '
         'This is mutually exclusive with --filename.',
         dest='URL',
         type=str,
@@ -170,7 +171,7 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='Set the warning age threshold in seconds. '
+        help='WARN threshold for file age in seconds. '
         'Supports ranges. '
         'Default: >= %(default)ss (30d)',
         dest='WARN',
@@ -179,7 +180,7 @@ def parse_args():
 
     parser.add_argument(
         '--warning-count',
-        help='Set the warning threshold for the number of files found within the warning age. '
+        help='WARN threshold for the number of files found within the warning age. '
         'Supports ranges. '
         'Default: > %(default)s (30d)',
         dest='WARN_COUNT',

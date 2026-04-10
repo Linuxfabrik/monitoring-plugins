@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Apply ruff format to all plugins, unit tests, and tools (consistent quoting and formatting)
 * Normalize all `from lib.globals import` to single-line format
 * Refactor all `get_perfdata()` calls to use keyword arguments instead of positional (consistent with example plugin)
+* Refactor all standard parameter help texts to use `lib.args.help()` for consistency across plugins
+* Replace stiff "Set the ..." formulations in parameter help texts with concise wording
 * Remove all inline `pylint: disable` comments from plugins, unit tests, and tools
 * Replace all bare `except:` with `except Exception:` across all plugins and tools
 * CONTRIBUTING: add "no continuous counters" policy with rationale and link to example plugin ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
