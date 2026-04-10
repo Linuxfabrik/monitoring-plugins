@@ -594,7 +594,8 @@ Every plugin must define a `DESCRIPTION` variable that is passed to `argparse.Ar
 
 * At least 2-3 sentences that explain what the plugin does, from the perspective of the admin deploying it.
 * Written in fluent English, no implementation details (no mention of library functions, class names, or internal patterns).
-* Describe what it monitors, when it alerts, and what it requires to work.
+* The first sentence must describe the purpose: what the plugin monitors or collects (e.g. "Monitors CPU utilization on ...", "Checks the installed ... version against ...").
+* Must include at least one "Alerts when ..." or "Alerts if ..." clause that tells the admin under which conditions the plugin raises a warning or critical state.
 * Use `"""` triple quotes.
 * Keep line length around 90 characters.
 * Plugins of the same type (e.g. all `-version` checks, all `huawei-dorado-*` checks) must use identical or near-identical DESCRIPTION text, with only the product name swapped. Consistency across plugin families is mandatory.
