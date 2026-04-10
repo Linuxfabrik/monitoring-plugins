@@ -4,6 +4,12 @@
 
 Monitors available Grassfish digital signage licenses via the Grassfish API. Alerts when no more licenses of any type are available. Requires a Grassfish hostname and API token.
 
+**Important Notes:**
+
+* Tested with Grassfish API v1.12
+* May take more than 10 seconds to execute depending on the API response time. Consider increasing `--timeout` if needed.
+
+
 **Data Collection:**
 
 * Queries the Grassfish API (`/gv2/webservices/API` by default) to retrieve all license types and their availability
@@ -12,11 +18,6 @@ Monitors available Grassfish digital signage licenses via the Grassfish API. Ale
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Tested with Grassfish API v1.12
-* May take more than 10 seconds to execute depending on the API response time. Consider increasing `--timeout` if needed.
 
 
 ## Fact Sheet

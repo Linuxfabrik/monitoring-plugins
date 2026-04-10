@@ -4,20 +4,21 @@
 
 Verifies the integrity of a restic backup repository by running `restic check`. Alerts when the repository contains errors or inconsistencies. In contrast to the interactive `restic check` sub-command, it cannot be used to read all data and therefore simulate a restore.
 
+**Important Notes:**
+
+* Requires root or sudo
+* Refer to the [online manual](https://restic.readthedocs.io/en/latest/index.html) for more details about restic
+
 **Data Collection:**
 
 * Executes `restic --json --repo=... --password-file=... check`
 * Always loads all data directly from the repository and does not use a local cache, so execution may take several minutes, especially if the repository is corrupted
 * If the output exceeds 10 lines, it is shortened to the first 5 and last 5 lines
 
-**Important Notes:**
-
-* Requires root or sudo
-* Refer to the [online manual](https://restic.readthedocs.io/en/latest/index.html) for more details about restic
-
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

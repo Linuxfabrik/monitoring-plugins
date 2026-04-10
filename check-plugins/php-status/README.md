@@ -4,6 +4,12 @@
 
 Checks PHP configuration and health, including startup errors, missing modules, and misconfigured php.ini directives. Optionally reads extended PHP information (Opcache statistics) from a monitoring helper script deployed in the web server context.
 
+**Important Notes:**
+
+* The `monitoring.php` helper script is optional. Without it, the plugin still works but cannot report Opcache statistics.
+* The `--config` parameter uses startswith matching against `php --info` output.
+* The `--module` parameter uses startswith matching against `php --modules` output.
+
 **Data Collection:**
 
 * Executes `php --version` to detect startup errors
@@ -11,12 +17,6 @@ Checks PHP configuration and health, including startup errors, missing modules, 
 * Executes `php --info` to verify php.ini configuration values
 * Optionally fetches extended Opcache data from a `monitoring.php` helper script deployed in the web server document root
 * Requires root or sudo to run the PHP CLI commands
-
-**Important Notes:**
-
-* The `monitoring.php` helper script is optional. Without it, the plugin still works but cannot report Opcache statistics.
-* The `--config` parameter uses startswith matching against `php --info` output.
-* The `--module` parameter uses startswith matching against `php --modules` output.
 
 **Compatibility:**
 
@@ -39,6 +39,7 @@ On the subject of Opcache see also:
 * [Opcache Runtime Configuration](https://www.php.net/manual/en/opcache.configuration.php#ini.opcache.interned-strings-buffer)
 * [A one-page opcache status page](https://github.com/rlerdorf/opcache-status)
 * [Fine-Tune Your Opcache Configuration to Avoid Caching Suprises](https://tideways.com/profiler/blog/fine-tune-your-opcache-configuration-to-avoid-caching-suprises).
+
 
 
 ## Fact Sheet

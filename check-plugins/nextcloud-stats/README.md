@@ -4,15 +4,6 @@
 
 Monitors Nextcloud usage statistics via the server info API, including active user counts over time, file shares by category, and storage metrics. Also reports PHP, database, and web server configuration details.
 
-**Data Collection:**
-
-* Queries the Nextcloud serverinfo API endpoint (`/ocs/v2.php/apps/serverinfo/api/v1/info`) using HTTP Basic authentication
-* Reports active users (last 5 minutes, 1 hour, 24 hours), total files, apps, shares (by type), storage distribution, PHP settings, database type/size, and web server/memcache configuration
-
-**Compatibility:**
-
-* Cross-platform
-
 **Important Notes:**
 
 * Tested with Nextcloud 15+
@@ -21,6 +12,16 @@ Monitors Nextcloud usage statistics via the server info API, including active us
 * If you simply want to check the availability of the Nextcloud web frontend, you have to use other checks
 * If a Nextcloud App leads to a "500 Internal Server Error", the Nextcloud API often still remains intact, so this check cannot report that
 * Might take up to 30 seconds for the first time; after that, still takes a few seconds
+
+
+**Data Collection:**
+
+* Queries the Nextcloud serverinfo API endpoint (`/ocs/v2.php/apps/serverinfo/api/v1/info`) using HTTP Basic authentication
+* Reports active users (last 5 minutes, 1 hour, 24 hours), total files, apps, shares (by type), storage distribution, PHP settings, database type/size, and web server/memcache configuration
+
+**Compatibility:**
+
+* Cross-platform
 
 
 ## Fact Sheet

@@ -4,6 +4,11 @@
 
 Checks the installed Grafana version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
+**Important Notes:**
+
+* The check must run locally on the Grafana server because it executes `grafana-server -v` to determine the installed version.
+
+
 **Data Collection:**
 
 * Determines the installed Grafana version by executing `grafana-server -v`
@@ -13,10 +18,6 @@ Checks the installed Grafana version against the endoflife.date API and alerts i
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* The check must run locally on the Grafana server because it executes `grafana-server -v` to determine the installed version.
 
 
 ## Fact Sheet

@@ -4,6 +4,11 @@
 
 Checks the number of messages in the mail queue using the `mailq` command. Alerts when the queue length exceeds the configured thresholds. Tested with Postfix and Exim.
 
+**Important Notes:**
+
+* Exim: By default, `exim -bq` (alias `mailq`) can be used only by an admin user. Set `queue_list_requires_admin` to false to allow any user to see the queue, or add the icinga user to the exim group (sometimes called `Debian-exim`)
+
+
 **Data Collection:**
 
 * Executes the `mailq` command and parses its output to count queued messages
@@ -13,10 +18,6 @@ Checks the number of messages in the mail queue using the `mailq` command. Alert
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Exim: By default, `exim -bq` (alias `mailq`) can be used only by an admin user. Set `queue_list_requires_admin` to false to allow any user to see the queue, or add the icinga user to the exim group (sometimes called `Debian-exim`)
 
 
 ## Fact Sheet

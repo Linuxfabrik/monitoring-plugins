@@ -6,6 +6,14 @@ Checks availability and response time of an [ID DIACOS](https://www.id-suisse-ag
 
 ID DIACOS is a coding software for accurate and fast invoicing in hospitals, allowing clinical services to be documented quickly and reliably within fee-payment systems such as G-DRG, SWISS-DRG, and EBM.
 
+**Important Notes:**
+
+* Any platform with network access to the ID DIACOS REST API
+* Plugin execution may take more than 10 seconds depending on network latency and server load
+* `--login-name` and `--login-licence` are required parameters
+* The session ID is validated for minimum expected length before proceeding with the search
+
+
 **Data Collection:**
 
 * Performs three sequential API calls against the ID DIACOS REST API (`/axis2/idlogikrest`):
@@ -18,13 +26,6 @@ ID DIACOS is a coding software for accurate and fast invoicing in hospitals, all
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Any platform with network access to the ID DIACOS REST API
-* Plugin execution may take more than 10 seconds depending on network latency and server load
-* `--login-name` and `--login-licence` are required parameters
-* The session ID is validated for minimum expected length before proceeding with the search
 
 
 ## Fact Sheet

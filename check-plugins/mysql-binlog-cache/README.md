@@ -4,13 +4,6 @@
 
 Checks whether transactions in MySQL/MariaDB had to use a temporary disk cache because they exceeded the configured binary log cache size (`binlog_cache_size`). A high disk cache usage rate indicates that `binlog_cache_size` should be increased.
 
-**Data Collection:**
-
-* Queries `SHOW GLOBAL VARIABLES` for `binlog_cache_size` and `log_bin`
-* Queries `SHOW GLOBAL STATUS` for `Binlog_cache_disk_use` and `Binlog_cache_use`
-* Calculates the percentage of transactions served from memory vs. disk
-* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
-
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
@@ -19,9 +12,17 @@ Checks whether transactions in MySQL/MariaDB had to use a temporary disk cache b
 
 
 
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for `binlog_cache_size` and `log_bin`
+* Queries `SHOW GLOBAL STATUS` for `Binlog_cache_disk_use` and `Binlog_cache_use`
+* Calculates the percentage of transactions served from memory vs. disk
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

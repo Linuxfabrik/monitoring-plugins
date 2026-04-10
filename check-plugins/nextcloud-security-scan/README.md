@@ -4,13 +4,6 @@
 
 Checks the security of a Nextcloud (or ownCloud) server using the Nextcloud security scanner at <https://scan.nextcloud.com/>. Reports the assigned security rating and alerts on known vulnerabilities, missing hardenings, and setup issues.
 
-**Data Collection:**
-
-* Submits the Nextcloud URL to the scan.nextcloud.com API to obtain a UUID
-* Fetches the scan result using that UUID
-* Triggers a re-scan if the result is older than the configured number of days (default: 14)
-* The check does not need to run on the Nextcloud server itself
-
 **Important Notes:**
 
 * Run it once a day at most. There is an API rate limit at scan.nextcloud.com of less than 100 POST requests per day (exceeding this returns "403 Forbidden").
@@ -18,9 +11,17 @@ Checks the security of a Nextcloud (or ownCloud) server using the Nextcloud secu
 
 
 
+**Data Collection:**
+
+* Submits the Nextcloud URL to the scan.nextcloud.com API to obtain a UUID
+* Fetches the scan result using that UUID
+* Triggers a re-scan if the result is older than the configured number of days (default: 14)
+* The check does not need to run on the Nextcloud server itself
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

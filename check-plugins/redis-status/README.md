@@ -4,6 +4,12 @@
 
 Monitors a Redis server via the `INFO` command, reporting memory usage, fragmentation ratio, keyspace hit rate, connected clients, replication status, and persistence state.
 
+**Important Notes:**
+
+* Tested on Redis 3.0+
+* Requires the `redis-cli` command-line tool
+* "I'm here to keep you safe, Sam. I want to help you." comes from the character GERTY in the movie "Moon" (2009)
+
 **Data Collection:**
 
 * Executes `redis-cli info default` and `redis-cli memory doctor` against the target Redis instance
@@ -11,15 +17,10 @@ Monitors a Redis server via the `INFO` command, reporting memory usage, fragment
 * Supports authentication (username/password) and TLS connections
 * Reads OS-level settings from `/proc/sys/vm/overcommit_memory`, `/sys/kernel/mm/transparent_hugepage/enabled`, `/proc/sys/net/core/somaxconn`, and `/proc/sys/net/ipv4/tcp_max_syn_backlog`
 
-**Important Notes:**
-
-* Tested on Redis 3.0+
-* Requires the `redis-cli` command-line tool
-* "I'm here to keep you safe, Sam. I want to help you." comes from the character GERTY in the movie "Moon" (2009)
-
 **Compatibility:**
 
 * Linux
+
 
 
 ## Fact Sheet

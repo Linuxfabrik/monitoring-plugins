@@ -4,11 +4,6 @@
 
 Retrieves recent events from the NodeBB event log via the admin API. Reports administrative actions such as user bans, plugin activations, and configuration changes. This is an informational check only.
 
-**Data Collection:**
-
-* Queries the NodeBB Read API endpoint `/api/admin/advanced/events` using Bearer Authentication
-* Displays the latest events with event ID, user ID, display name, event type, timestamp with human-readable age, and IP address
-
 **Important Notes:**
 
 * You need to issue a bearer token of type "user" in the NodeBB admin panel: Settings > API Access > Create Token > Specify your User ID and Description (for example "Linuxfabrik API Token"). In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.
@@ -17,9 +12,15 @@ Retrieves recent events from the NodeBB event log via the admin API. Reports adm
 
 
 
+**Data Collection:**
+
+* Queries the NodeBB Read API endpoint `/api/admin/advanced/events` using Bearer Authentication
+* Displays the latest events with event ID, user ID, display name, event type, timestamp with human-readable age, and IP address
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

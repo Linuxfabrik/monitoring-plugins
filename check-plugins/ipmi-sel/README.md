@@ -4,6 +4,14 @@
 
 Checks the IPMI System Event Log (SEL) for entries and alerts when events are found. Entries can be filtered by regex using `--ignore`. To clear the SEL after resolving issues, run `ipmitool sel clear`. Requires root or sudo.
 
+**Important Notes:**
+
+* Tested on Supermicro BMC and HPE iLO
+* Requires hardware with an IPMI interface
+* `Discrete` sensors support is not implemented.
+* Requires the `ipmitool` command-line tool to be installed.
+
+
 **Data Collection:**
 
 * Executes `ipmitool sel elist` locally or against a remote BMC/iLO via IPMI over LAN
@@ -13,13 +21,6 @@ Checks the IPMI System Event Log (SEL) for entries and alerts when events are fo
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Tested on Supermicro BMC and HPE iLO
-* Requires hardware with an IPMI interface
-* `Discrete` sensors support is not implemented.
-* Requires the `ipmitool` command-line tool to be installed.
 
 
 ## Fact Sheet

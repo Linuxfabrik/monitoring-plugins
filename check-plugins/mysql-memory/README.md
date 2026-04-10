@@ -4,15 +4,6 @@
 
 Checks current and maximum possible memory usage specifically for MySQL/MariaDB. Calculates the theoretical maximum memory consumption based on global buffers, per-thread buffers, max connections, and Performance Schema usage. Compares this against the physical memory of the server.
 
-**Data Collection:**
-
-* Queries `SHOW GLOBAL VARIABLES` for all relevant buffer size variables (`innodb_buffer_pool_size`, `key_buffer_size`, `sort_buffer_size`, `join_buffer_size`, `max_connections`, etc.)
-* Queries `SHOW GLOBAL STATUS` for `Max_used_connections`
-* Queries Performance Schema for current memory usage (if enabled)
-* Uses `psutil` (if available) to determine memory consumption of other running processes
-* Uses `os.sysconf` to determine total physical memory
-* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
-
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
@@ -22,9 +13,19 @@ Checks current and maximum possible memory usage specifically for MySQL/MariaDB.
 
 
 
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for all relevant buffer size variables (`innodb_buffer_pool_size`, `key_buffer_size`, `sort_buffer_size`, `join_buffer_size`, `max_connections`, etc.)
+* Queries `SHOW GLOBAL STATUS` for `Max_used_connections`
+* Queries Performance Schema for current memory usage (if enabled)
+* Uses `psutil` (if available) to determine memory consumption of other running processes
+* Uses `os.sysconf` to determine total physical memory
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

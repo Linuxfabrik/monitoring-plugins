@@ -4,6 +4,12 @@
 
 Monitors a Valkey server via the `INFO` command and the `MEMORY DOCTOR` subcommand. Reports memory usage, fragmentation ratio, keyspace hit rate, connected clients, replication status, and persistence state.
 
+**Important Notes:**
+
+* Tested with Valkey 7.2 and 8.0
+* "I'm here to keep you safe, Sam. I want to help you." comes from the character GERTY in the movie "Moon" (2009).
+
+
 **Data Collection:**
 
 * Executes `valkey-cli info default` to collect server, memory, keyspace, replication, persistence, CPU, and stats sections
@@ -16,11 +22,6 @@ Monitors a Valkey server via the `INFO` command and the `MEMORY DOCTOR` subcomma
 **Compatibility:**
 
 * Linux
-
-**Important Notes:**
-
-* Tested with Valkey 7.2 and 8.0
-* "I'm here to keep you safe, Sam. I want to help you." comes from the character GERTY in the movie "Moon" (2009).
 
 
 ## Fact Sheet

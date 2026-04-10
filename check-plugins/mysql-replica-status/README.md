@@ -4,12 +4,6 @@
 
 Checks the replication status of a MySQL/MariaDB replica, including I/O thread state, SQL thread state, seconds behind master, and replication errors. Can also be run against standalone servers (reports that no replication is configured). Reports Galera synchronous replication state, binlog format, semi-synchronous replication configuration, and XA support.
 
-**Data Collection:**
-
-* Queries `SHOW GLOBAL VARIABLES` for replication-related settings (`binlog_format`, `read_only`, `rpl_semi_sync_*`, `wsrep_on`, `wsrep_provider_options`, etc.)
-* Executes `SHOW REPLICA STATUS` (or `SHOW SLAVE STATUS` on older versions) and `SHOW SLAVE HOSTS`
-* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):get_replication_status(), v1.9.8
-
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
@@ -18,9 +12,16 @@ Checks the replication status of a MySQL/MariaDB replica, including I/O thread s
 
 
 
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for replication-related settings (`binlog_format`, `read_only`, `rpl_semi_sync_*`, `wsrep_on`, `wsrep_provider_options`, etc.)
+* Executes `SHOW REPLICA STATUS` (or `SHOW SLAVE STATUS` on older versions) and `SHOW SLAVE HOSTS`
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):get_replication_status(), v1.9.8
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

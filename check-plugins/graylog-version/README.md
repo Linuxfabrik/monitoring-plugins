@@ -4,6 +4,11 @@
 
 Checks the installed Graylog version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
+**Important Notes:**
+
+* The check must run locally on the Graylog server because it queries the local package manager for the installed version.
+
+
 **Data Collection:**
 
 * Determines the installed Graylog version from the package manager (`yum` on RHEL, `dpkg` on Debian)
@@ -13,10 +18,6 @@ Checks the installed Graylog version against the endoflife.date API and alerts i
 **Compatibility:**
 
 * Linux
-
-**Important Notes:**
-
-* The check must run locally on the Graylog server because it queries the local package manager for the installed version.
 
 
 ## Fact Sheet

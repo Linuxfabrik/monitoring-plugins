@@ -4,17 +4,6 @@
 
 Verifies that critical system files have the expected owner and group. Ships with a built-in list of important files (GRUB, SSH, sudoers, PAM, cron, etc.) and supports custom entries. Alerts when the actual ownership does not match the expected values.
 
-**Data Collection:**
-
-* Depending on the file and user (e.g. running as `icinga`), sudo may be needed
-* Uses `os.stat()` to read file ownership directly, without shelling out to external commands
-* Resolves numeric UIDs/GIDs to names. If a UID/GID has no corresponding name, the numeric value is displayed
-* Files that do not exist on the system are silently skipped
-
-**Compatibility:**
-
-* Cross-platform
-
 **Important Notes:**
 
 * `--filename` entries are merged with the default file list. If the same path appears in both, the user-supplied entry wins. Use `--no-default-files` to skip the defaults entirely.
@@ -77,6 +66,18 @@ Default files checked:
 * /var/hnet: hnet:hnet
 * /var/lib/unbound/root.key: unbound:unbound
 * /var/run/openldap: ldap:ldap
+
+
+**Data Collection:**
+
+* Depending on the file and user (e.g. running as `icinga`), sudo may be needed
+* Uses `os.stat()` to read file ownership directly, without shelling out to external commands
+* Resolves numeric UIDs/GIDs to names. If a UID/GID has no corresponding name, the numeric value is displayed
+* Files that do not exist on the system are silently skipped
+
+**Compatibility:**
+
+* Cross-platform
 
 
 ## Fact Sheet

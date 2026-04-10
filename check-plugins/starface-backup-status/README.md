@@ -4,6 +4,12 @@
 
 Checks the status of the most recent backup of a Starface PBX, including backup age, target, and success state.
 
+**Important Notes:**
+
+* Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
+
+
+
 **Data Collection:**
 
 * Connects via socket to the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) on port 6556
@@ -13,11 +19,6 @@ Checks the status of the most recent backup of a Starface PBX, including backup 
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
-
 
 
 ## Fact Sheet

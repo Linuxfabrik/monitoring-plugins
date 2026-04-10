@@ -4,12 +4,6 @@
 
 Checks OpenStack Swift object storage account statistics, including total container count, object count, and bytes used. Alerts when storage usage exceeds the configured thresholds.
 
-**Data Collection:**
-
-* Authenticates to the OpenStack Swift API using credentials from an rc file
-* Reports account-level statistics: container count, object count, total bytes used, and account quota
-* Reports per-container statistics: item count, quota, usage, and remaining free space
-
 **Important Notes:**
 
 * You have to provide a path to an rc file to authenticate. The rc file should contain standard OpenStack environment variables such as `OS_AUTH_URL`, `OS_USERNAME`, `OS_PASSWORD`, `OS_PROJECT_NAME`, etc.
@@ -18,9 +12,16 @@ Checks OpenStack Swift object storage account statistics, including total contai
 
 
 
+**Data Collection:**
+
+* Authenticates to the OpenStack Swift API using credentials from an rc file
+* Reports account-level statistics: container count, object count, total bytes used, and account quota
+* Reports per-container statistics: item count, quota, usage, and remaining free space
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

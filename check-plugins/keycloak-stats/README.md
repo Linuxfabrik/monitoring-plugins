@@ -4,6 +4,12 @@
 
 Reports statistics from a Keycloak server via its HTTP API, including uptime, Java version, JVM details, and enabled/disabled feature flags. This is an informational check that always returns OK.
 
+**Important Notes:**
+
+* Tested with Keycloak 18 and later
+* See [Creating an API user account to monitor Keycloak](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-KEYCLOAK.md) for setting up the required API credentials.
+
+
 **Data Collection:**
 
 * Authenticates against the Keycloak OIDC token endpoint using client credentials (`--client-id`, `--username`, `--password`)
@@ -13,11 +19,6 @@ Reports statistics from a Keycloak server via its HTTP API, including uptime, Ja
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Tested with Keycloak 18 and later
-* See [Creating an API user account to monitor Keycloak](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-KEYCLOAK.md) for setting up the required API credentials.
 
 
 ## Fact Sheet

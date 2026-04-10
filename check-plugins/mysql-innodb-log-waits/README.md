@@ -4,21 +4,22 @@
 
 Checks how often InnoDB had to wait for log writes to be flushed because the log buffer was too small in MySQL/MariaDB. If waits occur, the `innodb_log_buffer_size` should be increased.
 
-**Data Collection:**
-
-* Queries `SHOW GLOBAL VARIABLES` for `innodb_log_buffer_size`
-* Queries `SHOW GLOBAL STATUS` for `Innodb_log_waits` and `Innodb_log_writes`
-* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_innodb(), v1.8.3
-
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 
 
 
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for `innodb_log_buffer_size`
+* Queries `SHOW GLOBAL STATUS` for `Innodb_log_waits` and `Innodb_log_writes`
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_innodb(), v1.8.3
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

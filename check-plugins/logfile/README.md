@@ -4,17 +4,6 @@
 
 Scans a logfile for matching patterns or regular expressions and alerts based on the number of matches found. Supports both simple string matching (`--warning-pattern`, `--critical-pattern`) and Python regular expressions (`--warning-regex`, `--critical-regex`). Lines can be excluded via `--ignore-pattern` or `--ignore-regex`.
 
-**Data Collection:**
-
-* Reads the logfile forward from the last known offset, only scanning new lines since the previous run
-* Detects logfile rotation by tracking the file's inode and size; resets to the beginning when rotation is detected
-* Uses SQLite state persistence to store the file offset and all matching lines between runs
-* Pattern arguments use the Python `in` operator for simple substring matching, which is faster than regex in most cases
-
-**Compatibility:**
-
-* Cross-platform
-
 **Important Notes:**
 
 * Requires root or sudo to access most system logfiles
@@ -32,6 +21,18 @@ object ApiUser "linuxfabrik-check-logfile" {
 ```
 
 * For more complex log analysis use cases, consider using a dedicated logging server like Graylog
+
+
+**Data Collection:**
+
+* Reads the logfile forward from the last known offset, only scanning new lines since the previous run
+* Detects logfile rotation by tracking the file's inode and size; resets to the beginning when rotation is detected
+* Uses SQLite state persistence to store the file offset and all matching lines between runs
+* Pattern arguments use the Python `in` operator for simple substring matching, which is faster than regex in most cases
+
+**Compatibility:**
+
+* Cross-platform
 
 
 ## Fact Sheet

@@ -4,6 +4,11 @@
 
 Monitors the HIN (Health Info Net) status page for service disruptions. Parses the support website for outage announcements since no machine-readable API is available. Alerts when active incidents are detected.
 
+**Important Notes:**
+
+* Since no machine-readable API is available, the check relies on parsing WordPress-generated HTML content. Changes to the HIN website structure may break parsing.
+
+
 **Data Collection:**
 
 * Fetches the HIN status page (<https://support.hin.ch/de/> by default) and parses the HTML for outage announcements
@@ -13,10 +18,6 @@ Monitors the HIN (Health Info Net) status page for service disruptions. Parses t
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Since no machine-readable API is available, the check relies on parsing WordPress-generated HTML content. Changes to the HIN website structure may break parsing.
 
 
 ## Fact Sheet

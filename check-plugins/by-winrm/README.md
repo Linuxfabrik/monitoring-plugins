@@ -4,6 +4,16 @@
 
 This plugin executes PowerShell commands or scripts on remote Windows hosts via WinRM, supporting JEA. It returns standard output (STDOUT) and, in case of failure, standard error (STDERR) along with the command's exit code. By evaluating these results - through threshold checks or pattern matching on STDOUT - the plugin can generate alerts with configurable severity levels.
 
+**Important Notes:**
+
+* Supports NTLM, Kerberos, CredSSP, Basic, and plaintext transports
+* JEA endpoints are only supported with `pypsrp` (via `--winrm-configuration-name`)
+* This plugin is ideal for retrieving Windows-specific metrics, running custom PowerShell-based health checks (such as inventory, backup status, or failover cluster queries), and accessing systems like Active Directory, Exchange, SQL Server, or Hyper-V
+* It is especially useful in environments where installing a monitoring agent is not possible or desired
+* For Kerberos transport, configure `/etc/krb5.conf` and obtain a ticket via `kinit` before running the plugin. When Kerberos credentials are present in the cache, `--winrm-username` and `--winrm-password` can be omitted.
+* When `--winrm-domain` is set, the username is sent as `user@DOMAIN` for NTLM authentication. Not needed for Kerberos or local accounts.
+
+
 **Data Collection:**
 
 * Connects to the remote Windows host via WinRM and executes the specified PowerShell command
@@ -16,15 +26,6 @@ This plugin executes PowerShell commands or scripts on remote Windows hosts via 
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Supports NTLM, Kerberos, CredSSP, Basic, and plaintext transports
-* JEA endpoints are only supported with `pypsrp` (via `--winrm-configuration-name`)
-* This plugin is ideal for retrieving Windows-specific metrics, running custom PowerShell-based health checks (such as inventory, backup status, or failover cluster queries), and accessing systems like Active Directory, Exchange, SQL Server, or Hyper-V
-* It is especially useful in environments where installing a monitoring agent is not possible or desired
-* For Kerberos transport, configure `/etc/krb5.conf` and obtain a ticket via `kinit` before running the plugin. When Kerberos credentials are present in the cache, `--winrm-username` and `--winrm-password` can be omitted.
-* When `--winrm-domain` is set, the username is sent as `user@DOMAIN` for NTLM authentication. Not needed for Kerberos or local accounts.
 
 
 ## Fact Sheet

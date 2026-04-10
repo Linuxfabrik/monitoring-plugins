@@ -4,6 +4,12 @@
 
 Summarizes traffic statistics for all IPv4 and IPv6 firewall policies on FortiGate appliances running FortiOS via the REST API. Reports byte and packet counters, active sessions, and hit counts per policy.
 
+**Important Notes:**
+
+* FortiGate appliances running FortiOS with REST API access
+* This is a reporting-only check. It does not apply thresholds and always returns OK unless both API requests fail (UNKNOWN).
+
+
 **Data Collection:**
 
 * Queries the FortiOS REST API endpoints `/api/v2/monitor/firewall/policy/select/` (IPv4) and `/api/v2/monitor/firewall/policy6/select/` (IPv6)
@@ -14,11 +20,6 @@ Summarizes traffic statistics for all IPv4 and IPv6 firewall policies on FortiGa
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* FortiGate appliances running FortiOS with REST API access
-* This is a reporting-only check. It does not apply thresholds and always returns OK unless both API requests fail (UNKNOWN).
 
 
 ## Fact Sheet

@@ -4,6 +4,10 @@
 
 Monitors the SAP Concur Open status page (<https://open.concur.com>) for active service incidents. The dashboard displays the most recent 20 days of Concur service availability.
 
+**Important Notes:**
+
+* Not all SAP datacenters offer all services. Have a look at <https://open.concur.com> for details.
+
 **Data Collection:**
 
 * Queries the SAP Concur Open status API at `https://open.concur.com/api/v2/status_history`
@@ -11,13 +15,10 @@ Monitors the SAP Concur Open status page (<https://open.concur.com>) for active 
 * Can check a single service or all services at once via `--service`
 * Available services: Analysis/Intelligence, Compleat (TMC Services), Expense, Imaging, Invoice, Mobile, Request, Travel
 
-**Important Notes:**
-
-* Not all SAP datacenters offer all services. Have a look at <https://open.concur.com> for details.
-
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

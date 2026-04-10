@@ -4,17 +4,6 @@
 
 Checks for available APT package updates on Debian, Ubuntu, and compatible systems. Reports the number of pending updates and upgrades, and alerts when updates are available. This check only lists updates and never actually installs anything. Requires root or sudo.
 
-**Data Collection:**
-
-* Runs `sudo apt-get update --quiet 2` to refresh the package cache
-* Runs `apt list --upgradable` to determine available updates
-* Stores the results in a local SQLite database for flexible querying via `--query`
-* Optionally filters for security-critical updates only (`--only-critical`), matching packages from `*-security` repositories
-
-**Compatibility:**
-
-* Linux
-
 **Important Notes:**
 
 * Debian 11+, Ubuntu 20+, and other apt-based distributions
@@ -29,6 +18,18 @@ base-files/stable 12.4+deb12u11 amd64 [upgradable from: 12.4+deb12u5]
 bash/stable 5.2.15-2+b8 amd64 [upgradable from: 5.2.15-2+b2]
 bind9-dnsutils/stable,stable-security 1:9.18.33-1~deb12u2 amd64 [upgradable from: 1:9.18.19-1~deb12u1]
 ```
+
+
+**Data Collection:**
+
+* Runs `sudo apt-get update --quiet 2` to refresh the package cache
+* Runs `apt list --upgradable` to determine available updates
+* Stores the results in a local SQLite database for flexible querying via `--query`
+* Optionally filters for security-critical updates only (`--only-critical`), matching packages from `*-security` repositories
+
+**Compatibility:**
+
+* Linux
 
 
 ## Fact Sheet

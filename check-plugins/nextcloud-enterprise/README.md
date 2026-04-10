@@ -4,6 +4,12 @@
 
 Retrieves and displays information about an installed Nextcloud Enterprise subscription, including license status, expiration date, and supported user count. Requires root or sudo.
 
+**Important Notes:**
+
+* This plugin currently always returns OK and is purely informational
+* The "Limit" value in the output refers to the user limit set via `occ config:app:set support user-limit --value=N`. If not set, it shows "not set".
+
+
 **Data Collection:**
 
 * Requires sudo permissions for the UID under which the Nextcloud application runs
@@ -13,11 +19,6 @@ Retrieves and displays information about an installed Nextcloud Enterprise subsc
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* This plugin currently always returns OK and is purely informational
-* The "Limit" value in the output refers to the user limit set via `occ config:app:set support user-limit --value=N`. If not set, it shows "not set".
 
 
 ## Fact Sheet

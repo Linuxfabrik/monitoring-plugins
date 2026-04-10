@@ -4,13 +4,6 @@
 
 Lists all OpenStack Nova compute instances (virtual servers) and checks their status. Alerts when any instance is in an error state or has been shelved. Reports instance name, status, power state, and creation date.
 
-**Data Collection:**
-
-* Authenticates to the OpenStack Nova API using credentials from an rc file
-* Lists all virtual servers and their current status
-* Reports server name, ID, last update timestamp, and status for each instance
-* Counts instances per state and tracks the last status change across all servers
-
 **Important Notes:**
 
 * You have to provide a path to an rc file to authenticate. The rc file should contain standard OpenStack environment variables such as `OS_AUTH_URL`, `OS_USERNAME`, `OS_PASSWORD`, `OS_PROJECT_NAME`, etc.
@@ -18,9 +11,17 @@ Lists all OpenStack Nova compute instances (virtual servers) and checks their st
 
 
 
+**Data Collection:**
+
+* Authenticates to the OpenStack Nova API using credentials from an rc file
+* Lists all virtual servers and their current status
+* Reports server name, ID, last update timestamp, and status for each instance
+* Counts instances per state and tracks the last status change across all servers
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

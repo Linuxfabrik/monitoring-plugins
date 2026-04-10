@@ -4,19 +4,20 @@
 
 Counts the number of currently logged-in users by session type: tty (console) and pts (SSH on Linux, RDP on Windows). On Windows, also counts disconnected sessions (closed connections without logging out).
 
+**Important Notes:**
+
+* If running on physical hardware, consider using `--critical 1,20` (Linux) or `--critical 1,50,3` (Windows) as a starting point
+
 **Data Collection:**
 
 * On Linux: executes `/usr/bin/w` and parses its output, using the header line to determine column positions
 * On Windows: executes `query user` and parses its output
 * A *tty* is a native terminal device (on Windows: Console); a *pts* is a pseudo terminal slave, typically from SSH (on Windows: RDP)
 
-**Important Notes:**
-
-* If running on physical hardware, consider using `--critical 1,20` (Linux) or `--critical 1,50,3` (Windows) as a starting point
-
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

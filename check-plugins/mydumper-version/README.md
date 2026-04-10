@@ -4,6 +4,12 @@
 
 Checks whether a newer version of mydumper/myloader is available by comparing the locally installed version against the latest release from the GitHub API.
 
+**Important Notes:**
+
+* Requires `mydumper` to be installed and available in the system PATH
+
+
+
 **Data Collection:**
 
 * Runs `mydumper --version` locally to determine the installed version
@@ -13,11 +19,6 @@ Checks whether a newer version of mydumper/myloader is available by comparing th
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Requires `mydumper` to be installed and available in the system PATH
-
 
 
 ## Fact Sheet

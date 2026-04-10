@@ -4,6 +4,13 @@
 
 Queries SMART (Self-Monitoring, Analysis, and Reporting Technology) data from hard disks and solid-state drives using smartctl. Inspects drive health attributes, error logs, and self-test results to detect failing or degraded drives before data loss occurs. Supports both SCSI and ATA drives, including drives behind hardware RAID controllers when the correct device type is specified. Alerts when any drive reports failing health attributes, SMART errors, or failed self-tests. Requires root or sudo.
 
+**Important Notes:**
+
+* Supports ATA/SATA and SCSI/SAS hard drives and solid-state drives
+* Run `/usr/sbin/update-smart-drivedb` periodically to update the drive database, which can improve attribute interpretation
+* Use `--full` to also alert on notices (assumptions), not just on actual SMART issues
+
+
 **Data Collection:**
 
 * Runs `smartctl --scan-open` to discover all available drives, then runs `smartctl --xall` against each drive
@@ -14,12 +21,6 @@ Queries SMART (Self-Monitoring, Analysis, and Reporting Technology) data from ha
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Supports ATA/SATA and SCSI/SAS hard drives and solid-state drives
-* Run `/usr/sbin/update-smart-drivedb` periodically to update the drive database, which can improve attribute interpretation
-* Use `--full` to also alert on notices (assumptions), not just on actual SMART issues
 
 
 ## Fact Sheet

@@ -4,12 +4,6 @@
 
 Checks if a NodeBB update is available by comparing the installed version against the latest release. Alerts when an update is available.
 
-**Data Collection:**
-
-* Queries the NodeBB Read API endpoint `/api/admin/dashboard` using Bearer Authentication
-* Compares the installed NodeBB version against the latest available version
-* Reports the last restart timestamp including the user who triggered it
-
 **Important Notes:**
 
 * You need to issue a bearer token of type "user" in the NodeBB admin panel: Settings > API Access > Create Token > Specify your User ID and Description (for example "Linuxfabrik API Token"). In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.
@@ -18,9 +12,16 @@ Checks if a NodeBB update is available by comparing the installed version agains
 
 
 
+**Data Collection:**
+
+* Queries the NodeBB Read API endpoint `/api/admin/dashboard` using Bearer Authentication
+* Compares the installed NodeBB version against the latest available version
+* Reports the last restart timestamp including the user who triggered it
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

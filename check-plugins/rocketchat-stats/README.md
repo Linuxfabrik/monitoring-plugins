@@ -4,19 +4,20 @@
 
 Monitors Rocket.Chat server statistics via the API, including total users, active users, online users, channels, messages, uploads, and file storage usage.
 
-**Data Collection:**
-
-* Authenticates against the Rocket.Chat REST API and queries the statistics endpoint
-* Reports users (total, online, busy, away, offline), types and distribution (connected, activated, deactivated, app users), uploads (count and size), rooms (channels, private groups, direct messages, discussions, omnichannel), and messages (total, threads, per room type)
-
 **Important Notes:**
 
 * Requires a Rocket.Chat user with a strong password and the `view-statistics` permission (only)
 * See [Creating an API user account to monitor Rocket.Chat](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-ROCKETCHAT.md)
 
+**Data Collection:**
+
+* Authenticates against the Rocket.Chat REST API and queries the statistics endpoint
+* Reports users (total, online, busy, away, offline), types and distribution (connected, activated, deactivated, app users), uploads (count and size), rooms (channels, private groups, direct messages, discussions, omnichannel), and messages (total, threads, per room type)
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

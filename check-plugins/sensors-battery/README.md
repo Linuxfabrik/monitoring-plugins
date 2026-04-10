@@ -4,17 +4,18 @@
 
 Reports battery status information including charge percentage, time remaining, and power source (AC or battery). Returns OK if no battery is installed or if metrics cannot be determined.
 
-**Data Collection:**
-
-* Uses `psutil.sensors_battery()` to read battery charge percentage, time remaining, and power plug status
-
 **Important Notes:**
 
 * Run `sensors-detect --auto` beforehand to scan the system for hardware monitoring chips supported by libsensors / lm_sensors
 
+**Data Collection:**
+
+* Uses `psutil.sensors_battery()` to read battery charge percentage, time remaining, and power plug status
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

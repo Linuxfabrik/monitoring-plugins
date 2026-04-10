@@ -4,13 +4,6 @@
 
 Queries SNMP OIDs defined in a CSV file and checks the returned values against optional warning and critical thresholds. Supports SNMP v1, v2c, and v3 with authentication and privacy protocols.
 
-**Data Collection:**
-
-* Reads OID definitions from a CSV file in the `device-oids` directory (default: `any-any-any.csv`)
-* Calls `snmpget` in blocks of 25 OIDs per request to avoid "tooBig" errors
-* Supports re-calculation of values, custom units, human-readable formatting (bytes, seconds, bps), and computed values using Python expressions
-* Values can be shown in the first output line, filtered from the table, or excluded from perfdata
-
 **Important Notes:**
 
 * Only use SNMP if there is no other way. SNMP puts much strain on the target system and the monitoring software:
@@ -22,9 +15,17 @@ Queries SNMP OIDs defined in a CSV file and checks the returned values against o
 * The check divides the OID list automatically into blocks of 25 OIDs per SNMPGET request
 * If you acknowledge a value change in Icinga, the desired WARN or CRIT state remains. Delete `$TEMP/linuxfabrik-monitoring-plugins-snmp.db` to reset the inventory.
 
+**Data Collection:**
+
+* Reads OID definitions from a CSV file in the `device-oids` directory (default: `any-any-any.csv`)
+* Calls `snmpget` in blocks of 25 OIDs per request to avoid "tooBig" errors
+* Supports re-calculation of values, custom units, human-readable formatting (bytes, seconds, bps), and computed values using Python expressions
+* Values can be shown in the first output line, filtered from the table, or excluded from perfdata
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

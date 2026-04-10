@@ -4,6 +4,12 @@
 
 Checks the hit rate for open table cache lookups in MySQL/MariaDB. A low hit rate indicates that `table_open_cache` may need to be increased. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
 
+**Important Notes:**
+
+* Requires MySQL/MariaDB v5.1+
+* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
+
+
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `open_files_limit` and `table_open_cache`
@@ -13,11 +19,6 @@ Checks the hit rate for open table cache lookups in MySQL/MariaDB. A low hit rat
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Requires MySQL/MariaDB v5.1+
-* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 
 
 ## Fact Sheet

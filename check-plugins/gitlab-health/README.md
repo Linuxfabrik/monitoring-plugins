@@ -4,6 +4,13 @@
 
 Checks whether the GitLab application server is running by querying the `/-/health` endpoint. This is a lightweight probe that does not hit the database or verify other backend services. A successful response confirms that the application server is processing requests, but does not guarantee that the database or other services are ready.
 
+**Important Notes:**
+
+* GitLab 9.1.0 or later
+* The requesting client IP must be included in the GitLab monitoring allowlist. See [how to add IPs to the allowlist](https://docs.gitlab.com/ee/administration/monitoring/ip_allowlist.html).
+* GitLab Health Checks documentation: <https://docs.gitlab.com/ee/administration/monitoring/health_check.html>
+
+
 **Data Collection:**
 
 * Sends an HTTP GET request to the GitLab health endpoint (default: `http://localhost/-/health`)
@@ -12,12 +19,6 @@ Checks whether the GitLab application server is running by querying the `/-/heal
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* GitLab 9.1.0 or later
-* The requesting client IP must be included in the GitLab monitoring allowlist. See [how to add IPs to the allowlist](https://docs.gitlab.com/ee/administration/monitoring/ip_allowlist.html).
-* GitLab Health Checks documentation: <https://docs.gitlab.com/ee/administration/monitoring/health_check.html>
 
 
 ## Fact Sheet

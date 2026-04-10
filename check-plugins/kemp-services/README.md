@@ -4,6 +4,12 @@
 
 Monitors virtual services on a KEMP LoadMaster appliance via its REST API and alerts when any virtual service or its real servers are in a non-operational state.
 
+**Important Notes:**
+
+* Any KEMP LoadMaster appliance with REST API enabled
+
+
+
 **Data Collection:**
 
 * Queries the KEMP LoadMaster REST API endpoint `/access/listvs` using Basic authentication
@@ -13,11 +19,6 @@ Monitors virtual services on a KEMP LoadMaster appliance via its REST API and al
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Any KEMP LoadMaster appliance with REST API enabled
-
 
 
 ## Fact Sheet

@@ -4,21 +4,6 @@
 
 Imports a CSV file (local, remote via URL, or from an SMB share) into a temporary SQLite database and runs configurable SQL queries against it. Separate queries can be defined for warning and critical conditions. The query result - either a row count or a specific value - is checked against Nagios range expressions. This makes it possible to monitor any data source that can export CSV.
 
-**Data Collection:**
-
-* Reads CSV data from the local filesystem (`--filename`), from an HTTP/HTTPS URL (`--url`), or from an SMB share (`--url=smb://...`)
-* HTTP and SMB sources support authentication via `--username` and `--password`
-* The CSV data is imported into a local SQLite database table named `data`
-* Column names and types are defined via `--columns-query` using SQLite `CREATE TABLE` syntax (the actual CSV header names are irrelevant, columns are mapped positionally)
-* Large CSV files are handled in chunks (`--chunksize`, default: 1000 rows) to avoid memory exhaustion
-* Warning and critical SQL queries are executed independently against the `data` table
-* If a query returns one row with one column, that single value is checked against the threshold; otherwise the row count is checked
-* Result tables with more than 10 rows are truncated to the first 5 and last 5 entries
-
-**Compatibility:**
-
-* Cross-platform
-
 **Important Notes:**
 
 * `--filename` and `--url` are mutually exclusive
@@ -80,6 +65,22 @@ Helpful resources:
 
 * SQLite Tutorial: <https://www.sqlitetutorial.net>
 * SQLite Documentation: <https://www.sqlite.org/doclist.html>
+
+
+**Data Collection:**
+
+* Reads CSV data from the local filesystem (`--filename`), from an HTTP/HTTPS URL (`--url`), or from an SMB share (`--url=smb://...`)
+* HTTP and SMB sources support authentication via `--username` and `--password`
+* The CSV data is imported into a local SQLite database table named `data`
+* Column names and types are defined via `--columns-query` using SQLite `CREATE TABLE` syntax (the actual CSV header names are irrelevant, columns are mapped positionally)
+* Large CSV files are handled in chunks (`--chunksize`, default: 1000 rows) to avoid memory exhaustion
+* Warning and critical SQL queries are executed independently against the `data` table
+* If a query returns one row with one column, that single value is checked against the threshold; otherwise the row count is checked
+* Result tables with more than 10 rows are truncated to the first 5 and last 5 entries
+
+**Compatibility:**
+
+* Cross-platform
 
 
 ## Fact Sheet

@@ -4,14 +4,6 @@
 
 Checks storage engine configuration in MySQL/MariaDB, including fragmented tables that may benefit from `OPTIMIZE TABLE`, tables using enabled but unused storage engines, and tables with autoincrement values approaching their maximum capacity.
 
-**Data Collection:**
-
-* Queries `SHOW GLOBAL VARIABLES` for `innodb_file_per_table`
-* Queries `information_schema.tables` for per-engine statistics, fragmented tables, and table sizes
-* Queries `information_schema.engines` for available storage engines
-* Iterates over all databases to check autoincrement values against maximum integer capacity
-* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):check_storage_engines()
-
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
@@ -21,9 +13,18 @@ Checks storage engine configuration in MySQL/MariaDB, including fragmented table
 
 
 
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for `innodb_file_per_table`
+* Queries `information_schema.tables` for per-engine statistics, fragmented tables, and table sizes
+* Queries `information_schema.engines` for available storage engines
+* Iterates over all databases to check autoincrement values against maximum integer capacity
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):check_storage_engines()
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

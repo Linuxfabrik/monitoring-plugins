@@ -4,6 +4,16 @@
 
 Checks the time since last modification of one or more files or directories. Supports glob patterns (including recursive), SMB shares, and optional aggregation (mean or median) across all matched files. Can also alert on the number of files within a specific age range. Requires root or sudo.
 
+**Important Notes:**
+
+* SMB share access requires the optional `PySmbClient` and `smbprotocol` Python modules
+* Recursive globs (`**`) can cause high memory usage on large directory trees
+* The `--filename` and `--url` parameters are mutually exclusive
+* Thresholds support Nagios ranges (e.g. `15:` to alert when files are *younger* than 15 seconds, or `10` for a simple upper bound)
+* The `--warning-count` and `--critical-count` thresholds control how many files may exceed the age thresholds before the check alerts. This allows monitoring whether an application produces or removes files at the expected rate
+* When more than 10 files are outside the thresholds, the output is truncated to the first and last 5 entries
+
+
 **Data Collection:**
 
 * Uses Python's `pathlib.Path.glob()` for local files and `lib.smb` for SMB shares
@@ -15,15 +25,6 @@ Checks the time since last modification of one or more files or directories. Sup
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* SMB share access requires the optional `PySmbClient` and `smbprotocol` Python modules
-* Recursive globs (`**`) can cause high memory usage on large directory trees
-* The `--filename` and `--url` parameters are mutually exclusive
-* Thresholds support Nagios ranges (e.g. `15:` to alert when files are *younger* than 15 seconds, or `10` for a simple upper bound)
-* The `--warning-count` and `--critical-count` thresholds control how many files may exceed the age thresholds before the check alerts. This allows monitoring whether an application produces or removes files at the expected rate
-* When more than 10 files are outside the thresholds, the output is truncated to the first and last 5 entries
 
 
 ## Fact Sheet

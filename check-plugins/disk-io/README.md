@@ -10,6 +10,13 @@ Perfdata is emitted for each disk (busy_time, read_bytes, read_time, write_bytes
 
 This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.
 
+**Important Notes:**
+
+* `--count=5` (the default) while checking every minute means that the check will alert if any of your disks have been above a threshold in the last 5 minutes
+* iowait is only available on Linux. Values above 100% indicate that more than one CPU core is waiting for I/O
+* Plugin execution may take a moment due to process enumeration when `--top` is enabled
+
+
 **Data Collection:**
 
 * Uses `psutil` to collect per-disk I/O counters (read_bytes, write_bytes, busy_time, read_time, write_time)
@@ -24,12 +31,6 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 **Compatibility:**
 
 * Linux
-
-**Important Notes:**
-
-* `--count=5` (the default) while checking every minute means that the check will alert if any of your disks have been above a threshold in the last 5 minutes
-* iowait is only available on Linux. Values above 100% indicate that more than one CPU core is waiting for I/O
-* Plugin execution may take a moment due to process enumeration when `--top` is enabled
 
 
 ## Fact Sheet

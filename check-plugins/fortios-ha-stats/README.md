@@ -4,6 +4,12 @@
 
 Monitors the high-availability cluster status on FortiGate appliances running FortiOS via the REST API. Alerts if the number of HA members differs from the expected count (default: 2). Reports serial number, role, priority, hostname, and synchronization status per member.
 
+**Important Notes:**
+
+* FortiGate appliances running FortiOS with REST API access and HA configured
+
+
+
 **Data Collection:**
 
 * Queries the FortiOS REST API endpoint `/api/v2/monitor/system/ha-statistics/select/` to retrieve HA member details
@@ -14,11 +20,6 @@ Monitors the high-availability cluster status on FortiGate appliances running Fo
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* FortiGate appliances running FortiOS with REST API access and HA configured
-
 
 
 ## Fact Sheet

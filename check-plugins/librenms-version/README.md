@@ -4,21 +4,22 @@
 
 Displays LibreNMS instance information including version, database schema, Python and RRDtool versions via the LibreNMS API. This check does not track new releases since LibreNMS can update itself when running the Git version.
 
-**Data Collection:**
-
-* Queries the LibreNMS API endpoint `/api/v0/system` to retrieve instance metadata
-* Reports LibreNMS version, Git branch, database schema, database server version, Net-SNMP, PHP, Python, and RRDtool versions
-* Requires a LibreNMS API token with "Global Read" permissions (create one via LibreNMS > Gear Icon > API > API Settings)
-
 **Important Notes:**
 
 * Consider also monitoring the EOL dates for Apache, MariaDB, PHP and other components using the corresponding `*-version` check plugins
 
 
 
+**Data Collection:**
+
+* Queries the LibreNMS API endpoint `/api/v0/system` to retrieve instance metadata
+* Reports LibreNMS version, Git branch, database schema, database server version, Net-SNMP, PHP, Python, and RRDtool versions
+* Requires a LibreNMS API token with "Global Read" permissions (create one via LibreNMS > Gear Icon > API > API Settings)
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

@@ -4,6 +4,11 @@
 
 Collects statistics across multiple snapshots in a restic repository, including the number of unique files and their total size. Reports these as perfdata for trending and capacity planning.
 
+**Important Notes:**
+
+* Requires root or sudo
+* Refer to the [online manual](https://restic.readthedocs.io/en/latest/index.html) for more details about restic
+
 **Data Collection:**
 
 * Executes `restic --json --repo=... stats` with the specified filters and counting mode
@@ -14,14 +19,10 @@ Collects statistics across multiple snapshots in a restic repository, including 
     * `raw-data`: Counts the size of blobs in the repository, regardless of how many files reference them
     * `restore-size`: Counts the size of the restored files (default)
 
-**Important Notes:**
-
-* Requires root or sudo
-* Refer to the [online manual](https://restic.readthedocs.io/en/latest/index.html) for more details about restic
-
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

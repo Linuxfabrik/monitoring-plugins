@@ -4,15 +4,6 @@
 
 Counts system-wide socket connections by type (TCP, TCP6, UDP, UDP6) and state. Output is grouped by connection type and status, ordered by the number of connections (descending). Useful for detecting connection leaks or applications that do not properly close sockets.
 
-**Data Collection:**
-
-* Uses `psutil.net_connections()` to enumerate all system-wide network connections
-* Connections can be filtered by `--conn-type` (tcp, tcp6, udp, udp6) and `--conn-status` (established, listen, close_wait, etc.)
-
-**Compatibility:**
-
-* Cross-platform
-
 **Important Notes:**
 
 Meaning of connection type `--conn-type` parameter:
@@ -37,6 +28,16 @@ Meaning of connection status `--conn-status` parameter:
 * `SYN_RECV`: Active/initiate synchronization received and the connection under way.
 * `SYN_SENT`: Actively trying to establish connection.
 * `TIME_WAIT`: Wait after close for remote shutdown retransmission.
+
+
+**Data Collection:**
+
+* Uses `psutil.net_connections()` to enumerate all system-wide network connections
+* Connections can be filtered by `--conn-type` (tcp, tcp6, udp, udp6) and `--conn-status` (established, listen, close_wait, etc.)
+
+**Compatibility:**
+
+* Cross-platform
 
 
 ## Fact Sheet

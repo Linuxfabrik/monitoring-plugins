@@ -4,13 +4,6 @@
 
 Scans the system for approximately 100 known rootkits by checking for their characteristic files, directories, and kernel symbols. New rootkit definitions can be added by dropping YAML files into the `assets` folder. Additionally performs in-depth checks for the Suckit rootkit (link count of `/sbin/init` and hidden file detection).
 
-**Data Collection:**
-
-* Loads rootkit definitions from YAML files in the `assets` directory
-* Checks for rootkit-specific files and directories on the filesystem
-* Scans kernel symbols (`/proc/kallsyms` or `/proc/ksyms`) for rootkit indicators
-* Performs extra checks for Suckit rootkit (link count of `/sbin/init`, hidden file detection via `.xrk` and `.mem` suffixes)
-
 **Important Notes:**
 
 * Rootkit YAML file structure (example from `assets/scanrootkit-kbeast.yml`):
@@ -33,9 +26,17 @@ Scans the system for approximately 100 known rootkits by checking for their char
 * Feel free to add more rootkit definitions by submitting a pull request
 * Inspired by the [Rootkit Hunter Project](https://rkhunter.sourceforge.net/), which has been inactive since 2018. All rkhunter rootkit definitions have been translated to YAML and made available with this check plugin.
 
+**Data Collection:**
+
+* Loads rootkit definitions from YAML files in the `assets` directory
+* Checks for rootkit-specific files and directories on the filesystem
+* Scans kernel symbols (`/proc/kallsyms` or `/proc/ksyms`) for rootkit indicators
+* Performs extra checks for Suckit rootkit (link count of `/sbin/init`, hidden file detection via `.xrk` and `.mem` suffixes)
+
 **Compatibility:**
 
 * Linux
+
 
 
 ## Fact Sheet

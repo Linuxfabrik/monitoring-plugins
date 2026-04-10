@@ -4,6 +4,12 @@
 
 Checks the rate of joins executed without indexes in MySQL/MariaDB. A high number of joins without indexes per day indicates missing indexes, which can severely impact query performance.
 
+**Important Notes:**
+
+* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
+
+
+
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `join_buffer_size`
@@ -11,15 +17,10 @@ Checks the rate of joins executed without indexes in MySQL/MariaDB. A high numbe
 * Calculates the total number of joins without indexes and the daily rate
 * Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
 
-**Important Notes:**
-
-* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
-
-
-
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

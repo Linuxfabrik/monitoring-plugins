@@ -4,6 +4,12 @@
 
 Monitors Java heap and non-heap memory usage of the Starface PBX. If the JVM reports unlimited memory for heap or non-heap, no percentage is calculated and no threshold check is performed for that memory area.
 
+**Important Notes:**
+
+* Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
+
+
+
 **Data Collection:**
 
 * Connects via socket to the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) on port 6556
@@ -13,11 +19,6 @@ Monitors Java heap and non-heap memory usage of the Starface PBX. If the JVM rep
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
-
 
 
 ## Fact Sheet

@@ -4,6 +4,13 @@
 
 Collects and displays key system information: OS and kernel version, CPU configuration (physical, logical, and usable cores plus frequency), RAM, disk count, virtualization type, network interfaces, listening ports, systemd services and timers, cron jobs, installed packages, and user accounts. Optionally queries dmidecode for firmware and hardware details, and fetches the public IP address. This check is purely informational and never raises alerts. Requires root or sudo.
 
+**Important Notes:**
+
+* Plugin execution may take up to 30 seconds, depending on the amount or type of installed software
+* The `--dmidecode` option requires sudo permissions
+* If `psutil` is not installed, some metrics (CPU frequency, network interfaces) will be unavailable
+
+
 **Data Collection:**
 
 * Gathers hardware and OS data via `psutil` (if available), `lsblk`, `stat`, `/proc/mounts`, and various `systemctl` commands
@@ -15,12 +22,6 @@ Collects and displays key system information: OS and kernel version, CPU configu
 **Compatibility:**
 
 * Linux
-
-**Important Notes:**
-
-* Plugin execution may take up to 30 seconds, depending on the amount or type of installed software
-* The `--dmidecode` option requires sudo permissions
-* If `psutil` is not installed, some metrics (CPU frequency, network interfaces) will be unavailable
 
 
 ## Fact Sheet

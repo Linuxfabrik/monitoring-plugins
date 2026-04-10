@@ -4,6 +4,12 @@
 
 Checks the installed Valkey version against the endoflife.date API and alerts if the version is end-of-life or if newer releases are available. The check must run on the Valkey server itself, as it uses `valkey-server --version` to determine the installed version.
 
+**Important Notes:**
+
+* Tested with Valkey 7.2 and 8.0
+
+
+
 **Data Collection:**
 
 * Executes `valkey-server --version` locally to determine the installed version
@@ -13,11 +19,6 @@ Checks the installed Valkey version against the endoflife.date API and alerts if
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Tested with Valkey 7.2 and 8.0
-
 
 
 ## Fact Sheet

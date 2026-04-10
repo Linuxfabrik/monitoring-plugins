@@ -4,11 +4,6 @@
 
 Retrieves recent server-side errors from NodeBB via the admin API. Alerts when errors are found in the error log.
 
-**Data Collection:**
-
-* Queries the NodeBB Read API endpoint `/api/admin/advanced/errors` using Bearer Authentication
-* Reports the count of HTTP 503 (too busy) and HTTP 404 (not found) responses from today
-
 **Important Notes:**
 
 * You need to issue a bearer token of type "user" in the NodeBB admin panel: Settings > API Access > Create Token > Specify your User ID and Description (for example "Linuxfabrik API Token"). In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.
@@ -17,9 +12,15 @@ Retrieves recent server-side errors from NodeBB via the admin API. Alerts when e
 
 
 
+**Data Collection:**
+
+* Queries the NodeBB Read API endpoint `/api/admin/advanced/errors` using Bearer Authentication
+* Reports the count of HTTP 503 (too busy) and HTTP 404 (not found) responses from today
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

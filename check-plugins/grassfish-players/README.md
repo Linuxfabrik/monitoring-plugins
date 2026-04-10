@@ -4,6 +4,13 @@
 
 Monitors Grassfish digital signage players via the Grassfish API. Lists players whose data transfer is overdue, whose last access exceeds the configured threshold, or who are unlicensed. The player list can be filtered. Requires a Grassfish hostname and API token. Supports extended reporting via `--lengthy`.
 
+**Important Notes:**
+
+* Tested with Grassfish API v1.12
+* May take more than 10 seconds to execute depending on the number of players. Consider increasing `--timeout` if needed.
+* `--box-id` and `--custom-id` support Python regular expressions (case-insensitive).
+
+
 **Data Collection:**
 
 * Queries the Grassfish API (`/gv2/webservices/API` by default) to retrieve all player data
@@ -14,12 +21,6 @@ Monitors Grassfish digital signage players via the Grassfish API. Lists players 
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Tested with Grassfish API v1.12
-* May take more than 10 seconds to execute depending on the number of players. Consider increasing `--timeout` if needed.
-* `--box-id` and `--custom-id` support Python regular expressions (case-insensitive).
 
 
 ## Fact Sheet

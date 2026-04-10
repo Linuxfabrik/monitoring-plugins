@@ -4,6 +4,12 @@
 
 Queries the Name Service Switch (NSS) for entries in system databases such as group, hosts, networks, passwd, protocols, or services using the `getent` command. Alerts if the lookup fails or if a specific key is not found. This is particularly useful for verifying that directory services (FreeIPA, Active Directory via sssd) are resolving users and groups correctly.
 
+**Important Notes:**
+
+* Calling `getent --database=passwd` without `--key` lists only local users, not users on a directory server. To check the availability of a FreeIPA or Active Directory connected via sssd, add the name of a known network account via `--key` to test if network users are resolved correctly. For example: `getent --database=passwd --key=<ldapuser>`
+* For details see `man getent`
+
+
 **Data Collection:**
 
 * Executes `/usr/bin/getent <database> [key ...]` and evaluates the exit code
@@ -11,11 +17,6 @@ Queries the Name Service Switch (NSS) for entries in system databases such as gr
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Calling `getent --database=passwd` without `--key` lists only local users, not users on a directory server. To check the availability of a FreeIPA or Active Directory connected via sssd, add the name of a known network account via `--key` to test if network users are resolved correctly. For example: `getent --database=passwd --key=<ldapuser>`
-* For details see `man getent`
 
 
 ## Fact Sheet

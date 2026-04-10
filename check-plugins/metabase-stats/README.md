@@ -4,6 +4,11 @@
 
 Retrieves recent activity and usage statistics from a Metabase instance via its API. Reports active users, executed queries, dashboards, and other operational metrics. Credentials are cached to reduce API calls.
 
+**Important Notes:**
+
+* Requires a Metabase superuser account. Logins are rate-limited by Metabase for security, which is why credentials are cached. See the [Metabase API documentation](https://www.metabase.com/learn/developing-applications/advanced-metabase/metabase-api.html#authenticate-your-requests-with-a-session-token) for details
+
+
 **Data Collection:**
 
 * Authenticates against the Metabase API using username/password and caches the session token in SQLite (default expiry: ~14 days, matching Metabase's default session lifetime)
@@ -13,10 +18,6 @@ Retrieves recent activity and usage statistics from a Metabase instance via its 
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Requires a Metabase superuser account. Logins are rate-limited by Metabase for security, which is why credentials are cached. See the [Metabase API documentation](https://www.metabase.com/learn/developing-applications/advanced-metabase/metabase-api.html#authenticate-your-requests-with-a-session-token) for details
 
 
 ## Fact Sheet

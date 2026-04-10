@@ -4,20 +4,21 @@
 
 Checks MySQL/MariaDB user security settings, including accounts with empty passwords, accounts accessible from any host, and accounts with excessive privileges. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):security_recommendations(), v1.9.8.
 
-**Data Collection:**
-
-* Queries `mysql.user` and `mysql.global_priv` (on MariaDB 10.4+) to identify insecure accounts
-* The system users `mysql.sys` and `mariadb.sys` are excluded because they intentionally use invalid passwords as a security measure
-
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 
 
 
+**Data Collection:**
+
+* Queries `mysql.user` and `mysql.global_priv` (on MariaDB 10.4+) to identify insecure accounts
+* The system users `mysql.sys` and `mariadb.sys` are excluded because they intentionally use invalid passwords as a security measure
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

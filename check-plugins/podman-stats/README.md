@@ -4,6 +4,13 @@
 
 Reports CPU and memory usage for all running Podman containers. CPU usage is normalized by dividing by the number of available host CPU cores, so 100% means all host CPUs are fully utilized. For Docker, use the [docker-stats](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/docker-stats) check instead.
 
+**Important Notes:**
+
+* Podman runs rootless by default. Without `sudo`, the check only sees containers of the executing user. To monitor containers across all users, run the check via `sudo` (the Icinga Director basket and sudoers file are pre-configured for this).
+* Plugin execution may take up to 10 seconds.
+* Since `podman stats` only returns byte-level data in a human-readable format (e.g. *221.2kB*), calculating network I/O and block I/O is imprecise. Therefore, these values are only reported as aggregate perfdata.
+* Memory usage is relative to the container's memory limit if one is set, otherwise relative to the total host memory.
+
 **Data Collection:**
 
 * Executes `podman info --format json` to get host CPU count, image count, and total memory
@@ -12,16 +19,10 @@ Reports CPU and memory usage for all running Podman containers. CPU usage is nor
 * Uses a local SQLite database for CPU trend tracking across runs
 * Container names are shortened after the replica number by default (use `--full-name` for the full name)
 
-**Important Notes:**
-
-* Podman runs rootless by default. Without `sudo`, the check only sees containers of the executing user. To monitor containers across all users, run the check via `sudo` (the Icinga Director basket and sudoers file are pre-configured for this).
-* Plugin execution may take up to 10 seconds.
-* Since `podman stats` only returns byte-level data in a human-readable format (e.g. *221.2kB*), calculating network I/O and block I/O is imprecise. Therefore, these values are only reported as aggregate perfdata.
-* Memory usage is relative to the container's memory limit if one is set, otherwise relative to the total host memory.
-
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

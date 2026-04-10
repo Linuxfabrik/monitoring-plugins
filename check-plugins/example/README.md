@@ -4,17 +4,20 @@
 
 Skeleton plugin demonstrating all standard patterns and library functions: argparse with append/deprecated/suppress parameters, (success, result) error handling, SQLite delta calculations (no continuous counters), regex filtering, `--lengthy` table output, human-readable formatting (bytes, seconds, numbers), perfdata, get_state/get_worst, and Grafana-compatible panel design. Use this as a template for new check plugins.
 
+**Important Notes:**
+
+* On the first run, returns "Waiting for more data." until at least two measurements are available
+* After a system reboot, counter values may be lower than the previous measurement. The check detects this (negative delta) and returns "Waiting for more data." until the next valid measurement pair
+
 **Data Collection:**
 
 * Executes a shell command (`cat /etc/os-release` as a placeholder) to collect data
 * Items can be filtered by `--name` (exact match) and excluded by `--ignore-regex` (Python regular expression)
 * Uses SQLite state persistence between runs to calculate deltas (e.g. bytes per second)
-* On the first run, returns "Waiting for more data." until at least two measurements are available
-* After a system reboot, counter values may be lower than the previous measurement. The check detects this (negative delta) and returns "Waiting for more data." until the next valid measurement pair
 
 **Compatibility:**
 
-* Cross-platform: Linux, Windows, and all psutil-supported systems
+* Cross-platform
 
 ## Fact Sheet
 

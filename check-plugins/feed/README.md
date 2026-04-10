@@ -4,17 +4,6 @@
 
 Monitors an RSS or Atom feed for new entries and alerts when new items appear within a configurable time window (default: 3 days). If Icinga callback is enabled, the alert is automatically cleared once the corresponding service is acknowledged in Icinga. After the time window expires, the alert clears regardless of acknowledgement status.
 
-**Data Collection:**
-
-* Fetches and parses the RSS or Atom feed from the configured URL using the built-in `feedparser` library
-* By default, selects the newest feed item published today or older. Use `--latest` to always pick the newest item, even if its timestamp is in the future
-* HTML is stripped from the feed message
-* If `--icinga-callback` is enabled, the check queries the Icinga API for the service acknowledgement state and auto-clears alerts when the service is acknowledged. This requires an Icinga API user with `objects/query/service` permissions
-
-**Compatibility:**
-
-* Cross-platform
-
 **Important Notes:**
 
 * Set a reasonable check interval. Usually it is a waste of bandwidth to poll feeds more often than once per hour
@@ -26,6 +15,18 @@ object ApiUser "linuxfabrik-check-api-user" {
   permissions = [ "objects/query/service" ]
 }
 ```
+
+
+**Data Collection:**
+
+* Fetches and parses the RSS or Atom feed from the configured URL using the built-in `feedparser` library
+* By default, selects the newest feed item published today or older. Use `--latest` to always pick the newest item, even if its timestamp is in the future
+* HTML is stripped from the feed message
+* If `--icinga-callback` is enabled, the check queries the Icinga API for the service acknowledgement state and auto-clears alerts when the service is acknowledged. This requires an Icinga API user with `objects/query/service` permissions
+
+**Compatibility:**
+
+* Cross-platform
 
 
 ## Fact Sheet

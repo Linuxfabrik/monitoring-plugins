@@ -4,6 +4,11 @@
 
 Monitors running processes and alerts on process count, aggregated memory usage, or aggregated CPU usage. Processes can be filtered by name, command-line arguments, and user name using regular expressions. Optionally lists the top processes by CPU time and memory usage.
 
+**Important Notes:**
+
+* Some process names in psutil do not match the ones from `ps aux`. Use the troubleshooting section below to get the correct process names.
+* Memory fields vary by platform. On Linux: rss, vms, shared, text, lib, data, dirty. On Windows: rss, vms, num_page_faults, peak_rss, peak_paged_pool, paged_pool, peak_nonpaged_pool, nonpaged_pool, peak_vms, private. Fields not available on the current platform are automatically omitted.
+
 **Data Collection:**
 
 * Uses `psutil.process_iter()` to iterate over all running processes
@@ -13,14 +18,10 @@ Monitors running processes and alerts on process count, aggregated memory usage,
 * CPU usage (`--warning-cpu-percent`/`--critical-cpu-percent`) requires a local SQLite database for delta calculation between runs. A value of 100% equals one fully utilized CPU core. On multi-core systems, values above 100% are possible.
 * Supports extended reporting via `--lengthy`, which adds all platform-specific `memory_info()` fields to the `--top` table
 
-**Important Notes:**
-
-* Some process names in psutil do not match the ones from `ps aux`. Use the troubleshooting section below to get the correct process names.
-* Memory fields vary by platform. On Linux: rss, vms, shared, text, lib, data, dirty. On Windows: rss, vms, num_page_faults, peak_rss, peak_paged_pool, paged_pool, peak_nonpaged_pool, nonpaged_pool, peak_vms, private. Fields not available on the current platform are automatically omitted.
-
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

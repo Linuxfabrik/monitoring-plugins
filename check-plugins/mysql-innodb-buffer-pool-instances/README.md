@@ -4,12 +4,6 @@
 
 Checks the InnoDB buffer pool instance configuration in MySQL/MariaDB. The number of buffer pool instances should follow best practices based on the total buffer pool size: 1 instance if the buffer pool is <= 1 GiB, otherwise 1 instance per GiB (up to a maximum of 64).
 
-**Data Collection:**
-
-* Queries `SHOW GLOBAL VARIABLES` for `innodb_buffer_pool_instances` and `innodb_buffer_pool_size`
-* Checks the InnoDB storage engine availability before proceeding
-* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_innodb(), v1.9.8
-
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
@@ -17,9 +11,16 @@ Checks the InnoDB buffer pool instance configuration in MySQL/MariaDB. The numbe
 
 
 
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for `innodb_buffer_pool_instances` and `innodb_buffer_pool_size`
+* Checks the InnoDB storage engine availability before proceeding
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_innodb(), v1.9.8
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

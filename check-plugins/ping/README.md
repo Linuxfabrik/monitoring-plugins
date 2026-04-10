@@ -4,19 +4,20 @@
 
 Sends ICMP ECHO_REQUEST packets to a network host using the system's built-in `ping` command. Reports round-trip time (min, avg, max, mdev) and packet loss percentage. Without any parameters, it sends five packets with a 0.2 second interval and exits after five seconds timeout at the latest.
 
-**Data Collection:**
-
-* Executes the system `ping` command with quiet output (`-q`) to collect summary statistics
-* Works with both IPv4 and IPv6
-
 **Important Notes:**
 
 * This check is designed to be as tolerant as possible. It only reports CRIT when the host is definitively unreachable (0 received packets). Even with high packet loss, a single returned packet is sufficient to report OK.
 * The `--always-ok` parameter is useful for hosts that do not allow ICMP but can still execute check-plugins. The packet loss will be reported, but the state will be OK.
 
+**Data Collection:**
+
+* Executes the system `ping` command with quiet output (`-q`) to collect summary statistics
+* Works with both IPv4 and IPv6
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

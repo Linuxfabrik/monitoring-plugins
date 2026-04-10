@@ -4,13 +4,6 @@
 
 Checks the connection usage rate, the rate of aborted connections, and whether name resolution is active for new connections on MySQL/MariaDB. Provides recommendations when thresholds are exceeded.
 
-**Data Collection:**
-
-* Queries `SHOW GLOBAL VARIABLES` for `interactive_timeout`, `max_connections`, `skip_name_resolve`, and `wait_timeout`
-* Queries `SHOW GLOBAL STATUS` for `Aborted_connects`, `Connections`, `Max_used_connections`, `Max_used_connections_time`, `Threads_connected`, and `Threads_running`
-* Reports current, peak, and aborted connection statistics
-* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
-
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
@@ -18,9 +11,17 @@ Checks the connection usage rate, the rate of aborted connections, and whether n
 
 
 
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for `interactive_timeout`, `max_connections`, `skip_name_resolve`, and `wait_timeout`
+* Queries `SHOW GLOBAL STATUS` for `Aborted_connects`, `Connections`, `Max_used_connections`, `Max_used_connections_time`, `Threads_connected`, and `Threads_running`
+* Reports current, peak, and aborted connection statistics
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

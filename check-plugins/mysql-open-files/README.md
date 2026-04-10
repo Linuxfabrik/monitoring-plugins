@@ -4,6 +4,12 @@
 
 Checks the open file usage in MySQL/MariaDB as a percentage of the configured `open_files_limit`. If the usage approaches the limit, the server may start refusing new connections or fail to open tables.
 
+**Important Notes:**
+
+* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
+
+
+
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `open_files_limit`
@@ -11,15 +17,10 @@ Checks the open file usage in MySQL/MariaDB as a percentage of the configured `o
 * Calculates the percentage of open files relative to the limit
 * Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
 
-**Important Notes:**
-
-* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
-
-
-
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

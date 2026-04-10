@@ -4,12 +4,6 @@
 
 Connects to a MySQL/MariaDB database and runs configurable SQL queries for warning and critical conditions. The query result - either a row count or a specific value - is checked against Nagios range expressions. This is useful for custom application-level monitoring where standard MySQL checks do not apply.
 
-**Data Collection:**
-
-* Connects to the MySQL/MariaDB server using the provided credentials
-* Executes the `SELECT` statement(s) provided via `--warning-query` and/or `--critical-query`
-* Result tables are shown in the output (truncated to the first 5 and last 5 rows if more than 10 rows are returned)
-
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
@@ -18,9 +12,16 @@ Connects to a MySQL/MariaDB database and runs configurable SQL queries for warni
 
 
 
+**Data Collection:**
+
+* Connects to the MySQL/MariaDB server using the provided credentials
+* Executes the `SELECT` statement(s) provided via `--warning-query` and/or `--critical-query`
+* Result tables are shown in the output (truncated to the first 5 and last 5 rows if more than 10 rows are returned)
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

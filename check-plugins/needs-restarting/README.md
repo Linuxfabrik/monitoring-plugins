@@ -4,6 +4,13 @@
 
 Checks for processes that were started before they or one of their dependencies were updated. Useful for detecting servers that have been patched but not yet rebooted. Requires root or sudo.
 
+**Important Notes:**
+
+* Red Hat-based distributions (RHEL, CentOS, Fedora, etc.)
+* Debian-based distributions (Debian, Ubuntu, etc.)
+* May take more than 10 seconds on Red Hat to execute
+
+
 **Data Collection:**
 
 * On Red Hat: Uses the `needs-restarting` command. First checks `needs-restarting --reboothint` (return code 1 means reboot required), then `needs-restarting` for a process list of updated services.
@@ -12,12 +19,6 @@ Checks for processes that were started before they or one of their dependencies 
 **Compatibility:**
 
 * Linux
-
-**Important Notes:**
-
-* Red Hat-based distributions (RHEL, CentOS, Fedora, etc.)
-* Debian-based distributions (Debian, Ubuntu, etc.)
-* May take more than 10 seconds on Red Hat to execute
 
 
 ## Fact Sheet

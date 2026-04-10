@@ -4,20 +4,21 @@
 
 Checks the Windows Time Service (w32tm) status, including clock offset, stratum, and time source. Useful for diagnosing time synchronization issues on Windows servers. Alerts when the clock offset exceeds the configured thresholds.
 
-**Data Collection:**
-
-* Executes `w32tm /query /status /verbose` to obtain detailed time synchronization status
-* Parses Leap Indicator, Stratum, Precision, Root Delay, Root Dispersion, Phase Offset, Clock Rate, Last Sync Error, and Time since Last Good Sync Time
-
 **Important Notes:**
 
 * Make sure that `cmd.exe` is set to English output. Otherwise this check plugin may not work.
 
 
 
+**Data Collection:**
+
+* Executes `w32tm /query /status /verbose` to obtain detailed time synchronization status
+* Parses Leap Indicator, Stratum, Precision, Root Delay, Root Dispersion, Phase Offset, Clock Rate, Last Sync Error, and Time since Last Good Sync Time
+
 **Compatibility:**
 
 * Windows
+
 
 
 ## Fact Sheet

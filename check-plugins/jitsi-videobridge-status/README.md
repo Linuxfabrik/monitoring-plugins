@@ -4,6 +4,12 @@
 
 Checks the Jitsi Videobridge health state via the `/about/health` REST endpoint. Returns OK if the bridge is healthy, WARN or CRIT otherwise.
 
+**Important Notes:**
+
+* Jitsi Videobridge v2.1+
+
+
+
 **Data Collection:**
 
 * Queries the `/about/health` endpoint on the Jitsi Videobridge private REST interface
@@ -14,11 +20,6 @@ Checks the Jitsi Videobridge health state via the `/about/health` REST endpoint.
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Jitsi Videobridge v2.1+
-
 
 
 ## Fact Sheet

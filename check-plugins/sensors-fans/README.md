@@ -4,17 +4,18 @@
 
 Reports hardware fan speeds in RPM (rounds per minute). Returns OK if no fans are detected.
 
-**Data Collection:**
-
-* Uses `psutil.sensors_fans()` to read fan speed data from hardware sensors
-
 **Important Notes:**
 
 * Run `sensors-detect --auto` beforehand to scan the system for hardware monitoring chips supported by libsensors / lm_sensors
 
+**Data Collection:**
+
+* Uses `psutil.sensors_fans()` to read fan speed data from hardware sensors
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

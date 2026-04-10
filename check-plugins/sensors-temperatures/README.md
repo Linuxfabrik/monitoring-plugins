@@ -4,18 +4,19 @@
 
 Reports hardware temperature sensor readings (CPU, disk, chipset, etc.) in Celsius. Automatically checks against hardware-defined thresholds. Returns OK if the sensors are not supported by the OS.
 
+**Important Notes:**
+
+* Run `sensors-detect --auto` beforehand to scan the system for hardware monitoring chips supported by libsensors / lm_sensors
+
 **Data Collection:**
 
 * Uses `psutil.sensors_temperatures()` to read temperature data from hardware sensors
 * Uses the hardware-defined high and critical thresholds for each sensor (no manual threshold configuration needed)
 
-**Important Notes:**
-
-* Run `sensors-detect --auto` beforehand to scan the system for hardware monitoring chips supported by libsensors / lm_sensors
-
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

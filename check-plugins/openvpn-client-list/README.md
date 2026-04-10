@@ -4,21 +4,22 @@
 
 Lists all clients currently connected to an OpenVPN server by parsing the status log file. Reports client name, remote address, bytes received and sent, and connection time. Optionally checks the number of connected clients against thresholds.
 
-**Data Collection:**
-
-* Reads the OpenVPN status log file (default: `/var/log/openvpn-status.log`)
-* Parses `CLIENT_LIST` entries to extract client name, external IP, internal IP, and connection time
-* The status log file must be configured on the OpenVPN server using `status /var/log/openvpn-status.log`
-
 **Important Notes:**
 
 * Requires root or sudo to read the OpenVPN status log file.
 
 
 
+**Data Collection:**
+
+* Reads the OpenVPN status log file (default: `/var/log/openvpn-status.log`)
+* Parses `CLIENT_LIST` entries to extract client name, external IP, internal IP, and connection time
+* The status log file must be configured on the OpenVPN server using `status /var/log/openvpn-status.log`
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

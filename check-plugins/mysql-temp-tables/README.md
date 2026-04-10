@@ -4,21 +4,22 @@
 
 Checks the ratio of on-disk versus in-memory temporary tables in MySQL/MariaDB. A high rate of disk-based temporary tables indicates that `tmp_table_size` or `max_heap_table_size` may need to be increased. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
 
-**Data Collection:**
-
-* Queries `SHOW GLOBAL VARIABLES` for `max_heap_table_size` and `tmp_table_size`
-* Queries `SHOW GLOBAL STATUS` for `Created_tmp_disk_tables` and `Created_tmp_tables`
-* Calculates the disk temporary table rate as `Created_tmp_disk_tables / Created_tmp_tables * 100`
-
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 
 
 
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for `max_heap_table_size` and `tmp_table_size`
+* Queries `SHOW GLOBAL STATUS` for `Created_tmp_disk_tables` and `Created_tmp_tables`
+* Calculates the disk temporary table rate as `Created_tmp_disk_tables / Created_tmp_tables * 100`
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

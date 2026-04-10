@@ -4,6 +4,13 @@
 
 Checks system requirements and kernel settings specifically for MySQL/MariaDB, including swap configuration, open file limits, and other OS-level parameters that affect database performance and stability. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):get_kernel_info(), v1.9.8.
 
+**Important Notes:**
+
+* Must be running locally on the MySQL/MariaDB server to check the system requirements
+* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
+* Unlike MySQLTuner, this plugin does not check if all processes other than MySQL/MariaDB use more than 15% of total system memory. You may intentionally run a small DB on an application server, or the DB may not need 85% of available RAM.
+
+
 **Data Collection:**
 
 * Counts open ports using `psutil` (if available)
@@ -13,12 +20,6 @@ Checks system requirements and kernel settings specifically for MySQL/MariaDB, i
 **Compatibility:**
 
 * Linux
-
-**Important Notes:**
-
-* Must be running locally on the MySQL/MariaDB server to check the system requirements
-* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
-* Unlike MySQLTuner, this plugin does not check if all processes other than MySQL/MariaDB use more than 15% of total system memory. You may intentionally run a small DB on an application server, or the DB may not need 85% of available RAM.
 
 
 ## Fact Sheet

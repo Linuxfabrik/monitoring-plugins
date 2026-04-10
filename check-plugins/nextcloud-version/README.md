@@ -4,6 +4,12 @@
 
 Checks the installed Nextcloud version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable. Requires root or sudo.
 
+**Important Notes:**
+
+* Must run on the Nextcloud server itself to access the installation directory
+
+
+
 **Data Collection:**
 
 * Requires sudo permissions for the UID under which the Nextcloud application runs
@@ -14,11 +20,6 @@ Checks the installed Nextcloud version against the endoflife.date API and alerts
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Must run on the Nextcloud server itself to access the installation directory
-
 
 
 ## Fact Sheet

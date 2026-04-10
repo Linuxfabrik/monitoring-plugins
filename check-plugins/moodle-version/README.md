@@ -4,6 +4,12 @@
 
 Checks whether the installed Moodle version is end-of-life (EOL) by comparing the local version against the endoflife.date API. Optionally alerts on available major, minor, or patch releases (each independently configurable).
 
+**Important Notes:**
+
+* Requires local file system access to the Moodle installation directory
+
+
+
 **Data Collection:**
 
 * Reads the installed Moodle version from `version.php` in the local Moodle installation directory (default: `/var/www/html/moodle`)
@@ -13,11 +19,6 @@ Checks whether the installed Moodle version is end-of-life (EOL) by comparing th
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Requires local file system access to the Moodle installation directory
-
 
 
 ## Fact Sheet

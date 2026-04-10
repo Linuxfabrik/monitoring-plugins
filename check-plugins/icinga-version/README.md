@@ -4,6 +4,12 @@
 
 Checks the installed Icinga version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
+**Important Notes:**
+
+* Must run on the host where the Icinga2 daemon is installed
+* The check returns UNKNOWN if the `icinga2` binary is not found on the system
+
+
 **Data Collection:**
 
 * Runs `icinga2 --version` locally to determine the installed version
@@ -13,11 +19,6 @@ Checks the installed Icinga version against the endoflife.date API and alerts if
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Must run on the host where the Icinga2 daemon is installed
-* The check returns UNKNOWN if the `icinga2` binary is not found on the system
 
 
 ## Fact Sheet

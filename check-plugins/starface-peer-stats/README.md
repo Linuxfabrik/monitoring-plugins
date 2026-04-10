@@ -4,6 +4,12 @@
 
 Reports SIP peer statistics of a Starface PBX, including online/offline counts for both monitored and unmonitored peers.
 
+**Important Notes:**
+
+* Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
+
+
+
 **Data Collection:**
 
 * Connects via socket to the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) on port 6556
@@ -13,11 +19,6 @@ Reports SIP peer statistics of a Starface PBX, including online/offline counts f
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
-
 
 
 ## Fact Sheet

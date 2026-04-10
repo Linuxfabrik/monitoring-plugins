@@ -4,12 +4,6 @@
 
 Reports MySQL/MariaDB traffic statistics including uptime, queries per second, connection rates, and bytes sent and received. Also calculates the read/write ratio based on SELECT, INSERT, UPDATE, DELETE, and REPLACE commands. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
 
-**Data Collection:**
-
-* Queries `SHOW GLOBAL STATUS` for `Bytes_received`, `Bytes_sent`, `Com_delete`, `Com_insert`, `Com_replace`, `Com_select`, `Com_update`, `Connections`, `Questions`, and `Uptime`
-* Calculates queries per second as `Questions / Uptime`
-* Calculates the read/write ratio from SELECT (reads) and INSERT + UPDATE + DELETE + REPLACE (writes)
-
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
@@ -17,9 +11,16 @@ Reports MySQL/MariaDB traffic statistics including uptime, queries per second, c
 
 
 
+**Data Collection:**
+
+* Queries `SHOW GLOBAL STATUS` for `Bytes_received`, `Bytes_sent`, `Com_delete`, `Com_insert`, `Com_replace`, `Com_select`, `Com_update`, `Connections`, `Questions`, and `Uptime`
+* Calculates queries per second as `Questions / Uptime`
+* Calculates the read/write ratio from SELECT (reads) and INSERT + UPDATE + DELETE + REPLACE (writes)
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

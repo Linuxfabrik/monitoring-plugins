@@ -4,6 +4,11 @@
 
 Checks the current disk usage of all systemd journal files (archived and active combined) and alerts when journal disk usage exceeds a configurable threshold.
 
+**Important Notes:**
+
+* From `man journald.conf`: `SystemMaxUse=` and `RuntimeMaxUse=` control how much disk space the journal may use at most. `SystemKeepFree=` and `RuntimeKeepFree=` control how much disk space systemd-journald shall leave free for other uses. systemd-journald respects both limits and uses the smaller of the two values. The defaults are 10% and 15% of the file system size, capped to 4G each. Only archived files are deleted during vacuuming, so actual usage may exceed the configured limits.
+
+
 **Data Collection:**
 
 * Executes `journalctl --disk-usage` to obtain the total disk usage of all archived and active journal files
@@ -13,10 +18,6 @@ Checks the current disk usage of all systemd journal files (archived and active 
 **Compatibility:**
 
 * Linux
-
-**Important Notes:**
-
-* From `man journald.conf`: `SystemMaxUse=` and `RuntimeMaxUse=` control how much disk space the journal may use at most. `SystemKeepFree=` and `RuntimeKeepFree=` control how much disk space systemd-journald shall leave free for other uses. systemd-journald respects both limits and uses the smaller of the two values. The defaults are 10% and 15% of the file system size, capped to 4G each. Only archived files are deleted during vacuuming, so actual usage may exceed the configured limits.
 
 
 ## Fact Sheet

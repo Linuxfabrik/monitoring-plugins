@@ -4,6 +4,12 @@
 
 Checks the age of the newest snapshot in a restic repository and alerts when the most recent backup is older than the configured thresholds. Useful for detecting failed or missing backup runs.
 
+**Important Notes:**
+
+* Requires restic 0.12.1+
+* Requires root or sudo
+* Refer to the [online manual](https://restic.readthedocs.io/en/latest/index.html) for more details about restic
+
 **Data Collection:**
 
 * Executes `restic --json --repo=... snapshots` with the specified filters
@@ -12,15 +18,10 @@ Checks the age of the newest snapshot in a restic repository and alerts when the
 * Shows the latest N snapshots per group via `--latest` (default: 3)
 * Supports extended reporting via `--lengthy` (adds a Tags column)
 
-**Important Notes:**
-
-* Requires restic 0.12.1+
-* Requires root or sudo
-* Refer to the [online manual](https://restic.readthedocs.io/en/latest/index.html) for more details about restic
-
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

@@ -4,6 +4,12 @@
 
 Reports garbage collector statistics from a WildFly/JBoss AS server via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode. Reports collection count and total collection time for each garbage collector.
 
+**Important Notes:**
+
+* Tested with WildFly 11 and WildFly 23+
+
+
+
 **Data Collection:**
 
 * Queries the WildFly management API at `/core-service/platform-mbean/type/garbage-collector` using the `read-resource` operation with runtime data
@@ -12,11 +18,6 @@ Reports garbage collector statistics from a WildFly/JBoss AS server via its HTTP
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Tested with WildFly 11 and WildFly 23+
-
 
 
 ## Fact Sheet

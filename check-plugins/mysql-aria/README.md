@@ -4,13 +4,6 @@
 
 Checks metrics of the Aria storage engine in MariaDB, including the page cache size relative to total Aria index size and the page cache hit rate. Aria is the crash-safe, non-transactional storage engine used for internal temporary tables in MariaDB. It is not shipped with MySQL or Percona Server.
 
-**Data Collection:**
-
-* Queries `SHOW GLOBAL VARIABLES` for `aria_pagecache_buffer_size`
-* Queries `SHOW GLOBAL STATUS` for `Aria_pagecache_reads` and `Aria_pagecache_read_requests`
-* Queries `information_schema.tables` to sum all Aria index sizes
-* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mariadb_aria()
-
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
@@ -20,9 +13,17 @@ Checks metrics of the Aria storage engine in MariaDB, including the page cache s
 
 
 
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for `aria_pagecache_buffer_size`
+* Queries `SHOW GLOBAL STATUS` for `Aria_pagecache_reads` and `Aria_pagecache_read_requests`
+* Queries `information_schema.tables` to sum all Aria index sizes
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mariadb_aria()
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

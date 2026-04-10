@@ -4,12 +4,6 @@
 
 Monitors Apache mod_qos status via the machine-readable status handler. Reports current connection and request limits, active connections, and quality of service metrics for all configured virtual hosts. This check is primarily useful for statistical purposes and visualization over time in Grafana.
 
-**Data Collection:**
-
-* Fetches the machine-readable status page from the mod_qos handler (`?auto` parameter)
-* Parses per-virtual-host connection and request limit entries, including `QS_AllConn`, `QS_LocRequestLimitMatch`, `QS_LocKBytesPerSecLimitMatch`, `QS_CondLocRequestLimitMatch`, and `QS_SrvMaxConn`
-* Perfdata metric names are composed of the mod_qos configuration option suffixed by the request pattern (e.g. `QS_LocRequestLimitMatch_[^.*$]`)
-
 **Important Notes:**
 
 * Due to the behavior of mod_qos (which adds waiting times in case of overuse rather than rejecting requests), this check always returns OK and does not issue warnings
@@ -17,9 +11,16 @@ Monitors Apache mod_qos status via the machine-readable status handler. Reports 
 
 
 
+**Data Collection:**
+
+* Fetches the machine-readable status page from the mod_qos handler (`?auto` parameter)
+* Parses per-virtual-host connection and request limit entries, including `QS_AllConn`, `QS_LocRequestLimitMatch`, `QS_LocKBytesPerSecLimitMatch`, `QS_CondLocRequestLimitMatch`, and `QS_SrvMaxConn`
+* Perfdata metric names are composed of the mod_qos configuration option suffixed by the request pattern (e.g. `QS_LocRequestLimitMatch_[^.*$]`)
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

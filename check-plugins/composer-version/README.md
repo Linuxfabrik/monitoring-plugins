@@ -4,6 +4,12 @@
 
 Checks the installed Composer version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
+**Important Notes:**
+
+* The check must run on the machine where Composer is installed
+* Optionally alerts on available major, minor, or patch releases independently of EOL status via `--check-major`, `--check-minor`, and `--check-patch`
+
+
 **Data Collection:**
 
 * Runs `composer --version` at the configured `--path` (default: `/usr/bin/composer`) to determine the installed version
@@ -13,11 +19,6 @@ Checks the installed Composer version against the endoflife.date API and alerts 
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* The check must run on the machine where Composer is installed
-* Optionally alerts on available major, minor, or patch releases independently of EOL status via `--check-major`, `--check-minor`, and `--check-patch`
 
 
 ## Fact Sheet

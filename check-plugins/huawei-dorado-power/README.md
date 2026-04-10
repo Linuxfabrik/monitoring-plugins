@@ -4,6 +4,13 @@
 
 Checks the health and running status of all power supply units (PSUs) on a Huawei OceanStor Dorado storage system via the REST API (`/power` endpoint). Alerts when any PSU reports a non-normal health or running state. Reports manufacturer, model, serial number, production date, input/output voltage and temperature per PSU.
 
+**Important Notes:**
+
+* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
+* Create a read-only API user that can perform queries only
+* The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
+
+
 **Data Collection:**
 
 * Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/power`
@@ -13,12 +20,6 @@ Checks the health and running status of all power supply units (PSUs) on a Huawe
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
-* Create a read-only API user that can perform queries only
-* The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
 
 
 ## Fact Sheet

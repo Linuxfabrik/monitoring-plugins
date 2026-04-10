@@ -4,6 +4,12 @@
 
 Checks for outdated Python packages installed via pip. Reports the number of packages with available updates and lists them with current and latest versions.
 
+**Important Notes:**
+
+* Requires `pip` v20.3+
+
+
+
 **Data Collection:**
 
 * Executes `python3 -m pip list --outdated --format=json` to get the list of outdated packages
@@ -14,11 +20,6 @@ Checks for outdated Python packages installed via pip. Reports the number of pac
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Requires `pip` v20.3+
-
 
 
 ## Fact Sheet

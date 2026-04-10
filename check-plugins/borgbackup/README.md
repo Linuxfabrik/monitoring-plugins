@@ -4,6 +4,14 @@
 
 Checks the status of the last borgbackup run by parsing the borg logfile. Alerts on non-zero return codes from the create or prune steps, and warns if the last successful backup is older than a configurable threshold (default: 24 hours). Also detects active borg mounts in /proc/mounts. Requires root or sudo.
 
+**Important Notes:**
+
+* The logfile must contain lines in the format `start: YYYY-MM-DD HH:MM:SS`, `end: YYYY-MM-DD HH:MM:SS`, `create_retc: N`, `prune_retc: N`
+* Borg return code 1 (warning) is treated as OK by the check; return codes >= 2 trigger alerts
+* If the logfile is missing or incomplete (any of the four fields not found), the check exits with UNKNOWN
+* Active `borgfs` mounts are reported as WARN immediately, before evaluating the logfile
+
+
 **Data Collection:**
 
 * Parses `/var/log/borg/borg.log` for four fields: `start`, `end`, `create_retc`, and `prune_retc`
@@ -13,13 +21,6 @@ Checks the status of the last borgbackup run by parsing the borg logfile. Alerts
 **Compatibility:**
 
 * Linux
-
-**Important Notes:**
-
-* The logfile must contain lines in the format `start: YYYY-MM-DD HH:MM:SS`, `end: YYYY-MM-DD HH:MM:SS`, `create_retc: N`, `prune_retc: N`
-* Borg return code 1 (warning) is treated as OK by the check; return codes >= 2 trigger alerts
-* If the logfile is missing or incomplete (any of the four fields not found), the check exits with UNKNOWN
-* Active `borgfs` mounts are reported as WARN immediately, before evaluating the logfile
 
 
 ## Fact Sheet

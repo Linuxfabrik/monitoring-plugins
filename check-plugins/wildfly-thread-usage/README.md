@@ -4,6 +4,12 @@
 
 Checks thread pool utilization on a WildFly/JBoss AS server via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode. Reports daemon thread count as a percentage of total thread count.
 
+**Important Notes:**
+
+* Tested with WildFly 11 and WildFly 23+
+
+
+
 **Data Collection:**
 
 * Queries the WildFly management API at `/core-service/platform-mbean/type/threading` using the `read-resource` operation with runtime data
@@ -12,11 +18,6 @@ Checks thread pool utilization on a WildFly/JBoss AS server via its HTTP-JSON ba
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Tested with WildFly 11 and WildFly 23+
-
 
 
 ## Fact Sheet

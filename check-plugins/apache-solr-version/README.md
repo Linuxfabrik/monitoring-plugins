@@ -4,6 +4,12 @@
 
 Checks the installed Apache Solr version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
+**Important Notes:**
+
+* Must run on the Apache Solr server itself to detect the installed version
+
+
+
 **Data Collection:**
 
 * Detects the installed Apache Solr version by running `<path> version` (default path: `/opt/solr/bin/solr`)
@@ -13,11 +19,6 @@ Checks the installed Apache Solr version against the endoflife.date API and aler
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Must run on the Apache Solr server itself to detect the installed version
-
 
 
 ## Fact Sheet

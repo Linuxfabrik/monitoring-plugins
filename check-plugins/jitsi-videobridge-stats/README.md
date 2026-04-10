@@ -4,6 +4,14 @@
 
 Monitors Jitsi Videobridge performance via the COLIBRI REST API. Reports conference count, participant count, video channels, bitrates, packet rates, and other bridge metrics.
 
+**Important Notes:**
+
+* Jitsi Videobridge v2.1+
+* This check always returns OK. It is designed purely as a metrics collector for graphing dashboards.
+* DTLS = Datagram Transport Layer Security, MUC = Multi-User Channel
+* For a discussion on how many users Jitsi supports, see [here](https://community.jitsi.org/t/maximum-number-of-participants-on-a-meeting-on-meet-jit-si-server/22273/2) and [here](https://community.jitsi.org/t/update-on-maximum-number-of-participants-on-jitsi/97695/2)
+
+
 **Data Collection:**
 
 * Queries the `/colibri/stats` endpoint on the Jitsi Videobridge private REST interface
@@ -14,13 +22,6 @@ Monitors Jitsi Videobridge performance via the COLIBRI REST API. Reports confere
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Jitsi Videobridge v2.1+
-* This check always returns OK. It is designed purely as a metrics collector for graphing dashboards.
-* DTLS = Datagram Transport Layer Security, MUC = Multi-User Channel
-* For a discussion on how many users Jitsi supports, see [here](https://community.jitsi.org/t/maximum-number-of-participants-on-a-meeting-on-meet-jit-si-server/22273/2) and [here](https://community.jitsi.org/t/update-on-maximum-number-of-participants-on-jitsi/97695/2)
 
 
 ## Fact Sheet

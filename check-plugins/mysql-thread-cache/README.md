@@ -4,12 +4,6 @@
 
 Checks how effectively MySQL/MariaDB caches threads for re-use. A low cache hit rate means the server frequently creates new threads, which is expensive. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
 
-**Data Collection:**
-
-* Queries `SHOW GLOBAL VARIABLES` for `have_threadpool` and `thread_cache_size`
-* Queries `SHOW GLOBAL STATUS` for `Connections`, `Threads_created`, and `Uptime`
-* Calculates the hit rate as `100 - (Threads_created / Connections * 100)`
-
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
@@ -17,9 +11,16 @@ Checks how effectively MySQL/MariaDB caches threads for re-use. A low cache hit 
 
 
 
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for `have_threadpool` and `thread_cache_size`
+* Queries `SHOW GLOBAL STATUS` for `Connections`, `Threads_created`, and `Uptime`
+* Calculates the hit rate as `100 - (Threads_created / Connections * 100)`
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

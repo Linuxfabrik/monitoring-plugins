@@ -4,11 +4,6 @@
 
 Monitors NodeBB cache usage via the admin API. Alerts when cache utilization exceeds the configured thresholds.
 
-**Data Collection:**
-
-* Queries the NodeBB Read API endpoint `/api/admin/advanced/cache` using Bearer Authentication
-* Reports status, usage percentage, size, hit/miss counts and hit ratio for each cache: `postCache`, `groupCache`, `localCache`, `objectCache`
-
 **Important Notes:**
 
 * You need to issue a bearer token of type "user" in the NodeBB admin panel: Settings > API Access > Create Token > Specify your User ID and Description (for example "Linuxfabrik API Token"). In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.
@@ -17,9 +12,15 @@ Monitors NodeBB cache usage via the admin API. Alerts when cache utilization exc
 
 
 
+**Data Collection:**
+
+* Queries the NodeBB Read API endpoint `/api/admin/advanced/cache` using Bearer Authentication
+* Reports status, usage percentage, size, hit/miss counts and hit ratio for each cache: `postCache`, `groupCache`, `localCache`, `objectCache`
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

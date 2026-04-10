@@ -4,6 +4,14 @@
 
 Checks the health and running status of all hosts attached to a Huawei OceanStor Dorado storage system via the REST API (`/host` endpoint). Alerts when any host reports a non-normal health or running state. Reports operating system type and allocated capacity per host.
 
+**Important Notes:**
+
+* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
+* Create a read-only API user that can perform queries only
+* The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
+* The host list reflects host objects configured on the storage system, not necessarily their actual online/offline status on the network
+
+
 **Data Collection:**
 
 * Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/host`
@@ -13,13 +21,6 @@ Checks the health and running status of all hosts attached to a Huawei OceanStor
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
-* Create a read-only API user that can perform queries only
-* The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
-* The host list reflects host objects configured on the storage system, not necessarily their actual online/offline status on the network
 
 
 ## Fact Sheet

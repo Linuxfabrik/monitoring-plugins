@@ -4,12 +4,6 @@
 
 Checks the state of one or more Windows services. Accepts the case-insensitive service name (not the display name) and supports Python regular expressions to match multiple services. Verifies that the number of services in the expected state falls within the specified Nagios range thresholds.
 
-**Data Collection:**
-
-* Uses `psutil.win_service_iter()` to enumerate all Windows services
-* Filters services by name (regex), start type (`--starttype`, default: automatic), and expected status (`--status`, default: running)
-* Counts how many matching services are in the expected status and compares against the threshold ranges
-
 **Important Notes:**
 
 * Provide the case-insensitive Windows "Service Name", not the "Display Name". Example: Display Name "Diagnostic Policy Service" has Service Name `DPS` (provide `DPS`)
@@ -17,9 +11,16 @@ Checks the state of one or more Windows services. Accepts the case-insensitive s
 * On the Windows command line: If you want to check `my$service`, you have to specify `my\$service`.
 * On the Windows command line: Only use double quotes to provide regexes to `--service`; if running unit tests on Linux, use single quotes instead.
 
+**Data Collection:**
+
+* Uses `psutil.win_service_iter()` to enumerate all Windows services
+* Filters services by name (regex), start type (`--starttype`, default: automatic), and expected status (`--status`, default: running)
+* Counts how many matching services are in the expected status and compares against the threshold ranges
+
 **Compatibility:**
 
 * Windows
+
 
 
 ## Fact Sheet

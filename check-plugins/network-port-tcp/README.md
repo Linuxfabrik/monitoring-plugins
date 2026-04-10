@@ -4,6 +4,11 @@
 
 Checks whether a TCP network port is reachable by attempting to establish a connection. Useful for monitoring service availability from the network perspective.
 
+**Important Notes:**
+
+* This check works with TCP connections only. UDP port responses depend on the target application (e.g. DNS or OpenVPN) and are not standardized like TCP.
+
+
 **Data Collection:**
 
 * Attempts a TCP socket connection to the specified host and port
@@ -12,10 +17,6 @@ Checks whether a TCP network port is reachable by attempting to establish a conn
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* This check works with TCP connections only. UDP port responses depend on the target application (e.g. DNS or OpenVPN) and are not standardized like TCP.
 
 
 ## Fact Sheet

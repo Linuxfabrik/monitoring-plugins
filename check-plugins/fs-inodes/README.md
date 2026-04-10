@@ -4,6 +4,11 @@
 
 Checks the percentage of used inodes on local filesystems. Fetches a list of local devices that are in use and have a filesystem. Filesystems that do not report inode usage (such as btrfs or some network filesystems) are skipped automatically. Alerts when inode usage exceeds the configured thresholds.
 
+**Important Notes:**
+
+* If you get an alert, use `find $MOUNT -xdev -printf '%h\n' | sort | uniq --count | sort --key=1 --numeric-sort --reverse | head -n 10` to find the 10 directories under `$MOUNT` that consume the most inodes
+
+
 **Data Collection:**
 
 * Uses `os.statvfs()` on each local disk mount point to read total and free inode counts
@@ -12,10 +17,6 @@ Checks the percentage of used inodes on local filesystems. Fetches a list of loc
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* If you get an alert, use `find $MOUNT -xdev -printf '%h\n' | sort | uniq --count | sort --key=1 --numeric-sort --reverse | head -n 10` to find the 10 directories under `$MOUNT` that consume the most inodes
 
 
 ## Fact Sheet

@@ -4,11 +4,6 @@
 
 Checks whether PHP-FPM is alive by fetching its ping monitoring page. Returns OK if FPM responds with the expected "pong" reply.
 
-**Data Collection:**
-
-* Fetches the PHP-FPM ping page via HTTP (default: `http://localhost/fpm-ping`)
-* Compares the response against the expected string (default: "pong")
-
 **Important Notes:**
 
 * Requires a configured ping page in PHP-FPM. Example PHP-FPM config:
@@ -30,9 +25,15 @@ Checks whether PHP-FPM is alive by fetching its ping monitoring page. Returns OK
 
 
 
+**Data Collection:**
+
+* Fetches the PHP-FPM ping page via HTTP (default: `http://localhost/fpm-ping`)
+* Compares the response against the expected string (default: "pong")
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

@@ -4,6 +4,16 @@
 
 Checks Infomaniak Swiss Backup product details via the Infomaniak API. Alerts when products are locked, maintenance window is active, or storage quota is exceeded. Products can be filtered by customer or tag.
 
+**Important Notes:**
+
+* Works with the Infomaniak Swiss Backup API v1
+* Links:
+
+    * Swiss Backup: <https://www.infomaniak.com/en/swiss-backup>
+    * API Documentation: <https://developer.infomaniak.com/docs/api/get/1/swiss_backups>
+    * API Tokens: <https://manager.infomaniak.com/v3/$ACCOUNT_ID/ng/accounts/token>
+
+
 **Data Collection:**
 
 * Queries the Infomaniak API for all Swiss Backup product details
@@ -14,15 +24,6 @@ Checks Infomaniak Swiss Backup product details via the Infomaniak API. Alerts wh
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Works with the Infomaniak Swiss Backup API v1
-* Links:
-
-    * Swiss Backup: <https://www.infomaniak.com/en/swiss-backup>
-    * API Documentation: <https://developer.infomaniak.com/docs/api/get/1/swiss_backups>
-    * API Tokens: <https://manager.infomaniak.com/v3/$ACCOUNT_ID/ng/accounts/token>
 
 
 ## Fact Sheet

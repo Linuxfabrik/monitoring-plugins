@@ -4,11 +4,6 @@
 
 Monitors NGINX performance via the stub_status module. Reports active connections, accepts, handled requests, and connection states (reading, writing, waiting). Alerts when active connections exceed the configured thresholds.
 
-**Data Collection:**
-
-* Fetches and parses the output of the NGINX [stub_status](https://nginx.org/en/docs/http/ngx_http_stub_status_module.html) module
-* Reports active connections, accepted/handled connections, total requests, requests per connection, and current connection states (reading, writing, waiting)
-
 **Important Notes:**
 
 * The `stub_status` module must be enabled in the NGINX configuration. Because the module increments counters at the moment a new request object is created (before the URI is parsed), there is no way to exclude specific URIs or server blocks from the statistics.
@@ -28,9 +23,15 @@ server {
 
 
 
+**Data Collection:**
+
+* Fetches and parses the output of the NGINX [stub_status](https://nginx.org/en/docs/http/ngx_http_stub_status_module.html) module
+* Reports active connections, accepted/handled connections, total requests, requests per connection, and current connection states (reading, writing, waiting)
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

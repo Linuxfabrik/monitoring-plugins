@@ -4,6 +4,12 @@
 
 Checks sort operations in MySQL/MariaDB, including the rate of sort merge passes that required temporary disk files. A high rate of sort merge passes relative to total sorts indicates that `sort_buffer_size` and/or `read_rnd_buffer_size` may need to be increased.
 
+**Important Notes:**
+
+* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
+
+
+
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `read_rnd_buffer_size` and `sort_buffer_size`
@@ -11,15 +17,10 @@ Checks sort operations in MySQL/MariaDB, including the rate of sort merge passes
 * Calculates the total number of sorts and the percentage that required temporary tables
 * Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
 
-**Important Notes:**
-
-* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
-
-
-
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

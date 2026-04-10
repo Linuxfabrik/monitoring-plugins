@@ -4,6 +4,13 @@
 
 Monitors CPU utilization on FortiGate appliances running FortiOS via the REST API. Alerts only if the threshold has been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes. First checks against the globally configured cpu-use-threshold on the appliance, then falls back to command-line thresholds.
 
+**Important Notes:**
+
+* FortiGate appliances running FortiOS with REST API access
+* `--count=5` (the default) while checking every minute means the check reports a warning only if the CPU usage exceeds the threshold for 5 consecutive minutes
+* The globally configured `cpu-use-threshold` on the appliance takes precedence over the `--warning` command-line value. The `--critical` threshold is always used as-is.
+
+
 **Data Collection:**
 
 * Queries the FortiOS REST API endpoint `/api/v2/monitor/system/resource/usage?resource=cpu&interval=1-min` for the current CPU usage
@@ -14,12 +21,6 @@ Monitors CPU utilization on FortiGate appliances running FortiOS via the REST AP
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* FortiGate appliances running FortiOS with REST API access
-* `--count=5` (the default) while checking every minute means the check reports a warning only if the CPU usage exceeds the threshold for 5 consecutive minutes
-* The globally configured `cpu-use-threshold` on the appliance takes precedence over the `--warning` command-line value. The `--critical` threshold is always used as-is.
 
 
 ## Fact Sheet

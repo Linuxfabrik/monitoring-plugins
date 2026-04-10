@@ -4,12 +4,6 @@
 
 Checks the clock offset of ntpd in milliseconds compared to the configured NTP servers. Alerts when the offset exceeds the configured thresholds.
 
-**Data Collection:**
-
-* Executes `ntpq -p` to obtain the current synchronization status
-* Parses the active peer (marked with `*`) and extracts stratum, delay, offset, and jitter
-* Displays the full `ntpq -p` output for reference
-
 **Important Notes:**
 
 * `ntpd` is deprecated on RHEL 8+. Consider using `chronyd` instead.
@@ -17,9 +11,16 @@ Checks the clock offset of ntpd in milliseconds compared to the configured NTP s
 
 
 
+**Data Collection:**
+
+* Executes `ntpq -p` to obtain the current synchronization status
+* Parses the active peer (marked with `*`) and extracts stratum, delay, offset, and jitter
+* Displays the full `ntpq -p` output for reference
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

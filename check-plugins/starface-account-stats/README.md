@@ -4,6 +4,12 @@
 
 Reports account statistics of a Starface PBX, including ringing, active, available, and unavailable accounts.
 
+**Important Notes:**
+
+* Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
+
+
+
 **Data Collection:**
 
 * Connects via socket to the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) on port 6556
@@ -13,11 +19,6 @@ Reports account statistics of a Starface PBX, including ringing, active, availab
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
-
 
 
 ## Fact Sheet

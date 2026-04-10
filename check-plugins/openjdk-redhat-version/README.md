@@ -4,6 +4,12 @@
 
 Checks the installed Red Hat OpenJDK version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
+**Important Notes:**
+
+* The check must run on the Java server itself to detect the installed version
+
+
+
 **Data Collection:**
 
 * Executes `java -version` (at the configured `--path`) to determine the installed version
@@ -13,11 +19,6 @@ Checks the installed Red Hat OpenJDK version against the endoflife.date API and 
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* The check must run on the Java server itself to detect the installed version
-
 
 
 ## Fact Sheet

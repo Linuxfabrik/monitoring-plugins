@@ -4,6 +4,12 @@
 
 Reports CPU and memory usage for all running Docker containers. CPU usage is normalized by dividing by the number of available host CPU cores. CPU alerts only trigger after the threshold has been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes. Memory alerts trigger immediately. Uses a local SQLite database for CPU trend tracking across runs. For Podman, use the podman-stats check instead. Requires root or sudo.
 
+**Important Notes:**
+
+* Plugin execution may take up to 10 seconds due to `docker stats --no-stream`
+* Container names are shortened after the replica number by default (e.g. `traefik_traefik.2`). Use `--full-name` to show the full container name
+
+
 **Data Collection:**
 
 * Executes `docker info` to determine the number of host CPU cores
@@ -16,11 +22,6 @@ Reports CPU and memory usage for all running Docker containers. CPU usage is nor
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Plugin execution may take up to 10 seconds due to `docker stats --no-stream`
-* Container names are shortened after the replica number by default (e.g. `traefik_traefik.2`). Use `--full-name` to show the full container name
 
 
 ## Fact Sheet

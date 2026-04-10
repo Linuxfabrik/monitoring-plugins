@@ -4,20 +4,21 @@
 
 Checks the current state of a Gemalto SafeNet ProtectServer Network HSM via SSH by running a PSESH command on the appliance. Alerts when the HSM adapter reports a non-operational state or when the usage level exceeds the configured thresholds.
 
-**Data Collection:**
-
-* Connects to the HSM appliance via SSH using `sshpass` and executes the `hsm state` command
-* Parses the HSM state output and extracts the usage level percentage
-
 **Important Notes:**
 
 * Although it is not possible to log in as root when accessing the SafeNet ProtectServer Network HSM over SSH, **only run this plugin on trusted hosts** as the HSM only offers password-based SSH logins, so `ps` will expose the SSH password
 * Requires the `sshpass` command-line tool
 * SafeNet ProtectServer Network HSM Installation and Configuration Guide: <https://thalesdocs.com/gphsm/ptk/5.2/docs/Network_HSM_Installation_Guide.pdf>
 
+**Data Collection:**
+
+* Connects to the HSM appliance via SSH using `sshpass` and executes the `hsm state` command
+* Parses the HSM state output and extracts the usage level percentage
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

@@ -4,13 +4,6 @@
 
 Checks index sizes, fragmentation, and consistent engine and collation usage across all schemas in MySQL/MariaDB. Detects schemas where mixed storage engines, collations, charsets, or table engines are in use, which can indicate configuration drift or migration issues.
 
-**Data Collection:**
-
-* Queries `information_schema.schemata` for all non-system schemas
-* For each schema, queries `information_schema.tables` for row counts, data/index sizes, storage engine counts, and collation counts
-* Queries `information_schema.COLUMNS` for distinct character sets and collations per schema
-* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_databases(), v1.9.8
-
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
@@ -19,9 +12,17 @@ Checks index sizes, fragmentation, and consistent engine and collation usage acr
 
 
 
+**Data Collection:**
+
+* Queries `information_schema.schemata` for all non-system schemas
+* For each schema, queries `information_schema.tables` for row counts, data/index sizes, storage engine counts, and collation counts
+* Queries `information_schema.COLUMNS` for distinct character sets and collations per schema
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_databases(), v1.9.8
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

@@ -4,20 +4,21 @@
 
 Checks the installed Rocket.Chat version against the endoflife.date API and alerts if the version is end-of-life or if newer releases are available.
 
+**Important Notes:**
+
+* Requires a Rocket.Chat user with a strong password and the `view-statistics` permission (only)
+* See [Creating an API user account to monitor Rocket.Chat](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-ROCKETCHAT.md)
+
 **Data Collection:**
 
 * Authenticates against the Rocket.Chat REST API and reads the installed version from the statistics endpoint
 * Supports Rocket.Chat versions before and after 3.0.0 (different API response formats)
 * Queries the endoflife.date API (<https://endoflife.date/api/rocket-chat.json>) and caches the result in a local SQLite database
 
-**Important Notes:**
-
-* Requires a Rocket.Chat user with a strong password and the `view-statistics` permission (only)
-* See [Creating an API user account to monitor Rocket.Chat](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-ROCKETCHAT.md)
-
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

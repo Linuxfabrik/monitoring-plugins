@@ -4,6 +4,12 @@
 
 Checks Java heap and non-heap memory usage on a WildFly/JBoss AS server via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode. Reports both "used" and "committed" percentages for heap and non-heap memory.
 
+**Important Notes:**
+
+* Tested with WildFly 11 and WildFly 23+
+
+
+
 **Data Collection:**
 
 * Queries the WildFly management API at `/core-service/platform-mbean/type/memory` using the `read-resource` operation with runtime data
@@ -13,11 +19,6 @@ Checks Java heap and non-heap memory usage on a WildFly/JBoss AS server via its 
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Tested with WildFly 11 and WildFly 23+
-
 
 
 ## Fact Sheet

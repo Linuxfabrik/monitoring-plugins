@@ -4,6 +4,13 @@
 
 Checks if screens attached to Grassfish digital signage players are on or off via the Grassfish API. The player list can be filtered by box state, customer ID, or custom ID. Requires a Grassfish hostname and API token. Alerts when screens are unexpectedly off. Supports extended reporting via `--lengthy`.
 
+**Important Notes:**
+
+* Tested with Grassfish API v1.12
+* Takes approximately 5 minutes for 1000 screens because each player's screen data requires a separate API call.
+* `--box-id` and `--custom-id` support Python regular expressions (case-insensitive).
+
+
 **Data Collection:**
 
 * Queries the Grassfish API (`/gv2/webservices/API` by default) to retrieve all player data, then fetches screen status for each matching player via the `Players/<id>/Screens` endpoint
@@ -16,12 +23,6 @@ Checks if screens attached to Grassfish digital signage players are on or off vi
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Tested with Grassfish API v1.12
-* Takes approximately 5 minutes for 1000 screens because each player's screen data requires a separate API call.
-* `--box-id` and `--custom-id` support Python regular expressions (case-insensitive).
 
 
 ## Fact Sheet

@@ -4,12 +4,6 @@
 
 Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible systems. Reports the number and type of available advisories (bugfix, enhancement, security). This check only lists updates and never actually installs anything.
 
-**Data Collection:**
-
-* Executes `yum list --upgrades`, `yum list --installed`, and `yum updateinfo list --available`
-* Stores all package and advisory information in a local SQLite database for SQL-based filtering via `--query`
-* Plugin execution may take more than 10 seconds due to yum operations (default timeout: 120 seconds)
-
 **Important Notes:**
 
 * The `--query` parameter accepts an SQL WHERE clause to filter the list of available updates. The following database columns can be used:
@@ -26,9 +20,16 @@ Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
     * U: Unspecified
     * no character: unknown
 
+**Data Collection:**
+
+* Executes `yum list --upgrades`, `yum list --installed`, and `yum updateinfo list --available`
+* Stores all package and advisory information in a local SQLite database for SQL-based filtering via `--query`
+* Plugin execution may take more than 10 seconds due to yum operations (default timeout: 120 seconds)
+
 **Compatibility:**
 
 * Linux
+
 
 
 ## Fact Sheet

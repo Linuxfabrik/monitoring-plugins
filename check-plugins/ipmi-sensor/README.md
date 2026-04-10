@@ -4,6 +4,14 @@
 
 Checks IPMI sensor readings (temperature, voltage, fan speed, power, etc.) using ipmitool. Alerts when any sensor reports a non-ok status. Provides detailed output including current values, thresholds, and sensor states. Requires root or sudo.
 
+**Important Notes:**
+
+* Tested on Supermicro BMC and HPE iLO
+* Requires hardware with an IPMI interface
+* `Discrete` sensors are not supported and are silently skipped.
+* Requires the `ipmitool` command-line tool to be installed.
+
+
 **Data Collection:**
 
 * Executes `ipmitool sensor list` locally or against a remote BMC/iLO via IPMI over LAN
@@ -13,13 +21,6 @@ Checks IPMI sensor readings (temperature, voltage, fan speed, power, etc.) using
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* Tested on Supermicro BMC and HPE iLO
-* Requires hardware with an IPMI interface
-* `Discrete` sensors are not supported and are silently skipped.
-* Requires the `ipmitool` command-line tool to be installed.
 
 
 ## Fact Sheet

@@ -4,6 +4,12 @@
 
 Checks the health and status of Kubernetes pods by running `kubectl get pods` and parsing the JSON output. Lists namespace, pod name, readiness, status, restart count, age, and IP address for each pod. Alerts on pods in Pending or Failed state with configurable severity. Results can be filtered with a custom SQL query.
 
+**Important Notes:**
+
+* OIDC-based login to Kubernetes is not yet supported.
+* For the `--query` parameter, the following columns can be used: `namespace` (TEXT), `name` (TEXT), `ready` (TEXT), `status` (TEXT), `restarts` (INT), `age` (INT), `ip` (TEXT).
+
+
 **Data Collection:**
 
 * Executes `kubectl get pods --output=json` to collect pod data from the Kubernetes cluster
@@ -14,11 +20,6 @@ Checks the health and status of Kubernetes pods by running `kubectl get pods` an
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* OIDC-based login to Kubernetes is not yet supported.
-* For the `--query` parameter, the following columns can be used: `namespace` (TEXT), `name` (TEXT), `ready` (TEXT), `status` (TEXT), `restarts` (INT), `age` (INT), `ip` (TEXT).
 
 
 ## Fact Sheet

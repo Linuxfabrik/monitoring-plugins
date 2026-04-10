@@ -4,11 +4,6 @@
 
 Monitors NodeBB group statistics via the admin API, including group count and membership numbers. This is an informational check only.
 
-**Data Collection:**
-
-* Queries the NodeBB Read API endpoint `/api/admin/settings/post` using Bearer Authentication
-* Reports the number of groups exempt from the post queue, with details on the newest group including name, visibility, member count, and creation date
-
 **Important Notes:**
 
 * You need to issue a bearer token of type "user" in the NodeBB admin panel: Settings > API Access > Create Token > Specify your User ID and Description (for example "Linuxfabrik API Token"). In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.
@@ -17,9 +12,15 @@ Monitors NodeBB group statistics via the admin API, including group count and me
 
 
 
+**Data Collection:**
+
+* Queries the NodeBB Read API endpoint `/api/admin/settings/post` using Bearer Authentication
+* Reports the number of groups exempt from the post queue, with details on the newest group including name, visibility, member count, and creation date
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

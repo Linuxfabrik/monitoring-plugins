@@ -4,14 +4,6 @@
 
 Scans the MySQL/MariaDB error log for warnings, errors, startup, and shutdown events. Works even when the database is down by reading the log file directly. Uses a cache to remember the log file location in case the database becomes unavailable.
 
-**Data Collection:**
-
-* Tries to determine the log file location automatically via `SHOW GLOBAL VARIABLES` (`log_error`, `hostname`, `datadir`), falling back to several well-known paths
-* Supports reading from a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER`, or `systemd:UNITNAME`
-* Caches the log file location in a local SQLite database so the check can still work when the database is down
-* Lines can be filtered out using `--ignore-pattern` (simple string match) or `--ignore-regex` (Python regular expression)
-* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):log_file_recommendations(), v1.9.8
-
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
@@ -20,9 +12,18 @@ Scans the MySQL/MariaDB error log for warnings, errors, startup, and shutdown ev
 
 
 
+**Data Collection:**
+
+* Tries to determine the log file location automatically via `SHOW GLOBAL VARIABLES` (`log_error`, `hostname`, `datadir`), falling back to several well-known paths
+* Supports reading from a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER`, or `systemd:UNITNAME`
+* Caches the log file location in a local SQLite database so the check can still work when the database is down
+* Lines can be filtered out using `--ignore-pattern` (simple string match) or `--ignore-regex` (Python regular expression)
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):log_file_recommendations(), v1.9.8
+
 **Compatibility:**
 
 * Linux
+
 
 
 ## Fact Sheet

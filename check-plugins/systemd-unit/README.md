@@ -4,21 +4,22 @@
 
 Checks the state of a specific systemd unit (service, socket, device, mount, timer, scope, etc.) via `systemctl show`. Verifies the active state, sub-state, load state, and unit file state against expected values.
 
-**Data Collection:**
-
-* Executes `systemctl show -p LoadState,ActiveState,SubState,UnitFileState <unit>`
-* Optionally supports `--machine` to query units inside local containers (requires systemd >= 209)
-* Optionally supports `--user` to query user-level service manager
-
 **Important Notes:**
 
 * Best practice: specify `--activestate` and `--substate` at least
 * The `.service` suffix is optional for service units, but recommended
 * The `--machine` parameter connects to a local container, optionally prefixed by a user name and `@` (e.g. `linus@.host`)
 
+**Data Collection:**
+
+* Executes `systemctl show -p LoadState,ActiveState,SubState,UnitFileState <unit>`
+* Optionally supports `--machine` to query units inside local containers (requires systemd >= 209)
+* Optionally supports `--user` to query user-level service manager
+
 **Compatibility:**
 
 * Linux
+
 
 
 ## Fact Sheet

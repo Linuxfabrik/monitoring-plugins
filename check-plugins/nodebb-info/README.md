@@ -4,11 +4,6 @@
 
 Retrieves NodeBB process and system information via the admin API, including Node.js version, uptime, memory usage, and Git commit hash. Alerts when memory usage exceeds the configured thresholds.
 
-**Data Collection:**
-
-* Queries the NodeBB Read API endpoint `/api/admin/development/info` using Bearer Authentication
-* Reports the NodeBB instance ID, Node.js binary path and version, heap usage (used vs. total), RSS (Resident Set Size), and process uptime
-
 **Important Notes:**
 
 * You need to issue a bearer token of type "user" in the NodeBB admin panel: Settings > API Access > Create Token > Specify your User ID and Description (for example "Linuxfabrik API Token"). In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.
@@ -17,9 +12,15 @@ Retrieves NodeBB process and system information via the admin API, including Nod
 
 
 
+**Data Collection:**
+
+* Queries the NodeBB Read API endpoint `/api/admin/development/info` using Bearer Authentication
+* Reports the NodeBB instance ID, Node.js binary path and version, heap usage (used vs. total), RSS (Resident Set Size), and process uptime
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

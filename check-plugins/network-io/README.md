@@ -4,6 +4,12 @@
 
 Monitors network I/O throughput per interface over time. Calculates bytes per second from cumulative counters using SQLite state persistence between runs. Alerts only if bandwidth thresholds have been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes. Also reports packet rates, errors, and drops per interface.
 
+**Important Notes:**
+
+* `--count=5` (the default) while checking every minute means that the check reports a warning if any of your interfaces were above a threshold in the last 5 minutes
+* Interfaces starting with `lo` are ignored by default; use `--ignore` to exclude additional interfaces
+
+
 **Data Collection:**
 
 * Uses `psutil.net_io_counters()` to collect bytes sent/received, packets, errors, and drops per interface
@@ -15,11 +21,6 @@ Monitors network I/O throughput per interface over time. Calculates bytes per se
 **Compatibility:**
 
 * Cross-platform
-
-**Important Notes:**
-
-* `--count=5` (the default) while checking every minute means that the check reports a warning if any of your interfaces were above a threshold in the last 5 minutes
-* Interfaces starting with `lo` are ignored by default; use `--ignore` to exclude additional interfaces
 
 
 ## Fact Sheet

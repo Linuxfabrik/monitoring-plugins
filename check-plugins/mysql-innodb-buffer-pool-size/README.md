@@ -4,13 +4,6 @@
 
 Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the configured `innodb_buffer_pool_size` against the actual data and index sizes of all InnoDB tables to determine if the buffer pool is large enough. Also checks the ratio of `innodb_log_file_size * innodb_log_files_in_group` to the buffer pool size, which should be in the range of 20-30%.
 
-**Data Collection:**
-
-* Queries `SHOW GLOBAL VARIABLES` for `innodb_buffer_pool_size`, `innodb_log_file_size`, `innodb_log_files_in_group`, and `innodb_redo_log_capacity`
-* Queries `information_schema.tables` to sum all InnoDB data and index sizes
-* Calculates the log file to buffer pool size ratio
-* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_innodb()
-
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
@@ -22,9 +15,17 @@ Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the 
 
 
 
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for `innodb_buffer_pool_size`, `innodb_log_file_size`, `innodb_log_files_in_group`, and `innodb_redo_log_capacity`
+* Queries `information_schema.tables` to sum all InnoDB data and index sizes
+* Calculates the log file to buffer pool size ratio
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_innodb()
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

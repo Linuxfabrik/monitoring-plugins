@@ -4,16 +4,6 @@
 
 Lists all virtual machines on a KVM host using `virsh list --all` and checks their states. Alerts on VMs that are in unexpected states such as crashed, idle, paused, or pmsuspended.
 
-**Data Collection:**
-
-* Executes `virsh list --all` to obtain the list of all VMs and their current states
-* Reports VM ID, name, and state for each virtual machine
-* Requires root or sudo privileges
-
-**Compatibility:**
-
-* Linux
-
 **Important Notes:**
 
 * The possible VM states are:
@@ -25,6 +15,17 @@ Lists all virtual machines on a KVM host using `virsh list --all` and checks the
     * `shut off`: The domain is not running (has been shut down completely or has not been started).
     * `crashed`: The domain has crashed. This can only occur if the domain has been configured not to restart on crash.
     * `pmsuspended`: The domain has been suspended by guest power management (e.g. entered S3 state).
+
+
+**Data Collection:**
+
+* Executes `virsh list --all` to obtain the list of all VMs and their current states
+* Reports VM ID, name, and state for each virtual machine
+* Requires root or sudo privileges
+
+**Compatibility:**
+
+* Linux
 
 
 ## Fact Sheet

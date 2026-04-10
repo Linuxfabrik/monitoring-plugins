@@ -4,18 +4,19 @@
 
 Displays system-wide Podman information including container counts, image count, storage driver, runtime version, available CPUs, and total memory. For Docker, use the [docker-info](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/docker-info) check instead.
 
+**Important Notes:**
+
+* Podman runs rootless by default. Without `sudo`, the check only sees containers of the executing user. To monitor containers across all users, run the check via `sudo` (the Icinga Director basket and sudoers file are pre-configured for this).
+
 **Data Collection:**
 
 * Executes `podman info --format json` to collect system-wide Podman information
 * Parses container counts (running, paused, stopped), image count, storage driver, logging driver, registries, Podman version, CPU count, and total memory
 
-**Important Notes:**
-
-* Podman runs rootless by default. Without `sudo`, the check only sees containers of the executing user. To monitor containers across all users, run the check via `sudo` (the Icinga Director basket and sudoers file are pre-configured for this).
-
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

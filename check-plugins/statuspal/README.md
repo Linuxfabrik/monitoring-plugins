@@ -4,23 +4,12 @@
 
 Monitors a [Statuspal](https://www.statuspal.io/) status page, checking overall status, service states, active incidents, and scheduled maintenances.
 
-**Data Collection:**
-
-* Fetches JSON from the Statuspal API v2 `summary` endpoint
-* Recursively flattens nested service trees into a dotted hierarchy (e.g. `Global.DNS`)
-* Lists active incidents with their latest update, and upcoming/ongoing maintenances
 
 **Important Notes:**
 
-* Statuspal EU (`statuspal.eu`) and US (`statuspal.io`) endpoints
+* Statuspal has EU (`statuspal.eu`) and US (`statuspal.io`) endpoints
 * You need to provide the URL to the Statuspal API `summary` endpoint
 * API Documentation: <https://www.statuspal.io/api-docs/v2>
-
-**Compatibility:**
-
-* Cross-platform
-
-**Important Notes:**
 
 List of public Statuspal sites - Europe:
 
@@ -55,6 +44,16 @@ List of public Statuspal sites - USA:
 * <https://statuspal.io/api/v2/status_pages/finqu/summary>
 * <https://statuspal.io/api/v2/status_pages/hosttech/summary>
 * <https://statuspal.io/api/v2/status_pages/maslak/summary>
+
+**Data Collection:**
+
+* Fetches JSON from the Statuspal API v2 `summary` endpoint
+* Recursively flattens nested service trees into a dotted hierarchy (e.g. `Global.DNS`)
+* Lists active incidents with their latest update, and upcoming/ongoing maintenances
+
+**Compatibility:**
+
+* Cross-platform
 
 
 ## Fact Sheet

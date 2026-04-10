@@ -4,12 +4,6 @@
 
 Monitors the health status of a WHMCS (Web Host Manager Complete Solution) installation via the [GetHealthStatus API endpoint](https://developers.whmcs.com/api-reference/gethealthstatus/). Reports messages about module versions, license status, and system health indicators. Messages are sorted by severity.
 
-**Data Collection:**
-
-* Queries the WHMCS API at `<url>/includes/api.php` using the `GetHealthStatus` action
-* Authenticates via WHMCS API identifier and secret (`--identifier`, `--secret`)
-* Supports optional HTTP Basic Authentication (`--username`, `--password`)
-
 **Important Notes:**
 
 Configuring API access and creating an API user in WHMCS is a bit tedious. First, allow IP Addresses to connect to WHMCS:
@@ -51,9 +45,16 @@ Note the api_identifier and the api_secret. You will need both to configure this
 
 
 
+**Data Collection:**
+
+* Queries the WHMCS API at `<url>/includes/api.php` using the `GetHealthStatus` action
+* Authenticates via WHMCS API identifier and secret (`--identifier`, `--secret`)
+* Supports optional HTTP Basic Authentication (`--username`, `--password`)
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

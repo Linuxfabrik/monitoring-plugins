@@ -4,11 +4,6 @@
 
 Counts down to one or more user-defined expiration dates, such as certificate renewals, contract deadlines, or license expirations. Alerts when the remaining days fall below the configured warning or critical thresholds. Each item can have its own thresholds. Past dates are reported as expired.
 
-**Data Collection:**
-
-* No external data is collected; all information is provided via the `--input` parameter
-* Compares each expiration date against the current date and calculates the remaining days
-
 **Important Notes:**
 
 * Each `--input` item uses the format `"Display Name, YYYY-MM-DD, warn, crit"` where `warn` and `crit` are days before expiration
@@ -18,9 +13,15 @@ Counts down to one or more user-defined expiration dates, such as certificate re
 
 
 
+**Data Collection:**
+
+* No external data is collected; all information is provided via the `--input` parameter
+* Compares each expiration date against the current date and calculates the remaining days
+
 **Compatibility:**
 
 * Cross-platform
+
 
 
 ## Fact Sheet

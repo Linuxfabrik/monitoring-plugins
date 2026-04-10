@@ -4,16 +4,6 @@
 
 Checks each backup device (slot) across all Infomaniak Swiss Backup products via the Infomaniak API. Alerts when storage usage exceeds the configured thresholds or when a device reports an error state. Devices can be filtered by customer, name, tag, or user.
 
-**Data Collection:**
-
-* Queries the Infomaniak API for all Swiss Backup products and their device slots
-* Requires a Bearer Token with scope "swiss-backup" from Infomaniak
-* Output table is sorted by the "Tags" column
-
-**Compatibility:**
-
-* Cross-platform
-
 **Important Notes:**
 
 * Works with the Infomaniak Swiss Backup API v1
@@ -25,6 +15,17 @@ Checks each backup device (slot) across all Infomaniak Swiss Backup products via
     * Swiss Backup: <https://www.infomaniak.com/en/swiss-backup>
     * API Documentation: <https://developer.infomaniak.com/docs/api/get/1/swiss_backups>
     * API Tokens: <https://manager.infomaniak.com/v3/$ACCOUNT_ID/ng/accounts/token>
+
+
+**Data Collection:**
+
+* Queries the Infomaniak API for all Swiss Backup products and their device slots
+* Requires a Bearer Token with scope "swiss-backup" from Infomaniak
+* Output table is sorted by the "Tags" column
+
+**Compatibility:**
+
+* Cross-platform
 
 
 ## Fact Sheet
