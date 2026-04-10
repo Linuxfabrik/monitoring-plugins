@@ -4,12 +4,6 @@
 
 Checks the status of the most recent backup of a Starface PBX, including backup age, target, and success state.
 
-**Alerting Logic:**
-
-* WARN or CRIT if the age of the last backup exceeds the configured thresholds (default WARN: 24 hours)
-* WARN if the last backup did not finish successfully
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Connects via socket to the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) on port 6556
@@ -26,6 +20,7 @@ Checks the status of the most recent backup of a Starface PBX, including backup 
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/starface-backup-status> |
+| Nagios/Icinga Check Name              | `check_starface_backup_status` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |

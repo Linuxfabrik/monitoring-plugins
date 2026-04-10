@@ -4,10 +4,6 @@
 
 Checks the open file usage in MySQL/MariaDB as a percentage of the configured `open_files_limit`. If the usage approaches the limit, the server may start refusing new connections or fail to open tables.
 
-**Alerting Logic:**
-
-* WARN if the number of open files exceeds 85% of `open_files_limit`
-
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `open_files_limit`

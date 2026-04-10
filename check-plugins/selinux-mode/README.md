@@ -4,12 +4,6 @@
 
 Verifies that the current SELinux mode (enforcing, permissive, or disabled) matches the expected setting. Returns WARN if the actual mode differs from the desired one.
 
-**Alerting Logic:**
-
-* WARN if the current SELinux mode does not match the expected mode (default: enforcing)
-* If SELinux is not in enforcing mode, the message "Make SELinux Enforcing Again." is appended as a reminder
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Executes `getenforce` to determine the current SELinux mode

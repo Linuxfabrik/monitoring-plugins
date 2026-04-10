@@ -4,12 +4,6 @@
 
 Checks the System Event Log (SEL) of Redfish-compatible servers via the Redfish API. Returns an alert based on the severity of the log entries. Supports multiple vendors with vendor-specific SEL paths.
 
-**Alerting Logic:**
-
-* WARN if any SEL entry has severity "Warning"
-* CRIT if any SEL entry has severity "Critical"
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Queries `/redfish/v1/` to detect the vendor (AMI, Avigilon, Cisco, Dell, HPE, Lenovo, Supermicro, TS Fujitsu, or generic)

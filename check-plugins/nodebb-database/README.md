@@ -9,11 +9,6 @@ Monitors NodeBB database statistics via the admin API, including memory usage an
 * Queries the NodeBB Read API endpoint `/api/admin/advanced/database` using Bearer Authentication
 * Reports MongoDB database name, filesystem disk usage, collection count, index count, and object count
 
-**Alerting Logic:**
-
-* Alerts according to the given severity (default: WARN) if the connection to the database is not ok
-* Alerts if filesystem usage (from the database's point of view) is above the percentage thresholds (default: 90/95%)
-
 **Important Notes:**
 
 * You need to issue a bearer token of type "user" in the NodeBB admin panel: Settings > API Access > Create Token > Specify your User ID and Description (for example "Linuxfabrik API Token"). In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.

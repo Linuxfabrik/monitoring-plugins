@@ -4,12 +4,6 @@
 
 Checks for processes that were started before they or one of their dependencies were updated. Useful for detecting servers that have been patched but not yet rebooted. Requires root or sudo.
 
-**Alerting Logic:**
-
-* WARN if a full system reboot is required
-* WARN if individual services need a restart
-* Does not alert on other problems like `Modular dependency problem` (yum/dnf)
-
 **Data Collection:**
 
 * On Red Hat: Uses the `needs-restarting` command. First checks `needs-restarting --reboothint` (return code 1 means reboot required), then `needs-restarting` for a process list of updated services.

@@ -4,11 +4,6 @@
 
 Scans the system for approximately 100 known rootkits by checking for their characteristic files, directories, and kernel symbols. New rootkit definitions can be added by dropping YAML files into the `assets` folder. Additionally performs in-depth checks for the Suckit rootkit (link count of `/sbin/init` and hidden file detection).
 
-**Alerting Logic:**
-
-* WARN or CRIT (configurable via `--severity`, default: CRIT) if confirmed rootkit items or in-depth scan items are found
-* WARN if only possible rootkit items are found (confidence level below 100%), regardless of the selected severity
-
 **Data Collection:**
 
 * Loads rootkit definitions from YAML files in the `assets` directory

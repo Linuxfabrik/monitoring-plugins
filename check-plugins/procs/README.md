@@ -4,14 +4,6 @@
 
 Monitors running processes and alerts on process count, aggregated memory usage, or aggregated CPU usage. Processes can be filtered by name, command-line arguments, and user name using regular expressions. Optionally lists the top processes by CPU time and memory usage.
 
-**Alerting Logic:**
-
-* WARN or CRIT if the number of matching processes is outside the `--warning`/`--critical` range (supports Nagios ranges)
-* WARN or CRIT if aggregated memory usage (bytes or percent) is outside the `--warning-mem`/`--critical-mem` or `--warning-mem-percent`/`--critical-mem-percent` ranges
-* WARN or CRIT if aggregated CPU usage is outside the `--warning-cpu-percent`/`--critical-cpu-percent` ranges (requires two consecutive check runs)
-* WARN or CRIT if the oldest matching process age exceeds `--warning-age`/`--critical-age` thresholds
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Uses `psutil.process_iter()` to iterate over all running processes

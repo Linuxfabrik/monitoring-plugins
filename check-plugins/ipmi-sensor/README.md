@@ -4,14 +4,6 @@
 
 Checks IPMI sensor readings (temperature, voltage, fan speed, power, etc.) using ipmitool. Alerts when any sensor reports a non-ok status. Provides detailed output including current values, thresholds, and sensor states. Requires root or sudo.
 
-**Alerting Logic:**
-
-* Alerts WARN if a sensor is in "nc" (non-critical) state, meaning it is above or below a non-critical threshold
-* Alerts CRIT if a sensor is in "cr" (critical) state, meaning it is above or below a critical threshold
-* Alerts CRIT if a sensor is in "nr" (non-recoverable) state, indicating possible hardware damage
-* Sensors with status "na" (not available) or "ns" (not specified) are skipped
-* Thresholds are determined by the IPMI hardware itself, not by the check plugin
-
 **Data Collection:**
 
 * Executes `ipmitool sensor list` locally or against a remote BMC/iLO via IPMI over LAN

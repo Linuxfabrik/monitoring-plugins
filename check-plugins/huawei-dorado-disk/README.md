@@ -4,11 +4,6 @@
 
 Checks the health and running status of all disks on a Huawei OceanStor Dorado storage system via the REST API (`/disk` endpoint). Alerts when any disk reports a non-normal health or running state. Reports abrasion rate, capacity usage, runtime, temperature and remaining service life per disk.
 
-**Alerting Logic:**
-
-* WARN if any disk's health status is not "Normal"
-* WARN if any disk's running status is not "Normal" or "Online"
-
 **Data Collection:**
 
 * Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/disk`

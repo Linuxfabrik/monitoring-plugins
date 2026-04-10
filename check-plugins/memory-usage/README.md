@@ -4,12 +4,6 @@
 
 Monitors system memory usage and alerts when the overall usage percentage exceeds the configured thresholds. Reports total, used, available, and free memory plus shared, buffers, and cached values. Optionally lists the top memory-consuming processes via `--top` to help identify the source of high usage.
 
-**Alerting Logic:**
-
-* Thresholds apply to overall memory usage percentage (default: WARN at 90%, CRIT at 95%)
-* Single-point evaluation - alerts immediately when the threshold is exceeded (no sustained load detection)
-* Uses psutil's `percent` calculation which accounts for platform-specific memory semantics
-
 **Data Collection:**
 
 * Physical memory statistics only (RAM, excludes swap)

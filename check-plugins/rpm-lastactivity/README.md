@@ -4,11 +4,6 @@
 
 Checks how long ago the last RPM package manager activity occurred (install, update, or remove via yum/dnf). Useful for detecting servers that have not been patched in a long time.
 
-**Alerting Logic:**
-
-* WARN if the last RPM activity is older than `--warning` (default: 90 days)
-* CRIT if the last RPM activity is older than `--critical` (default: 365 days)
-
 **Data Collection:**
 
 * Executes `rpm --query --all --queryformat "%{INSTALLTIME} %{NAME}\n"` to determine the timestamp of the most recently installed or updated package

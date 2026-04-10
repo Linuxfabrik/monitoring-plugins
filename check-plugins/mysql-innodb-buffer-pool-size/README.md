@@ -4,13 +4,6 @@
 
 Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the configured `innodb_buffer_pool_size` against the actual data and index sizes of all InnoDB tables to determine if the buffer pool is large enough. Also checks the ratio of `innodb_log_file_size * innodb_log_files_in_group` to the buffer pool size, which should be in the range of 20-30%.
 
-**Alerting Logic:**
-
-* WARN on 32-bit systems when `innodb_buffer_pool_size` > 4 GiB
-* WARN on 64-bit systems when `innodb_buffer_pool_size` > 16 EiB
-* WARN if the total InnoDB data size does not fit into the buffer pool
-* WARN if the InnoDB log file size ratio is not in the range of 20-30% of the buffer pool size
-
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `innodb_buffer_pool_size`, `innodb_log_file_size`, `innodb_log_files_in_group`, and `innodb_redo_log_capacity`

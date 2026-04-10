@@ -4,12 +4,6 @@
 
 Monitors network I/O throughput per interface over time. Calculates bytes per second from cumulative counters using SQLite state persistence between runs. Alerts only if bandwidth thresholds have been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes. Also reports packet rates, errors, and drops per interface.
 
-**Alerting Logic:**
-
-* WARN or CRIT if the throughput averaged over the last n measured values (default: 5) exceeds the specified percentage (default: 80%/90%) of the all-time maximum throughput recorded for that interface
-* The check does not alert on short spikes; only sustained high throughput over the configured number of measurements triggers an alert
-* Network I/O starts with an assumed maximum of 10 MiB/sec per interface, and adjusts upward as higher throughput is observed. This means the check may produce warnings during the first major network activity above 10 MiB/sec until the actual maximum throughput has been determined.
-
 **Data Collection:**
 
 * Uses `psutil.net_io_counters()` to collect bytes sent/received, packets, errors, and drops per interface

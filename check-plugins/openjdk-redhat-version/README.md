@@ -10,11 +10,6 @@ Checks the installed Red Hat OpenJDK version against the endoflife.date API and 
 * Queries the endoflife.date API at `https://endoflife.date/api/redhat-build-of-openjdk.json` to compare against known EOL dates and available releases
 * Caches the API response in a local SQLite database to reduce network requests
 
-**Alerting Logic:**
-
-* WARN if the installed version has reached or is approaching its EOL date (configurable via `--offset-eol`, default: -30 days)
-* Optional: WARN when a new major, minor, or patch release is available (each independently configurable)
-
 **Compatibility:**
 
 * Linux systems with Red Hat build of OpenJDK installed

@@ -4,13 +4,6 @@
 
 Counts the number of active DAHDI, SIP, and other channels on a Starface PBX, and alerts on channel overusage when a maximum call limit is configured on the PBX.
 
-**Alerting Logic:**
-
-* WARN if channel usage is >= `--warning` (default: 80%)
-* CRIT if channel usage is >= `--critical` (default: 90%)
-* Thresholds only apply when the PBX reports a maximum call limit; otherwise always OK
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Connects via socket to the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) on port 6556
@@ -27,6 +20,7 @@ Counts the number of active DAHDI, SIP, and other channels on a Starface PBX, an
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/starface-channel-status> |
+| Nagios/Icinga Check Name              | `check_starface_channel_status` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |

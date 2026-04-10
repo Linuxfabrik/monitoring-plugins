@@ -4,17 +4,6 @@
 
 Monitors a Veeam Backup & Replication environment via the Veeam Enterprise Manager REST API. Checks for failed VMs and jobs, jobs running longer than expected, and backup repository usage. Also reports backup infrastructure component status and recent job results in a summary table.
 
-**Alerting Logic:**
-
-* CRIT if `FailedJobRuns` exceeds the configured threshold (default: > 0)
-* CRIT if `FailedVmLastestStates` exceeds the configured threshold (default: > 0)
-* WARN if `WarningsJobRuns` exceeds the configured threshold (default: > 0)
-* WARN if `WarningVmLastestStates` exceeds the configured threshold (default: > 0)
-* WARN if `MaxBackupJobDuration` exceeds the configured limit (default: > 86400 seconds / 24 hours)
-* WARN if `MaxReplicaJobDuration` exceeds the configured limit (default: > 86400 seconds / 24 hours)
-* WARN or CRIT if backup repository disk usage exceeds the configured thresholds (default: 80/90%)
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Queries the Veeam Enterprise Manager REST API endpoints: `/reports/summary/overview`, `/reports/summary/job_statistics`, `/reports/summary/vms_overview`, `/reports/summary/repository`

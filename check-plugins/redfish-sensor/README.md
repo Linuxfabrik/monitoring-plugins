@@ -4,14 +4,6 @@
 
 Checks hardware sensor readings (temperature, voltage, fan speed, power) from the Redfish Chassis collection via the Redfish API. Also evaluates fan redundancy status. A Chassis is roughly defined as a physical view of a computer system as seen by a human. A single Chassis resource can house sensors, fans, and other components.
 
-**Alerting Logic:**
-
-* WARN if an enabled sensor health or health rollup state is "Warning"
-* WARN if a sensor value exceeds the Redfish non-critical threshold (`Thresholds_UpperCaution`, `Thresholds_LowerCaution`)
-* CRIT if an enabled sensor health or health rollup state is "Critical"
-* CRIT if a sensor value exceeds the Redfish critical threshold (`Thresholds_UpperCritical`, `Thresholds_LowerCritical`)
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Queries `/redfish/v1/Chassis` to enumerate chassis members

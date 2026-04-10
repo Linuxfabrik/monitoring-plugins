@@ -4,12 +4,6 @@
 
 Queries the systemd journal using journalctl and alerts when matching entries are found. Supports all journalctl filtering options such as `--unit`, `--priority`, `--facility`, `--identifier`, and `--grep`. Useful for monitoring specific log patterns in real time. Requires root or sudo.
 
-**Alerting Logic:**
-
-* Alerts WARN (default) or CRIT (if `--severity=crit`) when journalctl returns any matching entries after applying all filters
-* The idea is to define a query that returns results only for error cases, so that any result triggers an alert
-* Messages can be excluded using `--ignore-pattern` (case-sensitive substring match) or `--ignore-regex` (Python regular expression)
-
 **Data Collection:**
 
 * Executes `journalctl` with the configured filters and parses the JSON output

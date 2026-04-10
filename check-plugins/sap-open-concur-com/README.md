@@ -4,13 +4,6 @@
 
 Monitors the SAP Concur Open status page (<https://open.concur.com>) for active service incidents. The dashboard displays the most recent 20 days of Concur service availability.
 
-**Alerting Logic:**
-
-* OK if all checked services are in "Normal" state
-* WARN if any checked service is in "Degradation" state
-* CRIT if any checked service is in "Disruption" state
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Queries the SAP Concur Open status API at `https://open.concur.com/api/v2/status_history`

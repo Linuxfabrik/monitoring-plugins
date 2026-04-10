@@ -4,14 +4,6 @@
 
 Monitors a [Spring Boot Actuator](https://docs.spring.io/spring-boot/api/rest/actuator/health.html) `/health` endpoint, checking overall application health and individual component states (database, disk, mail, etc.).
 
-**Alerting Logic:**
-
-* If not overridden, API statuses map to Nagios states as follows: UP/GREEN = OK, DEGRADED/YELLOW = WARN, DOWN and all others = CRIT
-* `--component-severity` allows overriding the Nagios state for a specific component and API status combination
-* `--detail-severity` applies Nagios-style threshold ranges to numeric component detail values (e.g. free disk space, active connections)
-* Returns WARN on HTTP status codes >= 300 (e.g. 503 for DEGRADED/DOWN)
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Fetches JSON from the configured Spring Boot Actuator health endpoint via HTTP(S)
@@ -29,6 +21,7 @@ Monitors a [Spring Boot Actuator](https://docs.spring.io/spring-boot/api/rest/ac
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/spring-boot-actuator-health> |
+| Nagios/Icinga Check Name              | `check_spring_boot_actuator_health` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |

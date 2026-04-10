@@ -4,12 +4,6 @@
 
 Counts system-wide socket connections by type (TCP, TCP6, UDP, UDP6) and state. Output is grouped by connection type and status, ordered by the number of connections (descending). Useful for detecting connection leaks or applications that do not properly close sockets.
 
-**Alerting Logic:**
-
-* WARN or CRIT if the number of connections matching the specified type and status exceeds the configured thresholds
-* Thresholds support Nagios ranges (e.g. `30:40` alerts if the value is outside that range)
-* Without `--warning` or `--critical`, the check is purely informational
-
 **Data Collection:**
 
 * Uses `psutil.net_connections()` to enumerate all system-wide network connections

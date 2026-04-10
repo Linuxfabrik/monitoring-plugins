@@ -4,10 +4,6 @@
 
 Checks how often InnoDB had to wait for log writes to be flushed because the log buffer was too small in MySQL/MariaDB. If waits occur, the `innodb_log_buffer_size` should be increased.
 
-**Alerting Logic:**
-
-* WARN if the number of InnoDB log waits (`Innodb_log_waits`) is greater than 0
-
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `innodb_log_buffer_size`

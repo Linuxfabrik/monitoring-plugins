@@ -4,12 +4,6 @@
 
 Checks the installed Valkey version against the endoflife.date API and alerts if the version is end-of-life or if newer releases are available. The check must run on the Valkey server itself, as it uses `valkey-server --version` to determine the installed version.
 
-**Alerting Logic:**
-
-* WARN when the installed version reaches its EOL date (default: 30 days before the official EOL date, configurable via `--offset-eol`)
-* Optional: WARN when a new major, minor, or patch version is available (each independently via `--check-major`, `--check-minor`, `--check-patch`)
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Executes `valkey-server --version` locally to determine the installed version

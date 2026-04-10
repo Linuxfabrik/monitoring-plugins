@@ -4,10 +4,6 @@
 
 Monitors Rocket.Chat server statistics via the API, including total users, active users, online users, channels, messages, uploads, and file storage usage.
 
-**Alerting Logic:**
-
-* Always returns OK
-
 **Data Collection:**
 
 * Authenticates against the Rocket.Chat REST API and queries the statistics endpoint

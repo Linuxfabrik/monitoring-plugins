@@ -4,12 +4,6 @@
 
 Checks how effectively MySQL/MariaDB caches threads for re-use. A low cache hit rate means the server frequently creates new threads, which is expensive. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
 
-**Alerting Logic:**
-
-* WARN if `thread_cache_size` is 0 (thread cache disabled)
-* WARN if thread cache hit rate is 50% or lower, but only after the server has been running for at least one hour (to let the cache warm up)
-* No alert is raised when the thread pool is active, because `thread_cache_size` is ignored in that case
-
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `have_threadpool` and `thread_cache_size`

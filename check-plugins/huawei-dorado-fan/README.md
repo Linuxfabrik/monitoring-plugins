@@ -4,11 +4,6 @@
 
 Checks the health and running status of all fans on a Huawei OceanStor Dorado storage system via the REST API (`/fan` endpoint). Alerts when any fan reports a non-normal health or running state. Reports the run level (low, normal, high) per fan.
 
-**Alerting Logic:**
-
-* WARN if any fan's health status is not "Normal"
-* WARN if any fan's running status is not "Normal", "Running" or "Online"
-
 **Data Collection:**
 
 * Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/fan`

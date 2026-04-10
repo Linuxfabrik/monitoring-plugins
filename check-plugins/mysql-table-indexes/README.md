@@ -4,11 +4,6 @@
 
 Checks for tables without indexes in MySQL/MariaDB. Missing indexes on base tables can cause replication and performance issues. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_tables(), v1.9.8.
 
-**Alerting Logic:**
-
-* WARN if any user tables (base tables) without indexes are found
-* System schemas (`mysql`, `information_schema`, `performance_schema`, `percona`, `sys`) are excluded from the check
-
 **Data Collection:**
 
 * Queries `INFORMATION_SCHEMA.tables` to discover user schemas and base tables

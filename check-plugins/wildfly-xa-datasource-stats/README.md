@@ -4,11 +4,6 @@
 
 Monitors XA datasource connection pool metrics on a WildFly/JBoss AS server via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode. Reports active, available, and idle connections per datasource, including XA transaction counters.
 
-**Alerting Logic:**
-
-* WARN or CRIT if active or max-used connection pool percentage exceeds the configured thresholds (default: 80/90%)
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Queries the WildFly management API at `/subsystem/datasources/xa-data-source/*/statistics/pool/` using the `read-resource` operation with runtime data

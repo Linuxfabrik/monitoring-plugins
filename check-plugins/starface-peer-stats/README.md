@@ -20,6 +20,7 @@ Reports SIP peer statistics of a Starface PBX, including online/offline counts f
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/starface-peer-stats> |
+| Nagios/Icinga Check Name              | `check_starface_peer_stats` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |

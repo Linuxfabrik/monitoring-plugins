@@ -4,17 +4,6 @@
 
 Checks PHP configuration and health, including startup errors, missing modules, and misconfigured php.ini directives. Optionally reads extended PHP information (Opcache statistics) from a monitoring helper script deployed in the web server context.
 
-**Alerting Logic:**
-
-* WARN on PHP startup errors
-* WARN if php.ini configuration does not match the given `--config` values
-* WARN if a required `--module` is missing
-* WARN if `display_errors`, `display_startup_errors`, or `expose_php` are enabled (unless `--dev` is set for display_errors/display_startup_errors)
-* WARN if Opcache is not installed or not enabled
-* WARN if Opcache restarts due to Out of Memory (OOM)
-* WARN or CRIT if Opcache memory, key, or interned string usage is above the given percentage thresholds (default: 90/None)
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Executes `php --version` to detect startup errors

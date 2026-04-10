@@ -4,11 +4,6 @@
 
 Checks the installed Keycloak version against the endoflife.date API and alerts if the version is end-of-life (EOL) or if newer major, minor, or patch releases are available. By default, the check alerts 30 days before the official EOL date. The offset is configurable via `--offset-eol`.
 
-**Alerting Logic:**
-
-* WARN if the installed version has reached or is approaching its EOL date (configurable via `--offset-eol`, default: -30 days)
-* Optionally WARN when a new major (`--check-major`), minor (`--check-minor`), or patch (`--check-patch`) release is available, even if the current version is not yet EOL
-
 **Data Collection:**
 
 * Determines the installed Keycloak version by first trying to read `version.txt` from the local installation directory (`--path`, default: `/opt/keycloak`)

@@ -4,10 +4,6 @@
 
 Checks the rate of slow queries in MySQL/MariaDB. A high slow query rate indicates queries that may need optimization. Also verifies that the slow query log is enabled and that `long_query_time` is set to a reasonable value.
 
-**Alerting Logic:**
-
-* WARN if the number of slow queries exceeds 5% of all queries (`Questions`)
-
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `long_query_time` and `slow_query_log`

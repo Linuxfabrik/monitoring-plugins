@@ -4,11 +4,6 @@
 
 Parses a JSON object from a local file, HTTP/HTTPS URL, or SMB share and extracts message, state, and perfdata values from configurable keys. This allows integrating custom applications or scripts that provide monitoring data in JSON format into Nagios/Icinga without writing a dedicated check plugin.
 
-**Alerting Logic:**
-
-* Returns the Nagios state (0=OK, 1=WARN, 2=CRIT, 3=UNKNOWN) read directly from the JSON key specified by `--state-key`
-* If the state key is missing, the check returns UNKNOWN
-
 **Data Collection:**
 
 * Reads JSON from one of three sources (mutually exclusive): a local file (`--filename`), an HTTP/HTTPS URL (`--url`), or an SMB share (`smb://` URL with optional `--username`/`--password`)

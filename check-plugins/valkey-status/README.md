@@ -4,17 +4,6 @@
 
 Monitors a Valkey server via the `INFO` command and the `MEMORY DOCTOR` subcommand. Reports memory usage, fragmentation ratio, keyspace hit rate, connected clients, replication status, and persistence state.
 
-**Alerting Logic:**
-
-* WARN or CRIT when memory usage exceeds the configured thresholds (default: 90/None)
-* WARN when `maxmemory` is set to 0 (unlimited), suppressible with `--ignore-maxmemory0`
-* WARN when `vm.overcommit_memory` is not set to 1, suppressible with `--ignore-overcommit`
-* WARN when `transparent_hugepage` is set to "always", suppressible with `--ignore-thp`
-* WARN when `net.core.somaxconn` is lower than `net.ipv4.tcp_max_syn_backlog`, suppressible with `--ignore-somaxconn`
-* WARN on partial sync errors, suppressible with `--ignore-sync-partial-err`
-* WARN on memory doctor findings (harmless peak-memory-only or jemalloc-related high-RSS warnings are automatically suppressed)
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Executes `valkey-cli info default` to collect server, memory, keyspace, replication, persistence, CPU, and stats sections

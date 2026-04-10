@@ -4,11 +4,6 @@
 
 Queries the Name Service Switch (NSS) for entries in system databases such as group, hosts, networks, passwd, protocols, or services using the `getent` command. Alerts if the lookup fails or if a specific key is not found. This is particularly useful for verifying that directory services (FreeIPA, Active Directory via sssd) are resolving users and groups correctly.
 
-**Alerting Logic:**
-
-* WARN if one or more supplied `--key` values could not be found in the specified `--database`
-* UNKNOWN if the database name is invalid or if enumeration is not supported for the given database
-
 **Data Collection:**
 
 * Executes `/usr/bin/getent <database> [key ...]` and evaluates the exit code

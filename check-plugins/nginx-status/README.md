@@ -4,11 +4,6 @@
 
 Monitors NGINX performance via the stub_status module. Reports active connections, accepts, handled requests, and connection states (reading, writing, waiting). Alerts when active connections exceed the configured thresholds.
 
-**Alerting Logic:**
-
-* WARN if the number of total handled connections is not equal to the number of total accepted connections (indicates resource limits have been reached, e.g. `worker_connections`)
-* WARN or CRIT if the number of active connections exceeds the configured thresholds (default: 460/486)
-
 **Data Collection:**
 
 * Fetches and parses the output of the NGINX [stub_status](https://nginx.org/en/docs/http/ngx_http_stub_status_module.html) module

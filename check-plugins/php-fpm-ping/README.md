@@ -9,10 +9,6 @@ Checks whether PHP-FPM is alive by fetching its ping monitoring page. Returns OK
 * Fetches the PHP-FPM ping page via HTTP (default: `http://localhost/fpm-ping`)
 * Compares the response against the expected string (default: "pong")
 
-**Alerting Logic:**
-
-* Alerts according to the given severity (default: WARN) if the response does not match the expected string
-
 **Important Notes:**
 
 * Requires a configured ping page in PHP-FPM. Example PHP-FPM config:

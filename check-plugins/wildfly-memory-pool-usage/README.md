@@ -4,13 +4,6 @@
 
 Checks Java memory pool usage (Eden, Survivor, Old Gen, Metaspace, Compressed Class Space, Code Cache, etc.) on a WildFly/JBoss AS server via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode.
 
-**Alerting Logic:**
-
-* WARN if a memory pool instance is marked as invalid
-* WARN if the usage threshold of any memory pool has been exceeded (usage-threshold-exceeded)
-* WARN if the collection usage threshold of any memory pool has been exceeded (collection-usage-threshold-exceeded)
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Queries the WildFly management API at `/core-service/platform-mbean/type/memory-pool` using the `read-resource` operation with runtime data

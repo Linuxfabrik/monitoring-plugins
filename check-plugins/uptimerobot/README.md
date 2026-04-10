@@ -4,13 +4,6 @@
 
 Monitors all configured monitors on a given [UptimeRobot](https://uptimerobot.com/) status page. Reports the number of monitors in up, down, and paused states, along with the 24-hour uptime ratio.
 
-**Alerting Logic:**
-
-* OK if all monitors are in "success" state
-* WARN if any monitor is in "danger" state (down)
-* UNKNOWN for monitors in any other state (e.g. paused)
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Fetches the HTML of the UptimeRobot status page to extract the internal API path
@@ -27,6 +20,7 @@ Monitors all configured monitors on a given [UptimeRobot](https://uptimerobot.co
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/uptimerobot> |
+| Nagios/Icinga Check Name              | `check_uptimerobot` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |

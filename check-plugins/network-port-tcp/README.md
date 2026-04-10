@@ -4,10 +4,6 @@
 
 Checks whether a TCP network port is reachable by attempting to establish a connection. Useful for monitoring service availability from the network perspective.
 
-**Alerting Logic:**
-
-* WARN (default) or CRIT (via `--severity`) if the TCP port is unreachable or the connection cannot be established within the timeout
-
 **Data Collection:**
 
 * Attempts a TCP socket connection to the specified host and port

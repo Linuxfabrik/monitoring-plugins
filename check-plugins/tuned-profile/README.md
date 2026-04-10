@@ -4,12 +4,6 @@
 
 Verifies that the current `tuned` profile matches the expected setting. Useful for ensuring consistent performance tuning across a fleet of servers.
 
-**Alerting Logic:**
-
-* OK if the active tuned profile matches `--profile` (case-insensitive comparison)
-* WARN if the active tuned profile differs from the expected one
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Executes `tuned-adm active` and compares the result against the expected profile name
@@ -24,6 +18,7 @@ Verifies that the current `tuned` profile matches the expected setting. Useful f
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/tuned-profile> |
+| Nagios/Icinga Check Name              | `check_tuned_profile` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |

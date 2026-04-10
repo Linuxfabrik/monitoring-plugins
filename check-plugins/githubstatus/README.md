@@ -4,12 +4,6 @@
 
 Monitors the GitHub status page for service disruptions. Reports the overall status indicator, individual component states, and any unresolved incidents. Alerts on active incidents or degraded components.
 
-**Alerting Logic:**
-
-* WARN if there are any unresolved incidents
-* WARN if any GitHub component is not in "operational" state
-* WARN if the overall status indicator is not "none" (when no individual components or incidents are reported)
-
 **Data Collection:**
 
 * Queries the public GitHub status API at `https://www.githubstatus.com/api/v2/summary.json`

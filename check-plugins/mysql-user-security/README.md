@@ -4,14 +4,6 @@
 
 Checks MySQL/MariaDB user security settings, including accounts with empty passwords, accounts accessible from any host, and accounts with excessive privileges. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):security_recommendations(), v1.9.8.
 
-**Alerting Logic:**
-
-* WARN (or CRIT via `--severity`) if anonymous user accounts are found
-* WARN (or CRIT via `--severity`) if users without passwords are found
-* WARN (or CRIT via `--severity`) if users with their username as password are found (does not work on MySQL 8, ignored in that case)
-* WARN (or CRIT via `--severity`) if users without hostname restriction (`%`) are found
-* For each finding, the plugin provides ready-to-use SQL remediation commands (DROP USER, SET PASSWORD, RENAME USER)
-
 **Data Collection:**
 
 * Queries `mysql.user` and `mysql.global_priv` (on MariaDB 10.4+) to identify insecure accounts

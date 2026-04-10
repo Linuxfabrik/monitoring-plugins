@@ -4,12 +4,6 @@
 
 Reports battery status information including charge percentage, time remaining, and power source (AC or battery). Returns OK if no battery is installed or if metrics cannot be determined.
 
-**Alerting Logic:**
-
-* WARN if battery power left is at or below `--warning` (default: 20%)
-* CRIT if battery power left is at or below `--critical` (default: 5%)
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Uses `psutil.sensors_battery()` to read battery charge percentage, time remaining, and power plug status

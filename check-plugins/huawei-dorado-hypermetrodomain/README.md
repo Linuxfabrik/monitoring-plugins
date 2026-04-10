@@ -4,10 +4,6 @@
 
 Checks the running status of all HyperMetro domains on a Huawei OceanStor Dorado storage system via the REST API (`/hypermetrodomain` endpoint). Alerts when any domain reports a non-normal running state. Reports the quorum server name and quorum type per domain.
 
-**Alerting Logic:**
-
-* WARN if any HyperMetro domain's running status is not "Normal"
-
 **Data Collection:**
 
 * Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/hypermetrodomain`

@@ -4,10 +4,6 @@
 
 Checks whether a newer version of mydumper/myloader is available by comparing the locally installed version against the latest release from the GitHub API.
 
-**Alerting Logic:**
-
-* WARN if the installed mydumper/myloader version is older than the latest available release on GitHub
-
 **Data Collection:**
 
 * Runs `mydumper --version` locally to determine the installed version

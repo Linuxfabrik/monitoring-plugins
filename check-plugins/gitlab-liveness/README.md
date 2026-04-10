@@ -4,10 +4,6 @@
 
 Checks whether the GitLab application server is alive by querying the `/-/liveness` endpoint. This probe detects deadlocked Rails controllers caused by multi-threading issues. A successful response confirms that no controllers are deadlocked.
 
-**Alerting Logic:**
-
-* Alerts with the configured `--severity` (default: WARN) if the endpoint returns an error or does not contain a "status" field
-
 **Data Collection:**
 
 * Sends an HTTP GET request to the GitLab liveness endpoint (default: `http://localhost/-/liveness`)

@@ -10,13 +10,6 @@ Perfdata is emitted for every field to enable full graphing. Extended stats (con
 
 This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.
 
-**Alerting Logic:**
-
-* Thresholds apply to: `user`, `system`, `iowait`, and overall `cpu-usage`
-* Alert triggers only when threshold exceeded for `--count` consecutive check runs (default: 5)
-* Example: With default settings and 1-minute check interval, WARN/CRIT states require sustained high CPU for 5 consecutive minutes
-* Single brief spikes are ignored, focusing on persistent performance issues
-
 **Data Collection:**
 
 * System-wide aggregate CPU statistics (not per-core) via `psutil.cpu_times()`

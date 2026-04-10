@@ -4,14 +4,6 @@
 
 Monitors a [Statuspal](https://www.statuspal.io/) status page, checking overall status, service states, active incidents, and scheduled maintenances.
 
-**Alerting Logic:**
-
-* OK if all services are operational (incident type is `None`, `scheduled`, or `info`)
-* WARN for minor incidents or degraded performance (`minor`, `performance`)
-* CRIT for major incidents or emergency maintenance (`major`, `emergency-maintenance`)
-* If an ongoing maintenance is detected (start time in the past), a notification is prepended to the output
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Fetches JSON from the Statuspal API v2 `summary` endpoint
@@ -67,6 +59,7 @@ List of public Statuspal sites - USA:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/statuspal> |
+| Nagios/Icinga Check Name              | `check_statuspal` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |

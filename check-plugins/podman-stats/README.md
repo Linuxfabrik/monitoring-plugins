@@ -4,17 +4,6 @@
 
 Reports CPU and memory usage for all running Podman containers. CPU usage is normalized by dividing by the number of available host CPU cores, so 100% means all host CPUs are fully utilized. For Docker, use the [docker-stats](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/docker-stats) check instead.
 
-**Alerting Logic:**
-
-* CPU alerts only trigger after the threshold has been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes
-* Memory alerts trigger immediately
-* WARN if any container CPU usage is above `--warning-cpu` (default: 80%) during the last n checks
-* CRIT if any container CPU usage is above `--critical-cpu` (default: 90%) during the last n checks
-* WARN if any container memory usage is above `--warning-mem` (default: 90%)
-* CRIT if any container memory usage is above `--critical-mem` (default: 95%)
-* CRIT on `podman info` or `podman stats` return codes != 0
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Executes `podman info --format json` to get host CPU count, image count, and total memory

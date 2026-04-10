@@ -4,12 +4,6 @@
 
 Checks the security of a Nextcloud (or ownCloud) server using the Nextcloud security scanner at <https://scan.nextcloud.com/>. Reports the assigned security rating and alerts on known vulnerabilities, missing hardenings, and setup issues.
 
-**Alerting Logic:**
-
-* CRIT if the Nextcloud security rating is F or E
-* WARN if the Nextcloud security rating is D or C
-* OK for ratings A and A+
-
 **Data Collection:**
 
 * Submits the Nextcloud URL to the scan.nextcloud.com API to obtain a UUID

@@ -4,11 +4,6 @@
 
 Checks the health and running status of all interface modules (I/O modules) on a Huawei OceanStor Dorado storage system via the REST API (`/intf_module` endpoint). Alerts when any module reports a non-normal health or running state. Reports model, run mode (FC, Ethernet, RoCE, etc.) and LED status per module.
 
-**Alerting Logic:**
-
-* WARN if any interface module's health status is not "Normal"
-* WARN if any interface module's running status is not "Normal", "Running", "Powering on" or "Online"
-
 **Data Collection:**
 
 * Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/intf_module`

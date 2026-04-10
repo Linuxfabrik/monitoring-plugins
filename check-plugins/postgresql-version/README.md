@@ -4,12 +4,6 @@
 
 Checks the installed PostgreSQL version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
-**Alerting Logic:**
-
-* WARN if the installed version is EOL (considering the configured offset)
-* Optional: WARN when a new major, minor, or patch version is available (`--check-major`, `--check-minor`, `--check-patch`)
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Executes `psql --username=<user> --command="SELECT version();"` locally to determine the installed version

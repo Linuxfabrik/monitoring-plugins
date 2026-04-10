@@ -4,12 +4,6 @@
 
 Checks for outdated Python packages installed via pip. Reports the number of packages with available updates and lists them with current and latest versions.
 
-**Alerting Logic:**
-
-* WARN if the number of outdated packages is >= `--warning` (default: 10)
-* CRIT if the number of outdated packages is >= `--critical` (default: 100)
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Executes `python3 -m pip list --outdated --format=json` to get the list of outdated packages

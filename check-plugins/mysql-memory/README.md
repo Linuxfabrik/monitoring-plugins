@@ -4,12 +4,6 @@
 
 Checks current and maximum possible memory usage specifically for MySQL/MariaDB. Calculates the theoretical maximum memory consumption based on global buffers, per-thread buffers, max connections, and Performance Schema usage. Compares this against the physical memory of the server.
 
-**Alerting Logic:**
-
-* WARN if max used memory > 2 GiB on 32-bit systems
-* WARN if max used memory > 95% of physical memory
-* WARN if total physical memory < max peak memory + memory used by other processes (excluding mysqld/mariadbd/systemd)
-
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for all relevant buffer size variables (`innodb_buffer_pool_size`, `key_buffer_size`, `sort_buffer_size`, `join_buffer_size`, `max_connections`, etc.)

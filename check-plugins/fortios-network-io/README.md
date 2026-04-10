@@ -4,12 +4,6 @@
 
 Monitors network I/O and link states on all interfaces of FortiGate appliances running FortiOS via the REST API. Alerts only if bandwidth thresholds have been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes. Reports per-interface traffic counters and link status. Authentication uses a single API token (token-based authentication).
 
-**Alerting Logic:**
-
-* WARN if link state, speed rate, or duplex mode for an interface changes compared to the inventorized baseline
-* WARN or CRIT if rx or tx bandwidth saturation (averaged over the last `--count` measurements) exceeds the configured thresholds
-* The check inventorizes your appliance on the first run. If you change any interface and want to reset the warnings, delete the `$TEMP/linuxfabrik-monitoring-plugins-fortios-network-io.db` file
-
 **Data Collection:**
 
 * Queries the FortiOS REST API endpoint `/api/v2/monitor/system/interface/select` to fetch per-interface traffic counters, link state, speed, and duplex mode

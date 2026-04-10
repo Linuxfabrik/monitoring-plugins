@@ -4,11 +4,6 @@
 
 Checks the Jitsi Videobridge health state via the `/about/health` REST endpoint. Returns OK if the bridge is healthy, WARN or CRIT otherwise.
 
-**Alerting Logic:**
-
-* Alerts WARN (default) or CRIT (if `--severity=crit`) when the Videobridge reports an unhealthy state (HTTP status code other than 200)
-* The severity level is configurable via `--severity`
-
 **Data Collection:**
 
 * Queries the `/about/health` endpoint on the Jitsi Videobridge private REST interface

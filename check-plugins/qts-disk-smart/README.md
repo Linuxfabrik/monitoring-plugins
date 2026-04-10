@@ -4,12 +4,6 @@
 
 Checks disk SMART values on QNAP appliances running QTS via the API. Reports drive health, temperature, and SMART attribute status for all installed HDDs and SSDs. Disk temperature thresholds are determined automatically from the QTS system configuration.
 
-**Alerting Logic:**
-
-* WARN if any disk reports a non-normal SMART health status
-* WARN or CRIT if any disk temperature exceeds the thresholds configured in QTS (separate thresholds for HDD and SSD)
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Authenticates against the QTS API and fetches disk SMART data via `/cgi-bin/disk/qsmart.cgi`

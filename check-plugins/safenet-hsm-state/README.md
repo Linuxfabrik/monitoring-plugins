@@ -4,13 +4,6 @@
 
 Checks the current state of a Gemalto SafeNet ProtectServer Network HSM via SSH by running a PSESH command on the appliance. Alerts when the HSM adapter reports a non-operational state or when the usage level exceeds the configured thresholds.
 
-**Alerting Logic:**
-
-* WARN or CRIT if the usage level is above the configured thresholds (default: WARN >= 80%, CRIT >= 90%)
-* WARN or CRIT (configurable via `--severity`, default: CRIT) if the HSM is not in normal mode
-* WARN or CRIT (configurable via `--severity`, default: CRIT) if the command result is not equal to 0
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Connects to the HSM appliance via SSH using `sshpass` and executes the `hsm state` command

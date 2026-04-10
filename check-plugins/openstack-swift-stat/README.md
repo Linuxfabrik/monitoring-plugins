@@ -10,10 +10,6 @@ Checks OpenStack Swift object storage account statistics, including total contai
 * Reports account-level statistics: container count, object count, total bytes used, and account quota
 * Reports per-container statistics: item count, quota, usage, and remaining free space
 
-**Alerting Logic:**
-
-* If a quota is set on a container, alerts when the remaining free space drops below the configured thresholds (default: 50 GiB for WARN, 10 GiB for CRIT)
-
 **Important Notes:**
 
 * You have to provide a path to an rc file to authenticate. The rc file should contain standard OpenStack environment variables such as `OS_AUTH_URL`, `OS_USERNAME`, `OS_PASSWORD`, `OS_PROJECT_NAME`, etc.

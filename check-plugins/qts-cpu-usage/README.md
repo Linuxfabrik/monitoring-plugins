@@ -4,12 +4,6 @@
 
 Monitors CPU utilization on QNAP appliances running QTS via the HTTP API. Alerts only if the threshold has been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes.
 
-**Alerting Logic:**
-
-* WARN if CPU usage exceeds `--warning` (default: 80%) for `--count` (default: 5) consecutive checks
-* CRIT if CPU usage exceeds `--critical` (default: 90%) for `--count` (default: 5) consecutive checks
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Authenticates against the QTS API and fetches system information via `/cgi-bin/management/manaRequest.cgi`

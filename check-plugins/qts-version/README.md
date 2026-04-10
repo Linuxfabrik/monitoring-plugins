@@ -4,11 +4,6 @@
 
 Checks if firmware updates are available for a QNAP appliance running QTS by querying the QNAP update API. Reports the currently installed version and alerts when a newer firmware version is available.
 
-**Alerting Logic:**
-
-* WARN if a firmware update is available
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Authenticates against the QTS API and fetches system information via `/cgi-bin/management/manaRequest.cgi`

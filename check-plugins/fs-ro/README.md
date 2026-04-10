@@ -4,11 +4,6 @@
 
 Checks for unexpectedly read-only mounted filesystems, such as a root filesystem that switched to read-only due to disk errors. Ignores ramfs, squashfs (snapd), and other pseudo-filesystems by default. Additional mount points can be excluded via `--ignore`. Alerts when a read-only filesystem is detected that should be writable.
 
-**Alerting Logic:**
-
-* WARN if any mount point (not on the ignore list) is mounted read-only
-* Reports the device, mount point, and filesystem type for each read-only mount
-
 **Data Collection:**
 
 * Reads `/proc/mounts` and checks the mount options for each entry

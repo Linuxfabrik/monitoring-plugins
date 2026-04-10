@@ -4,13 +4,6 @@
 
 Checks each backup device (slot) across all Infomaniak Swiss Backup products via the Infomaniak API. Alerts when storage usage exceeds the configured thresholds or when a device reports an error state. Devices can be filtered by customer, name, tag, or user.
 
-**Alerting Logic:**
-
-* Alerts WARN or CRIT when a device's storage usage exceeds the configured percentage thresholds
-* Alerts WARN if a device is not used at all (0 bytes stored), indicating wasted Swiss Backup budget with no backups being made
-* Alerts WARN (default) or CRIT (if `--severity=crit`) when a device is locked
-* All four `--ignore-*` filters accept Python regular expressions and can be specified multiple times
-
 **Data Collection:**
 
 * Queries the Infomaniak API for all Swiss Backup products and their device slots

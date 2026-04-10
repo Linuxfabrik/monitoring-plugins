@@ -4,12 +4,6 @@
 
 Checks the overall health of a Starface PBX, reporting system state, version, license information, RAID status, SIP status, and phone connectivity.
 
-**Alerting Logic:**
-
-* WARN if RAID status is not "HEALTHY"
-* WARN if SIP status is not "OK"
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Connects via socket to the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) on port 6556
@@ -26,6 +20,7 @@ Checks the overall health of a Starface PBX, reporting system state, version, li
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/starface-status> |
+| Nagios/Icinga Check Name              | `check_starface_status` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |

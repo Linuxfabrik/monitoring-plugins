@@ -10,10 +10,6 @@ Tests if a path is writable and readable by creating, writing, reading, and dele
 * Writes a test string, reads it back, then deletes the temporary file
 * Reports which paths failed and which were tested
 
-**Alerting Logic:**
-
-* Alerts according to the given severity (default: WARN) if any path is not writable or readable
-
 **Compatibility:**
 
 * Cross-platform: Linux and Windows

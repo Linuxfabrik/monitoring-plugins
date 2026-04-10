@@ -4,13 +4,6 @@
 
 Scans the MySQL/MariaDB error log for warnings, errors, startup, and shutdown events. Works even when the database is down by reading the log file directly. Uses a cache to remember the log file location in case the database becomes unavailable.
 
-**Alerting Logic:**
-
-* CRIT if the log contains "error" lines
-* WARN if the log contains "warning" lines
-* WARN if a log file is configured but does not exist
-* WARN if the log file size is >= 32 MiB
-
 **Data Collection:**
 
 * Tries to determine the log file location automatically via `SHOW GLOBAL VARIABLES` (`log_error`, `hostname`, `datadir`), falling back to several well-known paths

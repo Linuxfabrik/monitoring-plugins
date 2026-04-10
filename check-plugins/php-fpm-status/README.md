@@ -4,13 +4,6 @@
 
 Monitors PHP-FPM pool performance via the status page. Reports active processes, listen queue depth, idle workers, request rates, and uptime per pool. Also lists currently running processes with their request details.
 
-**Alerting Logic:**
-
-* WARN or CRIT when listen queue usage exceeds the configured thresholds (default: 80/90%)
-* WARN or CRIT when the number of slow requests exceeds the configured thresholds (default: 1/100)
-* WARN when `max_children` has been reached at least once
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Fetches JSON data from the PHP-FPM status page (`?json&full`)

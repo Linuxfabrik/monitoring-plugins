@@ -4,13 +4,6 @@
 
 Checks overall system health, capacity and running status of a Huawei OceanStor Dorado storage system via the REST API (`/system/` endpoint). Alerts when the system reports a non-normal health or running state, or when storage capacity exceeds configurable thresholds. Reports product model, firmware version, health/running status, total sector capacity usage and storage pool capacity usage.
 
-**Alerting Logic:**
-
-* CRIT if system health status is not "Normal"
-* WARN if system running status is not "Normal"
-* WARN or CRIT if total sector capacity usage exceeds `--warning` (default: 90%) or `--critical` (default: 95%)
-* WARN or CRIT if storage pool capacity usage exceeds `--warning` (default: 90%) or `--critical` (default: 95%)
-
 **Data Collection:**
 
 * Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/system/`

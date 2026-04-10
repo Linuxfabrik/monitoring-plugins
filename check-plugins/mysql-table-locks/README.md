@@ -4,11 +4,6 @@
 
 Checks the rate of table locks that had to wait in MySQL/MariaDB. A high wait rate indicates contention between concurrent queries. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
 
-**Alerting Logic:**
-
-* WARN if less than 95% of table locks were acquired immediately
-* When alerting, the plugin recommends optimizing queries and/or using InnoDB to reduce lock contention
-
 **Data Collection:**
 
 * Queries `SHOW GLOBAL STATUS` for `Table_locks_immediate` and `Table_locks_waited`

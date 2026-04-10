@@ -4,12 +4,6 @@
 
 Checks the installed Rocket.Chat version against the endoflife.date API and alerts if the version is end-of-life or if newer releases are available.
 
-**Alerting Logic:**
-
-* WARN if the installed version is EOL (default: 30 days before the official EOL date, configurable via `--offset-eol`)
-* Optional: WARN when a new major, minor, or patch release is available (each independently enabled via `--check-major`, `--check-minor`, `--check-patch`)
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Authenticates against the Rocket.Chat REST API and reads the installed version from the statistics endpoint

@@ -4,10 +4,6 @@
 
 Checks the rate of joins executed without indexes in MySQL/MariaDB. A high number of joins without indexes per day indicates missing indexes, which can severely impact query performance.
 
-**Alerting Logic:**
-
-* WARN if there are more than 250 joins without indexes per day (calculated as `(Select_range_check + Select_full_join) / Uptime_in_days`)
-
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `join_buffer_size`

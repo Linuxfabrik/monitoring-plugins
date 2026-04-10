@@ -4,10 +4,6 @@
 
 Checks sort operations in MySQL/MariaDB, including the rate of sort merge passes that required temporary disk files. A high rate of sort merge passes relative to total sorts indicates that `sort_buffer_size` and/or `read_rnd_buffer_size` may need to be increased.
 
-**Alerting Logic:**
-
-* WARN if more than 10% of sorts required temporary tables (sort merge passes)
-
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `read_rnd_buffer_size` and `sort_buffer_size`

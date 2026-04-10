@@ -4,13 +4,6 @@
 
 Checks the deployment status of applications on a WildFly/JBoss AS server via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode.
 
-**Alerting Logic:**
-
-* OK if deployment state is "OK" or "RUNNING"
-* WARN if deployment state is "STOPPED"
-* CRIT for any other deployment state
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Queries the WildFly management API at `/deployment/*` using the `read-attribute` operation for the `status` attribute

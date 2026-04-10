@@ -4,11 +4,6 @@
 
 Checks the hit rate for open table cache lookups in MySQL/MariaDB. A low hit rate indicates that `table_open_cache` may need to be increased. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
 
-**Alerting Logic:**
-
-* WARN if the table cache hit rate is below 20%
-* When alerting, the plugin recommends increasing `table_open_cache` and warns about the relationship between `open_files_limit` and `table_open_cache`
-
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `open_files_limit` and `table_open_cache`

@@ -4,11 +4,6 @@
 
 Reports the state of network bonding (channel bonding) interfaces. Checks that all slave interfaces are active and that the bonding mode and link status are healthy. Channel bonding allows two or more network interfaces to act as one, increasing bandwidth and providing redundancy. Requires root or sudo.
 
-**Alerting Logic:**
-
-* WARN if any slave interface in a bond has an MII status other than "up"
-* WARN if LACP bonding mode (IEEE 802.3ad) is configured but the partner MAC address is `00:00:00:00:00:00`, indicating that LACP is not properly configured on the switch side
-
 **Data Collection:**
 
 * Reads bonding interface status from `/proc/net/bonding/`

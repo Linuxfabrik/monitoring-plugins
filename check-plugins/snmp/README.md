@@ -4,12 +4,6 @@
 
 Queries SNMP OIDs defined in a CSV file and checks the returned values against optional warning and critical thresholds. Supports SNMP v1, v2c, and v3 with authentication and privacy protocols.
 
-**Alerting Logic:**
-
-* OK, WARN, CRIT, or UNKNOWN depending on the OID definitions in the CSV file
-* WARN or CRIT conditions are defined per OID using Python expressions in the CSV file
-* Value changes can optionally be reported as WARN or CRIT via the "Report Change as" CSV column, persisted in a local SQLite database
-
 **Data Collection:**
 
 * Reads OID definitions from a CSV file in the `device-oids` directory (default: `any-any-any.csv`)

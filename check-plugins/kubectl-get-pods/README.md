@@ -4,12 +4,6 @@
 
 Checks the health and status of Kubernetes pods by running `kubectl get pods` and parsing the JSON output. Lists namespace, pod name, readiness, status, restart count, age, and IP address for each pod. Alerts on pods in Pending or Failed state with configurable severity. Results can be filtered with a custom SQL query.
 
-**Alerting Logic:**
-
-* Pending and Failed pods trigger an alert with configurable severity (WARN or CRIT, default: CRIT)
-* Unknown pods result in an UNKNOWN state
-* Running and Succeeded pods are considered OK
-
 **Data Collection:**
 
 * Executes `kubectl get pods --output=json` to collect pod data from the Kubernetes cluster

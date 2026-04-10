@@ -4,13 +4,6 @@
 
 Reports hardware temperature sensor readings (CPU, disk, chipset, etc.) in Celsius. Automatically checks against hardware-defined thresholds. Returns OK if the sensors are not supported by the OS.
 
-**Alerting Logic:**
-
-* WARN if any sensor reading meets or exceeds its hardware-defined high threshold
-* CRIT if any sensor reading meets or exceeds its hardware-defined critical threshold
-* Sensors can be excluded from checking via `--ignore` using Python regular expressions
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Uses `psutil.sensors_temperatures()` to read temperature data from hardware sensors

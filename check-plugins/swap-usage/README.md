@@ -4,12 +4,6 @@
 
 Monitors swap space usage as a percentage of total swap. On Linux, optionally lists the top processes consuming the most swap to help identify the source of high usage.
 
-**Alerting Logic:**
-
-* WARN if swap usage is >= `--warning` (default: 70%)
-* CRIT if swap usage is >= `--critical` (default: 90%)
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Uses `psutil.swap_memory()` to retrieve swap statistics (total, used, free, percent)
@@ -26,6 +20,7 @@ Monitors swap space usage as a percentage of total swap. On Linux, optionally li
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/swap-usage> |
+| Nagios/Icinga Check Name              | `check_swap_usage` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | Yes |

@@ -4,11 +4,6 @@
 
 Checks the age of the newest snapshot in a restic repository and alerts when the most recent backup is older than the configured thresholds. Useful for detecting failed or missing backup runs.
 
-**Alerting Logic:**
-
-* WARN if the age of the newest snapshot (for each group) exceeds `--warning` (default: 24 hours)
-* CRIT if the age of the newest snapshot (for each group) exceeds `--critical` (default: none)
-
 **Data Collection:**
 
 * Executes `restic --json --repo=... snapshots` with the specified filters

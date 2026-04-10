@@ -4,14 +4,6 @@
 
 Fetches an XML document via HTTP(S) and checks for a matching string using XPath expressions. Supports namespace prefixes (important for testing WSDL responses) and HTTP Basic Authentication. If `--expect` is omitted, the check simply verifies that the XPath expression returns a non-empty result.
 
-**Alerting Logic:**
-
-* OK if the XPath expression returns a result and (if `--expect` is given) the expected string is found
-* WARN if the XPath expression returns an empty result
-* WARN if the expected string is not found in the XPath result
-* UNKNOWN on XML parsing errors, wrong namespace syntax, XPath errors, or text search within non-text tags
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Fetches the XML document from the given `--url` via HTTP(S)

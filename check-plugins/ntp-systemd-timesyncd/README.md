@@ -10,11 +10,6 @@ Checks the state of systemd-timesyncd, including synchronization status, server 
 * Parses the NTP message to extract the stratum value
 * Displays the full timedatectl output including configured NTP servers, server name and address, root distance, poll intervals, NTP message details, and frequency
 
-**Alerting Logic:**
-
-* WARN if stratum is >= `--stratum` (default: 6)
-* WARN if no NTP server is used (ServerAddress is null)
-
 **Compatibility:**
 
 * Linux systems using systemd-timesyncd for time synchronization

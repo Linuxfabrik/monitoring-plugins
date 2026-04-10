@@ -4,12 +4,6 @@
 
 Checks the number of pending Windows updates using the Windows Update COM API.
 
-**Alerting Logic:**
-
-* WARN if the number of pending updates is >= `--warning` (default: 2)
-* CRIT if the number of pending updates is >= `--critical` (default: 50)
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Uses the `Microsoft.Update.Session` COM object to query for updates where `IsInstalled=0`
@@ -25,6 +19,7 @@ Checks the number of pending Windows updates using the Windows Update COM API.
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/updates> |
+| Nagios/Icinga Check Name              | `check_updates` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | Yes |

@@ -4,11 +4,6 @@
 
 Checks the percentage of used inodes on local filesystems. Fetches a list of local devices that are in use and have a filesystem. Filesystems that do not report inode usage (such as btrfs or some network filesystems) are skipped automatically. Alerts when inode usage exceeds the configured thresholds.
 
-**Alerting Logic:**
-
-* Compares inode usage percentage per mount point against `--warning` and `--critical` thresholds
-* Each mount point is evaluated independently; the overall state is the worst of all mount points
-
 **Data Collection:**
 
 * Uses `os.statvfs()` on each local disk mount point to read total and free inode counts

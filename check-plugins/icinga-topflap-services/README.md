@@ -4,13 +4,6 @@
 
 Detects fast-flapping Icinga services by counting state changes per service within a configurable lookback interval. Queries the IcingaDB event history and alerts when any service exceeds the configured number of state changes.
 
-**Alerting Logic:**
-
-* Alerts when any service has more state changes within the lookback period than the configured warning or critical threshold
-* Services currently in downtime are excluded from the analysis
-* The check ignores its own service (any service with "top" and "flap" in the display name)
-* Services with no display name (e.g. "Waiting for Icinga DB to synchronize the config.") are skipped
-
 **Data Collection:**
 
 * Fetches data from the IcingaDB event history via the IcingaWeb2 REST API using HTTP Basic authentication

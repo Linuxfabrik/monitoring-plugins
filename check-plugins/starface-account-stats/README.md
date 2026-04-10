@@ -20,6 +20,7 @@ Reports account statistics of a Starface PBX, including ringing, active, availab
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/starface-account-stats> |
+| Nagios/Icinga Check Name              | `check_starface_account_stats` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |

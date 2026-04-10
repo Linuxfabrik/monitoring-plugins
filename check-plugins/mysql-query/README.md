@@ -4,12 +4,6 @@
 
 Connects to a MySQL/MariaDB database and runs configurable SQL queries for warning and critical conditions. The query result - either a row count or a specific value - is checked against Nagios range expressions. This is useful for custom application-level monitoring where standard MySQL checks do not apply.
 
-**Alerting Logic:**
-
-* WARN if the number of rows (or single value) returned by `--warning-query` is outside the `--warning` range
-* CRIT if the number of rows (or single value) returned by `--critical-query` is outside the `--critical` range
-* If the query returns one row with one column, the single returned value is checked. Otherwise, the number of returned rows is checked.
-
 **Data Collection:**
 
 * Connects to the MySQL/MariaDB server using the provided credentials

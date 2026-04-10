@@ -4,10 +4,6 @@
 
 Checks the status of a Windows Scheduled Task. Alerts when the task is not in the expected status.
 
-**Alerting Logic:**
-
-* WARN (default) or CRIT (configurable via `--severity`) if the task is not in one of the expected statuses (default: Ready, Running)
-
 **Data Collection:**
 
 * Executes `schtasks /query /fo csv /nh` to list all scheduled tasks and their statuses

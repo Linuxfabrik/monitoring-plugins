@@ -4,11 +4,6 @@
 
 Checks system clock and RTC settings via `timedatectl status`, including whether network time synchronization is active and whether the system clock is synchronized.
 
-**Alerting Logic:**
-
-* WARN if the system is configured to read the RTC time in the local time zone (`RTC in local TZ: yes`), as this causes problems with time zone changes and daylight saving time adjustments
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Executes `timedatectl status` and parses its output
@@ -25,6 +20,7 @@ Checks system clock and RTC settings via `timedatectl status`, including whether
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/systemd-timedate-status> |
+| Nagios/Icinga Check Name              | `check_systemd_timedate_status` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |

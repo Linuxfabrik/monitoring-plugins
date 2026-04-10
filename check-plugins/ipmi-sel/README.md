@@ -4,12 +4,6 @@
 
 Checks the IPMI System Event Log (SEL) for entries and alerts when events are found. Entries can be filtered by regex using `--ignore`. To clear the SEL after resolving issues, run `ipmitool sel clear`. Requires root or sudo.
 
-**Alerting Logic:**
-
-* Alerts WARN if the SEL contains any entries (after filtering)
-* SEL entries matching any `--ignore` pattern are excluded from alerting
-* An empty SEL (no entries) is considered OK
-
 **Data Collection:**
 
 * Executes `ipmitool sel elist` locally or against a remote BMC/iLO via IPMI over LAN

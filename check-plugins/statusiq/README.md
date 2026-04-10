@@ -4,14 +4,6 @@
 
 Monitors a [StatusIQ](https://www.site24x7.com/statusiq/) (by Site24x7) status page via its RSS feed. Returns a component-by-component status overview with Nagios-compatible alerting.
 
-**Alerting Logic:**
-
-* OK for "Operational" or "Informational" messages
-* WARN for "Under Maintenance", "Degraded Performance", and "Partial Outage" messages
-* CRIT for "Major Outage" messages
-* UNKNOWN if the RSS feed appears to be disabled or returns no data
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Fetches the RSS feed of the specified StatusIQ status page (appends `/rss` to the URL)
@@ -27,6 +19,7 @@ Monitors a [StatusIQ](https://www.site24x7.com/statusiq/) (by Site24x7) status p
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/statusiq> |
+| Nagios/Icinga Check Name              | `check_statusiq` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |

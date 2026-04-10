@@ -10,12 +10,6 @@ Checks the clock offset of chronyd in milliseconds compared to the configured NT
 * Reports Reference ID, Stratum, Ref time, System time, Last offset, RMS offset, Frequency, Residual freq, Skew, Root delay, Root dispersion, Update interval, and Leap status
 * If no NTP server is reachable, additionally runs `chronyc sources` to display the configured NTP servers
 
-**Alerting Logic:**
-
-* WARN or CRIT if the NTP offset exceeds the configured thresholds (default: 800ms / 86400000ms)
-* WARN if stratum is >= `--stratum` (default: 6)
-* WARN if no NTP server is used or reachable
-
 **Compatibility:**
 
 * Linux systems running chronyd

@@ -4,12 +4,6 @@
 
 Reports the average system load per CPU over the last 1, 5, and 15 minutes. Load represents the average number of processes waiting in the run queue plus those currently executing. The values are normalized by dividing by the number of CPUs, making machines with different CPU counts comparable and simplifying Grafana panel design.
 
-**Alerting Logic:**
-
-* Thresholds apply to the 15-minute load average per CPU only (load1 and load5 are reported but not evaluated)
-* A normalized value below 1 indicates satisfactory resource utilization with minimal wait times; a value above 1 indicates resource saturation and processing delay
-* For example, on a 3-CPU machine with a raw load15 of 6.0 the normalized value is 2.0, which exceeds the default warning threshold of 1.15
-
 **Data Collection:**
 
 * Uses `psutil.getloadavg()` (psutil >= 5.6.2) for cross-platform support, falls back to `os.getloadavg()` on older psutil versions (Linux only)

@@ -4,12 +4,6 @@
 
 Retrieves hardware sensor information (temperature, humidity, voltage, power, state, etc.) for each device from a LibreNMS instance and alerts when sensor values exceed their configured thresholds in LibreNMS.
 
-**Alerting Logic:**
-
-* Returns OK, WARN, CRIT, or UNKNOWN based on the sensor's `state_generic_value` in the LibreNMS database (0=OK, 1=WARN, 2=CRIT, 3=UNKNOWN)
-* Sensors with alerting disabled in LibreNMS (`sensor_alert = 0`) are excluded from the query
-* Devices with notifications disabled in LibreNMS (`disable_notify = 1`) are also excluded
-
 **Data Collection:**
 
 * Queries the LibreNMS MySQL/MariaDB database directly (the API is too resource-intensive for large-scale environments)

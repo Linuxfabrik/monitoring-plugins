@@ -9,14 +9,6 @@ Checks the Windows Time Service (w32tm) status, including clock offset, stratum,
 * Executes `w32tm /query /status /verbose` to obtain detailed time synchronization status
 * Parses Leap Indicator, Stratum, Precision, Root Delay, Root Dispersion, Phase Offset, Clock Rate, Last Sync Error, and Time since Last Good Sync Time
 
-**Alerting Logic:**
-
-* WARN if no NTP server is used (Stratum 0)
-* WARN if stratum is >= `--stratum` (default: 6)
-* WARN if "Leap Indicator" is not "0(no warning)"
-* WARN if "Last Sync Error" is not "0"
-* WARN or CRIT if "Time since Last Good Sync Time" is above the configured thresholds (default: 28800s / 129600s)
-
 **Important Notes:**
 
 * Make sure that `cmd.exe` is set to English output. Otherwise this check plugin may not work.

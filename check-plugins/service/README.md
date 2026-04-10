@@ -4,12 +4,6 @@
 
 Checks the state of one or more Windows services. Accepts the case-insensitive service name (not the display name) and supports Python regular expressions to match multiple services. Verifies that the number of services in the expected state falls within the specified Nagios range thresholds.
 
-**Alerting Logic:**
-
-* WARN if the number of services in the expected status falls outside the `--warning` range (default: `1:`, meaning at least one must match)
-* CRIT if the number of services in the expected status falls outside the `--critical` range (default: none)
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Uses `psutil.win_service_iter()` to enumerate all Windows services

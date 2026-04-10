@@ -4,13 +4,6 @@
 
 Monitors Java heap and non-heap memory usage of the Starface PBX. If the JVM reports unlimited memory for heap or non-heap, no percentage is calculated and no threshold check is performed for that memory area.
 
-**Alerting Logic:**
-
-* WARN if heap or non-heap memory usage is >= `--warning` (default: 80%)
-* CRIT if heap or non-heap memory usage is >= `--critical` (default: 90%)
-* No alerting for memory areas where the JVM reports unlimited memory usage (max = -1)
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Connects via socket to the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) on port 6556
@@ -27,6 +20,7 @@ Monitors Java heap and non-heap memory usage of the Starface PBX. If the JVM rep
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/starface-java-memory-usage> |
+| Nagios/Icinga Check Name              | `check_starface_java_memory_usage` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |

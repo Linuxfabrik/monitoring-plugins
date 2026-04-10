@@ -4,12 +4,6 @@
 
 Checks the replication status of a MySQL/MariaDB replica, including I/O thread state, SQL thread state, seconds behind master, and replication errors. Can also be run against standalone servers (reports that no replication is configured). Reports Galera synchronous replication state, binlog format, semi-synchronous replication configuration, and XA support.
 
-**Alerting Logic:**
-
-* Alerts with the configured severity (`--severity`, default: WARN) if the replica is not running but seems to be configured
-* Alerts with the configured severity if the replica is running with `read_only` disabled
-* Alerts with the configured severity if the replica is lagging behind the primary
-
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for replication-related settings (`binlog_format`, `read_only`, `rpl_semi_sync_*`, `wsrep_on`, `wsrep_provider_options`, etc.)

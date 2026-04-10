@@ -4,11 +4,6 @@
 
 Checks for unacknowledged alerts in LibreNMS and reports the most recent alert per device. Only considers devices that do not have alerting disabled in their LibreNMS device settings. When you acknowledge an alert in the LibreNMS web UI (Alerts > Notifications), this check changes the status for the corresponding device to OK.
 
-**Alerting Logic:**
-
-* Alerts with configurable severity (WARN or CRIT, default: CRIT) for each device that has an unacknowledged alert in LibreNMS
-* Acknowledged alerts and devices with disabled alerting are treated as OK
-
 **Data Collection:**
 
 * Queries the LibreNMS MySQL/MariaDB database directly (the API is too resource-intensive for large-scale environments)

@@ -4,13 +4,6 @@
 
 Checks IPSec connection states on a strongSwan VPN gateway by connecting to the charon daemon via the VICI (Versatile IKE Control Interface) socket. Reports IKE SA and CHILD SA states, re-authentication/re-keying timers, and traffic counters. "EST" in the output means "Established".
 
-**Alerting Logic:**
-
-* WARN if there are no active connections at all
-* WARN if configured connections do not match active connections (a connection is configured but not up)
-* WARN if any child SA is not connected
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Connects to the VICI socket (default: `/run/strongswan/charon.vici`) to enumerate configured and active connections
@@ -32,6 +25,7 @@ Checks IPSec connection states on a strongSwan VPN gateway by connecting to the 
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/strongswan-connections> |
+| Nagios/Icinga Check Name              | `check_strongswan_connections` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |

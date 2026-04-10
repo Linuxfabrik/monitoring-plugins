@@ -4,12 +4,6 @@
 
 Sends ICMP ECHO_REQUEST packets to a network host using the system's built-in `ping` command. Reports round-trip time (min, avg, max, mdev) and packet loss percentage. Without any parameters, it sends five packets with a 0.2 second interval and exits after five seconds timeout at the latest.
 
-**Alerting Logic:**
-
-* CRIT if 100% packet loss (destination host unreachable). This is intentionally CRIT instead of WARN because in host-liveliness checks, CRIT equals DOWN. Partial packet loss (even 90%) still results in OK because the host is reachable.
-* UNKNOWN if name or service is unknown, out of memory, or other ping errors.
-* `--always-ok` suppresses all alerts and always returns OK. Useful for hosts that block ICMP but can still execute check-plugins.
-
 **Data Collection:**
 
 * Executes the system `ping` command with quiet output (`-q`) to collect summary statistics

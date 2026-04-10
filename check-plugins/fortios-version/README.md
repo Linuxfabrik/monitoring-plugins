@@ -4,11 +4,6 @@
 
 Checks the installed FortiOS version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
-**Alerting Logic:**
-
-* WARN if the installed FortiOS version has reached or is approaching EOL (within `--offset-eol` days, default: 30 days before)
-* Optionally WARN when a new major, minor, or patch release is available (each independently configurable via `--check-major`, `--check-minor`, `--check-patch`)
-
 **Data Collection:**
 
 * Queries the FortiOS REST API endpoint `/api/v2/monitor/system/firmware/` to determine the installed version

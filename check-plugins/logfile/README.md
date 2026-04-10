@@ -4,12 +4,6 @@
 
 Scans a logfile for matching patterns or regular expressions and alerts based on the number of matches found. Supports both simple string matching (`--warning-pattern`, `--critical-pattern`) and Python regular expressions (`--warning-regex`, `--critical-regex`). Lines can be excluded via `--ignore-pattern` or `--ignore-regex`.
 
-**Alerting Logic:**
-
-* WARN when the number of warning matches (new + old) reaches `--warning` (default: 1)
-* CRIT when the number of critical matches (new + old) reaches `--critical` (default: 1)
-* Matches persist and continue to trigger alerts either for `--alarm-duration` minutes (default: 60) or until the Icinga service is acknowledged (when `--icinga-callback` is enabled)
-
 **Data Collection:**
 
 * Reads the logfile forward from the last known offset, only scanning new lines since the previous run

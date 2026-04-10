@@ -4,15 +4,6 @@
 
 Checks index sizes, fragmentation, and consistent engine and collation usage across all schemas in MySQL/MariaDB. Detects schemas where mixed storage engines, collations, charsets, or table engines are in use, which can indicate configuration drift or migration issues.
 
-**Alerting Logic:**
-
-* WARN if the index size is larger than the data size for a schema (if at least one of them exceeds 10 MiB)
-* WARN if more than one storage engine is used within a single schema
-* WARN if more than one collation is used within a single schema
-* WARN if more than one table engine is used within a single schema
-* WARN if more than one charset for text-like columns is used within a single schema
-* WARN if more than one collation for text-like columns is used within a single schema
-
 **Data Collection:**
 
 * Queries `information_schema.schemata` for all non-system schemas

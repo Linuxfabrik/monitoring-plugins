@@ -4,14 +4,6 @@
 
 Checks storage engine configuration in MySQL/MariaDB, including fragmented tables that may benefit from `OPTIMIZE TABLE`, tables using enabled but unused storage engines, and tables with autoincrement values approaching their maximum capacity.
 
-**Alerting Logic:**
-
-* WARN if InnoDB is enabled but no InnoDB tables exist
-* WARN if BDB is enabled but no BDB tables exist
-* WARN if MYISAM is enabled but no ISAM tables exist
-* WARN if fragmented tables are found (data > 100 MiB and free space > 10% of total)
-* WARN if a table's autoincrement value is >= 75% of its maximum capacity
-
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `innodb_file_per_table`

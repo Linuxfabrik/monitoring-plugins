@@ -4,12 +4,6 @@
 
 Checks performance-related best practice configurations for MySQL/MariaDB, including whether InnoDB stats are updated during INFORMATION_SCHEMA queries, concurrent inserts are enabled, and InnoDB file-per-table is activated.
 
-**Alerting Logic:**
-
-* WARN if `innodb_stats_on_metadata` is ON (statistics are updated during INFORMATION_SCHEMA queries, causing unnecessary overhead)
-* WARN if `concurrent_insert` is set to NEVER (0)
-* WARN if `innodb_file_per_table` is not ON (when InnoDB is enabled)
-
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `concurrent_insert`, `innodb_file_per_table`, and `innodb_stats_on_metadata`

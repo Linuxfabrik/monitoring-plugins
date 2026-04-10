@@ -4,13 +4,6 @@
 
 Monitors the Infomaniak status page for open events and incidents. Alerts when active events are reported.
 
-**Alerting Logic:**
-
-* Alerts WARN for active (non-terminated) events
-* Alerts CRIT if an active event is of type "critical"
-* Events can be filtered by service category (`--service`) and excluded by title regex (`--ignore-regex`)
-* The `--service` filter is applied before `--ignore-regex`
-
 **Data Collection:**
 
 * Queries the Infomaniak API for current events

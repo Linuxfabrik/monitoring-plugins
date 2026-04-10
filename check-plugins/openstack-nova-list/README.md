@@ -11,12 +11,6 @@ Lists all OpenStack Nova compute instances (virtual servers) and checks their st
 * Reports server name, ID, last update timestamp, and status for each instance
 * Counts instances per state and tracks the last status change across all servers
 
-**Alerting Logic:**
-
-* OK for states: ACTIVE, MIGRATING, REBOOT, SHELVED, SHELVED_OFFLOADED, SHUTOFF, SUSPENDED
-* WARN for states: BUILD, HARD_REBOOT, PAUSED, REBUILD, RESIZE, REVERT_RESIZE, SOFT_DELETED, VERIFY_RESIZE
-* CRIT for states: DELETED, ERROR, PASSWORD, RESCUE, UNKNOWN (and any other)
-
 **Important Notes:**
 
 * You have to provide a path to an rc file to authenticate. The rc file should contain standard OpenStack environment variables such as `OS_AUTH_URL`, `OS_USERNAME`, `OS_PASSWORD`, `OS_PROJECT_NAME`, etc.

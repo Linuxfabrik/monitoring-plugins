@@ -4,12 +4,6 @@
 
 Monitors system memory utilization on QNAP appliances running QTS via the HTTP API. Reports total, used, and free memory along with the usage percentage.
 
-**Alerting Logic:**
-
-* WARN if memory usage exceeds `--warning` (default: 80%)
-* CRIT if memory usage exceeds `--critical` (default: 90%)
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Authenticates against the QTS API and fetches system information via `/cgi-bin/management/manaRequest.cgi`

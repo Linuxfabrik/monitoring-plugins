@@ -4,12 +4,6 @@
 
 Checks Infomaniak Swiss Backup product details via the Infomaniak API. Alerts when products are locked, maintenance window is active, or storage quota is exceeded. Products can be filtered by customer or tag.
 
-**Alerting Logic:**
-
-* Alerts WARN or CRIT when a product's expiration date is within the configured threshold (in days)
-* Alerts WARN (default) or CRIT (if `--severity=crit`) when a product is locked, in maintenance, or has an operation in progress
-* Both `--ignore-*` filters accept Python regular expressions and can be specified multiple times
-
 **Data Collection:**
 
 * Queries the Infomaniak API for all Swiss Backup product details

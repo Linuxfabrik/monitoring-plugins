@@ -4,14 +4,6 @@
 
 Checks the health, running status, and synchronization state of all HyperMetro pairs on a Huawei OceanStor Dorado storage system via the REST API (`/hypermetropair` endpoint). Alerts when any pair reports a non-normal state or synchronization issue. Reports link status, last sync time, sync duration, sync progress, local/remote data consistency and host access state per pair.
 
-**Alerting Logic:**
-
-* WARN if any pair's health status is not "Normal"
-* WARN if any pair's running status is not "Normal" or "Synchronizing"
-* WARN if link status is not "connected"
-* WARN if local data state is not "consistent"
-* WARN if remote data state is not "consistent"
-
 **Data Collection:**
 
 * Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/hypermetropair`

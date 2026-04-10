@@ -4,13 +4,6 @@
 
 Counts the number of currently logged-in users by session type: tty (console) and pts (SSH on Linux, RDP on Windows). On Windows, also counts disconnected sessions (closed connections without logging out).
 
-**Alerting Logic:**
-
-* Thresholds are specified in the format `tty,pts` (Linux) or `tty,pts,disc` (Windows)
-* WARN if the number of tty or pts users exceeds `--warning` (default: `1,20,1`)
-* CRIT if the number of tty or pts users exceeds `--critical` (default: `None,None,None`)
-* `None` means no threshold for that session type
-
 **Data Collection:**
 
 * On Linux: executes `/usr/bin/w` and parses its output, using the header line to determine column positions
@@ -31,6 +24,7 @@ Counts the number of currently logged-in users by session type: tty (console) an
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/users> |
+| Nagios/Icinga Check Name              | `check_users` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | Yes |

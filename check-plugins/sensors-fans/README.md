@@ -4,12 +4,6 @@
 
 Reports hardware fan speeds in RPM (rounds per minute). Returns OK if no fans are detected.
 
-**Alerting Logic:**
-
-* WARN if any fan speed meets or exceeds `--warning` (default: 10000 RPM)
-* CRIT if any fan speed meets or exceeds `--critical` (default: 20000 RPM)
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Uses `psutil.sensors_fans()` to read fan speed data from hardware sensors

@@ -4,11 +4,6 @@
 
 Checks hardware sensor readings (temperature, voltage, fan speed) on FortiGate appliances running FortiOS via the REST API. Alerts when any sensor value crosses the appliance-defined thresholds (`lower_non_critical`, `lower_critical`, `upper_non_critical`, `upper_critical`). Sensors reporting a value of 0.0 are skipped automatically. Authentication uses a single API token (token-based authentication).
 
-**Alerting Logic:**
-
-* Uses the appliance's built-in threshold values for each sensor to determine WARN and CRIT states
-* Alerts separately on lower and upper threshold violations (e.g. a voltage dropping below its lower critical limit, or a temperature exceeding its upper non-critical limit)
-
 **Data Collection:**
 
 * Queries the FortiOS REST API endpoint `/api/v2/monitor/system/sensor-info/select` to fetch all hardware sensor readings and their thresholds

@@ -4,12 +4,6 @@
 
 Lists all virtual machines on a KVM host using `virsh list --all` and checks their states. Alerts on VMs that are in unexpected states such as crashed, idle, paused, or pmsuspended.
 
-**Alerting Logic:**
-
-* CRIT if any VM is in `crashed` state
-* WARN if any VM is in `idle`, `paused`, or `pmsuspended` state
-* VMs in `running`, `shut off`, or `in shutdown` state do not trigger alerts
-
 **Data Collection:**
 
 * Executes `virsh list --all` to obtain the list of all VMs and their current states

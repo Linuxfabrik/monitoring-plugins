@@ -4,10 +4,6 @@
 
 Checks whether transactions in MySQL/MariaDB had to use a temporary disk cache because they exceeded the configured binary log cache size (`binlog_cache_size`). A high disk cache usage rate indicates that `binlog_cache_size` should be increased.
 
-**Alerting Logic:**
-
-* WARN if less than 90% of all transactions using the binary log cache were served from memory (i.e. more than 10% had to fall back to disk)
-
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `binlog_cache_size` and `log_bin`

@@ -4,10 +4,6 @@
 
 Monitors the health status of a WHMCS (Web Host Manager Complete Solution) installation via the [GetHealthStatus API endpoint](https://developers.whmcs.com/api-reference/gethealthstatus/). Reports messages about module versions, license status, and system health indicators. Messages are sorted by severity.
 
-**Alerting Logic:**
-
-* WARN if any health check message has a severity level greater than "info" (i.e. "warning" or "error")
-
 **Data Collection:**
 
 * Queries the WHMCS API at `<url>/includes/api.php` using the `GetHealthStatus` action

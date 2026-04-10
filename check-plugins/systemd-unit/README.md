@@ -4,13 +4,6 @@
 
 Checks the state of a specific systemd unit (service, socket, device, mount, timer, scope, etc.) via `systemctl show`. Verifies the active state, sub-state, load state, and unit file state against expected values.
 
-**Alerting Logic:**
-
-* WARN (default) or CRIT (via `--severity=crit`) if any of the checked states do not match the expected values
-* If `--activestate`, `--substate`, or `--unitfilestate` is omitted (or set to "None"), the corresponding state is not checked
-* If `--loadstate` detects "not-found", the check suggests verifying the unit file with `systemctl cat`
-* Multiple values can be specified for `--activestate` and `--substate` (useful for timer-dependent services that alternate between states)
-
 **Data Collection:**
 
 * Executes `systemctl show -p LoadState,ActiveState,SubState,UnitFileState <unit>`
@@ -33,6 +26,7 @@ Checks the state of a specific systemd unit (service, socket, device, mount, tim
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/systemd-unit> |
+| Nagios/Icinga Check Name              | `check_systemd_unit` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--unit` is required) |
 | Compiled for Windows                  | No |

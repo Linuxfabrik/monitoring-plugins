@@ -4,13 +4,6 @@
 
 Checks the installed Nextcloud version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable. Requires root or sudo.
 
-**Alerting Logic:**
-
-* WARN if the installed version has reached its EOL date (considering the configured offset)
-* Optional: WARN when a new major version is available (`--check-major`)
-* Optional: WARN when a new minor version is available (`--check-minor`)
-* Optional: WARN when a new patch version is available (`--check-patch`)
-
 **Data Collection:**
 
 * Runs Nextcloud `occ config:list` via sudo to determine the installed version

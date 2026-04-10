@@ -4,11 +4,6 @@
 
 Monitors virtual services on a KEMP LoadMaster appliance via its REST API and alerts when any virtual service or its real servers are in a non-operational state.
 
-**Alerting Logic:**
-
-* Alerts with configurable severity (WARN or CRIT, default: WARN) when any virtual service reports a "Down" status
-* Services in "Up", "Unchecked", or "Disabled" state do not trigger alerts
-
 **Data Collection:**
 
 * Queries the KEMP LoadMaster REST API endpoint `/access/listvs` using Basic authentication

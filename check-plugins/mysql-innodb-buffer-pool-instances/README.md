@@ -4,12 +4,6 @@
 
 Checks the InnoDB buffer pool instance configuration in MySQL/MariaDB. The number of buffer pool instances should follow best practices based on the total buffer pool size: 1 instance if the buffer pool is <= 1 GiB, otherwise 1 instance per GiB (up to a maximum of 64).
 
-**Alerting Logic:**
-
-* WARN if `innodb_buffer_pool_instances` > 64
-* WARN if `innodb_buffer_pool_size` > 1 GiB and `innodb_buffer_pool_instances` does not equal `min(innodb_buffer_pool_size in GiB, 64)`
-* WARN if `innodb_buffer_pool_size` <= 1 GiB and `innodb_buffer_pool_instances` is not 1
-
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `innodb_buffer_pool_instances` and `innodb_buffer_pool_size`

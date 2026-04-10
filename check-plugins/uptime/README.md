@@ -4,15 +4,6 @@
 
 Reports how long the system has been running since the last boot. Optionally displays the timestamp and duration of the last downtime - the more frequently the check runs, the more accurate the downtime information will be.
 
-**Alerting Logic:**
-
-* Thresholds use a human-readable format with time qualifiers: `s` (seconds), `m` (minutes), `h` (hours), `D` (days), `W` (weeks), `M` (months), `Y` (years)
-* Supports Nagios range syntax, e.g. `5m:180D` warns if uptime is not between 5 minutes and 180 days
-* WARN if uptime is outside `--warning` range (default: `3m:180D`, i.e. warns if less than 3 minutes or more than 180 days)
-* CRIT if uptime is outside `--critical` range (default: `:1Y`, i.e. crits if more than 1 year)
-* Useful for detecting servers that have not been rebooted after patching, or unexpected reboots
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Uses `psutil.boot_time()` to determine the boot timestamp and calculate uptime
@@ -29,6 +20,7 @@ Reports how long the system has been running since the last boot. Optionally dis
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/uptime> |
+| Nagios/Icinga Check Name              | `check_uptime` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | Yes |

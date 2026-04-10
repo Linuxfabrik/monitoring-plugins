@@ -4,13 +4,6 @@
 
 Checks system requirements and kernel settings specifically for MySQL/MariaDB, including swap configuration, open file limits, and other OS-level parameters that affect database performance and stability. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):get_kernel_info(), v1.9.8.
 
-**Alerting Logic:**
-
-* WARN if there are too many listening ports (only checked when `--maxportsallowed` is set to a value greater than 0)
-* WARN if `vm.swappiness` is greater than 10
-* WARN if `sunrpc.tcp_slot_table_entries` is 100 or less (only if `/proc/sys/sunrpc` exists)
-* WARN if `fs.aio-max-nr` is less than 1,000,000 (only if `/proc/sys/fs/aio-max-nr` exists)
-
 **Data Collection:**
 
 * Counts open ports using `psutil` (if available)

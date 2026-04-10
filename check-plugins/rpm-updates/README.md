@@ -4,12 +4,6 @@
 
 Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible systems. Reports the number and type of available advisories (bugfix, enhancement, security). This check only lists updates and never actually installs anything.
 
-**Alerting Logic:**
-
-* WARN if the number of available updates meets or exceeds `--warning` (default: 1)
-* `--only-critical` filters to security updates only
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Executes `yum list --upgrades`, `yum list --installed`, and `yum updateinfo list --available`

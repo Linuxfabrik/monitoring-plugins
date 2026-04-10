@@ -4,12 +4,6 @@
 
 Displays system-wide Podman information including container counts, image count, storage driver, runtime version, available CPUs, and total memory. For Docker, use the [docker-info](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/docker-info) check instead.
 
-**Alerting Logic:**
-
-* WARN on `podman info` warnings in stderr
-* CRIT on `podman info` errors in stderr or return codes != 0
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Executes `podman info --format json` to collect system-wide Podman information

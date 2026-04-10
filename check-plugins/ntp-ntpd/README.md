@@ -10,12 +10,6 @@ Checks the clock offset of ntpd in milliseconds compared to the configured NTP s
 * Parses the active peer (marked with `*`) and extracts stratum, delay, offset, and jitter
 * Displays the full `ntpq -p` output for reference
 
-**Alerting Logic:**
-
-* WARN or CRIT if the NTP offset exceeds the configured thresholds (default: 800ms / 86400000ms)
-* WARN if stratum is >= `--stratum` (default: 6)
-* WARN if no NTP server is used, no NTP server is found, or only the LOCAL clock is used
-
 **Important Notes:**
 
 * `ntpd` is deprecated on RHEL 8+. Consider using `chronyd` instead.

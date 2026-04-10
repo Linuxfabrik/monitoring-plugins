@@ -4,12 +4,6 @@
 
 Submits a URL to VirusTotal for analysis and checks the scan results. Alerts when any antivirus engine flags the URL as malicious or suspicious. Useful for periodically scanning critical URLs against 90+ security vendors.
 
-**Alerting Logic:**
-
-* WARN (default) or CRIT (configurable via `--severity`) when any scan engine categorizes the URL as "malicious"
-* The default severity is WARN due to the high rate of false positives on VirusTotal
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Submits the URL to the [VirusTotal v3 API](https://docs.virustotal.com/reference/scan-url) (`POST /urls`)

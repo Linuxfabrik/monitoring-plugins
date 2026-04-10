@@ -4,11 +4,6 @@
 
 Checks the expiration dates of certificates and CRLs stored in a XCA-managed MySQL/MariaDB database. XCA by Christian Hohnstaedt is an application intended for creating and managing X.509 certificates, certificate requests, RSA, DSA and EC private keys, Smart-cards and CRLs. This plugin requires the ["Remote Databases" feature](https://hohnstaedt.de/xca/index.php/documentation/remote-databases) to be enabled.
 
-**Alerting Logic:**
-
-* WARN or CRIT if any certificate expires within the configured threshold (default: 14/5 days)
-* WARN or CRIT if any CRL's next update is within the configured threshold (default: 14/5 days)
-
 **Data Collection:**
 
 * Connects to the XCA MySQL/MariaDB database using credentials from a cnf file (`--defaults-file`)

@@ -4,14 +4,6 @@
 
 Checks the state of all physical drives and storage media in a Redfish-compatible server via the Redfish API. Iterates over the Systems collection, fetches storage controllers and their attached drives, and reports health status, media type, protocol, capacity, and predicted media life left.
 
-**Alerting Logic:**
-
-* WARN if an enabled drive's health or health rollup state is "Warning"
-* WARN if an enabled controller's health or health rollup state is "Warning"
-* CRIT if an enabled drive's health or health rollup state is "Critical"
-* CRIT if an enabled controller's health or health rollup state is "Critical"
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Queries `/redfish/v1/Systems` to enumerate system members

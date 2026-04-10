@@ -4,11 +4,6 @@
 
 Checks system and CPU temperatures on QNAP appliances running QTS via the HTTP API. All temperatures are expressed in Celsius. Temperature thresholds are determined automatically from the QTS system configuration.
 
-**Alerting Logic:**
-
-* WARN or CRIT if the system or CPU temperature exceeds the thresholds configured in QTS
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Authenticates against the QTS API and fetches system information via `/cgi-bin/management/manaRequest.cgi`

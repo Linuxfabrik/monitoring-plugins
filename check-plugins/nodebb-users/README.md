@@ -9,10 +9,6 @@ Monitors NodeBB user statistics via the admin API, including total user count, a
 * Queries the NodeBB Read API endpoint `/api/admin/manage/users` using Bearer Authentication
 * Reports the total user count, the latest active user, and a table with user ID, slug, last online timestamp, banned status, admin flag, and IP address
 
-**Alerting Logic:**
-
-* Alerts according to the given severity (default: WARN) if a user gets banned
-
 **Important Notes:**
 
 * You need to issue a bearer token of type "user" in the NodeBB admin panel: Settings > API Access > Create Token > Specify your User ID and Description (for example "Linuxfabrik API Token"). In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.

@@ -4,11 +4,6 @@
 
 Checks the health and running status of all enclosures (controller enclosures and disk enclosures) on a Huawei OceanStor Dorado storage system via the REST API (`/enclosure` endpoint). Alerts when any enclosure reports a non-normal health or running state. Reports model, serial number, logic type, MAC address, switch status and temperature per enclosure.
 
-**Alerting Logic:**
-
-* CRIT if any enclosure's health status is not "Normal"
-* WARN if any enclosure's running status is not "Normal", "Running" or "Online"
-
 **Data Collection:**
 
 * Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/enclosure`

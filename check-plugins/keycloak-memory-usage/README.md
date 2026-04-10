@@ -4,10 +4,6 @@
 
 Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP API and alerts when memory usage exceeds configurable thresholds.
 
-**Alerting Logic:**
-
-* Compares the used memory percentage against `--warning` (default: 80%) and `--critical` (default: 90%) thresholds
-
 **Data Collection:**
 
 * Authenticates against the Keycloak OIDC token endpoint using client credentials (`--client-id`, `--username`, `--password`)

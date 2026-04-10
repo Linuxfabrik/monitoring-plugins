@@ -4,12 +4,6 @@
 
 Checks the connection usage rate, the rate of aborted connections, and whether name resolution is active for new connections on MySQL/MariaDB. Provides recommendations when thresholds are exceeded.
 
-**Alerting Logic:**
-
-* WARN if the number of current connections exceeds 85% of `max_connections`
-* WARN if the number of aborted connections exceeds 3% of all connections
-* WARN if name resolution is active (unless `--ignore-name-resolution` is specified)
-
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `interactive_timeout`, `max_connections`, `skip_name_resolve`, and `wait_timeout`

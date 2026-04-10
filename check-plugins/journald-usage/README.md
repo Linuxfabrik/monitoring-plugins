@@ -4,11 +4,6 @@
 
 Checks the current disk usage of all systemd journal files (archived and active combined) and alerts when journal disk usage exceeds a configurable threshold.
 
-**Alerting Logic:**
-
-* Compares the total size of all journal files against the `--warning` threshold (in GiB)
-* There is no critical threshold; only a warning level is supported
-
 **Data Collection:**
 
 * Executes `journalctl --disk-usage` to obtain the total disk usage of all archived and active journal files

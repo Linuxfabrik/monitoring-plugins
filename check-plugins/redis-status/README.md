@@ -4,15 +4,6 @@
 
 Monitors a Redis server via the `INFO` command, reporting memory usage, fragmentation ratio, keyspace hit rate, connected clients, replication status, and persistence state.
 
-**Alerting Logic:**
-
-* WARN or CRIT when memory usage exceeds the configured thresholds (default: WARN >= 90%)
-* WARN when `maxmemory` is set to 0 (unlimited), suppressible via `--ignore-maxmemory0`
-* WARN on memory issues reported by Redis Memory Doctor (harmless peak-only or jemalloc issues are auto-suppressed)
-* WARN on partial sync errors, suppressible via `--ignore-sync-partial-err`
-* WARN on OS-level misconfigurations (`vm.overcommit_memory`, transparent huge pages, `net.core.somaxconn`), each individually suppressible
-* `--always-ok` suppresses all alerts and always returns OK
-
 **Data Collection:**
 
 * Executes `redis-cli info default` and `redis-cli memory doctor` against the target Redis instance

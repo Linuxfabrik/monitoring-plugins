@@ -4,11 +4,6 @@
 
 Checks the health and running status of all controllers on a Huawei OceanStor Dorado storage system via the REST API (`/controller` endpoint). Alerts when any controller reports a non-normal health or running state.
 
-**Alerting Logic:**
-
-* CRIT if any controller's health status is not "Normal"
-* WARN if any controller's running status is not "Normal", "Running" or "Online"
-
 **Data Collection:**
 
 * Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/controller`

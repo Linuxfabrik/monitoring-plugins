@@ -9,12 +9,6 @@ Monitors OnlyOffice Document Server statistics and license usage via the HTTP AP
 * Fetches statistics from the OnlyOffice `info/info.json` endpoint via HTTP
 * Reports maximum licensed connections, license status and expiration, hourly view and edit connection statistics (min/avg/max), unique user count, and server version
 
-**Alerting Logic:**
-
-* WARN if the license expires in the next 10 days
-* WARN if the license has expired
-* WARN or CRIT if the number of hourly view or edit connections reaches 90% or 95% of the licensed maximum
-
 **Important Notes:**
 
 * By default the `info/info.json` page is only available from localhost. The OnlyOffice nginx configuration has to be modified if the check is not running locally (`/etc/onlyoffice/documentserver/nginx/includes/ds-docservice.conf`: set `allow ...` instead of `deny all` on `location ~* ^(\/[\d]+\.[\d]+\.[\d]+[\.|-][\d]+)?\/(info|internal)(\/.*)$`).
