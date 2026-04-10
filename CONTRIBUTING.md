@@ -415,7 +415,7 @@ Rules:
 * Defaults and examples go on their own lines.
 * Say "Can be specified multiple times." for `action='append'` parameters (not "(repeating)").
 * Say "Supports Nagios ranges." when `lib.base.get_state()` is used with the value.
-* Say "Case-insensitive." when the regex is compiled with `re.IGNORECASE` or uses `(?i)`.
+* Always state case-sensitivity explicitly: "Case-insensitive." or "Case-sensitive."
 * Say "Uses Python regular expressions." when the parameter accepts a regex.
 * End every help text with a period.
 * Parameters that are identical across plugins must use identical help texts.
