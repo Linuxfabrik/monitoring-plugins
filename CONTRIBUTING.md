@@ -588,6 +588,18 @@ We use [PEP 8 -- Style Guide for Python Code](https://www.python.org/dev/peps/pe
 **String quoting:** Use single quotes as the default. Use double quotes only inside f-string expressions (e.g. `f'{lib.base.state2str(state, prefix=" ")}'`) or when the string itself contains single quotes (e.g. `'Python module "psutil" is not installed.'`). Use `"""` for all triple-quoted strings (docstrings, `DESCRIPTION`, SQL, etc.). This is enforced by `ruff format`.
 
 
+### DESCRIPTION Variable
+
+Every plugin must define a `DESCRIPTION` variable that is passed to `argparse.ArgumentParser(description=DESCRIPTION)`. Rules:
+
+* At least 2-3 sentences that explain what the plugin does, from the perspective of the admin deploying it.
+* Written in fluent English, no implementation details (no mention of library functions, class names, or internal patterns).
+* Describe what it monitors, when it alerts, and what it requires to work.
+* Use `"""` triple quotes.
+* Keep line length around 90 characters.
+* The README Overview must include at least the text from the `DESCRIPTION`.
+
+
 ### Docstrings
 
 We document our [Libraries](https://git.linuxfabrik.ch/linuxfabrik/lib) using [numpydoc docstrings](https://numpydoc.readthedocs.io/en/latest/format.html#docstring-standard), so that calling `pydoc lib/base.py` works, for example.
