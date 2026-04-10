@@ -17,10 +17,10 @@ import sys
 import lib.base
 import lib.human
 import lib.time
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026040901'
 
 DESCRIPTION = """Checks the status of the last borgbackup run by parsing the borg logfile. Alerts on
 non-zero return codes from the create or prune steps, and warns if the last successful
@@ -89,7 +89,7 @@ def main():
         lib.base.cu(f'Logfile {path} not found or empty.')
 
     mount_lines = ''
-    with open('/proc/mounts') as mountlist:
+    with open('/proc/mounts', encoding='utf-8') as mountlist:
         for line in mountlist:
             if 'borgfs' in line:
                 mount_lines += '* ' + line
@@ -97,31 +97,29 @@ def main():
     if mount_lines:
         lib.base.oao(f'There are active borg mounts.\n\n{mount_lines}', STATE_WARN)
 
-    logfile = open(path, 'r')
-    for line in logfile:
-        if line.startswith('start'):
-            starttime = line.split(': ')[1].strip()
+    starttime = None
+    endtime = None
+    create_retc = None
+    prune_retc = None
+    with open(path, 'r', encoding='utf-8') as logfile:
+        for line in logfile:
+            if line.startswith('start'):
+                starttime = line.split(': ')[1].strip()
 
-        if line.startswith('end'):
-            endtime = line.split(': ')[1].strip()
+            if line.startswith('end'):
+                endtime = line.split(': ')[1].strip()
 
-        if line.startswith('create_retc'):
-            create_retc = int(line.split(': ')[1])
+            if line.startswith('create_retc'):
+                create_retc = int(line.split(': ')[1])
 
-        if line.startswith('prune_retc'):
-            prune_retc = int(line.split(': ')[1])
+            if line.startswith('prune_retc'):
+                prune_retc = int(line.split(': ')[1])
 
-    # check if all variables are defined (looks a little bit weird, pylint complains:
-    # Statement seems to have no effect (pointless-statement) ;-)
-    try:
-        starttime
-        endtime
-        create_retc
-        prune_retc
-    except UnboundLocalError:
+    if any(v is None for v in (starttime, endtime, create_retc, prune_retc)):
         lib.base.cu('Could not find all expected values in the logfile.')
 
-    # We ignore retc 1, as it means operation reached its normal end, but there were warnings from borg.
+    # We ignore retc 1, as it means operation reached its normal end,
+    # but there were warnings from borg.
     state = STATE_OK
     create_retc_state = lib.base.get_state(create_retc, 2, None, _operator='ge')
     state = lib.base.get_worst(state, create_retc_state)
@@ -161,7 +159,10 @@ def main():
         _min=0,
     )
 
-    msg = f'Last Backup started {starttime}, ended {endtime}, took {lib.human.seconds2human(duration)}.\n'
+    msg = (
+        f'Last Backup started {starttime}, ended {endtime},'
+        f' took {lib.human.seconds2human(duration)}.\n'
+    )
     if state != STATE_OK:
         if last_starttime_state != STATE_OK:
             msg = 'Last backup is too long ago. ' + msg

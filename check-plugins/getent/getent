@@ -18,11 +18,11 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026040901'
 
-DESCRIPTION = """Queries the Name Service Switch (NSS) for entries in system databases such as group,
-hosts, networks, passwd, protocols, or services. Alerts if the lookup fails or if a
-specific key is not found."""
+DESCRIPTION = """Queries the Name Service Switch (NSS) for entries in system
+databases such as group, hosts, networks, passwd, protocols, or services.
+Alerts if the lookup fails or if a specific key is not found."""
 
 DEFAULT_DATABASE = 'group'
 
@@ -50,7 +50,8 @@ def parse_args():
     parser.add_argument(
         '--key',
         help='Lookup key to search for in the database. '
-        'If not specified, all entries are fetched (unless the database does not support enumeration). '
+        'If not specified, all entries are fetched '
+        '(unless the database does not support enumeration). '
         'Can be specified multiple times. '
         'Example: `--key root --key nobody`.',
         dest='KEY',
@@ -84,16 +85,21 @@ def main():
     count = len(stdout.strip().split('\n'))
 
     # build the message
+    msg = ''
+    state = STATE_UNKNOWN
     if retc == 0:
         msg = f'Everything is ok. Executed `{cmd}`, got {count} results.'
         state = STATE_OK
-    if retc == 1:
+    elif retc == 1:
         msg = f'Missing arguments for `{cmd}`, or database "{args.DATABASE}" unknown.'
         state = STATE_UNKNOWN
-    if retc == 2:
-        msg = f'One or more supplied keys could not be found in "{args.DATABASE}", executing `{cmd}`.'
+    elif retc == 2:
+        msg = (
+            f'One or more supplied keys could not be found'
+            f' in "{args.DATABASE}", executing `{cmd}`.'
+        )
         state = STATE_WARN
-    if retc == 3:
+    elif retc == 3:
         msg = (
             f'Multiple keys (enumeration) not supported on database "{args.DATABASE}".'
         )

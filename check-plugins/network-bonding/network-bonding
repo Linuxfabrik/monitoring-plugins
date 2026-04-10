@@ -17,10 +17,10 @@ import sys
 import lib.args
 import lib.base
 import lib.txt
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026040901'
 
 DESCRIPTION = """Reports the state of network bonding (channel bonding) interfaces. Checks that all
 slave interfaces are active and that the bonding mode and link status are healthy.
@@ -92,11 +92,15 @@ def main():
         else:
             filename = args.TEST
 
-        with open(filename, 'r') as result:
+        with open(filename, 'r', encoding='utf-8') as result:
             submsg = ''
             substate = STATE_OK
             # now, check the media-independent interface status (MII)
+            bonding_mode = ''
             in_interface_section = False
+            link_failure_count = '0'
+            mii_status = 'up'
+            slave_interface = ''
             for row in result:
                 row = row.strip()
                 if not row:
@@ -137,7 +141,11 @@ def main():
                     and value == '00:00:00:00:00:00'
                     and bonding_mode == 'IEEE 802.3ad Dynamic link aggregation'
                 ):
-                    submsg += '    * Could not detect the MAC Address of the switch. This could indicate that LACP is not configured properly.\n'
+                    submsg += (
+                        '    * Could not detect the MAC Address of the switch.'
+                        ' This could indicate that LACP is not configured'
+                        ' properly.\n'
+                    )
                     substate = state = STATE_WARN
 
             if in_interface_section:
@@ -159,8 +167,8 @@ def main():
                     substate = state = STATE_WARN
 
             msg += (
-                f'* {lib.base.state2str(substate, suffix=" ")}{bonding_interface} ({bonding_mode})\n'
-                + submsg
+                f'* {lib.base.state2str(substate, suffix=" ")}'
+                f'{bonding_interface} ({bonding_mode})\n' + submsg
             )
 
     if state == STATE_OK:

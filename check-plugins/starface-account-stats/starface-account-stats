@@ -23,12 +23,12 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026040901'
 
-DESCRIPTION = """Monitors account statistics of a Starface PBX via its monitoring module on port 6556.
-Reports SIP and DAHDI account states including registered, unregistered, and failed
-accounts. Supports both IPv4 and IPv6. Data is cached to avoid overloading the PBX
-when multiple checks run in parallel."""
+DESCRIPTION = """Monitors account statistics of a Starface PBX via its monitoring
+module on port 6556. Reports SIP and DAHDI account states including registered,
+unregistered, and failed accounts. Supports both IPv4 and IPv6. Data is cached to
+avoid overloading the PBX when multiple checks run in parallel."""
 
 DEFAULT_CACHE_EXPIRE = 1  # minutes
 DEFAULT_HOSTNAME = 'localhost'
@@ -126,7 +126,7 @@ def main():
             )
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.lftest.test(args.TEST)
+        stdout, _, _ = lib.lftest.test(args.TEST)
         data = stdout
 
     if not data:
@@ -141,6 +141,12 @@ def main():
     perfdata = ''
 
     # analyze the data
+    active_accounts = 0
+    admin_accounts = 0
+    available_accounts = 0
+    ringing_accounts = 0
+    total_accounts = 0
+    unavailable_accounts = 0
     for row in result:
         if not row:
             continue
