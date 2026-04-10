@@ -331,6 +331,8 @@ For all other options, use long parameters only. Separate words using a `-`. We 
 * `choices=['udp', 'udp6', 'tcp', 'tcp6']`
 * `action='store_true'`, `action='store_false'` for switches
 
+**Threshold parameters** (`--warning`, `--critical`) in new plugins must use `type=str` (not `int` or `float`) to support [Nagios range expressions](https://www.monitoring-plugins.org/doc/guidelines.html#THRESHOLDFORMAT) like `80`, `10:`, `~:50`, `@10:20`. In `main()`, use `lib.base.get_state(value, args.WARN, args.CRIT, _operator='range')`. See the [example](check-plugins/example/example) plugin and the [Threshold and Ranges](#threshold-and-ranges) section for details.
+
 Hints:
 
 * For complex parameter tupels, use the `csv` type. `--input='Name, Value, Warn, Crit'` results in `[ 'Name', 'Value', 'Warn', 'Crit' ]`

@@ -68,12 +68,14 @@ def parse_args():
         default=False,
     )
 
+    # Threshold parameters: use type=str (not int/float) to support Nagios
+    # range expressions like "80", "10:", "~:50", "@10:20".
+    # In main(), pass _operator='range' to lib.base.get_state().
     parser.add_argument(
         '-c',
         '--critical',
-        help=lib.args.help('--critical') + ' Default: >= %(default)s',
+        help=lib.args.help('--critical') + ' Default: %(default)s',
         dest='CRIT',
-        type=int,
         default=DEFAULT_CRIT,
     )
 
@@ -187,9 +189,8 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help=lib.args.help('--warning') + ' Default: >= %(default)s',
+        help=lib.args.help('--warning') + ' Default: %(default)s',
         dest='WARN',
-        type=int,
         default=DEFAULT_WARN,
     )
 
@@ -278,7 +279,7 @@ def main():
         f' tempor incididunt ut labore. Ut enim ad minim veniam, quis nostrud exercitation'
         f' ullamco laboris nisi ut aliquip ex ea commodo consequat.'
     )
-    item_state = lib.base.get_state(value, args.WARN, args.CRIT)
+    item_state = lib.base.get_state(value, args.WARN, args.CRIT, _operator='range')
     state = lib.base.get_worst(state, item_state)
 
     # store current measurement and calculate delta from previous run
