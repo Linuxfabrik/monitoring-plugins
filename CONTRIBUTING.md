@@ -384,17 +384,14 @@ help='Any item matching this Python regex will be ignored. '
 'Can be specified multiple times. '
 'Example: `(?i)linuxfabrik`',
 
-# insecure
-help='This option explicitly allows insecure SSL connections. '
-'Default: %(default)s',
+# insecure (switch, no default needed)
+help='This option explicitly allows insecure SSL connections.',
 
-# lengthy
-help='Extended reporting. '
-'Default: %(default)s',
+# lengthy (switch, no default needed)
+help='Extended reporting.',
 
-# no-proxy
-help='Do not use a proxy. '
-'Default: %(default)s',
+# no-proxy (switch, no default needed)
+help='Do not use a proxy.',
 
 # test
 help='For unit tests. '
@@ -411,7 +408,7 @@ help='URL to the endpoint. '
 
 Rules:
 
-* Use `%(default)s` for defaults, never hardcode the value.
+* Use `%(default)s` for defaults, never hardcode the value. Omit the default for `store_true`/`store_false` switches (e.g. `--always-ok`, `--insecure`, `--no-proxy`, `--lengthy`) since they are always False when not specified.
 * Defaults and examples go on their own lines.
 * Say "Can be specified multiple times." for `action='append'` parameters (not "(repeating)").
 * Say "Supports Nagios ranges." when `lib.base.get_state()` is used with the value.
