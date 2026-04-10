@@ -367,43 +367,33 @@ Help texts must be consistent across all plugins. Each property of a parameter g
 6. Example (if helpful)
 7. Default value (always last, always present if there is one)
 
-Standard help texts for common parameters (use these verbatim):
+Standard help texts for common parameters are defined centrally in `lib.args.HELP_TEXTS`. Use `lib.args.help('--parameter-name')` wherever possible instead of writing help text inline:
 
 ```python
-# always-ok
-help='Always returns OK.',
+# standard parameter - use lib.args.help()
+parser.add_argument(
+    '--timeout',
+    help=lib.args.help('--timeout'),
+    dest='TIMEOUT',
+    type=int,
+    default=DEFAULT_TIMEOUT,
+)
 
-# critical / warning (with Nagios ranges)
-help='Set the CRIT threshold as a percentage. '
-'Supports Nagios ranges. '
-'Default: >= %(default)s',
+# plugin-specific parameter - write help text inline, same format
+parser.add_argument(
+    '--token',
+    help='Software API token.',
+    dest='TOKEN',
+    required=True,
+)
 
-# ignore-regex
-help='Any item matching this Python regex will be ignored. '
-'Case-insensitive. '
-'Can be specified multiple times. '
-'Example: `(?i)linuxfabrik`',
-
-# insecure (switch, no default needed)
-help='This option explicitly allows insecure SSL connections.',
-
-# lengthy (switch, no default needed)
-help='Extended reporting.',
-
-# no-proxy (switch, no default needed)
-help='Do not use a proxy.',
-
-# test
-help='For unit tests. '
-'Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
-
-# timeout
-help='Network timeout in seconds. '
-'Default: %(default)s (seconds)',
-
-# url
-help='URL to the endpoint. '
-'Default: %(default)s',
+# plugin-specific prefix + global help text
+parser.add_argument(
+    '--url',
+    help='GitLab health URL endpoint. ' + lib.args.help('--url'),
+    dest='URL',
+    default=DEFAULT_URL,
+)
 ```
 
 Rules:
