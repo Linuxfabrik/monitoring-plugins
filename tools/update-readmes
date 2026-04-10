@@ -9,22 +9,20 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import argparse
+import concurrent.futures
 import re
+import subprocess
 import sys
 
-import lib.args
 import lib.base
 import lib.disk
-import lib.shell
-import lib.txt
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041001'
 
-DESCRIPTION = """A tool to update the Linuxfabrik monitoring plugins README files at certain points.
-                 Run this tool within the mp root directory."""
-
-DEFAULT_PATH = '.'
+DESCRIPTION = """Updates the Help section in all monitoring plugin README files by running
+each plugin with --help and replacing the corresponding code block. Run this tool from the
+repository root directory."""
 
 
 def parse_args():
@@ -41,16 +39,29 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
-    """The main function. Hier spielt die Musik."""
-
-    # parse the command line, exit with UNKNOWN if it fails
+def get_help(plugin):
+    """Run plugin --help and return (plugin_name, help_text) or (plugin_name, None) on error."""
+    cmd = f'check-plugins/{plugin}/{plugin}'
     try:
-        args = parse_args()
+        result = subprocess.run(
+            [cmd, '--help'],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        return (plugin, result.stdout.strip())
+    except Exception as e:
+        return (plugin, None, str(e))
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    try:
+        parse_args()
     except SystemExit:
         sys.exit(3)
 
-    # fetch data
     readmes = lib.disk.walk_directory(
         './',
         exclude_pattern=r'',
@@ -58,39 +69,50 @@ def main():
         relative=True,
     )
 
-    # for each README do something good
+    # collect plugin names from README paths
+    plugins = []
     for readme_path in sorted(readmes):
         if 'check-plugins/' not in readme_path:
             continue
         if readme_path.startswith('docs/'):
             continue
-
-        # get the plugin name
         plugin = readme_path.replace('check-plugins/', '').replace('/README.md', '')
-        # run `plugin-name --help`
-        _help, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(f'check-plugins/{plugin}/{plugin} --help')
-        )
-        # prepend 4 spaces to every non-empty line of the output
-        _help = '\n'.join(
-            f'{line}' if line.strip() else line for line in _help.split('\n')
-        )
-        _help = _help.strip()
+        plugins.append(plugin)
 
-        # got the plugin name, it's help output and the path to the README.
+    # run all --help calls in parallel
+    help_texts = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+        futures = {executor.submit(get_help, p): p for p in plugins}
+        for future in concurrent.futures.as_completed(futures):
+            result = future.result()
+            plugin = result[0]
+            if len(result) == 3:
+                print(f'Error "{result[2]}" while calling command "check-plugins/{plugin}/{plugin} --help"')
+                continue
+            help_texts[plugin] = result[1]
 
-        # build the "Help" section and update the README file.
-        # nice: _help's layout is already 80-columns.
+    # update READMEs
+    updated = 0
+    for plugin in sorted(plugins):
+        if plugin not in help_texts:
+            continue
+        _help = help_texts[plugin]
+
+        readme_path = f'check-plugins/{plugin}/README.md'
         readme = lib.base.coe(lib.disk.read_file(readme_path))
-        readme = re.sub(
+        new_readme = re.sub(
             r'## Help\s*```text\s*?(.*?)\s*```\s*## Usage Examples',
             f'## Help\n\n```text\n{_help}\n```\n\n\n## Usage Examples',
             readme,
-            flags=re.DOTALL,  # to match dots across all lines
+            flags=re.DOTALL,
         )
-        lib.base.coe(lib.disk.write_file(readme_path, readme))
 
-        print(f'Updated {readme_path}')
+        if new_readme != readme:
+            lib.base.coe(lib.disk.write_file(readme_path, new_readme))
+            print(f'Updated {readme_path}')
+            updated += 1
+
+    print(f'\n{updated} READMEs updated, {len(plugins) - updated} unchanged.')
 
 
 if __name__ == '__main__':

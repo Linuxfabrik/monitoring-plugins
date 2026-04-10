@@ -90,9 +90,8 @@ options:
   --icinga-username ICINGA_USERNAME
                         Icinga API username.
   --ignore-pattern IGNORE_PATTERN
-                        Any item containing this pattern will be ignored. Can
-                        be specified multiple times. Example: `boot` matches
-                        both `/boot` and `/boot/efi`.
+                        Any line containing this pattern will be ignored.
+                        Case-sensitive. Can be specified multiple times.
   --ignore-regex IGNORE_REGEX
                         Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
