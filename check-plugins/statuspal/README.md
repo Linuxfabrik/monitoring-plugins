@@ -1,5 +1,6 @@
 # Check statuspal
 
+
 ## Overview
 
 Monitors a [Statuspal](https://www.statuspal.io/) status page, checking overall status, service states, active incidents, and scheduled maintenances.

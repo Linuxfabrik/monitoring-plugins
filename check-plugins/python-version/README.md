@@ -1,5 +1,6 @@
 # Check python-version
 
+
 ## Overview
 
 Checks the installed Python version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
@@ -7,8 +8,6 @@ Checks the installed Python version against the endoflife.date API and alerts if
 **Important Notes:**
 
 * Must run on the server where Python is installed
-
-
 
 **Data Collection:**
 

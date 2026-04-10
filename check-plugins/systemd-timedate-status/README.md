@@ -1,5 +1,6 @@
 # Check systemd-timedate-status
 
+
 ## Overview
 
 Checks system clock and RTC settings via `timedatectl status`, including whether network time synchronization is active and whether the system clock is synchronized.

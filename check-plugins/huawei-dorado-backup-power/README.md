@@ -1,5 +1,6 @@
 # Check huawei-dorado-backup-power
 
+
 ## Overview
 
 Checks the health status of all backup power modules (BBU) on a Huawei OceanStor Dorado storage system via the REST API (`/backup_power` endpoint). Alerts when any module reports a non-normal health or running state.
@@ -10,7 +11,6 @@ Checks the health status of all backup power modules (BBU) on a Huawei OceanStor
 * Create a read-only API user that can perform query only.
 * Sometimes the API returns "This operation fails to be performed because of the unauthorized REST. Before performing this operation, ensure that REST is authorized.", although everything is fine. In this case, the check retries the request, a maximum of 9 times within 9 seconds.
 * `--insecure` is enabled by default because Huawei OceanStor Dorado typically uses self-signed certificates.
-
 
 **Data Collection:**
 

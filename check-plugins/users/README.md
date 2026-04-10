@@ -1,5 +1,6 @@
 # Check users
 
+
 ## Overview
 
 Counts the number of currently logged-in users by session type: tty (console) and pts (SSH on Linux, RDP on Windows). On Windows, also counts disconnected sessions (closed connections without logging out).
@@ -17,7 +18,6 @@ Counts the number of currently logged-in users by session type: tty (console) an
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

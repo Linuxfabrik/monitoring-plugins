@@ -1,5 +1,6 @@
 # Check nodebb-info
 
+
 ## Overview
 
 Retrieves NodeBB process and system information via the admin API, including Node.js version, uptime, memory usage, and Git commit hash. Alerts when memory usage exceeds the configured thresholds.
@@ -10,8 +11,6 @@ Retrieves NodeBB process and system information via the admin API, including Nod
 * NodeBB Read API: <https://docs.nodebb.org/api/read/>
 * Requires NodeBB v1.14.4+.
 
-
-
 **Data Collection:**
 
 * Queries the NodeBB Read API endpoint `/api/admin/development/info` using Bearer Authentication
@@ -20,7 +19,6 @@ Retrieves NodeBB process and system information via the admin API, including Nod
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

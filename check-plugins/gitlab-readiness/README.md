@@ -1,5 +1,6 @@
 # Check gitlab-readiness
 
+
 ## Overview
 
 Checks whether the GitLab instance is ready to accept traffic by querying the `/-/readiness` endpoint. Validates the status of all dependent services (database, Redis, Gitaly, etc.) and reports each individually. Alerts when the instance or any dependent service is not ready.
@@ -10,7 +11,6 @@ Checks whether the GitLab instance is ready to accept traffic by querying the `/
 * To access monitoring resources, the requesting client IP needs to be included in the allowlist. For details, see [how to add IPs to the allowlist for the monitoring endpoints](https://docs.gitlab.com/ee/administration/monitoring/ip_allowlist.html).
 * This check is exempt from Rack Attack.
 * GitLab Health Checks: <https://docs.gitlab.com/ee/administration/monitoring/health_check.html>
-
 
 **Data Collection:**
 

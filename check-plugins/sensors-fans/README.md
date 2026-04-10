@@ -1,5 +1,6 @@
 # Check sensors-fans
 
+
 ## Overview
 
 Reports hardware fan speeds in RPM (rounds per minute). Returns OK if no fans are detected.
@@ -15,7 +16,6 @@ Reports hardware fan speeds in RPM (rounds per minute). Returns OK if no fans ar
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

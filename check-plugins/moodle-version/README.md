@@ -1,5 +1,6 @@
 # Check moodle-version
 
+
 ## Overview
 
 Checks whether the installed Moodle version is end-of-life (EOL) by comparing the local version against the endoflife.date API. Optionally alerts on available major, minor, or patch releases (each independently configurable).
@@ -7,8 +8,6 @@ Checks whether the installed Moodle version is end-of-life (EOL) by comparing th
 **Important Notes:**
 
 * Requires local file system access to the Moodle installation directory
-
-
 
 **Data Collection:**
 

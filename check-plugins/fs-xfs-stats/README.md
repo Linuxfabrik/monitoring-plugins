@@ -1,5 +1,6 @@
 # Check fs-xfs-stats
 
+
 ## Overview
 
 Reports internal XFS filesystem statistics from `/proc/fs/xfs/stat`. Useful for understanding I/O characteristics and identifying performance bottlenecks on XFS volumes. This is a data-collection plugin that does not perform threshold-based alerting. For further information, see <https://xfs.org/index.php/Runtime_Stats>.

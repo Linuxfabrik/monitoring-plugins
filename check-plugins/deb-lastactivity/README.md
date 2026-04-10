@@ -1,5 +1,6 @@
 # Check deb-lastactivity
 
+
 ## Overview
 
 Checks how long ago the last APT package manager activity occurred (install, update, or remove). Alerts if no package management activity has happened within the configured thresholds (default: WARN after 90 days, CRIT after 365 days). Useful for detecting servers that have not been patched in a long time.
@@ -9,7 +10,6 @@ Checks how long ago the last APT package manager activity occurred (install, upd
 * Debian, Ubuntu, and other dpkg-based distributions
 * If one or more packages have a missing "Last-Modified" timestamp (for example due to deleted files), the check returns WARN with a hint to reinstall the affected packages
 * If dpkg-query returns no data at all (for example if an update has never been performed), the check returns UNKNOWN
-
 
 **Data Collection:**
 

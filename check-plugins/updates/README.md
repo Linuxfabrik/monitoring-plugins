@@ -1,5 +1,6 @@
 # Check updates
 
+
 ## Overview
 
 Checks the number of pending Windows updates using the Windows Update COM API.

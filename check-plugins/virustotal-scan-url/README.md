@@ -1,5 +1,6 @@
 # Check virustotal-scan-url
 
+
 ## Overview
 
 Submits a URL to VirusTotal for analysis and checks the scan results. Alerts when any antivirus engine flags the URL as malicious or suspicious. Useful for periodically scanning critical URLs against 90+ security vendors.
@@ -9,8 +10,6 @@ Submits a URL to VirusTotal for analysis and checks the scan results. Alerts whe
 * Requires a VirusTotal account and API key
 * Takes at least 60 seconds to execute due to the built-in wait for analysis completion
 * See the [VirusTotal documentation](https://docs.virustotal.com/reference/public-vs-premium-api) on any constraints and restrictions, especially for commercial use (Premium API may be required for business workflows)
-
-
 
 **Data Collection:**
 
@@ -22,7 +21,6 @@ Submits a URL to VirusTotal for analysis and checks the scan results. Alerts whe
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

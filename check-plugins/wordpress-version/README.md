@@ -1,5 +1,6 @@
 # Check wordpress-version
 
+
 ## Overview
 
 Checks the installed WordPress version against the endoflife.date API and alerts if the version is end-of-life or if newer releases are available. The check must run on the WordPress server itself, as it reads the version from the WordPress installation directory (`wp-includes/version.php`).

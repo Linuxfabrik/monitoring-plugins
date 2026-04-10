@@ -1,5 +1,6 @@
 # Check nextcloud-security-scan
 
+
 ## Overview
 
 Checks the security of a Nextcloud (or ownCloud) server using the Nextcloud security scanner at <https://scan.nextcloud.com/>. Reports the assigned security rating and alerts on known vulnerabilities, missing hardenings, and setup issues.
@@ -8,8 +9,6 @@ Checks the security of a Nextcloud (or ownCloud) server using the Nextcloud secu
 
 * Run it once a day at most. There is an API rate limit at scan.nextcloud.com of less than 100 POST requests per day (exceeding this returns "403 Forbidden").
 * After a re-scan is triggered, it takes about 5 minutes until the new result is available
-
-
 
 **Data Collection:**
 
@@ -21,7 +20,6 @@ Checks the security of a Nextcloud (or ownCloud) server using the Nextcloud secu
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

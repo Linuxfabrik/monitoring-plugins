@@ -1,5 +1,6 @@
 # Check borgbackup
 
+
 ## Overview
 
 Checks the status of the last borgbackup run by parsing the borg logfile. Alerts on non-zero return codes from the create or prune steps, and warns if the last successful backup is older than a configurable threshold (default: 24 hours). Also detects active borg mounts in /proc/mounts. Requires root or sudo.
@@ -10,7 +11,6 @@ Checks the status of the last borgbackup run by parsing the borg logfile. Alerts
 * Borg return code 1 (warning) is treated as OK by the check; return codes >= 2 trigger alerts
 * If the logfile is missing or incomplete (any of the four fields not found), the check exits with UNKNOWN
 * Active `borgfs` mounts are reported as WARN immediately, before evaluating the logfile
-
 
 **Data Collection:**
 

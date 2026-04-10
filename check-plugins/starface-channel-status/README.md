@@ -1,5 +1,6 @@
 # Check starface-channel-status
 
+
 ## Overview
 
 Counts the number of active DAHDI, SIP, and other channels on a Starface PBX, and alerts on channel overusage when a maximum call limit is configured on the PBX.
@@ -7,8 +8,6 @@ Counts the number of active DAHDI, SIP, and other channels on a Starface PBX, an
 **Important Notes:**
 
 * Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
-
-
 
 **Data Collection:**
 

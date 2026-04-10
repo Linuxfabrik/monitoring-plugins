@@ -1,5 +1,6 @@
 # Check file-descriptors
 
+
 ## Overview
 
 Checks the system-wide file descriptor usage as a percentage of the kernel maximum. Also lists the top processes consuming the most file descriptors to help identify the source of high usage. Alerts when usage exceeds the configured thresholds.

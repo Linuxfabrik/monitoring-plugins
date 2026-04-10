@@ -1,5 +1,6 @@
 # Check openvpn-client-list
 
+
 ## Overview
 
 Lists all clients currently connected to an OpenVPN server by parsing the status log file. Reports client name, remote address, bytes received and sent, and connection time. Optionally checks the number of connected clients against thresholds.
@@ -7,8 +8,6 @@ Lists all clients currently connected to an OpenVPN server by parsing the status
 **Important Notes:**
 
 * Requires root or sudo to read the OpenVPN status log file.
-
-
 
 **Data Collection:**
 
@@ -19,7 +18,6 @@ Lists all clients currently connected to an OpenVPN server by parsing the status
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

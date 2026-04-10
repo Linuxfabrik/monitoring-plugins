@@ -1,5 +1,6 @@
 # Check nodebb-users
 
+
 ## Overview
 
 Monitors NodeBB user statistics via the admin API, including total user count, admins, and banned users.
@@ -10,8 +11,6 @@ Monitors NodeBB user statistics via the admin API, including total user count, a
 * NodeBB Read API: <https://docs.nodebb.org/api/read/>
 * Requires NodeBB v1.14.4+.
 
-
-
 **Data Collection:**
 
 * Queries the NodeBB Read API endpoint `/api/admin/manage/users` using Bearer Authentication
@@ -20,7 +19,6 @@ Monitors NodeBB user statistics via the admin API, including total user count, a
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

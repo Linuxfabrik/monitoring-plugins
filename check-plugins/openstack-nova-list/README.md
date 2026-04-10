@@ -1,5 +1,6 @@
 # Check openstack-nova-list
 
+
 ## Overview
 
 Lists all OpenStack Nova compute instances (virtual servers) and checks their status. Alerts when any instance is in an error state or has been shelved. Reports instance name, status, power state, and creation date.
@@ -8,8 +9,6 @@ Lists all OpenStack Nova compute instances (virtual servers) and checks their st
 
 * You have to provide a path to an rc file to authenticate. The rc file should contain standard OpenStack environment variables such as `OS_AUTH_URL`, `OS_USERNAME`, `OS_PASSWORD`, `OS_PROJECT_NAME`, etc.
 * Requires the `python-novaclient` Python module.
-
-
 
 **Data Collection:**
 
@@ -21,7 +20,6 @@ Lists all OpenStack Nova compute instances (virtual servers) and checks their st
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

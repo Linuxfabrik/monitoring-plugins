@@ -1,5 +1,6 @@
 # Check redfish-sensor
 
+
 ## Overview
 
 Checks hardware sensor readings (temperature, voltage, fan speed, power) from the Redfish Chassis collection via the Redfish API. Also evaluates fan redundancy status. A Chassis is roughly defined as a physical view of a computer system as seen by a human. A single Chassis resource can house sensors, fans, and other components.
@@ -22,7 +23,6 @@ Checks hardware sensor readings (temperature, voltage, fan speed, power) from th
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

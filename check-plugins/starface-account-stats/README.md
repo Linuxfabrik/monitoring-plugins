@@ -1,5 +1,6 @@
 # Check starface-account-stats
 
+
 ## Overview
 
 Reports account statistics of a Starface PBX, including ringing, active, available, and unavailable accounts.
@@ -7,8 +8,6 @@ Reports account statistics of a Starface PBX, including ringing, active, availab
 **Important Notes:**
 
 * Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
-
-
 
 **Data Collection:**
 

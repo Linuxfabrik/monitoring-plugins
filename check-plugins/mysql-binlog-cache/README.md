@@ -1,5 +1,6 @@
 # Check mysql-binlog-cache
 
+
 ## Overview
 
 Checks whether transactions in MySQL/MariaDB had to use a temporary disk cache because they exceeded the configured binary log cache size (`binlog_cache_size`). A high disk cache usage rate indicates that `binlog_cache_size` should be increased.
@@ -9,8 +10,6 @@ Checks whether transactions in MySQL/MariaDB had to use a temporary disk cache b
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 * If `log_bin` is set to `OFF`, the check exits with UNKNOWN because binary logging is disabled and this check makes no sense
 * Returns UNKNOWN if binary logging is disabled
-
-
 
 **Data Collection:**
 
@@ -22,7 +21,6 @@ Checks whether transactions in MySQL/MariaDB had to use a temporary disk cache b
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

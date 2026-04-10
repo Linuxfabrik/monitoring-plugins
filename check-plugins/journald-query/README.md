@@ -1,5 +1,6 @@
 # Check journald-query
 
+
 ## Overview
 
 Queries the systemd journal using journalctl and alerts when matching entries are found. Supports all journalctl filtering options such as `--unit`, `--priority`, `--facility`, `--identifier`, and `--grep`. Useful for monitoring specific log patterns in real time. Requires root or sudo.
@@ -9,7 +10,6 @@ Queries the systemd journal using journalctl and alerts when matching entries ar
 * If the initial execution takes more than 10 seconds, the journal is probably too large. Check with [journald-usage](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/journald-usage) and consider vacuuming the journal first.
 * Default priority range is `emerg..err`. Default lookback window is 8 hours (`--since=-8h`).
 * To monitor a specific application service, call this check separately with `--unit=httpd` (for example).
-
 
 **Data Collection:**
 

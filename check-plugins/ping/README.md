@@ -1,5 +1,6 @@
 # Check ping
 
+
 ## Overview
 
 Sends ICMP ECHO_REQUEST packets to a network host using the system's built-in `ping` command. Reports round-trip time (min, avg, max, mdev) and packet loss percentage. Without any parameters, it sends five packets with a 0.2 second interval and exits after five seconds timeout at the latest.
@@ -17,7 +18,6 @@ Sends ICMP ECHO_REQUEST packets to a network host using the system's built-in `p
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

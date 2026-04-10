@@ -1,5 +1,6 @@
 # Check qts-disk-smart
 
+
 ## Overview
 
 Checks disk SMART values on QNAP appliances running QTS via the API. Reports drive health, temperature, and SMART attribute status for all installed HDDs and SSDs. Disk temperature thresholds are determined automatically from the QTS system configuration.
@@ -19,7 +20,6 @@ Checks disk SMART values on QNAP appliances running QTS via the API. Reports dri
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

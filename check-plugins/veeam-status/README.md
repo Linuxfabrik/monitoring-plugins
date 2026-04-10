@@ -1,5 +1,6 @@
 # Check veeam-status
 
+
 ## Overview
 
 Monitors a Veeam Backup & Replication environment via the Veeam Enterprise Manager REST API. Checks for failed VMs and jobs, jobs running longer than expected, and backup repository usage. Also reports backup infrastructure component status and recent job results in a summary table.
@@ -11,8 +12,6 @@ Monitors a Veeam Backup & Replication environment via the Veeam Enterprise Manag
 * Make sure that the account you use to access REST has sufficient privileges.
 * The check always accepts self-signed Veeam certificates (`--insecure` defaults to True).
 
-
-
 **Data Collection:**
 
 * Queries the Veeam Enterprise Manager REST API endpoints: `/reports/summary/overview`, `/reports/summary/job_statistics`, `/reports/summary/vms_overview`, `/reports/summary/repository`
@@ -21,7 +20,6 @@ Monitors a Veeam Backup & Replication environment via the Veeam Enterprise Manag
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

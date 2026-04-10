@@ -1,5 +1,6 @@
 # Check mysql-storage-engines
 
+
 ## Overview
 
 Checks storage engine configuration in MySQL/MariaDB, including fragmented tables that may benefit from `OPTIMIZE TABLE`, tables using enabled but unused storage engines, and tables with autoincrement values approaching their maximum capacity.
@@ -10,8 +11,6 @@ Checks storage engine configuration in MySQL/MariaDB, including fragmented table
 * User account requires access to INFORMATION_SCHEMA (user with no privileges is sufficient) and SELECT privileges on all schemas and tables to provide accurate results
 * [For most INFORMATION_SCHEMA tables, each MySQL user has the right to access them, but can see only the rows in the tables that correspond to objects for which the user has the proper access privileges.](https://dev.mysql.com/doc/refman/5.7/en/information-schema-introduction.html#information-schema-privileges) [So you can't grant permission to INFORMATION_SCHEMA directly, you have to grant SELECT permission to the tables on your own schemas, and as you do, those tables will start showing up in INFORMATION_SCHEMA queries.](https://stackoverflow.com/questions/60499772/cannot-grant-mysql-user-access-to-information-schema-database)
 * Requires MySQL/MariaDB v5.5+
-
-
 
 **Data Collection:**
 
@@ -24,7 +23,6 @@ Checks storage engine configuration in MySQL/MariaDB, including fragmented table
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

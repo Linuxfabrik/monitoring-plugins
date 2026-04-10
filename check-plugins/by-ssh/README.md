@@ -1,5 +1,6 @@
 # Check by-ssh
 
+
 ## Overview
 
 Executes a command on a remote host via SSH and evaluates the result. Returns STDOUT and, in case of failure, STDERR and the command's exit code. Supports pattern matching on STDOUT to detect specific conditions, with configurable alert severities per match. Can also alert on single numeric return values against warning and critical thresholds.
@@ -11,7 +12,6 @@ Executes a command on a remote host via SSH and evaluates the result. Returns ST
 * Password-based authentication (`--password`) is not recommended. If used, `ps` will expose the SSH password on the monitoring host.
 * The `--shell` option enables shell expansion for environment variables and file globs but can be a security hazard. Without it, only simple commands without globs or pipes are supported.
 * Supports multiple `--identity` files and `--ssh-option` parameters for fine-grained SSH configuration
-
 
 **Data Collection:**
 

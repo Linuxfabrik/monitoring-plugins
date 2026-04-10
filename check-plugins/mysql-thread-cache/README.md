@@ -1,5 +1,6 @@
 # Check mysql-thread-cache
 
+
 ## Overview
 
 Checks how effectively MySQL/MariaDB caches threads for re-use. A low cache hit rate means the server frequently creates new threads, which is expensive. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.

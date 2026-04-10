@@ -1,5 +1,6 @@
 # Check dhcp-relayed
 
+
 ## Overview
 
 Tests if a DHCP server can offer IPv4 addresses by emulating a DHCP client. Sends a DHCPDISCOVER packet and verifies that the server responds with a valid DHCPOFFER. Only performs the discovery step without requesting an actual lease (no DHCPREQUEST). Works with both local and relayed DHCP servers, and can target a specific subnet. Alerts if the server does not respond or the response is invalid. Requires root or sudo.
@@ -10,7 +11,6 @@ Tests if a DHCP server can offer IPv4 addresses by emulating a DHCP client. Send
 * The machine running this plugin must not have a DHCP client listening on port 68/udp (for example `systemd-networkd`)
 * Uses standard UDP sockets (not raw sockets), so the machine must have a fixed IP address
 * The MAC address can be specified (`--mac`), randomized (`--mac=random`), or auto-detected from the local hardware
-
 
 **Data Collection:**
 

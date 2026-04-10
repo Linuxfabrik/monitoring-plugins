@@ -1,5 +1,6 @@
 # Check ntp-w32tm
 
+
 ## Overview
 
 Checks the Windows Time Service (w32tm) status, including clock offset, stratum, and time source. Useful for diagnosing time synchronization issues on Windows servers. Alerts when the clock offset exceeds the configured thresholds.
@@ -7,8 +8,6 @@ Checks the Windows Time Service (w32tm) status, including clock offset, stratum,
 **Important Notes:**
 
 * Make sure that `cmd.exe` is set to English output. Otherwise this check plugin may not work.
-
-
 
 **Data Collection:**
 
@@ -18,7 +17,6 @@ Checks the Windows Time Service (w32tm) status, including clock offset, stratum,
 **Compatibility:**
 
 * Windows
-
 
 
 ## Fact Sheet

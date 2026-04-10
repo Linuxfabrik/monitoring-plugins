@@ -1,5 +1,6 @@
 # Check fortios-network-io
 
+
 ## Overview
 
 Monitors network I/O and link states on all interfaces of FortiGate appliances running FortiOS via the REST API. Alerts only if bandwidth thresholds have been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes. Reports per-interface traffic counters and link status. Authentication uses a single API token (token-based authentication).
@@ -8,7 +9,6 @@ Monitors network I/O and link states on all interfaces of FortiGate appliances r
 
 * FortiGate appliances running FortiOS with REST API enabled
 * The `--always-ok` parameter is accepted but has no effect (the plugin does not pass it to the output function)
-
 
 **Data Collection:**
 

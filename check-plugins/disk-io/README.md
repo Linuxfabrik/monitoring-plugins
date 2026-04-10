@@ -1,5 +1,6 @@
 # Check disk-io
 
+
 ## Overview
 
 Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes. The check records per-disk read/write counters and then derives current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the period's total bandwidth against the maximum ever observed for that disk (RWmax). WARN/CRIT trigger if the period average exceeds the configured percentage of RWmax for COUNT consecutive runs.
@@ -15,7 +16,6 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 * `--count=5` (the default) while checking every minute means that the check will alert if any of your disks have been above a threshold in the last 5 minutes
 * iowait is only available on Linux. Values above 100% indicate that more than one CPU core is waiting for I/O
 * Plugin execution may take a moment due to process enumeration when `--top` is enabled
-
 
 **Data Collection:**
 

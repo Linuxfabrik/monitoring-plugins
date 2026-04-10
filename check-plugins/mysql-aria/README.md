@@ -1,5 +1,6 @@
 # Check mysql-aria
 
+
 ## Overview
 
 Checks metrics of the Aria storage engine in MariaDB, including the page cache size relative to total Aria index size and the page cache hit rate. Aria is the crash-safe, non-transactional storage engine used for internal temporary tables in MariaDB. It is not shipped with MySQL or Percona Server.
@@ -11,8 +12,6 @@ Checks metrics of the Aria storage engine in MariaDB, including the page cache s
 * [For most INFORMATION_SCHEMA tables, each MySQL user has the right to access them, but can see only the rows in the tables that correspond to objects for which the user has the proper access privileges.](https://dev.mysql.com/doc/refman/5.7/en/information-schema-introduction.html#information-schema-privileges) [So you can't grant permission to INFORMATION_SCHEMA directly, you have to grant SELECT permission to the tables on your own schemas, and as you do, those tables will start showing up in INFORMATION_SCHEMA queries.](https://stackoverflow.com/questions/60499772/cannot-grant-mysql-user-access-to-information-schema-database)
 * "total Aria indexes: 0.0B" means that there are no Aria-based tables at all, or the user performing the check does not have SELECT privileges on them
 
-
-
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `aria_pagecache_buffer_size`
@@ -23,7 +22,6 @@ Checks metrics of the Aria storage engine in MariaDB, including the page cache s
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

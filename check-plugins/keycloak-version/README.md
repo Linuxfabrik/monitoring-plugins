@@ -1,5 +1,6 @@
 # Check keycloak-version
 
+
 ## Overview
 
 Checks the installed Keycloak version against the endoflife.date API and alerts if the version is end-of-life (EOL) or if newer major, minor, or patch releases are available. By default, the check alerts 30 days before the official EOL date. The offset is configurable via `--offset-eol`.
@@ -7,7 +8,6 @@ Checks the installed Keycloak version against the endoflife.date API and alerts 
 **Important Notes:**
 
 * See [Creating an API user account to monitor Keycloak](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-KEYCLOAK.md) for setting up the required API credentials (only needed if `version.txt` is not available).
-
 
 **Data Collection:**
 

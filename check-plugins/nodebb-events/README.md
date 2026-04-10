@@ -1,5 +1,6 @@
 # Check nodebb-events
 
+
 ## Overview
 
 Retrieves recent events from the NodeBB event log via the admin API. Reports administrative actions such as user bans, plugin activations, and configuration changes. This is an informational check only.
@@ -10,8 +11,6 @@ Retrieves recent events from the NodeBB event log via the admin API. Reports adm
 * NodeBB Read API: <https://docs.nodebb.org/api/read/>
 * Requires NodeBB v1.14.4+.
 
-
-
 **Data Collection:**
 
 * Queries the NodeBB Read API endpoint `/api/admin/advanced/events` using Bearer Authentication
@@ -20,7 +19,6 @@ Retrieves recent events from the NodeBB event log via the admin API. Reports adm
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

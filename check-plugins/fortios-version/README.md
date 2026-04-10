@@ -1,5 +1,6 @@
 # Check fortios-version
 
+
 ## Overview
 
 Checks the installed FortiOS version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
@@ -7,8 +8,6 @@ Checks the installed FortiOS version against the endoflife.date API and alerts i
 **Important Notes:**
 
 * FortiGate appliances running FortiOS with REST API enabled
-
-
 
 **Data Collection:**
 

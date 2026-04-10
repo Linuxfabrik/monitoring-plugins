@@ -1,5 +1,6 @@
 # Check service
 
+
 ## Overview
 
 Checks the state of one or more Windows services. Accepts the case-insensitive service name (not the display name) and supports Python regular expressions to match multiple services. Verifies that the number of services in the expected state falls within the specified Nagios range thresholds.
@@ -20,7 +21,6 @@ Checks the state of one or more Windows services. Accepts the case-insensitive s
 **Compatibility:**
 
 * Windows
-
 
 
 ## Fact Sheet

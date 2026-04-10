@@ -1,5 +1,6 @@
 # Check whmcs-status
 
+
 ## Overview
 
 Monitors the health status of a WHMCS (Web Host Manager Complete Solution) installation via the [GetHealthStatus API endpoint](https://developers.whmcs.com/api-reference/gethealthstatus/). Reports messages about module versions, license status, and system health indicators. Messages are sorted by severity.
@@ -44,7 +45,6 @@ Create API Credentials:
 Note the api_identifier and the api_secret. You will need both to configure this plugin.
 
 
-
 **Data Collection:**
 
 * Queries the WHMCS API at `<url>/includes/api.php` using the `GetHealthStatus` action
@@ -54,7 +54,6 @@ Note the api_identifier and the api_secret. You will need both to configure this
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

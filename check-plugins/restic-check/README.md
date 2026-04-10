@@ -1,5 +1,6 @@
 # Check restic-check
 
+
 ## Overview
 
 Verifies the integrity of a restic backup repository by running `restic check`. Alerts when the repository contains errors or inconsistencies. In contrast to the interactive `restic check` sub-command, it cannot be used to read all data and therefore simulate a restore.
@@ -18,7 +19,6 @@ Verifies the integrity of a restic backup repository by running `restic check`. 
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

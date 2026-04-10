@@ -1,5 +1,6 @@
 # Check qts-cpu-usage
 
+
 ## Overview
 
 Monitors CPU utilization on QNAP appliances running QTS via the HTTP API. Alerts only if the threshold has been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes.
@@ -19,7 +20,6 @@ Monitors CPU utilization on QNAP appliances running QTS via the HTTP API. Alerts
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

@@ -1,5 +1,6 @@
 # Check nginx-status
 
+
 ## Overview
 
 Monitors NGINX performance via the stub_status module. Reports active connections, accepts, handled requests, and connection states (reading, writing, waiting). Alerts when active connections exceed the configured thresholds.
@@ -21,8 +22,6 @@ server {
 }
 ```
 
-
-
 **Data Collection:**
 
 * Fetches and parses the output of the NGINX [stub_status](https://nginx.org/en/docs/http/ngx_http_stub_status_module.html) module
@@ -31,7 +30,6 @@ server {
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

@@ -1,5 +1,6 @@
 # Check mysql-open-files
 
+
 ## Overview
 
 Checks the open file usage in MySQL/MariaDB as a percentage of the configured `open_files_limit`. If the usage approaches the limit, the server may start refusing new connections or fail to open tables.
@@ -7,8 +8,6 @@ Checks the open file usage in MySQL/MariaDB as a percentage of the configured `o
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
-
-
 
 **Data Collection:**
 
@@ -20,7 +19,6 @@ Checks the open file usage in MySQL/MariaDB as a percentage of the configured `o
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

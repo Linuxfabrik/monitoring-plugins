@@ -1,5 +1,6 @@
 # Check json-values
 
+
 ## Overview
 
 Parses a JSON object from a local file, HTTP/HTTPS URL, or SMB share and extracts message, state, and perfdata values from configurable keys. This allows integrating custom applications or scripts that provide monitoring data in JSON format into Nagios/Icinga without writing a dedicated check plugin.

@@ -1,5 +1,6 @@
 # Check qts-temperatures
 
+
 ## Overview
 
 Checks system and CPU temperatures on QNAP appliances running QTS via the HTTP API. All temperatures are expressed in Celsius. Temperature thresholds are determined automatically from the QTS system configuration.
@@ -18,7 +19,6 @@ Checks system and CPU temperatures on QNAP appliances running QTS via the HTTP A
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

@@ -1,5 +1,6 @@
 # Check mydumper-version
 
+
 ## Overview
 
 Checks whether a newer version of mydumper/myloader is available by comparing the locally installed version against the latest release from the GitHub API.
@@ -7,8 +8,6 @@ Checks whether a newer version of mydumper/myloader is available by comparing th
 **Important Notes:**
 
 * Requires `mydumper` to be installed and available in the system PATH
-
-
 
 **Data Collection:**
 

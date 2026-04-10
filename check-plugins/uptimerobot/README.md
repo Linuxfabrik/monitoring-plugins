@@ -1,5 +1,6 @@
 # Check uptimerobot
 
+
 ## Overview
 
 Monitors all configured monitors on a given [UptimeRobot](https://uptimerobot.com/) status page. Reports the number of monitors in up, down, and paused states, along with the 24-hour uptime ratio.

@@ -1,5 +1,6 @@
 # Check restic-stats
 
+
 ## Overview
 
 Collects statistics across multiple snapshots in a restic repository, including the number of unique files and their total size. Reports these as perfdata for trending and capacity planning.
@@ -22,7 +23,6 @@ Collects statistics across multiple snapshots in a restic repository, including 
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

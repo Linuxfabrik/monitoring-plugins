@@ -1,5 +1,6 @@
 # Check starface-status
 
+
 ## Overview
 
 Checks the overall health of a Starface PBX, reporting system state, version, license information, RAID status, SIP status, and phone connectivity.
@@ -7,8 +8,6 @@ Checks the overall health of a Starface PBX, reporting system state, version, li
 **Important Notes:**
 
 * Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
-
-
 
 **Data Collection:**
 

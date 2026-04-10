@@ -1,5 +1,6 @@
 # Check php-fpm-status
 
+
 ## Overview
 
 Monitors PHP-FPM pool performance via the status page. Reports active processes, listen queue depth, idle workers, request rates, and uptime per pool. Also lists currently running processes with their request details.

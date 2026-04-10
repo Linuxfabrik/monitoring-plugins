@@ -1,5 +1,6 @@
 # Check mysql-joins
 
+
 ## Overview
 
 Checks the rate of joins executed without indexes in MySQL/MariaDB. A high number of joins without indexes per day indicates missing indexes, which can severely impact query performance.
@@ -7,8 +8,6 @@ Checks the rate of joins executed without indexes in MySQL/MariaDB. A high numbe
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
-
-
 
 **Data Collection:**
 
@@ -20,7 +19,6 @@ Checks the rate of joins executed without indexes in MySQL/MariaDB. A high numbe
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

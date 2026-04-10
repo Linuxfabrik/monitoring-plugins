@@ -1,5 +1,6 @@
 # Check icinga-topflap-services
 
+
 ## Overview
 
 Detects fast-flapping Icinga services by counting state changes per service within a configurable lookback interval. Queries the IcingaDB event history and alerts when any service exceeds the configured number of state changes.
@@ -16,7 +17,6 @@ Detects fast-flapping Icinga services by counting state changes per service with
     username = alice
     password = linuxfabrik
     ```
-
 
 **Data Collection:**
 

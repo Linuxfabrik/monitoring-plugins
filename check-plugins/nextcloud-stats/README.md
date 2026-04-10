@@ -1,5 +1,6 @@
 # Check nextcloud-stats
 
+
 ## Overview
 
 Monitors Nextcloud usage statistics via the server info API, including active user counts over time, file shares by category, and storage metrics. Also reports PHP, database, and web server configuration details.
@@ -12,7 +13,6 @@ Monitors Nextcloud usage statistics via the server info API, including active us
 * If you simply want to check the availability of the Nextcloud web frontend, you have to use other checks
 * If a Nextcloud App leads to a "500 Internal Server Error", the Nextcloud API often still remains intact, so this check cannot report that
 * Might take up to 30 seconds for the first time; after that, still takes a few seconds
-
 
 **Data Collection:**
 

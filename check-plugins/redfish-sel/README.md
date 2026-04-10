@@ -1,5 +1,6 @@
 # Check redfish-sel
 
+
 ## Overview
 
 Checks the System Event Log (SEL) of Redfish-compatible servers via the Redfish API. Returns an alert based on the severity of the log entries. Supports multiple vendors with vendor-specific SEL paths.
@@ -20,7 +21,6 @@ Checks the System Event Log (SEL) of Redfish-compatible servers via the Redfish 
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

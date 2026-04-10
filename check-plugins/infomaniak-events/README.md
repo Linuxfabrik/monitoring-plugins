@@ -1,5 +1,6 @@
 # Check infomaniak-events
 
+
 ## Overview
 
 Monitors the Infomaniak status page for open events and incidents. Alerts when active events are reported.

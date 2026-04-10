@@ -1,5 +1,6 @@
 # Check fs-ro
 
+
 ## Overview
 
 Checks for unexpectedly read-only mounted filesystems, such as a root filesystem that switched to read-only due to disk errors. Ignores ramfs, squashfs (snapd), and other pseudo-filesystems by default. Additional mount points can be excluded via `--ignore`. Alerts when a read-only filesystem is detected that should be writable.

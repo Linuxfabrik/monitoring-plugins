@@ -1,5 +1,6 @@
 # Check file-size
 
+
 ## Overview
 
 Checks file sizes against configurable thresholds using human-readable units (e.g. 25M, 1G). Supports glob patterns and SMB shares. Directories are skipped because their reported size is not meaningful across filesystems. Alerts when any file exceeds the configured size thresholds. Requires root or sudo.
@@ -11,7 +12,6 @@ Checks file sizes against configurable thresholds using human-readable units (e.
 * The `--filename` and `--url` parameters are mutually exclusive
 * Thresholds accept human-readable units (base 1024). Valid qualifiers: `b`, `k`/`kb`/`kib`, `m`/`mb`/`mib`, `g`/`gb`/`gib`, etc. Nagios ranges are supported (e.g. `:1G` alerts if size exceeds 1 GiB, `6 KiB:10k` alerts outside the 6-10 KiB range)
 * Returns UNKNOWN if no files are found
-
 
 **Data Collection:**
 

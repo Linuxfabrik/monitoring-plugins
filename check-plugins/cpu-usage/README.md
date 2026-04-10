@@ -1,5 +1,6 @@
 # Check cpu-usage
 
+
 ## Overview
 
 Reports CPU utilization percentages for all available time categories (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall cpu-usage (100 - idle - nice).

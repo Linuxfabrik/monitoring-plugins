@@ -1,5 +1,6 @@
 # Check strongswan-connections
 
+
 ## Overview
 
 Checks IPSec connection states on a strongSwan VPN gateway by connecting to the charon daemon via the VICI (Versatile IKE Control Interface) socket. Reports IKE SA and CHILD SA states, re-authentication/re-keying timers, and traffic counters. "EST" in the output means "Established".
@@ -19,7 +20,6 @@ Checks IPSec connection states on a strongSwan VPN gateway by connecting to the 
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

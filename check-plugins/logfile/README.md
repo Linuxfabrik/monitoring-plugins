@@ -1,5 +1,6 @@
 # Check logfile
 
+
 ## Overview
 
 Scans a logfile for matching patterns or regular expressions and alerts based on the number of matches found. Supports both simple string matching (`--warning-pattern`, `--critical-pattern`) and Python regular expressions (`--warning-regex`, `--critical-regex`). Lines can be excluded via `--ignore-pattern` or `--ignore-regex`.
@@ -21,7 +22,6 @@ object ApiUser "linuxfabrik-check-logfile" {
 ```
 
 * For more complex log analysis use cases, consider using a dedicated logging server like Graylog
-
 
 **Data Collection:**
 

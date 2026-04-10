@@ -1,5 +1,6 @@
 # Check starface-peer-stats
 
+
 ## Overview
 
 Reports SIP peer statistics of a Starface PBX, including online/offline counts for both monitored and unmonitored peers.
@@ -7,8 +8,6 @@ Reports SIP peer statistics of a Starface PBX, including online/offline counts f
 **Important Notes:**
 
 * Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
-
-
 
 **Data Collection:**
 

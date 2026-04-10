@@ -1,5 +1,6 @@
 # Check wildfly-server-status
 
+
 ## Overview
 
 Checks the overall server status of a WildFly/JBoss AS instance via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode. Reports server state, launch type, running mode, and product version.
@@ -7,8 +8,6 @@ Checks the overall server status of a WildFly/JBoss AS instance via its HTTP-JSO
 **Important Notes:**
 
 * Tested with WildFly 11 and WildFly 23+
-
-
 
 **Data Collection:**
 

@@ -1,5 +1,6 @@
 # Check snmp
 
+
 ## Overview
 
 Queries SNMP OIDs defined in a CSV file and checks the returned values against optional warning and critical thresholds. Supports SNMP v1, v2c, and v3 with authentication and privacy protocols.
@@ -25,7 +26,6 @@ Queries SNMP OIDs defined in a CSV file and checks the returned values against o
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

@@ -1,5 +1,6 @@
 # Check scanrootkit
 
+
 ## Overview
 
 Scans the system for approximately 100 known rootkits by checking for their characteristic files, directories, and kernel symbols. New rootkit definitions can be added by dropping YAML files into the `assets` folder. Additionally performs in-depth checks for the Suckit rootkit (link count of `/sbin/init` and hidden file detection).
@@ -36,7 +37,6 @@ Scans the system for approximately 100 known rootkits by checking for their char
 **Compatibility:**
 
 * Linux
-
 
 
 ## Fact Sheet

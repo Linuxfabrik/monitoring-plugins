@@ -1,5 +1,6 @@
 # Check starface-database-stats
 
+
 ## Overview
 
 Reports database connection statistics of a Starface PBX, including opened, closed, active, and idle connections.
@@ -7,8 +8,6 @@ Reports database connection statistics of a Starface PBX, including opened, clos
 **Important Notes:**
 
 * Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
-
-
 
 **Data Collection:**
 

@@ -1,5 +1,6 @@
 # Check file-ownership
 
+
 ## Overview
 
 Verifies that critical system files have the expected owner and group. Ships with a built-in list of important files (GRUB, SSH, sudoers, PAM, cron, etc.) and supports custom entries. Alerts when the actual ownership does not match the expected values.
@@ -66,7 +67,6 @@ Default files checked:
 * /var/hnet: hnet:hnet
 * /var/lib/unbound/root.key: unbound:unbound
 * /var/run/openldap: ldap:ldap
-
 
 **Data Collection:**
 

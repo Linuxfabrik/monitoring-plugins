@@ -1,5 +1,6 @@
 # Check php-fpm-ping
 
+
 ## Overview
 
 Checks whether PHP-FPM is alive by fetching its ping monitoring page. Returns OK if FPM responds with the expected "pong" reply.
@@ -23,8 +24,6 @@ Checks whether PHP-FPM is alive by fetching its ping monitoring page. Returns OK
     </Location>
     ```
 
-
-
 **Data Collection:**
 
 * Fetches the PHP-FPM ping page via HTTP (default: `http://localhost/fpm-ping`)
@@ -33,7 +32,6 @@ Checks whether PHP-FPM is alive by fetching its ping monitoring page. Returns OK
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

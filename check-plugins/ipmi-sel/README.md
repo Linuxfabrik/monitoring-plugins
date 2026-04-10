@@ -1,5 +1,6 @@
 # Check ipmi-sel
 
+
 ## Overview
 
 Checks the IPMI System Event Log (SEL) for entries and alerts when events are found. Entries can be filtered by regex using `--ignore`. To clear the SEL after resolving issues, run `ipmitool sel clear`. Requires root or sudo.
@@ -10,7 +11,6 @@ Checks the IPMI System Event Log (SEL) for entries and alerts when events are fo
 * Requires hardware with an IPMI interface
 * `Discrete` sensors support is not implemented.
 * Requires the `ipmitool` command-line tool to be installed.
-
 
 **Data Collection:**
 

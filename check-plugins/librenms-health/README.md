@@ -1,5 +1,6 @@
 # Check librenms-health
 
+
 ## Overview
 
 Retrieves hardware sensor information (temperature, humidity, voltage, power, state, etc.) for each device from a LibreNMS instance and alerts when sensor values exceed their configured thresholds in LibreNMS.
@@ -10,7 +11,6 @@ Retrieves hardware sensor information (temperature, humidity, voltage, power, st
 * See [additional notes for all monitoring plugins accessing MySQL/MariaDB](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md) on how to configure database access.
 * When defining device groups in LibreNMS for use with `--device-group`, do not use slashes in the name (see [this topic](https://github.com/laravel/framework/issues/22125)).
 * This check does not return per-device or per-sensor performance data because LibreNMS provides direct integration with time series databases (Graphite, InfluxDB, OpenTSDB, Prometheus, RRDTool) under Settings > Global Settings > Poller > Datastore.
-
 
 **Data Collection:**
 

@@ -1,5 +1,6 @@
 # Check starface-backup-status
 
+
 ## Overview
 
 Checks the status of the most recent backup of a Starface PBX, including backup age, target, and success state.
@@ -7,8 +8,6 @@ Checks the status of the most recent backup of a Starface PBX, including backup 
 **Important Notes:**
 
 * Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
-
-
 
 **Data Collection:**
 

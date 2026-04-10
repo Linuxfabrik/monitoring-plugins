@@ -1,5 +1,6 @@
 # Check mysql-table-locks
 
+
 ## Overview
 
 Checks the rate of table locks that had to wait in MySQL/MariaDB. A high wait rate indicates contention between concurrent queries. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
@@ -7,8 +8,6 @@ Checks the rate of table locks that had to wait in MySQL/MariaDB. A high wait ra
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
-
-
 
 **Data Collection:**
 
@@ -18,7 +17,6 @@ Checks the rate of table locks that had to wait in MySQL/MariaDB. A high wait ra
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

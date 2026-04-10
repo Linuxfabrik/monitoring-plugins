@@ -1,5 +1,6 @@
 # Check spring-boot-actuator-health
 
+
 ## Overview
 
 Monitors a [Spring Boot Actuator](https://docs.spring.io/spring-boot/api/rest/actuator/health.html) `/health` endpoint, checking overall application health and individual component states (database, disk, mail, etc.).
@@ -8,8 +9,6 @@ Monitors a [Spring Boot Actuator](https://docs.spring.io/spring-boot/api/rest/ac
 
 * Tested with Spring PetClinic and Better EHR
 * Any application exposing a Spring Boot Actuator `/health` endpoint should work
-
-
 
 **Data Collection:**
 

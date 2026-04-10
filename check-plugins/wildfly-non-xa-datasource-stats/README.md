@@ -1,5 +1,6 @@
 # Check wildfly-non-xa-datasource-stats
 
+
 ## Overview
 
 Monitors non-XA datasource connection pool metrics on a WildFly/JBoss AS server via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode. Reports active, available, and idle connections per datasource.
@@ -24,7 +25,6 @@ Monitors non-XA datasource connection pool metrics on a WildFly/JBoss AS server 
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

@@ -1,5 +1,6 @@
 # Check ntp-chronyd
 
+
 ## Overview
 
 Checks the clock offset of chronyd in milliseconds compared to the configured NTP servers. Alerts when the offset exceeds the configured thresholds.
@@ -7,8 +8,6 @@ Checks the clock offset of chronyd in milliseconds compared to the configured NT
 **Important Notes:**
 
 * The stratum of the NTP time source determines its quality. The stratum is equal to the number of hops to a reference clock (stratum 0). A NTP server connected directly to the reference clock is Stratum 1, a client connected to this NTP server is Stratum 2, etc.
-
-
 
 **Data Collection:**
 

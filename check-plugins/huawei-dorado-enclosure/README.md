@@ -1,5 +1,6 @@
 # Check huawei-dorado-enclosure
 
+
 ## Overview
 
 Checks the health and running status of all enclosures (controller enclosures and disk enclosures) on a Huawei OceanStor Dorado storage system via the REST API (`/enclosure` endpoint). Alerts when any enclosure reports a non-normal health or running state. Reports model, serial number, logic type, MAC address, switch status and temperature per enclosure.
@@ -9,7 +10,6 @@ Checks the health and running status of all enclosures (controller enclosures an
 * Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
 * Create a read-only API user that can perform queries only
 * The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
-
 
 **Data Collection:**
 

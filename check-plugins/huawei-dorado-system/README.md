@@ -1,5 +1,6 @@
 # Check huawei-dorado-system
 
+
 ## Overview
 
 Checks overall system health, capacity and running status of a Huawei OceanStor Dorado storage system via the REST API (`/system/` endpoint). Alerts when the system reports a non-normal health or running state, or when storage capacity exceeds configurable thresholds. Reports product model, firmware version, health/running status, total sector capacity usage and storage pool capacity usage.
@@ -10,7 +11,6 @@ Checks overall system health, capacity and running status of a Huawei OceanStor 
 * Create a read-only API user that can perform queries only
 * The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
 * Capacity values in perfdata are reported in sectors (as returned by the API)
-
 
 **Data Collection:**
 

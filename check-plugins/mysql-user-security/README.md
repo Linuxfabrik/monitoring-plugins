@@ -1,5 +1,6 @@
 # Check mysql-user-security
 
+
 ## Overview
 
 Checks MySQL/MariaDB user security settings, including accounts with empty passwords, accounts accessible from any host, and accounts with excessive privileges. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):security_recommendations(), v1.9.8.
@@ -7,8 +8,6 @@ Checks MySQL/MariaDB user security settings, including accounts with empty passw
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
-
-
 
 **Data Collection:**
 
@@ -18,7 +17,6 @@ Checks MySQL/MariaDB user security settings, including accounts with empty passw
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

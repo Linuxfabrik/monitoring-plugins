@@ -1,5 +1,6 @@
 # Check mysql-innodb-log-waits
 
+
 ## Overview
 
 Checks how often InnoDB had to wait for log writes to be flushed because the log buffer was too small in MySQL/MariaDB. If waits occur, the `innodb_log_buffer_size` should be increased.
@@ -7,8 +8,6 @@ Checks how often InnoDB had to wait for log writes to be flushed because the log
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
-
-
 
 **Data Collection:**
 
@@ -19,7 +18,6 @@ Checks how often InnoDB had to wait for log writes to be flushed because the log
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

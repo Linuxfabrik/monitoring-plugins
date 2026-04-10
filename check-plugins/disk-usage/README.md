@@ -1,5 +1,6 @@
 # Check disk-usage
 
+
 ## Overview
 
 Checks used or free disk space for each mounted partition. By default, only physical devices are checked (hard disks, USB drives), ignoring pseudo and memory filesystems. Supports filtering by mountpoint pattern or filesystem type. Thresholds can be set as percentages or absolute values, and can target either used or free space. Note that on Unix systems, 5% of disk space is typically reserved for root and not reflected in the available space shown to regular users. Alerts when usage exceeds the configured thresholds.
@@ -8,7 +9,6 @@ Checks used or free disk space for each mounted partition. By default, only phys
 
 * On Unix systems, `total` and `used` refer to the overall total and used space, whereas `free` represents the space available for the user and `percent` represents the user utilization. That is why `percent` may appear 5% higher than expected (starting with psutil v4.3.0)
 * Run `disk-usage --list-fstypes` to see which file system types are available on the current machine and which are checked by default
-
 
 **Data Collection:**
 

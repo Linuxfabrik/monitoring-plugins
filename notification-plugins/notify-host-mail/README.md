@@ -1,5 +1,6 @@
 # Notification notify-host-mail
 
+
 ## Overview
 
 Sends host notifications via email for Icinga/Nagios. Generates an HTML-formatted email with color-coded notification types and host states, including an embedded Icinga logo. Includes host display name, state, output, IP address, event time, perfdata, and an optional link to Icinga Web 2.
@@ -7,7 +8,6 @@ Sends host notifications via email for Icinga/Nagios. Generates an HTML-formatte
 **Important Notes:**
 
 * Use the `--short` parameter to create a short message without a subject, for example for sending to a SMS relay service.
-
 
 **Data Collection:**
 

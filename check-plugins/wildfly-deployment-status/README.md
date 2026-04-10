@@ -1,5 +1,6 @@
 # Check wildfly-deployment-status
 
+
 ## Overview
 
 Checks the deployment status of applications on a WildFly/JBoss AS server via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode.
@@ -7,8 +8,6 @@ Checks the deployment status of applications on a WildFly/JBoss AS server via it
 **Important Notes:**
 
 * Tested with WildFly 11 and WildFly 23+
-
-
 
 **Data Collection:**
 

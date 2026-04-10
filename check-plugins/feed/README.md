@@ -1,5 +1,6 @@
 # Check feed
 
+
 ## Overview
 
 Monitors an RSS or Atom feed for new entries and alerts when new items appear within a configurable time window (default: 3 days). If Icinga callback is enabled, the alert is automatically cleared once the corresponding service is acknowledged in Icinga. After the time window expires, the alert clears regardless of acknowledgement status.
@@ -15,7 +16,6 @@ object ApiUser "linuxfabrik-check-api-user" {
   permissions = [ "objects/query/service" ]
 }
 ```
-
 
 **Data Collection:**
 

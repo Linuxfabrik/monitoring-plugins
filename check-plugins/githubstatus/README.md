@@ -1,5 +1,6 @@
 # Check githubstatus
 
+
 ## Overview
 
 Monitors the GitHub status page for service disruptions. Reports the overall status indicator, individual component states, and any unresolved incidents. Alerts on active incidents or degraded components.

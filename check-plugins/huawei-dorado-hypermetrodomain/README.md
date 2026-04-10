@@ -1,5 +1,6 @@
 # Check huawei-dorado-hypermetrodomain
 
+
 ## Overview
 
 Checks the running status of all HyperMetro domains on a Huawei OceanStor Dorado storage system via the REST API (`/hypermetrodomain` endpoint). Alerts when any domain reports a non-normal running state. Reports the quorum server name and quorum type per domain.
@@ -9,7 +10,6 @@ Checks the running status of all HyperMetro domains on a Huawei OceanStor Dorado
 * Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
 * Create a read-only API user that can perform queries only
 * The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
-
 
 **Data Collection:**
 

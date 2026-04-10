@@ -1,5 +1,6 @@
 # Check pip-updates
 
+
 ## Overview
 
 Checks for outdated Python packages installed via pip. Reports the number of packages with available updates and lists them with current and latest versions.
@@ -7,8 +8,6 @@ Checks for outdated Python packages installed via pip. Reports the number of pac
 **Important Notes:**
 
 * Requires `pip` v20.3+
-
-
 
 **Data Collection:**
 

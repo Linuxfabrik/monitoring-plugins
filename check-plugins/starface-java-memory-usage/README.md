@@ -1,5 +1,6 @@
 # Check starface-java-memory-usage
 
+
 ## Overview
 
 Monitors Java heap and non-heap memory usage of the Starface PBX. If the JVM reports unlimited memory for heap or non-heap, no percentage is calculated and no threshold check is performed for that memory area.
@@ -7,8 +8,6 @@ Monitors Java heap and non-heap memory usage of the Starface PBX. If the JVM rep
 **Important Notes:**
 
 * Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
-
-
 
 **Data Collection:**
 

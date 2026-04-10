@@ -1,5 +1,6 @@
 # Check gitlab-liveness
 
+
 ## Overview
 
 Checks whether the GitLab application server is alive by querying the `/-/liveness` endpoint. This probe detects deadlocked Rails controllers caused by multi-threading issues. A successful response confirms that no controllers are deadlocked.
@@ -10,7 +11,6 @@ Checks whether the GitLab application server is alive by querying the `/-/livene
 * The requesting client IP must be included in the GitLab monitoring allowlist. See [how to add IPs to the allowlist](https://docs.gitlab.com/ee/administration/monitoring/ip_allowlist.html).
 * This check is exempt from Rack Attack rate limiting.
 * GitLab Health Checks documentation: <https://docs.gitlab.com/ee/administration/monitoring/health_check.html>
-
 
 **Data Collection:**
 

@@ -1,5 +1,6 @@
 # Check dmesg
 
+
 ## Overview
 
 Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, alert, crit, and err. Known false positives and hardware-specific noise are filtered out by default. To clear reported messages after resolving the underlying issue, run "dmesg --clear". Requires root or sudo.
@@ -8,7 +9,6 @@ Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, ale
 
 * The reported timestamps may be inaccurate. The time source used for dmesg is not updated after system SUSPEND/RESUME. Timestamps are adjusted according to the current delta between boottime and monotonic clocks, which only works for messages printed after the last resume
 * The kernel ring buffer is a fixed-size circular buffer. Over time, newer messages overwrite older ones, so errors that have been resolved and whose messages have been overwritten will no longer be reported
-
 
 **Data Collection:**
 

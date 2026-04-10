@@ -1,5 +1,6 @@
 # Check memory-usage
 
+
 ## Overview
 
 Monitors system memory usage and alerts when the overall usage percentage exceeds the configured thresholds. Reports total, used, available, and free memory plus shared, buffers, and cached values. Optionally lists the top memory-consuming processes via `--top` to help identify the source of high usage.
@@ -9,7 +10,6 @@ Monitors system memory usage and alerts when the overall usage percentage exceed
 * Memory usage calculations differ between tools (top, htop, free) due to different counting methods and kernel versions. This check uses psutil's cross-platform `available` metric for consistency
 * Process memory percentages may sum to >100% on Linux due to shared memory accounting
 * The `--top` list reports RSS (Resident Set Size) per process from psutil's `memory_info()`. RSS is the non-swapped physical memory a process has used. On UNIX it matches the `top` RES column. On Windows it maps to `WorkingSetSize`
-
 
 **Data Collection:**
 

@@ -1,5 +1,6 @@
 # Check mysql-slow-queries
 
+
 ## Overview
 
 Checks the rate of slow queries in MySQL/MariaDB. A high slow query rate indicates queries that may need optimization. Also verifies that the slow query log is enabled and that `long_query_time` is set to a reasonable value.
@@ -9,8 +10,6 @@ Checks the rate of slow queries in MySQL/MariaDB. A high slow query rate indicat
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 * If the slow query rate triggers a warning, the check recommends enabling the slow query log (if disabled) to troubleshoot the offending queries
 * If `long_query_time` is set higher than 10 seconds, the check recommends lowering it
-
-
 
 **Data Collection:**
 
@@ -22,7 +21,6 @@ Checks the rate of slow queries in MySQL/MariaDB. A high slow query rate indicat
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

@@ -1,5 +1,6 @@
 # Check redis-version
 
+
 ## Overview
 
 Checks the installed Redis version against the endoflife.date API and alerts if the version is end-of-life or if newer releases are available.

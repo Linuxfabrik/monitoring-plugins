@@ -1,5 +1,6 @@
 # Check mysql-traffic
 
+
 ## Overview
 
 Reports MySQL/MariaDB traffic statistics including uptime, queries per second, connection rates, and bytes sent and received. Also calculates the read/write ratio based on SELECT, INSERT, UPDATE, DELETE, and REPLACE commands. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
@@ -8,8 +9,6 @@ Reports MySQL/MariaDB traffic statistics including uptime, queries per second, c
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 * This plugin always returns OK and is purely informational
-
-
 
 **Data Collection:**
 
@@ -20,7 +19,6 @@ Reports MySQL/MariaDB traffic statistics including uptime, queries per second, c
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

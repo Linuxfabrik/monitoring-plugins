@@ -1,5 +1,6 @@
 # Check rocketchat-version
 
+
 ## Overview
 
 Checks the installed Rocket.Chat version against the endoflife.date API and alerts if the version is end-of-life or if newer releases are available.
@@ -18,7 +19,6 @@ Checks the installed Rocket.Chat version against the endoflife.date API and aler
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

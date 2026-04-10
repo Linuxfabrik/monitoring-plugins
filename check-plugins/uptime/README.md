@@ -1,5 +1,6 @@
 # Check uptime
 
+
 ## Overview
 
 Reports how long the system has been running since the last boot. Optionally displays the timestamp and duration of the last downtime - the more frequently the check runs, the more accurate the downtime information will be.

@@ -1,5 +1,6 @@
 # Check load
 
+
 ## Overview
 
 Reports the average system load per CPU over the last 1, 5, and 15 minutes. Load represents the average number of processes waiting in the run queue plus those currently executing. The values are normalized by dividing by the number of CPUs, making machines with different CPU counts comparable and simplifying Grafana panel design.

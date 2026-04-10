@@ -1,5 +1,6 @@
 # Check librenms-alerts
 
+
 ## Overview
 
 Checks for unacknowledged alerts in LibreNMS and reports the most recent alert per device. Only considers devices that do not have alerting disabled in their LibreNMS device settings. When you acknowledge an alert in the LibreNMS web UI (Alerts > Notifications), this check changes the status for the corresponding device to OK.
@@ -10,7 +11,6 @@ Checks for unacknowledged alerts in LibreNMS and reports the most recent alert p
 * See [additional notes for all monitoring plugins accessing MySQL/MariaDB](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md) on how to configure database access.
 * When defining device groups in LibreNMS for use with `--device-group`, do not use slashes in the name (see [this topic](https://github.com/laravel/framework/issues/22125)).
 * This check does not return per-device performance data because LibreNMS provides direct integration with time series databases (Graphite, InfluxDB, OpenTSDB, Prometheus, RRDTool) under Settings > Global Settings > Poller > Datastore.
-
 
 **Data Collection:**
 

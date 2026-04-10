@@ -1,5 +1,6 @@
 # Check dhcp-scope-usage
 
+
 ## Overview
 
 Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and queries scope statistics using PowerShell. Alerts when the address pool usage of any scope exceeds the configured thresholds (default: WARN at 80%, CRIT at 90%).
@@ -9,7 +10,6 @@ Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and 
 * Set the plugin timeout to 30 seconds, as WinRM connections can be slow
 * The `--hostname` parameter specifies which DHCP server to query (can differ from the WinRM target)
 * Running directly on Linux without `--winrm-hostname` is not supported
-
 
 **Data Collection:**
 

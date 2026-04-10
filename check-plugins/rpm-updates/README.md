@@ -1,5 +1,6 @@
 # Check rpm-updates
 
+
 ## Overview
 
 Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible systems. Reports the number and type of available advisories (bugfix, enhancement, security). This check only lists updates and never actually installs anything.
@@ -29,7 +30,6 @@ Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 **Compatibility:**
 
 * Linux
-
 
 
 ## Fact Sheet

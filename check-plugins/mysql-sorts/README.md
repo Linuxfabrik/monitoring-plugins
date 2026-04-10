@@ -1,5 +1,6 @@
 # Check mysql-sorts
 
+
 ## Overview
 
 Checks sort operations in MySQL/MariaDB, including the rate of sort merge passes that required temporary disk files. A high rate of sort merge passes relative to total sorts indicates that `sort_buffer_size` and/or `read_rnd_buffer_size` may need to be increased.
@@ -7,8 +8,6 @@ Checks sort operations in MySQL/MariaDB, including the rate of sort merge passes
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
-
-
 
 **Data Collection:**
 
@@ -20,7 +19,6 @@ Checks sort operations in MySQL/MariaDB, including the rate of sort merge passes
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

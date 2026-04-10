@@ -1,5 +1,6 @@
 # Check rhel-version
 
+
 ## Overview
 
 Checks the installed Red Hat Enterprise Linux version against the endoflife.date API and alerts if the version is end-of-life or if newer releases are available.
@@ -18,7 +19,6 @@ Checks the installed Red Hat Enterprise Linux version against the endoflife.date
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

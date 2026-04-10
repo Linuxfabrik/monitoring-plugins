@@ -1,5 +1,6 @@
 # Check mysql-query
 
+
 ## Overview
 
 Connects to a MySQL/MariaDB database and runs configurable SQL queries for warning and critical conditions. The query result - either a row count or a specific value - is checked against Nagios range expressions. This is useful for custom application-level monitoring where standard MySQL checks do not apply.
@@ -10,8 +11,6 @@ Connects to a MySQL/MariaDB database and runs configurable SQL queries for warni
 * At least one of `--warning-query` or `--critical-query` must be provided
 * Thresholds use [Nagios range expressions](https://github.com/Linuxfabrik/monitoring-plugins#threshold-and-ranges)
 
-
-
 **Data Collection:**
 
 * Connects to the MySQL/MariaDB server using the provided credentials
@@ -21,7 +20,6 @@ Connects to a MySQL/MariaDB database and runs configurable SQL queries for warni
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

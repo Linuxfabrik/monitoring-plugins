@@ -1,5 +1,6 @@
 # Check csv-values
 
+
 ## Overview
 
 Imports a CSV file (local, remote via URL, or from an SMB share) into a temporary SQLite database and runs configurable SQL queries against it. Separate queries can be defined for warning and critical conditions. The query result - either a row count or a specific value - is checked against Nagios range expressions. This makes it possible to monitor any data source that can export CSV.
@@ -65,7 +66,6 @@ Helpful resources:
 
 * SQLite Tutorial: <https://www.sqlitetutorial.net>
 * SQLite Documentation: <https://www.sqlite.org/doclist.html>
-
 
 **Data Collection:**
 

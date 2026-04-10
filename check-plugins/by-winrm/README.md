@@ -1,5 +1,6 @@
 # Check by-winrm
 
+
 ## Overview
 
 This plugin executes PowerShell commands or scripts on remote Windows hosts via WinRM, supporting JEA. It returns standard output (STDOUT) and, in case of failure, standard error (STDERR) along with the command's exit code. By evaluating these results - through threshold checks or pattern matching on STDOUT - the plugin can generate alerts with configurable severity levels.
@@ -12,7 +13,6 @@ This plugin executes PowerShell commands or scripts on remote Windows hosts via 
 * It is especially useful in environments where installing a monitoring agent is not possible or desired
 * For Kerberos transport, configure `/etc/krb5.conf` and obtain a ticket via `kinit` before running the plugin. When Kerberos credentials are present in the cache, `--winrm-username` and `--winrm-password` can be omitted.
 * When `--winrm-domain` is set, the username is sent as `user@DOMAIN` for NTLM authentication. Not needed for Kerberos or local accounts.
-
 
 **Data Collection:**
 

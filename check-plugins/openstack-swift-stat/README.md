@@ -1,5 +1,6 @@
 # Check openstack-swift-stat
 
+
 ## Overview
 
 Checks OpenStack Swift object storage account statistics, including total container count, object count, and bytes used. Alerts when storage usage exceeds the configured thresholds.
@@ -10,8 +11,6 @@ Checks OpenStack Swift object storage account statistics, including total contai
 * Requires the `python-swiftclient` and `python-keystoneclient` Python modules.
 * Might take more than 10 seconds to execute depending on the number of containers.
 
-
-
 **Data Collection:**
 
 * Authenticates to the OpenStack Swift API using credentials from an rc file
@@ -21,7 +20,6 @@ Checks OpenStack Swift object storage account statistics, including total contai
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

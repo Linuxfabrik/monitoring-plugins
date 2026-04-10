@@ -1,5 +1,6 @@
 # Check librenms-version
 
+
 ## Overview
 
 Displays LibreNMS instance information including version, database schema, Python and RRDtool versions via the LibreNMS API. This check does not track new releases since LibreNMS can update itself when running the Git version.
@@ -7,8 +8,6 @@ Displays LibreNMS instance information including version, database schema, Pytho
 **Important Notes:**
 
 * Consider also monitoring the EOL dates for Apache, MariaDB, PHP and other components using the corresponding `*-version` check plugins
-
-
 
 **Data Collection:**
 
@@ -19,7 +18,6 @@ Displays LibreNMS instance information including version, database schema, Pytho
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

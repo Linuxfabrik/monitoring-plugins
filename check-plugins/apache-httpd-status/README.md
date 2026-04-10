@@ -1,5 +1,6 @@
 # Check apache-httpd-status
 
+
 ## Overview
 
 Monitors Apache httpd performance via the mod_status endpoint (server-status?auto). Alerts when worker usage exceeds the configured thresholds. Reports busy and idle workers, request rates, bytes served, CPU load, connection states, and system load averages. Requires "ExtendedStatus On" in the Apache configuration for full metrics. Uses a local SQLite database to calculate per-second rates from cumulative counters.
@@ -73,7 +74,6 @@ If you want to configure `/server-status` in a virtual host:
     </IfModule>
 </VirtualHost>
 ```
-
 
 **Data Collection:**
 

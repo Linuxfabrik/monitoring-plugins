@@ -1,5 +1,6 @@
 # Check nodebb-cache
 
+
 ## Overview
 
 Monitors NodeBB cache usage via the admin API. Alerts when cache utilization exceeds the configured thresholds.
@@ -10,8 +11,6 @@ Monitors NodeBB cache usage via the admin API. Alerts when cache utilization exc
 * NodeBB Read API: <https://docs.nodebb.org/api/read/>
 * Requires NodeBB v1.14.4+.
 
-
-
 **Data Collection:**
 
 * Queries the NodeBB Read API endpoint `/api/admin/advanced/cache` using Bearer Authentication
@@ -20,7 +19,6 @@ Monitors NodeBB cache usage via the admin API. Alerts when cache utilization exc
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

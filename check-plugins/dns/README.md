@@ -1,5 +1,6 @@
 # Check dns
 
+
 ## Overview
 
 Performs a DNS lookup and resolves a hostname to one or more IP addresses. Queries the name servers configured on the local machine (e.g. those listed in /etc/resolv.conf). Measures and alerts on the lookup response time. Works with both IPv4 and IPv6.

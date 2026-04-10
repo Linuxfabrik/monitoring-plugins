@@ -1,5 +1,6 @@
 # Check infomaniak-swiss-backup-devices
 
+
 ## Overview
 
 Checks each backup device (slot) across all Infomaniak Swiss Backup products via the Infomaniak API. Alerts when storage usage exceeds the configured thresholds or when a device reports an error state. Devices can be filtered by customer, name, tag, or user.

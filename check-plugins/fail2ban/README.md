@@ -1,5 +1,6 @@
 # Check fail2ban
 
+
 ## Overview
 
 Checks the number of currently banned IP addresses across all fail2ban jails. Reports the total ban count and a per-jail breakdown. Alerts when the number of banned IPs in any jail exceeds the configured thresholds. Requires root or sudo.

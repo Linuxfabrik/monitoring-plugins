@@ -1,5 +1,6 @@
 # Check mysql-logfile
 
+
 ## Overview
 
 Scans the MySQL/MariaDB error log for warnings, errors, startup, and shutdown events. Works even when the database is down by reading the log file directly. Uses a cache to remember the log file location in case the database becomes unavailable.
@@ -9,8 +10,6 @@ Scans the MySQL/MariaDB error log for warnings, errors, startup, and shutdown ev
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 * Must be running locally on the MySQL/MariaDB server to read the log file. Requires root or sudo.
 * Depending on your site's policy, you could ignore lines matching patterns like "aborted connection" (happens frequently) or "access denied for user" (could be handled by Fail2ban)
-
-
 
 **Data Collection:**
 
@@ -23,7 +22,6 @@ Scans the MySQL/MariaDB error log for warnings, errors, startup, and shutdown ev
 **Compatibility:**
 
 * Linux
-
 
 
 ## Fact Sheet

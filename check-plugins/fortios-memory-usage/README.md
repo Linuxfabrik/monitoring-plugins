@@ -1,5 +1,6 @@
 # Check fortios-memory-usage
 
+
 ## Overview
 
 Monitors memory utilization on FortiGate appliances running FortiOS via the REST API. First checks against the globally configured memory-use-threshold on the appliance, then falls back to command-line thresholds if no global configuration exists. Alerts when memory usage exceeds the configured thresholds.
@@ -8,7 +9,6 @@ Monitors memory utilization on FortiGate appliances running FortiOS via the REST
 
 * FortiGate appliances running FortiOS with REST API access
 * The globally configured `memory-use-threshold-green` takes precedence over `--warning`, and `memory-use-threshold-red` takes precedence over `--critical`
-
 
 **Data Collection:**
 

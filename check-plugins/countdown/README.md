@@ -1,5 +1,6 @@
 # Check countdown
 
+
 ## Overview
 
 Counts down to one or more user-defined expiration dates, such as certificate renewals, contract deadlines, or license expirations. Alerts when the remaining days fall below the configured warning or critical thresholds. Each item can have its own thresholds. Past dates are reported as expired.
@@ -11,8 +12,6 @@ Counts down to one or more user-defined expiration dates, such as certificate re
 * Setting `warn` to `None` means WARN is never returned for that item
 * Already expired dates are always reported with their respective threshold state
 
-
-
 **Data Collection:**
 
 * No external data is collected; all information is provided via the `--input` parameter
@@ -21,7 +20,6 @@ Counts down to one or more user-defined expiration dates, such as certificate re
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

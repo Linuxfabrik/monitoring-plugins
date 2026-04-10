@@ -1,5 +1,6 @@
 # Check matomo-reporting
 
+
 ## Overview
 
 Retrieves common analytics values from a Matomo instance, including visits, unique visitors, bounce rate, and actions. Supports one or multiple websites and any date range or period.
@@ -8,7 +9,6 @@ Retrieves common analytics values from a Matomo instance, including visits, uniq
 
 * Provide the Matomo `token_auth` via `--password`. This token is as secret as your login and password. To view or regenerate it, go to Personal > Security > Auth Tokens in the Matomo UI
 * See the [Matomo Reporting API documentation](https://developer.matomo.org/api-reference/reporting-api) for details on available metrics, periods, and date formats
-
 
 **Data Collection:**
 

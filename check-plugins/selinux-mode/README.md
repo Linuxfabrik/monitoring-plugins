@@ -1,5 +1,6 @@
 # Check selinux-mode
 
+
 ## Overview
 
 Verifies that the current SELinux mode (enforcing, permissive, or disabled) matches the expected setting. Returns WARN if the actual mode differs from the desired one.

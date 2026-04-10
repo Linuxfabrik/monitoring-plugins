@@ -1,5 +1,6 @@
 # Check haproxy-status
 
+
 ## Overview
 
 Monitors HAProxy performance and health via the stats endpoint. Reports frontend and backend session usage, request rates, response times, error rates, and server states. Alerts when session usage exceeds the configured thresholds or when backends/servers are in an unhealthy state. Supports extended reporting via `--lengthy`.
@@ -28,7 +29,6 @@ Monitors HAProxy performance and health via the stats endpoint. Reports frontend
     ```
 
 * No authentication is needed for Unix socket access.
-
 
 **Data Collection:**
 

@@ -1,5 +1,6 @@
 # Check rpm-lastactivity
 
+
 ## Overview
 
 Checks how long ago the last RPM package manager activity occurred (install, update, or remove via yum/dnf). Useful for detecting servers that have not been patched in a long time.

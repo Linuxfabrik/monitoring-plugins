@@ -1,5 +1,6 @@
 # Check redis-status
 
+
 ## Overview
 
 Monitors a Redis server via the `INFO` command, reporting memory usage, fragmentation ratio, keyspace hit rate, connected clients, replication status, and persistence state.
@@ -20,7 +21,6 @@ Monitors a Redis server via the `INFO` command, reporting memory usage, fragment
 **Compatibility:**
 
 * Linux
-
 
 
 ## Fact Sheet

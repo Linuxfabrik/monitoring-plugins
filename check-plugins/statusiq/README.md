@@ -1,5 +1,6 @@
 # Check statusiq
 
+
 ## Overview
 
 Monitors a [StatusIQ](https://www.site24x7.com/statusiq/) (by Site24x7) status page via its RSS feed. Returns a component-by-component status overview with Nagios-compatible alerting.
@@ -7,8 +8,6 @@ Monitors a [StatusIQ](https://www.site24x7.com/statusiq/) (by Site24x7) status p
 **Important Notes:**
 
 * Any StatusIQ status page with RSS enabled (e.g. `https://status.trustid.ch`, `https://status.kobv.de`)
-
-
 
 **Data Collection:**
 

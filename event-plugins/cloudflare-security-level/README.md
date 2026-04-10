@@ -1,5 +1,6 @@
 # Event cloudflare-security-level
 
+
 ## Overview
 
 Changes the Cloudflare security level for one or more zones based on the current Icinga service state. When the service state changes to CRITICAL (even in SOFT state), the security level is set to "under_attack". When the state returns to OK, the security level is set back to "medium". This is useful, for example, when the Apache httpd status check reports overuse, to automatically enable Cloudflare's "Under Attack Mode" which displays a JavaScript challenge to visitors.

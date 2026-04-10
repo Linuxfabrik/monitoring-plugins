@@ -1,5 +1,6 @@
 # Check mysql-version
 
+
 ## Overview
 
 Checks the installed MySQL/MariaDB version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
@@ -7,8 +8,6 @@ Checks the installed MySQL/MariaDB version against the endoflife.date API and al
 **Important Notes:**
 
 * Must run on the MySQL/MariaDB server itself to detect the installed version
-
-
 
 **Data Collection:**
 

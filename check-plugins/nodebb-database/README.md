@@ -1,5 +1,6 @@
 # Check nodebb-database
 
+
 ## Overview
 
 Monitors NodeBB database statistics via the admin API, including memory usage and connection counts. Alerts when thresholds are exceeded.
@@ -10,8 +11,6 @@ Monitors NodeBB database statistics via the admin API, including memory usage an
 * NodeBB Read API: <https://docs.nodebb.org/api/read/>
 * Requires NodeBB v1.14.4+.
 
-
-
 **Data Collection:**
 
 * Queries the NodeBB Read API endpoint `/api/admin/advanced/database` using Bearer Authentication
@@ -20,7 +19,6 @@ Monitors NodeBB database statistics via the admin API, including memory usage an
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

@@ -1,5 +1,6 @@
 # Check diacos
 
+
 ## Overview
 
 Checks availability and response time of an [ID DIACOS](https://www.id-suisse-ag.ch/loesungen/abrechnung/id-diacos/) installation by performing a full login, diagnosis search, and logout cycle. Alerts if the total response time exceeds the configured thresholds. Useful for monitoring the health of DIACOS medical billing systems.

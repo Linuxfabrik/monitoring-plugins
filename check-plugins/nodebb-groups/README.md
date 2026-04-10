@@ -1,5 +1,6 @@
 # Check nodebb-groups
 
+
 ## Overview
 
 Monitors NodeBB group statistics via the admin API, including group count and membership numbers. This is an informational check only.
@@ -10,8 +11,6 @@ Monitors NodeBB group statistics via the admin API, including group count and me
 * NodeBB Read API: <https://docs.nodebb.org/api/read/>
 * Requires NodeBB v1.14.4+.
 
-
-
 **Data Collection:**
 
 * Queries the NodeBB Read API endpoint `/api/admin/settings/post` using Bearer Authentication
@@ -20,7 +19,6 @@ Monitors NodeBB group statistics via the admin API, including group count and me
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

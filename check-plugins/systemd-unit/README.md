@@ -1,5 +1,6 @@
 # Check systemd-unit
 
+
 ## Overview
 
 Checks the state of a specific systemd unit (service, socket, device, mount, timer, scope, etc.) via `systemctl show`. Verifies the active state, sub-state, load state, and unit file state against expected values.
@@ -19,7 +20,6 @@ Checks the state of a specific systemd unit (service, socket, device, mount, tim
 **Compatibility:**
 
 * Linux
-
 
 
 ## Fact Sheet

@@ -1,5 +1,6 @@
 # Check xml
 
+
 ## Overview
 
 Fetches an XML document via HTTP(S) and checks for a matching string using XPath expressions. Supports namespace prefixes (important for testing WSDL responses) and HTTP Basic Authentication. If `--expect` is omitted, the check simply verifies that the XPath expression returns a non-empty result.
@@ -10,8 +11,6 @@ Fetches an XML document via HTTP(S) and checks for a matching string using XPath
 * Evaluates the `--xpath` expression against the parsed XML using lxml
 * Namespace prefix-to-URI mappings can be provided via `--namespace` (repeatable)
 * Supports HTTP Basic Authentication via `--username` and `--password`
-
-
 
 **Compatibility:**
 

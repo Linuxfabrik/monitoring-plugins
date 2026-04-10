@@ -1,5 +1,6 @@
 # Check sensors-battery
 
+
 ## Overview
 
 Reports battery status information including charge percentage, time remaining, and power source (AC or battery). Returns OK if no battery is installed or if metrics cannot be determined.
@@ -15,7 +16,6 @@ Reports battery status information including charge percentage, time remaining, 
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

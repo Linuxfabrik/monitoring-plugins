@@ -1,5 +1,6 @@
 # Check wildfly-memory-pool-usage
 
+
 ## Overview
 
 Checks Java memory pool usage (Eden, Survivor, Old Gen, Metaspace, Compressed Class Space, Code Cache, etc.) on a WildFly/JBoss AS server via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode.
@@ -32,7 +33,6 @@ Checks Java memory pool usage (Eden, Survivor, Old Gen, Metaspace, Compressed Cl
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

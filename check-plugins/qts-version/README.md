@@ -1,5 +1,6 @@
 # Check qts-version
 
+
 ## Overview
 
 Checks if firmware updates are available for a QNAP appliance running QTS by querying the QNAP update API. Reports the currently installed version and alerts when a newer firmware version is available.
@@ -20,7 +21,6 @@ Checks if firmware updates are available for a QNAP appliance running QTS by que
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

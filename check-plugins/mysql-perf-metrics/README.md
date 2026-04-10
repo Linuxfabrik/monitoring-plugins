@@ -1,5 +1,6 @@
 # Check mysql-perf-metrics
 
+
 ## Overview
 
 Checks performance-related best practice configurations for MySQL/MariaDB, including whether InnoDB stats are updated during INFORMATION_SCHEMA queries, concurrent inserts are enabled, and InnoDB file-per-table is activated.
@@ -8,8 +9,6 @@ Checks performance-related best practice configurations for MySQL/MariaDB, inclu
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 * Requires MySQL/MariaDB v5.5+
-
-
 
 **Data Collection:**
 
@@ -20,7 +19,6 @@ Checks performance-related best practice configurations for MySQL/MariaDB, inclu
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

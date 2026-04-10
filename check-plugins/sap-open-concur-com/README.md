@@ -1,5 +1,6 @@
 # Check sap-open-concur-com
 
+
 ## Overview
 
 Monitors the SAP Concur Open status page (<https://open.concur.com>) for active service incidents. The dashboard displays the most recent 20 days of Concur service availability.
@@ -18,7 +19,6 @@ Monitors the SAP Concur Open status page (<https://open.concur.com>) for active 
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

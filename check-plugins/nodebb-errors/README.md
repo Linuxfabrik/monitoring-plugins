@@ -1,5 +1,6 @@
 # Check nodebb-errors
 
+
 ## Overview
 
 Retrieves recent server-side errors from NodeBB via the admin API. Alerts when errors are found in the error log.
@@ -10,8 +11,6 @@ Retrieves recent server-side errors from NodeBB via the admin API. Alerts when e
 * NodeBB Read API: <https://docs.nodebb.org/api/read/>
 * Requires NodeBB v1.14.4+.
 
-
-
 **Data Collection:**
 
 * Queries the NodeBB Read API endpoint `/api/admin/advanced/errors` using Bearer Authentication
@@ -20,7 +19,6 @@ Retrieves recent server-side errors from NodeBB via the admin API. Alerts when e
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

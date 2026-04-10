@@ -1,5 +1,6 @@
 # Check sensors-temperatures
 
+
 ## Overview
 
 Reports hardware temperature sensor readings (CPU, disk, chipset, etc.) in Celsius. Automatically checks against hardware-defined thresholds. Returns OK if the sensors are not supported by the OS.
@@ -16,7 +17,6 @@ Reports hardware temperature sensor readings (CPU, disk, chipset, etc.) in Celsi
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

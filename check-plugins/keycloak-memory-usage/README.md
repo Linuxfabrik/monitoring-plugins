@@ -1,5 +1,6 @@
 # Check keycloak-memory-usage
 
+
 ## Overview
 
 Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP API and alerts when memory usage exceeds configurable thresholds.
@@ -8,7 +9,6 @@ Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP A
 
 * Tested with Keycloak 18 and later
 * See [Creating an API user account to monitor Keycloak](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-KEYCLOAK.md) for setting up the required API credentials.
-
 
 **Data Collection:**
 

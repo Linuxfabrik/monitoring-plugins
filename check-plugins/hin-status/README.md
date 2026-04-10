@@ -1,5 +1,6 @@
 # Check hin-status
 
+
 ## Overview
 
 Monitors the HIN (Health Info Net) status page for service disruptions. Parses the support website for outage announcements since no machine-readable API is available. Alerts when active incidents are detected.
@@ -7,7 +8,6 @@ Monitors the HIN (Health Info Net) status page for service disruptions. Parses t
 **Important Notes:**
 
 * Since no machine-readable API is available, the check relies on parsing WordPress-generated HTML content. Changes to the HIN website structure may break parsing.
-
 
 **Data Collection:**
 

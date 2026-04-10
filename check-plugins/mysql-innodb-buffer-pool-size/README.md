@@ -1,5 +1,6 @@
 # Check mysql-innodb-buffer-pool-size
 
+
 ## Overview
 
 Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the configured `innodb_buffer_pool_size` against the actual data and index sizes of all InnoDB tables to determine if the buffer pool is large enough. Also checks the ratio of `innodb_log_file_size * innodb_log_files_in_group` to the buffer pool size, which should be in the range of 20-30%.
@@ -13,8 +14,6 @@ Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the 
 * On MariaDB 10.2.2+, `innodb_buffer_pool_size` [can be set dynamically.](https://mariadb.com/kb/en/setting-innodb-buffer-pool-size-dynamically/)
 * `innodb_log_files_in_group` was removed in MariaDB 10.6.0; the check handles this gracefully by defaulting to 1
 
-
-
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `innodb_buffer_pool_size`, `innodb_log_file_size`, `innodb_log_files_in_group`, and `innodb_redo_log_capacity`
@@ -25,7 +24,6 @@ Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the 
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

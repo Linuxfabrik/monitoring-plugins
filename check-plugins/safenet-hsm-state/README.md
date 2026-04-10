@@ -1,5 +1,6 @@
 # Check safenet-hsm-state
 
+
 ## Overview
 
 Checks the current state of a Gemalto SafeNet ProtectServer Network HSM via SSH by running a PSESH command on the appliance. Alerts when the HSM adapter reports a non-operational state or when the usage level exceeds the configured thresholds.
@@ -18,7 +19,6 @@ Checks the current state of a Gemalto SafeNet ProtectServer Network HSM via SSH 
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

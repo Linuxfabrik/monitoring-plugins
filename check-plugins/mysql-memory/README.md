@@ -1,5 +1,6 @@
 # Check mysql-memory
 
+
 ## Overview
 
 Checks current and maximum possible memory usage specifically for MySQL/MariaDB. Calculates the theoretical maximum memory consumption based on global buffers, per-thread buffers, max connections, and Performance Schema usage. Compares this against the physical memory of the server.
@@ -10,8 +11,6 @@ Checks current and maximum possible memory usage specifically for MySQL/MariaDB.
 * Requires MySQL/MariaDB v4+
 * Must be running locally on the MySQL/MariaDB server to check system memory
 * User account requires PROCESS privileges
-
-
 
 **Data Collection:**
 
@@ -25,7 +24,6 @@ Checks current and maximum possible memory usage specifically for MySQL/MariaDB.
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

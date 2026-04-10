@@ -1,5 +1,6 @@
 # Check mysql-replica-status
 
+
 ## Overview
 
 Checks the replication status of a MySQL/MariaDB replica, including I/O thread state, SQL thread state, seconds behind master, and replication errors. Can also be run against standalone servers (reports that no replication is configured). Reports Galera synchronous replication state, binlog format, semi-synchronous replication configuration, and XA support.
@@ -10,8 +11,6 @@ Checks the replication status of a MySQL/MariaDB replica, including I/O thread s
 * User account requires SUPER, REPLICATION CLIENT, and REPLICATION SLAVE privileges
 * Can safely be run against standalone servers; it will report "This is a standalone server."
 
-
-
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for replication-related settings (`binlog_format`, `read_only`, `rpl_semi_sync_*`, `wsrep_on`, `wsrep_provider_options`, etc.)
@@ -21,7 +20,6 @@ Checks the replication status of a MySQL/MariaDB replica, including I/O thread s
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

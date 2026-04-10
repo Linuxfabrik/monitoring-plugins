@@ -1,5 +1,6 @@
 # Check wildfly-uptime
 
+
 ## Overview
 
 Reports the uptime of a WildFly/JBoss AS server via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode. Useful for detecting application servers that have not been restarted after deployments or updates.
@@ -7,8 +8,6 @@ Reports the uptime of a WildFly/JBoss AS server via its HTTP-JSON based manageme
 **Important Notes:**
 
 * Tested with WildFly 11 and WildFly 23+
-
-
 
 **Data Collection:**
 

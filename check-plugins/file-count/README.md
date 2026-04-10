@@ -1,5 +1,6 @@
 # Check file-count
 
+
 ## Overview
 
 Counts the number of files matching a glob pattern and alerts when the count exceeds the configured thresholds. Can filter by modification time range, restrict to files or directories only, and supports SMB shares.
@@ -12,7 +13,6 @@ Counts the number of files matching a glob pattern and alerts when the count exc
 * Thresholds support Nagios ranges. Use `--warning 1` to check for file existence (warn if missing) or `--warning '~:0'` to check for file absence (warn if present)
 * `--timerange` accepts Nagios range syntax in seconds. Only files whose modification time falls within this range are counted
 * Depending on the file and user (e.g. running as `icinga`), sudo (sudoers) may be needed
-
 
 **Data Collection:**
 

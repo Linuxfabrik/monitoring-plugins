@@ -1,5 +1,6 @@
 # Check huawei-dorado-hypermetropair
 
+
 ## Overview
 
 Checks the health, running status, and synchronization state of all HyperMetro pairs on a Huawei OceanStor Dorado storage system via the REST API (`/hypermetropair` endpoint). Alerts when any pair reports a non-normal state or synchronization issue. Reports link status, last sync time, sync duration, sync progress, local/remote data consistency and host access state per pair.
@@ -9,7 +10,6 @@ Checks the health, running status, and synchronization state of all HyperMetro p
 * Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
 * Create a read-only API user that can perform queries only
 * The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
-
 
 **Data Collection:**
 

@@ -1,5 +1,6 @@
 # Check redfish-drives
 
+
 ## Overview
 
 Checks the state of all physical drives and storage media in a Redfish-compatible server via the Redfish API. Iterates over the Systems collection, fetches storage controllers and their attached drives, and reports health status, media type, protocol, capacity, and predicted media life left.
@@ -21,7 +22,6 @@ Checks the state of all physical drives and storage media in a Redfish-compatibl
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

@@ -1,5 +1,6 @@
 # Check network-port-tcp
 
+
 ## Overview
 
 Checks whether a TCP network port is reachable by attempting to establish a connection. Useful for monitoring service availability from the network perspective.
@@ -7,7 +8,6 @@ Checks whether a TCP network port is reachable by attempting to establish a conn
 **Important Notes:**
 
 * This check works with TCP connections only. UDP port responses depend on the target application (e.g. DNS or OpenVPN) and are not standardized like TCP.
-
 
 **Data Collection:**
 

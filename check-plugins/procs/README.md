@@ -1,5 +1,6 @@
 # Check procs
 
+
 ## Overview
 
 Monitors running processes and alerts on process count, aggregated memory usage, or aggregated CPU usage. Processes can be filtered by name, command-line arguments, and user name using regular expressions. Optionally lists the top processes by CPU time and memory usage.
@@ -21,7 +22,6 @@ Monitors running processes and alerts on process count, aggregated memory usage,
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet
@@ -173,6 +173,7 @@ Other examples:
 # match multiple process names using regex
 ./procs --command='^(apache|httpd|nginx)'
 ```
+
 
 ## States
 

@@ -1,5 +1,6 @@
 # Check php-status
 
+
 ## Overview
 
 Checks PHP configuration and health, including startup errors, missing modules, and misconfigured php.ini directives. Optionally reads extended PHP information (Opcache statistics) from a monitoring helper script deployed in the web server context.

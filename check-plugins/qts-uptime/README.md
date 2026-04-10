@@ -1,5 +1,6 @@
 # Check qts-uptime
 
+
 ## Overview
 
 Reports how long a QNAP appliance running QTS has been running since the last boot.
@@ -18,7 +19,6 @@ Reports how long a QNAP appliance running QTS has been running since the last bo
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

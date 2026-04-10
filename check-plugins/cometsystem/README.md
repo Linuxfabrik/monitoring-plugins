@@ -1,5 +1,6 @@
 # Check cometsystem
 
+
 ## Overview
 
 Reads sensor data from Comet System Web Sensors via their JSON API endpoint. Monitors channels such as temperature, humidity, and other environmental values. Alarm states are mapped to configurable severity levels using a flexible pattern matching system (e.g. "temp:high:crit", "humi:low:warn").

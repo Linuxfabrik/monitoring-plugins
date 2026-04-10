@@ -1,5 +1,6 @@
 # Check atlassian-statuspage
 
+
 ## Overview
 
 Monitors a public Atlassian Statuspage for incidents and maintenance windows. Returns OK when no incidents are reported, WARN for minor incidents or scheduled maintenance, and CRIT for major or critical incidents. Works with any Statuspage-powered status page, not just Atlassian's own.
@@ -7,8 +8,6 @@ Monitors a public Atlassian Statuspage for incidents and maintenance windows. Re
 **Important Notes:**
 
 * Works with any public status page powered by Atlassian Statuspage (e.g. GitHub, Cloudflare, Datadog)
-
-
 
 **Data Collection:**
 

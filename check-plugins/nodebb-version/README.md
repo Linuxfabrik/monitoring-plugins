@@ -1,5 +1,6 @@
 # Check nodebb-version
 
+
 ## Overview
 
 Checks if a NodeBB update is available by comparing the installed version against the latest release. Alerts when an update is available.
@@ -10,8 +11,6 @@ Checks if a NodeBB update is available by comparing the installed version agains
 * NodeBB Read API: <https://docs.nodebb.org/api/read/>
 * Requires NodeBB v1.14.4+.
 
-
-
 **Data Collection:**
 
 * Queries the NodeBB Read API endpoint `/api/admin/dashboard` using Bearer Authentication
@@ -21,7 +20,6 @@ Checks if a NodeBB update is available by comparing the installed version agains
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

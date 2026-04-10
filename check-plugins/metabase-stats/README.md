@@ -1,5 +1,6 @@
 # Check metabase-stats
 
+
 ## Overview
 
 Retrieves recent activity and usage statistics from a Metabase instance via its API. Reports active users, executed queries, dashboards, and other operational metrics. Credentials are cached to reduce API calls.
@@ -7,7 +8,6 @@ Retrieves recent activity and usage statistics from a Metabase instance via its 
 **Important Notes:**
 
 * Requires a Metabase superuser account. Logins are rate-limited by Metabase for security, which is why credentials are cached. See the [Metabase API documentation](https://www.metabase.com/learn/developing-applications/advanced-metabase/metabase-api.html#authenticate-your-requests-with-a-session-token) for details
-
 
 **Data Collection:**
 

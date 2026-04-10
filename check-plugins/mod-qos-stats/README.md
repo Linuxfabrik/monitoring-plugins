@@ -1,5 +1,6 @@
 # Check mod-qos-stats
 
+
 ## Overview
 
 Monitors Apache mod_qos status via the machine-readable status handler. Reports current connection and request limits, active connections, and quality of service metrics for all configured virtual hosts. This check is primarily useful for statistical purposes and visualization over time in Grafana.
@@ -8,8 +9,6 @@ Monitors Apache mod_qos status via the machine-readable status handler. Reports 
 
 * Due to the behavior of mod_qos (which adds waiting times in case of overuse rather than rejecting requests), this check always returns OK and does not issue warnings
 * Requires `mod_qos` to be enabled and a `Location` configured with `SetHandler qos-viewer`
-
-
 
 **Data Collection:**
 
@@ -20,7 +19,6 @@ Monitors Apache mod_qos status via the machine-readable status handler. Reports 
 **Compatibility:**
 
 * Cross-platform
-
 
 
 ## Fact Sheet

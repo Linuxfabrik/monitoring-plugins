@@ -1,5 +1,6 @@
 # Check ipmi-sensor
 
+
 ## Overview
 
 Checks IPMI sensor readings (temperature, voltage, fan speed, power, etc.) using ipmitool. Alerts when any sensor reports a non-ok status. Provides detailed output including current values, thresholds, and sensor states. Requires root or sudo.
@@ -10,7 +11,6 @@ Checks IPMI sensor readings (temperature, voltage, fan speed, power, etc.) using
 * Requires hardware with an IPMI interface
 * `Discrete` sensors are not supported and are silently skipped.
 * Requires the `ipmitool` command-line tool to be installed.
-
 
 **Data Collection:**
 
