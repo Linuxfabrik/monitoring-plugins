@@ -81,7 +81,11 @@ Checked 42 sensors. There are warnings.
 
 ## Perfdata / Metrics
 
-Depends on the hardware sensors present on your appliance. Each sensor is reported by its ID (e.g. `fan.fan1`, `temperature.cpu_0_core_0`, `voltage.mac_avs_1v`). The warning and critical thresholds are set to the appliance's `upper_non_critical` and `upper_critical` values, with min/max set to `lower_non_recoverable` and `upper_non_recoverable`.
+Depends on the hardware sensors present on your appliance. Each sensor is reported by its ID.
+
+| Name | Type | Description |
+|----|----|----|
+| \<sensor-id\> | Number | Sensor reading (e.g. `fan.fan1`, `temperature.cpu_0_core_0`, `voltage.mac_avs_1v`). Thresholds from the appliance. |
 
 
 ## Credits, License

@@ -320,6 +320,10 @@ snmpbulkwalk -v2c \
 
 By default, all numeric values are automatically returned as perfdata objects. Use the "Ignore in Perfdata" CSV column to exclude specific items.
 
+| Name | Type | Description |
+|----|----|----|
+| \<oid-label\> | Number | Value of the queried OID. Labels and thresholds are defined in the CSV file. |
+
 
 ## Troubleshooting
 

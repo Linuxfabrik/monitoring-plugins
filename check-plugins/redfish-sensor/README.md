@@ -115,24 +115,11 @@ BaseBoard System Fans ! N+m  ! [OK]
 
 ## Perfdata / Metrics
 
-Depends on your hardware - as an example:
+Depends on your hardware. Each sensor from the Redfish Chassis collection is reported as a separate metric.
 
-* Chassis_Chassis_Fan_1
-* Chassis_Chassis_Fan_2
-* Chassis_Power_reading_for_the_Chassis
-* Chassis_Power_Supply_1_12V_Output_Current
-* Chassis_Total_Energy
-* CPU_CPU_1_Fan_Speed
-* CPU_CPU_1_Temperature
-* CPU_CPU_2_Fan_Speed
-* Exhaust_Fan_Bay_1_Exhaust_Temperature
-* Intake_Front_Panel_Intake_Temperature
-* Memory_DIMM_1_Temperature
-* Memory_DIMM_2_Temperature
-* Memory_DIMM_3_Temperature
-* PowerSupply_Power_Supply_1_12V_Output_Voltage
-* PowerSupply_Power_Supply_1_3V_Output_Current
-* PowerSupply_Power_Supply_1_3V_Output_Voltage
+| Name | Type | Description |
+|----|----|----|
+| \<chassis\>_\<sensor-name\> | Number | Sensor reading. Examples: `Chassis_Chassis_Fan_1`, `CPU_CPU_1_Temperature`, `Memory_DIMM_1_Temperature`, `PowerSupply_Power_Supply_1_12V_Output_Voltage`. |
 * PowerSupply_Power_Supply_1_5V_Output_Current
 * PowerSupply_Power_Supply_1_5V_Output_Voltage
 * PowerSupply_Power_Supply_1_Energy
