@@ -10,22 +10,22 @@
 
 """See the check's README for more details."""
 
-import argparse  # pylint: disable=C0413
-import os  # pylint: disable=C0413
-import sys  # pylint: disable=C0413
+import argparse
+import os
+import sys
 
-import lib.base  # pylint: disable=C0413
-import lib.human  # pylint: disable=C0413
-import lib.txt  # pylint: disable=C0413
+import lib.base
+import lib.human
+import lib.txt
 from lib.globals import (
     STATE_CRIT,
-    STATE_OK,  # pylint: disable=C0413
+    STATE_OK,
     STATE_UNKNOWN,
     STATE_WARN,
 )
 
 try:
-    import psutil  # pylint: disable=C0413
+    import psutil
 except ImportError:
     print('Python module "psutil" is not installed.')
     sys.exit(STATE_UNKNOWN)
@@ -140,7 +140,7 @@ def main():
         swap = psutil.swap_memory()
     except RuntimeError as e:
         lib.base.oao(
-            'Performance counters may be corrupt or disabled. If the counters are corrupt, attempt to [rebuild them](https://docs.microsoft.com/en-us/troubleshoot/windows-server/performance/rebuild-performance-counter-library-values). If the counters are disabled, check the registry `HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Perflib` and make sure there is no key "Disable" (or set it to 0).',  # pylint: disable=C0301
+            'Performance counters may be corrupt or disabled. If the counters are corrupt, attempt to [rebuild them](https://docs.microsoft.com/en-us/troubleshoot/windows-server/performance/rebuild-performance-counter-library-values). If the counters are disabled, check the registry `HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Perflib` and make sure there is no key "Disable" (or set it to 0).',
             STATE_UNKNOWN,
         )
     swap_usage_percent = swap.percent
@@ -154,7 +154,7 @@ def main():
 
     perfdata = lib.base.get_perfdata(
         'usage_percent', swap_usage_percent, '%', args.WARN, args.CRIT, 0, 100
-    )  # pylint: disable=C0301
+    )
     perfdata += lib.base.get_perfdata(
         'total', swap.total, 'B', None, None, 0, swap.total
     )
@@ -175,7 +175,7 @@ def main():
         )
         perfdata += lib.base.get_perfdata(
             'sout', getattr(swap, 'sout', 0), 'B', None, None, 0, None
-        )  # pylint: disable=C0301
+        )
 
     # On Linux only, get the top processes causing swap usage
     if not lib.base.WINDOWS and swap_usage_percent > 0:
@@ -193,5 +193,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:  # pylint: disable=W0703
+    except Exception:
         lib.base.cu()

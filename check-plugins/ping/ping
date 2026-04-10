@@ -10,12 +10,12 @@
 
 """See the check's README for more details."""
 
-import argparse  # pylint: disable=C0413
-import re  # pylint: disable=C0413
-import sys  # pylint: disable=C0413
+import argparse
+import re
+import sys
 
-import lib.base  # pylint: disable=C0413
-import lib.shell  # pylint: disable=C0413
+import lib.base
+import lib.shell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -148,10 +148,10 @@ def main():
     msg += f'PING {ping.group(1).strip()}' + ': '
 
     # line 3:
-    # "%ntransmitted packets transmitted, %nreceived received[, +%nrepeats duplicates][, +%nchecksum corrupted][, +%nerrors errors][, %packetloss% packet loss, time %timems]" # pylint: disable=C0301
+    # "%ntransmitted packets transmitted, %nreceived received[, +%nrepeats duplicates][, +%nchecksum corrupted][, +%nerrors errors][, %packetloss% packet loss, time %timems]"
     # '5 packets transmitted, 5 received, 0% packet loss, time 803ms'
     matches = re.search(
-        r'(\d+) packets transmitted, (\d+) received(, \+?(\d+) duplicates)?(, \+?(\d+) checksum corrupted)?(, \+?(\d+) errors)?, (\d+(?:\.\d+)?)% packet loss, time (\d+)',  # regex: 92 steps # pylint: disable=C0301
+        r'(\d+) packets transmitted, (\d+) received(, \+?(\d+) duplicates)?(, \+?(\d+) checksum corrupted)?(, \+?(\d+) errors)?, (\d+(?:\.\d+)?)% packet loss, time (\d+)',  # regex: 92 steps
         result[3],
     )
     msg += result[3] + '. '
@@ -226,7 +226,7 @@ def main():
         # host is reachable
         matches = re.search(
             r'= (\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)', result[4]
-        )  # regex: 26 steps # pylint: disable=C0301
+        )  # regex: 26 steps
         msg += result[4]
         perfdata += lib.base.get_perfdata(
             'rtt_min',
@@ -272,5 +272,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:  # pylint: disable=W0703
+    except Exception:
         lib.base.cu()

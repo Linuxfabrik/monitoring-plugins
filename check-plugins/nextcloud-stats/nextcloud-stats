@@ -10,16 +10,16 @@
 
 """See the check's README for more details."""
 
-import argparse  # pylint: disable=C0413
-import base64  # pylint: disable=C0413
-import json  # pylint: disable=C0413
-import sys  # pylint: disable=C0413
+import argparse
+import base64
+import json
+import sys
 
-import lib.base  # pylint: disable=C0413
-import lib.human  # pylint: disable=C0413
-import lib.txt  # pylint: disable=C0413
-import lib.url  # pylint: disable=C0413
-from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
+import lib.base
+import lib.human
+import lib.txt
+import lib.url
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -139,71 +139,71 @@ def main():
     # extract some application specific data
     nc_system_apps_num_installed = result['ocs']['data']['nextcloud']['system']['apps'][
         'num_installed'
-    ]  # pylint: disable=C0301
+    ]
     nc_system_apps_num_updates_available = result['ocs']['data']['nextcloud']['system'][
         'apps'
-    ]['num_updates_available']  # pylint: disable=C0301
+    ]['num_updates_available']
     nc_system_memcache_local = result['ocs']['data']['nextcloud']['system'][
         'memcache.local'
-    ]  # pylint: disable=C0301
+    ]
     nc_system_memcache_locking = result['ocs']['data']['nextcloud']['system'][
         'memcache.locking'
-    ]  # pylint: disable=C0301
+    ]
     nc_system_version = result['ocs']['data']['nextcloud']['system']['version']
 
-    nc_storage_num_users = result['ocs']['data']['nextcloud']['storage']['num_users']  # pylint: disable=C0301
-    nc_storage_num_files = result['ocs']['data']['nextcloud']['storage']['num_files']  # pylint: disable=C0301
+    nc_storage_num_users = result['ocs']['data']['nextcloud']['storage']['num_users']
+    nc_storage_num_files = result['ocs']['data']['nextcloud']['storage']['num_files']
     nc_storage_num_storages = result['ocs']['data']['nextcloud']['storage'][
         'num_storages'
-    ]  # pylint: disable=C0301
+    ]
     nc_storage_num_storages_local = result['ocs']['data']['nextcloud']['storage'][
         'num_storages_local'
-    ]  # pylint: disable=C0301
+    ]
     nc_storage_num_storages_home = result['ocs']['data']['nextcloud']['storage'][
         'num_storages_home'
-    ]  # pylint: disable=C0301
+    ]
     nc_storage_num_storages_other = result['ocs']['data']['nextcloud']['storage'][
         'num_storages_other'
-    ]  # pylint: disable=C0301
+    ]
 
     nc_shares_num_fed_shares_received = result['ocs']['data']['nextcloud']['shares'][
         'num_fed_shares_received'
-    ]  # pylint: disable=C0301
+    ]
     nc_shares_num_fed_shares_sent = result['ocs']['data']['nextcloud']['shares'][
         'num_fed_shares_sent'
-    ]  # pylint: disable=C0301
+    ]
 
-    nc_shares_num_shares = result['ocs']['data']['nextcloud']['shares']['num_shares']  # pylint: disable=C0301
+    nc_shares_num_shares = result['ocs']['data']['nextcloud']['shares']['num_shares']
     nc_shares_num_shares_groups = result['ocs']['data']['nextcloud']['shares'][
         'num_shares_groups'
-    ]  # pylint: disable=C0301
+    ]
     nc_shares_num_shares_link = result['ocs']['data']['nextcloud']['shares'][
         'num_shares_link'
-    ]  # pylint: disable=C0301
+    ]
     nc_shares_num_shares_link_no_password = result['ocs']['data']['nextcloud'][
         'shares'
-    ]['num_shares_link_no_password']  # pylint: disable=C0301
+    ]['num_shares_link_no_password']
     nc_shares_num_shares_mail = (
         result['ocs']['data']['nextcloud']['shares']['num_shares_mail']
         if 'num_shares_mail' in result['ocs']['data']['nextcloud']['shares']
         else 'n/a'
-    )  # pylint: disable=C0301
+    )
     nc_shares_num_shares_room = (
         result['ocs']['data']['nextcloud']['shares']['num_shares_room']
         if 'num_shares_room' in result['ocs']['data']['nextcloud']['shares']
         else 'n/a'
-    )  # pylint: disable=C0301
+    )
     nc_shares_num_shares_user = result['ocs']['data']['nextcloud']['shares'][
         'num_shares_user'
-    ]  # pylint: disable=C0301
+    ]
 
     nc_server_php_max_execution_time = result['ocs']['data']['server']['php'][
         'max_execution_time'
-    ]  # pylint: disable=C0301
+    ]
     nc_server_php_memory_limit = result['ocs']['data']['server']['php']['memory_limit']
     nc_server_php_upload_max_filesize = result['ocs']['data']['server']['php'][
         'upload_max_filesize'
-    ]  # pylint: disable=C0301
+    ]
     nc_server_php_version = result['ocs']['data']['server']['php']['version']
     nc_server_webserver = result['ocs']['data']['server']['webserver']
 
@@ -288,17 +288,17 @@ def main():
         None,
         0,
         None,
-    )  # pylint: disable=C0301
+    )
 
     perfdata += lib.base.get_perfdata(
         'nc_storage_num_users', nc_storage_num_users, None, None, None, 0, None
-    )  # pylint: disable=C0301
+    )
     perfdata += lib.base.get_perfdata(
         'nc_storage_num_files', nc_storage_num_files, None, None, None, 0, None
-    )  # pylint: disable=C0301
+    )
     perfdata += lib.base.get_perfdata(
         'nc_storage_num_storages', nc_storage_num_storages, None, None, None, 0, None
-    )  # pylint: disable=C0301
+    )
     perfdata += lib.base.get_perfdata(
         'nc_storage_num_storages_local',
         nc_storage_num_storages_local,
@@ -307,7 +307,7 @@ def main():
         None,
         0,
         None,
-    )  # pylint: disable=C0301
+    )
     perfdata += lib.base.get_perfdata(
         'nc_storage_num_storages_home',
         nc_storage_num_storages_home,
@@ -316,7 +316,7 @@ def main():
         None,
         0,
         None,
-    )  # pylint: disable=C0301
+    )
     perfdata += lib.base.get_perfdata(
         'nc_storage_num_storages_other',
         nc_storage_num_storages_other,
@@ -325,7 +325,7 @@ def main():
         None,
         0,
         None,
-    )  # pylint: disable=C0301
+    )
 
     perfdata += lib.base.get_perfdata(
         'nc_shares_num_fed_shares_received',
@@ -335,7 +335,7 @@ def main():
         None,
         0,
         None,
-    )  # pylint: disable=C0301
+    )
     perfdata += lib.base.get_perfdata(
         'nc_shares_num_fed_shares_sent',
         nc_shares_num_fed_shares_sent,
@@ -344,10 +344,10 @@ def main():
         None,
         0,
         None,
-    )  # pylint: disable=C0301
+    )
     perfdata += lib.base.get_perfdata(
         'nc_shares_num_shares', nc_shares_num_shares, None, None, None, 0, None
-    )  # pylint: disable=C0301
+    )
     perfdata += lib.base.get_perfdata(
         'nc_shares_num_shares_groups',
         nc_shares_num_shares_groups,
@@ -356,7 +356,7 @@ def main():
         None,
         0,
         None,
-    )  # pylint: disable=C0301
+    )
     perfdata += lib.base.get_perfdata(
         'nc_shares_num_shares_link',
         nc_shares_num_shares_link,
@@ -365,7 +365,7 @@ def main():
         None,
         0,
         None,
-    )  # pylint: disable=C0301
+    )
     perfdata += lib.base.get_perfdata(
         'nc_shares_num_shares_link_no_password',
         nc_shares_num_shares_link_no_password,
@@ -374,7 +374,7 @@ def main():
         None,
         0,
         None,
-    )  # pylint: disable=C0301
+    )
     perfdata += lib.base.get_perfdata(
         'nc_shares_num_shares_mail',
         nc_shares_num_shares_mail,
@@ -383,7 +383,7 @@ def main():
         None,
         0,
         None,
-    )  # pylint: disable=C0301
+    )
     perfdata += lib.base.get_perfdata(
         'nc_shares_num_shares_room',
         nc_shares_num_shares_room,
@@ -392,7 +392,7 @@ def main():
         None,
         0,
         None,
-    )  # pylint: disable=C0301
+    )
     perfdata += lib.base.get_perfdata(
         'nc_shares_num_shares_user',
         nc_shares_num_shares_user,
@@ -401,21 +401,21 @@ def main():
         None,
         0,
         None,
-    )  # pylint: disable=C0301
+    )
 
     perfdata += lib.base.get_perfdata(
         'nc_server_database_size', nc_server_database_size, 'B', None, None, 0, None
-    )  # pylint: disable=C0301
+    )
 
     perfdata += lib.base.get_perfdata(
         'nc_active_users_last5min', nc_active_users_last5min, None, None, None, 0, None
-    )  # pylint: disable=C0301
+    )
     perfdata += lib.base.get_perfdata(
         'nc_active_users_last1h', nc_active_users_last1h, None, None, None, 0, None
-    )  # pylint: disable=C0301
+    )
     perfdata += lib.base.get_perfdata(
         'nc_active_users_last24h', nc_active_users_last24h, None, None, None, 0, None
-    )  # pylint: disable=C0301
+    )
 
     # over and out
     lib.base.oao(msg, state, perfdata)
@@ -424,5 +424,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:  # pylint: disable=W0703
+    except Exception:
         lib.base.cu()

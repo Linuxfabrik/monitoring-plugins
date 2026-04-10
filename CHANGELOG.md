@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Add ruff linter and formatter to pre-commit hooks, enforce single-quote style
 * Apply ruff format to all plugins, unit tests, and tools (consistent quoting and formatting)
+* Remove all inline `pylint: disable` comments from plugins, unit tests, and tools
 * CONTRIBUTING: add "no continuous counters" policy with rationale and link to example plugin ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 * CONTRIBUTING: add early reference to example plugin as skeleton for new plugins
 * CONTRIBUTING: add Grafana migration note for grafanactl ([#1062](https://github.com/Linuxfabrik/monitoring-plugins/issues/1062))

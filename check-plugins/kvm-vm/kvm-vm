@@ -10,14 +10,14 @@
 
 """See the check's README for more details."""
 
-import argparse  # pylint: disable=C0413
-import sys  # pylint: disable=C0413
+import argparse
+import sys
 
-import lib.base  # pylint: disable=C0413
-import lib.shell  # pylint: disable=C0413
+import lib.base
+import lib.shell
 from lib.globals import (
     STATE_CRIT,
-    STATE_OK,  # pylint: disable=C0413
+    STATE_OK,
     STATE_UNKNOWN,
     STATE_WARN,
 )
@@ -83,14 +83,14 @@ def main():
         0,
         0,
         0,
-    )  # pylint: disable=C0301
+    )
     if vm_list:
         for vm in vm_list:
             vm = ' '.join(
                 vm.replace('shut off', 'shut_off')
                 .replace('in shutdown', 'in_shutdown')
                 .split()
-            )  # pylint: disable=C0301
+            )
             vm_id, vm_name, vm_state = vm.split(' ')
             table_data.append(
                 {
@@ -149,19 +149,19 @@ def main():
             ],
         )
 
-    perfdata += lib.base.get_perfdata('vm_running', running, None, None, None, 0, None)  # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('vm_idle', idle, None, None, None, 0, None)  # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('vm_paused', paused, None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('vm_running', running, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('vm_idle', idle, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('vm_paused', paused, None, None, None, 0, None)
     perfdata += lib.base.get_perfdata(
         'vm_in_shutdown', in_shutdown, None, None, None, 0, None
-    )  # pylint: disable=C0301
+    )
     perfdata += lib.base.get_perfdata(
         'vm_shut_off', shut_off, None, None, None, 0, None
-    )  # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('vm_crashed', crashed, None, None, None, 0, None)  # pylint: disable=C0301
+    )
+    perfdata += lib.base.get_perfdata('vm_crashed', crashed, None, None, None, 0, None)
     perfdata += lib.base.get_perfdata(
         'vm_pmsuspended', pmsuspended, None, None, None, 0, None
-    )  # pylint: disable=C0301
+    )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
@@ -170,5 +170,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:  # pylint: disable=W0703
+    except Exception:
         lib.base.cu()

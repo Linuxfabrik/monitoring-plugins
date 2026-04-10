@@ -10,17 +10,17 @@
 
 """See the check's README for more details."""
 
-import argparse  # pylint: disable=C0413
-import sys  # pylint: disable=C0413
+import argparse
+import sys
 
-import lib.base  # pylint: disable=C0413
-import lib.cache  # pylint: disable=C0413
-import lib.db_sqlite  # pylint: disable=C0413
-import lib.human  # pylint: disable=C0413
-import lib.time  # pylint: disable=C0413
+import lib.base
+import lib.cache
+import lib.db_sqlite
+import lib.human
+import lib.time
 from lib.globals import (
     STATE_CRIT,
-    STATE_OK,  # pylint: disable=C0413
+    STATE_OK,
     STATE_UNKNOWN,
     STATE_WARN,
 )
@@ -201,11 +201,11 @@ def main():
         bytes_recv_per_second1 = int(
             float(interfacedata[0]['bytes_recv'] - interfacedata[1]['bytes_recv'])
             / timestamp_diff
-        )  # pylint: disable=C0301
+        )
         bytes_sent_per_second1 = int(
             float(interfacedata[0]['bytes_sent'] - interfacedata[1]['bytes_sent'])
             / timestamp_diff
-        )  # pylint: disable=C0301
+        )
         throughput1 = bytes_recv_per_second1 + bytes_sent_per_second1
         if any(
             [
@@ -253,7 +253,7 @@ def main():
             None,
             0,
             None,
-        )  # pylint: disable=C0301
+        )
         perfdata += lib.base.get_perfdata(
             f'{interface}_bytes_recv_per_second1',
             bytes_recv_per_second1,
@@ -262,7 +262,7 @@ def main():
             None,
             0,
             throughput_max,
-        )  # pylint: disable=C0301
+        )
         perfdata += lib.base.get_perfdata(
             f'{interface}_bytes_sent',
             interfacedata[0]['bytes_sent'],
@@ -271,7 +271,7 @@ def main():
             None,
             0,
             None,
-        )  # pylint: disable=C0301
+        )
         perfdata += lib.base.get_perfdata(
             f'{interface}_bytes_sent_per_second1',
             bytes_sent_per_second1,
@@ -280,7 +280,7 @@ def main():
             None,
             0,
             throughput_max,
-        )  # pylint: disable=C0301
+        )
         perfdata += lib.base.get_perfdata(
             f'{interface}_packets_sent',
             interfacedata[0]['packets_sent'],
@@ -289,7 +289,7 @@ def main():
             None,
             0,
             None,
-        )  # pylint: disable=C0301
+        )
         perfdata += lib.base.get_perfdata(
             f'{interface}_packets_recv',
             interfacedata[0]['packets_recv'],
@@ -298,16 +298,16 @@ def main():
             None,
             0,
             None,
-        )  # pylint: disable=C0301
+        )
         perfdata += lib.base.get_perfdata(
             f'{interface}_errin', interfacedata[0]['errin'], 'c', None, None, 0, None
-        )  # pylint: disable=C0301
+        )
         perfdata += lib.base.get_perfdata(
             f'{interface}_errout', interfacedata[0]['errout'], 'c', None, None, 0, None
-        )  # pylint: disable=C0301
+        )
         perfdata += lib.base.get_perfdata(
             f'{interface}_dropin', interfacedata[0]['dropin'], 'c', None, None, 0, None
-        )  # pylint: disable=C0301
+        )
         perfdata += lib.base.get_perfdata(
             f'{interface}_dropout',
             interfacedata[0]['dropout'],
@@ -316,11 +316,11 @@ def main():
             None,
             0,
             None,
-        )  # pylint: disable=C0301
+        )
 
         perfdata += lib.base.get_perfdata(
             f'{interface}_throughput1', throughput1, None, None, None, 0, throughput_max
-        )  # pylint: disable=C0301
+        )
 
         if throughput1 > max_rw:
             msg = (
@@ -338,7 +338,7 @@ def main():
             continue
         timestamp_diff = (
             interfacedata[0]['timestamp'] - interfacedata[args.COUNT - 1]['timestamp']
-        )  # in seconds # pylint: disable=C0301
+        )  # in seconds
         if timestamp_diff == 0:
             timestamp_diff = 1
         bytes_recv_per_second15 = float(
@@ -347,7 +347,7 @@ def main():
                 - interfacedata[args.COUNT - 1]['bytes_recv']
             )
             / timestamp_diff
-        )  # pylint: disable=C0301
+        )
         bytes_recv_per_second15 = max(bytes_recv_per_second15, 0)
         bytes_sent_per_second15 = float(
             (
@@ -355,11 +355,11 @@ def main():
                 - interfacedata[args.COUNT - 1]['bytes_sent']
             )
             / timestamp_diff
-        )  # pylint: disable=C0301
+        )
         bytes_sent_per_second15 = max(bytes_sent_per_second15, 0)
         throughput15 = (
             bytes_recv_per_second15 + bytes_sent_per_second15
-        )  # let's just call it like in cpu-usage # pylint: disable=C0301
+        )  # let's just call it like in cpu-usage
 
         perfdata += lib.base.get_perfdata(
             f'{interface}_bytes_recv_per_second15',
@@ -369,7 +369,7 @@ def main():
             None,
             0,
             throughput_max,
-        )  # pylint: disable=C0301
+        )
         perfdata += lib.base.get_perfdata(
             f'{interface}_bytes_sent_per_second15',
             bytes_sent_per_second15,
@@ -378,7 +378,7 @@ def main():
             None,
             0,
             throughput_max,
-        )  # pylint: disable=C0301
+        )
         perfdata += lib.base.get_perfdata(
             f'{interface}_throughput15',
             throughput15,
@@ -387,7 +387,7 @@ def main():
             throughput_max * args.CRIT / 100,
             0,
             throughput_max,
-        )  # pylint: disable=C0301
+        )
 
         # get state based on max measured I/O values
         interface_state = lib.base.get_state(
@@ -406,7 +406,7 @@ def main():
                 'rx15': lib.human.bytes2human(bytes_recv_per_second15),
                 'tx15': lib.human.bytes2human(bytes_sent_per_second15),
                 't15': lib.human.bytes2human(throughput15)
-                + lib.base.state2str(interface_state, prefix=' '),  # pylint: disable=C0301
+                + lib.base.state2str(interface_state, prefix=' '),
             }
         )
 
