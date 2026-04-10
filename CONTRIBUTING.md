@@ -600,6 +600,7 @@ Every plugin must define a `DESCRIPTION` variable that is passed to `argparse.Ar
 * Plugins of the same type (e.g. all `-version` checks, all `huawei-dorado-*` checks) must use identical or near-identical DESCRIPTION text, with only the product name swapped. Consistency across plugin families is mandatory.
 * If the plugin has a sudoers file in `assets/sudoers/`, the DESCRIPTION must end with "Requires root or sudo."
 * If the plugin uses `lib.smb`, the DESCRIPTION must mention SMB share support.
+* If the plugin uses `--count` for consecutive threshold violations (Handles Periods), the DESCRIPTION must mention this behavior, e.g. "Alerts only if the threshold has been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes."
 * The README Overview must include at least the text from the `DESCRIPTION`.
 
 
