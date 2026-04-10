@@ -22,7 +22,7 @@ Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP A
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/keycloak-memory-usage> |
 | Nagios/Icinga Check Name              | `check_keycloak_memory_usage` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

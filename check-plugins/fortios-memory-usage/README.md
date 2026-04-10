@@ -23,7 +23,7 @@ Monitors memory utilization on FortiGate appliances running FortiOS via the REST
 |----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fortios-memory-usage> |
 | Nagios/Icinga Check Name              | `check_fortios_memory_usage` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--hostname` and `--password` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

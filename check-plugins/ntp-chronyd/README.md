@@ -22,7 +22,7 @@ Checks the clock offset of chronyd in milliseconds compared to the configured NT
 |----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ntp-chronyd> |
 | Nagios/Icinga Check Name              | `check_ntp_chronyd` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

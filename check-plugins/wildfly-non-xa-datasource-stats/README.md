@@ -29,7 +29,7 @@ Monitors non-XA datasource connection pool metrics on a WildFly/JBoss AS server 
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wildfly-non-xa-datasource-stats> |
 | Nagios/Icinga Check Name              | `check_wildfly_non_xa_datasource_stats` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--username` and `--password` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

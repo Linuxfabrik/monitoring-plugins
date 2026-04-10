@@ -24,7 +24,7 @@ Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, ale
 |----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dmesg> |
 | Nagios/Icinga Check Name              | `check_dmesg` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |

@@ -25,7 +25,7 @@ Checks index sizes, fragmentation, and consistent engine and collation usage acr
 |----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-database-metrics> |
 | Nagios/Icinga Check Name              | `check_mysql_database_metrics` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

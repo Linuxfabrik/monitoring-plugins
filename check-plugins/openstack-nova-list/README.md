@@ -24,7 +24,7 @@ Lists all OpenStack Nova compute instances (virtual servers) and checks their st
 |----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/openstack-nova-list> |
 | Nagios/Icinga Check Name              | `check_openstack_nova_list` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

@@ -26,7 +26,7 @@ Monitors a Valkey server via the `INFO` command and the `MEMORY DOCTOR` subcomma
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/valkey-status> |
 | Nagios/Icinga Check Name              | `check_valkey_status` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |

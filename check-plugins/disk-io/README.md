@@ -35,7 +35,7 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 |----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io> |
 | Nagios/Icinga Check Name              | `check_disk_io` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | Yes |

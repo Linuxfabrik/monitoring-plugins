@@ -34,7 +34,7 @@ bind9-dnsutils/stable,stable-security 1:9.18.33-1~deb12u2 amd64 [upgradable from
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/deb-updates> |
 | Nagios/Icinga Check Name              | `check_deb_updates` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |

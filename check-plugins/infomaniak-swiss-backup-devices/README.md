@@ -31,7 +31,7 @@ Checks each backup device (slot) across all Infomaniak Swiss Backup products via
 |----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/infomaniak-swiss-backup-devices> |
 | Nagios/Icinga Check Name              | `check_infomaniak_swiss_backup_devices` |
-| Check Interval Recommendation         | Once an hour |
+| Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | No (`--account-id` and `--token` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

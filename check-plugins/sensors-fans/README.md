@@ -20,7 +20,7 @@ Reports hardware fan speeds in RPM (rounds per minute). Returns OK if no fans ar
 |----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/sensors-fans> |
 | Nagios/Icinga Check Name              | `check_sensors_fans` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

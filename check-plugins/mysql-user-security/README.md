@@ -21,7 +21,7 @@ Checks MySQL/MariaDB user security settings, including accounts with empty passw
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-user-security> |
 | Nagios/Icinga Check Name              | `check_mysql_user_security` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

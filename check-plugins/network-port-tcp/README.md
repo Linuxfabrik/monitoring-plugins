@@ -21,7 +21,7 @@ Checks whether a TCP network port is reachable by attempting to establish a conn
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/network-port-tcp> |
 | Nagios/Icinga Check Name              | `check_network_port_tcp` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |

@@ -22,7 +22,7 @@ Checks the installed OpenVPN version against the endoflife.date API and alerts i
 |----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/openvpn-version> |
 | Nagios/Icinga Check Name              | `check_openvpn_version` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

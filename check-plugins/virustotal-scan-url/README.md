@@ -25,7 +25,7 @@ Submits a URL to VirusTotal for analysis and checks the scan results. Alerts whe
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/virustotal-scan-url> |
 | Nagios/Icinga Check Name              | `check_virustotal_scan_url` |
-| Check Interval Recommendation         | Once an hour |
+| Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | No (`--token` and `--url` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

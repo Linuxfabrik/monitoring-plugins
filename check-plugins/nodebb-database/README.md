@@ -23,7 +23,7 @@ Monitors NodeBB database statistics via the admin API, including memory usage an
 |----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-database> |
 | Nagios/Icinga Check Name              | `check_nodebb_database` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--token` is required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

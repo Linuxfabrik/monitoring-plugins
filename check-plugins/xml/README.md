@@ -19,7 +19,7 @@ Fetches an XML document via HTTP(S) and checks for a matching string using XPath
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/xml> |
 | Nagios/Icinga Check Name              | `check_xml` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--url` and `--xpath` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

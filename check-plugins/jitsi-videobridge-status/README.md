@@ -23,7 +23,7 @@ Checks the Jitsi Videobridge health state via the `/about/health` REST endpoint.
 |----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/jitsi-videobridge-status> |
 | Nagios/Icinga Check Name              | `check_jitsi_videobridge_status` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

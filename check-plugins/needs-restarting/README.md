@@ -23,7 +23,7 @@ Checks for processes that were started before they or one of their dependencies 
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/needs-restarting> |
 | Nagios/Icinga Check Name              | `check_needs_restarting` |
-| Check Interval Recommendation         | Once a day (or after a system update only) |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |

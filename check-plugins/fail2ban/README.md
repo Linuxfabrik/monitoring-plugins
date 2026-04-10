@@ -18,7 +18,7 @@ Checks the number of currently banned IP addresses across all fail2ban jails. Re
 |----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fail2ban> |
 | Nagios/Icinga Check Name              | `check_fail2ban` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |

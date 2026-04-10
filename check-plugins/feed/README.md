@@ -31,7 +31,7 @@ object ApiUser "linuxfabrik-check-api-user" {
 |----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/feed> |
 | Nagios/Icinga Check Name              | `check_feed` |
-| Check Interval Recommendation         | Once an hour, or every 4 hours |
+| Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

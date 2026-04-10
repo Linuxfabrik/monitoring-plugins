@@ -24,7 +24,7 @@ Checks the replication status of a MySQL/MariaDB replica, including I/O thread s
 |----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-replica-status> |
 | Nagios/Icinga Check Name              | `check_mysql_replica_status` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

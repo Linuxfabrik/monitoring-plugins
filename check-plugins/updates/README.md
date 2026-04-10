@@ -17,7 +17,7 @@ Checks the number of pending Windows updates using the Windows Update COM API.
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/updates> |
 | Nagios/Icinga Check Name              | `check_updates` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Windows |
 | Compiled for Windows                  | Yes |

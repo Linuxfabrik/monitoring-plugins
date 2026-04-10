@@ -23,7 +23,7 @@ Monitors a [Spring Boot Actuator](https://docs.spring.io/spring-boot/api/rest/ac
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/spring-boot-actuator-health> |
 | Nagios/Icinga Check Name              | `check_spring_boot_actuator_health` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

@@ -25,7 +25,7 @@ Monitors a Redis server via the `INFO` command, reporting memory usage, fragment
 |----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redis-status> |
 | Nagios/Icinga Check Name              | `check_redis_status` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |

@@ -30,7 +30,7 @@ ID DIACOS is a coding software for accurate and fast invoicing in hospitals, all
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/diacos> |
 | Nagios/Icinga Check Name              | `check_diacos` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--login-name` and `--login-licence` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

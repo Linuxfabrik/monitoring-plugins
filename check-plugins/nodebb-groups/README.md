@@ -23,7 +23,7 @@ Monitors NodeBB group statistics via the admin API, including group count and me
 |----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-groups> |
 | Nagios/Icinga Check Name              | `check_nodebb_groups` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | No (`--token` is required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

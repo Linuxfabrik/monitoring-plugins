@@ -23,7 +23,7 @@ Checks the rate of joins executed without indexes in MySQL/MariaDB. A high numbe
 |----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-joins> |
 | Nagios/Icinga Check Name              | `check_mysql_joins` |
-| Check Interval Recommendation         | Once an hour |
+| Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

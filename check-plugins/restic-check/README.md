@@ -23,7 +23,7 @@ Verifies the integrity of a restic backup repository by running `restic check`. 
 |----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/restic-check> |
 | Nagios/Icinga Check Name              | `check_restic_check` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | No (`--repo` is required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

@@ -25,7 +25,7 @@ Checks if firmware updates are available for a QNAP appliance running QTS by que
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/qts-version> |
 | Nagios/Icinga Check Name              | `check_qts_version` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | No (`--password` and `--url` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

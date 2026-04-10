@@ -24,7 +24,7 @@ Checks whether the GitLab application server is alive by querying the `/-/livene
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/gitlab-liveness> |
 | Nagios/Icinga Check Name              | `check_gitlab_liveness` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

@@ -24,7 +24,7 @@ Checks for tables without indexes in MySQL/MariaDB. Missing indexes on base tabl
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-table-indexes> |
 | Nagios/Icinga Check Name              | `check_mysql_table_indexes` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

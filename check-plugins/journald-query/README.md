@@ -26,7 +26,7 @@ Queries the systemd journal using journalctl and alerts when matching entries ar
 |----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/journald-query> |
 | Nagios/Icinga Check Name              | `check_journald_query` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |

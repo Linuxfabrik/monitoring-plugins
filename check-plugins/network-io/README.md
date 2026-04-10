@@ -25,7 +25,7 @@ Monitors network I/O throughput per interface over time. Calculates bytes per se
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/network-io> |
 | Nagios/Icinga Check Name              | `check_network_io` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |

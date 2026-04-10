@@ -22,7 +22,7 @@ Monitors virtual services on a KEMP LoadMaster appliance via its REST API and al
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/kemp-services> |
 | Nagios/Icinga Check Name              | `check_kemp_services` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--hostname`, `--username`, and `--password` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

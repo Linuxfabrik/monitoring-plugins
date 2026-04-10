@@ -18,7 +18,7 @@ Checks system clock and RTC settings via `timedatectl status`, including whether
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/systemd-timedate-status> |
 | Nagios/Icinga Check Name              | `check_systemd_timedate_status` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

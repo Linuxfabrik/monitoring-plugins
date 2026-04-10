@@ -23,7 +23,7 @@ Monitors NodeBB user statistics via the admin API, including total user count, a
 |----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-users> |
 | Nagios/Icinga Check Name              | `check_nodebb_users` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--token` is required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

@@ -24,7 +24,7 @@ Checks the connection usage rate, the rate of aborted connections, and whether n
 |----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-connections> |
 | Nagios/Icinga Check Name              | `check_mysql_connections` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

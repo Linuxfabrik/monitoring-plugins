@@ -22,7 +22,7 @@ Checks the installed Apache Solr version against the endoflife.date API and aler
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/apache-solr-version> |
 | Nagios/Icinga Check Name              | `check_apache_solr_version` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

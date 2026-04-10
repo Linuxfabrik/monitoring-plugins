@@ -22,7 +22,7 @@ Checks the installed PostgreSQL version against the endoflife.date API and alert
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/postgresql-version> |
 | Nagios/Icinga Check Name              | `check_postgresql_version` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

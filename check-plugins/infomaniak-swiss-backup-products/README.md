@@ -29,7 +29,7 @@ Checks Infomaniak Swiss Backup product details via the Infomaniak API. Alerts wh
 |----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/infomaniak-swiss-backup-products> |
 | Nagios/Icinga Check Name              | `check_infomaniak_swiss_backup_products` |
-| Check Interval Recommendation         | Once an hour |
+| Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | No (`--account-id` and `--token` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

@@ -28,7 +28,7 @@ Retrieves hardware sensor information (temperature, humidity, voltage, power, st
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/librenms-health> |
 | Nagios/Icinga Check Name              | `check_librenms_health` |
-| Check Interval Recommendation         | Once an hour |
+| Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | No (`--defaults-file` with valid MySQL/MariaDB credentials is required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

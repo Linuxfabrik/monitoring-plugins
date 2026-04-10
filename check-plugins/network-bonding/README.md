@@ -17,7 +17,7 @@ Reports the state of network bonding (channel bonding) interfaces. Checks that a
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/network-bonding> |
 | Nagios/Icinga Check Name              | `check_network_bonding` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |

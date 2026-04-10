@@ -25,7 +25,7 @@ Checks the status of the last borgbackup run by parsing the borg logfile. Alerts
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/borgbackup> |
 | Nagios/Icinga Check Name              | `check_borgbackup` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |

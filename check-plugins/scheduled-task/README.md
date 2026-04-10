@@ -17,7 +17,7 @@ Checks the status of a Windows Scheduled Task. Alerts when the task is not in th
 |----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/scheduled-task> |
 | Nagios/Icinga Check Name              | `check_scheduled_task` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--task` is required) |
 | Runs on                               | Windows |
 | Compiled for Windows                  | Yes |

@@ -23,7 +23,7 @@ Monitors NodeBB cache usage via the admin API. Alerts when cache utilization exc
 |----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-cache> |
 | Nagios/Icinga Check Name              | `check_nodebb_cache` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--token` is required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

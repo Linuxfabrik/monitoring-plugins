@@ -26,7 +26,7 @@ Checks metrics of the Aria storage engine in MariaDB, including the page cache s
 |----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-aria> |
 | Nagios/Icinga Check Name              | `check_mysql_aria` |
-| Check Interval Recommendation         | Once an hour |
+| Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | No |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

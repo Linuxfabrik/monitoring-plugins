@@ -23,7 +23,7 @@ Retrieves recent events from the NodeBB event log via the admin API. Reports adm
 |----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-events> |
 | Nagios/Icinga Check Name              | `check_nodebb_events` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--token` is required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

@@ -23,7 +23,7 @@ Checks the installed Keycloak version against the endoflife.date API and alerts 
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/keycloak-version> |
 | Nagios/Icinga Check Name              | `check_keycloak_version` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

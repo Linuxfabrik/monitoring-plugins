@@ -23,7 +23,7 @@ Checks how effectively MySQL/MariaDB caches threads for re-use. A low cache hit 
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-thread-cache> |
 | Nagios/Icinga Check Name              | `check_mysql_thread_cache` |
-| Check Interval Recommendation         | Once an hour |
+| Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

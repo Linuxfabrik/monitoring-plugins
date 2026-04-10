@@ -19,7 +19,7 @@ Parses a JSON object from a local file, HTTP/HTTPS URL, or SMB share and extract
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/json-values> |
 | Nagios/Icinga Check Name              | `check_json_values` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

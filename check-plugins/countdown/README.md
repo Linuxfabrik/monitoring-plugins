@@ -24,7 +24,7 @@ Counts down to one or more user-defined expiration dates, such as certificate re
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/countdown> |
 | Nagios/Icinga Check Name              | `check_countdown` |
-| Check Interval Recommendation         | Twice a day |
+| Check Interval Recommendation         | Every 12 hours |
 | Can be called without parameters      | No (`--input` is required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

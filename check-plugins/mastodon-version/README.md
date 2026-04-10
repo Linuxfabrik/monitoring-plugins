@@ -23,7 +23,7 @@ Checks the installed Mastodon version against the endoflife.date API and alerts 
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mastodon-version> |
 | Nagios/Icinga Check Name              | `check_mastodon_version` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

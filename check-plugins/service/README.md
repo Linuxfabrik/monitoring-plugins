@@ -25,7 +25,7 @@ Checks the state of one or more Windows services. Accepts the case-insensitive s
 |----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/service> |
 | Nagios/Icinga Check Name              | `check_service` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--service` is required) |
 | Runs on                               | Windows |
 | Compiled for Windows                  | Yes |

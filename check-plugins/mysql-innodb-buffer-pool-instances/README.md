@@ -23,7 +23,7 @@ Checks the InnoDB buffer pool instance configuration in MySQL/MariaDB. The numbe
 |----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-innodb-buffer-pool-instances> |
 | Nagios/Icinga Check Name              | `check_mysql_innodb_buffer_pool_instances` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

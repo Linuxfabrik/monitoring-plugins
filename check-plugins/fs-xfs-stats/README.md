@@ -17,7 +17,7 @@ Reports internal XFS filesystem statistics from `/proc/fs/xfs/stat`. Useful for 
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fs-xfs-stats> |
 | Nagios/Icinga Check Name              | `check_fs_xfs_stats` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |

@@ -22,7 +22,7 @@ Retrieves recent activity and usage statistics from a Metabase instance via its 
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/metabase-stats> |
 | Nagios/Icinga Check Name              | `check_metabase_stats` |
-| Check Interval Recommendation         | Once an hour |
+| Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | No (`--password` is required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

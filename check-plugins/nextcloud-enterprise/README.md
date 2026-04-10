@@ -23,7 +23,7 @@ Retrieves and displays information about an installed Nextcloud Enterprise subsc
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nextcloud-enterprise> |
 | Nagios/Icinga Check Name              | `check_nextcloud_enterprise` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

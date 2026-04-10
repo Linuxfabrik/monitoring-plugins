@@ -23,7 +23,7 @@ Checks whether the GitLab application server is running by querying the `/-/heal
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/gitlab-health> |
 | Nagios/Icinga Check Name              | `check_gitlab_health` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

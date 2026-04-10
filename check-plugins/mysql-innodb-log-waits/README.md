@@ -22,7 +22,7 @@ Checks how often InnoDB had to wait for log writes to be flushed because the log
 |----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-innodb-log-waits> |
 | Nagios/Icinga Check Name              | `check_mysql_innodb_log_waits` |
-| Check Interval Recommendation         | Once an hour |
+| Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

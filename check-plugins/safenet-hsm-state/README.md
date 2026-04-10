@@ -23,7 +23,7 @@ Checks the current state of a Gemalto SafeNet ProtectServer Network HSM via SSH 
 |----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/safenet-hsm-state> |
 | Nagios/Icinga Check Name              | `check_safenet_hsm_state` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--hostname` and `--password` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

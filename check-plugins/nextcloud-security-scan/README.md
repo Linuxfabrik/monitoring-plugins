@@ -24,7 +24,7 @@ Checks the security of a Nextcloud (or ownCloud) server using the Nextcloud secu
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nextcloud-security-scan> |
 | Nagios/Icinga Check Name              | `check_nextcloud_security_scan` |
-| Check Interval Recommendation         | Once a day or week |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | No (`--url` is required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

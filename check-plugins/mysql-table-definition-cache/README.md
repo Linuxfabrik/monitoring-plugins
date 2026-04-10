@@ -24,7 +24,7 @@ Checks the table definition cache size in MySQL/MariaDB. A cache that is too sma
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-table-definition-cache> |
 | Nagios/Icinga Check Name              | `check_mysql_table_definition_cache` |
-| Check Interval Recommendation         | Once an hour |
+| Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

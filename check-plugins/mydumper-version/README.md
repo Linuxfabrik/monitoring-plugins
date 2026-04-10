@@ -22,7 +22,7 @@ Checks whether a newer version of mydumper/myloader is available by comparing th
 |----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mydumper-version> |
 | Nagios/Icinga Check Name              | `check_mydumper_version` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

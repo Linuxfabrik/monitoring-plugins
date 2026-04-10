@@ -23,7 +23,7 @@ Checks for outdated Python packages installed via pip. Reports the number of pac
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/pip-updates> |
 | Nagios/Icinga Check Name              | `check_pip_updates` |
-| Check Interval Recommendation         | Once a week |
+| Check Interval Recommendation         | Every week |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

@@ -23,7 +23,7 @@ Checks how long ago the last APT package manager activity occurred (install, upd
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/deb-lastactivity> |
 | Nagios/Icinga Check Name              | `check_deb_lastactivity` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |

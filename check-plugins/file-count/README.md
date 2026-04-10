@@ -27,7 +27,7 @@ Counts the number of files matching a glob pattern and alerts when the count exc
 |----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-count> |
 | Nagios/Icinga Check Name              | `check_file_count` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |

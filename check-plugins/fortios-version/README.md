@@ -22,7 +22,7 @@ Checks the installed FortiOS version against the endoflife.date API and alerts i
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fortios-version> |
 | Nagios/Icinga Check Name              | `check_fortios_version` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | No (`--hostname` and `--password` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

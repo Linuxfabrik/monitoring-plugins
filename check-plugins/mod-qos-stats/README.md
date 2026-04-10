@@ -23,7 +23,7 @@ Monitors Apache mod_qos status via the machine-readable status handler. Reports 
 |----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mod-qos-stats> |
 | Nagios/Icinga Check Name              | `check_mod_qos_stats` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

@@ -37,7 +37,7 @@ object ApiUser "linuxfabrik-check-logfile" {
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/logfile> |
 | Nagios/Icinga Check Name              | `check_logfile` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--filename` and at least one pattern/regex are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |

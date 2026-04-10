@@ -24,7 +24,7 @@ Summarizes traffic statistics for all IPv4 and IPv6 firewall policies on FortiGa
 |----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fortios-firewall-stats> |
 | Nagios/Icinga Check Name              | `check_fortios_firewall_stats` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--hostname` and `--password` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

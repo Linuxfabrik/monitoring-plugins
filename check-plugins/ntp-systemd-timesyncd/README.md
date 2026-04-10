@@ -22,7 +22,7 @@ Checks the state of systemd-timesyncd, including synchronization status, server 
 |----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ntp-systemd-timesyncd> |
 | Nagios/Icinga Check Name              | `check_ntp_systemd_timesyncd` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

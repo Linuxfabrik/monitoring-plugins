@@ -37,7 +37,7 @@ Checks Java memory pool usage (Eden, Survivor, Old Gen, Metaspace, Compressed Cl
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wildfly-memory-pool-usage> |
 | Nagios/Icinga Check Name              | `check_wildfly_memory_pool_usage` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--username` and `--password` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

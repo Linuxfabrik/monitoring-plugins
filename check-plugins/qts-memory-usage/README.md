@@ -23,7 +23,7 @@ Monitors system memory utilization on QNAP appliances running QTS via the HTTP A
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/qts-memory-usage> |
 | Nagios/Icinga Check Name              | `check_qts_memory_usage` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--password` and `--url` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

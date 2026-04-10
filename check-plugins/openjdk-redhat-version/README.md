@@ -22,7 +22,7 @@ Checks the installed Red Hat OpenJDK version against the endoflife.date API and 
 |----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/openjdk-redhat-version> |
 | Nagios/Icinga Check Name              | `check_openjdk_redhat_version` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |

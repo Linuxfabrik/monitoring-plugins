@@ -26,7 +26,7 @@ Checks for unacknowledged alerts in LibreNMS and reports the most recent alert p
 |----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/librenms-alerts> |
 | Nagios/Icinga Check Name              | `check_librenms_alerts` |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--defaults-file` with valid MySQL/MariaDB credentials is required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
