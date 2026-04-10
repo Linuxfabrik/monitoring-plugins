@@ -6,13 +6,13 @@ Retrieves and displays information about an installed Nextcloud Enterprise subsc
 
 **Data Collection:**
 
+* Requires sudo permissions for the UID under which the Nextcloud application runs
 * Runs Nextcloud `occ` commands via sudo to retrieve subscription key, last response data, and user limit configuration
 * Displays subscription details including end date, level, account manager, and per-feature subscription status (groupware, talk, collabora, onlyoffice, outlook, sip_bridge)
 
 **Compatibility:**
 
 * Linux only
-* Requires passwordless or otherwise configured sudo permissions for the UID under which the Nextcloud application is running
 
 **Important Notes:**
 

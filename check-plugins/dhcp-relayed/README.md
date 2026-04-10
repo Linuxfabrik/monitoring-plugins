@@ -6,6 +6,8 @@ Tests if a DHCP server can offer IPv4 addresses by emulating a DHCP client. Send
 
 **Data Collection:**
 
+* Requires root or sudo to bind to port 68/udp
+
 * Constructs and sends a DHCPDISCOVER UDP packet on port 68 (client) to port 67 (server)
 * If `--hostname` is specified, sends to that address; otherwise sends as broadcast
 * Supports DHCP option 1 (Subnet Mask) and option 118 (Subnet Selection, RFC 3011) for targeting specific subnets
@@ -14,7 +16,7 @@ Tests if a DHCP server can offer IPv4 addresses by emulating a DHCP client. Send
 
 **Compatibility:**
 
-* Linux (requires root or sudo to bind to port 68/udp)
+* Linux
 
 **Important Notes:**
 

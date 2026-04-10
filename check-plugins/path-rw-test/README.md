@@ -6,6 +6,8 @@ Tests if a path is writable and readable by creating, writing, reading, and dele
 
 **Data Collection:**
 
+* May require root or sudo depending on the paths being tested
+
 * Creates a temporary file in each specified path (and always in the system's temp directory)
 * Writes a test string, reads it back, then deletes the temporary file
 * Reports which paths failed and which were tested
@@ -13,7 +15,6 @@ Tests if a path is writable and readable by creating, writing, reading, and dele
 **Compatibility:**
 
 * Cross-platform: Linux and Windows
-* May require root or sudo depending on the paths being tested
 
 
 ## Fact Sheet

@@ -6,6 +6,7 @@ Verifies that critical system files have the expected owner and group. Ships wit
 
 **Data Collection:**
 
+* Depending on the file and user (e.g. running as `icinga`), sudo may be needed
 * Uses `os.stat()` to read file ownership directly, without shelling out to external commands
 * Resolves numeric UIDs/GIDs to names. If a UID/GID has no corresponding name, the numeric value is displayed
 * Files that do not exist on the system are silently skipped
@@ -13,7 +14,6 @@ Verifies that critical system files have the expected owner and group. Ships wit
 **Compatibility:**
 
 * Linux only
-* Depending on the file and user (e.g. running as `icinga`), sudo (sudoers) may be needed
 
 **Important Notes:**
 

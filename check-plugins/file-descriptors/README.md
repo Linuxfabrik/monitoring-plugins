@@ -6,13 +6,13 @@ Checks the system-wide file descriptor usage as a percentage of the kernel maxim
 
 **Data Collection:**
 
+* Depending on the user (e.g. running as `icinga`), sudo may be needed to read all process information
 * Reads `/proc/sys/fs/file-nr` to obtain the number of allocated file handles and the system-wide maximum
 * Uses `psutil.process_iter()` to aggregate open file descriptors per process name for the top-N list
 
 **Compatibility:**
 
 * Linux only (reads `/proc/sys/fs/file-nr`)
-* Depending on the user (e.g. running as `icinga`), sudo (sudoers) may be needed to read all process information
 
 
 ## Fact Sheet
