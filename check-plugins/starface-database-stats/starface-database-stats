@@ -149,18 +149,36 @@ def main():
         key, value = row.split(' ')
         if key == 'opened_connections':
             msg += f'{lib.human.number2human(value)} opened, '
-            perfdata += lib.base.get_perfdata(key, value, 'c', None, None, 0, None)
+            perfdata += lib.base.get_perfdata(
+                key,
+                value,
+                uom='c',
+                _min=0,
+            )
         if key == 'closed_connections':
             msg += f'{lib.human.number2human(value)} closed, '
-            perfdata += lib.base.get_perfdata(key, value, 'c', None, None, 0, None)
+            perfdata += lib.base.get_perfdata(
+                key,
+                value,
+                uom='c',
+                _min=0,
+            )
         if key == 'active_connections':
             msg += f'{lib.human.number2human(value)} active, '
-            perfdata += lib.base.get_perfdata(key, value, None, None, None, 0, None)
+            perfdata += lib.base.get_perfdata(
+                key,
+                value,
+                _min=0,
+            )
         if key == 'idle_connections':
             if value == '':
                 value = 0
             msg += f'{lib.human.number2human(value)} idle, '
-            perfdata += lib.base.get_perfdata(key, value, None, None, None, 0, None)
+            perfdata += lib.base.get_perfdata(
+                key,
+                value,
+                _min=0,
+            )
 
     # over and out
     lib.base.oao(msg[:-2], state, perfdata)

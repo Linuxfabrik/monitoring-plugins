@@ -143,7 +143,14 @@ def check_server_status(args):
         state = STATE_CRIT
         retc = 2
     msg = f'Server status "{res}"{lib.base.state2str(state, prefix=" ")}, '
-    perfdata = lib.base.get_perfdata('server-state', retc, None, 1, 2, 0, 3)
+    perfdata = lib.base.get_perfdata(
+        'server-state',
+        retc,
+        warn=1,
+        crit=2,
+        _min=0,
+        _max=3,
+    )
 
     data = {
         'operation': 'read-attribute',

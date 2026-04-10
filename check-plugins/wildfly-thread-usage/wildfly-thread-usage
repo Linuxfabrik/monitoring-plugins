@@ -160,10 +160,19 @@ def check_threading(args):
 
     msg = f'{thread_pct}% used ({daemon_thread_count}/{thread_count} threads)'
     perfdata = lib.base.get_perfdata(
-        'thread-pct', thread_pct, '%', args.WARN, args.CRIT, 0, 100
+        'thread-pct',
+        thread_pct,
+        uom='%',
+        warn=args.WARN,
+        crit=args.CRIT,
+        _min=0,
+        _max=100,
     )
     perfdata += lib.base.get_perfdata(
-        'thread-count', daemon_thread_count, None, None, None, 0, thread_count
+        'thread-count',
+        daemon_thread_count,
+        _min=0,
+        _max=thread_count,
     )
     state = lib.base.get_state(thread_pct, args.WARN, args.CRIT)
 

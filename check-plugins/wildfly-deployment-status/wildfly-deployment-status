@@ -164,17 +164,26 @@ def check_deployment_status(args):
         if result.get('result') in ['OK', 'RUNNING']:
             local_state = STATE_OK
             perfdata += lib.base.get_perfdata(
-                f'deployment-state-{deployment}', 0, None, None, None, 0, 2
+                f'deployment-state-{deployment}',
+                0,
+                _min=0,
+                _max=2,
             )
         elif result.get('result') in ['STOPPED']:
             local_state = STATE_WARN
             perfdata += lib.base.get_perfdata(
-                f'deployment-state-{deployment}', 1, None, None, None, 0, 2
+                f'deployment-state-{deployment}',
+                1,
+                _min=0,
+                _max=2,
             )
         else:
             local_state = STATE_CRIT
             perfdata += lib.base.get_perfdata(
-                f'deployment-state-{deployment}', 2, None, None, None, 0, 2
+                f'deployment-state-{deployment}',
+                2,
+                _min=0,
+                _max=2,
             )
         state = lib.base.get_worst(state, local_state)
         msg += f'* {deployment} is {result.get("result")}{lib.base.state2str(local_state, prefix=" ")}\n'

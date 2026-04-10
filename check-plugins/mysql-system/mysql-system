@@ -116,7 +116,9 @@ def main():
                 f' running on). '
             )
     perfdata += lib.base.get_perfdata(
-        'mysql_opened_ports', opened_ports, None, None, None, 0, None
+        'mysql_opened_ports',
+        opened_ports,
+        _min=0,
     )
 
     # get kernel settings on linux
@@ -133,7 +135,11 @@ def main():
                 f' /proc/sys/vm/swappiness`). '
             )
         perfdata += lib.base.get_perfdata(
-            'mysql_kernel_vm.swappiness', result, '%', None, None, 0, 100
+            'mysql_kernel_vm.swappiness',
+            result,
+            uom='%',
+            _min=0,
+            _max=100,
         )
 
         # only if /proc/sys/sunrpc exists
@@ -150,11 +156,7 @@ def main():
             perfdata += lib.base.get_perfdata(
                 'mysql_kernel_sunrpc.tcp_slot_table_entries',
                 result,
-                None,
-                None,
-                None,
-                0,
-                None,
+                _min=0,
             )
 
         if os.path.isfile('/proc/sys/fs/aio-max-nr'):
@@ -168,7 +170,9 @@ def main():
                     f' /proc/sys/fs/aio-max-nr`). '
                 )
             perfdata += lib.base.get_perfdata(
-                'mysql_kernel_fs.aio-max-nr', result, None, None, None, 0, None
+                'mysql_kernel_fs.aio-max-nr',
+                result,
+                _min=0,
             )
 
     if not msg:

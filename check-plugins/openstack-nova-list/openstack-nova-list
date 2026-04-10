@@ -274,10 +274,17 @@ def main():
         item['status'] += lib.base.state2str(vm_state, prefix=' ')
         table_data.append(item)
 
-    perfdata += lib.base.get_perfdata('total', len(servers), None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'total',
+        len(servers),
+        _min=0,
+    )
     for vm_state, cnt in vm_state_count.items():
         perfdata += lib.base.get_perfdata(
-            vm_state, cnt, None, None, None, 0, len(servers)
+            vm_state,
+            cnt,
+            _min=0,
+            _max=len(servers),
         )
 
     # build the message

@@ -174,11 +174,35 @@ def main():
         f' {lib.human.bytes2human(free)}'
     )
     perfdata = lib.base.get_perfdata(
-        'memory-usage', memory_usage, '%', args.WARN, args.CRIT, 0, 100
+        'memory-usage',
+        memory_usage,
+        uom='%',
+        warn=args.WARN,
+        crit=args.CRIT,
+        _min=0,
+        _max=100,
     )
-    perfdata += lib.base.get_perfdata('total', total, 'B', None, None, 0, total)
-    perfdata += lib.base.get_perfdata('used', used, 'B', None, None, 0, total)
-    perfdata += lib.base.get_perfdata('free', free, 'B', None, None, 0, total)
+    perfdata += lib.base.get_perfdata(
+        'total',
+        total,
+        uom='B',
+        _min=0,
+        _max=total,
+    )
+    perfdata += lib.base.get_perfdata(
+        'used',
+        used,
+        uom='B',
+        _min=0,
+        _max=total,
+    )
+    perfdata += lib.base.get_perfdata(
+        'free',
+        free,
+        uom='B',
+        _min=0,
+        _max=total,
+    )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

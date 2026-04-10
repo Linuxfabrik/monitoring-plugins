@@ -190,25 +190,22 @@ def main():
         host['UUID'] = lib.huawei.get_uuid(host)
 
         perfdata += lib.base.get_perfdata(
-            f'{host["UUID"]}_HEALTHSTATUS', host['HEALTHSTATUS'], None, None, 2, 0, 2
+            f'{host["UUID"]}_HEALTHSTATUS',
+            host['HEALTHSTATUS'],
+            crit=2,
+            _min=0,
+            _max=2,
         )
         perfdata += lib.base.get_perfdata(
             f'{host["UUID"]}_RUNNINGSTATUS',
             host['RUNNINGSTATUS'],
-            None,
-            None,
-            None,
-            0,
-            None,
+            _min=0,
         )
         perfdata += lib.base.get_perfdata(
             f'{host["UUID"]}_allocatedCapacity',
             host['allocatedCapacity'],
-            None,
-            None,
-            None,
-            0,
-            host['capacity'],
+            _min=0,
+            _max=host['capacity'],
         )
 
         host['health_state'] = lib.base.state2str(health_state, empty_ok=False)

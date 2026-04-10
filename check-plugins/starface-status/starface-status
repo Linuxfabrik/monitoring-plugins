@@ -185,7 +185,9 @@ def main():
             if value != '0':
                 msg_body += f'{value} max users, '
                 perfdata += lib.base.get_perfdata(
-                    'appliance_max_users', value, None, None, None, 0, None
+                    'appliance_max_users',
+                    value,
+                    _min=0,
                 )
 
         if row.startswith('appliance_max_connections'):
@@ -193,7 +195,9 @@ def main():
             if value != '0':
                 msg_body += f'{value} max conns, '
                 perfdata += lib.base.get_perfdata(
-                    'appliance_max_connections', value, None, None, None, 0, None
+                    'appliance_max_connections',
+                    value,
+                    _min=0,
                 )
 
         if row.startswith('starface_version'):
@@ -202,11 +206,7 @@ def main():
             perfdata = lib.base.get_perfdata(
                 'starface_version',
                 lib.version.version2float(value),
-                None,
-                None,
-                None,
-                0,
-                None,
+                _min=0,
             )
 
         if row.startswith('owner'):
@@ -232,14 +232,18 @@ def main():
             value = row.replace('blacklisted_hosts ', '')
             msg_header += f'{value} blacklisted {lib.txt.pluralize("host", value)}, '
             perfdata += lib.base.get_perfdata(
-                'blacklisted_hosts', value, None, None, None, 0, None
+                'blacklisted_hosts',
+                value,
+                _min=0,
             )
 
         if row.startswith('whitelisted_hosts'):
             value = row.replace('whitelisted_hosts ', '')
             msg_body += f'{value} whitelisted {lib.txt.pluralize("host", value)}, '
             perfdata += lib.base.get_perfdata(
-                'whitelisted_hosts', value, None, None, None, 0, None
+                'whitelisted_hosts',
+                value,
+                _min=0,
             )
 
         if row.startswith('sip_status_localhost'):
@@ -257,21 +261,27 @@ def main():
             value = row.replace('known_phones ', '')
             msg_body += f'{value} {lib.txt.pluralize("phone", value)} known, '
             perfdata += lib.base.get_perfdata(
-                'known_phones', value, None, None, None, 0, None
+                'known_phones',
+                value,
+                _min=0,
             )
 
         if row.startswith('online_phones'):
             value = row.replace('online_phones ', '')
             msg_header += f'{value} {lib.txt.pluralize("phone", value)} online, '
             perfdata += lib.base.get_perfdata(
-                'online_phones', value, None, None, None, 0, None
+                'online_phones',
+                value,
+                _min=0,
             )
 
         if row.startswith('ip_changed_phones'):
             value = row.replace('ip_changed_phones ', '')
             msg_body += f'{value} {lib.txt.pluralize("phone", value)} changed IP, '
             perfdata += lib.base.get_perfdata(
-                'ip_changed_phones', value, None, None, None, 0, None
+                'ip_changed_phones',
+                value,
+                _min=0,
             )
 
         if row.startswith('asterisk_uptime'):

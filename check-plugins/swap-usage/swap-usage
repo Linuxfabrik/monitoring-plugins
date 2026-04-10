@@ -153,13 +153,35 @@ def main():
     )
 
     perfdata = lib.base.get_perfdata(
-        'usage_percent', swap_usage_percent, '%', args.WARN, args.CRIT, 0, 100
+        'usage_percent',
+        swap_usage_percent,
+        uom='%',
+        warn=args.WARN,
+        crit=args.CRIT,
+        _min=0,
+        _max=100,
     )
     perfdata += lib.base.get_perfdata(
-        'total', swap.total, 'B', None, None, 0, swap.total
+        'total',
+        swap.total,
+        uom='B',
+        _min=0,
+        _max=swap.total,
     )
-    perfdata += lib.base.get_perfdata('used', swap.used, 'B', None, None, 0, swap.total)
-    perfdata += lib.base.get_perfdata('free', swap.free, 'B', None, None, 0, swap.total)
+    perfdata += lib.base.get_perfdata(
+        'used',
+        swap.used,
+        uom='B',
+        _min=0,
+        _max=swap.total,
+    )
+    perfdata += lib.base.get_perfdata(
+        'free',
+        swap.free,
+        uom='B',
+        _min=0,
+        _max=swap.total,
+    )
 
     msg_body = ''
     if not lib.base.WINDOWS:
@@ -171,10 +193,16 @@ def main():
             f' (both cumulative)'
         )
         perfdata += lib.base.get_perfdata(
-            'sin', getattr(swap, 'sin', 0), 'B', None, None, 0, None
+            'sin',
+            getattr(swap, 'sin', 0),
+            uom='B',
+            _min=0,
         )
         perfdata += lib.base.get_perfdata(
-            'sout', getattr(swap, 'sout', 0), 'B', None, None, 0, None
+            'sout',
+            getattr(swap, 'sout', 0),
+            uom='B',
+            _min=0,
         )
 
     # On Linux only, get the top processes causing swap usage

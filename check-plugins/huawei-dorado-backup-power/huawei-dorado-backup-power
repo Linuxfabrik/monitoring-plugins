@@ -206,41 +206,36 @@ def main():
         power['VOLTAGE'] = float(power['VOLTAGE']) / 10
 
         perfdata += lib.base.get_perfdata(
-            f'{power["UUID"]}_HEALTHSTATUS', power['HEALTHSTATUS'], None, None, 2, 0, 2
+            f'{power["UUID"]}_HEALTHSTATUS',
+            power['HEALTHSTATUS'],
+            crit=2,
+            _min=0,
+            _max=2,
         )
         perfdata += lib.base.get_perfdata(
             f'{power["UUID"]}_RUNNINGSTATUS',
             power['RUNNINGSTATUS'],
-            None,
-            None,
-            None,
-            0,
-            None,
+            _min=0,
         )
         perfdata += lib.base.get_perfdata(
             f'{power["UUID"]}_CHARGETIMES',
             power['CHARGETIMES'],
-            None,
-            None,
-            None,
-            0,
-            None,
+            _min=0,
         )
         perfdata += (
             lib.base.get_perfdata(
                 f'{power["UUID"]}_REMAINLIFEDAYS',
                 power['REMAINLIFEDAYS'],
-                's',
-                None,
-                None,
-                0,
-                None,
+                uom='s',
+                _min=0,
             )
             if power['REMAINLIFEDAYS'] > 0
             else ''
         )
         perfdata += lib.base.get_perfdata(
-            f'{power["UUID"]}_VOLTAGE', power['VOLTAGE'], None, None, None, 0, None
+            f'{power["UUID"]}_VOLTAGE',
+            power['VOLTAGE'],
+            _min=0,
         )
 
         power['health_state'] = lib.base.state2str(health_state, empty_ok=False)

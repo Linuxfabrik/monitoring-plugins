@@ -230,103 +230,94 @@ def main():
     perfdata += lib.base.get_perfdata(
         'WorkerUsagePercentage',
         apache['WorkerUsagePercentage'],
-        '%',
-        args.WARN,
-        args.CRIT,
-        0,
-        100,
+        uom='%',
+        warn=args.WARN,
+        crit=args.CRIT,
+        _min=0,
+        _max=100,
     )
 
     perfdata += lib.base.get_perfdata(
-        'BusyWorkers', apache['BusyWorkers'], None, None, None, 0, None
+        'BusyWorkers',
+        apache['BusyWorkers'],
+        _min=0,
     )
     perfdata += lib.base.get_perfdata(
-        'IdleWorkers', apache['IdleWorkers'], None, None, None, 0, None
+        'IdleWorkers',
+        apache['IdleWorkers'],
+        _min=0,
     )
     perfdata += lib.base.get_perfdata(
-        'TotalWorkers', apache['TotalWorkers'], None, None, None, 0, None
+        'TotalWorkers',
+        apache['TotalWorkers'],
+        _min=0,
     )
 
     perfdata += lib.base.get_perfdata(
         'workers_closing',
         workers['closing'],
-        None,
-        None,
-        None,
-        0,
-        apache['TotalWorkers'],
+        _min=0,
+        _max=apache['TotalWorkers'],
     )
     perfdata += lib.base.get_perfdata(
-        'workers_dns', workers['dns'], None, None, None, 0, apache['TotalWorkers']
+        'workers_dns',
+        workers['dns'],
+        _min=0,
+        _max=apache['TotalWorkers'],
     )
     perfdata += lib.base.get_perfdata(
         'workers_finishing',
         workers['finishing'],
-        None,
-        None,
-        None,
-        0,
-        apache['TotalWorkers'],
+        _min=0,
+        _max=apache['TotalWorkers'],
     )
     perfdata += lib.base.get_perfdata(
-        'workers_free', workers['free'], None, None, None, 0, apache['TotalWorkers']
+        'workers_free',
+        workers['free'],
+        _min=0,
+        _max=apache['TotalWorkers'],
     )
     perfdata += lib.base.get_perfdata(
-        'workers_idle', workers['idle'], None, None, None, 0, apache['TotalWorkers']
+        'workers_idle',
+        workers['idle'],
+        _min=0,
+        _max=apache['TotalWorkers'],
     )
     perfdata += lib.base.get_perfdata(
         'workers_keepalive',
         workers['keepalive'],
-        None,
-        None,
-        None,
-        0,
-        apache['TotalWorkers'],
+        _min=0,
+        _max=apache['TotalWorkers'],
     )
     perfdata += lib.base.get_perfdata(
         'workers_logging',
         workers['logging'],
-        None,
-        None,
-        None,
-        0,
-        apache['TotalWorkers'],
+        _min=0,
+        _max=apache['TotalWorkers'],
     )
     perfdata += lib.base.get_perfdata(
         'workers_reading',
         workers['reading'],
-        None,
-        None,
-        None,
-        0,
-        apache['TotalWorkers'],
+        _min=0,
+        _max=apache['TotalWorkers'],
     )
     perfdata += lib.base.get_perfdata(
         'workers_replying',
         workers['replying'],
-        None,
-        None,
-        None,
-        0,
-        apache['TotalWorkers'],
+        _min=0,
+        _max=apache['TotalWorkers'],
     )
     perfdata += lib.base.get_perfdata(
         'workers_starting',
         workers['starting'],
-        None,
-        None,
-        None,
-        0,
-        apache['TotalWorkers'],
+        _min=0,
+        _max=apache['TotalWorkers'],
     )
     perfdata += lib.base.get_perfdata(
         'workers_waiting',
         workers['waiting'],
-        None,
-        None,
-        None,
-        0,
-        apache['TotalWorkers'],
+        _min=0,
+        _max=apache['TotalWorkers'],
     )
 
     # If ExtendedStatus is off:
@@ -390,18 +381,30 @@ def main():
         lib.base.oao('Waiting for more data (2).', STATE_OK)
 
     perfdata += lib.base.get_perfdata(
-        'Accesses', apache['Total Accesses'], None, None, None, 0, None
+        'Accesses',
+        apache['Total Accesses'],
+        _min=0,
     )
     perfdata += lib.base.get_perfdata(
-        'Bytes', apache['Total Bytes'], 'B', None, None, 0, None
+        'Bytes',
+        apache['Total Bytes'],
+        uom='B',
+        _min=0,
     )
     perfdata += (
-        lib.base.get_perfdata('CPULoad', apache['CPULoad'], None, None, None, 0, None)
+        lib.base.get_perfdata(
+            'CPULoad',
+            apache['CPULoad'],
+            _min=0,
+        )
         if 'CPULoad' in apache
         else ''
     )
     perfdata += lib.base.get_perfdata(
-        'Uptime', apache['Uptime'], 's', None, None, 0, None
+        'Uptime',
+        apache['Uptime'],
+        uom='s',
+        _min=0,
     )
 
     if 'Total Duration' not in apache:
@@ -443,7 +446,9 @@ def main():
 
     perfdata += (
         lib.base.get_perfdata(
-            'ConnsAsyncClosing', apache['ConnsAsyncClosing'], None, None, None, 0, None
+            'ConnsAsyncClosing',
+            apache['ConnsAsyncClosing'],
+            _min=0,
         )
         if 'ConnsAsyncClosing' in apache
         else ''
@@ -452,41 +457,53 @@ def main():
         lib.base.get_perfdata(
             'ConnsAsyncKeepAlive',
             apache['ConnsAsyncKeepAlive'],
-            None,
-            None,
-            None,
-            0,
-            None,
+            _min=0,
         )
         if 'ConnsAsyncKeepAlive' in apache
         else ''
     )
     perfdata += (
         lib.base.get_perfdata(
-            'ConnsAsyncWriting', apache['ConnsAsyncWriting'], None, None, None, 0, None
+            'ConnsAsyncWriting',
+            apache['ConnsAsyncWriting'],
+            _min=0,
         )
         if 'ConnsAsyncWriting' in apache
         else ''
     )
     perfdata += (
         lib.base.get_perfdata(
-            'ConnsTotal', apache['ConnsTotal'], None, None, None, 0, None
+            'ConnsTotal',
+            apache['ConnsTotal'],
+            _min=0,
         )
         if 'ConnsTotal' in apache
         else ''
     )
     perfdata += (
-        lib.base.get_perfdata('Load1', apache['Load1'], None, None, None, 0, None)
+        lib.base.get_perfdata(
+            'Load1',
+            apache['Load1'],
+            _min=0,
+        )
         if 'Load1' in apache
         else ''
     )
     perfdata += (
-        lib.base.get_perfdata('Load5', apache['Load5'], None, None, None, 0, None)
+        lib.base.get_perfdata(
+            'Load5',
+            apache['Load5'],
+            _min=0,
+        )
         if 'Load5' in apache
         else ''
     )
     perfdata += (
-        lib.base.get_perfdata('Load15', apache['Load15'], None, None, None, 0, None)
+        lib.base.get_perfdata(
+            'Load15',
+            apache['Load15'],
+            _min=0,
+        )
         if 'Load15' in apache
         else ''
     )
@@ -494,11 +511,7 @@ def main():
         lib.base.get_perfdata(
             'ParentServerConfigGeneration',
             apache['ParentServerConfigGeneration'],
-            None,
-            None,
-            None,
-            0,
-            None,
+            _min=0,
         )
         if 'ParentServerConfigGeneration' in apache
         else ''
@@ -507,29 +520,36 @@ def main():
         lib.base.get_perfdata(
             'ParentServerMPMGeneration',
             apache['ParentServerMPMGeneration'],
-            None,
-            None,
-            None,
-            0,
-            None,
+            _min=0,
         )
         if 'ParentServerMPMGeneration' in apache
         else ''
     )
     perfdata += (
         lib.base.get_perfdata(
-            'Processes', apache['Processes'], None, None, None, 0, None
+            'Processes',
+            apache['Processes'],
+            _min=0,
         )
         if 'Processes' in apache
         else ''
     )
     perfdata += (
-        lib.base.get_perfdata('Stopping', apache['Stopping'], None, None, None, 0, None)
+        lib.base.get_perfdata(
+            'Stopping',
+            apache['Stopping'],
+            _min=0,
+        )
         if 'Stopping' in apache
         else ''
     )
     perfdata += (
-        lib.base.get_perfdata('Total Duration', duration_diff, 's', None, None, 0, None)
+        lib.base.get_perfdata(
+            'Total Duration',
+            duration_diff,
+            uom='s',
+            _min=0,
+        )
         if 'Total Duration' in apache
         else ''
     )

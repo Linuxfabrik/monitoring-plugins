@@ -158,7 +158,14 @@ def check_uptime(args):
     uptime = res['uptime'] / 1000
 
     msg = f'Up {lib.human.seconds2human(uptime)}'
-    perfdata = lib.base.get_perfdata('uptime', uptime, 's', WARN, CRIT, 0, None)
+    perfdata = lib.base.get_perfdata(
+        'uptime',
+        uptime,
+        uom='s',
+        warn=WARN,
+        crit=CRIT,
+        _min=0,
+    )
     state = lib.base.get_state(uptime, WARN, CRIT)
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 

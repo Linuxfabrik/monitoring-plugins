@@ -289,7 +289,10 @@ def main():
                 )
         msg += f'Src: Log file {log_error} (size: {lib.human.bytes2human(size)}), '
         perfdata += lib.base.get_perfdata(
-            'mysql_logfile_size', size, 'B', None, None, 0, None
+            'mysql_logfile_size',
+            size,
+            uom='B',
+            _min=0,
         )
         if size >= 32 * 1024 * 1024:
             size_state = STATE_WARN
@@ -339,7 +342,9 @@ def main():
             lastErrs = lastErrs[0:5] + ['...'] + lastErrs[-5:]
         msg_body += '\nErrors:\n* ' + '\n* '.join(lastErrs) + '\n'
     perfdata += lib.base.get_perfdata(
-        'mysql_error_lines', cnt, None, None, None, 0, None
+        'mysql_error_lines',
+        cnt,
+        _min=0,
     )
 
     cnt = len(lastWarns)
@@ -357,7 +362,9 @@ def main():
             lastWarns = lastWarns[0:5] + ['...'] + lastWarns[-5:]
         msg_body += '\nWarnings:\n* ' + '\n* '.join(lastWarns) + '\n'
     perfdata += lib.base.get_perfdata(
-        'mysql_warning_lines', cnt, None, None, None, 0, None
+        'mysql_warning_lines',
+        cnt,
+        _min=0,
     )
 
     cnt = len(lastStarts)
@@ -367,7 +374,11 @@ def main():
             # shorten the message
             lastStarts = lastStarts[0:5] + ['...'] + lastStarts[-5:]
         msg_body += '\nStarts:\n* ' + '\n* '.join(lastStarts) + '\n'
-    perfdata += lib.base.get_perfdata('mysql_startups', cnt, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'mysql_startups',
+        cnt,
+        _min=0,
+    )
 
     cnt = len(lastShutdowns)
     if lastShutdowns:
@@ -380,7 +391,11 @@ def main():
             # shorten the message
             lastShutdowns = lastShutdowns[0:5] + ['...'] + lastShutdowns[-5:]
         msg_body += '\nShutdowns:\n* ' + '\n* '.join(lastShutdowns) + '\n'
-    perfdata += lib.base.get_perfdata('mysql_shutdowns', cnt, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'mysql_shutdowns',
+        cnt,
+        _min=0,
+    )
 
     # over and out
     lib.base.oao(f'{msg[:-2]}\n{msg_body}', state, perfdata, always_ok=args.ALWAYS_OK)

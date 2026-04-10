@@ -194,19 +194,23 @@ def main():
         fan['UUID'] = lib.huawei.get_uuid(fan)
 
         perfdata += lib.base.get_perfdata(
-            f'{fan["UUID"]}_HEALTHSTATUS', fan['HEALTHSTATUS'], None, None, 2, 0, 2
+            f'{fan["UUID"]}_HEALTHSTATUS',
+            fan['HEALTHSTATUS'],
+            crit=2,
+            _min=0,
+            _max=2,
         )
         perfdata += lib.base.get_perfdata(
             f'{fan["UUID"]}_RUNNINGSTATUS',
             fan['RUNNINGSTATUS'],
-            None,
-            None,
-            None,
-            0,
-            None,
+            _min=0,
         )
         perfdata += lib.base.get_perfdata(
-            f'{fan["UUID"]}_RUNLEVEL', fan['RUNLEVEL'], None, 2, None, 0, 2
+            f'{fan["UUID"]}_RUNLEVEL',
+            fan['RUNLEVEL'],
+            warn=2,
+            _min=0,
+            _max=2,
         )
 
         fan['health_state'] = lib.base.state2str(health_state, empty_ok=False)

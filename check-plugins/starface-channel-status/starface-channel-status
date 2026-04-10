@@ -201,10 +201,18 @@ def main():
             f'{lib.base.state2str(state, prefix=" ")}. '
         )
         perfdata += lib.base.get_perfdata(
-            'used_percent', used_percent, '%', args.WARN, args.CRIT, 0, 100
+            'used_percent',
+            used_percent,
+            uom='%',
+            warn=args.WARN,
+            crit=args.CRIT,
+            _min=0,
+            _max=100,
         )
         perfdata += lib.base.get_perfdata(
-            'max_calls', max_calls, None, None, None, 0, None
+            'max_calls',
+            max_calls,
+            _min=0,
         )
 
     if cnt_dahdi or cnt_sip or cnt_other:
@@ -217,23 +225,20 @@ def main():
     perfdata += lib.base.get_perfdata(
         'channel_dahdi',
         cnt_dahdi,
-        None,
-        None,
-        None,
-        0,
-        max_calls if max_calls else None,
+        _min=0,
+        _max=max_calls if max_calls else None,
     )
     perfdata += lib.base.get_perfdata(
-        'channel_sip', cnt_sip, None, None, None, 0, max_calls if max_calls else None
+        'channel_sip',
+        cnt_sip,
+        _min=0,
+        _max=max_calls if max_calls else None,
     )
     perfdata += lib.base.get_perfdata(
         'channel_other',
         cnt_other,
-        None,
-        None,
-        None,
-        0,
-        max_calls if max_calls else None,
+        _min=0,
+        _max=max_calls if max_calls else None,
     )
 
     # over and out

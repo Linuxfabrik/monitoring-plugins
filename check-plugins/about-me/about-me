@@ -1426,41 +1426,49 @@ def main():
             perfdata += lib.base.get_perfdata(
                 'osversion',
                 re_search.group(0).replace('.', ''),
-                None,
-                None,
-                None,
-                None,
-                None,
             )
     if sys_dimensions:
         perfdata += lib.base.get_perfdata(
-            'cpu_logical', sys_dimensions['cpu_logical'], None, None, None, 0, None
+            'cpu_logical',
+            sys_dimensions['cpu_logical'],
+            _min=0,
         )
         perfdata += lib.base.get_perfdata(
-            'cpu_physical', sys_dimensions['cpu_physical'], None, None, None, 0, None
+            'cpu_physical',
+            sys_dimensions['cpu_physical'],
+            _min=0,
         )
         perfdata += lib.base.get_perfdata(
-            'cpu_usable', sys_dimensions['cpu_usable'], None, None, None, 0, None
+            'cpu_usable',
+            sys_dimensions['cpu_usable'],
+            _min=0,
         )
         if sys_dimensions['cpu_freq']:
             perfdata += lib.base.get_perfdata(
                 'cpu_freq',
                 int(sys_dimensions['cpu_freq'][0]),
-                None,
-                None,
-                None,
-                0,
-                lib.dmidecode.cpu_speed(dmi) if args.DMIDECODE and dmi else None,
+                _min=0,
+                _max=lib.dmidecode.cpu_speed(dmi) if args.DMIDECODE and dmi else None,
             )
     if dmi:
         perfdata += lib.base.get_perfdata(
-            'ram', lib.dmidecode.ram(dmi), 'B', None, None, 0, None
+            'ram',
+            lib.dmidecode.ram(dmi),
+            uom='B',
+            _min=0,
         )
     elif sys_dimensions:
         perfdata += lib.base.get_perfdata(
-            'ram', sys_dimensions['ram'], 'B', None, None, 0, None
+            'ram',
+            sys_dimensions['ram'],
+            uom='B',
+            _min=0,
         )
-    perfdata += lib.base.get_perfdata('disks', disk_count, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'disks',
+        disk_count,
+        _min=0,
+    )
 
     # over and out
     lib.base.oao(msg, STATE_OK, perfdata)

@@ -130,11 +130,23 @@ def main():
     state = STATE_OK
     create_retc_state = lib.base.get_state(create_retc, 2, None, _operator='ge')
     state = lib.base.get_worst(state, create_retc_state)
-    perfdata += lib.base.get_perfdata('create_retc', create_retc, None, 1, 2, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'create_retc',
+        create_retc,
+        warn=1,
+        crit=2,
+        _min=0,
+    )
 
     prune_retc_state = lib.base.get_state(prune_retc, 2, None, _operator='ge')
     state = lib.base.get_worst(state, prune_retc_state)
-    perfdata += lib.base.get_perfdata('prune_retc', prune_retc, None, 1, 2, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'prune_retc',
+        prune_retc,
+        warn=1,
+        crit=2,
+        _min=0,
+    )
 
     now = lib.time.now(as_type='iso')
     delta = lib.time.timestrdiff(now, starttime)
@@ -147,7 +159,12 @@ def main():
     state = lib.base.get_worst(state, last_starttime_state)
 
     duration = lib.time.timestrdiff(endtime, starttime)  # in seconds
-    perfdata += lib.base.get_perfdata('duration', duration, 's', None, None, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'duration',
+        duration,
+        uom='s',
+        _min=0,
+    )
 
     msg = f'Last Backup started {starttime}, ended {endtime}, took {lib.human.seconds2human(duration)}.\n'
     if state != STATE_OK:

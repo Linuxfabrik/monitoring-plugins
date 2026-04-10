@@ -223,31 +223,40 @@ def check_non_xa_datasource(args):
         state = lib.base.get_worst(local_state, state)
 
         perfdata += lib.base.get_perfdata(
-            f'non-xa-ds-{name}-available', available, None, None, None, 0, available
+            f'non-xa-ds-{name}-available',
+            available,
+            _min=0,
+            _max=available,
         )
         perfdata += lib.base.get_perfdata(
-            f'non-xa-ds-{name}-active', active, None, None, None, 0, active
+            f'non-xa-ds-{name}-active',
+            active,
+            _min=0,
+            _max=active,
         )
         perfdata += lib.base.get_perfdata(
             f'non-xa-ds-{name}-active-pct',
             active_pct,
-            '%',
-            args.WARN,
-            args.CRIT,
-            0,
-            100,
+            uom='%',
+            warn=args.WARN,
+            crit=args.CRIT,
+            _min=0,
+            _max=100,
         )
         perfdata += lib.base.get_perfdata(
-            f'non-xa-ds-{name}-maxused', max_used, None, None, None, 0, available
+            f'non-xa-ds-{name}-maxused',
+            max_used,
+            _min=0,
+            _max=available,
         )
         perfdata += lib.base.get_perfdata(
             f'non-xa-ds-{name}-maxused-pct',
             max_used_pct,
-            '%',
-            args.WARN,
-            args.CRIT,
-            0,
-            100,
+            uom='%',
+            warn=args.WARN,
+            crit=args.CRIT,
+            _min=0,
+            _max=100,
         )
 
         for metric in ds_stat_types:
@@ -257,11 +266,7 @@ def check_non_xa_datasource(args):
                 perfdata += lib.base.get_perfdata(
                     f'non-xa-ds-{name}-{metric.lower()}',
                     ds['result'][metric],
-                    None,
-                    None,
-                    None,
-                    0,
-                    None,
+                    _min=0,
                 )
         msg = msg[:-2] + '; '
 

@@ -340,63 +340,62 @@ def main():
         msg += '\nFor details, see https://www.php.net/manual/en/fpm.status.php'
 
     perfdata += lib.base.get_perfdata(
-        'accepted conn', result['accepted conn'], 'c', None, None, 0, None
+        'accepted conn',
+        result['accepted conn'],
+        uom='c',
+        _min=0,
     )
     perfdata += lib.base.get_perfdata(
         'active processes',
         result['active processes'],
-        None,
-        None,
-        None,
-        0,
-        result['total processes'],
+        _min=0,
+        _max=result['total processes'],
     )
     perfdata += lib.base.get_perfdata(
         'idle processes',
         result['idle processes'],
-        None,
-        None,
-        None,
-        0,
-        result['total processes'],
+        _min=0,
+        _max=result['total processes'],
     )
     perfdata += lib.base.get_perfdata(
         'listen queue',
         result['listen queue'],
-        None,
-        None,
-        None,
-        0,
-        result['listen queue len'],
+        _min=0,
+        _max=result['listen queue len'],
     )
     perfdata += lib.base.get_perfdata(
-        'listen queue len', result['listen queue len'], None, None, None, 0, None
+        'listen queue len',
+        result['listen queue len'],
+        _min=0,
     )
     perfdata += lib.base.get_perfdata(
         'max children reached',
         result['max children reached'],
-        None,
-        None,
-        None,
-        0,
-        None,
+        _min=0,
     )
     if 'slow requests' in result:
         perfdata += lib.base.get_perfdata(
             'slow requests',
             result['slow requests'],
-            None,
-            args.WARN_SLOW_REQUESTS,
-            args.CRIT_SLOW_REQUESTS,
-            0,
-            None,
+            warn=args.WARN_SLOW_REQUESTS,
+            crit=args.CRIT_SLOW_REQUESTS,
+            _min=0,
         )
     perfdata += lib.base.get_perfdata(
-        'start since', result['start since'], 's', None, None, 0, None
+        'start since',
+        result['start since'],
+        uom='s',
+        _min=0,
     )
 
     perfdata += lib.base.get_perfdata(
-        'queue usage', queue_usage, '%', args.WARN, args.CRIT, 0, 100
+        'queue usage',
+        queue_usage,
+        uom='%',
+        warn=args.WARN,
+        crit=args.CRIT,
+        _min=0,
+        _max=100,
     )
 
     # over and out

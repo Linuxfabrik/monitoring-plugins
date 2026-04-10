@@ -180,9 +180,19 @@ def main():
             msg += (
                 f'Axenita/Achilles is in maintenance mode {lib.base.state2str(state)}, '
             )
-            perfdata += lib.base.get_perfdata('maintenance', 1, None, None, None, 0, 1)
+            perfdata += lib.base.get_perfdata(
+                'maintenance',
+                1,
+                _min=0,
+                _max=1,
+            )
         else:
-            perfdata += lib.base.get_perfdata('maintenance', 0, None, None, None, 0, 1)
+            perfdata += lib.base.get_perfdata(
+                'maintenance',
+                0,
+                _min=0,
+                _max=1,
+            )
 
     if achilles_readmodel:
         if achilles_readmodel['state'].upper() != 'SUCCESS':
@@ -197,29 +207,17 @@ def main():
         perfdata += lib.base.get_perfdata(
             'currentInitRmStep',
             achilles_readmodel['data']['currentInitRmStep'],
-            None,
-            None,
-            None,
-            0,
-            None,
+            _min=0,
         )
         perfdata += lib.base.get_perfdata(
             'totalInitRmSteps',
             achilles_readmodel['data']['totalInitRmSteps'],
-            None,
-            None,
-            None,
-            0,
-            None,
+            _min=0,
         )
         perfdata += lib.base.get_perfdata(
             'totalDurationInitRm',
             achilles_readmodel['data']['totalDurationInitRm'],
-            None,
-            None,
-            None,
-            0,
-            None,
+            _min=0,
         )
 
     if achilles_userinfo:
@@ -231,20 +229,12 @@ def main():
         perfdata += lib.base.get_perfdata(
             'loggedInUsers',
             achilles_userinfo['data']['loggedInUsers'],
-            None,
-            None,
-            None,
-            0,
-            None,
+            _min=0,
         )
         perfdata += lib.base.get_perfdata(
             'currentActiveSessions',
             achilles_userinfo['data']['currentActiveSessions'],
-            None,
-            None,
-            None,
-            0,
-            None,
+            _min=0,
         )
 
     if achilles_buildinfo:
@@ -256,7 +246,9 @@ def main():
         msg += f'{axenita_ver} (timestamp {achilles_buildinfo["data"]["timestamp"]}), '
         axenita_ver = axenita_ver[8 : 8 + axenita_ver.find('-') - 1].replace('.', '')
         perfdata += lib.base.get_perfdata(
-            'axenita-version', axenita_ver, None, None, None, 0, None
+            'axenita-version',
+            axenita_ver,
+            _min=0,
         )
 
     # over and out

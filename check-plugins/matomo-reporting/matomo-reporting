@@ -194,17 +194,35 @@ def main():
             msg += f'{key}: {lib.human.number2human(value)}{lib.base.state2str(sensor_state, prefix=" (", suffix=")")}, '
             state = lib.base.get_worst(state, sensor_state)
             if 'time' in key:
-                perfdata += lib.base.get_perfdata(key, value, 's', None, None, 0, None)
+                perfdata += lib.base.get_perfdata(
+                    key,
+                    value,
+                    uom='s',
+                    _min=0,
+                )
             elif 'percent' in key or 'rate' in key:
-                perfdata += lib.base.get_perfdata(key, value, '%', None, None, 0, 100)
+                perfdata += lib.base.get_perfdata(
+                    key,
+                    value,
+                    uom='%',
+                    _min=0,
+                    _max=100,
+                )
             else:
-                perfdata += lib.base.get_perfdata(key, value, None, None, None, 0, None)
+                perfdata += lib.base.get_perfdata(
+                    key,
+                    value,
+                    _min=0,
+                )
     else:
         for key, value in lib.base.sort(result, reverse=False, sort_by_key=True):
             # print all values
             msg += f'{key}: {lib.human.number2human(value)}, '
             perfdata += lib.base.get_perfdata(
-                key, value, 's' if 'time' in key else None, None, None, 0, None
+                key,
+                value,
+                uom='s' if 'time' in key else None,
+                _min=0,
             )
 
     # over and out

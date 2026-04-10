@@ -185,7 +185,10 @@ def main():
                 # unlimited memory usage allowed
                 msg += f'Heap used: {lib.human.bytes2human(mem_used)} (unlimited memory usage allowed), '
                 perfdata += lib.base.get_perfdata(
-                    'heap-used', mem_used, 'B', None, None, 0, None
+                    'heap-used',
+                    mem_used,
+                    uom='B',
+                    _min=0,
                 )
             else:
                 used_percent = round(mem_used / mem_max * 100, 1)
@@ -200,13 +203,27 @@ def main():
                 )
                 state += lib.base.get_worst(used_state, state)
                 perfdata += lib.base.get_perfdata(
-                    'heap-used-percent', used_percent, '%', args.WARN, args.CRIT, 0, 100
+                    'heap-used-percent',
+                    used_percent,
+                    uom='%',
+                    warn=args.WARN,
+                    crit=args.CRIT,
+                    _min=0,
+                    _max=100,
                 )
                 perfdata += lib.base.get_perfdata(
-                    'heap-used', mem_used, 'B', None, None, 0, mem_max
+                    'heap-used',
+                    mem_used,
+                    uom='B',
+                    _min=0,
+                    _max=mem_max,
                 )
                 perfdata += lib.base.get_perfdata(
-                    'heap-max', mem_max, 'B', None, None, 0, mem_max
+                    'heap-max',
+                    mem_max,
+                    uom='B',
+                    _min=0,
+                    _max=mem_max,
                 )
 
         if row.startswith('java_non_heap_memory'):
@@ -217,7 +234,10 @@ def main():
                 # unlimited memory usage allowed
                 msg += f'Non-Heap used: {lib.human.bytes2human(mem_used)} (unlimited memory usage allowed), '
                 perfdata += lib.base.get_perfdata(
-                    'non-heap-used', mem_used, 'B', None, None, 0, None
+                    'non-heap-used',
+                    mem_used,
+                    uom='B',
+                    _min=0,
                 )
             else:
                 used_percent = round(mem_used / mem_max * 100, 1)
@@ -234,17 +254,25 @@ def main():
                 perfdata += lib.base.get_perfdata(
                     'non-heap-used-percent',
                     used_percent,
-                    '%',
-                    args.WARN,
-                    args.CRIT,
-                    0,
-                    100,
+                    uom='%',
+                    warn=args.WARN,
+                    crit=args.CRIT,
+                    _min=0,
+                    _max=100,
                 )
                 perfdata += lib.base.get_perfdata(
-                    'non-heap-used', mem_used, 'B', None, None, 0, mem_max
+                    'non-heap-used',
+                    mem_used,
+                    uom='B',
+                    _min=0,
+                    _max=mem_max,
                 )
                 perfdata += lib.base.get_perfdata(
-                    'non-heap-max', mem_max, 'B', None, None, 0, mem_max
+                    'non-heap-max',
+                    mem_max,
+                    uom='B',
+                    _min=0,
+                    _max=mem_max,
                 )
 
     # over and out
