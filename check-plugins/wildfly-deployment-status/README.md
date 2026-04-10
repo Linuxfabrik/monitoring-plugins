@@ -12,7 +12,7 @@ Checks the deployment status of applications on a WildFly/JBoss AS server via it
 
 **Compatibility:**
 
-* See [additional notes for all wildfly monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.md)
+* Cross-platform
 
 **Important Notes:**
 

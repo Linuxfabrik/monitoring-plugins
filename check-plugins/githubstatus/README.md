@@ -11,7 +11,7 @@ Monitors the GitHub status page for service disruptions. Reports the overall sta
 
 **Compatibility:**
 
-* Cross-platform: any system with outbound HTTPS access to `www.githubstatus.com`
+* Cross-platform
 
 
 ## Fact Sheet

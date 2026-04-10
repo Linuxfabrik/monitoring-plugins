@@ -17,7 +17,7 @@ Verifies the integrity of a restic backup repository by running `restic check`. 
 
 **Compatibility:**
 
-* Linux
+* Cross-platform
 
 
 ## Fact Sheet

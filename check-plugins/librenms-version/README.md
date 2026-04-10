@@ -15,6 +15,12 @@ Displays LibreNMS instance information including version, database schema, Pytho
 * Consider also monitoring the EOL dates for Apache, MariaDB, PHP and other components using the corresponding `*-version` check plugins
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

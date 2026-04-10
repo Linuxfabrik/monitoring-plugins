@@ -28,7 +28,7 @@ Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 
 **Compatibility:**
 
-* Linux (RHEL, CentOS, Fedora, and compatible RPM-based distributions)
+* Linux
 
 
 ## Fact Sheet

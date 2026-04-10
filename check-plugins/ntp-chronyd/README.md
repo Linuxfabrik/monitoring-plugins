@@ -12,7 +12,7 @@ Checks the clock offset of chronyd in milliseconds compared to the configured NT
 
 **Compatibility:**
 
-* Linux systems running chronyd
+* Cross-platform
 
 **Important Notes:**
 

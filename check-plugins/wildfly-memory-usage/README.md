@@ -12,7 +12,7 @@ Checks Java heap and non-heap memory usage on a WildFly/JBoss AS server via its 
 
 **Compatibility:**
 
-* See [additional notes for all wildfly monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.md)
+* Cross-platform
 
 **Important Notes:**
 

@@ -6,7 +6,7 @@ Returns a freely configurable message, state, and perfdata. Useful for testing m
 
 **Compatibility:**
 
-* Cross-platform: Linux, Windows, and all Python-supported systems
+* Cross-platform
 
 
 ## Fact Sheet

@@ -18,6 +18,12 @@ Checks the rate of slow queries in MySQL/MariaDB. A high slow query rate indicat
 * If `long_query_time` is set higher than 10 seconds, the check recommends lowering it
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

@@ -11,7 +11,7 @@ Checks the number of pending Windows updates using the Windows Update COM API.
 
 **Compatibility:**
 
-* Windows only
+* Windows
 
 
 ## Fact Sheet

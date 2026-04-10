@@ -13,7 +13,7 @@ Checks the installed Keycloak version against the endoflife.date API and alerts 
 
 **Compatibility:**
 
-* Linux (local file access or API access to the Keycloak server)
+* Cross-platform
 
 **Important Notes:**
 

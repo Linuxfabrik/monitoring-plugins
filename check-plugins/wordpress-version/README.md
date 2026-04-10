@@ -12,7 +12,7 @@ Checks the installed WordPress version against the endoflife.date API and alerts
 
 **Compatibility:**
 
-* Linux
+* Cross-platform
 
 
 ## Fact Sheet

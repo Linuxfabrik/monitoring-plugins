@@ -12,7 +12,7 @@ Checks the system-wide file descriptor usage as a percentage of the kernel maxim
 
 **Compatibility:**
 
-* Linux only (reads `/proc/sys/fs/file-nr`)
+* Linux
 
 
 ## Fact Sheet

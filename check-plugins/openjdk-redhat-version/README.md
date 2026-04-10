@@ -12,7 +12,7 @@ Checks the installed Red Hat OpenJDK version against the endoflife.date API and 
 
 **Compatibility:**
 
-* Linux systems with Red Hat build of OpenJDK installed
+* Cross-platform
 
 **Important Notes:**
 

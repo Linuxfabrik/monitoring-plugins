@@ -27,6 +27,12 @@ server {
 ```
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

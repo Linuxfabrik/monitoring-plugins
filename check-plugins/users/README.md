@@ -16,7 +16,7 @@ Counts the number of currently logged-in users by session type: tty (console) an
 
 **Compatibility:**
 
-* Cross-platform: Linux (requires `/usr/bin/w`) and Windows (requires `query user`)
+* Cross-platform
 
 
 ## Fact Sheet

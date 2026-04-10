@@ -11,7 +11,7 @@ Checks the percentage of used inodes on local filesystems. Fetches a list of loc
 
 **Compatibility:**
 
-* Linux
+* Cross-platform
 
 **Important Notes:**
 

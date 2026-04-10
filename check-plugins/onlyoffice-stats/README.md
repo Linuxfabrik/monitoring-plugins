@@ -14,6 +14,12 @@ Monitors OnlyOffice Document Server statistics and license usage via the HTTP AP
 * By default the `info/info.json` page is only available from localhost. The OnlyOffice nginx configuration has to be modified if the check is not running locally (`/etc/onlyoffice/documentserver/nginx/includes/ds-docservice.conf`: set `allow ...` instead of `deny all` on `location ~* ^(\/[\d]+\.[\d]+\.[\d]+[\.|-][\d]+)?\/(info|internal)(\/.*)$`).
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

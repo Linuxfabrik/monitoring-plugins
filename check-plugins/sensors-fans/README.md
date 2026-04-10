@@ -14,7 +14,7 @@ Reports hardware fan speeds in RPM (rounds per minute). Returns OK if no fans ar
 
 **Compatibility:**
 
-* Linux and all psutil-supported systems with fan sensors
+* Cross-platform
 
 
 ## Fact Sheet

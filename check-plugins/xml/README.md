@@ -12,6 +12,12 @@ Fetches an XML document via HTTP(S) and checks for a matching string using XPath
 * Supports HTTP Basic Authentication via `--username` and `--password`
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

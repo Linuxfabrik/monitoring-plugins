@@ -12,7 +12,7 @@ Checks the installed Redis version against the endoflife.date API and alerts if 
 
 **Compatibility:**
 
-* Linux
+* Cross-platform
 
 
 ## Fact Sheet

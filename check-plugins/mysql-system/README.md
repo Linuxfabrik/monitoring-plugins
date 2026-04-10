@@ -12,7 +12,7 @@ Checks system requirements and kernel settings specifically for MySQL/MariaDB, i
 
 **Compatibility:**
 
-* On Windows there are no kernel settings that can be checked
+* Linux
 
 **Important Notes:**
 

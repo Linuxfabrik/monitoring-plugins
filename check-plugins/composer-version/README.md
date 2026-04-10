@@ -12,7 +12,7 @@ Checks the installed Composer version against the endoflife.date API and alerts 
 
 **Compatibility:**
 
-* Linux (requires Composer to be installed locally)
+* Cross-platform
 
 **Important Notes:**
 

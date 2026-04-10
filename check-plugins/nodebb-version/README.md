@@ -17,6 +17,12 @@ Checks if a NodeBB update is available by comparing the installed version agains
 * Requires NodeBB v1.14.4+.
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

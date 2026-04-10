@@ -17,7 +17,7 @@ Checks the installed Rocket.Chat version against the endoflife.date API and aler
 
 **Compatibility:**
 
-* Linux
+* Cross-platform
 
 
 ## Fact Sheet

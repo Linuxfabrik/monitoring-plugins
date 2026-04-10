@@ -16,6 +16,12 @@ Checks how effectively MySQL/MariaDB caches threads for re-use. A low cache hit 
 * When the thread pool is enabled (Percona or MariaDB), the value of `thread_cache_size` is ignored and `Threads_cached` shows 0
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

@@ -14,7 +14,7 @@ Checks the time since last modification of one or more files or directories. Sup
 
 **Compatibility:**
 
-* Cross-platform: Linux and Windows
+* Cross-platform
 
 **Important Notes:**
 

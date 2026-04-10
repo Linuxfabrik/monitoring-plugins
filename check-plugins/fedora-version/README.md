@@ -12,7 +12,7 @@ Checks the installed Fedora version against the endoflife.date API and alerts if
 
 **Compatibility:**
 
-* Cross-platform (must run on the Fedora server itself)
+* Cross-platform
 
 **Important Notes:**
 

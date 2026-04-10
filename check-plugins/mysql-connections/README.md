@@ -17,6 +17,12 @@ Checks the connection usage rate, the rate of aborted connections, and whether n
 * A reverse name resolution is made for each new connection when `skip_name_resolve` is OFF, which can reduce performance. Configure your accounts with IP addresses or subnets only and set `skip-name-resolve=ON` to avoid this.
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

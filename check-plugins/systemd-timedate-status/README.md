@@ -12,7 +12,7 @@ Checks system clock and RTC settings via `timedatectl status`, including whether
 
 **Compatibility:**
 
-* Linux with systemd (any version supporting `timedatectl status`)
+* Cross-platform
 
 
 ## Fact Sheet

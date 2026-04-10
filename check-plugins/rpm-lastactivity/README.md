@@ -10,7 +10,7 @@ Checks how long ago the last RPM package manager activity occurred (install, upd
 
 **Compatibility:**
 
-* Linux (RHEL, CentOS, Fedora, and compatible RPM-based distributions)
+* Linux
 
 
 ## Fact Sheet

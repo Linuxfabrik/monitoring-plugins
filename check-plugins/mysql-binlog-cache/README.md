@@ -18,6 +18,12 @@ Checks whether transactions in MySQL/MariaDB had to use a temporary disk cache b
 * Returns UNKNOWN if binary logging is disabled
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

@@ -15,6 +15,12 @@ Checks the ratio of on-disk versus in-memory temporary tables in MySQL/MariaDB. 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

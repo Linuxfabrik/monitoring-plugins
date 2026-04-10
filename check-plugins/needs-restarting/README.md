@@ -11,7 +11,7 @@ Checks for processes that were started before they or one of their dependencies 
 
 **Compatibility:**
 
-* Linux only
+* Linux
 
 **Important Notes:**
 

@@ -16,6 +16,12 @@ Reports MySQL/MariaDB traffic statistics including uptime, queries per second, c
 * This plugin always returns OK and is purely informational
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

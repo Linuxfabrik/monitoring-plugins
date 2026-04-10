@@ -14,7 +14,7 @@ Tests if a path is writable and readable by creating, writing, reading, and dele
 
 **Compatibility:**
 
-* Cross-platform: Linux and Windows
+* Cross-platform
 
 
 ## Fact Sheet

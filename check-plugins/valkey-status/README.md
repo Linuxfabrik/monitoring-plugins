@@ -15,7 +15,7 @@ Monitors a Valkey server via the `INFO` command and the `MEMORY DOCTOR` subcomma
 
 **Compatibility:**
 
-* Cross-platform
+* Linux
 
 **Important Notes:**
 

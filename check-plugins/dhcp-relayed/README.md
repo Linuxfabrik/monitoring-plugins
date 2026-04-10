@@ -16,7 +16,7 @@ Tests if a DHCP server can offer IPv4 addresses by emulating a DHCP client. Send
 
 **Compatibility:**
 
-* Linux
+* Cross-platform
 
 **Important Notes:**
 

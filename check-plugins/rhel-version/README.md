@@ -17,7 +17,7 @@ Checks the installed Red Hat Enterprise Linux version against the endoflife.date
 
 **Compatibility:**
 
-* Linux (RHEL and compatible distributions)
+* Cross-platform
 
 
 ## Fact Sheet

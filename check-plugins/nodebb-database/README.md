@@ -16,6 +16,12 @@ Monitors NodeBB database statistics via the admin API, including memory usage an
 * Requires NodeBB v1.14.4+.
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

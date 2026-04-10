@@ -17,6 +17,12 @@ Connects to a MySQL/MariaDB database and runs configurable SQL queries for warni
 * Thresholds use [Nagios range expressions](https://github.com/Linuxfabrik/monitoring-plugins#threshold-and-ranges)
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

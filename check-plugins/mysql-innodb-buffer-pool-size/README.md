@@ -21,6 +21,12 @@ Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the 
 * `innodb_log_files_in_group` was removed in MariaDB 10.6.0; the check handles this gracefully by defaulting to 1
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

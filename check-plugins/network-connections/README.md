@@ -11,7 +11,7 @@ Counts system-wide socket connections by type (TCP, TCP6, UDP, UDP6) and state. 
 
 **Compatibility:**
 
-* Cross-platform: Linux, Windows, and all psutil-supported systems
+* Cross-platform
 
 **Important Notes:**
 

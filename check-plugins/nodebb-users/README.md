@@ -16,6 +16,12 @@ Monitors NodeBB user statistics via the admin API, including total user count, a
 * Requires NodeBB v1.14.4+.
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

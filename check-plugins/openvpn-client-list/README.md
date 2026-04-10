@@ -15,6 +15,12 @@ Lists all clients currently connected to an OpenVPN server by parsing the status
 * Requires root or sudo to read the OpenVPN status log file.
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

@@ -12,7 +12,7 @@ Checks the installed Mastodon version against the endoflife.date API and alerts 
 
 **Compatibility:**
 
-* Linux (requires local filesystem access to the Mastodon installation)
+* Cross-platform
 
 **Important Notes:**
 

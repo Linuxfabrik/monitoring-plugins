@@ -17,6 +17,12 @@ Monitors a Veeam Backup & Replication environment via the Veeam Enterprise Manag
 * The check always accepts self-signed Veeam certificates (`--insecure` defaults to True).
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

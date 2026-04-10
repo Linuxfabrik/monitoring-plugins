@@ -31,7 +31,7 @@ Checks Java memory pool usage (Eden, Survivor, Old Gen, Metaspace, Compressed Cl
 
 **Compatibility:**
 
-* See [additional notes for all wildfly monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.md)
+* Cross-platform
 
 
 ## Fact Sheet

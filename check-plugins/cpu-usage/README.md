@@ -20,7 +20,7 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 
 **Compatibility:**
 
-* Cross-platform: Linux, Windows, and all psutil-supported systems
+* Cross-platform
 
 
 ## Fact Sheet

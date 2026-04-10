@@ -12,7 +12,7 @@ Checks the number of messages in the mail queue using the `mailq` command. Alert
 
 **Compatibility:**
 
-* Linux (requires the `mailq` command)
+* Cross-platform
 
 **Important Notes:**
 

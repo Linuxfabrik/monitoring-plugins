@@ -13,7 +13,7 @@ Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, ale
 
 **Compatibility:**
 
-* Linux only
+* Linux
 
 **Important Notes:**
 

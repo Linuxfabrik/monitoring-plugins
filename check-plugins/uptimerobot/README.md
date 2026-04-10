@@ -12,7 +12,7 @@ Monitors all configured monitors on a given [UptimeRobot](https://uptimerobot.co
 
 **Compatibility:**
 
-* Any public UptimeRobot status page (e.g. `https://status.linuxfabrik.io`)
+* Cross-platform
 
 
 ## Fact Sheet

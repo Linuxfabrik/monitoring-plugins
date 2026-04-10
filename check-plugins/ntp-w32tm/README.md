@@ -14,6 +14,12 @@ Checks the Windows Time Service (w32tm) status, including clock offset, stratum,
 * Make sure that `cmd.exe` is set to English output. Otherwise this check plugin may not work.
 
 
+
+**Compatibility:**
+
+* Windows
+
+
 ## Fact Sheet
 
 | Fact | Value |

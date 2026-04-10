@@ -12,7 +12,7 @@ Retrieves recent activity and usage statistics from a Metabase instance via its 
 
 **Compatibility:**
 
-* Cross-platform: runs wherever the Metabase API is reachable (does not need to run on the Metabase server itself)
+* Cross-platform
 
 **Important Notes:**
 

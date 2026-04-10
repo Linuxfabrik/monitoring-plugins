@@ -15,7 +15,7 @@ Reports CPU and memory usage for all running Docker containers. CPU usage is nor
 
 **Compatibility:**
 
-* Cross-platform (Docker must be installed and the daemon running)
+* Cross-platform
 
 **Important Notes:**
 

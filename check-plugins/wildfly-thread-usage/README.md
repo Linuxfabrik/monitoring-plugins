@@ -11,7 +11,7 @@ Checks thread pool utilization on a WildFly/JBoss AS server via its HTTP-JSON ba
 
 **Compatibility:**
 
-* See [additional notes for all wildfly monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.md)
+* Cross-platform
 
 **Important Notes:**
 

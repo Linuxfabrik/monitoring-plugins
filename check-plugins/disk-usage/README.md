@@ -15,8 +15,7 @@ Checks used or free disk space for each mounted partition. By default, only phys
 
 **Compatibility:**
 
-* Cross-platform: Linux, Windows, and all psutil-supported systems
-* On Windows, mount point folder paths and drive letters are supported. Use drive letters without backslash (e.g. `Y:` or `Y`) for filtering. Parameter values with spaces must be enclosed in double quotes (single quotes do not work on Windows)
+* Cross-platform
 
 **Important Notes:**
 

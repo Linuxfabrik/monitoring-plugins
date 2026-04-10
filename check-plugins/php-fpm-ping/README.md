@@ -29,6 +29,12 @@ Checks whether PHP-FPM is alive by fetching its ping monitoring page. Returns OK
     ```
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

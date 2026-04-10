@@ -18,7 +18,7 @@ Checks the state of a specific systemd unit (service, socket, device, mount, tim
 
 **Compatibility:**
 
-* Linux with systemd
+* Linux
 
 
 ## Fact Sheet

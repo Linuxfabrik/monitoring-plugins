@@ -12,7 +12,7 @@ Checks the current disk usage of all systemd journal files (archived and active 
 
 **Compatibility:**
 
-* Linux only (systemd-based distributions)
+* Linux
 
 **Important Notes:**
 

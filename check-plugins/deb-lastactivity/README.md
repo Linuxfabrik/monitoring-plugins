@@ -11,7 +11,7 @@ Checks how long ago the last APT package manager activity occurred (install, upd
 
 **Compatibility:**
 
-* Cross-platform
+* Linux
 
 **Important Notes:**
 

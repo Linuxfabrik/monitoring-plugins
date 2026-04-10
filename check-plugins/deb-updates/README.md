@@ -13,7 +13,7 @@ Checks for available APT package updates on Debian, Ubuntu, and compatible syste
 
 **Compatibility:**
 
-* Cross-platform
+* Linux
 
 **Important Notes:**
 

@@ -13,7 +13,7 @@ Queries SMART (Self-Monitoring, Analysis, and Reporting Technology) data from ha
 
 **Compatibility:**
 
-* Cross-platform (requires `smartctl` from the `smartmontools` package)
+* Cross-platform
 
 **Important Notes:**
 

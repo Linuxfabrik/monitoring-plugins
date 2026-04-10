@@ -16,6 +16,12 @@ Retrieves recent events from the NodeBB event log via the admin API. Reports adm
 * Requires NodeBB v1.14.4+.
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

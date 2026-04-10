@@ -12,7 +12,7 @@ Checks the status of the last borgbackup run by parsing the borg logfile. Alerts
 
 **Compatibility:**
 
-* Linux only (relies on `/var/log/borg/borg.log` and `/proc/mounts`)
+* Linux
 
 **Important Notes:**
 

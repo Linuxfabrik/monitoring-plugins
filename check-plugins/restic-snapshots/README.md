@@ -20,7 +20,7 @@ Checks the age of the newest snapshot in a restic repository and alerts when the
 
 **Compatibility:**
 
-* Linux
+* Cross-platform
 
 
 ## Fact Sheet

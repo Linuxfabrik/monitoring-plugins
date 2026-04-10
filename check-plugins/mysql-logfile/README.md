@@ -19,6 +19,12 @@ Scans the MySQL/MariaDB error log for warnings, errors, startup, and shutdown ev
 * Depending on your site's policy, you could ignore lines matching patterns like "aborted connection" (happens frequently) or "access denied for user" (could be handled by Fail2ban)
 
 
+
+**Compatibility:**
+
+* Linux
+
+
 ## Fact Sheet
 
 | Fact | Value |

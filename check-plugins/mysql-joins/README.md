@@ -16,6 +16,12 @@ Checks the rate of joins executed without indexes in MySQL/MariaDB. A high numbe
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

@@ -17,6 +17,12 @@ Lists all OpenStack Nova compute instances (virtual servers) and checks their st
 * Requires the `python-novaclient` Python module.
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

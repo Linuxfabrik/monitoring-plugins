@@ -10,7 +10,7 @@ Queries the Name Service Switch (NSS) for entries in system databases such as gr
 
 **Compatibility:**
 
-* Linux
+* Cross-platform
 
 **Important Notes:**
 

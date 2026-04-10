@@ -16,6 +16,12 @@ Checks the InnoDB buffer pool instance configuration in MySQL/MariaDB. The numbe
 * `innodb_buffer_pool_instances` was removed in MariaDB 10.6.0. If the variable is not present, the check reports "Everything is ok (although nothing checked)."
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

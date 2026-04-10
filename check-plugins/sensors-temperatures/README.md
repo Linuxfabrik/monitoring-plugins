@@ -15,7 +15,7 @@ Reports hardware temperature sensor readings (CPU, disk, chipset, etc.) in Celsi
 
 **Compatibility:**
 
-* Linux and all psutil-supported systems with temperature sensors
+* Cross-platform
 
 
 ## Fact Sheet

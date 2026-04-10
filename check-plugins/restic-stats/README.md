@@ -21,7 +21,7 @@ Collects statistics across multiple snapshots in a restic repository, including 
 
 **Compatibility:**
 
-* Linux
+* Cross-platform
 
 
 ## Fact Sheet

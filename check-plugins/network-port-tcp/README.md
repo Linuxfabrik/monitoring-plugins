@@ -11,7 +11,7 @@ Checks whether a TCP network port is reachable by attempting to establish a conn
 
 **Compatibility:**
 
-* Cross-platform: Linux, Windows
+* Cross-platform
 
 **Important Notes:**
 

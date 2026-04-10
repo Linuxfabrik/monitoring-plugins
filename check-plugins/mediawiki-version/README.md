@@ -12,7 +12,7 @@ Checks the installed MediaWiki version against the endoflife.date API and alerts
 
 **Compatibility:**
 
-* Linux (requires local filesystem access to the MediaWiki installation)
+* Cross-platform
 
 
 ## Fact Sheet

@@ -11,7 +11,7 @@ Verifies that the system-wide cryptographic policy (as reported by update-crypto
 
 **Compatibility:**
 
-* Cross-platform
+* Linux
 
 **Important Notes:**
 

@@ -16,7 +16,7 @@ Monitors Rocket.Chat server statistics via the API, including total users, activ
 
 **Compatibility:**
 
-* Linux
+* Cross-platform
 
 
 ## Fact Sheet

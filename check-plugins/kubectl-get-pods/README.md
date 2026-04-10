@@ -13,7 +13,7 @@ Checks the health and status of Kubernetes pods by running `kubectl get pods` an
 
 **Compatibility:**
 
-* Requires the `kubectl` command-line tool (must be within one minor version difference of your cluster; see [installation](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/))
+* Cross-platform
 
 **Important Notes:**
 

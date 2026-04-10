@@ -23,7 +23,7 @@ Monitors non-XA datasource connection pool metrics on a WildFly/JBoss AS server 
 
 **Compatibility:**
 
-* See [additional notes for all wildfly monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.md)
+* Cross-platform
 
 
 ## Fact Sheet

@@ -23,8 +23,7 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 
 **Compatibility:**
 
-* Cross-platform: Linux, Windows, and all psutil-supported systems
-* On Linux with Kernel >= 4.18, requires `psutil` v5.7.0+ due to changes in `/proc/diskstats`
+* Linux
 
 **Important Notes:**
 

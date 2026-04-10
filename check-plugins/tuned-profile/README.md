@@ -10,7 +10,7 @@ Verifies that the current `tuned` profile matches the expected setting. Useful f
 
 **Compatibility:**
 
-* Linux with `tuned` installed
+* Linux
 
 
 ## Fact Sheet

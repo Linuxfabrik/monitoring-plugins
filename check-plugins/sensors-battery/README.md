@@ -14,7 +14,7 @@ Reports battery status information including charge percentage, time remaining, 
 
 **Compatibility:**
 
-* Linux and all psutil-supported systems with battery hardware
+* Cross-platform
 
 
 ## Fact Sheet

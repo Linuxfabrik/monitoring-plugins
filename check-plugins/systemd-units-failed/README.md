@@ -11,7 +11,7 @@ Checks for failed systemd units by running `systemctl --state=failed`. Reports a
 
 **Compatibility:**
 
-* Linux with systemd
+* Linux
 
 
 ## Fact Sheet

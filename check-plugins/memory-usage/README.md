@@ -13,7 +13,7 @@ Monitors system memory usage and alerts when the overall usage percentage exceed
 
 **Compatibility:**
 
-* Cross-platform: Linux, Windows, \*BSD, macOS
+* Cross-platform
 
 **Important Notes:**
 

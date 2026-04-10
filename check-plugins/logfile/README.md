@@ -13,7 +13,7 @@ Scans a logfile for matching patterns or regular expressions and alerts based on
 
 **Compatibility:**
 
-* Cross-platform: Linux, Windows
+* Cross-platform
 
 **Important Notes:**
 

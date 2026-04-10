@@ -13,7 +13,7 @@ Checks file sizes against configurable thresholds using human-readable units (e.
 
 **Compatibility:**
 
-* Cross-platform: Linux and Windows
+* Cross-platform
 
 **Important Notes:**
 

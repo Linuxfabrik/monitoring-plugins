@@ -16,6 +16,12 @@ Monitors NodeBB cache usage via the admin API. Alerts when cache utilization exc
 * Requires NodeBB v1.14.4+.
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

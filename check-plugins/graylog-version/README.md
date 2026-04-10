@@ -12,7 +12,7 @@ Checks the installed Graylog version against the endoflife.date API and alerts i
 
 **Compatibility:**
 
-* RHEL-based and Debian-based Linux distributions only (must run on the Graylog server itself)
+* Linux
 
 **Important Notes:**
 

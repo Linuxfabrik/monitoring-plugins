@@ -15,7 +15,7 @@ This plugin executes PowerShell commands or scripts on remote Windows hosts via 
 
 **Compatibility:**
 
-* Runs on Linux and connects to remote Windows hosts
+* Cross-platform
 
 **Important Notes:**
 

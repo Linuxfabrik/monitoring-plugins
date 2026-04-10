@@ -21,6 +21,12 @@ Checks current and maximum possible memory usage specifically for MySQL/MariaDB.
 * User account requires PROCESS privileges
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

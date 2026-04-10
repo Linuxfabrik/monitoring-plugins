@@ -19,7 +19,7 @@ Checks if firmware updates are available for a QNAP appliance running QTS by que
 
 **Compatibility:**
 
-* Linux only
+* Cross-platform
 
 
 ## Fact Sheet

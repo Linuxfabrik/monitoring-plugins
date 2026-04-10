@@ -12,8 +12,7 @@ Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and 
 
 **Compatibility:**
 
-* Windows DHCP Server (requires the DhcpServer PowerShell module)
-* Can be executed remotely from Linux via WinRM (`--winrm-hostname`)
+* Windows
 
 **Important Notes:**
 

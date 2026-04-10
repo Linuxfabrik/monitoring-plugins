@@ -18,6 +18,12 @@ Submits a URL to VirusTotal for analysis and checks the scan results. Alerts whe
 * See the [VirusTotal documentation](https://docs.virustotal.com/reference/public-vs-premium-api) on any constraints and restrictions, especially for commercial use (Premium API may be required for business workflows)
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

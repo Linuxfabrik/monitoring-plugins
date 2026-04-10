@@ -12,7 +12,7 @@ Reports how long the system has been running since the last boot. Optionally dis
 
 **Compatibility:**
 
-* Cross-platform: Linux and Windows
+* Cross-platform
 
 
 ## Fact Sheet

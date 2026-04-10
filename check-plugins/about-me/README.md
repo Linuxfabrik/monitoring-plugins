@@ -14,7 +14,7 @@ Collects and displays key system information: OS and kernel version, CPU configu
 
 **Compatibility:**
 
-* Linux only (relies on `systemctl`, `lsblk`, `/proc/mounts`, package managers like `rpm`/`dpkg`)
+* Linux
 
 **Important Notes:**
 

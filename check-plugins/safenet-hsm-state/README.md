@@ -17,7 +17,7 @@ Checks the current state of a Gemalto SafeNet ProtectServer Network HSM via SSH 
 
 **Compatibility:**
 
-* Linux
+* Cross-platform
 
 
 ## Fact Sheet

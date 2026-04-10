@@ -13,7 +13,7 @@ Parses a JSON object from a local file, HTTP/HTTPS URL, or SMB share and extract
 
 **Compatibility:**
 
-* Linux (SMB access requires the `PySmbClient` and `smbprotocol` Python modules)
+* Cross-platform
 
 
 ## Fact Sheet

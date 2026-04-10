@@ -12,7 +12,7 @@ Monitors the HIN (Health Info Net) status page for service disruptions. Parses t
 
 **Compatibility:**
 
-* Cross-platform (requires network access to the HIN status page)
+* Cross-platform
 
 **Important Notes:**
 

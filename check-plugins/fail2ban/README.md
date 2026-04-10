@@ -12,7 +12,7 @@ Checks the number of currently banned IP addresses across all fail2ban jails. Re
 
 **Compatibility:**
 
-* Linux only (requires fail2ban to be installed and running)
+* Linux
 
 
 ## Fact Sheet

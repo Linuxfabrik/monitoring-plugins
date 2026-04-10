@@ -12,7 +12,7 @@ Retrieves common analytics values from a Matomo instance, including visits, uniq
 
 **Compatibility:**
 
-* Cross-platform: runs wherever Matomo's REST API is reachable (does not need to run on the Matomo server itself)
+* Cross-platform
 
 **Important Notes:**
 

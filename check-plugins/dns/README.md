@@ -13,7 +13,7 @@ Performs a DNS lookup and resolves a hostname to one or more IP addresses. Queri
 
 **Compatibility:**
 
-* Cross-platform: Linux, Windows, and all Python-supported systems
+* Cross-platform
 
 
 ## Fact Sheet

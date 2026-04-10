@@ -10,7 +10,7 @@ Verifies that the current SELinux mode (enforcing, permissive, or disabled) matc
 
 **Compatibility:**
 
-* Linux (distributions with SELinux support)
+* Linux
 
 
 ## Fact Sheet

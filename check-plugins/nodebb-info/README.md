@@ -16,6 +16,12 @@ Retrieves NodeBB process and system information via the admin API, including Nod
 * Requires NodeBB v1.14.4+.
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

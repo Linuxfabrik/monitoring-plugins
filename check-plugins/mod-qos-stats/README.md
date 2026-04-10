@@ -16,6 +16,12 @@ Monitors Apache mod_qos status via the machine-readable status handler. Reports 
 * Requires `mod_qos` to be enabled and a `Location` configured with `SetHandler qos-viewer`
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

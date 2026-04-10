@@ -14,7 +14,7 @@ Queries the systemd journal using journalctl and alerts when matching entries ar
 
 **Compatibility:**
 
-* Linux systems using systemd/journald
+* Linux
 
 **Important Notes:**
 

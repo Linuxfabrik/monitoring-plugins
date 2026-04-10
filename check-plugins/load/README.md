@@ -11,7 +11,7 @@ Reports the average system load per CPU over the last 1, 5, and 15 minutes. Load
 
 **Compatibility:**
 
-* Cross-platform: Linux and all psutil-supported systems (psutil >= 5.6.2 for non-Linux)
+* Cross-platform
 
 
 ## Fact Sheet

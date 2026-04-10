@@ -13,7 +13,7 @@ Monitors an RSS or Atom feed for new entries and alerts when new items appear wi
 
 **Compatibility:**
 
-* Cross-platform: Linux, Windows, and all Python-supported systems
+* Cross-platform
 
 **Important Notes:**
 

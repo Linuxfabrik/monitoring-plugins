@@ -16,6 +16,12 @@ Monitors NodeBB group statistics via the admin API, including group count and me
 * Requires NodeBB v1.14.4+.
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

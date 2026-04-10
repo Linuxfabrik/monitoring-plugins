@@ -12,7 +12,7 @@ Checks the state of systemd-timesyncd, including synchronization status, server 
 
 **Compatibility:**
 
-* Linux systems using systemd-timesyncd for time synchronization
+* Cross-platform
 
 **Important Notes:**
 

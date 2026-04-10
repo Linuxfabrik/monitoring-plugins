@@ -19,6 +19,12 @@ Checks metrics of the Aria storage engine in MariaDB, including the page cache s
 * "total Aria indexes: 0.0B" means that there are no Aria-based tables at all, or the user performing the check does not have SELECT privileges on them
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

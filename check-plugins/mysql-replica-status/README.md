@@ -17,6 +17,12 @@ Checks the replication status of a MySQL/MariaDB replica, including I/O thread s
 * Can safely be run against standalone servers; it will report "This is a standalone server."
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

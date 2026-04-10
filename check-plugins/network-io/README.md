@@ -14,7 +14,7 @@ Monitors network I/O throughput per interface over time. Calculates bytes per se
 
 **Compatibility:**
 
-* Cross-platform: Linux, Windows, and all psutil-supported systems
+* Cross-platform
 
 **Important Notes:**
 

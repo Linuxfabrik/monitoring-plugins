@@ -12,7 +12,7 @@ Monitors swap space usage as a percentage of total swap. On Linux, optionally li
 
 **Compatibility:**
 
-* Cross-platform: Linux and Windows
+* Linux
 
 
 ## Fact Sheet

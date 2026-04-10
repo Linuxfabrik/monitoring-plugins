@@ -12,7 +12,7 @@ Counts the number of files matching a glob pattern and alerts when the count exc
 
 **Compatibility:**
 
-* Cross-platform: Linux and Windows
+* Cross-platform
 
 **Important Notes:**
 

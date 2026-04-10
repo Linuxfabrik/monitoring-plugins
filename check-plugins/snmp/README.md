@@ -24,7 +24,7 @@ Queries SNMP OIDs defined in a CSV file and checks the returned values against o
 
 **Compatibility:**
 
-* Linux
+* Cross-platform
 
 
 ## Fact Sheet

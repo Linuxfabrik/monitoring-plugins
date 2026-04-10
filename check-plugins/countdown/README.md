@@ -17,6 +17,12 @@ Counts down to one or more user-defined expiration dates, such as certificate re
 * Already expired dates are always reported with their respective threshold state
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

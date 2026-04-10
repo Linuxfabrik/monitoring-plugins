@@ -12,7 +12,7 @@ Lists all virtual machines on a KVM host using `virsh list --all` and checks the
 
 **Compatibility:**
 
-* Linux with KVM/libvirt and the `virsh` command-line tool
+* Linux
 
 **Important Notes:**
 

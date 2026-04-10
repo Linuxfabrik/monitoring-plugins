@@ -12,7 +12,7 @@ Checks the installed Matomo version against the endoflife.date API and alerts if
 
 **Compatibility:**
 
-* Linux (requires local filesystem access to the Matomo installation)
+* Cross-platform
 
 
 ## Fact Sheet

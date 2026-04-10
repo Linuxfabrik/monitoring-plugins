@@ -50,6 +50,12 @@ Create API Credentials:
 Note the api_identifier and the api_secret. You will need both to configure this plugin.
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

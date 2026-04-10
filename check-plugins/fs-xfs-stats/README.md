@@ -11,7 +11,7 @@ Reports internal XFS filesystem statistics from `/proc/fs/xfs/stat`. Useful for 
 
 **Compatibility:**
 
-* Linux systems with at least one mounted XFS filesystem
+* Linux
 
 
 ## Fact Sheet

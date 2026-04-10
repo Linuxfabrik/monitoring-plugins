@@ -20,7 +20,7 @@ Monitors running processes and alerts on process count, aggregated memory usage,
 
 **Compatibility:**
 
-* Cross-platform: Linux and Windows
+* Cross-platform
 
 
 ## Fact Sheet

@@ -17,7 +17,7 @@ Imports a CSV file (local, remote via URL, or from an SMB share) into a temporar
 
 **Compatibility:**
 
-* Linux (SMB access requires `PySmbClient` and `smbprotocol` Python modules)
+* Cross-platform
 
 **Important Notes:**
 

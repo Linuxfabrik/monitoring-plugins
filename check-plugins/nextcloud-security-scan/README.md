@@ -17,6 +17,12 @@ Checks the security of a Nextcloud (or ownCloud) server using the Nextcloud secu
 * After a re-scan is triggered, it takes about 5 minutes until the new result is available
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

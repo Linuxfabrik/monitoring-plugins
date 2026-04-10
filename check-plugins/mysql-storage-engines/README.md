@@ -20,6 +20,12 @@ Checks storage engine configuration in MySQL/MariaDB, including fragmented table
 * Requires MySQL/MariaDB v5.5+
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

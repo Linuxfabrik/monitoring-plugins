@@ -17,6 +17,12 @@ Checks OpenStack Swift object storage account statistics, including total contai
 * Might take more than 10 seconds to execute depending on the number of containers.
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

@@ -16,6 +16,12 @@ Retrieves recent server-side errors from NodeBB via the admin API. Alerts when e
 * Requires NodeBB v1.14.4+.
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |

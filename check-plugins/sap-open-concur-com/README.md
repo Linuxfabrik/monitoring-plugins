@@ -17,7 +17,7 @@ Monitors the SAP Concur Open status page (<https://open.concur.com>) for active 
 
 **Compatibility:**
 
-* Linux
+* Cross-platform
 
 
 ## Fact Sheet

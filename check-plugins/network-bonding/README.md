@@ -11,7 +11,7 @@ Reports the state of network bonding (channel bonding) interfaces. Checks that a
 
 **Compatibility:**
 
-* Linux only
+* Linux
 
 
 ## Fact Sheet

@@ -16,6 +16,12 @@ Checks performance-related best practice configurations for MySQL/MariaDB, inclu
 * Requires MySQL/MariaDB v5.5+
 
 
+
+**Compatibility:**
+
+* Cross-platform
+
+
 ## Fact Sheet
 
 | Fact | Value |
