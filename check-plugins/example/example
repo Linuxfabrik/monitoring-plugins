@@ -8,8 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the check's README for more details.
-"""
+"""See the check's README for more details."""
 
 import argparse
 import re
@@ -22,7 +21,7 @@ import lib.human
 import lib.lftest
 import lib.shell
 import lib.time
-from lib.globals import (STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN)
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 try:
     import psutil
@@ -34,11 +33,11 @@ except ImportError:
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040903'
 
-DESCRIPTION = '''Skeleton plugin demonstrating all standard patterns and library functions:
+DESCRIPTION = """Skeleton plugin demonstrating all standard patterns and library functions:
 argparse with append/deprecated/suppress parameters, (success, result) error handling,
 SQLite delta calculations (no continuous counters), regex filtering, --lengthy table output,
 human-readable formatting (bytes, seconds, numbers), perfdata, get_state/get_worst, and
-Grafana-compatible panel design.'''
+Grafana-compatible panel design."""
 
 DEFAULT_CRIT = 90
 DEFAULT_LENGTHY = False
@@ -48,12 +47,12 @@ DEFAULT_WARN = 80
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
     )
@@ -67,9 +66,9 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
-        help='Set the CRIT threshold as a percentage. '
-             'Default: >= %(default)s',
+        '-c',
+        '--critical',
+        help='Set the CRIT threshold as a percentage. Default: >= %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
@@ -87,9 +86,9 @@ def parse_args():
     parser.add_argument(
         '--ignore-regex',
         help='Any english title matching this python regex will be ignored '
-             '(repeating). '
-             'Example: \'(?i)linuxfabrik\' for a case-insensitive search for '
-             '"linuxfabrik".',
+        '(repeating). '
+        "Example: '(?i)linuxfabrik' for a case-insensitive search for "
+        '"linuxfabrik".',
         action='append',
         default=None,
         dest='IGNORE_REGEX',
@@ -110,7 +109,7 @@ def parse_args():
     parser.add_argument(
         '--module',
         help='"modulename" to check (startswith), for example '
-             '`--module json --module mbstring` (repeating)',
+        '`--module json --module mbstring` (repeating)',
         dest='MODULE',
         action='append',
         default=None,
@@ -132,7 +131,7 @@ def parse_args():
     parser.add_argument(
         '--name',
         help='Only check items with this name (repeating). '
-             'If not specified, all items are checked.',
+        'If not specified, all items are checked.',
         dest='NAME',
         action='append',
         default=None,
@@ -147,8 +146,7 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. '
-             'Default: %(default)s (seconds)',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -162,9 +160,9 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
-        help='Set the WARN threshold as a percentage. '
-             'Default: >= %(default)s',
+        '-w',
+        '--warning',
+        help='Set the WARN threshold as a percentage. Default: >= %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -189,8 +187,7 @@ def get_data(cmd, timeout):
 
 
 def main():
-    """The main function. This is where the magic happens.
-    """
+    """The main function. This is where the magic happens."""
 
     # parse the command line
     try:
@@ -199,9 +196,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # set default values for append parameters that were not specified
-    if args.IGNORE_REGEX is None:        # case 1: default to empty list
+    if args.IGNORE_REGEX is None:  # case 1: default to empty list
         args.IGNORE_REGEX = []
-    if args.MODULE is None:              # case 2: default to non-empty list
+    if args.MODULE is None:  # case 2: default to non-empty list
         args.MODULE = DEFAULT_MODULE
     # args.NAME is not set here          # case 3: None means "check all"
 
@@ -211,11 +208,11 @@ def main():
             filename='linuxfabrik-monitoring-plugins-example.db',
         ),
     )
-    definition = '''
+    definition = """
         name        TEXT NOT NULL,
         rx_bytes    INT NOT NULL,
         timestamp   INT NOT NULL
-    '''
+    """
     lib.base.coe(lib.db_sqlite.create_table(conn, definition, drop_table_first=False))
     lib.base.coe(lib.db_sqlite.create_index(conn, 'name'))
 
@@ -235,9 +232,7 @@ def main():
 
     # compile user-supplied regex patterns
     try:
-        compiled_ignore_regex = [
-            re.compile(item) for item in args.IGNORE_REGEX
-        ]
+        compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
     except re.error:
         lib.base.cu('Unable to compile regex.')
 
@@ -263,23 +258,27 @@ def main():
 
     # store current measurement and calculate delta from previous run
     now = lib.time.now()
-    lib.base.coe(lib.db_sqlite.insert(
-        conn,
-        {'name': title, 'rx_bytes': rx_bytes, 'timestamp': now},
-    ))
+    lib.base.coe(
+        lib.db_sqlite.insert(
+            conn,
+            {'name': title, 'rx_bytes': rx_bytes, 'timestamp': now},
+        )
+    )
     lib.base.coe(lib.db_sqlite.cut(conn, _max=2))
     lib.base.coe(lib.db_sqlite.commit(conn))
 
-    rows = lib.base.coe(lib.db_sqlite.select(
-        conn,
-        '''
+    rows = lib.base.coe(
+        lib.db_sqlite.select(
+            conn,
+            """
         SELECT *
         FROM perfdata
         WHERE name = :name
         ORDER BY timestamp DESC
-        ''',
-        {'name': title},
-    ))
+        """,
+            {'name': title},
+        )
+    )
     if len(rows) < 2:
         lib.db_sqlite.close(conn)
         lib.base.oao('Waiting for more data.', STATE_OK)
@@ -290,10 +289,12 @@ def main():
     rx_bytes_per_second = int(
         float(rows[0]['rx_bytes'] - rows[1]['rx_bytes']) / timestamp_diff,
     )
-    if any([
-        timestamp_diff < 0,
-        rx_bytes_per_second < 0,
-    ]):
+    if any(
+        [
+            timestamp_diff < 0,
+            rx_bytes_per_second < 0,
+        ]
+    ):
         # happens after a reboot
         lib.db_sqlite.close(conn)
         lib.base.oao('Waiting for more data.', STATE_OK)
@@ -326,18 +327,22 @@ def main():
 
     # build table output
     if args.LENGTHY:
-        table_data.append({
-            'title': title,
-            'type': 'Lorem',
-            'value': f'{value}%{lib.base.state2str(item_state, prefix=" ")}',
-        })
+        table_data.append(
+            {
+                'title': title,
+                'type': 'Lorem',
+                'value': f'{value}%{lib.base.state2str(item_state, prefix=" ")}',
+            }
+        )
         keys = ['title', 'type', 'value']
         headers = ['Title', 'Type', 'Value']
     else:
-        table_data.append({
-            'title': title,
-            'value': f'{value}%{lib.base.state2str(item_state, prefix=" ")}',
-        })
+        table_data.append(
+            {
+                'title': title,
+                'value': f'{value}%{lib.base.state2str(item_state, prefix=" ")}',
+            }
+        )
         keys = ['title', 'value']
         headers = ['Title', 'Value']
     msg += '\n\n' + lib.base.get_table(

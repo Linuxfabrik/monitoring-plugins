@@ -16,6 +16,7 @@ Monitors system-wide CPU utilization with sustained load detection to avoid fals
 * System-wide aggregate CPU statistics (not per-core)
 * Non-blocking measurement using SQLite state persistence between runs
 * Platform-specific extended metrics where available (context switches, interrupts, soft interrupts)
+
 **Compatibility:**
 
 * Cross-platform: Linux, Windows, and all psutil-supported systems

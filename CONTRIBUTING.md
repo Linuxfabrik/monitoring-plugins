@@ -585,6 +585,8 @@ A monitoring plugin has to calculate such values always on its own. If this is n
 
 We use [PEP 8 -- Style Guide for Python Code](https://www.python.org/dev/peps/pep-0008/) where it makes sense.
 
+**String quoting:** Use single quotes as the default. Use double quotes only inside f-string expressions (e.g. `f'{lib.base.state2str(state, prefix=" ")}'`) or when the string itself contains single quotes (e.g. `'Python module "psutil" is not installed.'`). Use `"""` for all triple-quoted strings (docstrings, `DESCRIPTION`, SQL, etc.). This is enforced by `ruff format`.
+
 
 ### Docstrings
 
@@ -828,6 +830,43 @@ To run `check2basket` against all checks, for example due to a change in the `ch
 If you want to create a Service Set, edit `assets/icingaweb2-module-director/all-the-rest.json` and append the definition using JSON. Provide new unique UUIDs. Do a syntax check using `cat assets/icingaweb2-module-director/all-the-rest.json | jq` afterwards.
 
 If you want to move a service from one Service Set to another, you have to create a new UUID for the new service (this isn't even possible in the Icinga Director GUI).
+
+
+### README Structure
+
+Each plugin README follows a fixed structure. See [check-plugins/example/README.md](check-plugins/example/README.md) for the reference template. The sections are:
+
+1. **Overview**: Describes *what* the plugin does. A leading sentence stating the main purpose. This must include at least the text from the plugin's `DESCRIPTION` variable. Followed by subsections:
+
+    * **Data Collection**: How data is gathered (shell command, API, psutil, etc.), filtering options, SQLite usage, non-blocking measurement.
+    * **Compatibility**: Supported platforms, required tools or modules.
+    * **Important Notes** (optional): Operational edge cases the admin must know before deploying, for example: "Requires sudo", "Only works with Redis 3.0+", "First run returns OK with 'Waiting for more data.'", "After a reboot, counters reset and the check waits for a new baseline". No implementation details - only things that affect deployment and daily operations.
+
+2. **Fact Sheet**: Key properties as a table (download link, check name, check interval, parameters required, Windows support, 3rd party modules, state file path, etc.). Only list applicable rows.
+
+    | Fact | Value |
+    |----|----|
+    | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/example> |
+    | Nagios/Icinga Check Name              | `check_example` (for SEO: helps admins find the plugin when searching for the traditional Nagios-style name) |
+    | Check Interval Recommendation         | Every minute, Every 5/15/30 minutes, Every hour, Every 4/8/12 hours, Every day, Every week |
+    | Can be called without parameters      | Yes/No |
+    | Compiled for Windows                  | Yes (when `.windows` file exists)/No (runs with Python interpreter) |
+    | Requirements                          | command-line tool `foo`; User with higher permissions |
+    | 3rd Party Python modules              | `module-name` |
+    | Handles Periods                       | Yes (alerts only after `--count` consecutive threshold violations) |
+    | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-<plugin-name>.db` |
+
+3. **Help**: The full `--help` output in a code block. Regenerate via `tools/update-readmes`.
+
+4. **Usage Examples**: One or more realistic invocations with their output. Show at least one OK case. If the plugin has `--lengthy`, show both variants.
+
+5. **States**: Describes *when* the plugin returns which state. Be precise about OK, WARN, CRIT, UNKNOWN conditions (e.g. "WARN if the percentage value is >= `--warning`"). Include `--always-ok` behavior, consecutive-run requirements, and first-run/reboot edge cases.
+
+6. **Perfdata / Metrics**: Table with columns Name, Type, Description. Types: `Bytes`, `Number`, `Percentage`, `Seconds`. Where possible, use the metric descriptions from the vendor's official documentation (e.g. Redis INFO, psutil docs, API references).
+
+7. **Troubleshooting** (optional): Known error messages with their solutions. Format: error message in backticks on its own line, followed by two trailing spaces for a Markdown line break, solution on the next line. Separate entries with a blank line.
+
+8. **Credits, License**: Always present.
 
 
 ### Grafana Dashboards

@@ -2,50 +2,45 @@
 
 ## Overview
 
-Help text from check command.
+Skeleton plugin demonstrating all standard patterns and library functions: argparse with append/deprecated/suppress parameters, (success, result) error handling, SQLite delta calculations (no continuous counters), regex filtering, `--lengthy` table output, human-readable formatting (bytes, seconds, numbers), perfdata, get_state/get_worst, and Grafana-compatible panel design. Use this as a template for new check plugins.
 
-Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+**Data Collection:**
 
-Hints:
+* Executes a shell command (`cat /etc/os-release` as a placeholder) to collect data
+* Items can be filtered by `--name` (exact match) and excluded by `--ignore-regex` (Python regular expression)
+* Uses SQLite state persistence between runs to calculate deltas (e.g. bytes per second)
+* On the first run, returns "Waiting for more data." until at least two measurements are available
+* After a system reboot, counter values may be lower than the previous measurement. The check detects this (negative delta) and returns "Waiting for more data." until the next valid measurement pair
 
-* Might be useful.
-* Could help.
+**Compatibility:**
 
+* Cross-platform: Linux, Windows, and all psutil-supported systems
 
 ## Fact Sheet
 
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/example> |
-| Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | Yes\|No |
-| Compiled for Windows                  | Yes\|No |
-| Requirements                          | command-line tool `foo`; User with higher permissions |
+| Nagios/Icinga Check Name              | `check_example` |
+| Check Interval Recommendation         | Every minute |
+| Can be called without parameters      | No (`--token` is required) |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `psutil` |
-| Handles Periods                       | Yes |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-example.db` |
-| Perfdata compatible with Prometheus   | Yes |
-
-Hints for the Author (delete those):
-
-* Check Interval Recommendation: other texts are "Every 15 minutes", "Once a day" etc.
-* Available for: delete inappropriate ones
-* Requirements: delete if none
-* Handles Periods: delete if not
-* Uses SQLite DBs: delete if not
-* Perfdata compatible with Prometheus: delete if not
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-example.db` |
 
 
 ## Help
 
 ```text
 usage: example [-h] [-V] [--always-ok] [-c CRIT] [--ignore-regex IGNORE_REGEX]
-               [--module MODULE] [--name NAME] [--test TEST] --token TOKEN
-               [-w WARN]
+               [--lengthy] [--module MODULE] [--name NAME] [--test TEST]
+               [--timeout TIMEOUT] --token TOKEN [-w WARN]
 
-A working Linuxfabrik monitoring plugin, written in Python 3, as a basis for
-further development, and much more text to help admins get this check up and
-running.
+Skeleton plugin demonstrating all standard patterns and library functions:
+argparse with append/deprecated/suppress parameters, (success, result) error
+handling, SQLite delta calculations (no continuous counters), regex filtering,
+--lengthy table output, human-readable formatting (bytes, seconds, numbers),
+perfdata, get_state/get_worst, and Grafana-compatible panel design.
 
 options:
   -h, --help            show this help message and exit
@@ -56,12 +51,14 @@ options:
                         Any english title matching this python regex will be
                         ignored (repeating). Example: '(?i)linuxfabrik' for a
                         case-insensitive search for "linuxfabrik".
+  --lengthy             Extended reporting.
   --module MODULE       "modulename" to check (startswith), for example
                         `--module json --module mbstring` (repeating)
   --name NAME           Only check items with this name (repeating). If not
                         specified, all items are checked.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --token TOKEN         Software API token
   -w, --warning WARN    Set the WARN threshold as a percentage. Default: >= 80
 ```
@@ -70,48 +67,64 @@ options:
 ## Usage Examples
 
 ```bash
-./example --warning 80 --critical 90 --count 5
+./example --token=mytoken --warning=80 --critical=90
 ```
 
-Output:
+Output (first run):
 
 ```text
-Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod
-tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam,
-quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo
-consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse
-cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non
-proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+Waiting for more data.
+```
+
+Output (subsequent runs):
+
+```text
+42% used, up 1D 10h, since 2026-04-09 06:30:44, 1.0GiB/s, 42K items
+
+Title       ! Value
+------------+------
+Lorem ipsum ! 42%
+```
+
+With `--lengthy`:
+
+```text
+42% used, up 1D 10h, since 2026-04-09 06:30:44, 1.0GiB/s, 42K items
+
+Title       ! Type  ! Value
+------------+-------+------
+Lorem ipsum ! Lorem ! 42%
 ```
 
 
 ## States
 
-* Always returns OK.
-* WARN or CRIT if any condition.
+* OK if the percentage value is below the warning threshold.
+* OK with "Waiting for more data." on the first run or after a reboot.
+* WARN if the percentage value is >= `--warning` (default: 80).
+* CRIT if the percentage value is >= `--critical` (default: 90).
+* UNKNOWN on missing Python modules, invalid `--ignore-regex` patterns, or invalid command-line arguments.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-There is no perfdata.
-
-OR
-
 | Name | Type | Description |
 |----|----|----|
-| allocation_btree_compares_total | Continous Counter | Number of allocation B-tree compares for a filesystem. |
-| allocation_btree_lookups_total | Bytes | Number of allocation B-tree lookups for a filesystem. |
-| allocation_btree_lookups_total | Percentage | Number of allocation B-tree lookups for a filesystem. |
-| allocation_btree_lookups_total | None | Number of allocation B-tree lookups for a filesystem. |
+| cpu-usage | Percentage | The measured percentage value. |
+| rx-bytes-per-second | Bytes | Received bytes per second, calculated as delta between two consecutive check runs. |
 
 
 ## Troubleshooting
 
-My Error Message 1  
-My Solution goes here.
+`Python module "psutil" is not installed.`  
+Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
-My Error Message 2  
-My Solution goes here.
+`Waiting for more data.`  
+This is expected on the first run. The check needs at least two measurements to calculate a delta. Wait for the next check interval.
+
+`Unable to compile regex.`  
+The pattern passed via `--ignore-regex` is not a valid Python regular expression. Check the syntax at <https://docs.python.org/3/library/re.html>.
 
 
 ## Credits, License

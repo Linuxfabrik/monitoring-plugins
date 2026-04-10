@@ -14,13 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+* Add ruff linter and formatter to pre-commit hooks, enforce single-quote style
 * CONTRIBUTING: add "no continuous counters" policy with rationale and link to example plugin ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 * CONTRIBUTING: add early reference to example plugin as skeleton for new plugins
 * CONTRIBUTING: add Grafana migration note for grafanactl ([#1062](https://github.com/Linuxfabrik/monitoring-plugins/issues/1062))
+* CONTRIBUTING: add PEP 8 string quoting convention (single quotes, `"""` for triple-quoted)
+* CONTRIBUTING: add README structure guidelines with fixed section order, Fact Sheet template, and Nagios/Icinga check name for SEO
 * CONTRIBUTING: rewrite unit-test section with declarative test pattern, naming conventions, and tox usage
 * CONTRIBUTING: run pylint without `--disable` flags
 * CONTRIBUTING: remove inline `pylint: disable` comments from code examples
 * example: rewrite as comprehensive skeleton covering all standard patterns (argparse, SQLite delta calculations, regex filtering, `--lengthy` table output, human-readable formatting, get_state/get_worst, Grafana-compatible perfdata)
+* example: rewrite README as skeleton template with Overview, Fact Sheet, States, Perfdata, and Troubleshooting sections
 * Update and extend pre-commit hooks (add `check-added-large-files`, `check-merge-conflict`, `check-yaml`; update all hook versions)
 * Unify CONTRIBUTING and enhance it with the official Monitoring Plugins and Nagios Plugin Development Guidelines
 
