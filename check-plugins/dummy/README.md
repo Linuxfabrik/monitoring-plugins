@@ -62,7 +62,7 @@ A warning message.|85,%,80,90,0,100
 
 | Name | Type | Description |
 |----|----|----|
-| (user-defined) | (user-defined) | Returns the perfdata given by `--perfdata`, or none if not specified. |
+| \<user-defined> | \<user-defined> | Returns the perfdata given by `--perfdata`, or none if not specified. |
 
 
 ## Credits, License

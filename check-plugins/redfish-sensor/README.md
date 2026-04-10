@@ -119,15 +119,7 @@ Depends on your hardware. Each sensor from the Redfish Chassis collection is rep
 
 | Name | Type | Description |
 |----|----|----|
-| \<chassis\>_\<sensor-name\> | Number | Sensor reading. Examples: `Chassis_Chassis_Fan_1`, `CPU_CPU_1_Temperature`, `Memory_DIMM_1_Temperature`, `PowerSupply_Power_Supply_1_12V_Output_Voltage`. |
-* PowerSupply_Power_Supply_1_5V_Output_Current
-* PowerSupply_Power_Supply_1_5V_Output_Voltage
-* PowerSupply_Power_Supply_1_Energy
-* PowerSupply_Power_Supply_1_Frequency
-* PowerSupply_Power_Supply_1_Input_Current
-* PowerSupply_Power_Supply_1_Input_Power
-* PowerSupply_Power_Supply_1_Input_Voltage
-* Room_Ambient_Temperature
+| \<chassis\>_\<sensor-name\> | Number | Sensor reading. Examples: `Chassis_Chassis_Fan_1`, `CPU_CPU_1_Temperature`, `Memory_DIMM_1_Temperature`
 
 
 ## Credits, License

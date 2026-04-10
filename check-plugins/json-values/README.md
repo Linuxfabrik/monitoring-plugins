@@ -102,7 +102,7 @@ This is a test message|'cpu-usage'=5.6%;80;90;0;100
 
 | Name | Type | Description |
 |----|----|----|
-| (from JSON) | (from JSON) | Returns the perfdata string from the JSON object as-is (key specified by `--perfdata-key`). |
+| \<from JSON> | \<from JSON> | Returns the perfdata string from the JSON object as-is (key specified by `--perfdata-key`). |
 
 
 ## Troubleshooting
