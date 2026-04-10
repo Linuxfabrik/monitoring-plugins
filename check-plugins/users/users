@@ -20,7 +20,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041001'
 
 DESCRIPTION = """Counts the number of currently logged-in users by session type: tty (console) and pts
 (SSH on Linux, RDP on Windows). On Windows, also counts disconnected sessions (closed
@@ -155,6 +155,9 @@ def main():
         CRIT_PTS = lib.args.int_or_none(args.CRIT[1])
     except Exception:
         lib.base.cu('Unexpected parameter values for --warning and/or --critical.')
+
+    WARN_DISC = None
+    CRIT_DISC = None
 
     # fetch data
     if args.TEST is None:
