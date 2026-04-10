@@ -68,7 +68,9 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='Set the CRIT threshold as a percentage. Default: >= %(default)s',
+        help='Set the CRIT threshold as a percentage. '
+        'Supports Nagios ranges. '
+        'Default: >= %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
@@ -85,18 +87,27 @@ def parse_args():
     #         Assign `[]` as the default in main().
     parser.add_argument(
         '--ignore-regex',
-        help='Any english title matching this python regex will be ignored '
-        '(repeating). '
-        "Example: '(?i)linuxfabrik' for a case-insensitive search for "
-        '"linuxfabrik".',
+        help='Any item matching this Python regex will be ignored. '
+        'Case-insensitive. '
+        'Can be specified multiple times. '
+        'Example: `(?i)linuxfabrik`',
         action='append',
         default=None,
         dest='IGNORE_REGEX',
     )
 
     parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows insecure SSL connections. '
+        'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '--lengthy',
-        help='Extended reporting.',
+        help='Extended reporting. Default: %(default)s',
         dest='LENGTHY',
         action='store_true',
         default=DEFAULT_LENGTHY,
@@ -108,8 +119,9 @@ def parse_args():
     #         Assign `DEFAULT_X` as the default in main().
     parser.add_argument(
         '--module',
-        help='"modulename" to check (startswith), for example '
-        '`--module json --module mbstring` (repeating)',
+        help='"modulename" to check (startswith). '
+        'Can be specified multiple times. '
+        'Example: `--module json --module mbstring`',
         dest='MODULE',
         action='append',
         default=None,
@@ -130,7 +142,8 @@ def parse_args():
     #         where the parameter is used: `if args.X is not None`.
     parser.add_argument(
         '--name',
-        help='Only check items with this name (repeating). '
+        help='Only check items with this name. '
+        'Can be specified multiple times. '
         'If not specified, all items are checked.',
         dest='NAME',
         action='append',
@@ -138,8 +151,17 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '--test',
-        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        help='For unit tests. '
+        'Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
         type=lib.args.csv,
     )
@@ -154,15 +176,24 @@ def parse_args():
 
     parser.add_argument(
         '--token',
-        help='Software API token',
+        help='Software API token.',
         dest='TOKEN',
         required=True,
     )
 
     parser.add_argument(
+        '--url',
+        help='URL to the endpoint. Default: %(default)s',
+        dest='URL',
+        default='http://localhost',
+    )
+
+    parser.add_argument(
         '-w',
         '--warning',
-        help='Set the WARN threshold as a percentage. Default: >= %(default)s',
+        help='Set the WARN threshold as a percentage. '
+        'Supports Nagios ranges. '
+        'Default: >= %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,

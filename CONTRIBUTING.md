@@ -355,6 +355,72 @@ def parse_args():
 * A plugin should tolerate unknown parameters. Imagine an monitoring system that checks thousand hosts. You want to update a plugin offering a new parameter that is essential for you, so you adjust the service definition, add the new parameter and update the plugin on one host. The non-updated plugin on the other 999 hosts will throw an 'UNKNOWN' error when argparse is used with `parser.parse_args()`. This would significantly disrupt operations and cause stress. Therefore, it makes more sense to be tolerant and use `parser.parse_known_args()`.
 
 
+#### Parameter Help Text Format
+
+Help texts must be consistent across all plugins. Each property of a parameter goes on its own line (using Python implicit string concatenation). This makes it easy to scan, compare, and maintain. The order is:
+
+1. Purpose (what the parameter does)
+2. Data type or format (if not obvious)
+3. Regex or case-sensitivity note (if applicable)
+4. Repeating note (if applicable)
+5. Nagios range support (if applicable)
+6. Example (if helpful)
+7. Default value (always last, always present if there is one)
+
+Standard help texts for common parameters (use these verbatim):
+
+```python
+# always-ok
+help='Always returns OK.',
+
+# critical / warning (with Nagios ranges)
+help='Set the CRIT threshold as a percentage. '
+'Supports Nagios ranges. '
+'Default: >= %(default)s',
+
+# ignore-regex
+help='Any item matching this Python regex will be ignored. '
+'Case-insensitive. '
+'Can be specified multiple times. '
+'Example: `(?i)linuxfabrik`',
+
+# insecure
+help='This option explicitly allows insecure SSL connections. '
+'Default: %(default)s',
+
+# lengthy
+help='Extended reporting. '
+'Default: %(default)s',
+
+# no-proxy
+help='Do not use a proxy. '
+'Default: %(default)s',
+
+# test
+help='For unit tests. '
+'Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+
+# timeout
+help='Network timeout in seconds. '
+'Default: %(default)s (seconds)',
+
+# url
+help='URL to the endpoint. '
+'Default: %(default)s',
+```
+
+Rules:
+
+* Use `%(default)s` for defaults, never hardcode the value.
+* Defaults and examples go on their own lines.
+* Say "Can be specified multiple times." for `action='append'` parameters (not "(repeating)").
+* Say "Supports Nagios ranges." when `lib.base.get_state()` is used with the value.
+* Say "Case-insensitive." when the regex is compiled with `re.IGNORECASE` or uses `(?i)`.
+* Say "Uses Python regular expressions." when the parameter accepts a regex.
+* End every help text with a period.
+* Parameters that are identical across plugins must use identical help texts.
+
+
 ### Commit Scopes
 
 Use the plugin name as commit scope:
