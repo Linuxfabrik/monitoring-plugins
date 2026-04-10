@@ -57,9 +57,12 @@ def parse_args():
         version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
+    # Standard parameters: use lib.args.help() for globally consistent help texts.
+    # Plugin-specific parameters: write help text inline, following the same format.
+
     parser.add_argument(
         '--always-ok',
-        help='Always returns OK.',
+        help=lib.args.help('--always-ok'),
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
@@ -68,9 +71,7 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='Set the CRIT threshold as a percentage. '
-        'Supports Nagios ranges. '
-        'Default: >= %(default)s',
+        help=lib.args.help('--critical'),
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
@@ -87,10 +88,7 @@ def parse_args():
     #         Assign `[]` as the default in main().
     parser.add_argument(
         '--ignore-regex',
-        help='Any item matching this Python regex will be ignored. '
-        'Case-insensitive. '
-        'Can be specified multiple times. '
-        'Example: `(?i)linuxfabrik`',
+        help=lib.args.help('--ignore-regex'),
         action='append',
         default=None,
         dest='IGNORE_REGEX',
@@ -98,8 +96,7 @@ def parse_args():
 
     parser.add_argument(
         '--insecure',
-        help='This option explicitly allows insecure SSL connections. '
-        'Default: %(default)s',
+        help=lib.args.help('--insecure'),
         dest='INSECURE',
         action='store_true',
         default=False,
@@ -107,7 +104,7 @@ def parse_args():
 
     parser.add_argument(
         '--lengthy',
-        help='Extended reporting. Default: %(default)s',
+        help=lib.args.help('--lengthy'),
         dest='LENGTHY',
         action='store_true',
         default=DEFAULT_LENGTHY,
@@ -152,7 +149,7 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. Default: %(default)s',
+        help=lib.args.help('--no-proxy'),
         dest='NO_PROXY',
         action='store_true',
         default=False,
@@ -160,15 +157,14 @@ def parse_args():
 
     parser.add_argument(
         '--test',
-        help='For unit tests. '
-        'Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        help=lib.args.help('--test'),
         dest='TEST',
         type=lib.args.csv,
     )
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        help=lib.args.help('--timeout'),
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -183,7 +179,7 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='URL to the endpoint. Default: %(default)s',
+        help=lib.args.help('--url'),
         dest='URL',
         default='http://localhost',
     )
@@ -191,9 +187,7 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='Set the WARN threshold as a percentage. '
-        'Supports Nagios ranges. '
-        'Default: >= %(default)s',
+        help=lib.args.help('--warning'),
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
