@@ -8,7 +8,6 @@ Monitors PHP-FPM pool performance via the status page. Reports active processes,
 
 * Requires a configured PHP-FPM status page (e.g. `pm.status_path = /fpm-status` in `/etc/php-fpm.d/<poolname>.conf`)
 
-
 PHP-FPM config example:
 
 ```text
@@ -24,7 +23,6 @@ Alias /fpm-status /dev/null
     ProxyPass unix:/run/php-fpm/www.sock|fcgi://localhost/fpm-status
 </LocationMatch>
 ```
-
 
 **Data Collection:**
 

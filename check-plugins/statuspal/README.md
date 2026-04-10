@@ -4,13 +4,6 @@
 
 Monitors a [Statuspal](https://www.statuspal.io/) status page, checking overall status, service states, active incidents, and scheduled maintenances.
 
-
-**Important Notes:**
-
-* Statuspal has EU (`statuspal.eu`) and US (`statuspal.io`) endpoints
-* You need to provide the URL to the Statuspal API `summary` endpoint
-* API Documentation: <https://www.statuspal.io/api-docs/v2>
-
 List of public Statuspal sites - Europe:
 
 * <https://statuspal.eu/api/v2/status_pages/a/summary>
@@ -44,6 +37,12 @@ List of public Statuspal sites - USA:
 * <https://statuspal.io/api/v2/status_pages/finqu/summary>
 * <https://statuspal.io/api/v2/status_pages/hosttech/summary>
 * <https://statuspal.io/api/v2/status_pages/maslak/summary>
+
+**Important Notes:**
+
+* Statuspal has EU (`statuspal.eu`) and US (`statuspal.io`) endpoints
+* You need to provide the URL to the Statuspal API `summary` endpoint
+* API Documentation: <https://www.statuspal.io/api-docs/v2>
 
 **Data Collection:**
 
