@@ -598,6 +598,7 @@ Every plugin must define a `DESCRIPTION` variable that is passed to `argparse.Ar
 * Use `"""` triple quotes.
 * Keep line length around 90 characters.
 * Plugins of the same type (e.g. all `-version` checks, all `huawei-dorado-*` checks) must use identical or near-identical DESCRIPTION text, with only the product name swapped. Consistency across plugin families is mandatory.
+* If the plugin has a sudoers file in `assets/sudoers/`, the DESCRIPTION must end with "Requires root or sudo."
 * The README Overview must include at least the text from the `DESCRIPTION`.
 
 
