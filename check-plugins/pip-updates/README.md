@@ -114,8 +114,8 @@ pyspnego ! 0.7.0   ! 0.8.0   ! wheel
 
 ## Perfdata / Metrics
 
-| Name                  | Type   | Description                |
-|-----------------------|--------|----------------------------|
+| Name | Type | Description |
+|----|----|----|
 | pip_outdated_packages | Number | Number of outdated packages. |
 
 

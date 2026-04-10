@@ -83,10 +83,10 @@ Output:
 | mysql_pct_temp_sort_table | Percentage | sort_merge_passes / total_sorts * 100 |
 | mysql_read_rnd_buffer_size | Bytes | Size in bytes of the buffer used when reading rows from a MyISAM table in sorted order after a key sort. |
 | mysql_sort_buffer_size | Bytes | Each session performing a sort allocates a buffer with this amount of memory. Not specific to any storage engine. |
-| mysql_sort_merge_passes | Continous Counter | Number of merge passes performed by the sort algorithm. |
-| mysql_sort_range | Continous Counter | Number of sorts which used a range. |
-| mysql_sort_scan | Continous Counter | Number of sorts which used a full table scan. |
-| mysql_total_sorts | Continous Counter | sort_scan + sort_range |
+| mysql_sort_merge_passes | Continuous Counter | Number of merge passes performed by the sort algorithm. |
+| mysql_sort_range | Continuous Counter | Number of sorts which used a range. |
+| mysql_sort_scan | Continuous Counter | Number of sorts which used a full table scan. |
+| mysql_total_sorts | Continuous Counter | sort_scan + sort_range |
 
 
 ## Credits, License

@@ -93,8 +93,8 @@ Checked 12 disks. All are healthy.
 
 ## Perfdata / Metrics
 
-| Name                                      | Type   | Description       |
-|-------------------------------------------|--------|-------------------|
+| Name | Type | Description |
+|----|----|----|
 | NAME\_\<model\>\_\<serno\>\_temperature | Number | Temperature in degrees Celsius. |
 
 

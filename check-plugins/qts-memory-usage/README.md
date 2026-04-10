@@ -81,8 +81,8 @@ Output:
 
 ## Perfdata / Metrics
 
-| Name         | Type       | Description                    |
-|--------------|------------|--------------------------------|
+| Name | Type | Description |
+|----|----|----|
 | free         | Bytes      | Free memory.                   |
 | memory-usage | Percentage | Memory usage, in percent.      |
 | total        | Bytes      | Total memory.                  |

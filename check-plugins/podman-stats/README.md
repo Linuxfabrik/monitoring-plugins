@@ -109,8 +109,8 @@ myconti_ds_1              ! 0.0   ! 11.42
 
 ## Perfdata / Metrics
 
-| Name               | Type   | Description                                              |
-|--------------------|--------|----------------------------------------------------------|
+| Name | Type | Description |
+|----|----|----|
 | block_input        | Bytes  | Total data read from block device across all containers.  |
 | block_output       | Bytes  | Total data written to block device across all containers. |
 | containers_running | Number | Number of running containers.                             |

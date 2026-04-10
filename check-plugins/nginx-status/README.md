@@ -97,13 +97,13 @@ Output:
 
 | Name | Type | Description |
 |----|----|----|
-| nginx_connections_accepted | Continous Counter | The total number of accepted client connections. |
+| nginx_connections_accepted | Continuous Counter | The total number of accepted client connections. |
 | nginx_connections_active | Number | The current number of active client connections including waiting connections. |
-| nginx_connections_handled | Continous Counter | The total number of handled connections. Generally both values are the same unless some resource limits have been reached (for example, the `worker_connections` limit). |
+| nginx_connections_handled | Continuous Counter | The total number of handled connections. Generally both values are the same unless some resource limits have been reached (for example, the `worker_connections` limit). |
 | nginx_connections_reading | Number | The current number of connections where NGINX is reading the request header. |
 | nginx_connections_waiting | Number | The current number of idle client connections waiting for a request. This number depends on the `keepalive_timeout`. |
 | nginx_connections_writing | Number | The current number of connections where NGINX is writing the response back to the client. |
-| nginx_http_requests_total | Continous Counter | The total number of client requests. |
+| nginx_http_requests_total | Continuous Counter | The total number of client requests. |
 | nginx_requests_per_connection | Number | The number of handled requests per connection. |
 
 

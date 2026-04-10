@@ -86,8 +86,8 @@ Output:
 
 ## Perfdata / Metrics
 
-| Name      | Type       | Description            |
-|-----------|------------|------------------------|
+| Name | Type | Description |
+|----|----|----|
 | cpu-usage | Percentage | The overall CPU usage. |
 
 

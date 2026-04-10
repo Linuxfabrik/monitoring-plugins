@@ -85,9 +85,9 @@ Output:
 
 | Name | Type | Description |
 |----|----|----|
-| mysql_binlog_cache_disk_use | Continous Counter | Number of transactions which used a temporary disk cache because they could not fit in the regular binary log cache, being larger than `binlog_cache_size`. |
+| mysql_binlog_cache_disk_use | Continuous Counter | Number of transactions which used a temporary disk cache because they could not fit in the regular binary log cache, being larger than `binlog_cache_size`. |
 | mysql_binlog_cache_size | Bytes | Size in bytes, per-connection, of the cache holding a record of binary log changes during a transaction. |
-| mysql_binlog_cache_use | Continous Counter | Number of transactions which used the regular binary log cache, being smaller than `binlog_cache_size`. |
+| mysql_binlog_cache_use | Continuous Counter | Number of transactions which used the regular binary log cache, being smaller than `binlog_cache_size`. |
 | mysql_pct_binlog_cache | Percentage | (Binlog_cache_use - Binlog_cache_disk_use) / Binlog_cache_use * 100 |
 
 

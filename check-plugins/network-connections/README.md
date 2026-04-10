@@ -139,8 +139,8 @@ No connections of type "tcp6" in status "established,closing" found.
 
 Depends on your connections. `<prefix>` represents the status of a `tcp` or `tcp6` connection. For UDP sockets this is always going to be `udp_NONE` / `udp6_NONE`.
 
-| Name                    | Type   | Description  |
-|-------------------------|--------|--------------|
+| Name | Type | Description |
+|----|----|----|
 | \<prefix\>\_BOUND       | Number | Solaris only |
 | \<prefix\>\_CLOSE       | Number |              |
 | \<prefix\>\_CLOSE_WAIT  | Number |              |

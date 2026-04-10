@@ -83,8 +83,8 @@ Aria pagecache size / total Aria indexes: 128.0MiB/328.0KiB, 97.2% Aria pagecach
 | Name | Type | Description |
 |----|----|----|
 | mysql_aria_pagecache_buffer_size | Bytes | The size of the buffer used for index and data blocks for Aria tables. |
-| mysql_aria_pagecache_read_requests | Continous Counter | The number of requests to read something from the Aria page cache. |
-| mysql_aria_pagecache_reads | Continous Counter | The number of Aria page cache read requests that caused a block to be read from the disk. |
+| mysql_aria_pagecache_read_requests | Continuous Counter | The number of requests to read something from the Aria page cache. |
+| mysql_aria_pagecache_reads | Continuous Counter | The number of Aria page cache read requests that caused a block to be read from the disk. |
 | mysql_pct_aria_keys_from_mem | Percentage | aria_pagecache_reads / aria_pagecache_read_requests * 100 |
 | mysql_total_aria_indexes | Bytes | Sum of all Aria index sizes. |
 

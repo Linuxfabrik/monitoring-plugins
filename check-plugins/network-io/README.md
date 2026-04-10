@@ -103,18 +103,18 @@ Per interface:
 
 | Name | Type | Description |
 |----|----|----|
-| \<interface\>\_bytes_recv | Continous Counter | Number of bytes received. |
+| \<interface\>\_bytes_recv | Continuous Counter | Number of bytes received. |
 | \<interface\>\_bytes_recv_per_second1 | Bytes | Current bytes received per second. |
 | \<interface\>\_bytes_recv_per_second15 | Bytes | Averaged bytes received per second over the configured count. |
-| \<interface\>\_bytes_sent | Continous Counter | Number of bytes sent. |
+| \<interface\>\_bytes_sent | Continuous Counter | Number of bytes sent. |
 | \<interface\>\_bytes_sent_per_second1 | Bytes | Current bytes sent per second. |
 | \<interface\>\_bytes_sent_per_second15 | Bytes | Averaged bytes sent per second over the configured count. |
-| \<interface\>\_dropin | Continous Counter | Total number of incoming packets which were dropped. |
-| \<interface\>\_dropout | Continous Counter | Total number of outgoing packets which were dropped (always 0 on macOS and BSD). |
-| \<interface\>\_errin | Continous Counter | Total number of errors while receiving. |
-| \<interface\>\_errout | Continous Counter | Total number of errors while sending. |
-| \<interface\>\_packets_recv | Continous Counter | Number of packets received. |
-| \<interface\>\_packets_sent | Continous Counter | Number of packets sent. |
+| \<interface\>\_dropin | Continuous Counter | Total number of incoming packets which were dropped. |
+| \<interface\>\_dropout | Continuous Counter | Total number of outgoing packets which were dropped (always 0 on macOS and BSD). |
+| \<interface\>\_errin | Continuous Counter | Total number of errors while receiving. |
+| \<interface\>\_errout | Continuous Counter | Total number of errors while sending. |
+| \<interface\>\_packets_recv | Continuous Counter | Number of packets received. |
+| \<interface\>\_packets_sent | Continuous Counter | Number of packets sent. |
 | \<interface\>\_throughput1 | None | Current bytes per second (bytes_recv_per_second1 + bytes_sent_per_second1). |
 | \<interface\>\_throughput15 | None | Averaged bytes per second over the configured count. |
 

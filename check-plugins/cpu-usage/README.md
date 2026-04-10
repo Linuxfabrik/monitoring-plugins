@@ -91,14 +91,14 @@ interrupts: 582.9M, soft_interrupts: 343.6M, ctx_switches: 1.1G
 | Name | Type | Description |
 |----|----|----|
 | cpu-usage | Percentage | The overall CPU usage (100 - `idle` - `nice`). |
-| ctx_switches | Continous Counter | Number of context switches (voluntary + involuntary) since boot. |
+| ctx_switches | Continuous Counter | Number of context switches (voluntary + involuntary) since boot. |
 | guest | Percentage | Time spent running a virtual CPU (Linux 2.6.24+). |
 | guest_nice | Percentage | Time spent running a niced guest (Linux 3.2.0+). |
-| interrupts | Continous Counter | Number of interrupts since boot. |
+| interrupts | Continuous Counter | Number of interrupts since boot. |
 | iowait | Percentage | Time spent waiting for I/O to complete. |
 | irq | Percentage | Time spent servicing hardware interrupts. |
 | nice | Percentage | Time spent by niced (prioritized) processes executing in user mode. |
-| soft_interrupts | Continous Counter | Number of software interrupts since boot. |
+| soft_interrupts | Continuous Counter | Number of software interrupts since boot. |
 | steal | Percentage | Time a virtual CPU waits for a real CPU while the hypervisor is servicing another virtual processor (Linux 2.6.11+). |
 | system | Percentage | Time spent in kernel space. |
 | user | Percentage | Time spent in user space. |

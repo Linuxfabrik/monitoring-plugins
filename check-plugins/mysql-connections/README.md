@@ -93,8 +93,8 @@ Recommendations:
 
 | Name | Type | Description |
 |----|----|----|
-| mysql_aborted_connects | Continous Counter | Number of failed server connection attempts. This can be due to a client using an incorrect password, a client not having privileges to connect to a database, a connection packet not containing the correct information, or if it takes more than `connect_timeout` seconds to get a connect packet. |
-| mysql_connections | Continous Counter | Number of all connection attempts (both successful and unsuccessful). |
+| mysql_aborted_connects | Continuous Counter | Number of failed server connection attempts. This can be due to a client using an incorrect password, a client not having privileges to connect to a database, a connection packet not containing the correct information, or if it takes more than `connect_timeout` seconds to get a connect packet. |
+| mysql_connections | Continuous Counter | Number of all connection attempts (both successful and unsuccessful). |
 | mysql_interactive_timeout | Seconds | Time in seconds that the server waits for an interactive connection to become active before closing it. |
 | mysql_max_connections | Number | The maximum number of simultaneous client connections. |
 | mysql_max_used_connections | Number | Max number of connections ever open at the same time. |

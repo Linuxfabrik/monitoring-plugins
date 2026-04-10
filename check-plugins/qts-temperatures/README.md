@@ -77,8 +77,8 @@ Sys: 59°C (Thresholds: 60/70°C), CPU: 82°C (Thresholds: 80/85°C) [WARNING]
 
 ## Perfdata / Metrics
 
-| Name    | Type   | Description                        |
-|---------|--------|------------------------------------|
+| Name | Type | Description |
+|----|----|----|
 | cputemp | Number | CPU temperature, in degrees Celsius.    |
 | systemp | Number | System temperature, in degrees Celsius. |
 

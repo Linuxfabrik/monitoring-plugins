@@ -129,7 +129,7 @@ For more details see <https://www.php.net/manual/en/fpm.status.php>.
 
 | Name | Type | Description |
 |----|----|----|
-| accepted conn | Continous Counter | Number of requests accepted by the pool. |
+| accepted conn | Continuous Counter | Number of requests accepted by the pool. |
 | active processes | Number | Number of active processes. |
 | idle processes | Number | Number of idle processes. |
 | listen queue | Number | Number of requests in the queue of pending connections. |

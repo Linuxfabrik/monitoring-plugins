@@ -84,10 +84,10 @@ Recommendations:
 | Name | Type | Description |
 |----|----|----|
 | mysql_join_buffer_size | Bytes | Minimum size in bytes of the buffer used for queries that cannot use an index. Increase to get faster full joins when adding indexes is not possible. |
-| mysql_joins_without_indexes | Continous Counter | Select_range_check + Select_full_join |
+| mysql_joins_without_indexes | Continuous Counter | Select_range_check + Select_full_join |
 | mysql_joins_without_indexes_per_day | Number | joins_without_indexes / Uptime in days |
-| mysql_select_full_join | Continous Counter | Number of joins which did not use an index. If not zero, you may need to check table indexes. |
-| mysql_select_range_check | Continous Counter | Number of joins without keys that check for key usage after each row. If not zero, you may need to check table indexes. |
+| mysql_select_full_join | Continuous Counter | Number of joins which did not use an index. If not zero, you may need to check table indexes. |
+| mysql_select_range_check | Continuous Counter | Number of joins without keys that check for key usage after each row. If not zero, you may need to check table indexes. |
 | mysql_uptime | Seconds | Number of seconds the server has been running. |
 
 

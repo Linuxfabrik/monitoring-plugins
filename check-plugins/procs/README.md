@@ -187,7 +187,7 @@ Other examples:
 | Name | Type | Description |
 |----|----|----|
 | procs | Number | Number of processes found matching the filter criteria. |
-| procs_age | Continous Counter | Age of the oldest process found, in seconds. |
+| procs_age | Continuous Counter | Age of the oldest process found, in seconds. |
 | procs_cpu_percent | Percentage | Aggregated CPU usage of all matching processes (only when using `--warning-cpu-percent` or `--critical-cpu-percent`). |
 | procs_dead | Number | Number of dead processes. |
 | procs_mem | Bytes | Aggregated RSS memory usage of matching processes. |

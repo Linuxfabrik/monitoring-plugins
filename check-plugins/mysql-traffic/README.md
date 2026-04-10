@@ -71,16 +71,16 @@ Up 1W 3D (907.7K q [1.0 qps], 470.0 conn, TX: 560.2M, RX: 96.4M); Read/Write: 65
 |----|----|----|
 | mysql_bytes_received | Bytes | Total bytes received from all clients. |
 | mysql_bytes_sent | Bytes | Total bytes sent to all clients. |
-| mysql_com_delete | Continous Counter | Number of DELETE commands executed. |
-| mysql_com_insert | Continous Counter | Number of INSERT commands executed. |
-| mysql_com_replace | Continous Counter | Number of REPLACE commands executed. |
-| mysql_com_select | Continous Counter | Number of SELECT commands executed. Also includes queries that make use of the query cache. |
-| mysql_com_update | Continous Counter | Number of UPDATE commands executed. |
-| mysql_connections | Continous Counter | Number of connection attempts (both successful and unsuccessful). |
+| mysql_com_delete | Continuous Counter | Number of DELETE commands executed. |
+| mysql_com_insert | Continuous Counter | Number of INSERT commands executed. |
+| mysql_com_replace | Continuous Counter | Number of REPLACE commands executed. |
+| mysql_com_select | Continuous Counter | Number of SELECT commands executed. Also includes queries that make use of the query cache. |
+| mysql_com_update | Continuous Counter | Number of UPDATE commands executed. |
+| mysql_connections | Continuous Counter | Number of connection attempts (both successful and unsuccessful). |
 | mysql_pct_reads | Percentage | total_reads / (total_reads + total_writes) \* 100 |
 | mysql_pct_writes | Percentage | 100 - pct_reads |
 | mysql_qps | Number | Queries per second. |
-| mysql_questions | Continous Counter | Number of statements executed by the server, excluding COM_PING, COM_STATISTICS, COM_STMT_PREPARE, COM_STMT_CLOSE, and COM_STMT_RESET statements. |
+| mysql_questions | Continuous Counter | Number of statements executed by the server, excluding COM_PING, COM_STATISTICS, COM_STMT_PREPARE, COM_STMT_CLOSE, and COM_STMT_RESET statements. |
 | mysql_uptime | Seconds | Number of seconds the server has been running. |
 
 

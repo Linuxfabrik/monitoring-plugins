@@ -85,8 +85,8 @@ Slow queries: 7.0% (7.0 slow queries/100.0 questions) [WARNING]. Set long_query_
 |----|----|----|
 | mysql_long_query_time | Seconds | If a query takes longer than this many seconds to execute, the `Slow_queries` status variable is incremented and, if enabled, the query is logged to the slow query log. |
 | mysql_pct_slow_queries | Percentage | Slow_queries / Questions * 100 |
-| mysql_questions | Continous Counter | Number of statements executed by the server, excluding COM_PING, COM_STATISTICS, COM_STMT_PREPARE, COM_STMT_CLOSE, and COM_STMT_RESET statements. |
-| mysql_slow_queries | Continous Counter | Number of queries which took longer than `long_query_time` to run. The slow query log does not need to be active for this to be recorded. |
+| mysql_questions | Continuous Counter | Number of statements executed by the server, excluding COM_PING, COM_STATISTICS, COM_STMT_PREPARE, COM_STMT_CLOSE, and COM_STMT_RESET statements. |
+| mysql_slow_queries | Continuous Counter | Number of queries which took longer than `long_query_time` to run. The slow query log does not need to be active for this to be recorded. |
 
 
 ## Credits, License

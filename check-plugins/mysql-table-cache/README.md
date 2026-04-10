@@ -85,11 +85,11 @@ Output:
 |----|----|----|
 | mysql_open_files_limit | Number | The number of file descriptors available to MariaDB. |
 | mysql_open_tables | Number | Number of currently opened tables, excluding temporary tables. |
-| mysql_opened_tables | Continous Counter | Number of tables the server has opened. |
+| mysql_opened_tables | Continuous Counter | Number of tables the server has opened. |
 | mysql_table_cache_hit_rate | Percentage | Table cache hit rate. |
 | mysql_table_open_cache | Number | Maximum number of open tables cached in one table cache instance. |
-| mysql_table_open_cache_hits | Continous Counter | Number of hits for open tables cache lookups. |
-| mysql_table_open_cache_misses | Continous Counter | Number of misses for open tables cache lookups. |
+| mysql_table_open_cache_hits | Continuous Counter | Number of hits for open tables cache lookups. |
+| mysql_table_open_cache_misses | Continuous Counter | Number of misses for open tables cache lookups. |
 
 
 ## Credits, License

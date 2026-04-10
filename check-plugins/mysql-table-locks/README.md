@@ -82,8 +82,8 @@ Output:
 | Name | Type | Description |
 |----|----|----|
 | mysql_pct_table_locks_immediate | Percentage | Table_locks_immediate / (Table_locks_waited + Table_locks_immediate) \* 100 |
-| mysql_table_locks_immediate | Continous Counter | Number of table locks which were completed immediately. |
-| mysql_table_locks_waited | Continous Counter | Number of table locks which had to wait. Indicates table lock contention. |
+| mysql_table_locks_immediate | Continuous Counter | Number of table locks which were completed immediately. |
+| mysql_table_locks_waited | Continuous Counter | Number of table locks which had to wait. Indicates table lock contention. |
 
 
 ## Credits, License

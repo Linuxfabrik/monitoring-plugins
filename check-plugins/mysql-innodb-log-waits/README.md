@@ -82,8 +82,8 @@ Output:
 | Name | Type | Description |
 |----|----|----|
 | mysql_innodb_log_buffer_size | Bytes | Size in bytes of the buffer for writing InnoDB redo log files to disk. Increasing this means larger transactions can run without needing to perform disk I/O before committing. |
-| mysql_innodb_log_waits | Continous Counter | Number of times InnoDB was forced to wait for log writes to be flushed due to the log buffer being too small. |
-| mysql_innodb_log_writes | Continous Counter | Number of writes to the InnoDB redo log. |
+| mysql_innodb_log_waits | Continuous Counter | Number of times InnoDB was forced to wait for log writes to be flushed due to the log buffer being too small. |
+| mysql_innodb_log_writes | Continuous Counter | Number of writes to the InnoDB redo log. |
 
 
 ## Credits, License

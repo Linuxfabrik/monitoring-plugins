@@ -72,8 +72,8 @@ Up 1W 6D
 
 ## Perfdata / Metrics
 
-| Name   | Type    | Description                              |
-|--------|---------|------------------------------------------|
+| Name | Type | Description |
+|----|----|----|
 | uptime | Seconds | The time the appliance has been running for. |
 
 

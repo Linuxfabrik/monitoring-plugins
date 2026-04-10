@@ -68,8 +68,8 @@ Output:
 
 ## Perfdata / Metrics
 
-| Name               | Type   | Description                  |
-|--------------------|--------|------------------------------|
+| Name | Type | Description |
+|----|----|----|
 | containers         | Number | Number of containers.         |
 | containers_paused  | Number | Number of paused containers.  |
 | containers_running | Number | Number of running containers. |

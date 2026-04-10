@@ -171,11 +171,11 @@ Per matched disk, where `<disk>` is the block device name:
 
 | Name | Type | Description |
 |----|----|----|
-| `<disk>`\_busy_time | Continous Counter | Time spent doing actual I/Os (in milliseconds). |
-| `<disk>`\_read_bytes | Continous Counter | Number of bytes read. |
-| `<disk>`\_read_time | Continous Counter | Time spent reading from disk (in milliseconds). |
-| `<disk>`\_write_bytes | Continous Counter | Number of bytes written. |
-| `<disk>`\_write_time | Continous Counter | Time spent writing to disk (in milliseconds). |
+| `<disk>`\_busy_time | Continuous Counter | Time spent doing actual I/Os (in milliseconds). |
+| `<disk>`\_read_bytes | Continuous Counter | Number of bytes read. |
+| `<disk>`\_read_time | Continuous Counter | Time spent reading from disk (in milliseconds). |
+| `<disk>`\_write_bytes | Continuous Counter | Number of bytes written. |
+| `<disk>`\_write_time | Continuous Counter | Time spent writing to disk (in milliseconds). |
 
 
 ## Troubleshooting

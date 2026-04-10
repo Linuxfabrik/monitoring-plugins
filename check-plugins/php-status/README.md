@@ -165,9 +165,9 @@ opcache.validate_timestamps     ! True
 | php-opcache-opcache_statistics-blacklist_miss_ratio | Percentage | Blacklist miss ratio. |
 | php-opcache-opcache_statistics-blacklist_misses | Number | Blacklist misses. |
 | php-opcache-opcache_statistics-hash_restarts | Number | Number of restarts because of hash overflow. |
-| php-opcache-opcache_statistics-hits | Continous Counter | Opcache hits. |
+| php-opcache-opcache_statistics-hits | Continuous Counter | Opcache hits. |
 | php-opcache-opcache_statistics-manual_restarts | Number | Number of restarts scheduled by opcache_reset(). |
-| php-opcache-opcache_statistics-misses | Continous Counter | Opcache misses. |
+| php-opcache-opcache_statistics-misses | Continuous Counter | Opcache misses. |
 | php-opcache-opcache_statistics-num_cached_keys | Number | Number of cached keys. |
 | php-opcache-opcache_statistics-num_cached_keys-percentage | Percentage | Cached keys usage, in percent. |
 | php-opcache-opcache_statistics-num_cached_scripts | Number | Number of cached scripts. |
