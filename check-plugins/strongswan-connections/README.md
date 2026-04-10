@@ -1,21 +1,38 @@
-# Check strongswan-connection
+# Check strongswan-connections
 
 ## Overview
 
-This Nagios/Icinga monitoring plugin checks IPSec connection states. It connects to the vici plugin in libcharon using the "Versatile IKE Control Interface" (VICI) to monitor the IKE daemon "charon". The most prominent user of the VICI interface is strongSwan/swanctl.
+Checks IPSec connection states on a strongSwan VPN gateway by connecting to the charon daemon via the VICI (Versatile IKE Control Interface) socket. Reports IKE SA and CHILD SA states, re-authentication/re-keying timers, and traffic counters. "EST" in the output means "Established".
 
-Hints:
+**Alerting Logic:**
 
-* Must be running locally on the server hosting 'charon' to be able to check IPSec connection states.
-* "EST" means "Established".
+* WARN if there are no active connections at all
+* WARN if configured connections do not match active connections (a connection is configured but not up)
+* WARN if any child SA is not connected
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Connects to the VICI socket (default: `/run/strongswan/charon.vici`) to enumerate configured and active connections
+* Iterates over all IKE SAs and their CHILD SAs, collecting state, timing, and traffic data
+* `--lengthy` provides additional columns: established time, IKE version, local/remote endpoints, encryption/integrity details, and per-child local/remote traffic selectors
+
+**Important Notes:**
+
+* Must be run locally on the strongSwan host (needs access to the VICI socket)
+* Requires root or sudo
+
+**Compatibility:**
+
+* strongSwan with VICI interface (swanctl); tested with VICI protocol versions 5.7 and 5.9
 
 
 ## Fact Sheet
 
 | Fact | Value |
 |----|----|
-| Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/strongswan-connection> |
-| Check Interval Recommendation         | Once a minute |
+| Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/strongswan-connections> |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `vici` |
@@ -62,11 +79,7 @@ acme      ! EST   ! 2022-05-11 14:57:14 ! acme1     ! TUNNEL:INSTALLED ! 2022-05
 acme      ! EST   ! 2022-05-11 14:57:14 ! acme2     ! TUNNEL:INSTALLED ! 2022-05-11 13:38:36 ! 2022-05-11 15:10:18 ! 633.2KiB ! 634.5KiB
 ```
 
-```bash
-./strongswan-connections --socket /run/strongswan/charon.vici --lengthy
-```
-
-Output:
+With `--lengthy`:
 
 ```text
 Everything is ok.
@@ -81,28 +94,34 @@ acme      ! EST   ! 2022-05-10 15:03:43 ! 2022-05-11 14:57:14 ! v2  ! 198.51.100
 
 ## States
 
+* OK if all configured connections are active and all child SAs are connected.
 * WARN if there are no active connections at all.
-* WARN if configured connections != active connections.
-* WARN if any child is not connected.
+* WARN if configured connections do not match active connections.
+* WARN if any child SA is not connected.
+* UNKNOWN if no connections are configured.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| \<connname\>\_established | Seconds | Seconds the IKE_SA has been established |
-| \<connname\>\_rekey-time | Seconds | Seconds before IKE_SA gets rekeyed |
+| \<connname\>\_established | Seconds | Seconds the IKE SA has been established |
+| \<connname\>\_rekey-time | Seconds | Seconds before IKE SA gets rekeyed |
 | \<connname\>\_\<childname\>\_bytes-in | Bytes | Number of input bytes processed |
 | \<connname\>\_\<childname\>\_bytes-out | Bytes | Number of output bytes processed |
-| \<connname\>\_\<childname\>\_install-time | Seconds | Seconds the CHILD_SA has been installed |
-| \<connname\>\_\<childname\>\_life-time | Seconds | Seconds before CHILD_SA expires |
-| \<connname\>\_\<childname\>\_rekey-time | Seconds | Seconds before CHILD_SA gets rekeyed |
+| \<connname\>\_\<childname\>\_install-time | Seconds | Seconds the CHILD SA has been installed |
+| \<connname\>\_\<childname\>\_life-time | Seconds | Seconds before CHILD SA expires |
+| \<connname\>\_\<childname\>\_rekey-time | Seconds | Seconds before CHILD SA gets rekeyed |
 
 
 ## Troubleshooting
 
-\[Errno 2\] No such file or directory  
+`[Errno 2] No such file or directory`
 Check the path to `charon.vici`, and specify `--socket` accordingly.
+
+`Python module "vici" is not installed.`
+Install `vici`: `pip install vici`.
 
 
 ## Credits, License

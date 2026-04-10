@@ -2,35 +2,46 @@
 
 ## Overview
 
-This check fetches the ping monitoring page of PHP-FPM. This could be used to test from outside that FPM is alive and responding, to create a graph of FPM availability, or to trigger alerts for the operating team (24/7).
+Checks whether PHP-FPM is alive by fetching its ping monitoring page. Returns OK if FPM responds with the expected "pong" reply.
 
-PHP-FPM config example:
+**Data Collection:**
 
-```text
-; PHP-FPM Config
-ping.path = /fpm-ping
-ping.response = pong
-```
+* Fetches the PHP-FPM ping page via HTTP (default: `http://localhost/fpm-ping`)
+* Compares the response against the expected string (default: "pong")
 
-```text
-# Apache Config
-Alias /fpm-ping /dev/null
-<Location "/fpm-ping">
-    Require local
-    ProxyPass unix:/run/php-fpm/www.sock|fcgi://localhost/fpm-ping
-</Location>
-```
+**Alerting Logic:**
+
+* Alerts according to the given severity (default: WARN) if the response does not match the expected string
+
+**Important Notes:**
+
+* Requires a configured ping page in PHP-FPM. Example PHP-FPM config:
+
+    ```text
+    ping.path = /fpm-ping
+    ping.response = pong
+    ```
+
+* Requires an Apache/nginx configuration to proxy the ping page. Example Apache config:
+
+    ```text
+    Alias /fpm-ping /dev/null
+    <Location "/fpm-ping">
+        Require local
+        ProxyPass unix:/run/php-fpm/www.sock|fcgi://localhost/fpm-ping
+    </Location>
+    ```
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/php-fpm-ping> |
+| Nagios/Icinga Check Name              | `check_php_fpm_ping` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Requirements                          | Configure a ping page like `/fpm-ping`, `/<poolname>-fpm-ping` or similar in `/etc/php-fpm.d/<poolname>.conf` |
 
 
 ## Help
@@ -75,14 +86,16 @@ pong
 
 ## States
 
-* WARN or CRIT if output is not identical to `--response` (default: "pong"), depending on the given severity (default: WARN)
+* OK if PHP-FPM responds with the expected string (default: "pong").
+* WARN or CRIT (depending on `--severity`, default: WARN) if the response does not match the expected string.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| ping | Number | 0 (= STATE_OK) if response is as expected, 1 (STATE_WARN) or 2 (STATE_CRIT)otherwise |
+| ping | Number | 0 (STATE_OK) if the response matches, 1 (STATE_WARN) or 2 (STATE_CRIT) otherwise. |
 
 
 ## Credits, License

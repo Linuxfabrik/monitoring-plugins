@@ -2,20 +2,34 @@
 
 ## Overview
 
-This plugin lets you track if Mastodon is End-of-Life (EOL). To compare against the current/installed version of Mastodon, the check has to run on the Mastodon server itself and needs access to the Mastodon installation directory.
+Checks the installed Mastodon version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Data Collection:**
+
+* Reads the Mastodon version from `docker-compose.yml` in the local installation directory (default: `/home/mastodon/live/docker-compose.yml`)
+* Compares the installed version against the [endoflife.date API](https://endoflife.date/api/mastodon.json) to determine EOL status and available updates
+* Uses SQLite to cache API responses between runs
+
+**Compatibility:**
+
+* Linux (requires local filesystem access to the Mastodon installation)
+
+**Important Notes:**
+
+* Requires root or sudo to access the Mastodon installation directory
+* Does not use the `tootctl` command (which requires a working Ruby environment and extra environment variables), but instead parses the Docker Compose file directly
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mastodon-version> |
+| Nagios/Icinga Check Name              | `check_mastodon_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 
 
 ## Help
@@ -72,17 +86,20 @@ Mastodon v4.2.10 (EOL unknown)
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* OK if the installed version is not EOL and no relevant updates are available.
+* WARN if the installed version is EOL.
+* WARN if `--check-major` is set and a new major version is available.
+* WARN if `--check-minor` is set and a new minor version is available.
+* WARN if `--check-patch` is set and a new patch version is available.
+* UNKNOWN if the Mastodon installation or version information cannot be found.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| mastodon-version | Number | Installed Mastodon version as float. "4.2.10" becomes "4.21". |
+| mastodon-version | Float | Installed Mastodon version as a floating-point number. For example, "4.2.10" becomes "4.21". |
 
 
 ## Credits, License

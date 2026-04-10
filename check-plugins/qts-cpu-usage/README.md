@@ -2,23 +2,41 @@
 
 ## Overview
 
-Returns the current system-wide CPU utilization as a percentage from a QNAP Appliance running QTS, using the HTTP API. Warns only if the overall CPU usage is above a certain threshold within the last n checks (default: 5).
+Monitors CPU utilization on QNAP appliances running QTS via the HTTP API. Alerts only if the threshold has been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes.
 
-Hints and Recommendations:
+**Alerting Logic:**
+
+* WARN if CPU usage exceeds `--warning` (default: 80%) for `--count` (default: 5) consecutive checks
+* CRIT if CPU usage exceeds `--critical` (default: 90%) for `--count` (default: 5) consecutive checks
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Authenticates against the QTS API and fetches system information via `/cgi-bin/management/manaRequest.cgi`
+* Uses a local SQLite database to store historical CPU measurements for trend tracking
+* `--count=5` (the default) while checking every minute means the check reports a warning if the overall CPU usage is above a threshold in the last 5 minutes
+
+**Important Notes:**
 
 * Tested on [QuTScloud](https://www.qnap.com/en-us/download?model=qutscloud&category=firmware) v4.5.6+
 * The user used for monitoring must be a member of the "administrators" group. It is not sufficient to be a member of the "everyone" group.
-* `--count=5` (the default) while checking every minute means that the check reports a warning if the overall CPU usage is above a threshold in the last 5 minutes.
+
+**Compatibility:**
+
+* Linux only
+* 3rd party Python module `xmltodict` required
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/qts-cpu-usage> |
+| Nagios/Icinga Check Name              | `check_qts_cpu_usage` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--password` and `--url` are required) |
 | Compiled for Windows                  | No |
+| 3rd Party Python modules              | `xmltodict` |
 | Handles Periods                       | Yes |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-qts-cpu-usage.db` |
 
@@ -68,15 +86,17 @@ Output:
 
 ## States
 
-* OK if overall `cpu-usage` is below the thresholds within the last `--count` checks.
-* Otherwise CRIT or WARN.
+* OK if CPU usage is below the thresholds within the last `--count` checks.
+* WARN if CPU usage exceeds `--warning` (default: 80%) for `--count` (default: 5) consecutive checks.
+* CRIT if CPU usage exceeds `--critical` (default: 90%) for `--count` (default: 5) consecutive checks.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name      | Type       | Description            |
 |-----------|------------|------------------------|
-| cpu-usage | Percentage | The overall cpu usage. |
+| cpu-usage | Percentage | The overall CPU usage. |
 
 
 ## Credits, License

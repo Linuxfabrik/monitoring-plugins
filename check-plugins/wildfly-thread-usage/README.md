@@ -2,22 +2,32 @@
 
 ## Overview
 
-This check plugin monitors the thread statistics of a WildFly server, using its HTTP-JSON based API (JBossAS REST Management API). This allows us to monitor the application server without any additional configuration and installation - no need to deploy WAR-Agents like Jolokia. The plugin supports both standalone mode and domain mode.
+Checks thread pool utilization on a WildFly/JBoss AS server via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode. Reports daemon thread count as a percentage of total thread count.
 
-Tested with WildFly 11 and WildFly 23+.
+**Alerting Logic:**
 
-Hints:
+* WARN or CRIT if daemon-to-total thread ratio exceeds the configured thresholds (default: 80/90%)
+* `--always-ok` suppresses all alerts and always returns OK
 
+**Data Collection:**
+
+* Queries the WildFly management API at `/core-service/platform-mbean/type/threading` using the `read-resource` operation with runtime data
+* Authenticates via HTTP Digest Auth (`--username`, `--password`)
+
+**Compatibility:**
+
+* Tested with WildFly 11 and WildFly 23+
 * See [additional notes for all wildfly monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.md)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wildfly-thread-usage> |
+| Nagios/Icinga Check Name              | `check_wildfly_thread_usage` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--username` and `--password` are required) |
 | Compiled for Windows                  | No |
 
 
@@ -61,7 +71,7 @@ options:
 ## Usage Examples
 
 ```bash
-./wildfly-thread-usage --username wildfly-monitoring --password password --url http://wildfly:9990 --warning 80 --critical 90
+./wildfly-thread-usage --username=wildfly-monitoring --password=password --url=http://wildfly:9990 --warning=80 --critical=90
 ```
 
 Output:
@@ -73,15 +83,17 @@ Output:
 
 ## States
 
-Triggers an alarm on usage in percent.
-
-* WARN or CRIT if thread counts are above certain thresholds (default 80/90%).
+* OK if thread usage is below the warning threshold.
+* WARN or CRIT if daemon-to-total thread ratio is >= `--warning` (default: 80) or >= `--critical` (default: 90).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-* thread-pct
-* thread-count
+| Name | Type | Description |
+|----|----|----|
+| thread-count | Number | Number of daemon threads (max: total thread count). |
+| thread-pct | Percentage | Daemon threads as percentage of total threads. |
 
 
 ## Credits, License

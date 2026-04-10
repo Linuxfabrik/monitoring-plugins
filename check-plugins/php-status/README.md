@@ -2,11 +2,38 @@
 
 ## Overview
 
-This plugin checks for PHP Opcache status, startup errors using `php --version`, missing modules using `php --modules` or misconfigured directives using `php --info`. Needs sudo.
+Checks PHP configuration and health, including startup errors, missing modules, and misconfigured php.ini directives. Optionally reads extended PHP information (Opcache statistics) from a monitoring helper script deployed in the web server context.
 
-So that the check can call up the Opcache data in the context of a web server, first put the `monitoring.php` file to the web server's document root directory.
+**Alerting Logic:**
 
-Apache httpd config example:
+* WARN on PHP startup errors
+* WARN if php.ini configuration does not match the given `--config` values
+* WARN if a required `--module` is missing
+* WARN if `display_errors`, `display_startup_errors`, or `expose_php` are enabled (unless `--dev` is set for display_errors/display_startup_errors)
+* WARN if Opcache is not installed or not enabled
+* WARN if Opcache restarts due to Out of Memory (OOM)
+* WARN or CRIT if Opcache memory, key, or interned string usage is above the given percentage thresholds (default: 90/None)
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Executes `php --version` to detect startup errors
+* Executes `php --modules` to verify expected modules are installed
+* Executes `php --info` to verify php.ini configuration values
+* Optionally fetches extended Opcache data from a `monitoring.php` helper script deployed in the web server document root
+* Requires root or sudo to run the PHP CLI commands
+
+**Important Notes:**
+
+* The `monitoring.php` helper script is optional. Without it, the plugin still works but cannot report Opcache statistics.
+* The `--config` parameter uses startswith matching against `php --info` output.
+* The `--module` parameter uses startswith matching against `php --modules` output.
+
+**Compatibility:**
+
+* Linux only
+
+Apache httpd config example for the optional monitoring.php:
 
 ```text
 Alias /monitoring.php /dev/null
@@ -18,8 +45,6 @@ Alias /monitoring.php /dev/null
 </Location>
 ```
 
-The check can then call up additional PHP information, such as the PHP Opcache statistics.
-
 On the subject of Opcache see also:
 
 * [Opcache Runtime Configuration](https://www.php.net/manual/en/opcache.configuration.php#ini.opcache.interned-strings-buffer)
@@ -30,8 +55,9 @@ On the subject of Opcache see also:
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/php-status> |
+| Nagios/Icinga Check Name              | `check_php_status` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -121,20 +147,17 @@ opcache.validate_timestamps     ! True
 
 ## States
 
-If wanted, always returns OK. Otherwise returns
-
-WARN
-
-* on startup errors,
-* if php.ini config does not match the given configs
-* if a required module is missing
-* on Opcache restarts due to Out of Memory (OOM)
-
-WARN or CRIT:
-
-* if Opcache Memory usage is above the given percentage thresholds (default 80/90%)
-* if Opcache Key usage is above the given percentage thresholds (default 80/90%)
-* if Opcache interned string usage is above the given percentage thresholds (default 80/90%)
+* OK if no startup errors, all expected modules are found, configuration matches, and Opcache usage is below the thresholds.
+* WARN on PHP startup errors.
+* WARN if php.ini configuration does not match the given `--config` values.
+* WARN if a required `--module` is missing.
+* WARN if `display_errors`, `display_startup_errors`, or `expose_php` are enabled.
+* WARN if Opcache is not installed or not enabled.
+* WARN if Opcache restarts due to Out of Memory (OOM).
+* WARN or CRIT if Opcache memory usage is above the given percentage thresholds (default: 90/None).
+* WARN or CRIT if Opcache key usage is above the given percentage thresholds (default: 90/None).
+* WARN or CRIT if Opcache interned string usage is above the given percentage thresholds (default: 90/None).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
@@ -143,45 +166,55 @@ WARN or CRIT:
 |----|----|----|
 | php-config-errors | Number | 0 = STATE_OK, 1 = STATE_WARN, 2 = STATE_CRIT |
 | php-module-errors | Number | 0 = STATE_OK, 1 = STATE_WARN, 2 = STATE_CRIT |
+| php-opcache-interned_strings_usage-free_memory | Bytes | Free interned strings buffer memory. |
+| php-opcache-interned_strings_usage-number_of_strings | Number | Number of interned strings. |
+| php-opcache-interned_strings_usage-percentage | Percentage | Interned strings buffer usage, in percent. |
+| php-opcache-interned_strings_usage-used_memory | Bytes | Used interned strings buffer memory. |
+| php-opcache-memory_usage-current_wasted_percentage | Percentage | Current wasted memory, in percent. |
+| php-opcache-memory_usage-free_memory | Bytes | Free Opcache memory. |
+| php-opcache-memory_usage-percentage | Percentage | Opcache memory usage, in percent. |
+| php-opcache-memory_usage-used_memory | Bytes | Used Opcache memory. |
+| php-opcache-memory_usage-wasted_memory | Bytes | Wasted Opcache memory. |
+| php-opcache-opcache_statistics-blacklist_miss_ratio | Percentage | Blacklist miss ratio. |
+| php-opcache-opcache_statistics-blacklist_misses | Number | Blacklist misses. |
+| php-opcache-opcache_statistics-hash_restarts | Number | Number of restarts because of hash overflow. |
+| php-opcache-opcache_statistics-hits | Continous Counter | Opcache hits. |
+| php-opcache-opcache_statistics-manual_restarts | Number | Number of restarts scheduled by opcache_reset(). |
+| php-opcache-opcache_statistics-misses | Continous Counter | Opcache misses. |
+| php-opcache-opcache_statistics-num_cached_keys | Number | Number of cached keys. |
+| php-opcache-opcache_statistics-num_cached_keys-percentage | Percentage | Cached keys usage, in percent. |
+| php-opcache-opcache_statistics-num_cached_scripts | Number | Number of cached scripts. |
+| php-opcache-opcache_statistics-num_free_keys | Number | Number of free keys. |
+| php-opcache-opcache_statistics-oom_restarts | Number | Number of restarts because of out of memory. |
+| php-opcache-opcache_statistics-opcache_hit_rate | Percentage | Opcache hit rate. |
 | php-startup-errors | Number | 0 = STATE_OK, 1 = STATE_WARN, 2 = STATE_CRIT |
-| php-opcache-interned_strings_usage-free_memory | Bytes |  |
-| php-opcache-interned_strings_usage-number_of_strings | Number |  |
-| php-opcache-interned_strings_usage-percentage | Percentage |  |
-| php-opcache-interned_strings_usage-used_memory | Bytes |  |
-| php-opcache-memory_usage-current_wasted_percentage | Percentage |  |
-| php-opcache-memory_usage-free_memory | Bytes |  |
-| php-opcache-memory_usage-percentage | Percentage |  |
-| php-opcache-memory_usage-used_memory | Bytes |  |
-| php-opcache-memory_usage-wasted_memory | Bytes |  |
-| php-opcache-opcache_statistics-blacklist_miss_ratio | Percentage |  |
-| php-opcache-opcache_statistics-blacklist_misses | Number |  |
-| php-opcache-opcache_statistics-hash_restarts | Number | number of restarts because of hash overflow |
-| php-opcache-opcache_statistics-hits | Continous Counter |  |
-| php-opcache-opcache_statistics-manual_restarts | Number | number of restarts scheduled by opcache_reset() |
-| php-opcache-opcache_statistics-misses | Continous Counter |  |
-| php-opcache-opcache_statistics-num_cached_keys-percentage | Percentage |  |
-| php-opcache-opcache_statistics-num_cached_keys | Number |  |
-| php-opcache-opcache_statistics-num_cached_scripts | Number |  |
-| php-opcache-opcache_statistics-num_free_keys | Number |  |
-| php-opcache-opcache_statistics-oom_restarts | Number | number of restarts because of out of memory |
-| php-opcache-opcache_statistics-opcache_hit_rate | Percentage |  |
 
 
 ## Troubleshooting
 
-If you get a warning on
+`OpCache Mem used warning`
+Increase `opcache.memory_consumption`, in megabytes. The minimum permissible value is `8`, which is enforced if a smaller value is set.
 
-* OpCache Mem used: Increase `opcache.memory_consumption`, in megabytes. The minimum permissible value is `8`, which is enforced if a smaller value is set.
-* Keys used: Increase `opcache.max_accelerated_files`. The actual value used will be the first number in the set of prime numbers `{223, 463, 983, 1979, 3907, 7963, 16229, 32531, 65407, 130987, 262237, 524521, 1048793}` that is greater than or equal to `opcache.max_accelerated_files`. The minimum value is `223`. The maximum value is `1048793`.
-* Hit Rate: Cache has to warm up, so wait and see.
-* Interned Strings used: The OPcache interned strings buffer assures that repeating strings can be effectively cached. Increase `opcache.interned_strings_buffer`, in megabytes. The actual value is always lower than what is configured in `opcache.interned_strings_buffer`.
-* OOM: Increase any of the above values and restart Apache or PHP-FPM.
-* display_startup_errors - N/A: Could happen while a PHP or Icinga update is running on your machine.
-* `No entry for terminal type "unknown"; using dump terminal settings.`: maybe you are using a too old PHP version.
+`Keys used warning`
+Increase `opcache.max_accelerated_files`. The actual value used will be the first number in the set of prime numbers `{223, 463, 983, 1979, 3907, 7963, 16229, 32531, 65407, 130987, 262237, 524521, 1048793}` that is greater than or equal to `opcache.max_accelerated_files`. The minimum value is `223`. The maximum value is `1048793`.
 
-Warning on Startup errors like `PHP Warning:  PHP Startup: Unable to load dynamic library 'gd' ...` etc. for no reason?
+`Hit Rate low`
+Cache has to warm up, so wait and see.
 
-* Update this plugin.
+`Interned Strings used warning`
+The OPcache interned strings buffer assures that repeating strings can be effectively cached. Increase `opcache.interned_strings_buffer`, in megabytes. The actual value is always lower than what is configured in `opcache.interned_strings_buffer`.
+
+`OOM restarts warning`
+Increase any of the above values and restart Apache or PHP-FPM.
+
+`display_startup_errors - N/A`
+Could happen while a PHP or Icinga update is running on your machine.
+
+`No entry for terminal type "unknown"; using dump terminal settings.`
+Maybe you are using a too old PHP version.
+
+`PHP Warning: PHP Startup: Unable to load dynamic library ...`
+Update this plugin.
 
 
 ## Credits, License

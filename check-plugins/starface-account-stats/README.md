@@ -2,15 +2,17 @@
 
 ## Overview
 
-This check plugin returns the account statistics of the Starface PBX.
+Reports account statistics of a Starface PBX, including ringing, active, available, and unavailable accounts.
 
-It uses the data output of the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring), which was originally written for Check_MK and listens on port 6556. Supports both IPv4 and IPv6. Fetched data is cached up to one minute, so that other Starface plugins running in parallel do not query the data again and overload the PBX.
+**Data Collection:**
 
-Special features of this check:
+* Connects via socket to the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) on port 6556
+* Supports both IPv4 (default) and IPv6
+* Fetched data is cached for up to one minute in a shared SQLite database, so that multiple Starface checks running in parallel do not overload the PBX
 
-* Connects directly via Socket.
-* IPv4 (default), IPv6 capable.
-* Fetched data is cached up to one minute and shared between other monitoring plugins dealing with Starface PBX, so that those checks running in parallel do not query the data again and overload the PBX.
+**Compatibility:**
+
+* Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
 
 
 ## Fact Sheet
@@ -18,7 +20,7 @@ Special features of this check:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/starface-account-stats> |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
 | Requirements                          | [Monitoring module for Starface PBX](https://wiki.fluxpunkt.de/display/FPW/Monitoring) |
@@ -75,14 +77,14 @@ Output:
 
 ## Perfdata / Metrics
 
-| Name                 | Type    | Description |
-|----------------------|---------|-------------|
-| active_accounts      | Counter |             |
-| admin_accounts       | Counter |             |
-| available_accounts   | Counter |             |
-| ringing_accounts     | Counter |             |
-| total_accounts       | Counter |             |
-| unavailable_accounts | Counter |             |
+| Name | Type | Description |
+|----|----|----|
+| active_accounts | Number | Number of currently active accounts |
+| admin_accounts | Number | Number of admin accounts |
+| available_accounts | Number | Number of available accounts |
+| ringing_accounts | Number | Number of currently ringing accounts |
+| total_accounts | Number | Total number of accounts |
+| unavailable_accounts | Number | Number of unavailable accounts |
 
 
 ## Credits, License

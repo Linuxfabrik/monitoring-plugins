@@ -2,16 +2,30 @@
 
 ## Overview
 
-This plugin lets you track if Moodle is End-of-Life (EOL). To compare against the current/installed version of Moodle, the check has to run on the Moodle server itself and needs access to the Moodle installation directory.
+Checks whether the installed Moodle version is end-of-life (EOL) by comparing the local version against the endoflife.date API. Optionally alerts on available major, minor, or patch releases (each independently configurable).
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Alerting Logic:**
+
+* WARN if the installed Moodle version has reached or is approaching EOL (configurable offset, default: 30 days before the EOL date)
+* Optional WARN when a new major, minor, or patch release is available (each via a separate flag)
+
+**Data Collection:**
+
+* Reads the installed Moodle version from `version.php` in the local Moodle installation directory (default: `/var/www/html/moodle`)
+* Queries the endoflife.date API for the latest EOL and release information
+* Caches API responses in a local SQLite database to reduce network calls
+
+**Compatibility:**
+
+* Requires local file system access to the Moodle installation directory
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/moodle-version> |
+| Nagios/Icinga Check Name              | `check_moodle_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -73,10 +87,11 @@ Moodle v4.1.11 (EOL 2025-12-08 -30d, minor 4.4.1 available)
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* WARN if the installed version is EOL (or approaching EOL within the configured offset).
+* Optional: WARN when a new major version is available (`--check-major`).
+* Optional: WARN when a new minor version is available (`--check-minor`).
+* Optional: WARN when a new patch version is available (`--check-patch`).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

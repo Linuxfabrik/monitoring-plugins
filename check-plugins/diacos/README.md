@@ -2,13 +2,28 @@
 
 ## Overview
 
-This plugin checks availability and performance of an [ID DIACOS® installation]((https://www.id-suisse-ag.ch/loesungen/abrechnung/id-diacos/) by doing a login, search and logout.
+Checks availability and response time of an [ID DIACOS](https://www.id-suisse-ag.ch/loesungen/abrechnung/id-diacos/) installation by performing a full login, diagnosis search, and logout cycle. Alerts if the total response time exceeds the configured thresholds. Useful for monitoring the health of DIACOS medical billing systems.
 
-From the manufacturer:
+ID DIACOS is a coding software for accurate and fast invoicing in hospitals, allowing clinical services to be documented quickly and reliably within fee-payment systems such as G-DRG, SWISS-DRG, and EBM.
 
-> ID DIACOS® is synonymous with accurate and fast invoicing in hospitals. The coding software allows clinical services to be documented quickly and reliably. ID DIACOS® offers functions that allow fees to be determined directly within the respective fee-payment systems, e.g., G-DRG, SWISS-DRG, EBM, etc., while ensuring full compliance with statutory requirements. The coding quality is optimized through bi-directional integration with hospital information systems. [Source](https://www.id-berlin.de/en/products/codierung/id-diacos/)
+**Data Collection:**
 
-Plugin execution may take more than 10 seconds.
+* Performs three sequential API calls against the ID DIACOS REST API (`/axis2/idlogikrest`):
+  1. `user.Login` - authenticates with the provided licence and user name, returns a session ID
+  2. `classification.SearchDiagnoses` - performs a diagnosis search using configurable parameters
+  3. `user.Logoff` - terminates the session
+* Measures the total runtime across all three calls
+* Each API call reports its own `totalTimeMillis` from the server response
+
+**Compatibility:**
+
+* Any platform with network access to the ID DIACOS REST API
+
+**Important Notes:**
+
+* Plugin execution may take more than 10 seconds depending on network latency and server load
+* `--login-name` and `--login-licence` are required parameters
+* The session ID is validated for minimum expected length before proceeding with the search
 
 
 ## Fact Sheet
@@ -16,8 +31,9 @@ Plugin execution may take more than 10 seconds.
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/diacos> |
+| Nagios/Icinga Check Name              | `check_diacos` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--login-name` and `--login-licence` are required) |
 | Compiled for Windows                  | No |
 
 
@@ -101,7 +117,7 @@ options:
     --search-sort-mode '%25T' \
     --search-year 2020 \
     --timeout 7 \
-    --url http://localhost:9999
+    --url http://localhost:9999 \
     --warning 3000
 ```
 
@@ -114,21 +130,24 @@ Output:
 
 ## States
 
-* WARN or CRIT if total runtime of login, search and logout is greater than or equal to the given thresholds.
-* If wanted, always returns OK.
+* OK if the total runtime is below `--warning` (default: 3000ms).
+* WARN if the total runtime is >= `--warning` (default: 3000ms).
+* CRIT if the total runtime is >= `--critical` (default: 6000ms).
+* UNKNOWN if the login fails, the session ID is too short, or API calls return errors.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name            | Type         | Description                               |
-|-----------------|--------------|-------------------------------------------|
-| runtime         | Milliseconds | Total runtime of login, search and logout |
-| login_duration  | Milliseconds | Duration of the login operation           |
-| search_duration | Milliseconds | Duration of the search operation          |
-| logout_duration | Milliseconds | Duration of the logout operation          |
+| Name | Type | Description |
+|----|----|----|
+| login_duration | Milliseconds | Duration of the login API call as reported by the server. |
+| logout_duration | Milliseconds | Duration of the logout API call as reported by the server. |
+| runtime | Milliseconds | Total wall-clock time for login, search, and logout combined. |
+| search_duration | Milliseconds | Duration of the diagnosis search API call as reported by the server. |
 
 
 ## Credits, License
 
-* Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch); originally written by Dominik Riva, Universitätsspital Basel/Switzerland
+* Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch); originally written by Dominik Riva, Universitaetsspital Basel/Switzerland
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).

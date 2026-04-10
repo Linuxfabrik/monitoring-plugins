@@ -2,20 +2,38 @@
 
 ## Overview
 
-This plugin lets you track if Icinga is End-of-Life (EOL). To compare against the current/installed version of Icinga, the check has to run on the host running the Icinga2 daemon itself.
+Checks the installed Icinga version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Alerting Logic:**
+
+* Alerts when the installed Icinga version reaches its end-of-life date (default: 30 days before EOL)
+* Optionally alerts when a newer major, minor, or patch release is available (each independently configurable)
+
+**Data Collection:**
+
+* Runs `icinga2 --version` locally to determine the installed version
+* Queries the endoflife.date API (`https://endoflife.date/api/icinga.json`) for EOL and release information
+* Caches API responses in a SQLite database to avoid repeated requests
+
+**Compatibility:**
+
+* Must run on the host where the Icinga2 daemon is installed
+
+**Important Notes:**
+
+* The check returns UNKNOWN if the `icinga2` binary is not found on the system
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/icinga-version> |
+| Nagios/Icinga Check Name              | `check_icinga_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 
 
 ## Help
@@ -69,17 +87,20 @@ Icinga v2.14.6 (EOL unknown)
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* OK if the installed version is not EOL and no newer version alerts are configured.
+* WARN if the installed version is EOL (or will be within `--offset-eol` days).
+* WARN if `--check-major` is set and a newer major version is available.
+* WARN if `--check-minor` is set and a newer minor version is available.
+* WARN if `--check-patch` is set and a newer patch version is available.
+* UNKNOWN if `icinga2` is not found on the system.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| icinga-version | Number | Installed Icinga version as float. "2.14.6" becomes "2.146". |
+| icinga-version | Number | Installed Icinga version as float. For example, "2.14.6" becomes "2.146". |
 
 
 ## Credits, License

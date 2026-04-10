@@ -2,24 +2,36 @@
 
 ## Overview
 
-Returns the current system-wide CPU utilization as a percentage from a Forti Appliance like FortiGate running FortiOS, using the FortiOS REST API. Warns only if the overall CPU usage is above a certain threshold within the last n checks (default: 5). The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".
+Monitors CPU utilization on FortiGate appliances running FortiOS via the REST API. Alerts only if the threshold has been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes. First checks against the globally configured cpu-use-threshold on the appliance, then falls back to command-line thresholds.
 
-Hints:
+**Data Collection:**
 
-* This plugin tries to check against the global configured `cpu-use-threshold` first; only if there is no value, the check's command line values (or their defaults) are used.
-* `--count=5` (the default) while checking every minute means that the check reports a warning if the overall CPU usage is above a threshold in the last 5 minutes.
+* Queries the FortiOS REST API endpoint `/api/v2/monitor/system/resource/usage?resource=cpu&interval=1-min` for the current CPU usage
+* Queries `/api/v2/cmdb/system/global` to read the appliance's globally configured `cpu-use-threshold`; if present, this value overrides `--warning`
+* Stores each measurement in a local SQLite database, retaining the last `--count` rows
+* Authentication uses a single API token (Token-based authentication)
+
+**Compatibility:**
+
+* FortiGate appliances running FortiOS with REST API access
+
+**Important Notes:**
+
+* `--count=5` (the default) while checking every minute means the check reports a warning only if the CPU usage exceeds the threshold for 5 consecutive minutes
+* The globally configured `cpu-use-threshold` on the appliance takes precedence over the `--warning` command-line value. The `--critical` threshold is always used as-is.
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fortios-cpu-usage> |
+| Nagios/Icinga Check Name              | `check_fortios_cpu_usage` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--hostname` and `--password` are required) |
 | Compiled for Windows                  | No |
 | Handles Periods                       | Yes |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-fortios-cpu-usage.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-fortios-cpu-usage.db` |
 
 
 ## Help
@@ -75,13 +87,17 @@ Output:
 
 ## States
 
-* OK if overall `cpu-usage` is below the thresholds within the last `--count` checks.
-* Otherwise CRIT or WARN.
+* OK if CPU usage is below the thresholds within the last `--count` consecutive checks.
+* WARN if CPU usage exceeds the warning threshold (appliance's `cpu-use-threshold` or `--warning`, default: 80%) for `--count` consecutive checks (default: 5).
+* CRIT if CPU usage exceeds `--critical` (default: 90%) for `--count` consecutive checks (default: 5).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-* `cpu-usage`: The overall cpu usage.
+| Name | Type | Description |
+|----|----|----|
+| cpu-usage | Percentage | Current CPU usage of the FortiGate appliance. |
 
 
 ## Credits, License

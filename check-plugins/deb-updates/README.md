@@ -2,13 +2,24 @@
 
 ## Overview
 
-This plugin checks for software updates on systems that use package management systems based on the apt-get(8) command found in Debian GNU/Linux and compatible. This plugin only lists updates and upgrades, and provides the relevant alerts. It never actually runs an update. Tested on Debian 11+ and Ubuntu 20+.
+Checks for available APT package updates on Debian, Ubuntu, and compatible systems. Reports the number of pending updates and upgrades, and alerts when updates are available. This check only lists updates and never actually installs anything. Requires root or sudo.
 
-The plugin stores all relevant information in a local SQLite database. For the `--query` parameter, the following database columns can be used:
+**Data Collection:**
 
-* package (TEXT)
+* Runs `sudo apt-get update --quiet 2` to refresh the package cache
+* Runs `apt list --upgradable` to determine available updates
+* Stores the results in a local SQLite database for flexible querying via `--query`
+* Optionally filters for security-critical updates only (`--only-critical`), matching packages from `*-security` repositories
 
-As the output interface of the `apt` tool is not stable, the database table has been kept deliberately simple and consists of only one column.
+**Compatibility:**
+
+* Debian 11+, Ubuntu 20+, and other apt-based distributions
+
+**Important Notes:**
+
+* The plugin stores all relevant information in a local SQLite database. For the `--query` parameter, the following database column is available: `package` (TEXT)
+* As the output interface of the `apt` tool is not stable, the database table has been kept deliberately simple and consists of only one column
+* The user running this plugin must have sudo permissions with NOPASSWD for `apt-get update`
 
 Example content of the `package` column:
 
@@ -24,11 +35,11 @@ bind9-dnsutils/stable,stable-security 1:9.18.33-1~deb12u2 amd64 [upgradable from
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/deb-updates> |
+| Nagios/Icinga Check Name              | `check_deb_updates` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Requirements                          | Command-line tool `sudo`; the user running this plugin must have sudo permissions, and the NOPASSWD tag must be set |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-deb-updates.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-deb-updates.db` |
 
 
 ## Help
@@ -77,7 +88,10 @@ Output:
 
 ## States
 
-* WARN if the number of updatable packages exceeds the specified threshold value
+* OK if no updates are available (or the count is below `--warning`).
+* WARN if the number of updatable packages is >= `--warning` (default: 1).
+* UNKNOWN if `apt-get update` or `apt list --upgradable` fails.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
@@ -89,19 +103,18 @@ Output:
 
 ## Troubleshooting
 
-**`apt-get update` returned with an error.**
+`apt-get update returned with an error.`  
+The plugin runs `sudo apt-get update` and requires a working sudoers configuration. The package installs `/etc/sudoers.d/linuxfabrik-monitoring-plugins` automatically. If this file is missing, restore it:
 
-> The plugin runs `sudo apt-get update` and requires a working sudoers configuration. The package installs `/etc/sudoers.d/linuxfabrik-monitoring-plugins` automatically. If this file is missing, restore it:
->
-> ```bash
-> apt install --reinstall -o Dpkg::Options::="--force-confmiss" linuxfabrik-monitoring-plugins
-> ```
->
-> If the file exists but the error persists, verify that the monitoring user (typically `icinga` or `nagios`) can run `sudo apt-get update` without a password prompt:
->
-> ```bash
-> su icinga -s /bin/bash -c "sudo apt-get update --quiet 2"
-> ```
+```bash
+apt install --reinstall -o Dpkg::Options::="--force-confmiss" linuxfabrik-monitoring-plugins
+```
+
+If the file exists but the error persists, verify that the monitoring user (typically `icinga` or `nagios`) can run `sudo apt-get update` without a password prompt:
+
+```bash
+su icinga -s /bin/bash -c "sudo apt-get update --quiet 2"
+```
 
 
 ## Credits, License

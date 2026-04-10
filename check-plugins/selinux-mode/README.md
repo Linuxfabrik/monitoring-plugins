@@ -2,14 +2,29 @@
 
 ## Overview
 
-Checks the current mode of SELinux against a desired mode, and returns a warning on a non-match. If `--mode` is ommited, we suppose SELinux is in `Enforcing` mode.
+Verifies that the current SELinux mode (enforcing, permissive, or disabled) matches the expected setting. Returns WARN if the actual mode differs from the desired one.
+
+**Alerting Logic:**
+
+* WARN if the current SELinux mode does not match the expected mode (default: enforcing)
+* If SELinux is not in enforcing mode, the message "Make SELinux Enforcing Again." is appended as a reminder
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Executes `getenforce` to determine the current SELinux mode
+
+**Compatibility:**
+
+* Linux (distributions with SELinux support)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/selinux-mode> |
+| Nagios/Icinga Check Name              | `check_selinux_mode` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -52,7 +67,10 @@ Make SELinux Enforcing Again.
 
 ## States
 
-* WARN if selinux mode is in a state not as expected.
+* OK if the current SELinux mode matches the expected mode.
+* WARN if the current SELinux mode does not match the expected mode.
+* UNKNOWN if SELinux is not applicable to the system (e.g., `getenforce` is not available).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

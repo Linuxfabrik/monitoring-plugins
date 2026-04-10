@@ -2,18 +2,35 @@
 
 ## Overview
 
-This check parses a flat json array from a file or url and simply returns the message, state and perfdata from the json.
+Parses a JSON object from a local file, HTTP/HTTPS URL, or SMB share and extracts message, state, and perfdata values from configurable keys. This allows integrating custom applications or scripts that provide monitoring data in JSON format into Nagios/Icinga without writing a dedicated check plugin.
+
+**Alerting Logic:**
+
+* Returns the Nagios state (0=OK, 1=WARN, 2=CRIT, 3=UNKNOWN) read directly from the JSON key specified by `--state-key`
+* If the state key is missing, the check returns UNKNOWN
+
+**Data Collection:**
+
+* Reads JSON from one of three sources (mutually exclusive): a local file (`--filename`), an HTTP/HTTPS URL (`--url`), or an SMB share (`smb://` URL with optional `--username`/`--password`)
+* Extracts the output message from the key specified by `--message-key` (default: `message`)
+* Extracts the perfdata string from the key specified by `--perfdata-key` (default: `perfdata`)
+* Extracts the return state from the key specified by `--state-key` (default: `state`)
+
+**Compatibility:**
+
+* Linux (SMB access requires the `PySmbClient` and `smbprotocol` Python modules)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/json-values> |
+| Nagios/Icinga Check Name              | `check_json_values` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| 3rd Party Python modules              | `PySmbClient`, `smbprotocol` |
+| 3rd Party Python modules              | `PySmbClient`, `smbprotocol` (only for SMB access) |
 
 
 ## Help
@@ -37,7 +54,7 @@ options:
   --filename FILENAME   Path to a local JSON file. Mutually exclusive with -u
                         / --url.
   --insecure            This option explicitly allows insecure SSL
-                        connections. Default: False
+                        connections.
   --message-key MESSAGE_KEY
                         Name of the JSON array key containing the output
                         message. Default: message
@@ -61,8 +78,10 @@ options:
 
 ```bash
 ./json-values --url=http://example.com/example.json --message-key=message --state-key=state --perfdata-key=perfdata
+```
 
-cat > /tmp/example.json2 << 'EOF'
+```bash
+cat > /tmp/example.json << 'EOF'
 {
     "state": 2,
     "message": "This is a test message",
@@ -81,12 +100,23 @@ This is a test message|'cpu-usage'=5.6%;80;90;0;100
 
 ## States
 
-* Exits with the state from the json array.
+* Returns the state value from the JSON object (0=OK, 1=WARN, 2=CRIT, 3=UNKNOWN).
+* UNKNOWN if `--filename` and `--url` are used together, if the URL protocol is unsupported, if JSON parsing fails, or if the state key is missing.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-Returns the perfdata from the json array.
+Returns the perfdata string from the JSON object as-is (key specified by `--perfdata-key`).
+
+
+## Troubleshooting
+
+`Python module "smbprotocol" is not installed.`
+Install the required modules: `pip install PySmbClient smbprotocol`.
+
+`The --filename and -u / --url parameter are mutually exclusive.`
+Specify either `--filename` or `--url`, not both.
 
 
 ## Credits, License

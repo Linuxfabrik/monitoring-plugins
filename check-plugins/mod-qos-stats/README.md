@@ -2,16 +2,26 @@
 
 ## Overview
 
-mod_qos for Apache httpd features a handler showing the current connection and request status. This check fetches the machine-readable version of the status information.
+Monitors Apache mod_qos status via the machine-readable status handler. Reports current connection and request limits, active connections, and quality of service metrics for all configured virtual hosts. This check is primarily useful for statistical purposes and visualization over time in Grafana.
 
-Due to the behavior of mod_qos, this check does not issue a warning, since mod_qos adds waiting times in the event of overuse, for example. The check is useful for statistical purposes and for visualization over time, e.g. in Grafana.
+**Data Collection:**
+
+* Fetches the machine-readable status page from the mod_qos handler (`?auto` parameter)
+* Parses per-virtual-host connection and request limit entries, including `QS_AllConn`, `QS_LocRequestLimitMatch`, `QS_LocKBytesPerSecLimitMatch`, `QS_CondLocRequestLimitMatch`, and `QS_SrvMaxConn`
+* Perfdata metric names are composed of the mod_qos configuration option suffixed by the request pattern (e.g. `QS_LocRequestLimitMatch_[^.*$]`)
+
+**Important Notes:**
+
+* Due to the behavior of mod_qos (which adds waiting times in case of overuse rather than rejecting requests), this check always returns OK and does not issue warnings
+* Requires `mod_qos` to be enabled and a `Location` configured with `SetHandler qos-viewer`
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mod-qos-stats> |
+| Nagios/Icinga Check Name              | `check_mod_qos_stats` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -72,11 +82,13 @@ virt www.example.com   443  QS_SrvMaxConn ([])                    100        0
 
 Depends on your mod_qos configuration. The configuration options are suffixed by their specified request pattern (path and query). For example:
 
-* `QS_AllConn_All`
-* `QS_CondLocRequestLimitMatch_[^.*$]`
-* `QS_LocKBytesPerSecLimitMatch_[^.*$]`
-* `QS_LocRequestLimitMatch_[^.*$]`
-* `QS_SrvMaxConn_[]`
+| Name | Type | Description |
+|----|----|----|
+| QS_AllConn_All | Number | Current number of all connections (global). |
+| QS_CondLocRequestLimitMatch_[^.*$] | Number | Current conditional location request limit match count. |
+| QS_LocKBytesPerSecLimitMatch_[^.*$] | KB | Current location KBytes per second limit match count. |
+| QS_LocRequestLimitMatch_[^.*$] | Number | Current location request limit match count. |
+| QS_SrvMaxConn_[] | Number | Current server max connection count. |
 
 
 ## Credits, License

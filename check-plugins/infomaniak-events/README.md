@@ -2,42 +2,59 @@
 
 ## Overview
 
-Informs you about open events at Infomaniak via the Infomaniak API. To use this check, you have to create a Bearer Token with scope "event" at Infomaniak first. A filter for `--service` is applied before the `--ignore-regex` parameter.
+Monitors the Infomaniak status page for open events and incidents. Alerts when active events are reported.
 
-"Services" (service categories) that we know about and that can be filtered:
+**Alerting Logic:**
 
-* administration_console
-* certificate
-* cloud
-* drive
-* email_hosting
-* hosting
-* housing
-* jelastic
-* public_cloud
-* radio
-* swiss_backup
-* web_hosting
-* webmail
+* Alerts WARN for active (non-terminated) events
+* Alerts CRIT if an active event is of type "critical"
+* Events can be filtered by service category (`--service`) and excluded by title regex (`--ignore-regex`)
+* The `--service` filter is applied before `--ignore-regex`
 
-Links:
+**Data Collection:**
 
-* API Documentation: <https://developer.infomaniak.com/docs/api/get/2/events>
-* API Tokens: <https://manager.infomaniak.com/v3/$ACCOUNT_ID/ng/accounts/token>
-* Infomaniak Status Page: <https://infomaniakstatus.com/>
+* Queries the Infomaniak API for current events
+* Requires a Bearer Token with scope "event" from Infomaniak
+* Displays event type, title, services, start/end time, and duration in a table
 
-Hints:
+**Compatibility:**
 
-* Might take more than 10 seconds to execute.
+* Works with the Infomaniak API v2
+
+**Important Notes:**
+
+* The API call may take more than 10 seconds. The default timeout is 28 seconds.
+* Known service categories that can be filtered with `--service`:
+
+    * administration_console
+    * certificate
+    * cloud
+    * drive
+    * email_hosting
+    * hosting
+    * housing
+    * jelastic
+    * public_cloud
+    * radio
+    * swiss_backup
+    * web_hosting
+    * webmail
+
+* Links:
+
+    * API Documentation: <https://developer.infomaniak.com/docs/api/get/2/events>
+    * API Tokens: <https://manager.infomaniak.com/v3/$ACCOUNT_ID/ng/accounts/token>
+    * Infomaniak Status Page: <https://infomaniakstatus.com/>
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/infomaniak-events> |
+| Nagios/Icinga Check Name              | `check_infomaniak_events` |
 | Check Interval Recommendation         | Every minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--token` is required) |
 | Compiled for Windows                  | No |
 
 
@@ -92,14 +109,18 @@ impacting   ! Public Cloud: service disruption ! public_cloud ! 2023-05-10 19:30
 
 ## States
 
-* WARN if an event is not in state "terminated"
+* OK if all events are in state "terminated".
+* WARN if an active event is reported (type is not "critical").
+* CRIT if an active event of type "critical" is reported.
+* UNKNOWN on invalid `--ignore-regex` patterns or invalid command-line arguments.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name  | Type   | Description                         |
-|-------|--------|-------------------------------------|
-| event | Number | 0 = no event, 1 = event in progress |
+| Name | Type | Description |
+|----|----|----|
+| event | Number | 0 = no active event, 1 = at least one active event in progress. |
 
 
 ## Credits, License

@@ -2,22 +2,32 @@
 
 ## Overview
 
-Checks the mail queue. Tested with Postfix and Exim.
+Checks the number of messages in the mail queue using the `mailq` command. Alerts when the queue length exceeds the configured thresholds. Tested with Postfix and Exim.
 
-Hints:
+**Data Collection:**
 
-* Exim: By default, `exim -bq` (alias `mailq`) can be used only by an admin user. However, the `queue_list_requires_admin` option can be set false to allow any user to see the queue. Alternatively, add the icinga user to the exim group (sometimes the group is also called `Debian-exim`).
+* Executes the `mailq` command and parses its output to count queued messages
+* Supports different output formats: Postfix-style ("-- 2 Kbytes in 3 Requests."), Exim-style (line counting), and generic ("17 mails to deliver")
+* Also reports any error messages from `mailq` on stderr
+
+**Compatibility:**
+
+* Linux (requires the `mailq` command)
+
+**Important Notes:**
+
+* Exim: By default, `exim -bq` (alias `mailq`) can be used only by an admin user. Set `queue_list_requires_admin` to false to allow any user to see the queue, or add the icinga user to the exim group (sometimes called `Debian-exim`)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mailq> |
+| Nagios/Icinga Check Name              | `check_mailq` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Requirements                          | command-line tool `mailq` |
 
 
 ## Help
@@ -56,13 +66,18 @@ Output:
 
 ## States
 
-* WARN on error messages from mailq.
-* WARN or CRIT if number of messages is greater than or equal to the thresholds.
+* OK if the mail queue is empty or the number of messages is below `--warning` (default: 2).
+* WARN if `mailq` reports an error message on stderr.
+* WARN if the number of messages is >= `--warning` (default: 2).
+* CRIT if the number of messages is >= `--critical` (default: 250).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-* mailq: Mails in mail queue
+| Name | Type | Description |
+|----|----|----|
+| mailq | Number | Number of messages currently in the mail queue. |
 
 
 ## Credits, License

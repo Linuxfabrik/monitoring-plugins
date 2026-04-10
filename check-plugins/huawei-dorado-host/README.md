@@ -2,13 +2,28 @@
 
 ## Overview
 
-Batch querying basic information about hosts attached to a Huawei OceanStor Dorado storage system via the REST Interface, using the `https://${ip}:${port}/deviceManager/rest/${deviceId}/host` endpoint. Cookies and iBaseTokens are stored and re-used (the session timeout period is usually 20 minutes).
+Checks the health and running status of all hosts attached to a Huawei OceanStor Dorado storage system via the REST API (`/host` endpoint). Alerts when any host reports a non-normal health or running state. Reports operating system type and allocated capacity per host.
 
-Hints:
+**Alerting Logic:**
 
-* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0.
-* Create a read-only API user that can perform query only.
-* Sometimes the API returns `This operation fails to be performed because of the unauthorized REST. Before performing this operation, ensure that REST is authorized.`, although everything is fine. In this case, the check simply tries to retrieve the data again, a maximum of 9 times within 9 seconds.
+* WARN if any host's health status is not "Normal"
+* WARN if any host's running status is not "Normal"
+
+**Data Collection:**
+
+* Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/host`
+* Authenticates via session tokens (iBaseToken + cookie), cached in a SQLite database to avoid repeated logins
+* On transient authorization errors, automatically retries up to 9 times with 1-second intervals
+
+**Compatibility:**
+
+* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
+
+**Important Notes:**
+
+* Create a read-only API user that can perform queries only
+* The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
+* The host list reflects host objects configured on the storage system, not necessarily their actual online/offline status on the network
 
 
 ## Fact Sheet
@@ -16,10 +31,11 @@ Hints:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/huawei-dorado-host> |
+| Nagios/Icinga Check Name              | `check_huawei_dorado_host` |
 | Check Interval Recommendation         | Every 5 minutes |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--device-id`, `--password`, `--url` and `--username` are required) |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | Yes |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
 
 
 ## Help
@@ -91,20 +107,31 @@ Fetched API 2 times
 
 ## States
 
-* UNKNOWN on invalid responses or responses with error codes.
-* WARN if host health status is not equal to "Normal".
-* WARN if host running status is not equal to "Normal".
+* OK if all hosts report normal health and running status.
+* WARN if any host's health status is not "Normal".
+* WARN if any host's running status is not "Normal".
+* UNKNOWN on invalid API responses or responses with error codes.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| \<UUID\>\_HEALTHSTATUS | Number | 1: Normal, 17: No redundant link, 18: Offline |
-| \<UUID\>\_RUNNINGSTATUS | Number | 1: normal |
-| \<UUID\>\_allocatedCapacity | Number | Used capacity. |
+| \<UUID\>\_allocatedCapacity | Number | Used (allocated) capacity. |
+| \<UUID\>\_HEALTHSTATUS | Number | 1: normal, 17: no redundant link, 18: offline. |
+| \<UUID\>\_RUNNINGSTATUS | Number | 1: normal. |
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
+
+
+## Troubleshooting
+
+`Got no valuable response from https://...`
+Check the `--url`, `--device-id`, `--username` and `--password` parameters. Verify that the API user has query permissions and that the storage system REST API is reachable.
+
+`This operation fails to be performed because of the unauthorized REST.`
+This is a known transient issue with the Huawei REST API. The check retries automatically up to 9 times. If the error persists, verify the API credentials and session timeout settings.
 
 
 ## Credits, License

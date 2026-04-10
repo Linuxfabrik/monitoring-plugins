@@ -2,25 +2,41 @@
 
 ## Overview
 
-Checks the state of all drives or other physical storage media in the Systems collection.
+Checks the state of all physical drives and storage media in a Redfish-compatible server via the Redfish API. Iterates over the Systems collection, fetches storage controllers and their attached drives, and reports health status, media type, protocol, capacity, and predicted media life left.
 
-Tested on:
+**Alerting Logic:**
 
-* DELL iDRAC
-* DMTF Simulator
+* WARN if an enabled drive's health or health rollup state is "Warning"
+* WARN if an enabled controller's health or health rollup state is "Warning"
+* CRIT if an enabled drive's health or health rollup state is "Critical"
+* CRIT if an enabled controller's health or health rollup state is "Critical"
+* `--always-ok` suppresses all alerts and always returns OK
 
-Hints:
+**Data Collection:**
 
-* A check takes up to 10 seconds. Increasing runtime timout to 30 seconds is recommended.
-* This check runs with both http and https. It just uses GET requests.
+* Queries `/redfish/v1/Systems` to enumerate system members
+* For each member, queries the Storage collection and iterates over all storage controllers and attached drives
+* Uses HTTP Basic authentication if `--username` and `--password` are provided
+* Only evaluates drives and controllers in "Enabled" or "Quiesced" state
+
+**Important Notes:**
+
+* A check takes up to 10 seconds. Increasing runtime timeout to 30 seconds is recommended.
+* This check runs with both HTTP and HTTPS. It uses GET requests only.
 * No additional Python Redfish modules need to be installed.
+
+**Compatibility:**
+
+* Tested on DELL iDRAC and DMTF Simulator
+* Linux only
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redfish-drives> |
+| Nagios/Icinga Check Name              | `check_redfish_drives` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -82,14 +98,12 @@ CPU.1             ! CPU.1                                                   ! CP
 
 ## States
 
-* CRIT if an enabled drive's health rollup state is equal to "Critical".
-* CRIT if an enabled drive's health state is equal to "Critical".
-* CRIT if an enabled controller's rollup state is equal to "Critical".
-* CRIT if an enabled controller's state is equal to "Critical".
-* WARN if an enabled drive's health rollup state is equal to "Warning".
-* WARN if an enabled drive's health state is equal to "Warning".
-* WARN if an enabled controller's rollup state is equal to "Warning".
-* WARN if an enabled controller's state is equal to "Warning".
+* OK if all drives and controllers are healthy.
+* WARN if an enabled drive's health or health rollup state is "Warning".
+* WARN if an enabled controller's health or health rollup state is "Warning".
+* CRIT if an enabled drive's health or health rollup state is "Critical".
+* CRIT if an enabled controller's health or health rollup state is "Critical".
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

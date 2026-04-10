@@ -2,27 +2,32 @@
 
 ## Overview
 
-Multi HDD/SSD scan. No need to provide any warning/critical thresholds, no need to maintain any disk or property databases, no need for any additional libraries.
+Queries SMART (Self-Monitoring, Analysis, and Reporting Technology) data from hard disks and solid-state drives using smartctl. Inspects drive health attributes, error logs, and self-test results to detect failing or degraded drives before data loss occurs. Supports both SCSI and ATA drives, including drives behind hardware RAID controllers when the correct device type is specified. Alerts when any drive reports failing health attributes, SMART errors, or failed self-tests. Requires root or sudo.
 
-This check will scan for devices and attempt to open each device first. If successful, all information for the device will be parsed.
+**Data Collection:**
 
-The check calls `smartctl`, which itself *controls the Self-Monitoring, Analysis and Reporting Technology (SMART) system built into most ATA/SATA and SCSI/SAS hard drives and solid-state drives. The purpose of SMART is to monitor the reliability of the hard drive and predict drive failures.* (from the man page of `smart`)
+* Runs `smartctl --scan-open` to discover all available drives, then runs `smartctl --xall` against each drive
+* Parses drive health status, SMART attributes (pre-fail and old-age), error logs, self-test results, temperatures, power-on hours, and remaining lifetime
+* The check tries to identify all disks automatically. Disks without SMART capability can be excluded using the `--ignore` parameter
+* A `smartctl` run can take up to one or two seconds per disk, depending on its health and interface/bus speed
 
-Hints:
+**Compatibility:**
 
-* Needs `sudo`.
-* Running this check just makes sense on hardware using ATA/SATA and/or SCSI/SAS HDDs and SSDs.
-* The check tries to identify all disks automatically. Disks without SMART capability can be ignored using the `--ignore` parameter manually.
-* Keep in mind that a `smartctl` run can take up to one or two seconds per disk, depending on its health and (interface/bus) speed.
-* Don't forget to run `/usr/sbin/update-smart-drivedb` from time to time to get the newest drive database (sometimes there are improvements on how to interpret some attributes).
-* Use `--full` to get also a warning for notices.
+* Linux only (requires `smartctl` from the `smartmontools` package)
+* Supports ATA/SATA and SCSI/SAS hard drives and solid-state drives
+
+**Important Notes:**
+
+* Run `/usr/sbin/update-smart-drivedb` periodically to update the drive database, which can improve attribute interpretation
+* Use `--full` to also alert on notices (assumptions), not just on actual SMART issues
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-smart> |
+| Nagios/Icinga Check Name              | `check_disk_smart` |
 | Check Interval Recommendation         | Every 8 hours |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -85,42 +90,39 @@ Checked 6 disks. There are critical errors.
 
 ## States
 
-CRIT, if SMART reports
-
-* any messages in subsection "health"
-* drive has a failing pre-fail attribute
-* "Address mark not found" in subsection "error_log"
-* "Identity not found" in subsection "error_log"
-* "Track 0 not found" in subsection "error_log"
-* "Uncorrectable error in data" in subsection "error_log"
-* SMART status check returned DISK FAILING
-
-WARN, if SMART reports
-
-* failing old-age attribute
-* failing pre-fail attribute in the past
-* "Command completion timed out" in subsection "error_log"
-* "End of media" in subsection "error_log"
-* "Interface CRC error" in subsection "error_log"
-* Drive is past its estimated lifespan
-* Drive is reporting surface errors
-
-UNKNOWN on `smartctl` not found, errors running `smartctl`, SMART not available or not supported.
-
-If `smartctl` reports more than one issue, the worst issue state over all disks is returned.
+* CRIT if SMART reports any messages in "health" subsection.
+* CRIT if a drive has a failing pre-fail attribute.
+* CRIT if "Address mark not found" in error log.
+* CRIT if "Identity not found" in error log.
+* CRIT if "Track 0 not found" in error log.
+* CRIT if "Uncorrectable error in data" in error log.
+* CRIT if SMART status check returned "DISK FAILING".
+* WARN if a drive has a failing old-age attribute.
+* WARN if a drive has a failing pre-fail attribute in the past.
+* WARN if "Command completion timed out" in error log.
+* WARN if "End of media" in error log.
+* WARN if "Interface CRC error" in error log.
+* WARN if a drive is past its estimated lifespan.
+* WARN if a drive is reporting surface errors.
+* UNKNOWN on `smartctl` not found, errors running `smartctl`, SMART not available or not supported.
+* If `smartctl` reports more than one issue, the worst state over all disks is returned.
+* With `--full`, notices (stated as "notice" in GSmartControl) also trigger WARN.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-* Temperatures
-* Remaining or used Lifetimes
-* Power On Hours
-* Power Cycle Counts
+| Name | Type | Description |
+|----|----|----|
+| temperatures | Number | Drive temperatures (per disk, if reported). |
+| remaining/used lifetimes | Percentage | Remaining or used drive lifetime (per disk, if reported). |
+| power_on_hours | Number | Total power-on hours (per disk, if reported). |
+| power_cycle_count | Number | Number of power cycles (per disk, if reported). |
 
 
 ## Troubleshooting
 
-smartctl failed with exit status "Device open failed, device did not return an IDENTIFY DEVICE structure, or device is in a low-power mode.  
+`smartctl failed with exit status "Device open failed, device did not return an IDENTIFY DEVICE structure, or device is in a low-power mode.`  
 Run the check with root privileges, for example using `sudo`.
 
 

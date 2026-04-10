@@ -2,15 +2,24 @@
 
 ## Overview
 
-Counts the number of current active DAHDI, SIP or other channels of the Starface PBX, and warns on possibly overusage (in percentage).
+Counts the number of active DAHDI, SIP, and other channels on a Starface PBX, and alerts on channel overusage when a maximum call limit is configured on the PBX.
 
-It uses the data output of the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring), which was originally written for Check_MK and listens on port 6556. Supports both IPv4 and IPv6. Fetched data is cached up to one minute, so that other Starface plugins running in parallel do not query the data again and overload the PBX.
+**Alerting Logic:**
 
-Special features of this check:
+* WARN if channel usage is >= `--warning` (default: 80%)
+* CRIT if channel usage is >= `--critical` (default: 90%)
+* Thresholds only apply when the PBX reports a maximum call limit; otherwise always OK
+* `--always-ok` suppresses all alerts and always returns OK
 
-* Connects directly via Socket.
-* IPv4 (default), IPv6 capable.
-* Fetched data is cached up to one minute and shared between other monitoring plugins dealing with Starface PBX, so that those checks running in parallel do not query the data again and overload the PBX.
+**Data Collection:**
+
+* Connects via socket to the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) on port 6556
+* Supports both IPv4 (default) and IPv6
+* Fetched data is cached for up to one minute in a shared SQLite database, so that multiple Starface checks running in parallel do not overload the PBX
+
+**Compatibility:**
+
+* Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
 
 
 ## Fact Sheet
@@ -18,7 +27,7 @@ Special features of this check:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/starface-channel-status> |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
 | Requirements                          | [Monitoring module for Starface PBX](https://wiki.fluxpunkt.de/display/FPW/Monitoring) |
@@ -73,18 +82,21 @@ Current channels: 4x DAHDI, 7x SIP
 
 ## States
 
-Triggers an alarm on usage in percent.
-
-* WARN or CRIT if channel usage is above 80/90% (defaults)
+* OK if channel usage is below the warning threshold (or no maximum call limit is configured).
+* WARN if channel usage is >= `--warning` (default: 80%).
+* CRIT if channel usage is >= `--critical` (default: 90%).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name          | Type    | Description                                      |
-|---------------|---------|--------------------------------------------------|
-| channel_dahdi | Counter | Number of currently active DHADI connections     |
-| channel_other | Counter | Number of all other currently active connections |
-| channel_sip   | Counter | Number of currently active SIP connections       |
+| Name | Type | Description |
+|----|----|----|
+| channel_dahdi | Number | Number of currently active DAHDI connections |
+| channel_other | Number | Number of all other currently active connections |
+| channel_sip | Number | Number of currently active SIP connections |
+| max_calls | Number | Maximum allowed concurrent calls (if configured) |
+| used_percent | Percentage | Channel usage as a percentage of max_calls (if configured) |
 
 
 ## Credits, License

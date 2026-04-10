@@ -2,32 +2,40 @@
 
 ## Overview
 
-Checks the health and status of Kubernetes Pods by running `kubectl get pods` and parsing the results. Prints a table listing namespace, pod name, readiness, status, restart count, pod age, and IP address. Adds performance data for each pod status (Running, Pending, Failed, Succeeded, Unknown). By default, only shows pods from the current namespace. Use `--all-namespaces` to check across all namespaces. The plugin also stores a temporary local SQLite database during runtime (no persistent history). Results can therefore be filtered with a custom SQL `--query` (e.g., by namespace, pod name, or status). See the README for more details. Pending and Failed pods can trigger a WARNING or CRITICAL state (configurable via `--severity`), while Unknown pods result in an UNKNOWN state. Intended for use with Nagios/Icinga to detect Kubernetes pod issues like stuck, failing, or unreachable pods.
+Checks the health and status of Kubernetes pods by running `kubectl get pods` and parsing the JSON output. Lists namespace, pod name, readiness, status, restart count, age, and IP address for each pod. Alerts on pods in Pending or Failed state with configurable severity. Results can be filtered with a custom SQL query.
 
-For the `--query` parameter, the following columns can be used:
+**Alerting Logic:**
 
-* namespace (TEXT)
-* name (TEXT)
-* ready (TEXT)
-* status (TEXT)
-* restarts (INT)
-* age (INT)
-* ip (TEXT)
+* Pending and Failed pods trigger an alert with configurable severity (WARN or CRIT, default: CRIT)
+* Unknown pods result in an UNKNOWN state
+* Running and Succeeded pods are considered OK
 
-Hints:
+**Data Collection:**
 
-* OIDC-based login to Kubernetes is not yet supported by this plugin.
+* Executes `kubectl get pods --output=json` to collect pod data from the Kubernetes cluster
+* Optionally queries all namespaces via `--all-namespaces` (by default, only the current namespace is checked)
+* Stores results in a temporary local SQLite database (no persistent history) to enable SQL-based filtering via `--query`
+* Requires a valid kubeconfig file (default: `/var/spool/icinga2/.kubeconfig`)
+
+**Compatibility:**
+
+* Requires the `kubectl` command-line tool (must be within one minor version difference of your cluster; see [installation](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/))
+
+**Important Notes:**
+
+* OIDC-based login to Kubernetes is not yet supported.
+* For the `--query` parameter, the following columns can be used: `namespace` (TEXT), `name` (TEXT), `ready` (TEXT), `status` (TEXT), `restarts` (INT), `age` (INT), `ip` (TEXT).
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/kubectl-get-pods> |
+| Nagios/Icinga Check Name              | `check_kubectl_get_pods` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Requirements                          | Command-line tool `kubectl` (you must use a kubectl version that is within one minor version difference of your cluster. For example, a v1.32 client can communicate with v1.31, v1.32, and v1.33 control planes. Using the latest compatible version of kubectl helps avoid unforeseen issues. See [installation](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)). |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-kubectl-get-pods.db` |
 
 
@@ -70,36 +78,39 @@ options:
 ```bash
 ./kubectl-get-pods \
     --all-namespaces \
-    --kubeconfig /var/spool/icinga2/.kubeconfig \
+    --kubeconfig=/var/spool/icinga2/.kubeconfig \
     --query='namespace = "mynamespace" and name like "mycontainer-%"'
 ```
 
 Output:
 
 ```text
-NAMESPACE   ! NAME                                ! RDY ! RSTRT ! AGE    ! IP         ! STATUS    
+Everything is ok.
+
+NAMESPACE   ! NAME                                ! RDY ! RSTRT ! AGE    ! IP         ! STATUS
 ------------+-------------------------------------+-----+-------+--------+------------+--------
-mynamespace ! mycontainer-mariadb-555df66f6c-5z8h ! 1/1 ! 0     ! 1D 2h  ! 192.0.2.11 ! Running 
-mynamespace ! mycontainer-postgres-775cb466bb-qkw ! 1/1 ! 0     ! 1M 11h ! 192.0.2.12 ! Running 
+mynamespace ! mycontainer-mariadb-555df66f6c-5z8h ! 1/1 ! 0     ! 1D 2h  ! 192.0.2.11 ! Running
+mynamespace ! mycontainer-postgres-775cb466bb-qkw ! 1/1 ! 0     ! 1M 11h ! 192.0.2.12 ! Running
 ```
 
 
 ## States
 
-* Depending on the `--severity` given, returns CRIT (default) or WARN if a pod is in 'Pending' or 'Failed' state,
-* UNKNOWN if it is in 'Unknown' state,
-* and OK in all other cases.
+* OK if all pods are in Running or Succeeded state.
+* WARN or CRIT (default: CRIT, configurable via `--severity`) if any pod is in Pending or Failed state.
+* UNKNOWN if any pod is in Unknown state (usually due to communication errors with the host where the pod should be running).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name      | Type   | Description              |
-|-----------|--------|--------------------------|
-| failed    | Number | Number of failed pods    |
-| pending   | Number | Number of pending pods   |
-| running   | Number | Number of running pods   |
-| succeeded | Number | Number of succeeded pods |
-| unknown   | Number | Number of unknown pods   |
+| Name | Type | Description |
+|----|----|----|
+| failed | Number | Number of pods in Failed state. |
+| pending | Number | Number of pods in Pending state. |
+| running | Number | Number of pods in Running state. |
+| succeeded | Number | Number of pods in Succeeded state. |
+| unknown | Number | Number of pods in Unknown state. |
 
 
 ## Credits, License

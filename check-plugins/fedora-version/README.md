@@ -2,20 +2,34 @@
 
 ## Overview
 
-This plugin lets you track if Fedora is End-of-Life (EOL). To compare against the current/installed version of Fedora, the check has to run on the Fedora server itself.
+Checks the installed Fedora version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Data Collection:**
+
+* Reads the installed Fedora version from the local system via `/etc/os-release`
+* Queries the [endoflife.date](https://endoflife.date) API to determine the EOL date and available releases
+* Caches the API response in a local SQLite database to avoid repeated network requests
+
+**Compatibility:**
+
+* Linux only (must run on the Fedora server itself)
+
+**Important Notes:**
+
+* The `--offset-eol` parameter accepts negative values (e.g. `-30`) to alert *before* the EOL date, and positive values (e.g. `30` or `+30`) to alert *after* the EOL date
+* The `--check-major`, `--check-minor`, and `--check-patch` options each independently trigger a WARN when a newer release of the respective type is available, even if the installed version is not yet EOL
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fedora-version> |
+| Nagios/Icinga Check Name              | `check_fedora_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 
 
 ## Help
@@ -69,17 +83,18 @@ Fedora Linux 37 (Workstation Edition) (EOL 2023-12-15 -30d, major 38 available)
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* WARN if the installed Fedora version is EOL (respecting `--offset-eol`, default: -30 days).
+* WARN if `--check-major` is set and a newer major release is available.
+* WARN if `--check-minor` is set and a newer minor release is available.
+* WARN if `--check-patch` is set and a newer patch release is available.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name           | Type   | Description               |
-|----------------|--------|---------------------------|
-| fedora-version | Number | Installed Fedora version. |
+| Name | Type | Description |
+|----|----|----|
+| fedora-version | Number | Installed Fedora version as a float. |
 
 
 ## Credits, License

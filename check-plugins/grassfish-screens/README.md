@@ -2,13 +2,25 @@
 
 ## Overview
 
-The Grassfish Platform offers a unified way to manage Digital Signage touchpoints. This monitoring plugin checks if the screens attached to a Grassfish player are on or off. You must provide both the Grassfish hostname and a Grassfish token for this check to work.
+Checks if screens attached to Grassfish digital signage players are on or off via the Grassfish API. The player list can be filtered by box state, customer ID, or custom ID. Requires a Grassfish hostname and API token. Alerts when screens are unexpectedly off. Supports extended reporting via `--lengthy`.
 
-Tested with Grassfish v1.12.
+**Data Collection:**
 
-Hints:
+* Queries the Grassfish API (`/gv2/webservices/API` by default) to retrieve all player data, then fetches screen status for each matching player via the `Players/<id>/Screens` endpoint
+* Screen data is cached locally to reduce API load (configurable via `--cache-expire`, default: 8 hours)
+* A screen is considered "off" when its last update exceeds the `--warning` threshold
+* Players can be filtered by `--box-id` (regex), `--box-state`, `--custom-id` (regex), `--is-installed`, `--is-licensed`, and `--transfer-status`
+* By default, only players in "activated" state are checked
+* Only players with screen warnings are shown in the table output (truncated to 20 entries)
 
-* Takes round about 5 minutes for 1'000 screens.
+**Compatibility:**
+
+* Tested with Grassfish API v1.12
+
+**Important Notes:**
+
+* Takes approximately 5 minutes for 1000 screens because each player's screen data requires a separate API call.
+* `--box-id` and `--custom-id` support Python regular expressions (case-insensitive).
 
 
 ## Fact Sheet
@@ -16,10 +28,11 @@ Hints:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/grassfish-screens> |
+| Nagios/Icinga Check Name              | `check_grassfish_screens` |
 | Check Interval Recommendation         | Every 8 hours |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--hostname` and `--token` are required) |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-grassfish-screens.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-grassfish-screens.db` |
 
 
 ## Help
@@ -105,15 +118,17 @@ GP111-111 ! Grassfish Player 111 ! False [WARNING] ! None
 
 ## States
 
-* WARN if screen's last access timestamp is \> `--warning` hours (which considers screen is switched off)
+* OK if all screens were updated within `--warning` hours.
+* WARN if a screen's last update is > `--warning` hours ago (default: 8 hours), which considers the screen switched off.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| grassfish_scr_screens | Number | Number of screens attached to matching players found |
-| grassfish_scr_screens_off | Number | Number of powered off screens |
+| grassfish_scr_screens | Number | Number of screens attached to matching players. |
+| grassfish_scr_screens_off | Number | Number of screens considered off. |
 
 
 ## Credits, License

@@ -920,7 +920,7 @@ Each plugin README follows a fixed structure. See [check-plugins/example/README.
     | Fact | Value |
     |----|----|
     | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/example> |
-    | Nagios/Icinga Check Name              | `check_example` (for SEO: helps admins find the plugin when searching for the traditional Nagios-style name) |
+    | Nagios/Icinga Check Name              | `check_example` (for SEO: helps admins find the plugin when searching for the traditional Nagios-style name). Always use underscores, never dashes. |
     | Check Interval Recommendation         | Every minute, Every 5/15/30 minutes, Every hour, Every 4/8/12 hours, Every day, Every week |
     | Can be called without parameters      | Yes/No |
     | Compiled for Windows                  | Yes (when `.windows` file exists)/No (runs with Python interpreter) |

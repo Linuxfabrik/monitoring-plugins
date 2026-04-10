@@ -2,24 +2,37 @@
 
 ## Overview
 
-Checks index sizes and consistent engine and collation use in MySQL/MariaDB schemas. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl).
+Checks index sizes, fragmentation, and consistent engine and collation usage across all schemas in MySQL/MariaDB. Detects schemas where mixed storage engines, collations, charsets, or table engines are in use, which can indicate configuration drift or migration issues.
 
-User account requires:
+**Alerting Logic:**
 
-* Access to INFORMATION_SCHEMA (user with no privileges is sufficient).
-* SELECT privileges on all schemas and tables to provide accurate results.
+* WARN if the index size is larger than the data size for a schema (if at least one of them exceeds 10 MiB)
+* WARN if more than one storage engine is used within a single schema
+* WARN if more than one collation is used within a single schema
+* WARN if more than one table engine is used within a single schema
+* WARN if more than one charset for text-like columns is used within a single schema
+* WARN if more than one collation for text-like columns is used within a single schema
 
-Hints:
+**Data Collection:**
+
+* Queries `information_schema.schemata` for all non-system schemas
+* For each schema, queries `information_schema.tables` for row counts, data/index sizes, storage engine counts, and collation counts
+* Queries `information_schema.COLUMNS` for distinct character sets and collations per schema
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_databases(), v1.9.8
+
+**Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
-* [For most INFORMATION_SCHEMA tables, each MySQL user has the right to access them, but can see only the rows in the tables that correspond to objects for which the user has the proper access privileges.](https://dev.mysql.com/doc/refman/5.7/en/information-schema-introduction.html#information-schema-privileges). [So you can't grant permission to INFORMATION_SCHEMA directly, you have to grant SELECT permission to the tables on your own schemas, and as you do, those tables will start showing up in INFORMATION_SCHEMA queries](https://stackoverflow.com/questions/60499772/cannot-grant-mysql-user-access-to-information-schema-database). Then this check provide correct results.
+* User account requires access to INFORMATION_SCHEMA (user with no privileges is sufficient) and SELECT privileges on all schemas and tables to provide accurate results
+* [For most INFORMATION_SCHEMA tables, each MySQL user has the right to access them, but can see only the rows in the tables that correspond to objects for which the user has the proper access privileges.](https://dev.mysql.com/doc/refman/5.7/en/information-schema-introduction.html#information-schema-privileges) [So you can't grant permission to INFORMATION_SCHEMA directly, you have to grant SELECT permission to the tables on your own schemas, and as you do, those tables will start showing up in INFORMATION_SCHEMA queries.](https://stackoverflow.com/questions/60499772/cannot-grant-mysql-user-access-to-information-schema-database)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-database-metrics> |
+| Nagios/Icinga Check Name              | `check_mysql_database_metrics` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -76,12 +89,13 @@ There are warnings.
 
 ## States
 
-* WARN if the index size is larger than the data size (if at least one of them is larger than 10 MB)
-* WARN if more than one storage engine is used
-* WARN if more than one collation is used
-* WARN if more than one table engine is used
-* WARN if more than one charsets for text-like col is used
-* WARN if more than one collations for text-like col is used
+* WARN if the index size is larger than the data size (if at least one of them exceeds 10 MiB).
+* WARN if more than one storage engine is used within a schema.
+* WARN if more than one collation is used within a schema.
+* WARN if more than one table engine is used within a schema.
+* WARN if more than one charset for text-like columns is used within a schema.
+* WARN if more than one collation for text-like columns is used within a schema.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
@@ -92,9 +106,6 @@ There is no perfdata.
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
-
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).
-
 * Credits:
-
     * heavily inspired by MySQLTuner (<https://github.com/major/MySQLTuner-perl>)

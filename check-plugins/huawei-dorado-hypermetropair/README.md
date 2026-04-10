@@ -2,13 +2,30 @@
 
 ## Overview
 
-Batch querying HyperMetro pairs of a Huawei OceanStor Dorado storage system via the REST Interface, using the `https://${ip}:${port}/deviceManager/rest/${deviceId}/hypermetropair` endpoint. Cookies and iBaseTokens are stored and re-used (the session timeout period is usually 20 minutes).
+Checks the health, running status, and synchronization state of all HyperMetro pairs on a Huawei OceanStor Dorado storage system via the REST API (`/hypermetropair` endpoint). Alerts when any pair reports a non-normal state or synchronization issue. Reports link status, last sync time, sync duration, sync progress, local/remote data consistency and host access state per pair.
 
-Hints:
+**Alerting Logic:**
 
-* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0.
-* Create a read-only API user that can perform query only.
-* Sometimes the API returns `This operation fails to be performed because of the unauthorized REST. Before performing this operation, ensure that REST is authorized.`, although everything is fine. In this case, the check simply tries to retrieve the data again, a maximum of 9 times within 9 seconds.
+* WARN if any pair's health status is not "Normal"
+* WARN if any pair's running status is not "Normal" or "Synchronizing"
+* WARN if link status is not "connected"
+* WARN if local data state is not "consistent"
+* WARN if remote data state is not "consistent"
+
+**Data Collection:**
+
+* Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/hypermetropair`
+* Authenticates via session tokens (iBaseToken + cookie), cached in a SQLite database to avoid repeated logins
+* On transient authorization errors, automatically retries up to 9 times with 1-second intervals
+
+**Compatibility:**
+
+* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
+
+**Important Notes:**
+
+* Create a read-only API user that can perform queries only
+* The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
 
 
 ## Fact Sheet
@@ -16,10 +33,11 @@ Hints:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/huawei-dorado-hypermetropair> |
+| Nagios/Icinga Check Name              | `check_huawei_dorado_hypermetropair` |
 | Check Interval Recommendation         | Every 5 minutes |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--device-id`, `--password`, `--url` and `--username` are required) |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | Yes |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
 
 
 ## Help
@@ -75,25 +93,6 @@ UUID                                   ! Link ! Last Sync                       
 15361:2100f4b78d046ec60000000000000000 ! [OK] ! 2021-08-18 10:39:47 (3M 6D ago) ! 2m 1s    ! 100       ! LUN01-BLH ! [OK]      ! R/W    ! LUN01-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
 15361:2100f4b78d046ec60000000000000001 ! [OK] ! 2021-08-18 10:39:50 (3M 6D ago) ! 2m 3s    ! 100       ! LUN02-BLH ! [OK]      ! R/W    ! LUN02-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
 15361:2100f4b78d046ec60000000000000002 ! [OK] ! 2021-08-18 10:38:29 (3M 6D ago) ! 42s      ! 100       ! LUN03-BLH ! [OK]      ! R/W    ! LUN03-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec60000000000000003 ! [OK] ! 2021-08-18 10:39:03 (3M 6D ago) ! 1m 16s   ! 100       ! LUN04-BLH ! [OK]      ! R/W    ! LUN04-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec60000000000000004 ! [OK] ! 2021-08-18 10:39:38 (3M 6D ago) ! 1m 51s   ! 100       ! LUN05-BLH ! [OK]      ! R/W    ! LUN05-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec60000000000000005 ! [OK] ! 2021-08-18 10:39:18 (3M 6D ago) ! 1m 32s   ! 100       ! LUN06-BLH ! [OK]      ! R/W    ! LUN06-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec60000000000000006 ! [OK] ! 2021-08-18 10:39:30 (3M 6D ago) ! 1m 44s   ! 100       ! LUN07-BLH ! [OK]      ! R/W    ! LUN07-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec60000000000000007 ! [OK] ! 2021-08-18 10:40:38 (3M 6D ago) ! 2m 51s   ! 100       ! LUN08-BLH ! [OK]      ! R/W    ! LUN08-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec60000000000000008 ! [OK] ! 2021-08-18 10:39:00 (3M 6D ago) ! 1m 13s   ! 100       ! LUN09-BLH ! [OK]      ! R/W    ! LUN09-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec60000000000000009 ! [OK] ! 2021-08-18 10:38:41 (3M 6D ago) ! 55s      ! 100       ! LUN10-BLH ! [OK]      ! R/W    ! LUN10-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec6000000000000000a ! [OK] ! 2021-08-18 11:00:44 (3M 6D ago) ! 22m 58s  ! 100       ! LUN11-BLH ! [OK]      ! R/W    ! LUN11-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec6000000000000000b ! [OK] ! 2021-08-18 10:38:13 (3M 6D ago) ! 27s      ! 100       ! LUN12-BLH ! [OK]      ! R/W    ! LUN12-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec6000000000000000c ! [OK] ! 2021-08-18 10:39:56 (3M 6D ago) ! 2m 10s   ! 100       ! LUN13-BLH ! [OK]      ! R/W    ! LUN13-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec6000000000000000d ! [OK] ! 2021-08-18 10:38:44 (3M 6D ago) ! 58s      ! 100       ! LUN14-BLH ! [OK]      ! R/W    ! LUN14-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec6000000000000000e ! [OK] ! 2021-08-18 10:39:28 (3M 6D ago) ! 1m 42s   ! 100       ! LUN15-BLH ! [OK]      ! R/W    ! LUN15-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec6000000000000000f ! [OK] ! 2021-08-18 10:39:01 (3M 6D ago) ! 1m 14s   ! 100       ! LUN16-BLH ! [OK]      ! R/W    ! LUN16-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec60000000000000010 ! [OK] ! 2021-08-18 10:39:57 (3M 6D ago) ! 2m 10s   ! 100       ! LUN17-BLH ! [OK]      ! R/W    ! LUN17-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec60000000000000011 ! [OK] ! 2021-08-18 10:39:21 (3M 6D ago) ! 1m 34s   ! 100       ! LUN18-BLH ! [OK]      ! R/W    ! LUN18-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec60000000000000012 ! [OK] ! 2021-08-18 10:37:52 (3M 6D ago) ! 5s       ! 100       ! LUN19-BLH ! [OK]      ! R/W    ! LUN19-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec60000000000000013 ! [OK] ! 2021-08-18 10:37:50 (3M 6D ago) ! 3s       ! 100       ! LUN20-BLH ! [OK]      ! R/W    ! LUN20-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec60000000000000014 ! [OK] ! 2021-08-18 10:37:49 (3M 6D ago) ! 3s       ! 100       ! LUN21-BLH ! [OK]      ! R/W    ! LUN21-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec60000000000000015 ! [OK] ! 2021-08-18 10:37:49 (3M 6D ago) ! 2s       ! 100       ! LUN22-BLH ! [OK]      ! R/W    ! LUN22-COL ! [OK]      ! R/W    ! [OK]   ! [OK]
 
 Fetched API 2 times
 ```
@@ -101,28 +100,39 @@ Fetched API 2 times
 
 ## States
 
-* UNKNOWN on invalid responses or responses with error codes.
-* WARN if HyperMetroPair health status is not equal to "Normal".
-* WARN if HyperMetroPair running status is not equal to "Normal" or "Synchronizing.
-* WARN if link status is not equal to "connected".
-* WARN if local data status is not equal to "consistent".
-* WARN if remote data status is not equal to "consistent".
+* OK if all HyperMetro pairs report normal health, running status, link status and data consistency.
+* WARN if any pair's health status is not "Normal".
+* WARN if any pair's running status is not "Normal" or "Synchronizing".
+* WARN if any pair's link status is not "connected".
+* WARN if any pair's local data state is not "consistent".
+* WARN if any pair's remote data state is not "consistent".
+* UNKNOWN on invalid API responses or responses with error codes.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| \<UUID\>\_HEALTHSTATUS | Number | 0: unknown, 1: normal, 2: faulty |
-| \<UUID\>\_LINKSTATUS | Number | 1: connected, 2: disconnected |
-| \<UUID\>\_LOCALDATASTATE | Number | 1: consistent, 2: inconsistent |
-| \<UUID\>\_LOCALHOSTACCESSSTATE | Number | 1: access forbidden, 2: read-only, 3: read/write |
-| \<UUID\>\_REMOTEDATASTATE | Number | 1: consistent, 2: inconsistent |
-| \<UUID\>\_REMOTEHOSTACCESSSTATE | Number | 1: access forbidden, 2: read-only, 3: read/write, 5: unknown |
-| \<UUID\>\_RUNNINGSTATUS | Number | 1: Normal, 23: Synchronizing, 35: Invalid, 41: Paused, 93: Forcibly started, 100: To be synchronized |
+| \<UUID\>\_HEALTHSTATUS | Number | 0: unknown, 1: normal, 2: faulty. |
+| \<UUID\>\_LINKSTATUS | Number | 1: connected, 2: disconnected. |
+| \<UUID\>\_LOCALDATASTATE | Number | 1: consistent, 2: inconsistent. |
+| \<UUID\>\_LOCALHOSTACCESSSTATE | Number | 1: access forbidden, 2: read-only, 3: read/write. |
+| \<UUID\>\_REMOTEDATASTATE | Number | 1: consistent, 2: inconsistent. |
+| \<UUID\>\_REMOTEHOSTACCESSSTATE | Number | 1: access forbidden, 2: read-only, 3: read/write, 5: unknown. |
+| \<UUID\>\_RUNNINGSTATUS | Number | 1: normal, 23: synchronizing, 35: invalid, 41: paused, 93: forcibly started, 100: to be synchronized. |
 | \<UUID\>\_SYNCPROGRESS | Percentage | Synchronization progress. |
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
+
+
+## Troubleshooting
+
+`Got no valuable response from https://...`
+Check the `--url`, `--device-id`, `--username` and `--password` parameters. Verify that the API user has query permissions and that the storage system REST API is reachable.
+
+`This operation fails to be performed because of the unauthorized REST.`
+This is a known transient issue with the Huawei REST API. The check retries automatically up to 9 times. If the error persists, verify the API credentials and session timeout settings.
 
 
 ## Credits, License

@@ -2,16 +2,30 @@
 
 ## Overview
 
-Scans a logfile for set of pattern or regex and alerts on the number of findings.
+Scans a logfile for matching patterns or regular expressions and alerts based on the number of matches found. Supports both simple string matching (`--warning-pattern`, `--critical-pattern`) and Python regular expressions (`--warning-regex`, `--critical-regex`). Lines can be excluded via `--ignore-pattern` or `--ignore-regex`.
 
-Use `--warning-pattern` or `--warning-regex` to limit which lines will be considered a warning. Then use `-warning` to set the number of matches that will actually trigger a warning.
+**Alerting Logic:**
 
-The same applies to the `critical` counterparts.
+* WARN when the number of warning matches (new + old) reaches `--warning` (default: 1)
+* CRIT when the number of critical matches (new + old) reaches `--critical` (default: 1)
+* Matches persist and continue to trigger alerts either for `--alarm-duration` minutes (default: 60) or until the Icinga service is acknowledged (when `--icinga-callback` is enabled)
 
-* The `pattern` arguments are compared using the python `in` operator. This is more efficient than using a regex in most cases.
-* The `regex` arguments are compared using Python regex.
+**Data Collection:**
 
-With this check, you can acknowledge the warning in IcingaWeb, so that the check changes back to OK. To enable the check plugin to get the ACK status from Icinga and therefore automatically switch to OK, you have to create an Icinga API User like so:
+* Reads the logfile forward from the last known offset, only scanning new lines since the previous run
+* Detects logfile rotation by tracking the file's inode and size; resets to the beginning when rotation is detected
+* Uses SQLite state persistence to store the file offset and all matching lines between runs
+* Pattern arguments use the Python `in` operator for simple substring matching, which is faster than regex in most cases
+
+**Compatibility:**
+
+* Cross-platform: Linux, Windows
+
+**Important Notes:**
+
+* Requires root or sudo to access most system logfiles
+* At least one `--warning-pattern`, `--warning-regex`, `--critical-pattern`, or `--critical-regex` must be specified
+* When using `--icinga-callback`, the parameters `--icinga-url`, `--icinga-password`, `--icinga-username`, and `--icinga-service-name` are all required. Create an Icinga API user like so:
 
 ```text
 object ApiUser "linuxfabrik-check-logfile" {
@@ -19,25 +33,23 @@ object ApiUser "linuxfabrik-check-logfile" {
   permissions = [
   {
     permission = "objects/query/service"
-    # filter = {{ regex("^linuxfabrik-check-logfile", service.vars.logfile_windows_icinga_username ) }}
   }]
 }
 ```
 
-If no `--icinga-callback` is used, the check alerts for `--alarm-duration`.
-
-For more complex use cases, consider using a logging server like graylog.
+* For more complex log analysis use cases, consider using a dedicated logging server like Graylog
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/logfile> |
+| Nagios/Icinga Check Name              | `check_logfile` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--filename` and at least one pattern/regex are required) |
 | Compiled for Windows                  | Yes |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-logfile-*.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-logfile-*.db` |
 
 
 ## Help
@@ -140,21 +152,26 @@ Warning matches:
 
 Critical matches:
 * error1
-* error2|'scanned_lines'=8;;;; 'warn_matches'=1;1;;; 'crit_matches'=2;1;;;
+* error2
 ```
 
 
 ## States
 
-* WARN if any line matches warning patterns/regexes and the number of lines exceed the warning threshold.
-* CRIT if any line matches critical patterns/regexes and the number of lines exceed the critical threshold.
+* OK if no matches are found or the number of matches is below both thresholds.
+* WARN if the number of warning matches (new + old) is >= `--warning` (default: 1).
+* CRIT if the number of critical matches (new + old) is >= `--critical` (default: 1).
+* UNKNOWN if the logfile does not exist, is not readable, or no pattern/regex is specified.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-* `scanned_lines`: Total number of lines scanned in this run.
-* `warn_matches`: Number of warning matches found in those lines.
-* `crit_matches`: Number of critical matches found in those lines.
+| Name | Type | Description |
+|----|----|----|
+| crit_matches | Number | Number of new critical matches found in this run. |
+| scanned_lines | Number | Total number of new lines scanned in this run. |
+| warn_matches | Number | Number of new warning matches found in this run. |
 
 
 ## Credits, License

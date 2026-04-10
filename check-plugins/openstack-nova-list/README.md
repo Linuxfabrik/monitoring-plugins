@@ -2,30 +2,33 @@
 
 ## Overview
 
-Nova is the OpenStack project that provides a way to provision compute instances (aka virtual servers). This monitoring plugin lists all virtual servers and checks their status.
+Lists all OpenStack Nova compute instances (virtual servers) and checks their status. Alerts when any instance is in an error state or has been shelved. Reports instance name, status, power state, and creation date.
 
-You have to provide a path to an rc file to authenticate. A working rc file might look like this:
+**Data Collection:**
 
-```text
-export OS_AUTH_URL=https://linuxfabrik.cloud/identity/v3
-export OS_IDENTITY_API_VERSION=3
-export OS_INTERFACE=public
-export OS_PROJECT_DOMAIN_NAME=default
-export OS_PROJECT_ID=492a82d9-003a-4f52-8891-406eb19d0573
-export OS_PROJECT_NAME=MYPROJECT
-export OS_REGION_NAME=default
-export OS_USER_DOMAIN_NAME=default
-export OS_USERNAME=MYUSER
-OS_PASSWORD='linuxfabrik'
-export OS_PASSWORD
-```
+* Authenticates to the OpenStack Nova API using credentials from an rc file
+* Lists all virtual servers and their current status
+* Reports server name, ID, last update timestamp, and status for each instance
+* Counts instances per state and tracks the last status change across all servers
+
+**Alerting Logic:**
+
+* OK for states: ACTIVE, MIGRATING, REBOOT, SHELVED, SHELVED_OFFLOADED, SHUTOFF, SUSPENDED
+* WARN for states: BUILD, HARD_REBOOT, PAUSED, REBUILD, RESIZE, REVERT_RESIZE, SOFT_DELETED, VERIFY_RESIZE
+* CRIT for states: DELETED, ERROR, PASSWORD, RESCUE, UNKNOWN (and any other)
+
+**Important Notes:**
+
+* You have to provide a path to an rc file to authenticate. The rc file should contain standard OpenStack environment variables such as `OS_AUTH_URL`, `OS_USERNAME`, `OS_PASSWORD`, `OS_PROJECT_NAME`, etc.
+* Requires the `python-novaclient` Python module.
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/openstack-nova-list> |
+| Nagios/Icinga Check Name              | `check_openstack_nova_list` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -56,7 +59,7 @@ options:
 ## Usage Examples
 
 ```bash
-openstack-nova-list --rc-file /var/spool/icinga2/rc/.openstack-myproject.rc
+./openstack-nova-list --rc-file /var/spool/icinga2/rc/.openstack-myproject.rc
 ```
 
 Output:
@@ -73,34 +76,46 @@ second_server     ! 38654a93-435d-40ea-bd39-64d01b186830 ! 2023-06-12 09:11:09 (
 
 ## States
 
-* Alerts when a VM returns a status other than ACTIVE, MIGRATING, REBOOT, SHELVED, SHELVED_OFFLOADED, SHUTOFF, SUSPENDED.
+* OK for VM states: ACTIVE, MIGRATING, REBOOT, SHELVED, SHELVED_OFFLOADED, SHUTOFF, SUSPENDED.
+* WARN for VM states: BUILD, HARD_REBOOT, PAUSED, REBUILD, RESIZE, REVERT_RESIZE, SOFT_DELETED, VERIFY_RESIZE.
+* CRIT for VM states: DELETED, ERROR, PASSWORD, RESCUE, UNKNOWN (and any other).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name              | Type   | Description                 |
-|-------------------|--------|-----------------------------|
-| total             | Number | Number of total VMs         |
-| ACTIVE            | Number | Number of VMs in this state |
-| BUILD             | Number | Number of VMs in this state |
-| DELETED           | Number | Number of VMs in this state |
-| ERROR             | Number | Number of VMs in this state |
-| HARD_REBOOT       | Number | Number of VMs in this state |
-| MIGRATING         | Number | Number of VMs in this state |
-| PASSWORD          | Number | Number of VMs in this state |
-| PAUSED            | Number | Number of VMs in this state |
-| REBOOT            | Number | Number of VMs in this state |
-| REBUILD           | Number | Number of VMs in this state |
-| RESCUE            | Number | Number of VMs in this state |
-| RESIZE            | Number | Number of VMs in this state |
-| REVERT_RESIZE     | Number | Number of VMs in this state |
-| SHELVED           | Number | Number of VMs in this state |
-| SHELVED_OFFLOADED | Number | Number of VMs in this state |
-| SHUTOFF           | Number | Number of VMs in this state |
-| SOFT_DELETED      | Number | Number of VMs in this state |
-| SUSPENDED         | Number | Number of VMs in this state |
-| UNKNOWN           | Number | Number of VMs in this state |
-| VERIFY_RESIZE     | Number | Number of VMs in this state |
+| Name | Type | Description |
+|----|----|----|
+| ACTIVE | Number | Number of VMs in this state. |
+| BUILD | Number | Number of VMs in this state. |
+| DELETED | Number | Number of VMs in this state. |
+| ERROR | Number | Number of VMs in this state. |
+| HARD_REBOOT | Number | Number of VMs in this state. |
+| MIGRATING | Number | Number of VMs in this state. |
+| PASSWORD | Number | Number of VMs in this state. |
+| PAUSED | Number | Number of VMs in this state. |
+| REBOOT | Number | Number of VMs in this state. |
+| REBUILD | Number | Number of VMs in this state. |
+| RESCUE | Number | Number of VMs in this state. |
+| RESIZE | Number | Number of VMs in this state. |
+| REVERT_RESIZE | Number | Number of VMs in this state. |
+| SHELVED | Number | Number of VMs in this state. |
+| SHELVED_OFFLOADED | Number | Number of VMs in this state. |
+| SHUTOFF | Number | Number of VMs in this state. |
+| SOFT_DELETED | Number | Number of VMs in this state. |
+| SUSPENDED | Number | Number of VMs in this state. |
+| total | Number | Total number of VMs. |
+| UNKNOWN | Number | Number of VMs in this state. |
+| VERIFY_RESIZE | Number | Number of VMs in this state. |
+
+
+## Troubleshooting
+
+`Python module "python-novaclient" is not installed.`  
+Install `python-novaclient`: `pip install python-novaclient`.
+
+`An error occurred while connecting to Nova`  
+Check the credentials in your rc file and verify that the OpenStack API endpoint is reachable.
 
 
 ## Credits, License

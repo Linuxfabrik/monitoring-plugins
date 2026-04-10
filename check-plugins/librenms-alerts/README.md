@@ -2,26 +2,40 @@
 
 ## Overview
 
-LibreNMS includes a highly customizable alerting system. The system requires a set of user-defined rules to evaluate the situation of each device, port, service, or other entity. This check warns of unacknowledged alerts in LibreNMS and reports the most recent alert for each device (only for those that do not have "Disabled alerting" in their LibreNMS device settings). If alerts have been triggered in LibreNMS, you will see them on the *Alerts \> Notifications* page within the Web UI. When you acknowledge an alert in LibreNMS, this check will change the status for the corresponding device to OK.
+Checks for unacknowledged alerts in LibreNMS and reports the most recent alert per device. Only considers devices that do not have alerting disabled in their LibreNMS device settings. When you acknowledge an alert in the LibreNMS web UI (Alerts > Notifications), this check changes the status for the corresponding device to OK.
 
-This check requires direct access to the LibreNMS MySQL/MariaDB database, because the API is simply too resource intensive for use in a large scale environment.
+**Alerting Logic:**
 
-Notes:
+* Alerts with configurable severity (WARN or CRIT, default: CRIT) for each device that has an unacknowledged alert in LibreNMS
+* Acknowledged alerts and devices with disabled alerting are treated as OK
 
-* See [additional notes for all monitoring plugins accessing MySQL/MariaDB](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md) on how to configure access to the database.
-* When defining device groups in LibreNMS for use with `--device--group`, do not use slashes in the name, as this will not work. See [this topic for example](https://github.com/laravel/framework/issues/22125).
-* This check could, but does not, return performance data for each device as LibreNMS provides direct integration with several time series databases such as Graphite, InfluxDB, OpenTSDB, Prometheus and RRDTool. The configuration options can be found in LibreNMS under Settings \> Global Settings \> Poller \> Datastore.
+**Data Collection:**
+
+* Queries the LibreNMS MySQL/MariaDB database directly (the API is too resource-intensive for large-scale environments)
+* Joins `devices`, `alerts`, `alert_rules`, `device_groups`, and `locations` tables to build the device/alert overview
+* Supports filtering by device group (`--device-group`, with SQL wildcards), device hostname (`--device-hostname`, repeatable), and device type (`--device-type`, repeatable)
+* In default (compact) mode, only devices with active alerts are shown; use `--lengthy` to display all devices with extended details (hardware, type, OS, location, uptime)
+
+**Compatibility:**
+
+* Requires access to the LibreNMS MySQL/MariaDB database
+
+**Important Notes:**
+
+* See [additional notes for all monitoring plugins accessing MySQL/MariaDB](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md) on how to configure database access.
+* When defining device groups in LibreNMS for use with `--device-group`, do not use slashes in the name (see [this topic](https://github.com/laravel/framework/issues/22125)).
+* This check does not return per-device performance data because LibreNMS provides direct integration with time series databases (Graphite, InfluxDB, OpenTSDB, Prometheus, RRDTool) under Settings > Global Settings > Poller > Datastore.
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/librenms-alerts> |
+| Nagios/Icinga Check Name              | `check_librenms_alerts` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--defaults-file` with valid MySQL/MariaDB credentials is required) |
 | Compiled for Windows                  | No |
-| Requirements                          | Access to LibreNMS' MySQL/MariaDB database. User with no privileges, locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |
 
 
@@ -72,40 +86,46 @@ options:
 ## Usage Examples
 
 ```bash
-./librenms-alerts '--timeout' '3' --defaults-file=/var/spool/icinga2/.my.cnf --device-group="%network%" --severity=warn
+./librenms-alerts --defaults-file=/var/spool/icinga2/.my.cnf --device-group="%network%" --severity=warn
 ```
 
 Output:
 
 ```text
-Checked 5 devices. There are 2 alerts.
+There are 2 alerts. Checked 5 devices.
 
-Hostname   ! SysName                 ! Alert        ! State      
+Hostname   ! SysName                 ! Alert        ! State
 -----------+-------------------------+--------------+------------
-192.0.2.10 ! synology                ! None         ! [OK]       
-192.0.2.33 ! rack03-usw              ! Ping Latency ! [WARNING] 
-192.0.2.51 ! uap-ac-001              ! None         ! [OK]       
-192.0.2.57 ! uap-ac-002              ! None         ! [OK]       
-192.0.2.50 ! uap-ac-003              ! None         ! [OK]       
-192.0.2.32 ! rack03-usw-pro-48server ! Ping Latency ! [WARNING] 
-...
+192.0.2.33 ! rack03-usw              ! Ping Latency ! [WARNING]
+192.0.2.32 ! rack03-usw-pro-48server ! Ping Latency ! [WARNING]
 ```
 
-The `--lengthy` switch reports Hostname, SysName, Hardware, Type, OS, Location, Uptime, Alert and State.
+With `--lengthy`:
+
+```text
+There are 2 alerts. Checked 5 devices.
+
+Hostname   ! SysName                 ! Hardware ! Type    ! OS    ! Location ! Uptime ! Alert        ! State
+-----------+-------------------------+----------+---------+-------+----------+--------+--------------+----------
+192.0.2.10 ! synology                ! DS920+   ! storage ! linux ! DC1      ! 3M 2W  ! None         ! [OK]
+192.0.2.33 ! rack03-usw              ! USW-48   ! network ! linux ! DC1      ! 1M 3W  ! Ping Latency ! [WARNING]
+...
+```
 
 
 ## States
 
-* Alerts according to the given severity (default: CRIT) on any alert in LibreNMS
-* OK on OK or ACK in LibreNMS
+* OK if there are no unacknowledged alerts.
+* WARN or CRIT (default: CRIT, configurable via `--severity`) for each device with an unacknowledged alert.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name         | Type   | Description             |
-|--------------|--------|-------------------------|
-| device_count | Number | Number of devices found |
-| alert_count  | Number | Number of device alerts |
+| Name | Type | Description |
+|----|----|----|
+| alert_count | Number | Number of device alerts. |
+| device_count | Number | Number of devices checked. |
 
 
 ## Credits, License

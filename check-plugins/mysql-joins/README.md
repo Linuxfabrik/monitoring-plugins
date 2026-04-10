@@ -2,9 +2,20 @@
 
 ## Overview
 
-Checks if many joins per day without indexes were executed on MySQL/MariaDB. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
+Checks the rate of joins executed without indexes in MySQL/MariaDB. A high number of joins without indexes per day indicates missing indexes, which can severely impact query performance.
 
-Hints:
+**Alerting Logic:**
+
+* WARN if there are more than 250 joins without indexes per day (calculated as `(Select_range_check + Select_full_join) / Uptime_in_days`)
+
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for `join_buffer_size`
+* Queries `SHOW GLOBAL STATUS` for `Select_full_join`, `Select_range_check`, and `Uptime`
+* Calculates the total number of joins without indexes and the daily rate
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
+
+**Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 
@@ -12,12 +23,12 @@ Hints:
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-joins> |
+| Nagios/Icinga Check Name              | `check_mysql_joins` |
 | Check Interval Recommendation         | Once an hour |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Requirements                          | User with no privileges, locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |
 
 
@@ -67,26 +78,24 @@ Recommendations:
 ## States
 
 * WARN if there are more than 250 joins without indexes per day.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| mysql_join_buffer_size | Bytes | Minimum size in bytes of the buffer used for queries that cannot use an index, and instead perform a full table scan. Increase to get faster full joins when adding indexes is not possible, although be aware of memory issues, since joins will always allocate the minimum size. |
+| mysql_join_buffer_size | Bytes | Minimum size in bytes of the buffer used for queries that cannot use an index. Increase to get faster full joins when adding indexes is not possible. |
+| mysql_joins_without_indexes | Continous Counter | Select_range_check + Select_full_join |
+| mysql_joins_without_indexes_per_day | Number | joins_without_indexes / Uptime in days |
 | mysql_select_full_join | Continous Counter | Number of joins which did not use an index. If not zero, you may need to check table indexes. |
 | mysql_select_range_check | Continous Counter | Number of joins without keys that check for key usage after each row. If not zero, you may need to check table indexes. |
 | mysql_uptime | Seconds | Number of seconds the server has been running. |
-| mysql_joins_without_indexes | Continous Counter | Select_range_check + Select_full_join |
-| mysql_joins_without_indexes_per_day | Number | joins_without_indexes / Uptime in days |
 
 
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
-
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).
-
 * Credits:
-
     * heavily inspired by MySQLTuner (<https://github.com/major/MySQLTuner-perl>)

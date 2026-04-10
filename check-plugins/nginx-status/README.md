@@ -2,11 +2,25 @@
 
 ## Overview
 
-This check provides global nginx basic status information from the stub_status module.
+Monitors NGINX performance via the stub_status module. Reports active connections, accepts, handled requests, and connection states (reading, writing, waiting). Alerts when active connections exceed the configured thresholds.
 
-For this check to work, enable the [stub_status](https://nginx.org/en/docs/http/ngx_http_stub_status_module.html) module:
+**Alerting Logic:**
 
-```
+* WARN if the number of total handled connections is not equal to the number of total accepted connections (indicates resource limits have been reached, e.g. `worker_connections`)
+* WARN or CRIT if the number of active connections exceeds the configured thresholds (default: 460/486)
+
+**Data Collection:**
+
+* Fetches and parses the output of the NGINX [stub_status](https://nginx.org/en/docs/http/ngx_http_stub_status_module.html) module
+* Reports active connections, accepted/handled connections, total requests, requests per connection, and current connection states (reading, writing, waiting)
+
+**Important Notes:**
+
+* The `stub_status` module must be enabled in the NGINX configuration. Because the module increments counters at the moment a new request object is created (before the URI is parsed), there is no way to exclude specific URIs or server blocks from the statistics.
+
+To enable `stub_status`:
+
+```text
 # /etc/nginx/nginx.conf
 server {
     location /server-status {
@@ -17,14 +31,13 @@ server {
 }
 ```
 
-Due to the fact that the <span class="title-ref">stub_status \<https://github.com/nginx/nginx/blob/master/src/http/modules/ngx_http_stub_status_module.c\></span> module increments each counter at the exact moment a new request "object" is created, even before any request header (including the URI) is parsed, there is unfortunately no way to tell Nginx not to count requests for a given URI. In other words: It is not possible to get stats only for a specific server block.
-
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nginx-status> |
+| Nagios/Icinga Check Name              | `check_nginx_status` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -77,8 +90,10 @@ Output:
 
 ## States
 
-* WARN if the number of total handled connections is not equal to the number of total handled requests.
-* WARN or CRIT if the active connections are above the specified thresholds.
+* OK if handled connections equal accepted connections and active connections are below thresholds.
+* WARN if the number of total handled connections is not equal to the number of total accepted connections.
+* WARN or CRIT if the active connections exceed the specified thresholds.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
@@ -86,13 +101,13 @@ Output:
 | Name | Type | Description |
 |----|----|----|
 | nginx_connections_accepted | Continous Counter | The total number of accepted client connections. |
-| nginx_connections_active | None | The current number of active client connections including `Waiting` connections. One user can have several concurrent connections to a server. |
+| nginx_connections_active | Number | The current number of active client connections including waiting connections. |
 | nginx_connections_handled | Continous Counter | The total number of handled connections. Generally both values are the same unless some resource limits have been reached (for example, the `worker_connections` limit). |
-| nginx_connections_reading | None | The current number of connections where nginx is reading the request header. |
-| nginx_connections_waiting | None | The current number of idle client connections waiting for a request. This number depends on the `keepalive_timeout`. |
-| nginx_connections_writing | None | The current number of connections where nginx is writing the response back to the client. |
+| nginx_connections_reading | Number | The current number of connections where NGINX is reading the request header. |
+| nginx_connections_waiting | Number | The current number of idle client connections waiting for a request. This number depends on the `keepalive_timeout`. |
+| nginx_connections_writing | Number | The current number of connections where NGINX is writing the response back to the client. |
 | nginx_http_requests_total | Continous Counter | The total number of client requests. |
-| nginx_requests_per_connection | None | The number of handled requests per connection. |
+| nginx_requests_per_connection | Number | The number of handled requests per connection. |
 
 
 ## Credits, License

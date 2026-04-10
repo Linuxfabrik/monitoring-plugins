@@ -2,23 +2,20 @@
 
 ## Overview
 
-Checks the ownership (owner and group) of a list of files against expected values. The default file list covers most files defined in the CIS Security Benchmarks for RHEL, Debian, Ubuntu and Fedora, plus several application-specific paths. Files that do not exist on the system are silently skipped.
+Verifies that critical system files have the expected owner and group. Ships with a built-in list of important files (GRUB, SSH, sudoers, PAM, cron, etc.) and supports custom entries. Alerts when the actual ownership does not match the expected values.
 
-Alerting Logic:
+**Data Collection:**
 
-* WARN if any file's owner or group does not match the expected value.
+* Uses `os.stat()` to read file ownership directly, without shelling out to external commands
+* Resolves numeric UIDs/GIDs to names. If a UID/GID has no corresponding name, the numeric value is displayed
+* Files that do not exist on the system are silently skipped
 
-Data Collection:
+**Compatibility:**
 
-* Uses `os.stat()` to read file ownership directly, without shelling out to external commands.
-* Resolves numeric UIDs/GIDs to names. If a UID/GID has no corresponding name, the numeric value is displayed.
+* Linux only
+* Depending on the file and user (e.g. running as `icinga`), sudo (sudoers) may be needed
 
-Compatibility:
-
-* Linux only. Not compiled for Windows.
-* Depending on the file and user (e.g. running as `icinga`), sudo (sudoers) may be needed.
-
-Important Notes:
+**Important Notes:**
 
 * `--filename` entries are merged with the default file list. If the same path appears in both, the user-supplied entry wins. Use `--no-default-files` to skip the defaults entirely.
 * The following CIS-recommended files are excluded from the defaults because their ownership differs across RHEL, Debian, Ubuntu and SLES: `/etc/gshadow`, `/etc/gshadow-`, `/etc/shadow`, `/etc/shadow-`. To check these, add them via `--filename` with suitable values.
@@ -87,6 +84,7 @@ Default files checked:
 | Fact | Value |
 |----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-ownership> |
+| Nagios/Icinga Check Name              | `check_file_ownership` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -153,7 +151,8 @@ Checking only specific files (no defaults):
 
 ## States
 
-* WARN if ownership does not match expected values.
+* OK if all checked files have the expected owner and group.
+* WARN if any file's owner or group does not match the expected value.
 
 
 ## Perfdata / Metrics

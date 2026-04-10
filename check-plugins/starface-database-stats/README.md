@@ -2,15 +2,17 @@
 
 ## Overview
 
-This plugin processes the database statistics of the Starface PBX.
+Reports database connection statistics of a Starface PBX, including opened, closed, active, and idle connections.
 
-It uses the data output of the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring), which was originally written for Check_MK and listens on port 6556. Supports both IPv4 and IPv6. Fetched data is cached up to one minute, so that other Starface plugins running in parallel do not query the data again and overload the PBX.
+**Data Collection:**
 
-Special features of this check:
+* Connects via socket to the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) on port 6556
+* Supports both IPv4 (default) and IPv6
+* Fetched data is cached for up to one minute in a shared SQLite database, so that multiple Starface checks running in parallel do not overload the PBX
 
-* Connects directly via Socket.
-* IPv4 (default), IPv6 capable.
-* Fetched data is cached up to one minute and shared between other monitoring plugins dealing with Starface PBX, so that those checks running in parallel do not query the data again and overload the PBX.
+**Compatibility:**
+
+* Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
 
 
 ## Fact Sheet
@@ -18,7 +20,7 @@ Special features of this check:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/starface-database-stats> |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
 | Requirements                          | [Monitoring module for Starface PBX](https://wiki.fluxpunkt.de/display/FPW/Monitoring) |
@@ -77,10 +79,10 @@ Connections: 26.7M opened, 26.7M closed, 19.0 active, 0.0 idle
 
 | Name | Type | Description |
 |----|----|----|
-| active_connections | Count | Number of currently active database connections |
-| closed_connections | Continous Counter | Number of closed database connections |
-| idle_connections | Count | Number of currently idle database connections |
-| opened_connections | Continous Counter | Number of opened database connections |
+| active_connections | Number | Number of currently active database connections |
+| closed_connections | Continuous Counter | Total number of closed database connections |
+| idle_connections | Number | Number of currently idle database connections |
+| opened_connections | Continuous Counter | Total number of opened database connections |
 
 
 ## Credits, License

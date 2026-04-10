@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * CONTRIBUTING: run pylint without `--disable` flags
 * CONTRIBUTING: remove inline `pylint: disable` comments from code examples
 * All plugins: improve and expand DESCRIPTION to clearly explain what each plugin does for the admin deploying it
+* All plugins: rewrite all READMEs to follow consistent structure (Overview, Fact Sheet, Help, Usage Examples, States, Perfdata, Troubleshooting, Credits)
 * example: rewrite as comprehensive skeleton covering all standard patterns (argparse, SQLite delta calculations, regex filtering, `--lengthy` table output, human-readable formatting, get_state/get_worst, Grafana-compatible perfdata)
 * example: rewrite README as skeleton template with Overview, Fact Sheet, States, Perfdata, and Troubleshooting sections
 * Update and extend pre-commit hooks (add `check-added-large-files`, `check-merge-conflict`, `check-yaml`; update all hook versions)

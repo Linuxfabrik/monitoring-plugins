@@ -2,7 +2,23 @@
 
 ## Overview
 
-Displays amount of free and used swap space in the system, checks against used swap in percent.
+Monitors swap space usage as a percentage of total swap. On Linux, optionally lists the top processes consuming the most swap to help identify the source of high usage.
+
+**Alerting Logic:**
+
+* WARN if swap usage is >= `--warning` (default: 70%)
+* CRIT if swap usage is >= `--critical` (default: 90%)
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Uses `psutil.swap_memory()` to retrieve swap statistics (total, used, free, percent)
+* On Linux, also reports cumulative swap-in and swap-out bytes, and scans `/proc` for the top `--top` processes consuming the most swap
+* The top-processes feature is not available on Windows
+
+**Compatibility:**
+
+* Cross-platform: Linux and Windows
 
 
 ## Fact Sheet
@@ -10,7 +26,7 @@ Displays amount of free and used swap space in the system, checks against used s
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/swap-usage> |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
@@ -57,19 +73,28 @@ Top 3 processes that use the most swap space:
 
 ## States
 
-* WARN or CRIT if swap usage is above a given threshold.
+* OK if swap usage is below the warning threshold.
+* WARN if swap usage is >= `--warning` (default: 70%).
+* CRIT if swap usage is >= `--critical` (default: 90%).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| free | Bytes | Free swap memory in bytes |
-| sin | Bytes | The number of bytes the system has swapped in to disk (cumulative) |
-| sout | Bytes | The number of bytes the system has swapped out to disk (cumulative) |
-| total | Bytes | Total swap memory in bytes |
-| usage_percent | Percentage | The percentage usage calculated as (total - available) / total \* 100 |
-| used | Bytes | Used swap memory in bytes |
+| free | Bytes | Free swap memory |
+| sin | Bytes | Number of bytes the system has swapped in from disk (cumulative, Linux only) |
+| sout | Bytes | Number of bytes the system has swapped out to disk (cumulative, Linux only) |
+| total | Bytes | Total swap memory |
+| usage_percent | Percentage | Swap usage calculated as (total - available) / total \* 100 |
+| used | Bytes | Used swap memory |
+
+
+## Troubleshooting
+
+`Python module "psutil" is not installed.`
+Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
 
 ## Credits, License

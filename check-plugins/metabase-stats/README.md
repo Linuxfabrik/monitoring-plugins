@@ -2,20 +2,33 @@
 
 ## Overview
 
-Getting some statistics from [Metabase](https://www.metabase.com).
+Retrieves recent activity and usage statistics from a Metabase instance via its API. Reports active users, executed queries, dashboards, and other operational metrics. Credentials are cached to reduce API calls.
 
-Read the [Metabase API Documentation](https://www.metabase.com/learn/developing-applications/advanced-metabase/metabase-api.html#authenticate-your-requests-with-a-session-token) to note some things about user credentials and sessions. The check plugin caches credentials to reuse them until they expire, because logins to Metabase are rate-limited for security. You must use a Metabase superuser.
+**Data Collection:**
+
+* Authenticates against the Metabase API using username/password and caches the session token in SQLite (default expiry: ~14 days, matching Metabase's default session lifetime)
+* Queries `/api/activity` for the most recent activity entry and `/api/util/stats` for aggregated usage statistics
+* Reports site name, Metabase version, user count, analyzed databases, GUI questions, alerts, pulses, collections, CPUs, and RAM
+
+**Compatibility:**
+
+* Cross-platform: runs wherever the Metabase API is reachable (does not need to run on the Metabase server itself)
+
+**Important Notes:**
+
+* Requires a Metabase superuser account. Logins are rate-limited by Metabase for security, which is why credentials are cached. See the [Metabase API documentation](https://www.metabase.com/learn/developing-applications/advanced-metabase/metabase-api.html#authenticate-your-requests-with-a-session-token) for details
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/metabase-stats> |
+| Nagios/Icinga Check Name              | `check_metabase_stats` |
 | Check Interval Recommendation         | Once an hour |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--password` is required) |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-metabase-stats.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-metabase-stats.db` |
 
 
 ## Help
@@ -54,7 +67,7 @@ options:
 ## Usage Examples
 
 ```bash
-./metabase-stats  -username user --password pass --url http://metabase:3000
+./metabase-stats --username user --password pass --url http://metabase:3000
 ```
 
 Output:
@@ -72,14 +85,16 @@ Last activity: "card-create/My Card" by John Doe (3D 16h ago)
 
 ## Perfdata / Metrics
 
-* alerts
-* collections
-* cpu
-* dbs_analyzed
-* memory
-* pulses
-* questions_gui
-* users
+| Name | Type | Description |
+|----|----|----|
+| alerts | Number | Number of configured alerts. |
+| collections | Number | Number of collections. |
+| cpu | Number | Number of CPUs available to the Metabase instance. |
+| dbs_analyzed | Number | Number of analyzed databases. |
+| pulses | Number | Number of configured pulses. |
+| questions_gui | Number | Number of questions created via the GUI. |
+| ram | MiB | RAM available to the Metabase instance. |
+| users | Number | Total number of users. |
 
 
 ## Credits, License

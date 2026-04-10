@@ -2,18 +2,30 @@
 
 ## Overview
 
-On the *No Sheep* blog, Zachary Tirrell [defines the load average](http://nosheep.net/story/defining-unix-load-average/) on GNU/Linux operating system:
+Reports the average system load per CPU over the last 1, 5, and 15 minutes. Load represents the average number of processes waiting in the run queue plus those currently executing. The values are normalized by dividing by the number of CPUs, making machines with different CPU counts comparable and simplifying Grafana panel design.
 
-> *In short it is the average sum of the number of processes waiting in the run-queue plus the number currently executing over 1, 5, and 15 minutes time periods.*
+**Alerting Logic:**
 
-Alerts on load average are only set on 15 minutes time period. For this, the check gets the number of CPU cores to *normalize* load values *automatically*. Loads are computed by dividing the 15 minutes average load per CPU(s) count. For example, if you have 3 CPUs and the 15 minutes load is 6.0, then you get a warning because of (6 / 3) \>= 1.15, where 1.15 is the default warning threshold. Main advantage of this method is to make machines comparable and making the design of Grafana panels easier.
+* Thresholds apply to the 15-minute load average per CPU only (load1 and load5 are reported but not evaluated)
+* A normalized value below 1 indicates satisfactory resource utilization with minimal wait times; a value above 1 indicates resource saturation and processing delay
+* For example, on a 3-CPU machine with a raw load15 of 6.0 the normalized value is 2.0, which exceeds the default warning threshold of 1.15
+
+**Data Collection:**
+
+* Uses `psutil.getloadavg()` (psutil >= 5.6.2) for cross-platform support, falls back to `os.getloadavg()` on older psutil versions (Linux only)
+* Divides raw load averages by `psutil.cpu_count()` to normalize per CPU
+
+**Compatibility:**
+
+* Cross-platform: Linux and all psutil-supported systems (psutil >= 5.6.2 for non-Linux)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/load> |
+| Nagios/Icinga Check Name              | `check_load` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -54,19 +66,25 @@ Avg per CPU: 0.11 0.12 0.09
 
 ## States
 
-* WARN if load15 \>= 1.15 (default)
-* CRIT if load15 \>= 5.00 (default)
+* OK if load15 per CPU is below `--warning` (default: 1.15).
+* WARN if load15 per CPU is >= `--warning` (default: 1.15).
+* CRIT if load15 per CPU is >= `--critical` (default: 5.0).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name   | Type   | Description |
-|--------|--------|-------------|
-| load1  | Number | load1       |
-| load5  | Number | load5       |
-| load15 | Number | load15      |
+| Name | Type | Description |
+|----|----|----|
+| load1 | Number | 1-minute load average, normalized per CPU. |
+| load15 | Number | 15-minute load average, normalized per CPU. |
+| load5 | Number | 5-minute load average, normalized per CPU. |
 
-A value below 1 indicates satisfactory resource utilization and minimal wait times. A value above 1 indicates resource saturation and some amount of processing delay.
+
+## Troubleshooting
+
+`Python module "psutil" is not installed.`
+Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
 
 ## Credits, License

@@ -1,26 +1,41 @@
 # Check restic-stats
 
-`restic-stats` walks multiple snapshots in a repository and accumulates statistics about the data stored therein. It reports on the number of unique files and their sizes, according to one of the counting modes as given by the `--mode` flag.
+## Overview
 
-It operates on all snapshots matching the selection criteria or all snapshots if nothing is specified.
+Collects statistics across multiple snapshots in a restic repository, including the number of unique files and their total size. Reports these as perfdata for trending and capacity planning.
 
-Some modes make more sense over just a single snapshot, while others are useful across all snapshots, depending on what you are trying to calculate. The modes are:
+**Alerting Logic:**
 
-* blobs-per-file: A combination of files-by-contents and raw-data.
-* files-by-contents: Counts total size of files, where a file is considered unique if it has unique contents.
-* raw-data: Counts the size of blobs in the repository, regardless of how many files reference them.
-* restore-size: Counts the size of the restored files. (default)
+* Always returns OK
 
-Refer to the [online manual](https://restic.readthedocs.io/en/latest/index.html) for more details about restic.
+**Data Collection:**
+
+* Executes `restic --json --repo=... stats` with the specified filters and counting mode
+* Supports filtering by `--host`, `--path`, and `--tag`
+* Supports different counting modes via `--mode`:
+    * `blobs-per-file`: A combination of files-by-contents and raw-data
+    * `files-by-contents`: Counts total size of files, where a file is considered unique if it has unique contents
+    * `raw-data`: Counts the size of blobs in the repository, regardless of how many files reference them
+    * `restore-size`: Counts the size of the restored files (default)
+
+**Important Notes:**
+
+* Requires root or sudo
+* Refer to the [online manual](https://restic.readthedocs.io/en/latest/index.html) for more details about restic
+
+**Compatibility:**
+
+* Linux
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/restic-stats> |
+| Nagios/Icinga Check Name              | `check_restic_stats` |
 | Check Interval Recommendation         | Once a day |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--repo` is required) |
 | Compiled for Windows                  | No |
 
 
@@ -60,8 +75,6 @@ options:
 
 ## Usage Examples
 
-Stats about snapshots for host www.example.com:
-
 ```bash
 ./restic-stats --repo=/path/to/restic-repo --password-file=/path/to/restic-pwd --host=www.example.com
 ```
@@ -82,8 +95,8 @@ Output:
 
 | Name | Type | Description |
 |----|----|----|
-| total_file_count | Number | Number of unique files, according to one of the counting modes as given by the `--mode` flag |
-| total_size | Number | Size of unique files, according to one of the counting modes as given by the `--mode` flag |
+| total_file_count | Number | Number of unique files, according to the counting mode given by `--mode`. |
+| total_size | Number | Size of unique files, according to the counting mode given by `--mode`. |
 
 
 ## Credits, License

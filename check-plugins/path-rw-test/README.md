@@ -2,14 +2,30 @@
 
 ## Overview
 
-Tests if a temporary file can be created, written to a specified path, read, and then deleted. Especially useful with mounted file systems such as NFS or SMB. The local temporary directory is always tested, regardless of whether the check is called with or without parameters. May require sudo privileges.
+Tests if a path is writable and readable by creating, writing, reading, and deleting a temporary file. Especially useful for mounted filesystems such as NFS or SMB where the mount may silently become read-only or unresponsive. The local temporary directory is always tested as a baseline. Alerts if the path is not writable or readable.
+
+**Data Collection:**
+
+* Creates a temporary file in each specified path (and always in the system's temp directory)
+* Writes a test string, reads it back, then deletes the temporary file
+* Reports which paths failed and which were tested
+
+**Alerting Logic:**
+
+* Alerts according to the given severity (default: WARN) if any path is not writable or readable
+
+**Compatibility:**
+
+* Cross-platform: Linux and Windows
+* May require root or sudo depending on the paths being tested
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/path-rw-test> |
+| Nagios/Icinga Check Name              | `check_path_rw_test` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | Yes |
@@ -54,8 +70,10 @@ Error creating/writing/reading/deleting file in `/usr` ([Errno 13] Permission de
 
 ## States
 
-* WARN if `--severity` is set to `warn` (default)
-* CRIT if `--severity` is set to `crit`
+* OK if all paths are writable and readable.
+* WARN if `--severity` is set to `warn` (default) and any path fails the read/write test.
+* CRIT if `--severity` is set to `crit` and any path fails the read/write test.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

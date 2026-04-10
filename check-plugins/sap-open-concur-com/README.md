@@ -2,20 +2,39 @@
 
 ## Overview
 
-This plugin checks for incidents mentioned at the [SAP Concur Open](https://open.concur.com/) Service Status Dashboard. The Concur Open service status dashboard displays the most recent 20 days of Concur service availability.
+Monitors the SAP Concur Open status page (<https://open.concur.com>) for active service incidents. The dashboard displays the most recent 20 days of Concur service availability.
 
-Hints:
+**Alerting Logic:**
+
+* OK if all checked services are in "Normal" state
+* WARN if any checked service is in "Degradation" state
+* CRIT if any checked service is in "Disruption" state
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Queries the SAP Concur Open status API at `https://open.concur.com/api/v2/status_history`
+* Checks a specific datacenter (us, us2, eu, eu2, cn, pscc) via `--datacenter`
+* Can check a single service or all services at once via `--service`
+* Available services: Analysis/Intelligence, Compleat (TMC Services), Expense, Imaging, Invoice, Mobile, Request, Travel
+
+**Important Notes:**
 
 * Not all SAP datacenters offer all services. Have a look at <https://open.concur.com> for details.
+
+**Compatibility:**
+
+* Linux
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/sap-open-concur-com> |
+| Nagios/Icinga Check Name              | `check_sap_open_concur_com` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | Yes |
+| Can be called without parameters      | No (`--datacenter` is required) |
 | Compiled for Windows                  | No |
 
 
@@ -68,10 +87,11 @@ Analysis/Intelligence: disruption [CRITICAL], Expense: degradation [WARNING] (@e
 
 ## States
 
-* OK if (all) service(s) is/are in "Normal" state.
-* WARN if (any) service is in "Degradation" state.
-* CRIT if (any) service is in "Disruption" state.
-* If wanted, always returns OK.
+* OK if all checked services are in "Normal" state.
+* WARN if any checked service is in "Degradation" state.
+* CRIT if any checked service is in "Disruption" state.
+* UNKNOWN if the requested service is not available for the specified datacenter.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

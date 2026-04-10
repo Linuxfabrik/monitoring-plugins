@@ -2,29 +2,30 @@
 
 ## Overview
 
-Checks the state of a service, job, mount etc., using `systemctl show`.
+Checks the state of a specific systemd unit (service, socket, device, mount, timer, scope, etc.) via `systemctl show`. Verifies the active state, sub-state, load state, and unit file state against expected values.
 
-Simple example: `./systemd-unit --loadstate=loaded --activestate=active --substate=running --unitfilestate=enabled --unit=crond.service` is checked against `systemctl show -p LoadState,ActiveState,SubState,UnitFileState crond.service`.
+**Alerting Logic:**
 
-How do you get an idea what to check for?
+* WARN (default) or CRIT (via `--severity=crit`) if any of the checked states do not match the expected values
+* If `--activestate`, `--substate`, or `--unitfilestate` is omitted (or set to "None"), the corresponding state is not checked
+* If `--loadstate` detects "not-found", the check suggests verifying the unit file with `systemctl cat`
+* Multiple values can be specified for `--activestate` and `--substate` (useful for timer-dependent services that alternate between states)
 
-1.  Show ALL possible unit files - services, mounts, timers etc.: `systemctl list-unit-files --all`
-2.  Show units, and optionally compare them with another system: `systemctl list-units` (here you get the states)
-3.  If you know what to look for, get the state data for this check: `systemctl show -p LoadState,ActiveState,SubState,UnitFileState <service-name>`
+**Data Collection:**
 
-<div class="attention">
+* Executes `systemctl show -p LoadState,ActiveState,SubState,UnitFileState <unit>`
+* Optionally supports `--machine` to query units inside local containers (requires systemd >= 209)
+* Optionally supports `--user` to query user-level service manager
 
-<div class="title">
+**Important Notes:**
 
-Attention
+* Best practice: specify `--activestate` and `--substate` at least
+* The `.service` suffix is optional for service units, but recommended
+* The `--machine` parameter connects to a local container, optionally prefixed by a user name and `@` (e.g. `linus@.host`)
 
-</div>
+**Compatibility:**
 
-* If any of `--activestate`, `--substate` or `--unitfilestate` is ommited, the related unit state value will not be checked (so the check don't care, just prints).
-* Best practise is to specify `--activestate` and `--substate` at least.
-* The unit suffix `.service` is optional for service units only, but it is - as always - recommended to use it.
-
-</div>
+* Linux with systemd
 
 
 ## Fact Sheet
@@ -32,8 +33,8 @@ Attention
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/systemd-unit> |
-| Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | Yes |
+| Check Interval Recommendation         | Every minute |
+| Can be called without parameters      | No (`--unit` is required) |
 | Compiled for Windows                  | No |
 
 
@@ -55,43 +56,79 @@ AttributeError: module 'lib' has no attribute 'args'
 
 ## Usage Examples
 
-* Does the service exist? (and nothing more!)  
-  `./systemd-unit --unit=firewalld.service`
+Does the service exist (and nothing more)?
 
-* Is the service running?  
-  `./systemd-unit --substate=running --unit=firewalld.service`
+```bash
+./systemd-unit --unit=firewalld.service
+```
 
-* Is the service disabled?  
-  `./systemd-unit --unitfilestate=disabled --unit=firewalld.service`
+Is the service running?
 
-* Is the service stopped and disabled?  
-  `./systemd-unit --activestate=inactive --substate=dead --unitfilestate=disabled --unit=firewalld.service`
+```bash
+./systemd-unit --substate=running --unit=firewalld.service
+```
 
-* Is the service exited?  
-  `./systemd-unit --substate=exited --unit=firewalld.service`
+Is the service disabled?
 
-* Is this service with instance name "server" running?  
-  `./systemd-unit --substate=running --unit=openvpn-server@server.service`
+```bash
+./systemd-unit --unitfilestate=disabled --unit=firewalld.service
+```
 
-* Is this service absent/uninstalled?  
-  `./systemd-unit --loadstate=not-found --unit=firewalld.service`
+Is the service stopped and disabled?
 
-* Is this path mounted? (Output shown below)  
-  `./systemd-unit --substate=mounted --unit=mnt-smb.mount`
+```bash
+./systemd-unit --activestate=inactive --substate=dead --unitfilestate=disabled --unit=firewalld.service
+```
 
-* Is this device plugged in?  
-  `./systemd-unit --substate=plugged --unit=sys-devices-virtual-net-tun0.device`
+Is the service exited?
 
-* The current state of a timer job? (has one activestate and two substates)  
-  `./systemd-unit --activestate=active --substate=waiting --substate=running --unit=myjob.timer`
+```bash
+./systemd-unit --substate=exited --unit=firewalld.service
+```
 
-* Check a service depending on a timer (has two activestates and two substates):  
-  `./systemd-unit --activestate=active --activestate=inactive --substate=dead --substate=running --unit=myjob.service`
+Is this service with instance name "server" running?
 
-* Use the `--machine` parameter:  
-  `./systemd-unit --machine=linus@.host --unit sshd`
+```bash
+./systemd-unit --substate=running --unit=openvpn-server@server.service
+```
 
-Output:
+Is this service absent/uninstalled?
+
+```bash
+./systemd-unit --loadstate=not-found --unit=firewalld.service
+```
+
+Is this path mounted?
+
+```bash
+./systemd-unit --substate=mounted --unit=mnt-smb.mount
+```
+
+Is this device plugged in?
+
+```bash
+./systemd-unit --substate=plugged --unit=sys-devices-virtual-net-tun0.device
+```
+
+Check a timer job (has one activestate and two substates)?
+
+```bash
+./systemd-unit --activestate=active --substate=waiting --substate=running --unit=myjob.timer
+```
+
+Check a service depending on a timer (has two activestates and two substates)?
+
+```bash
+./systemd-unit --activestate=active --activestate=inactive --substate=dead --substate=running --unit=myjob.service
+```
+
+Use the `--machine` parameter:
+
+```bash
+./systemd-unit --machine=linus@.host --unit sshd
+```
+
+Output (mismatch):
 
 ```text
 firewalld.service - LoadState is "loaded", but should be set to "not-found"
@@ -100,8 +137,9 @@ firewalld.service - LoadState is "loaded", but should be set to "not-found"
 
 ## States
 
-* WARN if result does not match parameter values.
-* CRIT only if configured as such.
+* OK if all checked states match the expected values.
+* WARN (default) if any checked state does not match the expected value.
+* CRIT if `--severity=crit` is set and any checked state does not match.
 
 
 ## Perfdata / Metrics

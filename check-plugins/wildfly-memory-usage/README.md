@@ -2,22 +2,33 @@
 
 ## Overview
 
-This check plugin monitors the heap and non-heap memory usage of a WildFly server, using its HTTP-JSON based API (JBossAS REST Management API). This allows us to monitor the application server without any additional configuration and installation - no need to deploy WAR-Agents like Jolokia. The plugin supports both standalone mode and domain mode.
+Checks Java heap and non-heap memory usage on a WildFly/JBoss AS server via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode. Reports both "used" and "committed" percentages for heap and non-heap memory.
 
-Tested with WildFly 11 and WildFly 23+.
+**Alerting Logic:**
 
-Hints:
+* WARN or CRIT if heap or non-heap memory usage (used or committed) exceeds the configured thresholds (default: 80/90%)
+* `--always-ok` suppresses all alerts and always returns OK
 
+**Data Collection:**
+
+* Queries the WildFly management API at `/core-service/platform-mbean/type/memory` using the `read-resource` operation with runtime data
+* Authenticates via HTTP Digest Auth (`--username`, `--password`)
+* Reports used/committed/max for both heap and non-heap memory
+
+**Compatibility:**
+
+* Tested with WildFly 11 and WildFly 23+
 * See [additional notes for all wildfly monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.md)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wildfly-memory-usage> |
+| Nagios/Icinga Check Name              | `check_wildfly_memory_usage` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--username` and `--password` are required) |
 | Compiled for Windows                  | No |
 
 
@@ -61,7 +72,7 @@ options:
 ## Usage Examples
 
 ```bash
-./wildfly-memory-usage --username wildfly-monitoring --password password --url http://wildfly:9990 --warning 80 --critical 90
+./wildfly-memory-usage --username=wildfly-monitoring --password=password --url=http://wildfly:9990 --warning=80 --critical=90
 ```
 
 Output:
@@ -73,23 +84,25 @@ Heap used: 18.04% (82.2MiB of 455.5MiB), Heap committed: 44.35% (202.0MiB of 455
 
 ## States
 
-Triggers an alarm on usage in percent.
-
-* WARN or CRIT if memory usage (used or committed, heap or non-heap) is above certain thresholds (default 80/90%)
+* OK if all memory usage percentages are below the warning threshold.
+* WARN or CRIT if heap or non-heap memory usage (used or committed) is >= `--warning` (default: 80) or >= `--critical` (default: 90).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-* heap-committed: in bytes
-* heap-committed-percent: in percent
-* heap-max: in bytes
-* heap-usage-percent: in percent
-* heap-used: in bytes
-* non-heap-committed: in bytes
-* non-heap-committed-percent: in percent
-* non-heap-max: in bytes
-* non-heap-usage-percent: in percent
-* non-heap-used: in bytes
+| Name | Type | Description |
+|----|----|----|
+| heap-committed | Bytes | Heap memory committed (reserved at OS level). |
+| heap-committed-percent | Percentage | Heap committed as percentage of max. |
+| heap-max | Bytes | Maximum heap memory. |
+| heap-used | Bytes | Heap memory currently in use. |
+| heap-used-percent | Percentage | Heap used as percentage of max. |
+| non-heap-committed | Bytes | Non-heap memory committed (reserved at OS level). |
+| non-heap-committed-percent | Percentage | Non-heap committed as percentage of max. |
+| non-heap-max | Bytes | Maximum non-heap memory. |
+| non-heap-used | Bytes | Non-heap memory currently in use. |
+| non-heap-used-percent | Percentage | Non-heap used as percentage of max. |
 
 
 ## Credits, License

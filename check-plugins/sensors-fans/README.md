@@ -2,18 +2,33 @@
 
 ## Overview
 
-Return the speed of the hardware fans. Fan speed is expressed in RPM (rounds per minute). The plugin returns 'OK' if no fans are found.
+Reports hardware fan speeds in RPM (rounds per minute). Returns OK if no fans are detected.
 
-Hints:
+**Alerting Logic:**
 
-* Run `sensors-detect --auto` beforehand to scan your system for the various hardware monitoring chips or sensors supported by libsensors or, more generally, by the lm_sensors tool suite.
+* WARN if any fan speed meets or exceeds `--warning` (default: 10000 RPM)
+* CRIT if any fan speed meets or exceeds `--critical` (default: 20000 RPM)
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Uses `psutil.sensors_fans()` to read fan speed data from hardware sensors
+
+**Important Notes:**
+
+* Run `sensors-detect --auto` beforehand to scan the system for hardware monitoring chips supported by libsensors / lm_sensors
+
+**Compatibility:**
+
+* Linux and all psutil-supported systems with fan sensors
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/sensors-fans> |
+| Nagios/Icinga Check Name              | `check_sensors_fans` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -52,12 +67,24 @@ dell_smm: dell_smm = 4714 RPM, dell_smm = 4428 RPM
 
 ## States
 
-* WARN or CRIT if fan speed (RPM) is above a given threshold.
+* OK if all fan speeds are below the warning threshold or if no fans are detected.
+* WARN if any fan speed meets or exceeds `--warning` (default: 10000 RPM).
+* CRIT if any fan speed meets or exceeds `--critical` (default: 20000 RPM).
+* UNKNOWN if the platform is not supported by psutil.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-* for each fan: its speed (RPM)
+| Name | Type | Description |
+|----|----|----|
+| {sensor_name}_{label} | Number | Fan speed in RPM, one metric per fan sensor. |
+
+
+## Troubleshooting
+
+`Python module "psutil" is not installed.`  
+Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
 
 ## Credits, License

@@ -2,7 +2,16 @@
 
 ## Overview
 
-Checks the system's current crypto policy against a desired one, and returns a warning on a non-match. If `--policy` is ommited, we suppose crypto policy is `DEFAULT`.
+Verifies that the system-wide cryptographic policy (as reported by update-crypto-policies) matches the expected setting. Returns WARN if the current policy differs from the desired one (default: "DEFAULT"). Useful for ensuring consistent TLS and cipher configurations across a fleet of servers.
+
+**Data Collection:**
+
+* Runs `update-crypto-policies --show` to determine the active system-wide crypto policy
+* Compares the result against the expected policy name (case-insensitive)
+
+**Compatibility:**
+
+* RHEL/CentOS/Fedora and other distributions that ship `update-crypto-policies`
 
 
 ## Fact Sheet
@@ -10,6 +19,7 @@ Checks the system's current crypto policy against a desired one, and returns a w
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/crypto-policy> |
+| Nagios/Icinga Check Name              | `check_crypto_policy` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -50,7 +60,10 @@ Crypto policy is "DEFAULT" (as expected).
 
 ## States
 
-* WARN if crypto policy is not as expected.
+* OK if the current crypto policy matches the expected one (case-insensitive).
+* WARN if the current crypto policy does not match the expected one.
+* UNKNOWN if `update-crypto-policies` is not available on the system.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

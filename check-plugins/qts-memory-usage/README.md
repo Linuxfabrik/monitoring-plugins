@@ -2,22 +2,40 @@
 
 ## Overview
 
-Returns the current system-wide memory utilization as a percentage from a QNAP Appliance running QTS, using the HTTP API.
+Monitors system memory utilization on QNAP appliances running QTS via the HTTP API. Reports total, used, and free memory along with the usage percentage.
 
-Hints and Recommendations:
+**Alerting Logic:**
+
+* WARN if memory usage exceeds `--warning` (default: 80%)
+* CRIT if memory usage exceeds `--critical` (default: 90%)
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Authenticates against the QTS API and fetches system information via `/cgi-bin/management/manaRequest.cgi`
+* Calculates memory usage from the total and free memory values reported by QTS
+
+**Important Notes:**
 
 * Tested on [QuTScloud](https://www.qnap.com/en-us/download?model=qutscloud&category=firmware) v4.5.6+
 * The user used for monitoring must be a member of the "administrators" group. It is not sufficient to be a member of the "everyone" group.
+
+**Compatibility:**
+
+* Linux only
+* 3rd party Python module `xmltodict` required
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/qts-memory-usage> |
+| Nagios/Icinga Check Name              | `check_qts_memory_usage` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--password` and `--url` are required) |
 | Compiled for Windows                  | No |
+| 3rd Party Python modules              | `xmltodict` |
 
 
 ## Help
@@ -63,18 +81,20 @@ Output:
 
 ## States
 
-* OK if overall `memory-usage` is below the thresholds.
-* Otherwise CRIT or WARN.
+* OK if memory usage is below the thresholds.
+* WARN if memory usage exceeds `--warning` (default: 80%).
+* CRIT if memory usage exceeds `--critical` (default: 90%).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name         | Type  | Description               |
-|--------------|-------|---------------------------|
-| memory-usage | Bytes | The overall memory usage. |
-| free         | Bytes | The free memory.          |
-| total        | Bytes | The total memory.         |
-| used         | Bytes | The used memory.          |
+| Name         | Type       | Description                    |
+|--------------|------------|--------------------------------|
+| free         | Bytes      | Free memory.                   |
+| memory-usage | Percentage | Memory usage, in percent.      |
+| total        | Bytes      | Total memory.                  |
+| used         | Bytes      | Used memory.                   |
 
 
 ## Credits, License

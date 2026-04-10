@@ -2,29 +2,32 @@
 
 ## Overview
 
-This plugin checks the clock offset of ntpd in milliseconds compared to ntp servers. It also prints
+Checks the clock offset of ntpd in milliseconds compared to the configured NTP servers. Alerts when the offset exceeds the configured thresholds.
 
-* `remote`: address of the remote peer
-* `refid`: reference ID (0.0.0.0 if this is unknown)
-* `st`: stratum of the remote peer
-* `t`: type of the peer (local, unicast, multicast or broadcast)
-* `when`: when the last packet was received
-* `poll`: polling interval in seconds
-* `reach`: reachability register in octal
-* `delay`: estimated delay
-* `offset`: estimated offset
-* `jitter`: dispersion of the peer
+**Data Collection:**
 
-`ntpd` is deprecated on RHEL 8+.
+* Executes `ntpq -p` to obtain the current synchronization status
+* Parses the active peer (marked with `*`) and extracts stratum, delay, offset, and jitter
+* Displays the full `ntpq -p` output for reference
 
-The stratum of the NTP time source determines its quality. The stratum is equal to the number of hops to a reference clock (which is stratum 0). A NTP server connected directly to the reference clock is Stratum 1, a client connected to this NTP server is Stratum 2, etc.
+**Alerting Logic:**
+
+* WARN or CRIT if the NTP offset exceeds the configured thresholds (default: 800ms / 86400000ms)
+* WARN if stratum is >= `--stratum` (default: 6)
+* WARN if no NTP server is used, no NTP server is found, or only the LOCAL clock is used
+
+**Important Notes:**
+
+* `ntpd` is deprecated on RHEL 8+. Consider using `chronyd` instead.
+* The stratum of the NTP time source determines its quality. The stratum is equal to the number of hops to a reference clock (stratum 0). A NTP server connected directly to the reference clock is Stratum 1, a client connected to this NTP server is Stratum 2, etc.
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ntp-ntpd> |
+| Nagios/Icinga Check Name              | `check_ntp_ntpd` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -80,33 +83,34 @@ NTP offset is -3.005ms, Stratum is 2
 
 ## States
 
-* WARN or CRIT if ntp offset is below or above a given threshold.
-* WARN if stratum is \>= `--stratum`.
-* WARN if no NTP server is used.
-* WARN if no NTP server is found.
-* WARN if only LOCAL clock is used.
+* OK if the NTP offset is within the thresholds and stratum is acceptable.
+* WARN if the NTP offset is >= `--warning` (default: 800ms).
+* WARN if stratum is >= `--stratum` (default: 6).
+* WARN if no NTP server is used or found.
+* WARN if only the LOCAL clock is used.
+* CRIT if the NTP offset is >= `--critical` (default: 86400000ms).
 
 
 ## Perfdata / Metrics
 
-| Name    | Type         | Description       |
-|---------|--------------|-------------------|
-| delay   | Milliseconds | Delay in ms       |
-| jitter  | Milliseconds | Jitter in ms      |
-| offset  | Milliseconds | Time offset in ms |
-| stratum | Number       | Stratum           |
+| Name | Type | Description |
+|----|----|----|
+| delay | Milliseconds | Round-trip delay to the active NTP peer. |
+| jitter | Milliseconds | Dispersion of the active NTP peer. |
+| offset | Milliseconds | Time offset to the active NTP peer. |
+| stratum | Number | Stratum of the active NTP peer. |
 
 
 ## Troubleshooting
 
-OS Error "2 No such file or directory" calling command "ntpq -p"  
-You don't have `ntpd`.
+`OS Error "2 No such file or directory" calling command "ntpq -p"`  
+You don't have `ntpd` installed.
 
-ntpq: read: Connection refused  
+`ntpq: read: Connection refused`  
 `ntpd` is not running.
 
-No NTP server used.  
-This message occurs when ntpd is running, and ntpd does (currently) not use any ntp server.
+`No NTP server used.`  
+This message occurs when ntpd is running but does not currently use any NTP server.
 
 
 ## Credits, License

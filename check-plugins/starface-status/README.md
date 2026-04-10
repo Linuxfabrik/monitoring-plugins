@@ -2,15 +2,23 @@
 
 ## Overview
 
-This plugin checks the overall health of the Starface PBX.
+Checks the overall health of a Starface PBX, reporting system state, version, license information, RAID status, SIP status, and phone connectivity.
 
-It uses the data output of the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring), which was originally written for Check_MK and listens on port 6556. Supports both IPv4 and IPv6. Fetched data is cached up to one minute, so that other Starface plugins running in parallel do not query the data again and overload the PBX.
+**Alerting Logic:**
 
-Special features of this check:
+* WARN if RAID status is not "HEALTHY"
+* WARN if SIP status is not "OK"
+* `--always-ok` suppresses all alerts and always returns OK
 
-* Connects directly via Socket.
-* IPv4 (default), IPv6 capable.
-* Fetched data is cached up to one minute and shared between other monitoring plugins dealing with Starface PBX, so that those checks running in parallel do not query the data again and overload the PBX.
+**Data Collection:**
+
+* Connects via socket to the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) on port 6556
+* Supports both IPv4 (default) and IPv6
+* Fetched data is cached for up to one minute in a shared SQLite database, so that multiple Starface checks running in parallel do not overload the PBX
+
+**Compatibility:**
+
+* Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
 
 
 ## Fact Sheet
@@ -18,7 +26,7 @@ Special features of this check:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/starface-status> |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
 | Requirements                          | [Monitoring module for Starface PBX](https://wiki.fluxpunkt.de/display/FPW/Monitoring) |
@@ -75,20 +83,22 @@ Owner: Linuxfabrik, 99 licensed users, 138 whitelisted hosts, 167 phones known, 
 
 ## States
 
-* WARN if RAID status != HEALTHY
-* WARN if SIP status != OK
+* OK if RAID status is "HEALTHY" and SIP status is "OK".
+* WARN if RAID status is not "HEALTHY".
+* WARN if SIP status is not "OK".
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| starface_version | Float | Version number as float |
-| blacklisted_hosts | Counter | Number of blacklisted hosts |
-| whitelisted_hosts | Counter | Number of whitelisted hosts |
-| known_phones | Counter | Number of known phones |
-| online_phones | Counter | Number of online phones |
-| ip_changed_phones | Counter | Number of phones which changed their IP addresses |
+| blacklisted_hosts | Number | Number of blacklisted hosts |
+| ip_changed_phones | Number | Number of phones that changed their IP address |
+| known_phones | Number | Number of known phones |
+| online_phones | Number | Number of online phones |
+| starface_version | Number | Version number as float |
+| whitelisted_hosts | Number | Number of whitelisted hosts |
 
 
 ## Credits, License

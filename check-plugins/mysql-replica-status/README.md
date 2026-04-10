@@ -2,23 +2,36 @@
 
 ## Overview
 
-Checks the replication status of MySQL/MariaDB. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl), v1.9.8.
+Checks the replication status of a MySQL/MariaDB replica, including I/O thread state, SQL thread state, seconds behind master, and replication errors. Can also be run against standalone servers (reports that no replication is configured). Reports Galera synchronous replication state, binlog format, semi-synchronous replication configuration, and XA support.
 
-Hints:
+**Alerting Logic:**
+
+* Alerts with the configured severity (`--severity`, default: WARN) if the replica is not running but seems to be configured
+* Alerts with the configured severity if the replica is running with `read_only` disabled
+* Alerts with the configured severity if the replica is lagging behind the primary
+
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for replication-related settings (`binlog_format`, `read_only`, `rpl_semi_sync_*`, `wsrep_on`, `wsrep_provider_options`, etc.)
+* Executes `SHOW REPLICA STATUS` (or `SHOW SLAVE STATUS` on older versions) and `SHOW SLAVE HOSTS`
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):get_replication_status(), v1.9.8
+
+**Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
-* Can also be run against standalone servers.
+* User account requires SUPER, REPLICATION CLIENT, and REPLICATION SLAVE privileges
+* Can safely be run against standalone servers; it will report "This is a standalone server."
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-replica-status> |
+| Nagios/Icinga Check Name              | `check_mysql_replica_status` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Requirements                          | User with SUPER, REPLICATION CLIENT and REPLICATION SLAVE privileges, locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |
 
 
@@ -68,11 +81,10 @@ Galera Synchronous replication: NO. Binlog format: ROW, XA support enabled: ON. 
 
 ## States
 
-Alert with the given severity, if the replica (aka slave)...
-
-* is not running but seems to be configured
-* is running with the read_only option disabled
-* is lagging behind Primary
+* WARN or CRIT (depending on `--severity`) if the replica is not running but seems to be configured.
+* WARN or CRIT (depending on `--severity`) if the replica is running with `read_only` disabled.
+* WARN or CRIT (depending on `--severity`) if the replica is lagging behind the primary.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
@@ -83,9 +95,6 @@ There is no perfdata.
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
-
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).
-
 * Credits:
-
     * heavily inspired by MySQLTuner (<https://github.com/major/MySQLTuner-perl>)

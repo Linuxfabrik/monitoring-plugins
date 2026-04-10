@@ -2,22 +2,32 @@
 
 ## Overview
 
-This check plugin monitors the uptime of a WildFly server, using its HTTP-JSON based API (JBossAS REST Management API). This allows us to monitor the application server without any additional configuration and installation - no need to deploy WAR-Agents like Jolokia. The plugin supports both standalone mode and domain mode.
+Reports the uptime of a WildFly/JBoss AS server via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode. Useful for detecting application servers that have not been restarted after deployments or updates.
 
-Tested with WildFly 11 and WildFly 23+.
+**Alerting Logic:**
 
-Hints:
+* WARN or CRIT when uptime exceeds the configured thresholds (default: 180/366 days)
+* `--always-ok` suppresses all alerts and always returns OK
 
+**Data Collection:**
+
+* Queries the WildFly management API at `/core-service/platform-mbean/type/runtime` using the `read-resource` operation with runtime data
+* Authenticates via HTTP Digest Auth (`--username`, `--password`)
+
+**Compatibility:**
+
+* Tested with WildFly 11 and WildFly 23+
 * See [additional notes for all wildfly monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.md)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wildfly-uptime> |
+| Nagios/Icinga Check Name              | `check_wildfly_uptime` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--username` and `--password` are required) |
 | Compiled for Windows                  | No |
 
 
@@ -61,7 +71,7 @@ options:
 ## Usage Examples
 
 ```bash
-./wildfly-uptime --username wildfly-monitoring --password password --url http://wildfly:9990 --warning 180 --critical 366
+./wildfly-uptime --username=wildfly-monitoring --password=password --url=http://wildfly:9990 --warning=180 --critical=366
 ```
 
 Output:
@@ -73,14 +83,16 @@ Up 1h 11m
 
 ## States
 
-Triggers an alarm on uptime in days.
-
-* WARN or CRIT when uptime (the number of days) exceeds the thresholds (default 180/366 days)
+* OK if uptime is below the warning threshold.
+* WARN or CRIT when uptime exceeds `--warning` (default: 180 days) or `--critical` (default: 366 days).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-* uptime: seconds
+| Name | Type | Description |
+|----|----|----|
+| uptime | Seconds | WildFly server uptime. |
 
 
 ## Credits, License

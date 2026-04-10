@@ -2,18 +2,29 @@
 
 ## Overview
 
-Returns statistics for members of HA cluster from a Forti Appliance like FortiGate running FortiOS, using the FortiOS REST API. Warns if the number of HA members is more or less than expected (default: 2). The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".
+Monitors the high-availability cluster status on FortiGate appliances running FortiOS via the REST API. Alerts if the number of HA members differs from the expected count (default: 2). Reports serial number, role, priority, hostname, and synchronization status per member.
+
+**Data Collection:**
+
+* Queries the FortiOS REST API endpoint `/api/v2/monitor/system/ha-statistics/select/` to retrieve HA member details
+* Aggregates total sessions and traffic across all cluster members
+* Emits per-member perfdata for sessions, network usage, traffic bytes, CPU usage, and memory usage
+* Authentication uses a single API token (Token-based authentication)
+
+**Compatibility:**
+
+* FortiGate appliances running FortiOS with REST API access and HA configured
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fortios-ha-stats> |
+| Nagios/Icinga Check Name              | `check_fortios_ha_stats` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--hostname` and `--password` are required) |
 | Compiled for Windows                  | No |
-| Handles Periods                       | Yes |
 
 
 ## Help
@@ -60,24 +71,22 @@ Found 2 HA cluster members, which handled 87458 sessions and 187.0TiB traffic so
 
 ## States
 
-* If wanted, always returns OK,
-* else returns WARN if there are more or less cluster members than expected.
+* OK if the number of HA cluster members matches `--count` (default: 2).
+* WARN if the number of HA cluster members differs from `--count`.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-For example:
+Per HA member (prefixed with the member hostname):
 
-* `node1_sessions`
-* `node1_net_usage`
-* `node1_tbyte`
-* `node1_cpu_usage`
-* `node1_mem_usage`
-* `node2_sessions`
-* `node2_net_usage`
-* `node2_tbyte`
-* `node2_cpu_usage`
-* `node2_mem_usage`
+| Name | Type | Description |
+|----|----|----|
+| `<hostname>_cpu_usage` | Percentage | CPU usage of the HA member. |
+| `<hostname>_mem_usage` | Percentage | Memory usage of the HA member. |
+| `<hostname>_net_usage` | Percentage | Network usage of the HA member. |
+| `<hostname>_sessions` | Number | Number of sessions handled by the HA member. |
+| `<hostname>_tbyte` | Bytes | Total traffic in bytes handled by the HA member. |
 
 
 ## Credits, License

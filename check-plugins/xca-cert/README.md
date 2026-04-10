@@ -2,24 +2,36 @@
 
 ## Overview
 
-If you are using XCA by Christian Hohnstädt (an *application that is intended for creating and managing X.509 certificates, certificate requests, RSA, DSA and EC private keys, Smart-cards and CRLs*) with ["Remote Databases" feature enabled](https://hohnstaedt.de/xca/index.php/documentation/remote-databases), this plugin lets you check the expiration date of any certificate within those XCA MySQL/MariaDB databases. CRLs are also taken into account.
+Checks the expiration dates of certificates and CRLs stored in a XCA-managed MySQL/MariaDB database. XCA by Christian Hohnstaedt is an application intended for creating and managing X.509 certificates, certificate requests, RSA, DSA and EC private keys, Smart-cards and CRLs. This plugin requires the ["Remote Databases" feature](https://hohnstaedt.de/xca/index.php/documentation/remote-databases) to be enabled.
 
-Hints:
+**Alerting Logic:**
 
+* WARN or CRIT if any certificate expires within the configured threshold (default: 14/5 days)
+* WARN or CRIT if any CRL's next update is within the configured threshold (default: 14/5 days)
+
+**Data Collection:**
+
+* Connects to the XCA MySQL/MariaDB database using credentials from a cnf file (`--defaults-file`)
+* Queries the `view_certs` and `view_crls` views (prefixed with `--prefix` if configured)
+* Parses certificate and CRL expiration dates using `openssl x509` and `openssl crl`
+
+**Important Notes:**
+
+* This check works with MySQL/MariaDB backend only, although XCA also supports PostgreSQL.
+* We recommend to run this check directly on the database host.
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
-* This check works with MySQL/MariaDB backend only, although XCA is supporting PostgreSQL as well.
-* We recommend to run this check directly on your database host.
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/xca-cert> |
+| Nagios/Icinga Check Name              | `check_xca_cert` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Requirements                          | User with SELECT privileges on the XCA database, locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
+| Requirements                          | User with SELECT privileges on the XCA database, locked down to `127.0.0.1` - for example `monitoring@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |
 
 
@@ -42,8 +54,9 @@ options:
   --defaults-file DEFAULTS_FILE
                         Specifies a cnf file to read parameters like user,
                         host and password from (for MySQL/MariaDB cnf-style
-                        files). Example: `/var/spool/icinga2/.my.cnf`.
-                        Default: /var/spool/icinga2/.my.cnf
+                        files). (for MySQL/MariaDB cnf-style files). Example:
+                        `/var/spool/icinga2/.my.cnf`. Default:
+                        /var/spool/icinga2/.my.cnf
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
@@ -57,7 +70,7 @@ options:
 ## Usage Examples
 
 ```bash
-./xca-cert --prefix xca_prefix_ --warning 14 --critical 5
+./xca-cert --prefix=xca_prefix_ --warning=14 --critical=5
 ```
 
 Output:
@@ -84,7 +97,9 @@ Linuxfabrik App CA SHA 384 ! [OK]  ! 2023-07-13 07:52:00
 
 ## States
 
-* WARN or CRIT if a certificate expires within a given threshold.
+* OK if all certificates and CRLs are valid beyond the warning threshold.
+* WARN or CRIT if any certificate expires within `--warning` (default: 14 days) or `--critical` (default: 5 days).
+* WARN or CRIT if any CRL's next update is within `--warning` (default: 14 days) or `--critical` (default: 5 days).
 
 
 ## Perfdata / Metrics

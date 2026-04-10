@@ -2,7 +2,21 @@
 
 ## Overview
 
-Checks the current tuned profile against a desired one, and returns a warning on a non-match. If `--profile` is ommited, we suppose tuned expects the `virtual-guest` profile.
+Verifies that the current `tuned` profile matches the expected setting. Useful for ensuring consistent performance tuning across a fleet of servers.
+
+**Alerting Logic:**
+
+* OK if the active tuned profile matches `--profile` (case-insensitive comparison)
+* WARN if the active tuned profile differs from the expected one
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Executes `tuned-adm active` and compares the result against the expected profile name
+
+**Compatibility:**
+
+* Linux with `tuned` installed
 
 
 ## Fact Sheet
@@ -47,10 +61,18 @@ Output:
 tuned profile is "virtual-guest kernel-settings" (as expected).
 ```
 
+Output (mismatch):
+
+```text
+tuned profile is "throughput-performance", but supposed to be "virtual-guest".
+```
+
 
 ## States
 
-* WARN if tuned profile is not as expected.
+* OK if the tuned profile matches the expected value.
+* WARN if the tuned profile does not match the expected value.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

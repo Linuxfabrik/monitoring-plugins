@@ -2,14 +2,26 @@
 
 ## Overview
 
-Checks whether the application server is running. This probe is used to know if Rails Controllers are not deadlocked due to a multi-threading.
+Checks whether the GitLab application server is alive by querying the `/-/liveness` endpoint. This probe detects deadlocked Rails controllers caused by multi-threading issues. A successful response confirms that no controllers are deadlocked.
 
-Hints:
+**Alerting Logic:**
 
-* Requires GitLab 12.4+
-* To access monitoring resources, the requesting client IP needs to be included in the allowlist. For details, see <span class="title-ref">how to add IPs to the allowlist for the monitoring endpoints \<https://docs.gitlab.com/ee/administration/monitoring/ip_allowlist.html\></span>.
-* This check is being exempt from Rack Attack.
-* GitLab Health Checks: <https://docs.gitlab.com/ee/administration/monitoring/health_check.html>
+* Alerts with the configured `--severity` (default: WARN) if the endpoint returns an error or does not contain a "status" field
+
+**Data Collection:**
+
+* Sends an HTTP GET request to the GitLab liveness endpoint (default: `http://localhost/-/liveness`)
+* Expects a JSON response containing a "status" field and no "error" field
+
+**Compatibility:**
+
+* GitLab 12.4 or later
+
+**Important Notes:**
+
+* The requesting client IP must be included in the GitLab monitoring allowlist. See [how to add IPs to the allowlist](https://docs.gitlab.com/ee/administration/monitoring/ip_allowlist.html).
+* This check is exempt from Rack Attack rate limiting.
+* GitLab Health Checks documentation: <https://docs.gitlab.com/ee/administration/monitoring/health_check.html>
 
 
 ## Fact Sheet
@@ -17,6 +29,7 @@ Hints:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/gitlab-liveness> |
+| Nagios/Icinga Check Name              | `check_gitlab_liveness` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -66,14 +79,17 @@ The GitLab application server is running. No Rails Controllers are deadlocked.
 
 ## States
 
-* Depending on the given `--severity`, returns WARN (default) or CRIT if liveness and readiness probes to indicate service health and reachability to required services fail.
+* OK if the `/-/liveness` endpoint returns a valid status without errors.
+* WARN or CRIT (depending on `--severity`, default: WARN) if the endpoint returns an error or a deadlock is detected.
+* UNKNOWN if the response does not contain a "status" field and no "error" field.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| gitlab-liveness-state | Number | The current state (0 = OK, 1 = WARN, 2 = CRIT, 3 = UNKNOWN). |
+| gitlab-liveness | Number | The current state (0 = OK, 1 = WARN, 2 = CRIT, 3 = UNKNOWN). |
 
 
 ## Credits, License

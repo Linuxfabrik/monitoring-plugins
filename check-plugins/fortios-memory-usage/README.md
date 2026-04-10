@@ -2,20 +2,31 @@
 
 ## Overview
 
-Returns the current system-wide memory utilization as a percentage from a Forti Appliance like FortiGate running FortiOS, using the FortiOS REST API. The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".
+Monitors memory utilization on FortiGate appliances running FortiOS via the REST API. First checks against the globally configured memory-use-threshold on the appliance, then falls back to command-line thresholds if no global configuration exists. Alerts when memory usage exceeds the configured thresholds.
 
-Hints:
+**Data Collection:**
 
-* This plugin tries to check against the global configured `memory-use-threshold-green` and `memory-use-threshold-red` first; only if there is no value, the check's command line values are used.
+* Queries the FortiOS REST API endpoint `/api/v2/monitor/system/resource/usage?resource=mem&interval=1-min` for the current memory usage
+* Queries `/api/v2/cmdb/system/global` to read the appliance's globally configured `memory-use-threshold-green` (warning) and `memory-use-threshold-red` (critical); if present, these values override `--warning` and `--critical`
+* Authentication uses a single API token (Token-based authentication)
+
+**Compatibility:**
+
+* FortiGate appliances running FortiOS with REST API access
+
+**Important Notes:**
+
+* The globally configured `memory-use-threshold-green` takes precedence over `--warning`, and `memory-use-threshold-red` takes precedence over `--critical`
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fortios-memory-usage> |
+| Nagios/Icinga Check Name              | `check_fortios_memory_usage` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--hostname` and `--password` are required) |
 | Compiled for Windows                  | No |
 
 
@@ -70,13 +81,17 @@ Output:
 
 ## States
 
-* OK if overall <span class="title-ref">memory-usage</span> is below the thresholds.
-* Otherwise CRIT or WARN.
+* OK if memory usage is below the warning threshold.
+* WARN if memory usage exceeds the warning threshold (appliance's `memory-use-threshold-green` or `--warning`, default: 82%).
+* CRIT if memory usage exceeds the critical threshold (appliance's `memory-use-threshold-red` or `--critical`, default: 88%).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-* `usage_percent`: The overall memory usage.
+| Name | Type | Description |
+|----|----|----|
+| usage_percent | Percentage | Current memory usage of the FortiGate appliance. |
 
 
 ## Credits, License

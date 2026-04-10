@@ -2,16 +2,31 @@
 
 ## Overview
 
-This plugin lets you track if Redis is End-of-Life (EOL). To compare against the current/installed version of Redis, the check has to run on the Redis server itself.
+Checks the installed Redis version against the endoflife.date API and alerts if the version is end-of-life or if newer releases are available.
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Alerting Logic:**
+
+* WARN if the installed version is EOL (default: 30 days before the official EOL date, configurable via `--offset-eol`)
+* Optional: WARN when a new major, minor, or patch release is available (each independently enabled via `--check-major`, `--check-minor`, `--check-patch`)
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Runs `redis-server --version` locally to determine the installed version
+* Queries the endoflife.date API (<https://endoflife.date/api/redis.json>) and caches the result in a local SQLite database
+* Must run on the Redis server itself
+
+**Compatibility:**
+
+* Linux
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redis-version> |
+| Nagios/Icinga Check Name              | `check_redis_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -69,10 +84,11 @@ Redis v7.0.13 (EOL unknown, minor 7.2.1 available)
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* WARN if the installed version is EOL.
+* Optional: WARN when a new major version is available.
+* Optional: WARN when a new minor version is available.
+* Optional: WARN when a new patch version is available.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

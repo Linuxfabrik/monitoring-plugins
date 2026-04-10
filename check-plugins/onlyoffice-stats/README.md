@@ -2,20 +2,33 @@
 
 ## Overview
 
-Checks OnlyOffice statistics and license usage via HTTP.
+Monitors OnlyOffice Document Server statistics and license usage via the HTTP API. Reports active connections, document editing sessions, and license consumption. Alerts when license usage exceeds the configured thresholds.
 
-Pay attention that by default the `info/info.json` page is only available from localhost. The OnlyOffice nginx configuration has to be modified if the exporter is not running locally (`/etc/onlyoffice/documentserver/nginx/includes/ds-docservice.conf`: set `allow ...` instead of `deny all` on `location ~* ^(\/[\d]+\.[\d]+\.[\d]+[\.|-][\d]+)?\/(info|internal)(\/.*)$`).
+**Data Collection:**
+
+* Fetches statistics from the OnlyOffice `info/info.json` endpoint via HTTP
+* Reports maximum licensed connections, license status and expiration, hourly view and edit connection statistics (min/avg/max), unique user count, and server version
+
+**Alerting Logic:**
+
+* WARN if the license expires in the next 10 days
+* WARN if the license has expired
+* WARN or CRIT if the number of hourly view or edit connections reaches 90% or 95% of the licensed maximum
+
+**Important Notes:**
+
+* By default the `info/info.json` page is only available from localhost. The OnlyOffice nginx configuration has to be modified if the check is not running locally (`/etc/onlyoffice/documentserver/nginx/includes/ds-docservice.conf`: set `allow ...` instead of `deny all` on `location ~* ^(\/[\d]+\.[\d]+\.[\d]+[\.|-][\d]+)?\/(info|internal)(\/.*)$`).
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/onlyoffice-stats> |
+| Nagios/Icinga Check Name              | `check_onlyoffice_stats` |
 | Check Interval Recommendation         | Every 30 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| 3rd Party Python modules              | `psutil` |
 
 
 ## Help
@@ -55,22 +68,24 @@ Max 20 connections, licensed (expired) [WARNING], last hour: 3/7/12 views and 2/
 
 ## States
 
-Alerts if
-
-* license expires in the next 10 days
-* license has expired
-* number of connections per hour reaches the licensed maximum
+* OK if the license is valid and connection counts are within limits.
+* WARN if the license expires in the next 10 days.
+* WARN if the license has expired.
+* WARN if the maximum hourly view or edit connections reach 90% of the licensed maximum.
+* CRIT if the maximum hourly view or edit connections reach 95% of the licensed maximum.
 
 
 ## Perfdata / Metrics
 
-* conn_hour_edit_avr
-* conn_hour_edit_max
-* conn_hour_edit_min
-* conn_hour_view_avr
-* conn_hour_view_max
-* conn_hour_view_min
-* unique_users
+| Name | Type | Description |
+|----|----|----|
+| conn_hour_edit_avr | Number | Average number of editing connections per hour. |
+| conn_hour_edit_max | Number | Maximum number of editing connections per hour. |
+| conn_hour_edit_min | Number | Minimum number of editing connections per hour. |
+| conn_hour_view_avr | Number | Average number of viewing connections per hour. |
+| conn_hour_view_max | Number | Maximum number of viewing connections per hour. |
+| conn_hour_view_min | Number | Minimum number of viewing connections per hour. |
+| unique_users | Number | Number of unique users. |
 
 
 ## Credits, License

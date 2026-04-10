@@ -2,29 +2,45 @@
 
 ## Overview
 
-Checks each device / slot of all your Infomaniak Swiss backup products via the Infomaniak API. To use this check, you have to create a Bearer Token with scope "swiss-backup" at Infomaniak first.
+Checks each backup device (slot) across all Infomaniak Swiss Backup products via the Infomaniak API. Alerts when storage usage exceeds the configured thresholds or when a device reports an error state. Devices can be filtered by customer, name, tag, or user.
 
-The output table is sorted by the "Tags" column.
+**Alerting Logic:**
 
-Hints:
+* Alerts WARN or CRIT when a device's storage usage exceeds the configured percentage thresholds
+* Alerts WARN if a device is not used at all (0 bytes stored), indicating wasted Swiss Backup budget with no backups being made
+* Alerts WARN (default) or CRIT (if `--severity=crit`) when a device is locked
+* All four `--ignore-*` filters accept Python regular expressions and can be specified multiple times
 
-* The check takes 10 seconds or more. Increasing runtime timout to 30 seconds is recommended.
-* Be aware of the fact that you may retrieve values while Infomaniak's API is still compiling the usage statistic. This may cause you to think that you have lost a certain amount of data without doing anything. The next time you run the check, usage statistic will be back to normal.
+**Data Collection:**
 
-Links:
+* Queries the Infomaniak API for all Swiss Backup products and their device slots
+* Requires a Bearer Token with scope "swiss-backup" from Infomaniak
+* Output table is sorted by the "Tags" column
 
-* Swiss Backup: <https://www.infomaniak.com/en/swiss-backup>
-* API Documentation: <https://developer.infomaniak.com/docs/api/get/1/swiss_backups>
-* API Tokens: <https://manager.infomaniak.com/v3/$ACCOUNT_ID/ng/accounts/token>
+**Compatibility:**
+
+* Works with the Infomaniak Swiss Backup API v1
+
+**Important Notes:**
+
+* The check may take 10 seconds or more. Increasing the runtime timeout to 30 seconds is recommended.
+* You may retrieve usage values while Infomaniak's API is still compiling the usage statistic. This can cause a temporary drop in reported usage that returns to normal on the next check run.
+
+* Links:
+
+    * Swiss Backup: <https://www.infomaniak.com/en/swiss-backup>
+    * API Documentation: <https://developer.infomaniak.com/docs/api/get/1/swiss_backups>
+    * API Tokens: <https://manager.infomaniak.com/v3/$ACCOUNT_ID/ng/accounts/token>
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/infomaniak-swiss-backup-devices> |
+| Nagios/Icinga Check Name              | `check_infomaniak_swiss_backup_devices` |
 | Check Interval Recommendation         | Once an hour |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--account-id` and `--token` are required) |
 | Compiled for Windows                  | No |
 
 
@@ -95,30 +111,34 @@ Output:
 ```text
 There are critical errors.
 
-ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Usage                                 ! Usage Upd. ! Locked
-------+--------------+-------+--------------+--------+-------+---------------------------------------+------------+--------
-99924 ! BK-200999-2  ! tag03 ! SBI-AB123456 ! prod   ! swift ! 9.4% (13.2GiB / 139.7GiB)             ! 2h 18m ago ! False  
-99925 ! BK-200999-2  ! tag03 ! SBI-AB123456 ! test   ! swift ! 7.1% (3.3GiB / 46.6GiB)               ! 2h 18m ago ! False  
-99946 ! BK-200999-9  ! tag90 ! SBI-AB123456 ! bucket ! swift ! 92.0% (856.6GiB / 931.3GiB) [WARNING] ! 2h 18m ago ! False
+ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Locked ! Usage Upd. ! Used                   ! Used %             
+------+--------------+-------+--------------+--------+-------+--------+------------+------------------------+--------------------
+99924 ! BK-200999-2  ! tag03 ! SBI-AB123456 ! prod   ! swift ! False  ! 2h 18m ago ! 13.2GiB / 139.7GiB    ! 9.4%               
+99925 ! BK-200999-2  ! tag03 ! SBI-AB123456 ! test   ! swift ! False  ! 2h 18m ago ! 3.3GiB / 46.6GiB      ! 7.1%               
+99946 ! BK-200999-9  ! tag90 ! SBI-AB123456 ! bucket ! swift ! False  ! 2h 18m ago ! 856.6GiB / 931.3GiB   ! 92.0% [WARNING]    
 ```
 
 
 ## States
 
-* CRIT if `--severity=crit` and "Locked" is `True`.
-* WARN if `--severity=warn` (default) and "Locked" is `True`.
-* WARN or CRIT if a device / slot is above a given threshold.
-* WARN if a device is not used at all (0 bytes), which means that no backups are made and you waste money.
+* OK if all devices are within their usage thresholds, are not locked, and have data stored.
+* WARN if a device's storage usage is >= `--warning` (default: 90%).
+* WARN if a device has 0 bytes stored (no backups made).
+* WARN if `--severity=warn` (default) and a device is locked.
+* CRIT if a device's storage usage is >= `--critical` (default: 95%).
+* CRIT if `--severity=crit` and a device is locked.
+* UNKNOWN on invalid command-line arguments.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name           | Type       | Description              |
-|----------------|------------|--------------------------|
-| \<ID\>-percent | Percentage | Usage in percent         |
-| \<ID\>-total   | Bytes      | Total device size        |
-| \<ID\>-usage   | Bytes      | Usage in Bytes           |
-| \<ID\>-locked  | Number     | 0 = unlocked, 1 = locked |
+| Name | Type | Description |
+|----|----|----|
+| \<ID\>-locked | Number | 0 = unlocked, 1 = locked. |
+| \<ID\>-percent | Percentage | Storage usage in percent. |
+| \<ID\>-total | Bytes | Total device size. |
+| \<ID\>-usage | Bytes | Storage usage in bytes. |
 
 
 ## Credits, License

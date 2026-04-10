@@ -2,7 +2,21 @@
 
 ## Overview
 
-Retrieves the HIN status page from <https://support.hin.ch/de/> and searches for out-of-service messages. Unfortunately there is no machine-readable version yet, so the plugin has to rely on the WordPress-generated HTML content.
+Monitors the HIN (Health Info Net) status page for service disruptions. Parses the support website for outage announcements since no machine-readable API is available. Alerts when active incidents are detected.
+
+**Data Collection:**
+
+* Fetches the HIN status page (<https://support.hin.ch/de/> by default) and parses the HTML for outage announcements
+* Looks for the `hin-status-block-status is-ok` CSS class to determine if all services are operational
+* If not found, extracts individual incident descriptions from the status block
+
+**Compatibility:**
+
+* Cross-platform (requires network access to the HIN status page)
+
+**Important Notes:**
+
+* Since no machine-readable API is available, the check relies on parsing WordPress-generated HTML content. Changes to the HIN website structure may break parsing.
 
 
 ## Fact Sheet
@@ -10,10 +24,11 @@ Retrieves the HIN status page from <https://support.hin.ch/de/> and searches for
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/hin-status> |
-| Check Interval Recommendation         | Once a minute |
+| Nagios/Icinga Check Name              | `check_hin_status` |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| 3rd Party Python modules              | `beautifulsoup` |
+| 3rd Party Python modules              | `beautifulsoup4` |
 
 
 ## Help
@@ -45,23 +60,41 @@ options:
 ./hin-status
 ```
 
-Output:
+Output (all services operational):
 
 ```text
-Incidents: Störung beim Einlesen von Krankenkassenkarten. See https://support.hin.ch/de/ for details.
+Everything is ok.
+```
+
+Output (incident detected):
+
+```text
+Incidents: Stoerung beim Einlesen von Krankenkassenkarten. See https://support.hin.ch/de/ for details.
 ```
 
 
 ## States
 
-* WARN if out-of-service messages are found
+* OK if no outage announcements are found on the HIN status page.
+* WARN if active incidents are detected.
+* UNKNOWN if the HTML page cannot be parsed.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| cnt_incidents | Number | `1` if out-of-service messages are found, `0` otherwise |
+| cnt_incidents | Number | 1 if incidents are found, 0 otherwise. |
+
+
+## Troubleshooting
+
+`Python module "BeautifulSoup4" is not installed.`  
+Install `beautifulsoup4`: `pip install beautifulsoup4` or `dnf install python3-beautifulsoup4`.
+
+`Cannot parse html at <url>`  
+The structure of the HIN status page may have changed. Check the URL manually and report the issue.
 
 
 ## Credits, License

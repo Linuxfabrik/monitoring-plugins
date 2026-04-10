@@ -2,16 +2,31 @@
 
 ## Overview
 
-This plugin lets you track if WordPress is End-of-Life (EOL). To compare against the current/installed version of WordPress, the check has to run on the WordPress server itself and needs access to the WordPress installation directory.
+Checks the installed WordPress version against the endoflife.date API and alerts if the version is end-of-life or if newer releases are available. The check must run on the WordPress server itself, as it reads the version from the WordPress installation directory (`wp-includes/version.php`).
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Alerting Logic:**
+
+* WARN when the installed version reaches its EOL date (default: 30 days before the official EOL date, configurable via `--offset-eol`)
+* Optional: WARN when a new major, minor, or patch version is available (each independently via `--check-major`, `--check-minor`, `--check-patch`)
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Reads the WordPress version from `<path>/wp-includes/version.php` using a regex match on `$wp_version`
+* Queries the [endoflife.date API](https://endoflife.date/api/wordpress.json) to fetch EOL dates and latest available versions
+* Caches API responses in a SQLite database to reduce network calls
+
+**Compatibility:**
+
+* Linux
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wordpress-version> |
+| Nagios/Icinga Check Name              | `check_wordpress_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -61,7 +76,7 @@ options:
 ## Usage Examples
 
 ```bash
-./wordpress-version --path /var/www/html/wordpress
+./wordpress-version --path=/var/www/html/wordpress
 ```
 
 Output:
@@ -73,10 +88,11 @@ WordPress v4.0.37 (EOL 2022-12-01 -30d [WARNING], major 6.3.1 available, minor 4
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* WARN if the installed version is EOL (or within the configured offset).
+* Optional: WARN when a new major version is available (`--check-major`).
+* Optional: WARN when a new minor version is available (`--check-minor`).
+* Optional: WARN when a new patch version is available (`--check-patch`).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

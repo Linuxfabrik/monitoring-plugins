@@ -2,63 +2,36 @@
 
 ## Overview
 
-This check runs a warning and/or critical query against any MySQL/MariaDB schema. The result - the number of items found or a specific number, depending on the query - can be checked against a [range expression](https://github.com/Linuxfabrik/monitoring-plugins#threshold-and-ranges).
+Connects to a MySQL/MariaDB database and runs configurable SQL queries for warning and critical conditions. The query result - either a row count or a specific value - is checked against Nagios range expressions. This is useful for custom application-level monitoring where standard MySQL checks do not apply.
 
-As an example, consider a simple table with a list of clients:
+**Alerting Logic:**
 
-```text
-hostname ! waitingupdates
----------+---------------
-alice    ! 3
-bob      ! 11
-charlie  ! 5
-david    ! 7
-erin     ! 0
-frank    ! 6
-```
+* WARN if the number of rows (or single value) returned by `--warning-query` is outside the `--warning` range
+* CRIT if the number of rows (or single value) returned by `--critical-query` is outside the `--critical` range
+* If the query returns one row with one column, the single returned value is checked. Otherwise, the number of returned rows is checked.
 
-The use case: Issue a warning when the number of clients with 5 or more waiting updates is greater than 2. One possible SQL statement for getting the number of clients with 5 or more waiting updates is:
+**Data Collection:**
 
-```text
-select *
-from data
-where waitingupdates >= 5
-```
+* Connects to the MySQL/MariaDB server using the provided credentials
+* Executes the `SELECT` statement(s) provided via `--warning-query` and/or `--critical-query`
+* Result tables are shown in the output (truncated to the first 5 and last 5 rows if more than 10 rows are returned)
 
-In the above example, 4 *rows* are returned, so `mysql-query` checks the number of rows against the given threshold.
-
-You also may count the number of clients directly, which just returns one row with a value of `4` in one column:
-
-```text
-select count(*) as cnt
-from data
-where waitingupdates >= 5
-```
-
-In this case, `mysql-query` checks the returned value `4` with the specified threshold.
-
-The full command line call retrieving the data and applying the thresholds (which are [ranges](https://github.com/Linuxfabrik/monitoring-plugins#threshold-and-ranges)) is:
-
-```bash
-mysql-query \
-    --warning-query='select * from data where waitingupdates >= 5' \
-    --warning=2
-```
-
-Hints:
+**Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
+* At least one of `--warning-query` or `--critical-query` must be provided
+* Thresholds use [Nagios range expressions](https://github.com/Linuxfabrik/monitoring-plugins#threshold-and-ranges)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-query> |
+| Nagios/Icinga Check Name              | `check_mysql_query` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | No |
 | Compiled for Windows                  | No |
-| Requirements                          | User with no privileges, locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |
 
 
@@ -172,17 +145,18 @@ date       ! network ! hostname ! waitingupdates
 
 ## States
 
-* WARN if number of rows or single value of `--warning-query` is outside `--warning` range
-* CRIT if number of rows or single value of `--critical-query` is outside `--critical` range
-* Otherwise OK
+* WARN if the number of rows or single value of `--warning-query` is outside the `--warning` range.
+* CRIT if the number of rows or single value of `--critical-query` is outside the `--critical` range.
+* Otherwise OK.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name     | Type   | Description                                          |
-|----------|--------|------------------------------------------------------|
-| cnt_warn | Number | Number of rows or single value of `--warning-query`  |
-| cnt_crit | Number | Number of rows or single value of `--critical-query` |
+| Name | Type | Description |
+|----|----|----|
+| cnt_crit | Number | Number of rows or single value returned by `--critical-query`. |
+| cnt_warn | Number | Number of rows or single value returned by `--warning-query`. |
 
 
 ## Credits, License

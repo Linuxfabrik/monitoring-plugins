@@ -2,21 +2,25 @@
 
 ## Overview
 
-Reports an overview about the host dimensions, its network interfaces, deployed software and recurring jobs:
+Collects and displays key system information: OS and kernel version, CPU configuration (physical, logical, and usable cores plus frequency), RAM, disk count, virtualization type, network interfaces, listening ports, systemd services and timers, cron jobs, installed packages, and user accounts. Optionally queries dmidecode for firmware and hardware details, and fetches the public IP address. This check is purely informational and never raises alerts. Requires root or sudo.
 
-* System and hardware information (OS, CPUs, disks, ram, UEFI y/n etc.)
-* Interfaces: All network interfaces with their IP address
-* Listening TCP and UDP ports
-* Non-default software (software that was added later)
-* Non-default system users
-* systemctl get-default: Default systemd target that will be booted into
-* systemctl list-unit-files: List of all systemd services, mounts and automounts (excluding user units)
-* systemctl list-timers: List of all system systemd timers (excluding user timers)
-* crontab: List of crontabs that are found in the usual locations. Note that this might not be complete.
+**Data Collection:**
 
-Have a look at the output example below.
+* Gathers hardware and OS data via `psutil` (if available), `lsblk`, `stat`, `/proc/mounts`, and various `systemctl` commands
+* Optionally runs `dmidecode` (via `--dmidecode`) to retrieve BIOS, chassis, base board, processor, and system boot information
+* Optionally fetches the public IP address from one or more configurable "what is my IP" services (via `--public-ip-url`)
+* Lists all network interfaces with IPv4 addresses, listening TCP/UDP ports, non-default packages, non-default users, systemd services/mounts/automounts/timers, and cron jobs
+* Optionally guesses Icinga Director tags for automated host classification (via `--tags`)
 
-Plugin execution may take up to 30 seconds, depending on the amount or type of installed software.
+**Compatibility:**
+
+* Linux only (relies on `systemctl`, `lsblk`, `/proc/mounts`, package managers like `rpm`/`dpkg`)
+
+**Important Notes:**
+
+* Plugin execution may take up to 30 seconds, depending on the amount or type of installed software
+* The `--dmidecode` option requires sudo permissions
+* If `psutil` is not installed, some metrics (CPU frequency, network interfaces) will be unavailable
 
 
 ## Fact Sheet
@@ -24,6 +28,7 @@ Plugin execution may take up to 30 seconds, depending on the amount or type of i
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/about-me> |
+| Nagios/Icinga Check Name              | `check_about_me` |
 | Check Interval Recommendation         | Once a day or once a week |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -74,7 +79,6 @@ options:
 Shortened output example:
 
 ```text
-Plugin Output
 server.example.com: Fedora Linux 42 (Workstation Edition) Kernel 6.16.4-200.fc42.x86_64 on Bare-Metal, Dell Inc. XPS 13 9350, Firmware: 1.20, SerNo: 12345678, Proc: Intel Core Ultra 7 258V, CPUs: 8/8/8 (phys/lcpu/onln), Current Speed: 3943 MHz, 30.9GiB/4.0GiB RAM (virtmem/max; reboot recommended), Disk nvme0n1 1.8T, UEFI boot, Display Server x11, tuned profile "throughput-performance", born 2024-03-20. About-me v2025090901
 
 Hardware Info from `dmidecode`:
@@ -155,13 +159,13 @@ crontab:
 
 | Name | Type | Description |
 |----|----|----|
-| cpu_logical | Number | Number of physical cores multiplied by the number of threads that can run on each core (this is known as Hyper Threading) |
-| cpu_physical | Number | Number of physical cores |
-| cpu_usable | Number | The number of usable CPUs. This may not necessarily be equivalent to the actual number of CPUs the current process can use. That can vary in case process CPU affinity has been changed, Linux cgroups are being used or (in case of Windows) on systems using processor groups or having more than 64 CPUs. |
-| cpu_freq | Number | On Linux reports the current real-time value, on all other platforms this usually represents the nominal "fixed" value (never changing) |
-| disks | Number | Number of disks |
-| osversion | None | 'Fedora 33' becomes '33', 'CentOS 7.4.1708' becomes '741708' - to see when an upgrade happened |
-| ram | Bytes | Size of memory |
+| cpu_freq | Number | Current CPU frequency in MHz. On Linux, reports the real-time value; on other platforms, usually the nominal fixed value. |
+| cpu_logical | Number | Number of logical CPUs (physical cores multiplied by threads per core, i.e. Hyper-Threading). |
+| cpu_physical | Number | Number of physical CPU cores. |
+| cpu_usable | Number | Number of usable CPUs (may differ from total due to CPU affinity, cgroups, or processor groups). |
+| disks | Number | Number of disks. |
+| osversion | None | OS version as a comparable number, e.g. "Fedora 33" becomes "33", "CentOS 7.4.1708" becomes "741708". |
+| ram | Bytes | Total RAM size. |
 
 
 ## Credits, License

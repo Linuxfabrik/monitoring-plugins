@@ -2,11 +2,29 @@
 
 ## Overview
 
-Execute commands on remote Windows hosts via WinRM (Windows Remote Management), including support for JEA (Just Enough Administration) and PowerShell Remoting (PSRP). It behaves similarly to [by-ssh](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/by-ssh), but - although running on Linux - is Windows-native, speaking Microsoft's remoting protocols instead of SSH.
+This plugin executes PowerShell commands or scripts on remote Windows hosts via WinRM, supporting JEA. It returns standard output (STDOUT) and, in case of failure, standard error (STDERR) along with the command's exit code. By evaluating these results - through threshold checks or pattern matching on STDOUT - the plugin can generate alerts with configurable severity levels.
 
-This plugin securely executes PowerShell commands or scripts on remote Windows hosts via WinRM, supporting NTLM, Kerberos, CredSSP, Basic, and plaintext transports. It automatically prefers PSRP (PowerShell Remoting / JEA) for modern, least-privilege Windows remoting and falls back to classic WinRM when needed. Output can be evaluated using numeric thresholds, pattern and regex matching, and configurable severity levels based on stdout, stderr, return code, or connection issues. It also exports execution time as performance data (remote_runtime).
+**Data Collection:**
 
-This makes the plugin ideal for retrieving Windows-specific metrics, running custom PowerShell-based health checks (such as inventory, backup status, or failover cluster queries), and accessing systems like Active Directory, Exchange, SQL Server, or Hyper-V. It is especially useful in environments where installing a monitoring agent is not possible or desired, offering a secure and flexible alternative for remote monitoring on Windows hosts.
+* Connects to the remote Windows host via WinRM and executes the specified PowerShell command
+* Automatically prefers PSRP (PowerShell Remoting / JEA) when `pypsrp` is installed, and falls back to classic WinRM (`pywinrm`) when needed
+* Captures STDOUT, STDERR, and the command's return code
+* Evaluates results through pattern matching (`--warning-pattern`, `--critical-pattern`), regex matching (`--warning-regex`, `--critical-regex`), and numeric threshold checks (`--warning`, `--critical` with Nagios range support)
+* Configurable severity levels for different failure modes (STDOUT, STDERR, return code, connection timeout)
+* Supports `--skip-stdout` and `--skip-stderr` to ignore all or the first N lines of output
+
+**Compatibility:**
+
+* Runs on Linux and connects to remote Windows hosts
+* Supports NTLM, Kerberos, CredSSP, Basic, and plaintext transports
+* JEA endpoints are only supported with `pypsrp` (via `--winrm-configuration-name`)
+
+**Important Notes:**
+
+* This plugin is ideal for retrieving Windows-specific metrics, running custom PowerShell-based health checks (such as inventory, backup status, or failover cluster queries), and accessing systems like Active Directory, Exchange, SQL Server, or Hyper-V
+* It is especially useful in environments where installing a monitoring agent is not possible or desired
+* For Kerberos transport, configure `/etc/krb5.conf` and obtain a ticket via `kinit` before running the plugin. When Kerberos credentials are present in the cache, `--winrm-username` and `--winrm-password` can be omitted.
+* When `--winrm-domain` is set, the username is sent as `user@DOMAIN` for NTLM authentication. Not needed for Kerberos or local accounts.
 
 
 ## Fact Sheet
@@ -14,10 +32,10 @@ This makes the plugin ideal for retrieving Windows-specific metrics, running cus
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/by-winrm> |
-| Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Nagios/Icinga Check Name              | `check_by_winrm` |
+| Check Interval Recommendation         | Every minute |
+| Can be called without parameters      | No (`--command` and `--winrm-hostname` are required) |
 | Compiled for Windows                  | No |
-| Requirements                          | Enable WinRM on the remote host (`Enable-PSRemoting -Force`). For JEA usage, configure a JEA endpoint with a role allowing specific commands only (recommended for security-sensitive environments). |
 | 3rd Party Python modules              | `pypsrp` (supports JEA). Alternative without JEA: `pywinrm`, `pywinrm[kerberos]`, `pywinrm[credssp]` |
 
 
@@ -52,10 +70,6 @@ kinit user@EXAMPLE.COM
 ```
 
 When Kerberos credentials are present in the cache, `--winrm-username` and `--winrm-password` can be omitted.
-
-### `--winrm-domain`
-
-When set, the username is sent as `user@DOMAIN` for NTLM authentication. Use the Active Directory domain name (e.g. `EXAMPLE.COM`). Not needed for Kerberos (the domain is part of the Kerberos principal) or local accounts.
 
 
 ## Help
@@ -274,8 +288,7 @@ States are computed in this particular order. The worst state is returned (CRIT 
 Output on STDOUT?
 
 * Depending on the given `--severity-stdout`, returns OK (default), WARN, CRIT or UNKNOWN.
-* Returns WARN depending on the return value and `--warning`.
-* Returns CRIT depending on the return value and `--critical`.
+* Returns WARN or CRIT depending on single numeric return values and `--warning` / `--critical` (Nagios ranges).
 * Returns WARN depending on the results of `--warning-pattern` or `--warning-regex`.
 * Returns CRIT depending on the results of `--critical-pattern` or `--critical-regex`.
 
@@ -287,6 +300,8 @@ Return code != 0?
 
 * Depending on the given `--severity-timeout`, returns OK, WARN, CRIT or UNKNOWN (default) if WinRM can't connect (no command output but error present).
 * Depending on the given `--severity-retc`, returns OK, WARN (default), CRIT or UNKNOWN if there is a return code != 0.
+
+`--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

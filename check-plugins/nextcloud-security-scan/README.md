@@ -2,22 +2,35 @@
 
 ## Overview
 
-Checks the security of your private cloud server using Nextcloud Security Scan from <https://scan.nextcloud.com/>, so the check itself does not need to run on the same host that serves Nextcloud. Triggers a rescan on <https://scan.nextcloud.com/> if result is older than 14 days (default). Have a look at <https://scan.nextcloud.com/> for further explanation. Works with ownCloud, too.
+Checks the security of a Nextcloud (or ownCloud) server using the Nextcloud security scanner at <https://scan.nextcloud.com/>. Reports the assigned security rating and alerts on known vulnerabilities, missing hardenings, and setup issues.
 
-Hints:
+**Alerting Logic:**
 
-* Run it once a day max. There is an API limit at the scan.nextcloud.com server at the /api/queue endpoint with less than 100 POST requests a day (you will then run into a "403 Forbidden").
-* `--noproxy` not implemented
-* `--insecure` not implemented
+* CRIT if the Nextcloud security rating is F or E
+* WARN if the Nextcloud security rating is D or C
+* OK for ratings A and A+
+
+**Data Collection:**
+
+* Submits the Nextcloud URL to the scan.nextcloud.com API to obtain a UUID
+* Fetches the scan result using that UUID
+* Triggers a re-scan if the result is older than the configured number of days (default: 14)
+* The check does not need to run on the Nextcloud server itself
+
+**Important Notes:**
+
+* Run it once a day at most. There is an API rate limit at scan.nextcloud.com of less than 100 POST requests per day (exceeding this returns "403 Forbidden").
+* After a re-scan is triggered, it takes about 5 minutes until the new result is available
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nextcloud-security-scan> |
+| Nagios/Icinga Check Name              | `check_nextcloud_security_scan` |
 | Check Interval Recommendation         | Once a day or week |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--url` is required) |
 | Compiled for Windows                  | No |
 
 
@@ -58,9 +71,9 @@ Output:
 
 ## States
 
-* CRIT if Nextcloud Rating is F, E.
-* WARN if Nextcloud Rating is D, C.
-* Otherwise OK.
+* OK if the rating is A or A+.
+* WARN if the rating is C or D.
+* CRIT if the rating is E or F.
 
 
 ## Perfdata / Metrics

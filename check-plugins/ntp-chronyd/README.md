@@ -2,30 +2,32 @@
 
 ## Overview
 
-This plugin checks the clock offset of chronyd in milliseconds compared to ntp servers. It also prints
+Checks the clock offset of chronyd in milliseconds compared to the configured NTP servers. Alerts when the offset exceeds the configured thresholds.
 
-* `Reference ID`
-* `Stratum`
-* `Ref time (UTC)`
-* `System time`
-* `Last offset`
-* `RMS offset`
-* `Frequency`
-* `Residual freq`
-* `Skew`
-* `Root delay`
-* `Root dispersion`
-* `Update interval`
-* `Leap status`
+**Data Collection:**
 
-The stratum of the NTP time source determines its quality. The stratum is equal to the number of hops to a reference clock (which is stratum 0). A NTP server connected directly to the reference clock is Stratum 1, a client connected to this NTP server is Stratum 2, etc.
+* Executes `chronyc tracking` to obtain the current synchronization status
+* Reports Reference ID, Stratum, Ref time, System time, Last offset, RMS offset, Frequency, Residual freq, Skew, Root delay, Root dispersion, Update interval, and Leap status
+* If no NTP server is reachable, additionally runs `chronyc sources` to display the configured NTP servers
+
+**Alerting Logic:**
+
+* WARN or CRIT if the NTP offset exceeds the configured thresholds (default: 800ms / 86400000ms)
+* WARN if stratum is >= `--stratum` (default: 6)
+* WARN if no NTP server is used or reachable
+
+**Compatibility:**
+
+* Linux systems running chronyd
+* The stratum of the NTP time source determines its quality. The stratum is equal to the number of hops to a reference clock (stratum 0). A NTP server connected directly to the reference clock is Stratum 1, a client connected to this NTP server is Stratum 2, etc.
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ntp-chronyd> |
+| Nagios/Icinga Check Name              | `check_ntp_chronyd` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -98,35 +100,36 @@ MS Name/IP address         Stratum Poll Reach LastRx Last sample
 
 ## States
 
-* WARN or CRIT if ntp offset is below or above a given threshold.
-* WARN if stratum is \>= `--stratum`.
-* WARN if no NTP server is used.
-* WARN if no NTP server is found.
+* OK if the NTP offset is within the thresholds and stratum is acceptable.
+* WARN if the NTP offset is >= `--warning` (default: 800ms).
+* WARN if stratum is >= `--stratum` (default: 6).
+* WARN if no NTP server is used or reachable.
+* CRIT if the NTP offset is >= `--critical` (default: 86400000ms).
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| frequency | ppm | The 'frequency' is the rate by which the system’s clock would be wrong if chronyd was not correcting it. It is expressed in ppm (parts per million). For example, a value of 1 ppm would mean that when the system’s clock thinks it has advanced 1 second, it has actually advanced by 1.000001 seconds relative to true time. |
-| last_offset | Milliseconds | This is the estimated local offset on the last clock update. |
-| residual_freq | ppm | This shows the 'residual frequency' for the currently selected reference source. This reflects any difference between what the measurements from the reference source indicate the frequency should be and the frequency currently being used. The reason this is not always zero is that a smoothing procedure is applied to the frequency. Each time a measurement from the reference source is obtained and a new residual frequency computed, the estimated accuracy of this residual is compared with the estimated accuracy (see skew next) of the existing frequency value. A weighted average is computed for the new frequency, with weights depending on these accuracies. If the measurements from the reference source follow a consistent trend, the residual will be driven to zero over time. |
-| rms_offset | Milliseconds | This is a long-term average of the offset value. |
-| root_delay | Milliseconds | This is the total of the network path delays to the stratum-1 computer from which the computer is ultimately synchronized. In certain extreme situations, this value can be negative. (This can arise in a symmetric peer arrangement where the computers’ frequencies are not tracking each other and the network delay is very short relative to the turn-around time at each computer.) |
-| root_dispersion | Milliseconds | This is the total dispersion accumulated through all the computers back to the stratum-1 computer from which the computer is ultimately synchronized. Dispersion is due to system clock resolution, statistical measurement variations etc. |
-| skew | ppm | This is the estimated error bound on the frequency. |
-| stratum | Number | The stratum indicates how many hops away from a computer with an attached reference clock we are. Such a computer is a stratum-1 computer, so the computer in the example is two hops away (that is to say, a.b.c is a stratum-2 and is synchronized from a stratum-1). |
+| frequency | ppm | Rate by which the system clock would be wrong if chronyd was not correcting it. |
+| last_offset | Milliseconds | Estimated local offset on the last clock update. |
+| residual_freq | ppm | Residual frequency for the currently selected reference source. |
+| rms_offset | Milliseconds | Long-term average of the offset value. |
+| root_delay | Milliseconds | Total network path delay to the stratum-1 source. |
+| root_dispersion | Milliseconds | Total dispersion accumulated through all computers back to the stratum-1 source. |
+| skew | ppm | Estimated error bound on the frequency. |
+| stratum | Number | Number of hops away from a computer with an attached reference clock. |
 
 Source of description: <https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/system_administrators_guide/ch-configuring_ntp_using_the_chrony_suite>
 
 
 ## Troubleshooting
 
-OS Error "2 No such file or directory" calling command "chronyc tracking"  
-You don't have `chronyd`.
+`OS Error "2 No such file or directory" calling command "chronyc tracking"`  
+You don't have `chronyd` installed.
 
-No NTP server used.  
-This message occurs when chronyd is running, and chronyd does (currently) not use any ntp server.
+`No NTP server used.`  
+This message occurs when chronyd is running but does not currently use any NTP server.
 
 
 ## Credits, License

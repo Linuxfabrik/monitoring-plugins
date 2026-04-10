@@ -2,15 +2,23 @@
 
 ## Overview
 
-Checks the status of the newest backups of the Starface PBX.
+Checks the status of the most recent backup of a Starface PBX, including backup age, target, and success state.
 
-It uses the data output of the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring), which was originally written for Check_MK and listens on port 6556. Supports both IPv4 and IPv6. Fetched data is cached up to one minute, so that other Starface plugins running in parallel do not query the data again and overload the PBX.
+**Alerting Logic:**
 
-Special features of this check:
+* WARN or CRIT if the age of the last backup exceeds the configured thresholds (default WARN: 24 hours)
+* WARN if the last backup did not finish successfully
+* `--always-ok` suppresses all alerts and always returns OK
 
-* Connects directly via Socket.
-* IPv4 (default), IPv6 capable.
-* Fetched data is cached up to one minute and shared between other monitoring plugins dealing with Starface PBX, so that those checks running in parallel do not query the data again and overload the PBX.
+**Data Collection:**
+
+* Connects via socket to the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) on port 6556
+* Supports both IPv4 (default) and IPv6
+* Fetched data is cached for up to one minute in a shared SQLite database, so that multiple Starface checks running in parallel do not overload the PBX
+
+**Compatibility:**
+
+* Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
 
 
 ## Fact Sheet
@@ -18,7 +26,7 @@ Special features of this check:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/starface-backup-status> |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
 | Requirements                          | [Monitoring module for Starface PBX](https://wiki.fluxpunkt.de/display/FPW/Monitoring) |
@@ -76,9 +84,11 @@ Last Backup to [HDD] at 2021-06-21 01:14:07 (13h 45m ago) was successful.
 
 ## States
 
-Triggers an alarm if the last backup is too long ago.
-
-* Returns WARN or CRIT for the time difference to the start of the last backup
+* OK if the last backup was successful and its age is below the warning threshold.
+* WARN if the last backup age exceeds `--warning` (default: 24 hours).
+* WARN if the last backup failed.
+* CRIT if the last backup age exceeds `--critical` (default: none).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

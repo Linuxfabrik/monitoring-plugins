@@ -2,16 +2,21 @@
 
 ## Overview
 
-Get NodeBB database information.
+Monitors NodeBB database statistics via the admin API, including memory usage and connection counts. Alerts when thresholds are exceeded.
 
-The Plugin uses the Read API and Bearer Authentication. You need to issue a bearer token of type "user" in the NodeBB admin panel in order to grant access to the API. In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.
+**Data Collection:**
 
-To create a Bearer Token, do this:
+* Queries the NodeBB Read API endpoint `/api/admin/advanced/database` using Bearer Authentication
+* Reports MongoDB database name, filesystem disk usage, collection count, index count, and object count
 
-* Settings \> API Access \> Create Token \> Specify your User ID and Description (for example "Linuxfabrik API Token").
+**Alerting Logic:**
 
-Hints:
+* Alerts according to the given severity (default: WARN) if the connection to the database is not ok
+* Alerts if filesystem usage (from the database's point of view) is above the percentage thresholds (default: 90/95%)
 
+**Important Notes:**
+
+* You need to issue a bearer token of type "user" in the NodeBB admin panel: Settings > API Access > Create Token > Specify your User ID and Description (for example "Linuxfabrik API Token"). In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.
 * NodeBB Read API: <https://docs.nodebb.org/api/read/>
 * Requires NodeBB v1.14.4+.
 
@@ -19,12 +24,12 @@ Hints:
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-database> |
+| Nagios/Icinga Check Name              | `check_nodebb_database` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--token` is required) |
 | Compiled for Windows                  | No |
-| Requirements                          | NodeBB v1.14.4+ |
 
 
 ## Help
@@ -72,20 +77,23 @@ MongoDB "myforum": 20.9% Disk Usage (41.3GiB/197.4GiB), 5 collections, 11 indexe
 
 ## States
 
-* Alerts according to the given severity (default: WARN) if connection to database is not ok
-* Alerts if filesystem usage (from database's point of view) is above the percentage thresholds (default: 90/95%)
+* OK if the database connection is ok and filesystem usage is below the warning threshold.
+* WARN if the database connection is not ok (configurable via `--severity`).
+* WARN if filesystem usage is >= `--warning` (default: 90).
+* CRIT if filesystem usage is >= `--critical` (default: 95).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name               | Type       | Description |
-|--------------------|------------|-------------|
-| db_collections     | Number     | MongoDB     |
-| db_fs_total        | Bytes      | MongoDB     |
-| db_fs_used         | Bytes      | MongoDB     |
-| db_fs_used_percent | Percentage | MongoDB     |
-| db_indexes         | Number     | MongoDB     |
-| db_objects         | Number     | MongoDB     |
+| Name | Type | Description |
+|----|----|----|
+| db_collections | Number | Number of MongoDB collections. |
+| db_fs_total | Bytes | Total filesystem size from MongoDB's perspective. |
+| db_fs_used | Bytes | Used filesystem space from MongoDB's perspective. |
+| db_fs_used_percent | Percentage | Filesystem usage in percent. |
+| db_indexes | Number | Number of MongoDB indexes. |
+| db_objects | Number | Number of MongoDB objects. |
 
 
 ## Credits, License

@@ -2,23 +2,38 @@
 
 ## Overview
 
-Analyses URLs to detect malware and other breaches using [VirusTotal](https://www.virustotal.com/).
+Submits a URL to VirusTotal for analysis and checks the scan results. Alerts when any antivirus engine flags the URL as malicious or suspicious. Useful for periodically scanning critical URLs against 90+ security vendors.
 
-Hints:
+**Alerting Logic:**
 
-* In order to use this plugin, you will need to create a VirusTotal account.
-* This plugin uses the [VirusTotal API v3](https://docs.virustotal.com/reference/overview). See the [documentation](https://docs.virustotal.com/reference/public-vs-premium-api) on any constraints and restrictions, especially for commercial use.
-* Takes at least 60 seconds to execute.
+* WARN (default) or CRIT (configurable via `--severity`) when any scan engine categorizes the URL as "malicious"
+* The default severity is WARN due to the high rate of false positives on VirusTotal
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Submits the URL to the [VirusTotal v3 API](https://docs.virustotal.com/reference/scan-url) (`POST /urls`)
+* Waits 60 seconds for the analysis to complete
+* Retrieves the full analysis report via the VirusTotal Analysis endpoint (`GET /analyses/{id}`)
+* Reports per-engine results for any detection that is not "harmless" or "undetected"
+
+**Important Notes:**
+
+* Requires a VirusTotal account and API key
+* Takes at least 60 seconds to execute due to the built-in wait for analysis completion
+* See the [VirusTotal documentation](https://docs.virustotal.com/reference/public-vs-premium-api) on any constraints and restrictions, especially for commercial use (Premium API may be required for business workflows)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/virustotal-scan-url> |
+| Nagios/Icinga Check Name              | `check_virustotal_scan_url` |
 | Check Interval Recommendation         | Once an hour |
-| Can be called without parameters      | No |
-| Requirements                          | VirusTotal account, VirusTotal API key and Premium API if this plugin is used in business workflows that do not contribute new files or in commercial products/services. |
+| Can be called without parameters      | No (`--token` and `--url` are required) |
+| Compiled for Windows                  | No |
+| Requirements                          | VirusTotal account and API key; Premium API if used in commercial products/services |
 
 
 ## Help
@@ -52,7 +67,7 @@ options:
 ## Usage Examples
 
 ```bash
-./virustotal-scan-url --token b480bd43 --url https://secure.eicar.org/eicar.com
+./virustotal-scan-url --token=b480bd43 --url=https://secure.eicar.org/eicar.com
 ```
 
 Output:
@@ -77,7 +92,10 @@ VIPRE       ! malware    ! blacklist ! malicious [WARNING]
 
 ## States
 
-* Alerts according to the given severity level (default: WARN due to the many false positives on VT) if the scanner's result falls into the "malicious" category.
+* OK if no scan engine categorizes the URL as malicious.
+* WARN (or CRIT, depending on `--severity`) if any scan engine categorizes the URL as "malicious".
+* UNKNOWN if the analysis is still queued or in progress.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
@@ -86,12 +104,12 @@ According to <https://docs.virustotal.com/reference/analyses-object>:
 
 | Name | Type | Description |
 |----|----|----|
-| harmless | Number | Number of reports saying that is harmless. |
-| malicious | Number | Number of reports saying that is malicious. |
-| suspicious | Number | Number of reports saying that is suspicious. |
+| harmless | Number | Number of reports saying the URL is harmless. |
+| malicious | Number | Number of reports saying the URL is malicious. |
+| suspicious | Number | Number of reports saying the URL is suspicious. |
 | timeout | Number | Number of timeouts when analysing this URL. |
-| undetected | Number | Number of reports saying that is undetected. |
-| vendors | Number | Number of scan vendors used. |
+| undetected | Number | Number of reports saying the URL is undetected. |
+| vendors | Number | Total number of scan vendors used. |
 
 
 ## Credits, License

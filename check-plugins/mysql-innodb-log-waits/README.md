@@ -2,9 +2,19 @@
 
 ## Overview
 
-Checks the number of times InnoDB was forced to wait for log writes to be flushed due to the log buffer being too small in MySQL/MariaDB. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_innodb(), v1.8.3.
+Checks how often InnoDB had to wait for log writes to be flushed because the log buffer was too small in MySQL/MariaDB. If waits occur, the `innodb_log_buffer_size` should be increased.
 
-Hints:
+**Alerting Logic:**
+
+* WARN if the number of InnoDB log waits (`Innodb_log_waits`) is greater than 0
+
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for `innodb_log_buffer_size`
+* Queries `SHOW GLOBAL STATUS` for `Innodb_log_waits` and `Innodb_log_writes`
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_innodb(), v1.8.3
+
+**Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 
@@ -12,12 +22,12 @@ Hints:
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-innodb-log-waits> |
+| Nagios/Icinga Check Name              | `check_mysql_innodb_log_waits` |
 | Check Interval Recommendation         | Once an hour |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Requirements                          | User with no privileges, locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |
 
 
@@ -65,7 +75,8 @@ Output:
 
 ## States
 
-* WARN if the number of times InnoDB was forced to wait for log writes to be flushed is \> 0.
+* WARN if `Innodb_log_waits` > 0.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
@@ -80,9 +91,6 @@ Output:
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
-
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).
-
 * Credits:
-
     * heavily inspired by MySQLTuner (<https://github.com/major/MySQLTuner-perl>)

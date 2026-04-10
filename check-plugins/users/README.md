@@ -2,14 +2,28 @@
 
 ## Overview
 
-Counts how many users are currently logged in, both via tty (on Windows: Console) and pts (on Linux: typically ssh, on Windows: RDP). Also counts the disconnected users on Windows (closed connections without logging out).
+Counts the number of currently logged-in users by session type: tty (console) and pts (SSH on Linux, RDP on Windows). On Windows, also counts disconnected sessions (closed connections without logging out).
 
-Hints:
+**Alerting Logic:**
 
-* A *tty* is a native terminal device, the backend is either hardware or kernel emulated.
-* A *pty* (pseudo terminal device) is a terminal device which is emulated by applications such as network login services (ssh, rlogin, telnet), terminal emulators such as xterm, script, screen, tmux, unbuffer, and expect.
-* A *pts* is a pseudo terminal slave part of a *pty*.
-* If running on hardware, use `--critical 1,20` (Linux) and `--critical 1,50,3` (Windows).
+* Thresholds are specified in the format `tty,pts` (Linux) or `tty,pts,disc` (Windows)
+* WARN if the number of tty or pts users exceeds `--warning` (default: `1,20,1`)
+* CRIT if the number of tty or pts users exceeds `--critical` (default: `None,None,None`)
+* `None` means no threshold for that session type
+
+**Data Collection:**
+
+* On Linux: executes `/usr/bin/w` and parses its output, using the header line to determine column positions
+* On Windows: executes `query user` and parses its output
+* A *tty* is a native terminal device (on Windows: Console); a *pts* is a pseudo terminal slave, typically from SSH (on Windows: RDP)
+
+**Important Notes:**
+
+* If running on physical hardware, consider using `--critical 1,20` (Linux) or `--critical 1,50,3` (Windows) as a starting point
+
+**Compatibility:**
+
+* Cross-platform: Linux (requires `/usr/bin/w`) and Windows (requires `query user`)
 
 
 ## Fact Sheet
@@ -17,10 +31,10 @@ Hints:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/users> |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | Yes |
-| Requirements                          | `w` on Linux, `query users` on Windows |
+| Requirements                          | `/usr/bin/w` on Linux, `query user` on Windows |
 
 
 ## Help
@@ -85,30 +99,34 @@ clox              2001:db8::ff30   16:05   15:44m  0.00s   ?    sshd: clox [priv
 
 On Windows, if one user is connected via RDP:
 
-```text
+```bash
 ./users --warning 1,20,1 --critical None,50,5
 ```
+
+Output:
 
 ```text
 TTY: 0, PTS: 1, Disconnected: 0
 
 USERNAME              SESSIONNAME        ID  STATE   IDLE TIME  LOGON TIME
-administrator         rdp-tcp#11          1  Active          .  24.08.2022 17:42|'disc'=0;1;;0; 'tty'=0;1;;0; 'pts'=1;20;;0;
+administrator         rdp-tcp#11          1  Active          .  24.08.2022 17:42
 ```
 
 
 ## States
 
-* WARN or CRIT if number of users is above a given threshold.
+* OK if the number of users is below all warning thresholds.
+* WARN if the number of tty, pts, or disconnected users exceeds `--warning`.
+* CRIT if the number of tty, pts, or disconnected users exceeds `--critical`.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| tty | Number | Number of TTY users on Linux, Number of Console users on Windows. |
-| pts | Number | Number of PTY users on Linux (for example ssh), Number of RDP users on Windows. |
-| disc | Number | Number of disconnected users (on Windows only). |
+| disc | Number | Number of disconnected users (Windows only) |
+| pts | Number | Number of PTS users (SSH on Linux, RDP on Windows) |
+| tty | Number | Number of TTY users (console on Linux, console on Windows) |
 
 
 ## Credits, License

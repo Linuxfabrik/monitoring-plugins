@@ -2,9 +2,17 @@
 
 ## Overview
 
-This plugin lets you track if Apache Solr is End-of-Life (EOL). To compare against the current/installed version of Apache Solr, the check has to run on the Apache Solr server itself.
+Checks the installed Apache Solr version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Data Collection:**
+
+* Detects the installed Apache Solr version by running `<path> version` (default path: `/opt/solr/bin/solr`)
+* Queries the [endoflife.date API](https://endoflife.date/api/solr.json) to determine EOL status and available releases
+* Caches the API response in a local SQLite database to reduce network calls
+
+**Compatibility:**
+
+* Must run on the Apache Solr server itself to detect the installed version
 
 
 ## Fact Sheet
@@ -12,10 +20,11 @@ This check plugin alerts n days before or after the EOL date is reached. Optiona
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/apache-solr-version> |
+| Nagios/Icinga Check Name              | `check_apache_solr_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 
 
 ## Help
@@ -72,17 +81,20 @@ Apache Solr v7.7.0 (version 7.7.0 unknown)
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* OK if the installed version is not EOL and no newer releases are flagged.
+* WARN if the installed version is EOL (or will be within `--offset-eol` days, default: -30).
+* WARN if `--check-major` is set and a newer major version is available.
+* WARN if `--check-minor` is set and a newer minor version is available.
+* WARN if `--check-patch` is set and a newer patch version is available.
+* UNKNOWN if Apache Solr binary is not found at the configured path.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| apache-solr-version | Number | Installed Apache Solr version as float. "7.7.0" becomes "7.70". |
+| apache-solr-version | Number | Installed Apache Solr version as float, e.g. "7.7.0" becomes "7.70". |
 
 
 ## Credits, License

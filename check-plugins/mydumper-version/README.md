@@ -2,18 +2,33 @@
 
 ## Overview
 
-This plugin lets you track whether a mydumper update is available. To check for updates, this plugin uses the Git Repo at <https://github.com/maxbube/mydumper/releases>. In order to compare with the current/installed version of mydumper/myloader, the check must run `mydumper`.
+Checks whether a newer version of mydumper/myloader is available by comparing the locally installed version against the latest release from the GitHub API.
+
+**Alerting Logic:**
+
+* WARN if the installed mydumper/myloader version is older than the latest available release on GitHub
+
+**Data Collection:**
+
+* Runs `mydumper --version` locally to determine the installed version
+* Queries the GitHub releases API for the latest version of `mydumper/mydumper`
+* Caches the latest version information locally to reduce API calls (default: 24 hours)
+
+**Compatibility:**
+
+* Requires `mydumper` to be installed and available in the system PATH
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mydumper-version> |
+| Nagios/Icinga Check Name              | `check_mydumper_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | Yes |
+| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-mydumper-version.db` |
 
 
 ## Help
@@ -49,13 +64,16 @@ mydumper/myloader v0.10.5 is up to date
 
 ## States
 
-* If wanted, always returns OK,
-* else returns WARN if update is available.
+* OK if the installed version is up to date.
+* WARN if a newer version is available.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-* mydumper-version: Float
+| Name | Type | Description |
+|----|----|----|
+| mydumper-version | Number | Installed mydumper version as float. |
 
 
 ## Credits, License

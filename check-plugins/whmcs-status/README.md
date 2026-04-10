@@ -2,12 +2,24 @@
 
 ## Overview
 
-WHMCS (Web Host Manager Complete Solution) is a billing, support and automation platform designed primarily for web hosting companies and service providers. This check plugin returns the health status of a WHMCS server via its HTTP-based API, using the [GetHealthStatus API endpoint](https://developers.whmcs.com/api-reference/gethealthstatus/).
+Monitors the health status of a WHMCS (Web Host Manager Complete Solution) installation via the [GetHealthStatus API endpoint](https://developers.whmcs.com/api-reference/gethealthstatus/). Reports messages about module versions, license status, and system health indicators. Messages are sorted by severity.
 
-Configuring API acceess and creating an API user in WHMCS is a bit tedious. First, allow IP Addresses to connect to WHMCS:
+**Alerting Logic:**
+
+* WARN if any health check message has a severity level greater than "info" (i.e. "warning" or "error")
+
+**Data Collection:**
+
+* Queries the WHMCS API at `<url>/includes/api.php` using the `GetHealthStatus` action
+* Authenticates via WHMCS API identifier and secret (`--identifier`, `--secret`)
+* Supports optional HTTP Basic Authentication (`--username`, `--password`)
+
+**Important Notes:**
+
+Configuring API access and creating an API user in WHMCS is a bit tedious. First, allow IP Addresses to connect to WHMCS:
 
 * Open <https://whmcs.example.com/path/to/whmcs-admin/configgeneral.php#tab=10>), Tab Security
-* API IP Access Restriction \> Add IP of the hosts accessing the API
+* API IP Access Restriction > Add IP of the hosts accessing the API
 
 Then create an administrator role with "API Access":
 
@@ -29,12 +41,12 @@ Create API Credentials:
 
 * Open <https://whmcs.example.com/path/to/whmcs-admin/configapicredentials.php>
 
-* API Roles \> Create API Role:
+* API Roles > Create API Role:
 
     * Role Name: GetHealthStatus
-    * Allowed API Actions: Servers \> GetHealthStatus
+    * Allowed API Actions: Servers > GetHealthStatus
 
-* API Credentials \> Generate New API Credential
+* API Credentials > Generate New API Credential
 
     * Admin User: WHMCS Monitoring
     * API Role(s): GetHealthStatus
@@ -45,10 +57,11 @@ Note the api_identifier and the api_secret. You will need both to configure this
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/whmcs-status> |
+| Nagios/Icinga Check Name              | `check_whmcs_status` |
 | Check Interval Recommendation         | Every 15 minutes |
-| Can be called without parameters      | Yes |
+| Can be called without parameters      | No (`--identifier` and `--secret` are required) |
 | Compiled for Windows                  | No |
 
 
@@ -102,7 +115,8 @@ There are 4 messages, ordered by severity.
 
 ## States
 
-* WARN if messages with a status greater than "info" are returned.
+* OK if no health check messages with severity greater than "info" are returned.
+* WARN if any health check message has severity "warning" or "error".
 
 
 ## Perfdata / Metrics

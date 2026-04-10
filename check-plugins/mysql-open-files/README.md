@@ -2,9 +2,20 @@
 
 ## Overview
 
-Checks the open file usage in MySQL/MariaDB. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
+Checks the open file usage in MySQL/MariaDB as a percentage of the configured `open_files_limit`. If the usage approaches the limit, the server may start refusing new connections or fail to open tables.
 
-Hints:
+**Alerting Logic:**
+
+* WARN if the number of open files exceeds 85% of `open_files_limit`
+
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for `open_files_limit`
+* Queries `SHOW GLOBAL STATUS` for `Open_files`
+* Calculates the percentage of open files relative to the limit
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
+
+**Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 
@@ -12,12 +23,12 @@ Hints:
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-open-files> |
+| Nagios/Icinga Check Name              | `check_mysql_open_files` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Requirements                          | User with no privileges, locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |
 
 
@@ -62,24 +73,22 @@ Output:
 
 ## States
 
-* WARN if amount of open files is \> 85%.
+* WARN if the number of open files exceeds 85% of `open_files_limit`.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| mysql_open_files | Number | Number of regular files currently opened by the server. Does not include sockets or pipes, or storage engines using internal functions. |
-| mysql_open_files_limit | Number | The number of file descriptors available to MariaDB. If you are getting the `Too many open files` error, then you should increase this limit. |
-| mysql_pct_files_open | Percentage | Open_files / open_files_limit \* 100 |
+| mysql_open_files | Number | Number of regular files currently opened by the server. Does not include sockets or pipes. |
+| mysql_open_files_limit | Number | The number of file descriptors available to MySQL/MariaDB. |
+| mysql_pct_files_open | Percentage | Open_files / open_files_limit * 100 |
 
 
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
-
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).
-
 * Credits:
-
     * heavily inspired by MySQLTuner (<https://github.com/major/MySQLTuner-perl>)

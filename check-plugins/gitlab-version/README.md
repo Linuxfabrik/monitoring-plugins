@@ -2,9 +2,21 @@
 
 ## Overview
 
-This plugin lets you track if GitLab is End-of-Life (EOL). To compare against the current/installed version of GitLab, the check has to run on the GitLab server itself.
+Checks the installed GitLab version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Data Collection:**
+
+* Reads the installed GitLab version from `/opt/gitlab/version-manifest.txt` (configurable via `--path`)
+* Compares against the [endoflife.date API](https://endoflife.date/api/gitlab.json) to determine EOL status and available updates
+* Caches API responses locally for 24 hours to reduce external requests
+
+**Compatibility:**
+
+* Linux only (must run on the GitLab server itself)
+
+**Important Notes:**
+
+* The check must run locally on the GitLab server because it reads the version from a local file.
 
 
 ## Fact Sheet
@@ -12,10 +24,11 @@ This check plugin alerts n days before or after the EOL date is reached. Optiona
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/gitlab-version> |
-| Check Interval Recommendation         | Once a day |
+| Nagios/Icinga Check Name              | `check_gitlab_version` |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 
 
 ## Help
@@ -72,17 +85,20 @@ GitLab v16.0.3 (EOL 2023-08-22 -30d [WARNING], minor 16.4.1 available, patch 16.
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* OK if the installed version is not EOL and no update alerts are configured.
+* WARN if the installed version is EOL (considering `--offset-eol`, default: -30 days).
+* WARN if `--check-major` is set and a new major version is available.
+* WARN if `--check-minor` is set and a new minor version is available.
+* WARN if `--check-patch` is set and a new patch version is available.
+* UNKNOWN if GitLab is not found or the version file cannot be read.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| gitlab-version | Number | Installed GitLab version as float. "15.8.0" becomes "15.80". |
+| gitlab-version | Number | Installed GitLab version as float. For example, "16.0.3" becomes "16.03". |
 
 
 ## Credits, License

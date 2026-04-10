@@ -2,41 +2,46 @@
 
 ## Overview
 
-Check VMs on a KVM host using `virsh list`. Needs sudo.
+Lists all virtual machines on a KVM host using `virsh list --all` and checks their states. Alerts on VMs that are in unexpected states such as crashed, idle, paused, or pmsuspended.
 
-The state field lists what state each domain (a VM) is currently in. A domain can be in one of the following possible states:
+**Alerting Logic:**
 
-* `running`  
-  The domain is currently running on a CPU.
+* CRIT if any VM is in `crashed` state
+* WARN if any VM is in `idle`, `paused`, or `pmsuspended` state
+* VMs in `running`, `shut off`, or `in shutdown` state do not trigger alerts
 
-* `idle`  
-  The domain is idle, and not running or runnable. This can be caused because the domain is waiting on IO (a traditional wait state) or has gone to sleep because there was nothing else for it to do.
+**Data Collection:**
 
-* `paused`  
-  The domain has been paused, usually occurring through the administrator running `virsh suspend`. When in a paused state the domain will still consume allocated resources like memory, but will not be eligible for scheduling by the hypervisor.
+* Executes `virsh list --all` to obtain the list of all VMs and their current states
+* Reports VM ID, name, and state for each virtual machine
+* Requires root or sudo privileges
 
-* `in shutdown`  
-  The domain is in the process of shutting down, i.e. the guest operating system has been notified and should be in the process of stopping its operations gracefully.
+**Compatibility:**
 
-* `shut off`  
-  The domain is not running. Usually this indicates the domain has been shut down completely, or has not been started.
+* Linux with KVM/libvirt and the `virsh` command-line tool
 
-* `crashed`  
-  The domain has crashed, which is always a violent ending. Usually this state can only occur if the domain has been configured not to "restart on crash" (in the guest OS).
+**Important Notes:**
 
-* `pmsuspended`  
-  The domain has been suspended by guest power management, e.g. entered into s3 state.
+* The possible VM states are:
+
+    * `running`: The domain is currently running on a CPU.
+    * `idle`: The domain is idle, not running or runnable (waiting on IO or nothing to do).
+    * `paused`: The domain has been paused (e.g. via `virsh suspend`). It still consumes allocated resources like memory but is not eligible for scheduling.
+    * `in shutdown`: The domain is in the process of shutting down (the guest OS has been notified).
+    * `shut off`: The domain is not running (has been shut down completely or has not been started).
+    * `crashed`: The domain has crashed. This can only occur if the domain has been configured not to restart on crash.
+    * `pmsuspended`: The domain has been suspended by guest power management (e.g. entered S3 state).
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/kvm-vm> |
+| Nagios/Icinga Check Name              | `check_kvm_vm` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Requirements                          | command-line tool `virsh` |
 
 
 ## Help
@@ -65,34 +70,37 @@ options:
 Output:
 
 ```text
-VMs: 5 running, 1 shutoff
+VMs: 5 running, 1 shut_off
 
-ID ! VM Name     ! State   
+ID ! VM Name     ! State
 ---+-------------+---------
-2  ! nextcloud   ! running 
-9  ! mon02       ! running 
-10 ! infra02     ! running 
-11 ! mon01       ! shutoff 
+2  ! nextcloud   ! running
+9  ! mon02       ! running
+10 ! infra02     ! running
+11 ! mon01       ! shut_off
 13 ! mailstore01 ! running
 ```
 
 
 ## States
 
-* CRIT if any VM is crashed.
-* WARN if any VM is in state idle, paused or pmsuspended.
-* Otherwise OK (even if no VM is running at all).
+* OK if all VMs are in `running`, `shut off`, or `in shutdown` state, or if no VMs exist.
+* WARN if any VM is in `idle`, `paused`, or `pmsuspended` state.
+* CRIT if any VM is in `crashed` state.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-* vm_running
-* vm_idle
-* vm_paused
-* vm_in_shutdown
-* vm_shut_off
-* vm_crashed
-* vm_pmsuspended
+| Name | Type | Description |
+|----|----|----|
+| vm_crashed | Number | Number of VMs in crashed state. |
+| vm_idle | Number | Number of VMs in idle state. |
+| vm_in_shutdown | Number | Number of VMs in shutdown state. |
+| vm_paused | Number | Number of VMs in paused state. |
+| vm_pmsuspended | Number | Number of VMs in pmsuspended state. |
+| vm_running | Number | Number of VMs in running state. |
+| vm_shut_off | Number | Number of VMs in shut off state. |
 
 
 ## Credits, License

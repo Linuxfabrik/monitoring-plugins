@@ -2,13 +2,30 @@
 
 ## Overview
 
-Counts tcp (v4), tcp6 (v6), udp (v4) and udp6 (v6) connection details. Output is grouped by connection type and status, ordered by the number of connections (descending). Emulating `ss -s` and `ss -antp`.
+Counts system-wide socket connections by type (TCP, TCP6, UDP, UDP6) and state. Output is grouped by connection type and status, ordered by the number of connections (descending). Useful for detecting connection leaks or applications that do not properly close sockets.
+
+**Alerting Logic:**
+
+* WARN or CRIT if the number of connections matching the specified type and status exceeds the configured thresholds
+* Thresholds support Nagios ranges (e.g. `30:40` alerts if the value is outside that range)
+* Without `--warning` or `--critical`, the check is purely informational
+
+**Data Collection:**
+
+* Uses `psutil.net_connections()` to enumerate all system-wide network connections
+* Connections can be filtered by `--conn-type` (tcp, tcp6, udp, udp6) and `--conn-status` (established, listen, close_wait, etc.)
+
+**Compatibility:**
+
+* Cross-platform: Linux, Windows, and all psutil-supported systems
+
+**Important Notes:**
 
 Meaning of connection type `--conn-type` parameter:
 
 * `tcp`: TCP over IPv4
 * `tcp6`: TCP over IPv6
-* `udp4`: UDP over IPv4
+* `udp`: UDP over IPv4
 * `udp6`: UDP over IPv6
 
 Meaning of connection status `--conn-status` parameter:
@@ -27,14 +44,13 @@ Meaning of connection status `--conn-status` parameter:
 * `SYN_SENT`: Actively trying to establish connection.
 * `TIME_WAIT`: Wait after close for remote shutdown retransmission.
 
-This check optionally alerts if the number of any connection type and status does not fit into the given ranges.
-
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/network-connections> |
+| Nagios/Icinga Check Name              | `check_network_connections` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | Yes |
@@ -72,7 +88,7 @@ options:
 
 ## Usage Examples
 
-Just get network statistics and don't alert on anything:
+Just get network statistics and do not alert on anything:
 
 ```bash
 ./network-connections
@@ -86,7 +102,7 @@ tcp ESTABLISHED: 19, udp NONE: 16, tcp LISTEN: 9, udp6 NONE: 5, tcp CLOSE WAIT: 
 
 Alert if number of established TCP (v4) connections is higher than 200:
 
-```text
+```bash
 ./network-connections --conn-type=tcp --conn-status=established --warning=200
 ```
 
@@ -98,7 +114,7 @@ tcp ESTABLISHED: 260 [WARNING]
 
 Alert if number of any established connection is not between 30 and 40:
 
-```text
+```bash
 ./network-connections --conn-type=all --conn-status=established --warning=30:40
 ```
 
@@ -110,7 +126,7 @@ tcp ESTABLISHED: 26 [WARNING]
 
 Use repeating parameter:
 
-```text
+```bash
 ./network-connections --conn-type=tcp6 --conn-status=established --conn-status=closing --warning=30:40
 ```
 
@@ -123,12 +139,13 @@ No connections of type "tcp6" in status "established,closing" found.
 
 ## States
 
-* WARN or CRIT if number of connections found does not fit into the given ranges.
+* OK if no thresholds are configured, or if all connection counts are within the given ranges.
+* WARN or CRIT if the number of connections found does not fit into the given ranges.
 
 
 ## Perfdata / Metrics
 
-Depends on your connections. `<prefix>` represents the status of a `tcp` or `tcp6` connection. For UDP and UNIX sockets this is always going to be `udp_NONE` / `udp6_NONE`.
+Depends on your connections. `<prefix>` represents the status of a `tcp` or `tcp6` connection. For UDP sockets this is always going to be `udp_NONE` / `udp6_NONE`.
 
 | Name                    | Type   | Description  |
 |-------------------------|--------|--------------|
@@ -153,4 +170,4 @@ Depends on your connections. `<prefix>` represents the status of a `tcp` or `tcp
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).
-* Credits <https://github.com/giampaolo/psutil/blob/master/scripts/netstat.py>
+* Credits: <https://github.com/giampaolo/psutil/blob/master/scripts/netstat.py>

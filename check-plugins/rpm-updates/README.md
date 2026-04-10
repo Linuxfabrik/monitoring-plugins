@@ -2,58 +2,47 @@
 
 ## Overview
 
-Displays available updates, including a list of advisories about newer versions of installed packages. For these advisories, the plugin takes only the latest installed versions of packages into account. In case of the kernel packages (when multiple version could be installed simultaneously) also packages of the currently running version of kernel are added. This plugin only lists updates and upgrades and provides relevant alerts. It never actually runs an update.
+Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible systems. Reports the number and type of available advisories (bugfix, enhancement, security). This check only lists updates and never actually installs anything.
 
-Plugin execution may take more than 10 seconds.
+**Alerting Logic:**
 
-The plugin stores all relevant information in a local SQLite database. For the `--query` parameter, the following database columns can be used (see examples below):
+* WARN if the number of available updates meets or exceeds `--warning` (default: 1)
+* `--only-critical` filters to security updates only
+* `--always-ok` suppresses all alerts and always returns OK
 
-* package (TEXT)
-* arch (TEXT)
-* version_installed (TEXT)
-* repo_installed (TEXT)
-* version_upgrade (TEXT)
-* repo_upgrade (TEXT)
+**Data Collection:**
 
-Example content of the `list` table:
+* Executes `yum list --upgrades`, `yum list --installed`, and `yum updateinfo list --available`
+* Stores all package and advisory information in a local SQLite database for SQL-based filtering via `--query`
+* Plugin execution may take more than 10 seconds due to yum operations (default timeout: 120 seconds)
 
-```text
-package              ! arch   ! version_installed       ! repo_installed ! version_upgrade         ! repo_upgrade
----------------------+--------+-------------------------+----------------+-------------------------+-------------
-NetworkManager       ! x86_64 ! 1:1.40.16-9             ! @anaconda      ! 1:1.40.16-19            ! baseos      
-NetworkManager-libnm ! x86_64 ! 1:1.40.16-9             ! @anaconda      ! 1:1.40.16-19            ! baseos      
-acl                  ! x86_64 ! 2.2.53-1.el8            ! @anaconda      ! 2.2.53-3                ! baseos      
-audit                ! x86_64 ! 3.0.7-5                 ! @anaconda      ! 3.1.2-1                 ! baseos      
-autoconf             ! noarch ! 2.69-29                 ! @appstream     ! 2.69-29.el8_10          ! appstream   
-bash                 ! x86_64 ! 4.4.20-4                ! @anaconda      ! 4.4.20-5                ! baseos      
-bind-libs            ! x86_64 ! 32:9.11.36-11           ! @appstream     ! 32:9.11.36-16.el8_10    ! appstream   
-binutils             ! x86_64 ! 2.30-123                ! @baseos        ! 2.30-125                ! baseos      
-bzip2-libs           ! x86_64 ! 1.0.6-26                ! @anaconda      ! 1.0.6-28                ! baseos      
-c-ares               ! x86_64 ! 1.13.0-9.el8_9          ! @anaconda      ! 1.13.0-11               ! baseos      
-ca-certificates      ! noarch ! 2023.2.60_v7.0.306-80.0 ! @anaconda      ! 2024.2.69_v8.0.303-80.0 ! baseos      
-chrony               ! x86_64 ! 4.2-1.el8.rocky.1       ! @anaconda      ! 4.5-2                   ! baseos      
-cmake                ! x86_64 ! 3.20.2-5                ! @appstream     ! 3.26.5-2                ! appstream   
-cpp                  ! x86_64 ! 8.5.0-20                ! @appstream     ! 8.5.0-26                ! appstream   
-cronie               ! x86_64 ! 1.5.2-8                 ! @anaconda      ! 1.5.2-10                ! baseos      
-cronie-anacron       ! x86_64 ! 1.5.2-8                 ! @anaconda      ! 1.5.2-10                ! baseos      
-curl                 ! x86_64 ! 7.61.1-33               ! @anaconda      ! 7.61.1-34.el8_10        ! baseos      
-dracut               ! x86_64 ! 049-228.git20230802     ! @anaconda      ! 049-233.git20240115     ! baseos  
-```
+**Important Notes:**
 
-The 'Type' column in the output lists the type of update for each intermediate version. For example, the abbreviation 'BSEB' indicates that there are four available versions: a bug fix release, a security release, an enhancement release and another bug fix release. The meaning of the abbreviations is:
+* The `--query` parameter accepts an SQL WHERE clause to filter the list of available updates. The following database columns can be used:
+    * `arch` (TEXT)
+    * `package` (TEXT)
+    * `repo_installed` (TEXT)
+    * `repo_upgrade` (TEXT)
+    * `version_installed` (TEXT)
+    * `version_upgrade` (TEXT)
+* The "Type" column in the output lists the type of update for each intermediate version. Abbreviation meanings:
+    * B: Bugfix
+    * E: Enhancement
+    * S: Security
+    * U: Unspecified
+    * no character: unknown
 
-* B: Bugfix
-* E: Enhancement
-* S: Security
-* U: Unspecified
-* no character: unknown
+**Compatibility:**
+
+* Linux (RHEL, CentOS, Fedora, and compatible RPM-based distributions)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/rpm-updates> |
+| Nagios/Icinga Check Name              | `check_rpm_updates` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -109,7 +98,9 @@ gcc-c++    ! 8.5.0-20      ! 8.5.0-26             ! BSB
 
 ## States
 
-* WARN if the number of updatable packages exceeds the specified threshold value
+* OK if the number of available updates is below `--warning`.
+* WARN if the number of updatable packages meets or exceeds `--warning` (default: 1).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

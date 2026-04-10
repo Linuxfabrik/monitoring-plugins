@@ -2,9 +2,21 @@
 
 ## Overview
 
-This plugin lets you track if Grafana is End-of-Life (EOL). To compare against the current/installed version of Grafana, the check has to run on the Grafana server itself.
+Checks the installed Grafana version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Data Collection:**
+
+* Determines the installed Grafana version by executing `grafana-server -v`
+* Compares against the [endoflife.date API](https://endoflife.date/api/grafana.json) to determine EOL status and available updates
+* Caches API responses locally for 24 hours to reduce external requests
+
+**Compatibility:**
+
+* Linux only (must run on the Grafana server itself)
+
+**Important Notes:**
+
+* The check must run locally on the Grafana server because it executes `grafana-server -v` to determine the installed version.
 
 
 ## Fact Sheet
@@ -12,10 +24,11 @@ This check plugin alerts n days before or after the EOL date is reached. Optiona
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/grafana-version> |
-| Check Interval Recommendation         | Once a day |
+| Nagios/Icinga Check Name              | `check_grafana_version` |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 
 
 ## Help
@@ -69,17 +82,20 @@ Grafana v9.3.6 (EOL 2023-04-06 -30d [WARNING], major 10.1.4 available, minor 9.5
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* OK if the installed version is not EOL and no update alerts are configured.
+* WARN if the installed version is EOL (considering `--offset-eol`, default: -30 days).
+* WARN if `--check-major` is set and a new major version is available.
+* WARN if `--check-minor` is set and a new minor version is available.
+* WARN if `--check-patch` is set and a new patch version is available.
+* UNKNOWN if Grafana is not found or the version cannot be determined.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| grafana-version | Number | Installed Grafana version as float. "9.3.6" becomes "9.36". |
+| grafana-version | Number | Installed Grafana version as float. For example, "9.3.6" becomes "9.36". |
 
 
 ## Credits, License

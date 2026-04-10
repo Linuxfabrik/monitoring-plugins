@@ -2,7 +2,25 @@
 
 ## Overview
 
-This check collects information from the PHP-FPM pool status page and alerts on certain overuse. In addition, a table is printed which contains each pool process in the status "Running" (which information relates to the current request that is being served).
+Monitors PHP-FPM pool performance via the status page. Reports active processes, listen queue depth, idle workers, request rates, and uptime per pool. Also lists currently running processes with their request details.
+
+**Alerting Logic:**
+
+* WARN or CRIT when listen queue usage exceeds the configured thresholds (default: 80/90%)
+* WARN or CRIT when the number of slow requests exceeds the configured thresholds (default: 1/100)
+* WARN when `max_children` has been reached at least once
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Fetches JSON data from the PHP-FPM status page (`?json&full`)
+* Per-process details (PID, request duration, URI, script, etc.) are shown for processes in "Running" state
+* The monitoring request itself is excluded from the process list
+* Supports extended reporting via `--lengthy`, which adds columns for process state, start time, and content length
+
+**Compatibility:**
+
+* Requires a configured PHP-FPM status page (e.g. `pm.status_path = /fpm-status` in `/etc/php-fpm.d/<poolname>.conf`)
 
 PHP-FPM config example:
 
@@ -24,12 +42,12 @@ Alias /fpm-status /dev/null
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/php-fpm-status> |
+| Nagios/Icinga Check Name              | `check_php_fpm_status` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Requirements                          | Configure a status page like `/fpm-status`, `/<poolname>-fpm-status` or similar in `/etc/php-fpm.d/<poolname>.conf` |
 
 
 ## Help
@@ -91,37 +109,42 @@ PID   ! State   ! Process Start                 ! Reqs ! LastReqDur  ! LastMthd 
 
 The columns mean:
 
+* AuthUser: The HTTP user (`PHP_AUTH_USER`) of the last request.
+* LastContLen: The length of the request body of the last request.
+* LastMthd: The HTTP method of the last served request.
+* LastReqDur: The total time in microseconds spent serving last request.
+* Last Request URI: The URI of the last served request (after webserver processing, it may always be /index.php if you use a front controller pattern redirect).
 * PID: The system PID of the process.
 * Reqs: The total number of requests served.
-* LastReqDur: The total time in microseconds spent serving last request.
-* LastMthd: The HTTP method of the last served request.
-* LastContLen: The length of the request body of the last request.
-* Last Request URI: The URI of the last served request (after webserver processing, it may always be /index.php if you use a front controller pattern redirect).
 * Script: The full path of the script executed by the last request. This will be '-' if not applicable (eg. status page requests).
-* AuthUser: The HTTP user (`PHP_AUTH_USER`) of the last request.
 
 For more details see <https://www.php.net/manual/en/fpm.status.php>.
 
 
 ## States
 
-* WARN or CRIT on queue usage over certain thresholds (default 80/90%)
-* WARN or CRIT if number of slow queries is over certain thresholds (default 1/100)
+* OK if queue usage and slow request count are below the thresholds.
+* WARN if queue usage is >= `--warning` (default: 80%).
+* WARN if slow request count is >= `--warning-slowreq` (default: 1).
+* WARN if `max_children` has been reached at least once.
+* CRIT if queue usage is >= `--critical` (default: 90%).
+* CRIT if slow request count is >= `--critical-slowreq` (default: 100).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| accepted conn | Continous Counter | Number of requests accepted by the pool |
-| active processes | Number | Number of active processes |
-| idle processes | Number | Number of idle processes |
-| listen queue len | Number | Size of the socket queue of pending connections |
-| listen queue | Number | Number of requests in the queue of pending connections |
-| max children reached | Number | Number of times, the process limit has been reached, when pm tries to start more children (works only for pm 'dynamic' and 'ondemand') |
-| queue usage | Percentage | Number of requests in the queue of pending connections, in % |
-| slow requests | Number | Number of slow requests |
-| start since | Seconds | Number of seconds since FPM has started |
+| accepted conn | Continous Counter | Number of requests accepted by the pool. |
+| active processes | Number | Number of active processes. |
+| idle processes | Number | Number of idle processes. |
+| listen queue | Number | Number of requests in the queue of pending connections. |
+| listen queue len | Number | Size of the socket queue of pending connections. |
+| max children reached | Number | Number of times the process limit has been reached when pm tries to start more children (works only for pm "dynamic" and "ondemand"). |
+| queue usage | Percentage | Queue usage, in percent. |
+| slow requests | Number | Number of slow requests. |
+| start since | Seconds | Number of seconds since FPM has started. |
 
 
 ## Credits, License

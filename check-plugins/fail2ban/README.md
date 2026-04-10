@@ -2,14 +2,25 @@
 
 ## Overview
 
-Checks the amount of banned IP addresses for all jails in Fail2ban.
+Checks the number of currently banned IP addresses across all fail2ban jails. Reports the total ban count and a per-jail breakdown. Alerts when the number of banned IPs in any jail exceeds the configured thresholds. Requires root or sudo.
+
+**Data Collection:**
+
+* Runs `fail2ban-client ping` to verify the fail2ban server is alive
+* Runs `fail2ban-client status` to discover all configured jails
+* Runs `fail2ban-client status <jail>` for each jail to get the current number of banned IPs
+
+**Compatibility:**
+
+* Linux only (requires fail2ban to be installed and running)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fail2ban> |
+| Nagios/Icinga Check Name              | `check_fail2ban` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -55,27 +66,26 @@ Output:
 
 ## States
 
-* WARN or CRIT if the number of blocked IP addresses in any jail exceeds a specified threshold.
+* OK if the number of banned IPs in every jail is below `--warning` (default: 2500).
+* WARN if the number of banned IPs in any jail is >= `--warning` (default: 2500).
+* CRIT if the number of banned IPs in any jail is >= `--critical` (default: 10000).
+* UNKNOWN if `fail2ban-client ping` fails or `fail2ban-client status` returns an error.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name     | Type   | Description                                |
-|----------|--------|--------------------------------------------|
-| \<jail\> | Number | Number of blocked IP addresses (per jail). |
+| Name | Type | Description |
+|----|----|----|
+| `<jail>` | Number | Number of banned IP addresses per jail. |
 
 
 ## Troubleshooting
 
-### Permission denied to socket: /var/run/fail2ban/fail2ban.sock (you must be root)
+`Permission denied to socket: /var/run/fail2ban/fail2ban.sock (you must be root)`  
+The fail2ban client works only with user `root` by default. Fail2ban does not have individual permission or a user privilege model. If you allow the fail2ban client accessing the fail2ban server for non-root, you could stop the server, change runtime config, ban, unban, etc.
 
-The Fail2ban client (used by this check plugin internally) works only with user `root` by default. The reasons:
-
-* Fail2ban does not have individual permission or a user privilege model.
-* If you would allow the Fail2ban client accessing the Fail2ban sever for non-root, you could stop the server, change runtime config, ban, unban, etc.
-
-Preparing Fail2ban by changing permissions  
-Tested on Debian 11.
+Preparing fail2ban by changing permissions (tested on Debian 11):
 
 The communication takes place via unix-socket `/var/run/fail2ban/fail2ban.sock` which has the following permissions:
 
@@ -83,7 +93,7 @@ The communication takes place via unix-socket `/var/run/fail2ban/fail2ban.sock` 
 srwx------ 1 root root ... /var/run/fail2ban/fail2ban.sock
 ```
 
-So you have to grant access to `fail2ban.sock` for a user like `nagios` or `icinga`, for example like so:
+Grant access to `fail2ban.sock` for a user like `nagios` or `icinga`:
 
 ```bash
 sudo groupadd fail2ban
@@ -92,14 +102,14 @@ sudo chown root:fail2ban /var/run/fail2ban/fail2ban.sock
 sudo chmod g+w /var/run/fail2ban/fail2ban.sock
 ```
 
-After that, this (and so the check plugin) should work:
+After that, this (and the check plugin) should work:
 
 ```bash
 sudo -u nagios /usr/bin/fail2ban-client status
 sudo -u nagios /usr/lib64/nagios/plugins/fail2ban
 ```
 
-To persist on a system where Fail2ban is managed by Systemd, add the following to the Fail2ban service override file:
+To persist on a system where fail2ban is managed by systemd, add the following to the fail2ban service override file:
 
 ```bash
 sudo systemctl edit fail2ban
@@ -112,8 +122,7 @@ ExecStartPost=/usr/bin/chgrp fail2ban /var/run/fail2ban/fail2ban.sock
 ExecStartPost=/usr/bin/chmod g+w /var/run/fail2ban/fail2ban.sock
 ```
 
-Preparing Fail2ban by using sudo  
-Tested on RHEL 7+.
+Preparing fail2ban by using sudo (tested on RHEL 7+):
 
 As an alternative you might add a sudoers rule, for example in `/etc/sudoers.d/fail2ban`:
 

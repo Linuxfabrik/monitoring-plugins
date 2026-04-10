@@ -2,7 +2,22 @@
 
 ## Overview
 
-This plugin checks for read-only mount points, such as `/` mounted read-only due to file system errors, mounted CD-ROMs or ISO files, etc. It always ignores loops, ramfs and squashfs (snapd) by default.
+Checks for unexpectedly read-only mounted filesystems, such as a root filesystem that switched to read-only due to disk errors. Ignores ramfs, squashfs (snapd), and other pseudo-filesystems by default. Additional mount points can be excluded via `--ignore`. Alerts when a read-only filesystem is detected that should be writable.
+
+**Alerting Logic:**
+
+* WARN if any mount point (not on the ignore list) is mounted read-only
+* Reports the device, mount point, and filesystem type for each read-only mount
+
+**Data Collection:**
+
+* Reads `/proc/mounts` and checks the mount options for each entry
+* Skips ramfs and squashfs filesystem types entirely
+* Skips mount points whose path starts with any `--ignore` prefix (default: `/dev/loop`, `/proc`, `/run/credentials`, `/snap`, `/sys/fs`)
+
+**Compatibility:**
+
+* Linux
 
 
 ## Fact Sheet
@@ -10,6 +25,7 @@ This plugin checks for read-only mount points, such as `/` mounted read-only due
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fs-ro> |
+| Nagios/Icinga Check Name              | `check_fs_ro` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -43,7 +59,7 @@ options:
 ## Usage Examples
 
 ```bash
-./fs-ro --ignore /proc,/sys/fs
+./fs-ro --ignore /proc --ignore /sys/fs
 ```
 
 Output:
@@ -52,10 +68,18 @@ Output:
 Everything is ok. 21 mount points checked.
 ```
 
+Output (with read-only mount):
+
+```text
+1 read-only mount point found: /dev/sda1 on / (type ext4)
+```
+
 
 ## States
 
-* WARN if a read only mount point is found (which is not on the ignore list).
+* OK if no unexpected read-only mount points are found.
+* WARN if one or more mount points (not on the ignore list) are mounted read-only.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

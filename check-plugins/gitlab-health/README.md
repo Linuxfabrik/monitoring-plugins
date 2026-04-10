@@ -2,13 +2,25 @@
 
 ## Overview
 
-Checks whether the GitLab application server is running. It does not hit the database or verifies other services are running. Its purpose is to notify that the application server is handling requests, but a STATE_OK response does not signify that the database or other services are ready.
+Checks whether the GitLab application server is running by querying the `/-/health` endpoint. This is a lightweight probe that does not hit the database or verify other backend services. A successful response confirms that the application server is processing requests, but does not guarantee that the database or other services are ready.
 
-Hints:
+**Alerting Logic:**
 
-* Requires GitLab 9.1.0+
-* To access monitoring resources, the requesting client IP needs to be included in the allowlist. For details, see <span class="title-ref">how to add IPs to the allowlist for the monitoring endpoints \<https://docs.gitlab.com/ee/administration/monitoring/ip_allowlist.html\></span>.
-* GitLab Health Checks: <https://docs.gitlab.com/ee/administration/monitoring/health_check.html>
+* Alerts with the configured `--severity` (default: WARN) if the endpoint does not return "GitLab OK"
+
+**Data Collection:**
+
+* Sends an HTTP GET request to the GitLab health endpoint (default: `http://localhost/-/health`)
+* Expects the plain-text response "GitLab OK"
+
+**Compatibility:**
+
+* GitLab 9.1.0 or later
+
+**Important Notes:**
+
+* The requesting client IP must be included in the GitLab monitoring allowlist. See [how to add IPs to the allowlist](https://docs.gitlab.com/ee/administration/monitoring/ip_allowlist.html).
+* GitLab Health Checks documentation: <https://docs.gitlab.com/ee/administration/monitoring/health_check.html>
 
 
 ## Fact Sheet
@@ -16,6 +28,7 @@ Hints:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/gitlab-health> |
+| Nagios/Icinga Check Name              | `check_gitlab_health` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -65,14 +78,16 @@ The GitLab application server is processing requests, but this does not mean tha
 
 ## States
 
-* Depending on the given `--severity`, returns WARN (default) or CRIT if liveness and readiness probes to indicate service health and reachability to required services fail.
+* OK if the `/-/health` endpoint returns "GitLab OK".
+* WARN or CRIT (depending on `--severity`, default: WARN) if the endpoint does not return "GitLab OK".
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| gitlab-health-state | Number | The current state (0 = OK, 1 = WARN, 2 = CRIT, 3 = UNKNOWN). |
+| gitlab-health | Number | The current state (0 = OK, 1 = WARN, 2 = CRIT, 3 = UNKNOWN). |
 
 
 ## Credits, License

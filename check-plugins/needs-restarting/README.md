@@ -2,20 +2,36 @@
 
 ## Overview
 
-Checks for processes that started running before they or some component that they use were updated. Returns WARN if a full reboot is required or if services might need a restart, and in any other case OK. May take more than 10 seconds on Red Hat to execute.
+Checks for processes that were started before they or one of their dependencies were updated. Useful for detecting servers that have been patched but not yet rebooted. Requires root or sudo.
 
-Hints:
+**Alerting Logic:**
+
+* WARN if a full system reboot is required
+* WARN if individual services need a restart
+* Does not alert on other problems like `Modular dependency problem` (yum/dnf)
+
+**Data Collection:**
+
+* On Red Hat: Uses the `needs-restarting` command. First checks `needs-restarting --reboothint` (return code 1 means reboot required), then `needs-restarting` for a process list of updated services.
+* On Debian: Uses `needrestart -b` if available, which reports kernel status and services needing restart. Falls back to checking `/var/run/reboot-required`.
+
+**Compatibility:**
 
 * Linux only
-* `needs-restarting3` runs on Red Hat- and Debian-based OS's
-* `needs-restarting2` runs on Red Hat-based OS's only
+* Red Hat-based distributions (RHEL, CentOS, Fedora, etc.)
+* Debian-based distributions (Debian, Ubuntu, etc.)
+
+**Important Notes:**
+
+* May take more than 10 seconds on Red Hat to execute
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/needs-restarting> |
+| Nagios/Icinga Check Name              | `check_needs_restarting` |
 | Check Interval Recommendation         | Once a day (or after a system update only) |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -67,8 +83,10 @@ A system reboot may be required. Running Kernel 4.19.0-20-amd64 != Installed Ker
 
 ## States
 
-* WARN on needed service or system restarts.
-* Does not alert on other problems like `Modular dependency problem` (yum/dnf) etc.
+* OK if no system or service restart is needed.
+* WARN if a system reboot is required.
+* WARN if services need a restart.
+* UNKNOWN if the OS is not supported.
 
 
 ## Perfdata / Metrics

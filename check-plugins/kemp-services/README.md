@@ -2,21 +2,32 @@
 
 ## Overview
 
-Kemp is a virtual load balancer (<https://kemptechnologies.com>). This check warns on any virtual service which is marked as down, using the REST API.
+Monitors virtual services on a KEMP LoadMaster appliance via its REST API and alerts when any virtual service or its real servers are in a non-operational state.
 
-Hints:
+**Alerting Logic:**
 
-* Use `--filter` to only check services that contain a certain string in their NickName.
-* Use `--severity` to choose which state should be returned.
+* Alerts with configurable severity (WARN or CRIT, default: WARN) when any virtual service reports a "Down" status
+* Services in "Up", "Unchecked", or "Disabled" state do not trigger alerts
+
+**Data Collection:**
+
+* Queries the KEMP LoadMaster REST API endpoint `/access/listvs` using Basic authentication
+* Parses the XML response to extract the NickName and Status of each virtual service
+* Use `--filter` to only check virtual services whose NickName contains a specific string
+
+**Compatibility:**
+
+* Any KEMP LoadMaster appliance with REST API enabled
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/kemp-services> |
+| Nagios/Icinga Check Name              | `check_kemp_services` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--hostname`, `--username`, and `--password` are required) |
 | Compiled for Windows                  | No |
 
 
@@ -42,7 +53,7 @@ options:
                         KEMP LoadMaster appliance address, can be a hostname
                         or IP address.
   --insecure            This option explicitly allows insecure SSL
-                        connections. Default: False
+                        connections.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   KEMP REST API password.
   --port PORT           KEMP LoadMaster appliance port. Default: 443
@@ -59,9 +70,9 @@ options:
 ## Usage Examples
 
 ```bash
-./kemp-services --hostname localhost --username user --password password
-./kemp-services --hostname localhost --username user --password password --filter PROD
-./kemp-services --hostname localhost --username user --password password --filter PROD --severity crit
+./kemp-services --hostname=192.0.2.10 --username=user --password=password
+./kemp-services --hostname=192.0.2.10 --username=user --password=password --filter=PROD
+./kemp-services --hostname=192.0.2.10 --username=user --password=password --filter=PROD --severity=crit
 ```
 
 Output:
@@ -69,26 +80,28 @@ Output:
 ```text
 5 services checked.
 
-NickName               ! Status         
+NickName               ! Status
 -----------------------+----------------
-KEMP LoadBalancer PROD ! Up             
-website1 PROD          ! Down [WARNING] 
-website2 PROD          ! Up             
-website01 DEV          ! Up             
-Redirect 192.2.0.1     ! Disabled
+KEMP LoadBalancer PROD ! Up
+website1 PROD          ! Down [WARNING]
+website2 PROD          ! Up
+website01 DEV          ! Up
+Redirect 192.0.2.1     ! Disabled
 ```
 
 
 ## States
 
-* WARN (default) if any virtual service is marked as down.
+* OK if all checked virtual services are in "Up", "Unchecked", or "Disabled" state.
+* WARN (default) or CRIT (via `--severity=crit`) if any virtual service is in "Down" state.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name     | Type   | Description                         |
-|----------|--------|-------------------------------------|
-| services | Number | Number of Virtual Services checked. |
+| Name | Type | Description |
+|----|----|----|
+| services | Number | Total number of virtual services checked. |
 
 
 ## Credits, License

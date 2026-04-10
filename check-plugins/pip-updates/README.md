@@ -2,20 +2,35 @@
 
 ## Overview
 
-This plugin lets you track if updates for python packages installed via `pip` are available. May take more than 10 seconds to execute. For a detailed help on all parameters, have a look at `man pip3-list`.
+Checks for outdated Python packages installed via pip. Reports the number of packages with available updates and lists them with current and latest versions.
 
-Hints:
+**Alerting Logic:**
 
-* Requires `pip` v20.3+.
+* WARN if the number of outdated packages is >= `--warning` (default: 10)
+* CRIT if the number of outdated packages is >= `--critical` (default: 100)
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Executes `python3 -m pip list --outdated --format=json` to get the list of outdated packages
+* Optionally sources a virtualenv activate script before checking
+* Supports all standard pip options for index URLs, exclusions, and package filtering
+* May take more than 10 seconds to execute depending on the number of installed packages and network latency
+
+**Compatibility:**
+
+* Linux only
+* Requires `pip` v20.3+
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/pip-updates> |
+| Nagios/Icinga Check Name              | `check_pip_updates` |
 | Check Interval Recommendation         | Once a week |
-| Can be called without parameters      | No |
+| Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
 | Requirements                          | `pip` v20.3+ |
 
@@ -85,7 +100,7 @@ options:
 Output:
 
 ```text
-venv /path/to/my/venv/bin/activate. pip is complaining about something or about itself, but most of the packages are up to date. 2 outdated packages. Executed command: `source /path/to/my/venv/bin/activate && python3 -m pip list --outdated --format=json --exclude=boto3 --exclude=pip --local`
+venv /path/to/my/venv/bin/activate. pip is complaining about something or about itself, but most of the packages are up to date. 2 outdated packages. Executed command: `source /path/to/my/venv/bin/activate && python3 -m pip list --outdated --exclude=boto3 --exclude=pip --local`
 
 Package  ! Version ! Latest  ! Type  
 ---------+---------+---------+-------
@@ -96,35 +111,23 @@ pyspnego ! 0.7.0   ! 0.8.0   ! wheel
 
 ## States
 
-* If wanted, always returns OK,
-* else returns WARN or CRIT if updates are available.
+* OK if the number of outdated packages is below the warning threshold.
+* WARN if the number of outdated packages is >= `--warning` (default: 10).
+* CRIT if the number of outdated packages is >= `--critical` (default: 100).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name                  | Type   | Description                |
 |-----------------------|--------|----------------------------|
-| pip_outdated_packages | Number | Number of pending updates. |
+| pip_outdated_packages | Number | Number of outdated packages. |
 
 
 ## Troubleshooting
 
-This indicates that your version of `pip` is below 20.3:
-
-```text
-Traceback (most recent call last):
-  File "/usr/lib/python3/dist-packages/pip/_internal/cli/base_command.py", line 143, in main
-    status = self.run(options, args)
-  File "/usr/lib/python3/dist-packages/pip/_internal/commands/list.py", line 138, in run
-    packages = self.get_outdated(packages, options)
-  File "/usr/lib/python3/dist-packages/pip/_internal/commands/list.py", line 149, in get_outdated
-    dist for dist in self.iter_packages_latest_infos(packages, options)
-  File "/usr/lib/python3/dist-packages/pip/_internal/commands/list.py", line 150, in <listcomp>
-    if dist.latest_version > dist.parsed_version
-TypeError: '>' not supported between instances of 'Version' and 'Version'
-```
-
-So simply upgrade by using `python3 -m pip install --upgrade pip`.
+`TypeError: '>' not supported between instances of 'Version' and 'Version'`
+This indicates that your version of `pip` is below 20.3. Upgrade by running `python3 -m pip install --upgrade pip`.
 
 
 ## Credits, License

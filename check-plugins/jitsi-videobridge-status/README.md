@@ -2,16 +2,31 @@
 
 ## Overview
 
-Checks the Jitsi Videobridge health state.
+Checks the Jitsi Videobridge health state via the `/about/health` REST endpoint. Returns OK if the bridge is healthy, WARN or CRIT otherwise.
 
-The REST API allows querying Videobridge whether it deems itself in a healthy state (i.e. the application is operational and the functionality it provides should perform as expected) at the time of the query or not. Videobridge performs periodic internal tests, and returns the latest result in response to requests to the `/about/health` endpoint. For details have a look [here](https://github.com/jitsi/jitsi-videobridge/blob/master/doc/health-checks.md).
+**Alerting Logic:**
+
+* Alerts WARN (default) or CRIT (if `--severity=crit`) when the Videobridge reports an unhealthy state (HTTP status code other than 200)
+* The severity level is configurable via `--severity`
+
+**Data Collection:**
+
+* Queries the `/about/health` endpoint on the Jitsi Videobridge private REST interface
+* The Videobridge performs periodic internal health tests and returns the latest result
+* A HTTP 200 response indicates a healthy state; any other status indicates a problem
+* For details see the [Jitsi Videobridge health check documentation](https://github.com/jitsi/jitsi-videobridge/blob/master/doc/health-checks.md)
+
+**Compatibility:**
+
+* Jitsi Videobridge v2.1+
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/jitsi-videobridge-status> |
+| Nagios/Icinga Check Name              | `check_jitsi_videobridge_status` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -54,7 +69,13 @@ options:
 ./jitsi-videobridge-status --severity warn
 ```
 
-Output:
+Output (healthy):
+
+```text
+Everything is ok.
+```
+
+Output (unhealthy):
 
 ```text
 Problems with jitsi-videobridge.
@@ -63,14 +84,17 @@ Problems with jitsi-videobridge.
 
 ## States
 
-* Depending on the given `--severity`, returns WARN (default) or CRIT if Videobridge determined that it is in an unhealthy state.
+* OK if the Videobridge reports a healthy state (HTTP 200).
+* WARN if `--severity=warn` (default) and the Videobridge reports an unhealthy state.
+* CRIT if `--severity=crit` and the Videobridge reports an unhealthy state.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| jitsi-videobridge-state | Number | The current state (0 = OK, 1 = WARN, 2 = CRIT, 3 = UNKNOWN). |
+| jitsi-videobridge-state | Number | The current state (0 = OK, 1 = WARN, 2 = CRIT). |
 
 
 ## Credits, License

@@ -2,18 +2,32 @@
 
 ## Overview
 
-This check plugin monitors the memory usage of a Keycloak server using its HTTP-based API. Tested with Keycloak 18+.
+Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP API and alerts when memory usage exceeds configurable thresholds.
 
-Hints:
+**Alerting Logic:**
 
-* See [Creating an API user account to monitor Keycloak](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-KEYCLOAK.md).
+* Compares the used memory percentage against `--warning` (default: 80%) and `--critical` (default: 90%) thresholds
+
+**Data Collection:**
+
+* Authenticates against the Keycloak OIDC token endpoint using client credentials (`--client-id`, `--username`, `--password`)
+* Queries the Keycloak Admin REST API at `/admin/serverinfo` to retrieve `memoryInfo` (used, total, free, freePercentage)
+
+**Compatibility:**
+
+* Tested with Keycloak 18 and later
+
+**Important Notes:**
+
+* See [Creating an API user account to monitor Keycloak](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-KEYCLOAK.md) for setting up the required API credentials.
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/keycloak-memory-usage> |
+| Nagios/Icinga Check Name              | `check_keycloak_memory_usage` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -67,19 +81,21 @@ Output:
 
 ## States
 
-Triggers an alarm on usage in percent.
-
-* WARN or CRIT if memory usage is above certain thresholds (default 80/90%)
+* OK if memory usage is below `--warning` (default: 80%).
+* WARN if memory usage is >= `--warning` (default: 80%).
+* CRIT if memory usage is >= `--critical` (default: 90%).
+* UNKNOWN on API connection errors or missing data in the Keycloak response.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name          | Type       | Description                  |
-|---------------|------------|------------------------------|
-| free          | Bytes      | Memory not being used at all |
-| total         | Bytes      | Total memory                 |
-| usage_percent | Percentage |                              |
-| used          | Bytes      | Memory used                  |
+| Name | Type | Description |
+|----|----|----|
+| free | Bytes | Free memory (not in use). |
+| total | Bytes | Total available memory. |
+| usage_percent | Percentage | Percentage of memory currently in use. |
+| used | Bytes | Memory currently in use. |
 
 
 ## Credits, License

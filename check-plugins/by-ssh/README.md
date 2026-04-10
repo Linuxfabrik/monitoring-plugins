@@ -2,7 +2,26 @@
 
 ## Overview
 
-This plugin uses SSH to execute a command on a remote host, returning STDOUT and, in case of failure, STDERR and the command's return code. With this information and with pattern matching on STDOUT, the plugin can alert with selectable severities.
+Executes a command on a remote host via SSH and evaluates the result. Returns STDOUT and, in case of failure, STDERR and the command's exit code. Supports pattern matching on STDOUT to detect specific conditions, with configurable alert severities per match. Can also alert on single numeric return values against warning and critical thresholds.
+
+**Data Collection:**
+
+* Connects to the remote host via SSH and executes the specified command
+* Captures STDOUT, STDERR, and the command's return code
+* Evaluates results through pattern matching (`--warning-pattern`, `--critical-pattern`), regex matching (`--warning-regex`, `--critical-regex`), and numeric threshold checks (`--warning`, `--critical` with Nagios range support)
+* Configurable severity levels for different failure modes (STDOUT, STDERR, return code, connection timeout)
+* Supports `--skip-stdout` and `--skip-stderr` to ignore all or the first N lines of output
+
+**Compatibility:**
+
+* Requires SSH access to the remote host
+* Requires the `sshpass` command-line tool if password-based authentication is used
+
+**Important Notes:**
+
+* Password-based authentication (`--password`) is not recommended. If used, `ps` will expose the SSH password on the monitoring host.
+* The `--shell` option enables shell expansion for environment variables and file globs but can be a security hazard. Without it, only simple commands without globs or pipes are supported.
+* Supports multiple `--identity` files and `--ssh-option` parameters for fine-grained SSH configuration
 
 
 ## Fact Sheet
@@ -10,10 +29,10 @@ This plugin uses SSH to execute a command on a remote host, returning STDOUT and
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/by-ssh> |
-| Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Nagios/Icinga Check Name              | `check_by_ssh` |
+| Check Interval Recommendation         | Every minute |
+| Can be called without parameters      | No (`--command` and `--hostname` are required) |
 | Compiled for Windows                  | No |
-| Requirements                          | command-line tool `sshpass` if you need to authorize with password |
 
 
 ## Help
@@ -45,13 +64,12 @@ options:
   --always-ok           Always returns OK.
   --command COMMAND     SSH: Command that will be executed on the remote host.
   --configfile CONFIGFILE
-                        SSH: Specifies an alternative per-user configuration
-                        file. If a configuration file is given on the command
-                        line, the system-wide configuration file
-                        (`/etc/ssh/ssh_config`) will be ignored. The default
-                        for the per-user configuration file is
-                        `~/.ssh/config`. If set to `none`, no configuration
-                        files will be read.
+                        SSH: Alternative per-user configuration file. If a
+                        configuration file is given on the command line, the
+                        system-wide configuration file (`/etc/ssh/ssh_config`)
+                        will be ignored. The default for the per-user
+                        configuration file is `~/.ssh/config`. If set to
+                        `none`, no configuration files will be read.
   -c, --critical CRIT   CRIT threshold for single numeric return values.
                         Supports Nagios ranges. Example: `@10:20` alerts if
                         STDOUT is in range 10..20.
@@ -66,23 +84,22 @@ options:
                         SSH: Disable pseudo-terminal allocation.
   -H, --hostname HOSTNAME
                         SSH: Hostname.
-  --identity IDENTITY   SSH: Selects a file from which the identity (private
-                        key) for public key authentication is read. You can
-                        also specify a public key file to use the
-                        corresponding private key that is loaded in ssh-
-                        agent(1) when the private key file is not present
-                        locally. The default is `~/.ssh/id_dsa`,
-                        `~/.ssh/id_ecdsa`, `~/.ssh/id_ecdsa_sk`,
-                        `~/.ssh/id_ed25519`, `~/.ssh/id_ed25519_sk` and
-                        `~/.ssh/id_rsa`. Identity files may also be specified
-                        on a per-host basis in the configuration file. It is
-                        possible to have multiple --identity options (and
-                        multiple identities specified in configuration files).
-                        If no certificates have been explicitly specified by
-                        the CertificateFile directive, ssh will also try to
-                        load certificate information from the filename
-                        obtained by appending `-cert.pub` to identity
-                        filenames.
+  --identity IDENTITY   SSH: File from which the identity (private key) for
+                        public key authentication is read. You can also
+                        specify a public key file to use the corresponding
+                        private key that is loaded in ssh-agent(1) when the
+                        private key file is not present locally. The default
+                        is `~/.ssh/id_dsa`, `~/.ssh/id_ecdsa`,
+                        `~/.ssh/id_ecdsa_sk`, `~/.ssh/id_ed25519`,
+                        `~/.ssh/id_ed25519_sk` and `~/.ssh/id_rsa`. Identity
+                        files may also be specified on a per-host basis in the
+                        configuration file. It is possible to have multiple
+                        --identity options (and multiple identities specified
+                        in configuration files). If no certificates have been
+                        explicitly specified by the CertificateFile directive,
+                        ssh will also try to load certificate information from
+                        the filename obtained by appending `-cert.pub` to
+                        identity filenames.
   --ipv4                SSH: Forces ssh to use IPv4 addresses only.
   --ipv6                SSH: Forces ssh to use IPv6 addresses only.
   -p, --password PASSWORD
@@ -243,6 +260,7 @@ Output on STDOUT?
 * Depending on the given `--severity-stdout`, returns OK (default), WARN, CRIT or UNKNOWN.
 * Returns WARN depending on the results of `--warning-pattern` or `--warning-regex`.
 * Returns CRIT depending on the results of `--critical-pattern` or `--critical-regex`.
+* Returns WARN or CRIT depending on single numeric return values and `--warning` / `--critical` (Nagios ranges).
 
 Output on STDERR?
 
@@ -252,6 +270,8 @@ Return code != 0?
 
 * Depending on the given `--severity-timeout`, returns OK, WARN, CRIT or UNKNOWN (default) if SSH can't connect.
 * Depending on the given `--severity-retc`, returns OK, WARN (default), CRIT or UNKNOWN if there is a return code != 0.
+
+`--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

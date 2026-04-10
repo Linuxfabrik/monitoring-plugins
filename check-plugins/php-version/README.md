@@ -2,16 +2,32 @@
 
 ## Overview
 
-This plugin lets you track if PHP is End-of-Life (EOL). To compare against the current/installed version of PHP, the check has to run on the PHP server itself.
+Checks the installed PHP version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Alerting Logic:**
+
+* WARN if the installed version is EOL (considering the configured offset)
+* Optional: WARN when a new major, minor, or patch version is available (`--check-major`, `--check-minor`, `--check-patch`)
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Executes `php --version` locally to determine the installed version
+* Queries the endoflife.date API to get the EOL date and latest available releases
+* Caches the API response in a local SQLite database to avoid excessive requests
+
+**Compatibility:**
+
+* Linux only
+* Must run on the PHP server itself
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/php-version> |
+| Nagios/Icinga Check Name              | `check_php_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -70,10 +86,12 @@ PHP v7.3.1 (EOL 2021-12-06 -30d [WARNING], major 8.2.11 available, minor 7.4.33 
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* OK if the installed version is not EOL (considering the configured offset).
+* WARN if the installed version is EOL.
+* Optional: WARN when a new major version is available.
+* Optional: WARN when a new minor version is available.
+* Optional: WARN when a new patch version is available.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

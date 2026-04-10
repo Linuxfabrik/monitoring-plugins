@@ -2,13 +2,26 @@
 
 ## Overview
 
-This plugin tests if a local or remote DHCP server can offer IPv4 addresses (to a specific subnet). It emulates a DHCP client and checks the DHCP offer response from the DHCP server. It only sends a DHCPDISCOVER, not a DHCPREQUEST.
+Tests if a DHCP server can offer IPv4 addresses by emulating a DHCP client. Sends a DHCPDISCOVER packet and verifies that the server responds with a valid DHCPOFFER. Only performs the discovery step without requesting an actual lease (no DHCPREQUEST). Works with both local and relayed DHCP servers, and can target a specific subnet. Alerts if the server does not respond or the response is invalid. Requires root or sudo.
 
-Hints:
+**Data Collection:**
 
-* May take three or more seconds to run.
-* Requires sudo permissions to open and listen on port 68/udp. Therefore, the machine running this plugin must not be running a dhcp client listening on port 68/udp, like `systemd-networkd` for example.
-* Uses standard UDP sockets instead of raw sockets, so this plugin needs to run on a machine that actually has a fixed IP address.
+* Constructs and sends a DHCPDISCOVER UDP packet on port 68 (client) to port 67 (server)
+* If `--hostname` is specified, sends to that address; otherwise sends as broadcast
+* Supports DHCP option 1 (Subnet Mask) and option 118 (Subnet Selection, RFC 3011) for targeting specific subnets
+* Waits for a DHCPOFFER response matching the transaction ID
+* Extracts the offered IP address, server ID, subnet mask, and broadcast address from the response
+
+**Compatibility:**
+
+* Linux (requires root or sudo to bind to port 68/udp)
+
+**Important Notes:**
+
+* May take three or more seconds to run depending on the DHCP server's response time
+* The machine running this plugin must not have a DHCP client listening on port 68/udp (for example `systemd-networkd`)
+* Uses standard UDP sockets (not raw sockets), so the machine must have a fixed IP address
+* The MAC address can be specified (`--mac`), randomized (`--mac=random`), or auto-detected from the local hardware
 
 
 ## Fact Sheet
@@ -16,6 +29,7 @@ Hints:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dhcp-relayed> |
+| Nagios/Icinga Check Name              | `check_dhcp_relayed` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -80,8 +94,11 @@ DHCPDISCOVER: MAC=52540024b33a Host=192.168.122.1 Network=192.168.122.0/255.255.
 
 ## States
 
-* WARN if a "Socket timeout" occurs, perhaps because the DHCP pool is exhausted, does not exist, or similar.
-* WARN if the returned IP address is 0.0.0.0.
+* OK if the DHCP server responds with a valid DHCPOFFER containing a non-zero IP address.
+* WARN if the offered IP address is `0.0.0.0`.
+* WARN if a socket timeout occurs (the DHCP pool may be exhausted, may not exist, or similar).
+* UNKNOWN on permission errors (missing root/sudo), OS errors, or invalid `--subnet-mask`/`--subnet-selection` values.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
@@ -92,9 +109,7 @@ There is no perfdata.
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
-
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).
-
-* Credits:  
+* Credits:
   - inspired by [check_dhcp_relayed](https://exchange.nagios.org/directory/Plugins/Network-Protocols/DHCP-and-BOOTP/check_dhcp_relayed/details)
   - inspired by <https://code.activestate.com/recipes/577649-dhcp-query/>

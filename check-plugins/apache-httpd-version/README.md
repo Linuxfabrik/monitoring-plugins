@@ -2,13 +2,18 @@
 
 ## Overview
 
-This plugin lets you track if Apache httpd is End-of-Life (EOL). To compare against the current/installed version of Apache httpd, the check has to run on the Apache httpd server itself.
+Checks the installed Apache httpd version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Data Collection:**
 
-Hints:
+* Detects the installed Apache httpd version by running `httpd -v` (RHEL) or `apache2 -v` (Debian-based systems)
+* Queries the [endoflife.date API](https://endoflife.date/api/apache.json) to determine EOL status and available releases
+* Caches the API response in a local SQLite database to reduce network calls
 
-* Runs on all systems where the Apache is named either "httpd" or "apache2".
+**Compatibility:**
+
+* Runs on all systems where the Apache binary is named either `httpd` or `apache2`
+* Must run on the Apache httpd server itself to detect the installed version
 
 
 ## Fact Sheet
@@ -16,10 +21,11 @@ Hints:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/apache-httpd-version> |
+| Nagios/Icinga Check Name              | `check_apache_httpd_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 
 
 ## Help
@@ -74,17 +80,20 @@ Apache httpd v2.4.37 (EOL unknown, patch 2.4.57 available)
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* OK if the installed version is not EOL and no newer releases are flagged.
+* WARN if the installed version is EOL (or will be within `--offset-eol` days, default: -30).
+* WARN if `--check-major` is set and a newer major version is available.
+* WARN if `--check-minor` is set and a newer minor version is available.
+* WARN if `--check-patch` is set and a newer patch version is available.
+* UNKNOWN if Apache httpd is not found.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| apache-httpd-version | Number | Installed Apache httpd version as float. "2.2.34" becomes "2.234". |
+| apache-httpd-version | Number | Installed Apache httpd version as float, e.g. "2.4.57" becomes "2.457". |
 
 
 ## Credits, License

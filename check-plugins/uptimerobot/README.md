@@ -2,7 +2,24 @@
 
 ## Overview
 
-Alerts on all monitors in down or unknown status on a given UptimeRobot status page.
+Monitors all configured monitors on a given [UptimeRobot](https://uptimerobot.com/) status page. Reports the number of monitors in up, down, and paused states, along with the 24-hour uptime ratio.
+
+**Alerting Logic:**
+
+* OK if all monitors are in "success" state
+* WARN if any monitor is in "danger" state (down)
+* UNKNOWN for monitors in any other state (e.g. paused)
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Fetches the HTML of the UptimeRobot status page to extract the internal API path
+* Then fetches the monitor list JSON from the discovered API endpoint
+* Reports per-monitor name, type, and state in a table
+
+**Compatibility:**
+
+* Any public UptimeRobot status page (e.g. `https://status.linuxfabrik.io`)
 
 
 ## Fact Sheet
@@ -10,7 +27,7 @@ Alerts on all monitors in down or unknown status on a given UptimeRobot status p
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/uptimerobot> |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
 
@@ -59,17 +76,19 @@ Name                      ! Type    ! State
 
 ## States
 
+* OK if all monitors are in "success" state.
 * WARN if any monitor is in "danger" state.
-* OK if all monitors are in "success" state, else UNKNOWN.
+* UNKNOWN for monitors in any other state.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name       | Type   | Description                          |
-|------------|--------|--------------------------------------|
-| cnt_down   | Number | Number of monitors in "down" state   |
+| Name | Type | Description |
+|----|----|----|
+| cnt_down | Number | Number of monitors in "down" state |
 | cnt_paused | Number | Number of monitors in "paused" state |
-| cnt_up     | Number | Number of monitors in "up" state     |
+| cnt_up | Number | Number of monitors in "up" state |
 
 
 ## Credits, License

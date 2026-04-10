@@ -2,28 +2,40 @@
 
 ## Overview
 
-Using the Veeam Enterprise Manager API (requires a Veeam Enterprise license), it checks Veeam for failed VMs or jobs, jobs that are running too long, and overuse of backup repositories. It also provides information on
+Monitors a Veeam Backup & Replication environment via the Veeam Enterprise Manager REST API. Checks for failed VMs and jobs, jobs running longer than expected, and backup repository usage. Also reports backup infrastructure component status and recent job results in a summary table.
 
-* Backup infrastructure components and backup and replication jobs performed (API: `/reports/summary/overview`)
-* Jobs run, their status and duration (API: `/reports/summary/job_statistics`)
-* Backed up and replicated VMs, available recovery points (API: `/reports/summary/vms_overview`)
-* Backup repositories, their capacity, free space, and size of backup files (API: `/reports/summary/repository`)
+**Alerting Logic:**
 
-Notes:
+* CRIT if `FailedJobRuns` exceeds the configured threshold (default: > 0)
+* CRIT if `FailedVmLastestStates` exceeds the configured threshold (default: > 0)
+* WARN if `WarningsJobRuns` exceeds the configured threshold (default: > 0)
+* WARN if `WarningVmLastestStates` exceeds the configured threshold (default: > 0)
+* WARN if `MaxBackupJobDuration` exceeds the configured limit (default: > 86400 seconds / 24 hours)
+* WARN if `MaxReplicaJobDuration` exceeds the configured limit (default: > 86400 seconds / 24 hours)
+* WARN or CRIT if backup repository disk usage exceeds the configured thresholds (default: 80/90%)
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Queries the Veeam Enterprise Manager REST API endpoints: `/reports/summary/overview`, `/reports/summary/job_statistics`, `/reports/summary/vms_overview`, `/reports/summary/repository`
+* Authenticates via the Veeam session token mechanism using `--username` and `--password`
+
+**Important Notes:**
 
 * This check uses the Veeam Enterprise Manager API, not that of an individual Backup & Replication server.
-* An **Enterprise License** may be required to take full advantage of the RESTful API functionality.
-* Also make sure that the account you use to access REST has sufficient privileges.
-* The check always accepts self-signed Veeam certificates.
+* An Enterprise License may be required to take full advantage of the RESTful API functionality.
+* Make sure that the account you use to access REST has sufficient privileges.
+* The check always accepts self-signed Veeam certificates (`--insecure` defaults to True).
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/veeam-status> |
+| Nagios/Icinga Check Name              | `check_veeam_status` |
 | Check Interval Recommendation         | Every 8 hours |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--username` and `--password` are required) |
 | Compiled for Windows                  | No |
 | Requirements                          | Veeam Enterprise License |
 
@@ -86,7 +98,13 @@ options:
 ## Usage Examples
 
 ```bash
-./veeam-status --username Administrator --password password --timeout 3 --warning 80 --critical 90 --url https://veeam:9398
+./veeam-status \
+    --username=Administrator \
+    --password=password \
+    --timeout=3 \
+    --warning=80 \
+    --critical=90 \
+    --url=https://veeam:9398
 ```
 
 Output:
@@ -129,49 +147,50 @@ WarningVmLastestStates      ! 3 [WARNING]
 
 ## States
 
-* WARN or CRIT if disk usage in any backup repository is above the given thresholds (percentages)
-* CRIT if number of FailedJobRuns \> 0
-* CRIT if number of FailedVmLastestStates \> 0
-* WARN if number of WarningsJobRuns \> 0
-* WARN if number of WarningVmLastestStates \> 0
-* WARN if duration of MaxBackupJobDuration \> 24h
-* WARN if duration of MaxReplicaJobDuration \> 24h
+* CRIT if `FailedJobRuns` > `--failed-job-runs` (default: 0).
+* CRIT if `FailedVmLastestStates` > `--failed-vm-lastest-states` (default: 0).
+* WARN if `WarningsJobRuns` > `--warnings-job-runs` (default: 0).
+* WARN if `WarningVmLastestStates` > `--warning-vm-lastest-states` (default: 0).
+* WARN if `MaxBackupJobDuration` > `--max-backup-job-duration` (default: 86400 seconds).
+* WARN if `MaxReplicaJobDuration` > `--max-replica-job-duration` (default: 86400 seconds).
+* WARN or CRIT if backup repository usage >= `--warning` (default: 80%) or >= `--critical` (default: 90%).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| Repo Usage \<Reponame\> | Percentage | Disk Usage of Backup Repo |
-| Repo Capacity \<Reponame\> | Bytes | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_repository.html?ver=110> |
-| Repo FreeSpace \<Reponame\> | Bytes | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_repository.html?ver=110> |
-| Repo BackupSize \<Reponame\> | Bytes | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_repository.html?ver=110> |
-| BackedUpVms | Number | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_vms_overview.html?ver=110> |
-| BackupServers | Number | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_overview.html?ver=110> |
-| FailedJobRuns | Number | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_statistics.html?ver=110> |
-| FailedVmLastestStates | Number | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_overview.html?ver=110> |
-| FullBackupPointsSize | Bytes | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_vms_overview.html?ver=110> |
-| IncrementalBackupPointsSize | Bytes | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_vms_overview.html?ver=110> |
-| MaxBackupJobDuration | Seconds | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_statistics.html?ver=110> |
-| MaxJobDuration | Seconds | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_statistics.html?ver=110> |
-| MaxReplicaJobDuration | Seconds | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_statistics.html?ver=110> |
-| ProtectedVms | Number | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_vms_overview.html?ver=110> |
-| ProxyServers | Number | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_overview.html?ver=110> |
-| ReplicaRestorePointsSize | Bytes | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_vms_overview.html?ver=110> |
-| ReplicatedVms | Number | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_vms_overview.html?ver=110> |
-| RepositoryServers | Number | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_overview.html?ver=110> |
-| RestorePoints | Number | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_vms_overview.html?ver=110> |
-| RunningJobs | Number | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_statistics.html?ver=110> |
-| ScheduledBackupJobs | Number | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_statistics.html?ver=110> |
-| ScheduledJobs | Number | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_statistics.html?ver=110> |
-| ScheduledReplicaJobs | Number | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_statistics.html?ver=110> |
-| SourceVmsSize | Bytes | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_vms_overview.html?ver=110> |
-| SuccessBackupPercents | Percentage | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_vms_overview.html?ver=110> |
-| SuccessfulJobRuns | Number | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_statistics.html?ver=110> |
-| SuccessfulVmLastestStates | Number | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_overview.html?ver=110> |
-| TotalJobRuns | Number | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_statistics.html?ver=110> |
-| WarningsJobRuns | Number | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_statistics.html?ver=110> |
-| WarningVmLastestStates | Number | <https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_overview.html?ver=110> |
+| BackedUpVms | Number | Number of backed up VMs. |
+| BackupServers | Number | Number of backup servers. |
+| FailedJobRuns | Number | Number of failed job runs. |
+| FailedVmLastestStates | Number | Number of VMs in failed state. |
+| FullBackupPointsSize | Bytes | Size of full backup restore points. |
+| IncrementalBackupPointsSize | Bytes | Size of incremental backup restore points. |
+| MaxBackupJobDuration | Seconds | Duration of the longest backup job. |
+| MaxJobDuration | Seconds | Duration of the longest job overall. |
+| MaxReplicaJobDuration | Seconds | Duration of the longest replica job. |
+| ProtectedVms | Number | Number of protected VMs. |
+| ProxyServers | Number | Number of proxy servers. |
+| Repo BackupSize REPONAME | Bytes | Used backup size per repository. |
+| Repo Capacity REPONAME | Bytes | Total capacity per repository. |
+| Repo FreeSpace REPONAME | Bytes | Free space per repository. |
+| Repo Usage REPONAME | Percentage | Disk usage per repository. |
+| ReplicaRestorePointsSize | Bytes | Size of replica restore points. |
+| ReplicatedVms | Number | Number of replicated VMs. |
+| RepositoryServers | Number | Number of repository servers. |
+| RestorePoints | Number | Number of restore points. |
+| RunningJobs | Number | Number of currently running jobs. |
+| ScheduledBackupJobs | Number | Number of scheduled backup jobs. |
+| ScheduledJobs | Number | Number of scheduled jobs. |
+| ScheduledReplicaJobs | Number | Number of scheduled replica jobs. |
+| SourceVmsSize | Bytes | Total size of source VMs. |
+| SuccessBackupPercents | Percentage | Backup success rate. |
+| SuccessfulJobRuns | Number | Number of successful job runs. |
+| SuccessfulVmLastestStates | Number | Number of VMs in successful state. |
+| TotalJobRuns | Number | Total number of job runs. |
+| WarningVmLastestStates | Number | Number of VMs in warning state. |
+| WarningsJobRuns | Number | Number of job runs with warnings. |
 
 
 ## Credits, License

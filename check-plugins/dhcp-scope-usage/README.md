@@ -2,13 +2,24 @@
 
 ## Overview
 
-Checks the IPv4 scope usage for a Windows DHCP server service using the PowerShell command `Get-DhcpServerv4ScopeStatistics -ComputerName "dhcpServer.contoso.com"`. Have a look at <https://docs.microsoft.com/en-us/powershell/module/dhcpserver/get-dhcpserverv4scopestatistics> for details.
+Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and queries scope statistics using PowerShell. Alerts when the address pool usage of any scope exceeds the configured thresholds (default: WARN at 80%, CRIT at 90%).
 
-If you provide `--winrm-hostname`, the check plugin will execute all Powershell commands via WinRM, otherwise it will run locally. This allows the plugin to run on Linux servers as well.
+**Data Collection:**
 
-Hints:
+* Executes the PowerShell cmdlet `Get-DhcpServerv4ScopeStatistics -ComputerName "<hostname>"` via WinRM on the target Windows server
+* Parses the `PercentageInUse` field for each scope (handles locale-dependent decimal separators by truncating the fraction)
+* Reports each scope individually with its usage percentage
 
-* Set the plugin timeout to 30 seconds.
+**Compatibility:**
+
+* Windows DHCP Server (requires the DhcpServer PowerShell module)
+* Can be executed remotely from Linux via WinRM (`--winrm-hostname`)
+
+**Important Notes:**
+
+* Set the plugin timeout to 30 seconds, as WinRM connections can be slow
+* The `--hostname` parameter specifies which DHCP server to query (can differ from the WinRM target)
+* Running directly on Linux without `--winrm-hostname` is not supported
 
 
 ## Fact Sheet
@@ -16,11 +27,11 @@ Hints:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dhcp-scope-usage> |
+| Nagios/Icinga Check Name              | `check_dhcp_scope_usage` |
 | Check Interval Recommendation         | Every 15 minutes |
-| Can be called without parameters      | Yes |
+| Can be called without parameters      | No (`--winrm-hostname` and `--winrm-password` are required) |
 | Compiled for Windows                  | Yes |
-| Requirements                          | PowerShell |
-| 3rd Party Python modules              | optionally Python module `winrm` if you want to execute it via WinRM |
+| 3rd Party Python modules              | `winrm` (for remote execution via WinRM) |
 
 
 ## Help
@@ -44,8 +55,7 @@ options:
   --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold in percent. Default: >= 90
   -H, --hostname HOSTNAME
-                        Specifies the DNS name, or IPv4 or IPv6 address, of
-                        the target computer that runs the DHCP server service.
+                        DNS name, IPv4, or IPv6 address of the DHCP server.
                         Default: localhost
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
@@ -66,16 +76,10 @@ options:
 
 ## Usage Examples
 
-Local usage:
+Remote usage, for example from a Linux server:
 
 ```bash
-./dhcp-scope-usage
-```
-
-Remote usage, for example on a Linux server:
-
-```bash
-./dhcp-scope-usage3 \
+./dhcp-scope-usage \
     --hostname=dhcp01.example.com \
     --winrm-hostname=10.80.32.246 \
     --winrm-username=Administrator \
@@ -97,15 +101,18 @@ There are one or more criticals.
 
 ## States
 
-* WARN if PowerShell cmdlet's return code is not equal to 0.
-* WARN or CRIT if any DHCP scopy usage in percent is above a given threshold.
+* OK if all DHCP scope usage percentages are below the thresholds.
+* WARN if the PowerShell cmdlet returns a non-zero exit code.
+* WARN if any DHCP scope usage is >= `--warning` (default: 80%).
+* CRIT if any DHCP scope usage is >= `--critical` (default: 90%).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name          | Type       | Description                                    |
-|---------------|------------|------------------------------------------------|
-| scope_SCOPEID | Percentage | The IP address range usage for the DHCP scope. |
+| Name | Type | Description |
+|----|----|----|
+| scope_SCOPEID | Percentage | The address pool usage for the DHCP scope identified by SCOPEID (for example `scope_192.168.122.0`). |
 
 
 ## Credits, License

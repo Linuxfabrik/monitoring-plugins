@@ -2,47 +2,42 @@
 
 ## Overview
 
-Checks the network throughput over a period of time. The check tracks the maximum throughput and warns if the throughput over the last n readings is above a certain percentage (by default 80/90% over the last 5 readings). This works similar to Load5, but at the network I/O level.
+Monitors network I/O throughput per interface over time. Calculates bytes per second from cumulative counters using SQLite state persistence between runs. Alerts only if bandwidth thresholds have been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes. Also reports packet rates, errors, and drops per interface.
 
-Network I/O always starts with 10 MiB/sec, but stores the highest measured throughput (rx + tx), so it adjusts the `rxtx-max/s` value accordingly. For this reason, this check takes some time to warm up its (cached) readings: The check will throw some warnings and criticals during the first major network activity above 10Mib/sec until the maximum throughput of the network has been determined.
+**Alerting Logic:**
 
-Example: The result of `./network-io --count 5 --warning 80 --critical 90` could look like this:
+* WARN or CRIT if the throughput averaged over the last n measured values (default: 5) exceeds the specified percentage (default: 80%/90%) of the all-time maximum throughput recorded for that interface
+* The check does not alert on short spikes; only sustained high throughput over the configured number of measurements triggers an alert
+* Network I/O starts with an assumed maximum of 10 MiB/sec per interface, and adjusts upward as higher throughput is observed. This means the check may produce warnings during the first major network activity above 10 MiB/sec until the actual maximum throughput has been determined.
 
-```text
-wlp0s20f3: 28.1MiB/s rx, 5.6KiB/s tx (current)
+**Data Collection:**
 
-Interface ! rxtx-max/s ! rx1/s   ! tx1/s  ! rx5/s    ! tx5/s  ! rxtx5/s  
-----------+------------+---------+--------+----------+--------+----------
-tun0      ! 10.0MiB    ! 0.0B    ! 0.0B   ! 2.8B     ! 7.8B   ! 10.6B    
-tun2      ! 10.0MiB    ! 183.0B  ! 106.0B ! 2.9B     ! 7.9B   ! 10.8B    
-wlp0s20f3 ! 30.0MiB    ! 28.1MiB ! 5.6KiB ! 25.1 MiB ! 2.9KiB ! 25.1MiB [WARNING]
-```
+* Uses `psutil.net_io_counters()` to collect bytes sent/received, packets, errors, and drops per interface
+* Uses SQLite state persistence between runs to calculate deltas (bytes per second)
+* On the first run, returns "Waiting for more data." until at least two measurements are available
+* After a system reboot, counter values may be lower than the previous measurement. The check detects this (negative delta) and returns "Waiting for more data." until the next valid measurement pair.
+* The all-time maximum throughput per interface is stored in the cache and never decreases automatically
 
-The first line always shows the interface with the currently highest throughput (here `wlp0s20f3`).
+**Compatibility:**
 
-The table columns mean:
+* Cross-platform: Linux, Windows, and all psutil-supported systems
 
-* rxtx-max: Here, a maximum throughput of 30.0 MiB/sec was determined.
-* rx1, tx1: The current throughput is 28.1 MiB/sec (receive) and 5.6 KiB/sec (transmit).
-* rx5, tx5: The throughput from now to 5 measured values in the past is 25.1 MiB/sec (receive) and 2.9 KiB/sec (transmit).
-* rxtx5: Compared to the current values, there was a higher throughput for a while. Since a maximum of 30.0 MB/sec throughput has been measured for this network so far, a mean throughput (rxtx5) value of 25.1 MB/sec results in a warning (`25.1 MB/sec >= 30.0 MB/sec * 80%`). The current value of 28.1 MiB/sec doesn't matter, this is only a peak. The check alerts because there is unusual high network I/O over a certain amount of time.
+**Important Notes:**
 
-Hints:
-
-* `--count=5` (the default) while checking every minute means that the check reports a warning if any of your interfaces were above a threshold in the last 5 minutes.
-* The check uses the SQLite databases `$TEMP/linuxfabrik-monitoring-plugins-network-io.db` to store its historical data.
+* `--count=5` (the default) while checking every minute means that the check reports a warning if any of your interfaces were above a threshold in the last 5 minutes
+* Interfaces starting with `lo` are ignored by default; use `--ignore` to exclude additional interfaces
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/network-io> |
+| Nagios/Icinga Check Name              | `check_network_io` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
-| Handles Periods                       | Yes |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-network-io.db` |
 
 
@@ -94,32 +89,48 @@ tun2      ! 10.0MiB    ! 183.0B  ! 106.0B ! 2.9B     ! 7.9B   ! 10.8B
 wlp0s20f3 ! 30.0MiB    ! 28.1MiB ! 5.6KiB ! 25.1 MiB ! 2.9KiB ! 25.1MiB [WARNING]
 ```
 
+The first line always shows the interface with the currently highest throughput. The table columns mean:
+
+* `rxtx-max/s`: The maximum throughput ever measured for this interface.
+* `rx1/s`, `tx1/s`: The current throughput (receive and transmit).
+* `rx5/s`, `tx5/s`: The averaged throughput over the last 5 measured values.
+* `rxtx5/s`: The combined rx+tx throughput over the period. This is what gets compared against the threshold.
+
 
 ## States
 
-* WARN or CRIT if the throughput over the last n measured values is above a certain percentage, compared to the all time maximum throughput of this interface.
+* OK if throughput over the measured period is below the warning threshold for all interfaces.
+* OK with "Waiting for more data." on the first run or after a reboot.
+* WARN or CRIT if the throughput over the last n measured values exceeds the specified percentage of the all-time maximum throughput.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-Per network:
+Per interface:
 
 | Name | Type | Description |
 |----|----|----|
 | \<interface\>\_bytes_recv | Continous Counter | Number of bytes received. |
-| \<interface\>\_bytes_recv_per_second1 | Bytes | Current number of bytes received. |
-| \<interface\>\_bytes_recv_per_second15 | Bytes | Current number of bytes received. |
+| \<interface\>\_bytes_recv_per_second1 | Bytes | Current bytes received per second. |
+| \<interface\>\_bytes_recv_per_second15 | Bytes | Averaged bytes received per second over the configured count. |
 | \<interface\>\_bytes_sent | Continous Counter | Number of bytes sent. |
-| \<interface\>\_bytes_sent_per_second1 | Bytes | Current number of bytes sent. |
-| \<interface\>\_bytes_sent_per_second15 | Bytes | Current number of bytes sent. |
+| \<interface\>\_bytes_sent_per_second1 | Bytes | Current bytes sent per second. |
+| \<interface\>\_bytes_sent_per_second15 | Bytes | Averaged bytes sent per second over the configured count. |
 | \<interface\>\_dropin | Continous Counter | Total number of incoming packets which were dropped. |
 | \<interface\>\_dropout | Continous Counter | Total number of outgoing packets which were dropped (always 0 on macOS and BSD). |
 | \<interface\>\_errin | Continous Counter | Total number of errors while receiving. |
 | \<interface\>\_errout | Continous Counter | Total number of errors while sending. |
 | \<interface\>\_packets_recv | Continous Counter | Number of packets received. |
 | \<interface\>\_packets_sent | Continous Counter | Number of packets sent. |
-| \<interface\>\_throughput1 | None | Bytes per second. bytes_recv_per_second1 + bytes_sent_per_second1. |
-| \<interface\>\_throughput15 | None | Bytes per second. bytes_recv_per_second15 + bytes_sent_per_second15. |
+| \<interface\>\_throughput1 | None | Current bytes per second (bytes_recv_per_second1 + bytes_sent_per_second1). |
+| \<interface\>\_throughput15 | None | Averaged bytes per second over the configured count. |
+
+
+## Troubleshooting
+
+`Waiting for more data.`
+This is expected on the first run or after a reboot. The check needs at least two measurements to calculate a delta. Wait for the next check interval.
 
 
 ## Credits, License

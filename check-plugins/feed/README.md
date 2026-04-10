@@ -2,9 +2,23 @@
 
 ## Overview
 
-This check warns on the newest feed item of an RSS or Atom feed for a given amount of time (default: 3 days). By default the check warns on the newest item published today or older (use `--latest` to change this behaviour). It strips HTML from the feed message.
+Monitors an RSS or Atom feed for new entries and alerts when new items appear within a configurable time window (default: 3 days). If Icinga callback is enabled, the alert is automatically cleared once the corresponding service is acknowledged in Icinga. After the time window expires, the alert clears regardless of acknowledgement status.
 
-With this check, you can acknowledge the warning in IcingaWeb, so that the check changes back to OK. To enable the check plugin to get the ACK status from Icinga and therefore automatically switch to OK, you have to create an Icinga API User like so:
+**Data Collection:**
+
+* Fetches and parses the RSS or Atom feed from the configured URL using the built-in `feedparser` library
+* By default, selects the newest feed item published today or older. Use `--latest` to always pick the newest item, even if its timestamp is in the future
+* HTML is stripped from the feed message
+* If `--icinga-callback` is enabled, the check queries the Icinga API for the service acknowledgement state and auto-clears alerts when the service is acknowledged. This requires an Icinga API user with `objects/query/service` permissions
+
+**Compatibility:**
+
+* Cross-platform: Linux, Windows, and all Python-supported systems
+
+**Important Notes:**
+
+* Set a reasonable check interval. Usually it is a waste of bandwidth to poll feeds more often than once per hour
+* To use the Icinga callback feature, create an Icinga API user:
 
 ```text
 object ApiUser "linuxfabrik-check-api-user" {
@@ -13,20 +27,18 @@ object ApiUser "linuxfabrik-check-api-user" {
 }
 ```
 
-Please remember to set a reasonable check interval time. Usually it is a waste of bandwidth to poll feeds more often than each hour.
-
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/feed> |
+| Nagios/Icinga Check Name              | `check_feed` |
 | Check Interval Recommendation         | Once an hour, or every 4 hours |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `BeautifulSoup4` (Version 4) with Python module `lxml` |
-| Handles Periods                       | Yes |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-feed.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-feed.db` |
 
 
 ## Help
@@ -90,12 +102,12 @@ Output:
 This is an important news item from a RSS feed. (2h 15m ago)
 ```
 
-## Feed examples
+Feed examples:
 
 Heise Security Feed (German):
 
 * Feed: <https://www.heise.de/security/rss/alert-news-atom.xml>
-* Run every hour, during office hours only (8 to 18 o'clock, Mo to Fr) - more often makes no sense
+* Run every hour, during office hours only (8 to 18 o'clock, Mo to Fr)
 * Warn for 4 hours (240 minutes)
 * Usage: `./feed`
 
@@ -104,14 +116,16 @@ Icinga2 Releases Feed on GitHub:
 * Feed: <https://github.com/Icinga/icinga2/releases.atom>
 * Run once or twice a day
 * Warn for 24 hours (1440 minutes)
-* No summary please, just the title (the new version string)
+* No summary, just the title (the new version string)
 * Usage: `./feed --url https://github.com/Icinga/icinga2/releases.atom --no-summary --warn 1440`
 
 
 ## States
 
-* WARN if current feed item is not acknowledged and not older than a given threshold.
-* Otherwise always returns OK.
+* OK if the feed has no entries or the newest entry is older than `--warning` (default: 4320 minutes / 3 days).
+* OK if `--icinga-callback` is enabled and the corresponding Icinga service has been acknowledged.
+* WARN if a feed item is newer than `--warning` (default: 4320 minutes / 3 days) and has not been acknowledged.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
@@ -121,15 +135,18 @@ There is no perfdata.
 
 ## Troubleshooting
 
-Python module "BeautifulSoup4" is not installed.  
+`Python module "BeautifulSoup4" is not installed.`  
 ```bash
 sudo -u icinga python3 -m pip install --user BeautifulSoup4
 ```
 
-Couldn't find a tree builder with the features you requested: xml. Do you need to install a parser library?  
+`Couldn't find a tree builder with the features you requested: xml. Do you need to install a parser library?`  
 ```bash
 sudo -u icinga python3 -m pip install --user lxml
 ```
+
+`--icinga-callback requires --icinga-url, --icinga-password, --icinga-username and --icinga-service-name`  
+When using `--icinga-callback`, all four Icinga connection parameters must be specified.
 
 
 ## Credits, License

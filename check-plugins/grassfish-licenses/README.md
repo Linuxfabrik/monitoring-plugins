@@ -2,11 +2,20 @@
 
 ## Overview
 
-The Grassfish Platform offers a unified way to manage Digital Signage touchpoints. This check plugin warns if no more Grassfish licenses are available, using the Grassfish API. You must provide both the Grassfish hostname and a Grassfish token for this check to work.
+Monitors available Grassfish digital signage licenses via the Grassfish API. Alerts when no more licenses of any type are available. Requires a Grassfish hostname and API token.
 
-Hints:
+**Data Collection:**
 
-* May take more than 10 seconds to execute.
+* Queries the Grassfish API (`/gv2/webservices/API` by default) to retrieve all license types and their availability
+* Reports total, used, and available license counts per type
+
+**Compatibility:**
+
+* Tested with Grassfish API v1.12
+
+**Important Notes:**
+
+* May take more than 10 seconds to execute depending on the API response time. Consider increasing `--timeout` if needed.
 
 
 ## Fact Sheet
@@ -14,8 +23,9 @@ Hints:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/grassfish-licenses> |
-| Check Interval Recommendation         | Once an hour |
-| Can be called without parameters      | No |
+| Nagios/Icinga Check Name              | `check_grassfish_licenses` |
+| Check Interval Recommendation         | Every hour |
+| Can be called without parameters      | No (`--hostname` and `--token` are required) |
 | Compiled for Windows                  | No |
 
 
@@ -75,19 +85,23 @@ AdvancedPlayer   ! 25/150 (125 available)
 
 ## States
 
-* WARN, if no further license of any type is available
+* OK if all license types have at least one available license.
+* WARN if no more licenses of any type are available.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name                                | Type   | Description                    |
-|-------------------------------------|--------|--------------------------------|
-| grassfish_lic_player_used           | Number | Player licenses used           |
-| grassfish_lic_dsplayerentry_used    | Number | DsPlayerEntry licenses used    |
-| grassfish_lic_dsplayeradvanced_used | Number | DsPlayerAdvanced licenses used |
-| grassfish_lic_dsplayerpro_used      | Number | DsPlayerPro licenses used      |
-| grassfish_lic_entryplayer_used      | Number | EntryPlayer licenses used      |
-| grassfish_lic_advancedplayer_used   | Number | AdvancedPlayer licenses used   |
+| Name | Type | Description |
+|----|----|----|
+| grassfish_lic_advancedplayer_used | Number | AdvancedPlayer licenses used. |
+| grassfish_lic_dsplayeradvanced_used | Number | DsPlayerAdvanced licenses used. |
+| grassfish_lic_dsplayerentry_used | Number | DsPlayerEntry licenses used. |
+| grassfish_lic_dsplayerpro_used | Number | DsPlayerPro licenses used. |
+| grassfish_lic_entryplayer_used | Number | EntryPlayer licenses used. |
+| grassfish_lic_player_used | Number | Player licenses used. |
+
+Note: Metric names are dynamically generated from the license type name (lowercased). The exact names depend on the license types returned by the API.
 
 
 ## Credits, License

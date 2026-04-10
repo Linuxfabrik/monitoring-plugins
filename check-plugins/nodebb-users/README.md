@@ -2,16 +2,20 @@
 
 ## Overview
 
-Get NodeBB users.
+Monitors NodeBB user statistics via the admin API, including total user count, admins, and banned users.
 
-The Plugin uses the Read API and Bearer Authentication. You need to issue a bearer token of type "user" in the NodeBB admin panel in order to grant access to the API. In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.
+**Data Collection:**
 
-To create a Bearer Token, do this:
+* Queries the NodeBB Read API endpoint `/api/admin/manage/users` using Bearer Authentication
+* Reports the total user count, the latest active user, and a table with user ID, slug, last online timestamp, banned status, admin flag, and IP address
 
-* Settings \> API Access \> Create Token \> Specify your User ID and Description (for example "Linuxfabrik API Token").
+**Alerting Logic:**
 
-Hints:
+* Alerts according to the given severity (default: WARN) if a user gets banned
 
+**Important Notes:**
+
+* You need to issue a bearer token of type "user" in the NodeBB admin panel: Settings > API Access > Create Token > Specify your User ID and Description (for example "Linuxfabrik API Token"). In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.
 * NodeBB Read API: <https://docs.nodebb.org/api/read/>
 * Requires NodeBB v1.14.4+.
 
@@ -19,12 +23,12 @@ Hints:
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-users> |
+| Nagios/Icinga Check Name              | `check_nodebb_users` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--token` is required) |
 | Compiled for Windows                  | No |
-| Requirements                          | NodeBB v1.14.4+ |
 
 
 ## Help
@@ -76,14 +80,16 @@ uid ! userslug         ! lastonline                        ! banned ! admin ! ip
 
 ## States
 
-* Alerts according to the given severity (default: WARN) if a user gets banned.
+* OK if no users are banned.
+* WARN or CRIT (depending on `--severity`, default: WARN) if a user is banned.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name  | Type   | Description     |
-|-------|--------|-----------------|
-| users | Number | Number of users |
+| Name | Type | Description |
+|----|----|----|
+| users | Number | Total number of registered users. |
 
 
 ## Credits, License

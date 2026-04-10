@@ -2,23 +2,25 @@
 
 ## Overview
 
-This check plugin returns the peer statistics of the Starface PBX.
+Reports SIP peer statistics of a Starface PBX, including online/offline counts for both monitored and unmonitored peers.
 
-It uses the data output of the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring), which was originally written for Check_MK and listens on port 6556. Supports both IPv4 and IPv6. Fetched data is cached up to one minute, so that other Starface plugins running in parallel do not query the data again and overload the PBX.
+**Data Collection:**
 
-Special features of this check:
+* Connects via socket to the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) on port 6556
+* Supports both IPv4 (default) and IPv6
+* Fetched data is cached for up to one minute in a shared SQLite database, so that multiple Starface checks running in parallel do not overload the PBX
 
-* Connects directly via Socket.
-* IPv4 (default), IPv6 capable.
-* Fetched data is cached up to one minute and shared between other monitoring plugins dealing with Starface PBX, so that those checks running in parallel do not query the data again and overload the PBX.
+**Compatibility:**
+
+* Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
 
 
 ## Fact Sheet
 
 | Fact | Value |
 |----|----|
-| Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/starface-peer-status> |
-| Check Interval Recommendation         | Once a minute |
+| Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/starface-peer-stats> |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
 | Requirements                          | [Monitoring module for Starface PBX](https://wiki.fluxpunkt.de/display/FPW/Monitoring) |
@@ -57,7 +59,7 @@ options:
 ## Usage Examples
 
 ```bash
-./starface-peer-status --cache-expire 1 --hostname mypbx --port 6556 --timeout 3
+./starface-peer-stats --cache-expire 1 --hostname mypbx --port 6556 --timeout 3
 ```
 
 Output:
@@ -74,13 +76,13 @@ Output:
 
 ## Perfdata / Metrics
 
-| Name          | Type    | Description                         |
-|---------------|---------|-------------------------------------|
-| mon_offline   | Counter | Number of monitored offline peers   |
-| mon_online    | Counter | Number of monitored online peers    |
-| sip_peers     | Counter | Number of SIP peers                 |
-| unmon_offline | Counter | Number of unmonitored offline peers |
-| unmon_online  | Counter | Number of unmonitored online peers  |
+| Name | Type | Description |
+|----|----|----|
+| mon_offline | Number | Number of monitored offline peers |
+| mon_online | Number | Number of monitored online peers |
+| sip_peers | Number | Total number of SIP peers |
+| unmon_offline | Number | Number of unmonitored offline peers |
+| unmon_online | Number | Number of unmonitored online peers |
 
 
 ## Credits, License

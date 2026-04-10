@@ -2,16 +2,26 @@
 
 ## Overview
 
-Performs a DNS lookup and converts a hostname to one or more IP addresses. Only the name servers configured on the machine running this check plugin (for example those in `/etc/resolv.conf`) will be queried - you can't query other DNS servers. When no arguments or options are given, the check tries to resolve *localhost*, and the full range of results for any available protocol is returned.
+Performs a DNS lookup and resolves a hostname to one or more IP addresses. Queries the name servers configured on the local machine (e.g. those listed in /etc/resolv.conf). Measures and alerts on the lookup response time. Works with both IPv4 and IPv6.
 
-This command works with both IPv4 and IPv6.
+**Data Collection:**
+
+* Uses Python's `socket.getaddrinfo()` to perform DNS resolution
+* Only the name servers configured on the machine running this check are queried - you cannot query other DNS servers
+* When no arguments are given, the check tries to resolve `localhost` on port 53, and the full range of results for any available protocol is returned
+* The connection type can be narrowed down using `--type` (udp, udp6, tcp, tcp6)
+
+**Compatibility:**
+
+* Cross-platform: Linux, Windows, and all Python-supported systems
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dns> |
+| Nagios/Icinga Check Name              | `check_dns` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | Yes |
@@ -61,16 +71,18 @@ Lookup for webserver.linuxfabrik.ch returns 192.168.26.43 (tcp4:53), 192.168.26.
 
 ## States
 
-* WARN on socket errors, address related errors, network timeouts.
-* WARN or CRIT if you provide thresholds for the DNS lookup time duration.
-* Otherwise OK.
+* OK if the hostname resolves successfully and the lookup time is below the thresholds.
+* WARN on socket errors, address-related errors, or network timeouts.
+* WARN if the DNS lookup time is >= `--warning`.
+* CRIT if the DNS lookup time is >= `--critical`.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name | Type         | Description     |
-|------|--------------|-----------------|
-| time | Milliseconds | DNS lookup time |
+| Name | Type | Description |
+|----|----|----|
+| time | Seconds | DNS lookup time in milliseconds. |
 
 
 ## Credits, License

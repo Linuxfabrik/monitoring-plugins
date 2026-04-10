@@ -2,24 +2,38 @@
 
 ## Overview
 
-Checks the System Event Log (SEL) of the Redfish Manager collection. Returns an alert based on the severity of the messages.
+Checks the System Event Log (SEL) of Redfish-compatible servers via the Redfish API. Returns an alert based on the severity of the log entries. Supports multiple vendors with vendor-specific SEL paths.
 
-Tested on:
+**Alerting Logic:**
 
-* DELL iDRAC
-* DMTF Simulator
+* WARN if any SEL entry has severity "Warning"
+* CRIT if any SEL entry has severity "Critical"
+* `--always-ok` suppresses all alerts and always returns OK
 
-Hints:
+**Data Collection:**
 
-* This check runs with both http and https. It just uses GET requests.
+* Queries `/redfish/v1/` to detect the vendor (AMI, Avigilon, Cisco, Dell, HPE, Lenovo, Supermicro, TS Fujitsu, or generic)
+* Uses the appropriate entry point (`Managers` or `Systems` depending on vendor) and vendor-specific LogServices SEL path
+* Uses HTTP Basic authentication if `--username` and `--password` are provided
+
+**Important Notes:**
+
+* This check runs with both HTTP and HTTPS. It uses GET requests only.
 * No additional Python Redfish modules need to be installed.
+
+**Compatibility:**
+
+* Tested on DELL iDRAC and DMTF Simulator
+* Vendor support: AMI, Avigilon, Cisco, Dell, HPE/HP, Lenovo, Supermicro, TS Fujitsu, and generic Redfish implementations
+* Linux only
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redfish-sel> |
+| Nagios/Icinga Check Name              | `check_redfish_sel` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -72,9 +86,10 @@ Member: /redfish/v1/Managers/iDRAC.Embedded.1
 
 ## States
 
-* CRIT if severity of the message is equal to "Critical".
-* WARN if severity of the message is equal to "Warning".
-* Otherwise returns OK.
+* OK if no SEL entries with severity "Warning" or "Critical" are found.
+* WARN if any SEL entry has severity "Warning".
+* CRIT if any SEL entry has severity "Critical".
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

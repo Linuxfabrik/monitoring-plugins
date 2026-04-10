@@ -2,20 +2,37 @@
 
 ## Overview
 
-This check command tests the restic repository for errors and reports any errors it finds. In contrast to the `restic check` sub-command it cannot be used to read all data and therefore simulate a restore.
+Verifies the integrity of a restic backup repository by running `restic check`. Alerts when the repository contains errors or inconsistencies. In contrast to the interactive `restic check` sub-command, it cannot be used to read all data and therefore simulate a restore.
 
-`restic-check` will always load all data directly from the repository and not use a local cache, so take into account that this might take several minutes to execute, especially if the restic repository is corrupted.
+**Alerting Logic:**
 
-Refer to the [online manual](https://restic.readthedocs.io/en/latest/index.html) for more details about restic.
+* WARN if the exit status of `restic check` is non-zero
+* WARN if the output of `restic check` does not contain "no errors"
+
+**Data Collection:**
+
+* Executes `restic --json --repo=... --password-file=... check`
+* Always loads all data directly from the repository and does not use a local cache, so execution may take several minutes, especially if the repository is corrupted
+* If the output exceeds 10 lines, it is shortened to the first 5 and last 5 lines
+
+**Important Notes:**
+
+* Requires root or sudo
+* Refer to the [online manual](https://restic.readthedocs.io/en/latest/index.html) for more details about restic
+
+**Compatibility:**
+
+* Linux
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/restic-check> |
+| Nagios/Icinga Check Name              | `check_restic_check` |
 | Check Interval Recommendation         | Once a day |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--repo` is required) |
 | Compiled for Windows                  | No |
 
 
@@ -66,8 +83,9 @@ Fatal: repository contains errors
 
 ## States
 
-* WARN if exit status of `restic check` != 0
-* WARN if output of `restic check` does not contain `no errors`
+* OK if `restic check` exits with 0 and the output contains "no errors".
+* WARN if exit status of `restic check` != 0.
+* WARN if output of `restic check` does not contain "no errors".
 
 
 ## Perfdata / Metrics

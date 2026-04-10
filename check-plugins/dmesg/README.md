@@ -2,18 +2,31 @@
 
 ## Overview
 
-Kernel messages are written to a preallocated ring buffer known as the dmesg buffer. A ring buffer is a sequential memory structure, where data overflow starts at the top of the buffer. Over time, newer messages fill the buffer and overwrite original messages, but the buffer never grows in size. This plugin checks the Kernel Ring Buffer for emerg, alert, crit and err messages using `dmesg`, and if the parameter `--severity` has not been ommitted, always returns CRIT if something is found.
+Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, alert, crit, and err. Known false positives and hardware-specific noise are filtered out by default. To clear reported messages after resolving the underlying issue, run "dmesg --clear". Requires root or sudo.
 
-Some very common dmesg messages are ignored, for example `Assuming drive cache: write through` (should be a debug message) or `ioctl error in smb2_get_dfs_refer rc=-5` (a bug as stated in <https://access.redhat.com/solutions/3496971>).
+**Data Collection:**
 
-Be aware that the reported timestamps could be inaccurate. The time source used for dmesg is not updated after system SUSPEND/RESUME. Timestamps are adjusted according to current delta between boottime and monotonic clocks, this works only for messages printed after last resume.
+* Executes `dmesg --level=emerg,alert,crit,err --ctime` to read the kernel ring buffer
+* Known false positives are filtered out by default, including common harmless messages such as "Assuming drive cache: write through", "ioctl error in smb2_get_dfs_refer rc=-5", and various KVM/EFI/SMBus messages
+* Additional messages can be excluded using the `--ignore` parameter (case-sensitive, repeatable)
+* If more than 10 error lines are found, the output is shortened to the first 5 and last 5 lines
+
+**Compatibility:**
+
+* Linux only
+
+**Important Notes:**
+
+* The reported timestamps may be inaccurate. The time source used for dmesg is not updated after system SUSPEND/RESUME. Timestamps are adjusted according to the current delta between boottime and monotonic clocks, which only works for messages printed after the last resume
+* The kernel ring buffer is a fixed-size circular buffer. Over time, newer messages overwrite older ones, so errors that have been resolved and whose messages have been overwritten will no longer be reported
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dmesg> |
+| Nagios/Icinga Check Name              | `check_dmesg` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -85,7 +98,9 @@ Output:
 
 ## States
 
-* CRIT or state given by `--severity` if any of emerg, alert, crit and err messages in dmesg are found.
+* OK if no emerg, alert, crit, or err messages are found in the kernel ring buffer (after filtering).
+* CRIT (or the severity given by `--severity`) if any such messages are found.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

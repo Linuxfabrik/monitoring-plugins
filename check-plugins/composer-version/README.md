@@ -2,9 +2,22 @@
 
 ## Overview
 
-This plugin lets you track if composer is End-of-Life (EOL). To compare against the current/installed version of composer, the check has to run on the machine running composer itself.
+Checks the installed Composer version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Data Collection:**
+
+* Runs `composer --version` at the configured `--path` (default: `/usr/bin/composer`) to determine the installed version
+* Queries the endoflife.date API (`https://endoflife.date/api/composer.json`) for lifecycle data
+* Caches API responses locally in an SQLite database to reduce network requests
+
+**Compatibility:**
+
+* Linux (requires Composer to be installed locally)
+
+**Important Notes:**
+
+* The check must run on the machine where Composer is installed
+* Optionally alerts on available major, minor, or patch releases independently of EOL status via `--check-major`, `--check-minor`, and `--check-patch`
 
 
 ## Fact Sheet
@@ -12,10 +25,11 @@ This check plugin alerts n days before or after the EOL date is reached. Optiona
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/composer-version> |
+| Nagios/Icinga Check Name              | `check_composer_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 
 
 ## Help
@@ -72,17 +86,20 @@ composer v2.6.4 (EOL 2024-02-08 -30d [WARNING], minor 2.7.2 available, patch 2.6
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* OK if the installed version is not EOL and no newer releases are flagged.
+* WARN if the installed version is EOL (including the `--offset-eol` window, default: 30 days before EOL date).
+* WARN if `--check-major` is set and a newer major version is available.
+* WARN if `--check-minor` is set and a newer minor version is available.
+* WARN if `--check-patch` is set and a newer patch version is available.
+* UNKNOWN if the Composer binary is not found at `--path`.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| composer-version | Number | Installed composer version as float. "2.7.1" becomes "2.71". |
+| composer-version | Number | Installed Composer version as float. For example, "2.7.1" becomes "2.71". |
 
 
 ## Credits, License

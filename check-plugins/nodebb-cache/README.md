@@ -2,16 +2,21 @@
 
 ## Overview
 
-Get NodeBB system cache info.
+Monitors NodeBB cache usage via the admin API. Alerts when cache utilization exceeds the configured thresholds.
 
-The Plugin uses the Read API and Bearer Authentication. You need to issue a bearer token of type "user" in the NodeBB admin panel in order to grant access to the API. In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.
+**Data Collection:**
 
-To create a Bearer Token, do this:
+* Queries the NodeBB Read API endpoint `/api/admin/advanced/cache` using Bearer Authentication
+* Reports status, usage percentage, size, hit/miss counts and hit ratio for each cache: `postCache`, `groupCache`, `localCache`, `objectCache`
 
-* Settings \> API Access \> Create Token \> Specify your User ID and Description (for example "Linuxfabrik API Token").
+**Alerting Logic:**
 
-Hints:
+* Alerts according to the given severity (default: WARN) if any cache is disabled
+* Alerts if cache usage is above the percentage thresholds (default: 80/90%)
 
+**Important Notes:**
+
+* You need to issue a bearer token of type "user" in the NodeBB admin panel: Settings > API Access > Create Token > Specify your User ID and Description (for example "Linuxfabrik API Token"). In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.
 * NodeBB Read API: <https://docs.nodebb.org/api/read/>
 * Requires NodeBB v1.14.4+.
 
@@ -19,12 +24,12 @@ Hints:
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-cache> |
+| Nagios/Icinga Check Name              | `check_nodebb_cache` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--token` is required) |
 | Compiled for Windows                  | No |
-| Requirements                          | NodeBB v1.14.4+ |
 
 
 ## Help
@@ -79,20 +84,23 @@ objectCache ! True    ! 5.97%  ! 2.4K / 40.0K  ! 3.2M   ! 147.5K ! 95.6%
 
 ## States
 
-* Alerts according to the given severity (default: WARN) if any cache is disabled.
-* Alerts if cache usage is above the percentage thresholds (default: 80/90%).
+* OK if all caches are enabled and usage is below the warning threshold.
+* WARN if any cache is disabled (configurable via `--severity`).
+* WARN if cache usage is >= `--warning` (default: 80).
+* CRIT if cache usage is >= `--critical` (default: 90).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| cache_CACHENAME_hitRatio | Percentage | According to the Web GUI /forum/admin/advanced/cache |
-| cache_CACHENAME_hits | Continous Counter | According to the Web GUI /forum/admin/advanced/cache |
-| cache_CACHENAME_itemCount | Number | According to the Web GUI /forum/admin/advanced/cache |
-| cache_CACHENAME_length | Continous Counter | According to the Web GUI /forum/admin/advanced/cache |
-| cache_CACHENAME_misses | Continous Counter | According to the Web GUI /forum/admin/advanced/cache |
-| cache_CACHENAME_percentFull | Percentage | According to the Web GUI /forum/admin/advanced/cache |
+| cache_CACHENAME_hitRatio | Percentage | Cache hit ratio. |
+| cache_CACHENAME_hits | Continuous Counter | Number of cache hits. |
+| cache_CACHENAME_itemCount | Number | Number of items in the cache. |
+| cache_CACHENAME_length | Number | Current cache size. |
+| cache_CACHENAME_misses | Continuous Counter | Number of cache misses. |
+| cache_CACHENAME_percentFull | Percentage | Cache usage in percent. |
 
 
 ## Credits, License

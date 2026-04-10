@@ -2,35 +2,31 @@
 
 ## Overview
 
-The OpenStack Object Store project, known as Swift, offers cloud storage software so that you can store and retrieve lots of data with a simple API. This monitoring plugin displays and checks information for a Swift account and depending Swift containers.
+Checks OpenStack Swift object storage account statistics, including total container count, object count, and bytes used. Alerts when storage usage exceeds the configured thresholds.
 
-You have to provide a path to an rc file to authenticate. A working rc file might look like this:
+**Data Collection:**
 
-```text
-export OS_AUTH_URL=https://linuxfabrik.cloud/identity/v3
-export OS_IDENTITY_API_VERSION=3
-export OS_INTERFACE=public
-export OS_PROJECT_DOMAIN_NAME=default
-export OS_PROJECT_ID=492a82d9-003a-4f52-8891-406eb19d0573
-export OS_PROJECT_NAME=MYPROJECT
-export OS_REGION_NAME=default
-export OS_USER_DOMAIN_NAME=default
-export OS_USERNAME=MYUSER
-OS_PASSWORD='linuxfabrik'
-[ -z "$OS_PASSWORD" ] && read -e -p "Please enter your OpenStack Password for project $OS_PROJECT_NAME as user $OS_USERNAME: " OS_PASSWORD
-export OS_PASSWORD
-```
+* Authenticates to the OpenStack Swift API using credentials from an rc file
+* Reports account-level statistics: container count, object count, total bytes used, and account quota
+* Reports per-container statistics: item count, quota, usage, and remaining free space
 
-Hints:
+**Alerting Logic:**
 
-* Might take more than 10 seconds to execute.
+* If a quota is set on a container, alerts when the remaining free space drops below the configured thresholds (default: 50 GiB for WARN, 10 GiB for CRIT)
+
+**Important Notes:**
+
+* You have to provide a path to an rc file to authenticate. The rc file should contain standard OpenStack environment variables such as `OS_AUTH_URL`, `OS_USERNAME`, `OS_PASSWORD`, `OS_PROJECT_NAME`, etc.
+* Requires the `python-swiftclient` and `python-keystoneclient` Python modules.
+* Might take more than 10 seconds to execute depending on the number of containers.
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/openstack-swift-stat> |
+| Nagios/Icinga Check Name              | `check_openstack_swift_stat` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -68,7 +64,7 @@ options:
 ## Usage Examples
 
 ```bash
-openstack-swift-stat --rc-file /var/spool/icinga2/rc/.openstack-myproject.rc
+./openstack-swift-stat --rc-file /var/spool/icinga2/rc/.openstack-myproject.rc
 ```
 
 Output:
@@ -87,15 +83,24 @@ Container ! Items  ! Quota    ! Used           ! Free
 
 ## States
 
-* If a quota is set on a container, alerts when there are only a few GB left, as specified by the `--warning` and `--critical` parameters.
+* OK if all containers have sufficient free space (or no quota is set).
+* WARN if a container's remaining free space is <= `--warning` (default: 50 GiB).
+* CRIT if a container's remaining free space is <= `--critical` (default: 10 GiB).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name                      | Type   | Description                        |
-|---------------------------|--------|------------------------------------|
-| \<container-name\>\_items | Number | Number of items in Swift container |
-| \<container-name\>\_used  | Bytes  | Usage in Bytes                     |
+| Name | Type | Description |
+|----|----|----|
+| \<container-name\>\_items | Number | Number of items in the Swift container. |
+| \<container-name\>\_used | Bytes | Bytes used in the Swift container. |
+
+
+## Troubleshooting
+
+`Python module "python-swiftclient" is not installed.`  
+Install `python-swiftclient`: `pip install python-swiftclient python-keystoneclient`.
 
 
 ## Credits, License

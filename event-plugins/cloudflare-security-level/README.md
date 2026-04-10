@@ -1,16 +1,21 @@
-# Event-Plugin cloudflare-security-level
+# Event cloudflare-security-level
 
 ## Overview
 
-Event Plugin: Changes the security level for a zone at Cloudflare to "under_attack" if state of the service - from which this event plugin was called - changes to CRITICAL (even in SOFT state). Changes to "medium" when the state is OK. If the zone/site is in "Under Attack Mode", Cloudflare will display a JavaScript challenge when you visit this website. This event plugin is useful, for example, when the Apache httpd status check reports overuse.
+Changes the Cloudflare security level for one or more zones based on the current Icinga service state. When the service state changes to CRITICAL (even in SOFT state), the security level is set to "under_attack". When the state returns to OK, the security level is set back to "medium". This is useful, for example, when the Apache httpd status check reports overuse, to automatically enable Cloudflare's "Under Attack Mode" which displays a JavaScript challenge to visitors.
+
+**Data Collection:**
+
+* Uses the [Cloudflare API v4](https://api.cloudflare.com/#zone-settings-change-security-level-setting) to change the security level setting per zone
+* Authenticates via `--username` (Cloudflare email) and `--key` (Cloudflare API key)
+* Supports multiple zones via repeated `--zone-id` parameters
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
-| Event Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dummy> |
-| Check Interval Recommendation         | Event Plugin: On state change |
+|----|-----|
+| Event Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/event-plugins/cloudflare-security-level> |
 | Can be called without parameters      | No |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `requests` |
@@ -44,12 +49,26 @@ optional arguments:
 
 ## Usage Examples
 
-```bash
-# enables Cloudflare "Under Attack Mode" for two zones
-./cloudflare-security-level --servicestate CRITICAL --key 1234 --username info@linuxfabrik.ch --zone-id 0815 --zone-id 4711
+Enable Cloudflare "Under Attack Mode" for two zones:
 
-# disables Cloudflare "Under Attack Mode"
-./cloudflare-security-level --servicestate OK --key 1234 --username info@linuxfabrik.ch --zone-id 0815 --zone-id 4711
+```bash
+./cloudflare-security-level \
+    --servicestate=CRITICAL \
+    --key=1234 \
+    --username=info@linuxfabrik.ch \
+    --zone-id=0815 \
+    --zone-id=4711
+```
+
+Disable Cloudflare "Under Attack Mode":
+
+```bash
+./cloudflare-security-level \
+    --servicestate=OK \
+    --key=1234 \
+    --username=info@linuxfabrik.ch \
+    --zone-id=0815 \
+    --zone-id=4711
 ```
 
 

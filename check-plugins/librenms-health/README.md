@@ -2,26 +2,43 @@
 
 ## Overview
 
-This check plugin retrieves sensor information for each device from a LibreNMS instance.
+Retrieves hardware sensor information (temperature, humidity, voltage, power, state, etc.) for each device from a LibreNMS instance and alerts when sensor values exceed their configured thresholds in LibreNMS.
 
-This check requires direct access to the LibreNMS MySQL/MariaDB database, because the API is simply too resource intensive for use in a large scale environment.
+**Alerting Logic:**
 
-Notes:
+* Returns OK, WARN, CRIT, or UNKNOWN based on the sensor's `state_generic_value` in the LibreNMS database (0=OK, 1=WARN, 2=CRIT, 3=UNKNOWN)
+* Sensors with alerting disabled in LibreNMS (`sensor_alert = 0`) are excluded from the query
+* Devices with notifications disabled in LibreNMS (`disable_notify = 1`) are also excluded
 
-* See [additional notes for all monitoring plugins accessing MySQL/MariaDB](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md) on how to configure access to the database.
-* When defining device groups in LibreNMS for use with `--device--group`, do not use slashes in the name, as this will not work. See [this topic for example](https://github.com/laravel/framework/issues/22125).
-* This check could, but does not, return performance data for each device or sensor as LibreNMS provides direct integration with several time series databases such as Graphite, InfluxDB, OpenTSDB, Prometheus and RRDTool. The configuration options can be found in LibreNMS under Settings \> Global Settings \> Poller \> Datastore.
+**Data Collection:**
+
+* Queries the LibreNMS MySQL/MariaDB database directly (the API is too resource-intensive for large-scale environments)
+* Joins `devices`, `sensors`, `sensors_to_state_indexes`, `state_translations`, `device_groups`, and `locations` tables
+* For state-class sensors, displays the state description instead of the raw numeric value
+* For numeric sensors with defined limits, displays the value together with its low/high range
+* Supports filtering by device group (`--device-group`, with SQL wildcards), device hostname (`--device-hostname`, repeatable), and device type (`--device-type`, repeatable)
+* In default (compact) mode, only sensors with alerts are shown; use `--lengthy` to display all sensors with extended details (type, location, sensor class, last update time)
+
+**Compatibility:**
+
+* Requires access to the LibreNMS MySQL/MariaDB database
+
+**Important Notes:**
+
+* See [additional notes for all monitoring plugins accessing MySQL/MariaDB](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md) on how to configure database access.
+* When defining device groups in LibreNMS for use with `--device-group`, do not use slashes in the name (see [this topic](https://github.com/laravel/framework/issues/22125)).
+* This check does not return per-device or per-sensor performance data because LibreNMS provides direct integration with time series databases (Graphite, InfluxDB, OpenTSDB, Prometheus, RRDTool) under Settings > Global Settings > Poller > Datastore.
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/librenms-health> |
+| Nagios/Icinga Check Name              | `check_librenms_health` |
 | Check Interval Recommendation         | Once an hour |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--defaults-file` with valid MySQL/MariaDB credentials is required) |
 | Compiled for Windows                  | No |
-| Requirements                          | Access to LibreNMS' MySQL/MariaDB database. User with no privileges, locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |
 
 
@@ -69,73 +86,48 @@ options:
 ## Usage Examples
 
 ```bash
-./librenms-health '--timeout' '3' --defaults-file=/var/spool/icinga2/.my.cnf --device-group="%storage%"
+./librenms-health --defaults-file=/var/spool/icinga2/.my.cnf --device-group="%storage%"
 ```
 
 Output:
 
 ```text
-Checked 113 devices. There are 4 alerts.
+There are 4 alerts. Checked 113 sensors.
 
-Hostname     ! SysName  ! Sensor                      ! Val (Range)       ! State     
--------------+----------+-----------------------------+-------------------+-----------
-192.0.2.10   ! synoRZ01 ! System                      ! 33.0 (23.0..53.0) ! [OK]      
-192.0.2.11   ! synoRZ02 ! System                      ! Normal            ! [OK]      
-192.0.2.11   ! synoRZ02 ! Power                       ! Normal            ! [OK]      
-192.0.2.11   ! synoRZ02 ! FAN - System                ! Normal            ! [OK]      
-192.0.2.11   ! synoRZ02 ! FAN - CPU                   ! Normal            ! [OK]      
-192.0.2.11   ! synoRZ02 ! Upgrade Availability        ! Unavailable       ! [OK]      
-192.0.2.11   ! synoRZ02 ! Volume 1                    ! Normal            ! [OK]      
-192.0.2.11   ! synoRZ02 ! Disk 17 MZILT1T9HAJQ/007    ! NotInitialized    ! [WARNING] 
-192.0.2.11   ! synoRZ02 ! Disk 18 MZILT1T9HAJQ/007    ! NotInitialized    ! [WARNING] 
-192.0.2.11   ! synoRZ02 ! Disk 1 MZILT1T9HAJQ/007     ! Normal            ! [OK]      
-192.0.2.11   ! synoRZ02 ! Disk 2 MZILT1T9HAJQ/007     ! Normal            ! [OK]      
-192.0.2.11   ! synoRZ02 ! Disk 3 MZILT1T9HAJQ/007     ! Normal            ! [OK]      
-192.0.2.11   ! synoRZ02 ! Disk 4 MZILT1T9HAJQ/007     ! Normal            ! [OK]      
-192.0.2.11   ! synoRZ02 ! System                      ! 40.0              ! [OK]      
-192.0.2.11   ! synoRZ02 ! Disk 17 MZILT1T9HAJQ/007    ! 32.0 (22.0..52.0) ! [OK]      
-192.0.2.11   ! synoRZ02 ! Disk 18 MZILT1T9HAJQ/007    ! 32.0 (22.0..52.0) ! [OK]      
-192.0.2.11   ! synoRZ02 ! Disk 1 MZILT1T9HAJQ/007     ! 25.0 (23.0..53.0) ! [OK]      
-192.0.2.11   ! synoRZ02 ! Disk 2 MZILT1T9HAJQ/007     ! 25.0 (23.0..53.0) ! [OK]      
-192.0.2.11   ! synoRZ02 ! Disk 3 MZILT1T9HAJQ/007     ! 25.0 (23.0..53.0) ! [OK]      
-192.0.2.11   ! synoRZ02 ! Disk 4 MZILT1T9HAJQ/007     ! 25.0 (23.0..53.0) ! [OK]      
-storinator02 ! synoRZ04 ! System                      ! Normal            ! [OK]      
-storinator02 ! synoRZ04 ! Power                       ! Normal            ! [OK]      
-storinator02 ! synoRZ04 ! FAN - System                ! Normal            ! [OK]      
-storinator02 ! synoRZ04 ! FAN - CPU                   ! Normal            ! [OK]      
-storinator02 ! synoRZ04 ! Upgrade Availability        ! Available         ! [WARNING] 
-storinator02 ! synoRZ04 ! Volume 1                    ! Normal            ! [OK]      
-storinator02 ! synoRZ04 ! Disk 6 ST4000NM0035-1V4107  ! Normal            ! [OK]      
-storinator02 ! synoRZ04 ! Disk 2 WD4002FYYZ-01B7CB1   ! Normal            ! [OK]      
-storinator02 ! synoRZ04 ! Disk 5 WD4000FYYZ-01UL1B3   ! NotInitialized    ! [WARNING] 
-storinator02 ! synoRZ04 ! Disk 1 WD4000FYYZ-01UL1B3   ! Normal            ! [OK]      
-storinator02 ! synoRZ04 ! Disk 4 WD4002FYYZ-01B7CB1   ! Normal            ! [OK]      
-storinator02 ! synoRZ04 ! Disk 3 WD4000FYYZ-01UL1B3   ! Normal            ! [OK]      
-storinator02 ! synoRZ04 ! System                      ! 47.0              ! [OK]      
-storinator02 ! synoRZ04 ! Disk 6 ST4000NM0035-1V4107  ! 36.0 (26.0..56.0) ! [OK]      
-storinator02 ! synoRZ04 ! Disk 2 WD4002FYYZ-01B7CB1   ! 38.0 (27.0..57.0) ! [OK]      
-storinator02 ! synoRZ04 ! Disk 5 WD4000FYYZ-01UL1B3   ! 36.0 (26.0..56.0) ! [OK]      
-storinator02 ! synoRZ04 ! Disk 1 WD4000FYYZ-01UL1B3   ! 36.0 (25.0..55.0) ! [OK]      
-storinator02 ! synoRZ04 ! Disk 4 WD4002FYYZ-01B7CB1   ! 36.0 (27.0..57.0) ! [OK]      
-storinator02 ! synoRZ04 ! Disk 3 WD4000FYYZ-01UL1B3   ! 35.0 (25.0..55.0) ! [OK]
-...
+Hostname     ! SysName  ! Sensor                   ! Val (Range)        ! State
+-------------+----------+--------------------------+--------------------+-----------
+192.0.2.11   ! synoRZ02 ! Disk 17 MZILT1T9HAJQ/007 ! NotInitialized     ! [WARNING]
+192.0.2.11   ! synoRZ02 ! Disk 18 MZILT1T9HAJQ/007 ! NotInitialized     ! [WARNING]
+storinator02 ! synoRZ04 ! Upgrade Availability     ! Available          ! [WARNING]
+storinator02 ! synoRZ04 ! Disk 5 WD4000FYYZ-01UL1B3 ! NotInitialized    ! [WARNING]
 ```
 
-The `--lengthy` switch reports Hostname, SysName, Type, Location, Sensor, Class, Changed, Val (Range) and State.
+With `--lengthy`:
+
+```text
+There are 4 alerts. Checked 113 sensors.
+
+Hostname     ! SysName  ! Type    ! Location ! Sensor                   ! Class       ! Changed ! Val (Range)        ! State
+-------------+----------+---------+----------+--------------------------+-------------+---------+--------------------+-----------
+192.0.2.11   ! synoRZ02 ! storage ! DC1      ! Disk 17 MZILT1T9HAJQ/007 ! state       ! 2h 15m  ! NotInitialized     ! [WARNING]
+...
+```
 
 
 ## States
 
-* OK, WARN, CRIT or UNKNOWN according to the same sensor state in LibreNMS
-* OK if you disable the alerting for a particular sensor in LibreNMS
+* OK if all sensor values are within their LibreNMS-configured thresholds.
+* WARN, CRIT, or UNKNOWN based on the sensor's `state_generic_value` in LibreNMS (mirrors the alert state from LibreNMS).
+* Sensors with alerting disabled in LibreNMS are excluded and do not affect the check state.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name         | Type   | Description             |
-|--------------|--------|-------------------------|
-| sensor_count | Number | Number of sensors found |
-| alert_count  | Number | Number of sensor alerts |
+| Name | Type | Description |
+|----|----|----|
+| alert_count | Number | Number of sensor alerts. |
+| sensor_count | Number | Number of sensors checked. |
 
 
 ## Credits, License

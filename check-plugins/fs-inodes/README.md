@@ -2,9 +2,25 @@
 
 ## Overview
 
-Checks the percentage of inode space used. To do this, this plugin fetches a list of local devices that are in use and have a filesystem on them. Filesystems that do not report inode usage (e.g. btrfs) are skipped.
+Checks the percentage of used inodes on local filesystems. Fetches a list of local devices that are in use and have a filesystem. Filesystems that do not report inode usage (such as btrfs or some network filesystems) are skipped automatically. Alerts when inode usage exceeds the configured thresholds.
 
-If you get an alert, use <span class="title-ref">find \$MOUNT -xdev -printf '%hn' \| sort \| uniq --count \| sort --key=1 --numeric-sort --reverse \| head -n 10</span> to find where inodes are being used. This finds the 10 directories under \$MOUNT that have the most files inside them.
+**Alerting Logic:**
+
+* Compares inode usage percentage per mount point against `--warning` and `--critical` thresholds
+* Each mount point is evaluated independently; the overall state is the worst of all mount points
+
+**Data Collection:**
+
+* Uses `os.statvfs()` on each local disk mount point to read total and free inode counts
+* Discovers local disk devices via `lib.disk.get_real_disks()`
+
+**Compatibility:**
+
+* Linux
+
+**Important Notes:**
+
+* If you get an alert, use `find $MOUNT -xdev -printf '%h\n' | sort | uniq --count | sort --key=1 --numeric-sort --reverse | head -n 10` to find the 10 directories under `$MOUNT` that consume the most inodes
 
 
 ## Fact Sheet
@@ -12,6 +28,7 @@ If you get an alert, use <span class="title-ref">find \$MOUNT -xdev -printf '%hn
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fs-inodes> |
+| Nagios/Icinga Check Name              | `check_fs_inodes` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -51,14 +68,25 @@ Output:
 
 ## States
 
-* WARN or CRIT if inode usage is above a given threshold.
+* OK if inode usage on all mount points is below `--warning` (default: 90%).
+* WARN if inode usage on any mount point is >= `--warning` (default: 90%).
+* CRIT if inode usage on any mount point is >= `--critical` (default: 95%).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-For each mount:
+For each mount point (e.g. `/`, `/tmp`, `/boot`):
 
-* inode usage (%)
+| Name | Type | Description |
+|----|----|----|
+| `<mount-point>` | Percentage | Inode usage in percent for this mount point. |
+
+
+## Troubleshooting
+
+`Everything is ok (although nothing checked).`
+No local disk devices with inode-reporting filesystems were found. This can happen on systems using only btrfs or network-mounted filesystems.
 
 
 ## Credits, License

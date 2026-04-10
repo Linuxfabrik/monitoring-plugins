@@ -2,23 +2,41 @@
 
 ## Overview
 
-The check calls `ipmitool sel elist` to fetch the IPMI System Event Log (SEL). If there are entries, it returns a warning, otherwise everything is expected to be OK. Running this check just makes sense on hardware providing an IPMI interface. Needs sudo.
+Checks the IPMI System Event Log (SEL) for entries and alerts when events are found. Entries can be filtered by regex using `--ignore`. To clear the SEL after resolving issues, run `ipmitool sel clear`. Requires root or sudo.
 
-Hints:
+**Alerting Logic:**
 
-* Tested on Supermicro and HPE iLO
+* Alerts WARN if the SEL contains any entries (after filtering)
+* SEL entries matching any `--ignore` pattern are excluded from alerting
+* An empty SEL (no entries) is considered OK
+
+**Data Collection:**
+
+* Executes `ipmitool sel elist` locally or against a remote BMC/iLO via IPMI over LAN
+* For remote access, supports both IPMI v1.5 (`--interface=lan`) and IPMI v2.0 (`--interface=lanplus`)
+* Output lines are displayed in reverse chronological order with pipe characters replaced by semicolons
+
+**Compatibility:**
+
+* Tested on Supermicro BMC and HPE iLO
+* Requires hardware with an IPMI interface
+
+**Important Notes:**
+
 * `Discrete` sensors support is not implemented.
+* Requires the `ipmitool` command-line tool to be installed.
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ipmi-sel> |
+| Nagios/Icinga Check Name              | `check_ipmi_sel` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Requirements                          | command-line tool `ipmitool` |
+| Requirements                          | `ipmitool` |
 
 
 ## Help
@@ -74,32 +92,17 @@ Output:
 *   16 ; 09/10/2019 ; 21:00:01 ; OS Boot ; Installation started () ; Asserted
 *   15 ; 09/10/2019 ; 20:45:43 ; OS Boot ; Installation started () ; Asserted
 *   14 ; 09/03/2019 ; 21:59:00 ; Unknown #0xff ;  ; Asserted
-*   13 ; 09/03/2019 ; 21:24:49 ; Unknown #0xff ;  ; Asserted
-*   12 ; 09/03/2019 ; 21:23:27 ; Unknown #0xff ;  ; Asserted
-*   11 ; 09/03/2019 ; 21:19:24 ; Unknown #0xff ;  ; Asserted
-*   10 ; 09/03/2019 ; 21:11:20 ; Unknown #0xff ;  ; Asserted
-*    f ; 09/03/2019 ; 21:09:53 ; Unknown #0xff ;  ; Asserted
-*    e ; 09/03/2019 ; 21:08:34 ; Unknown #0xff ;  ; Asserted
 *    d ; 08/26/2019 ; 13:57:02 ; Physical Security Chassis Intru ; General Chassis intrusion () ; Deasserted
 *    c ; 08/17/2019 ; 02:33:33 ; Power Supply PS1 Status ; Failure detected () ; Deasserted
 *    b ; 08/17/2019 ; 02:33:24 ; Power Supply PS1 Status ; Failure detected () ; Asserted
-*    a ; 08/17/2019 ; 02:31:57 ; Power Supply PS1 Status ; Failure detected () ; Deasserted
-*    9 ; 08/17/2019 ; 02:31:44 ; Power Supply PS1 Status ; Failure detected () ; Asserted
-*    8 ; 04/02/2019 ; 14:52:04 ; OS Boot ; Installation completed () ; Asserted
-*    7 ; 04/02/2019 ; 14:46:19 ; OS Boot ; Installation started () ; Asserted
-*    6 ; 03/16/2019 ; 12:16:11 ; OS Boot ; Installation completed () ; Asserted
-*    5 ; 03/16/2019 ; 12:10:02 ; OS Boot ; Installation started () ; Asserted
-*    4 ; 03/16/2019 ; 07:06:24 ; Physical Security Chassis Intru ; General Chassis intrusion () ; Asserted
-*    3 ; 03/13/2019 ; 15:15:34 ; Physical Security Chassis Intru ; General Chassis intrusion () ; Asserted
-*    2 ; 03/13/2019 ; 11:15:43 ; Physical Security Chassis Intru ; General Chassis intrusion () ; Asserted
-*    1 ; 03/12/2019 ; 13:10:45 ; Physical Security Chassis Intru ; General Chassis intrusion () ; Asserted
 ```
 
 
 ## States
 
-* WARN, if SEL has entries.
-* UNKNOWN on `ipmitool` not found or errors running `ipmitool`.
+* OK if the SEL has no entries (or all entries are filtered by `--ignore`).
+* WARN if the SEL contains entries.
+* UNKNOWN if `ipmitool` is not found or returns an error.
 
 
 ## Perfdata / Metrics

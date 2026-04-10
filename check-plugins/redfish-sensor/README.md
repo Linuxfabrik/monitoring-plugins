@@ -2,25 +2,42 @@
 
 ## Overview
 
-Checks the state of the Chassis collection containing resources that represent the physical aspects of the infrastructure. A Chassis is roughly defined as a physical view of a computer system as seen by a human. A single Chassis resource can house sensors, fans, and other components.
+Checks hardware sensor readings (temperature, voltage, fan speed, power) from the Redfish Chassis collection via the Redfish API. Also evaluates fan redundancy status. A Chassis is roughly defined as a physical view of a computer system as seen by a human. A single Chassis resource can house sensors, fans, and other components.
 
-Tested on:
+**Alerting Logic:**
 
-* DELL iDRAC
-* DMTF Simulator
+* WARN if an enabled sensor health or health rollup state is "Warning"
+* WARN if a sensor value exceeds the Redfish non-critical threshold (`Thresholds_UpperCaution`, `Thresholds_LowerCaution`)
+* CRIT if an enabled sensor health or health rollup state is "Critical"
+* CRIT if a sensor value exceeds the Redfish critical threshold (`Thresholds_UpperCritical`, `Thresholds_LowerCritical`)
+* `--always-ok` suppresses all alerts and always returns OK
 
-Hints:
+**Data Collection:**
 
-* A check takes up to 10 seconds. Increasing runtime timout to 30 seconds is recommended.
-* This check runs with both http and https. It just uses GET requests.
+* Queries `/redfish/v1/Chassis` to enumerate chassis members
+* For each member, queries the Sensors collection to read individual sensor values, thresholds, and health status
+* Also queries the Thermal endpoint for fan redundancy information
+* Uses HTTP Basic authentication if `--username` and `--password` are provided
+* Only evaluates sensors and chassis in "Enabled" or "Quiesced" state
+
+**Important Notes:**
+
+* A check takes up to 10 seconds. Increasing runtime timeout to 30 seconds is recommended.
+* This check runs with both HTTP and HTTPS. It uses GET requests only.
 * No additional Python Redfish modules need to be installed.
+
+**Compatibility:**
+
+* Tested on DELL iDRAC and DMTF Simulator
+* Linux only
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redfish-sensor> |
+| Nagios/Icinga Check Name              | `check_redfish_sensor` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -98,12 +115,12 @@ BaseBoard System Fans ! N+m  ! [OK]
 
 ## States
 
-* CRIT if an enabled sensor health rollup state is equal to "Critical".
-* CRIT if an enabled sensor health state is equal to "Critical".
-* CRIT if sensor value is above/below critical threshold given by Redfish (`Thresholds_UpperCritical` and `Thresholds_LowerCritical`).
-* WARN if an enabled sensor health rollup state is equal to "Warning".
-* WARN if an enabled sensor health state is equal to "Warning".
-* WARN if sensor value is above/below Redfish non-critical threshold (`Thresholds_UpperCaution` and `Thresholds_LowerCaution`).
+* OK if all sensors are healthy and within their thresholds.
+* WARN if an enabled sensor health or health rollup state is "Warning".
+* WARN if a sensor value exceeds the Redfish non-critical threshold (`Thresholds_UpperCaution`, `Thresholds_LowerCaution`).
+* CRIT if an enabled sensor health or health rollup state is "Critical".
+* CRIT if a sensor value exceeds the Redfish critical threshold (`Thresholds_UpperCritical`, `Thresholds_LowerCritical`).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

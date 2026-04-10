@@ -2,9 +2,20 @@
 
 ## Overview
 
-Checks some sort metrics on MySQL/MariaDB. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
+Checks sort operations in MySQL/MariaDB, including the rate of sort merge passes that required temporary disk files. A high rate of sort merge passes relative to total sorts indicates that `sort_buffer_size` and/or `read_rnd_buffer_size` may need to be increased.
 
-Hints:
+**Alerting Logic:**
+
+* WARN if more than 10% of sorts required temporary tables (sort merge passes)
+
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for `read_rnd_buffer_size` and `sort_buffer_size`
+* Queries `SHOW GLOBAL STATUS` for `Sort_merge_passes`, `Sort_range`, and `Sort_scan`
+* Calculates the total number of sorts and the percentage that required temporary tables
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
+
+**Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 
@@ -12,12 +23,12 @@ Hints:
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-sorts> |
+| Nagios/Icinga Check Name              | `check_mysql_sorts` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Requirements                          | User with no privileges, locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |
 
 
@@ -63,14 +74,15 @@ Output:
 
 ## States
 
-* WARN if there are more than 10% sort merge passes (sorts requiring temporary tables).
+* WARN if more than 10% of sorts required temporary tables (sort merge passes).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| mysql_pct_temp_sort_table | Percentage | sort_merge_passes / total_sorts \* 100 |
+| mysql_pct_temp_sort_table | Percentage | sort_merge_passes / total_sorts * 100 |
 | mysql_read_rnd_buffer_size | Bytes | Size in bytes of the buffer used when reading rows from a MyISAM table in sorted order after a key sort. |
 | mysql_sort_buffer_size | Bytes | Each session performing a sort allocates a buffer with this amount of memory. Not specific to any storage engine. |
 | mysql_sort_merge_passes | Continous Counter | Number of merge passes performed by the sort algorithm. |
@@ -82,9 +94,6 @@ Output:
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
-
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).
-
 * Credits:
-
     * heavily inspired by MySQLTuner (<https://github.com/major/MySQLTuner-perl>)

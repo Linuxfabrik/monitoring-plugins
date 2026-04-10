@@ -2,25 +2,40 @@
 
 ## Overview
 
-This plugin checks network I/O and link states on all interfaces found on a Forti Appliance like FortiGate running FortiOS, using the FortiOS REST API. Warns on link up/down, speed or duplex change as well as bandwidth saturation. The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".
+Monitors network I/O and link states on all interfaces of FortiGate appliances running FortiOS via the REST API. Alerts only if bandwidth thresholds have been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes. Reports per-interface traffic counters and link status. Authentication uses a single API token (token-based authentication).
 
-Hints:
+**Alerting Logic:**
 
-* `--count=5` (the default) while checking every minute means that the check reports a warning if any interface was above a threshold in the last 5 minutes.
-* Check needs `count` runs to warm up its caches.
-* The check inventorizes your appliance. If you change any of Forti's interfaces, and you want to reset the check's warnings about this, simply delete the `$TEMP/linuxfabrik-monitoring-plugins-fortios-network-io.db` inventory file.
+* WARN if link state, speed rate, or duplex mode for an interface changes compared to the inventorized baseline
+* WARN or CRIT if rx or tx bandwidth saturation (averaged over the last `--count` measurements) exceeds the configured thresholds
+* The check inventorizes your appliance on the first run. If you change any interface and want to reset the warnings, delete the `$TEMP/linuxfabrik-monitoring-plugins-fortios-network-io.db` file
+
+**Data Collection:**
+
+* Queries the FortiOS REST API endpoint `/api/v2/monitor/system/interface/select` to fetch per-interface traffic counters, link state, speed, and duplex mode
+* Uses SQLite state persistence between runs to calculate bandwidth deltas and to track link state changes
+* On the first run, returns "Waiting for more data." until at least two measurements are available
+* `--count=5` (the default) while checking every minute means the check uses a 5-minute sliding window for threshold evaluation
+
+**Compatibility:**
+
+* FortiGate appliances running FortiOS with REST API enabled
+
+**Important Notes:**
+
+* The `--always-ok` parameter is accepted but has no effect (the plugin does not pass it to the output function)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fortios-network-io> |
+| Nagios/Icinga Check Name              | `check_fortios_network_io` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--hostname` and `--password` are required) |
 | Compiled for Windows                  | No |
-| Handles Periods                       | Yes |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-fortios-network-io.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-fortios-network-io.db` |
 
 
 ## Help
@@ -65,10 +80,17 @@ options:
 ./fortios-network-io --hostname fortigate-cluster.linuxfabrik.io --password mypass --count 5 --warning 800000000 --critical 900000000
 ```
 
-Output:
+Output (first run):
+
+```text
+Waiting for more data.
+```
+
+Output (subsequent runs):
 
 ```text
 port8: 338.9KiB/33.4KiB bps (rx/tx, current).
+
 interface   ! rx1bps   ! tx1bps  ! rx5bps   ! tx5bps
 ------------+----------+---------+----------+---------
 mgmt1       ! 2.6KiB   ! 2.5KiB  ! 2.6KiB   ! 2.5KiB
@@ -82,19 +104,29 @@ port8       ! 338.9KiB ! 33.4KiB ! 334.0KiB ! 33.3KiB
 
 ## States
 
-* WARN or CRIT, if network I/O (bps) is greater or equal a given threshold
-* WARN, if link state, speed rate or duplex mode for an interface changes
+* OK if all interfaces are below the warning threshold and no link state changes are detected.
+* OK with "Waiting for more data." on the first run or when insufficient measurements are available.
+* WARN if link state, speed rate, or duplex mode for an interface changes compared to the inventorized baseline.
+* WARN if rx or tx bandwidth saturation (averaged over `--count` measurements) is >= `--warning` (default: 800000000 bps).
+* CRIT if rx or tx bandwidth saturation (averaged over `--count` measurements) is >= `--critical` (default: 900000000 bps).
 
 
 ## Perfdata / Metrics
 
-Depends on your hardware. Example:
+Depends on the interfaces present on your appliance. For each interface (e.g. `port8`):
 
-* `modem_rx1`: Received bytes on this interface since the last check
-* `modem_tx1`: Sent bytes since the last check
-* `modem_rxn`: Received bytes since the last n checks (default: 5)
-* `modem_txn`: Sent bytes since the last n checks
-* ...
+| Name | Type | Description |
+|----|----|----|
+| `<interface>_rx1` | Bytes | Received bytes per second since the last check run. |
+| `<interface>_rxn` | Bytes | Received bytes per second averaged over the last n check runs. |
+| `<interface>_tx1` | Bytes | Sent bytes per second since the last check run. |
+| `<interface>_txn` | Bytes | Sent bytes per second averaged over the last n check runs. |
+
+
+## Troubleshooting
+
+`Waiting for more data.`
+The check needs at least two measurements to calculate a delta. Wait for the next check interval.
 
 
 ## Credits, License

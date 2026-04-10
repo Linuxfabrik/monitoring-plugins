@@ -2,34 +2,39 @@
 
 ## Overview
 
-Checks MySQL/MariaDB log content. The check plugin caches the location of the log in case the DB goes down. The log inspection logic is more or less taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):log_file_recommendations(), v1.9.8, and later on enhanced.
+Scans the MySQL/MariaDB error log for warnings, errors, startup, and shutdown events. Works even when the database is down by reading the log file directly. Uses a cache to remember the log file location in case the database becomes unavailable.
 
-Depending on your site's policy for DB management, you could ignore lines matching the following patterns:
+**Alerting Logic:**
 
-* "aborted connection" (happens pretty often, and might not be worth alerting)
-* "access denied for user" (could be handled automatically by Fail2ban)
+* CRIT if the log contains "error" lines
+* WARN if the log contains "warning" lines
+* WARN if a log file is configured but does not exist
+* WARN if the log file size is >= 32 MiB
 
-Hints:
+**Data Collection:**
+
+* Tries to determine the log file location automatically via `SHOW GLOBAL VARIABLES` (`log_error`, `hostname`, `datadir`), falling back to several well-known paths
+* Supports reading from a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER`, or `systemd:UNITNAME`
+* Caches the log file location in a local SQLite database so the check can still work when the database is down
+* Lines can be filtered out using `--ignore-pattern` (simple string match) or `--ignore-regex` (Python regular expression)
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):log_file_recommendations(), v1.9.8
+
+**Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
-
-* Must be running locally on the MySQL/MariaDB server to be able to check the log.
-
-* Compared to MySQLTuner this check
-
-    * is able to ignore log lines using simple string patterns or Python regular expressions
-    * even checks the log if MySQL/MariaDB is down
+* Must be running locally on the MySQL/MariaDB server to read the log file. Requires root or sudo.
+* Depending on your site's policy, you could ignore lines matching patterns like "aborted connection" (happens frequently) or "access denied for user" (could be handled by Fail2ban)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-logfile> |
+| Nagios/Icinga Check Name              | `check_mysql_logfile` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | No |
 | Compiled for Windows                  | No |
-| Requirements                          | User with no privileges, locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-mysql-logfile.db` |
 
@@ -115,29 +120,30 @@ Shutdowns:
 
 ## States
 
-* CRIT if log contains "error" lines.
-* WARN if log contains "warning" lines.
-* WARN if a log file is configured, but it does not exist.
-* WARN if a log file is configured, and it is \>= 32 MiB in size.
+* CRIT if the log contains "error" lines.
+* WARN if the log contains "warning" lines.
+* WARN if a log file is configured but does not exist.
+* WARN if the log file size is >= 32 MiB.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name                | Type   | Description             |
-|---------------------|--------|-------------------------|
-| mysql_logfile_size  | Bytes  | Logfile size            |
-| mysql_error_lines   | Number | Number of error lines   |
-| mysql_warning_lines | Number | Number of warning lines |
-| mysql_startups      | Number | Number of startups      |
-| mysql_shutdowns     | Number | Number of shutdowns     |
+| Name | Type | Description |
+|----|----|----|
+| mysql_error_lines | Number | Number of error lines found in the log. |
+| mysql_logfile_size | Bytes | Log file size. |
+| mysql_shutdowns | Number | Number of shutdown events found in the log. |
+| mysql_startups | Number | Number of startup events found in the log. |
+| mysql_warning_lines | Number | Number of warning lines found in the log. |
 
 
 ## Troubleshooting
 
-No log file set (set log_error in MySQL/MariaDB config or use the check's `--server-log` parameter).  
+`No log file set (set log_error in MySQL/MariaDB config or use the check's --server-log parameter).`
 The check tried to get information from an error logfile, but was unable to do so. All possible error logfile locations were tried, but no logfile was found. You have to help by configuring the MySQL/MariaDB system variable `log_error` accordingly, or by providing the `--server-log` parameter to the check.
 
-`'proxies_priv' entry '@% root@mariadb-server' ignored in --skip-name-resolve mode.`  
+`'proxies_priv' entry '@% root@mariadb-server' ignored in --skip-name-resolve mode.`
 ```text
 select * from mysql.proxies_priv;
 delete from `mysql`.`proxies_priv`
@@ -148,9 +154,6 @@ where (`host` = 'mariadb-server') and (`user` = 'root') and (`proxied_host` = ''
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
-
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).
-
 * Credits:
-
     * heavily inspired by MySQLTuner (<https://github.com/major/MySQLTuner-perl>)

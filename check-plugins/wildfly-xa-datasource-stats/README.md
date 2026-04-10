@@ -2,31 +2,43 @@
 
 ## Overview
 
-This check plugin returns metrics of XA datasources of a WildFly server, using its HTTP-JSON based API (JBossAS REST Management API). This allows us to monitor the application server without any additional configuration and installation - no need to deploy WAR-Agents like Jolokia. The plugin supports both standalone mode and domain mode.
+Monitors XA datasource connection pool metrics on a WildFly/JBoss AS server via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode. Reports active, available, and idle connections per datasource, including XA transaction counters.
 
-Tested with WildFly 11 and WildFly 23+.
+**Alerting Logic:**
 
-Hints:
+* WARN or CRIT if active or max-used connection pool percentage exceeds the configured thresholds (default: 80/90%)
+* `--always-ok` suppresses all alerts and always returns OK
 
-* See [additional notes for all wildfly monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.md)
+**Data Collection:**
 
-* The check recognizes if a datasource does not support statistics.
+* Queries the WildFly management API at `/subsystem/datasources/xa-data-source/*/statistics/pool/` using the `read-resource` operation with runtime data
+* Authenticates via HTTP Digest Auth (`--username`, `--password`)
+* Specific datasources can be checked using `--datasource` (repeatable); if omitted, all XA datasources are checked
+* The check detects if statistics are not enabled for a datasource and reports this accordingly
+
+**Important Notes:**
 
 * To enable database statistics:
 
     * Open the WildFly Admin Console
-    * Go to Configuration \> Subsystems \> Datasources & Drivers \> Datasources
+    * Go to Configuration > Subsystems > Datasources & Drivers > Datasources
     * Select your datasource
-    * Click on View \> Tab Attributes \> Edit "Statistics Enabled"
+    * Click on View > Tab Attributes > Edit "Statistics Enabled"
+
+**Compatibility:**
+
+* Tested with WildFly 11 and WildFly 23+
+* See [additional notes for all wildfly monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.md)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wildfly-xa-datasource-stats> |
+| Nagios/Icinga Check Name              | `check_wildfly_xa_datasource_stats` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--username` and `--password` are required) |
 | Compiled for Windows                  | No |
 
 
@@ -75,12 +87,16 @@ options:
 
 ## Usage Examples
 
-```bash
-# return stats on all datasources
-./wildfly-xa-datasource-stats --username wildfly-monitoring --password password --url http://wildfly:9990 --warning 80 --critical 90
+Check all datasources:
 
-# return stats on specific datasources
-./wildfly-xa-datasource-stats --username wildfly-monitoring --password password --url http://wildfly:9990 --warning 80 --critical 90 --datasource MyFirstDS --datasource MySecondDS
+```bash
+./wildfly-xa-datasource-stats --username=wildfly-monitoring --password=password --url=http://wildfly:9990 --warning=80 --critical=90
+```
+
+Check specific datasources:
+
+```bash
+./wildfly-xa-datasource-stats --username=wildfly-monitoring --password=password --url=http://wildfly:9990 --warning=80 --critical=90 --datasource=MyFirstDS --datasource=MySecondDS
 ```
 
 Output:
@@ -92,34 +108,34 @@ MyFirstDS: 0.0% active used (0/20), 0.0% max used (0/20); Statistics are not ena
 
 ## States
 
-Triggers an alarm on usage in percent.
-
-* WARN or CRIT if active or max used datapool connections are above certain thresholds (default 80/90%).
+* OK if all connection pool usage percentages are below the warning threshold.
+* WARN or CRIT if active or max-used connection pool percentage is >= `--warning` (default: 80) or >= `--critical` (default: 90).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| xa-ds-NAME-active | Number | The number of active connections. Each of the connections is either in use by an application or available in the pool. |
-| xa-ds-NAME-active-pct Percentage | `xa-ds-<name>-active / xa-ds-<name>-available * 100` |  |
-| xa-ds-NAME-available | Number | The number of available connections in the pool. |
-| xa-ds-NAME-blockingfailurecount | Number |  |
-| xa-ds-NAME-createdcount | Number | The number of connections created. |
-| xa-ds-NAME-destroyedcount | Number | The number of connections destroyed. |
-| xa-ds-NAME-idlecount | Number |  |
-| xa-ds-NAME-inusecount | Number | The number of connections currently in use. |
-| xa-ds-NAME-maxused | Number | The maximum number of connections used. |
-| xa-ds-NAME-maxused-pct | Percentage | `xa-ds-<name>-maxused / xa-ds-<name>-available * 100` |
-| xa-ds-NAME-maxwaitcount | Number | The maximum number of requests waiting for a connection at the same time. |
-| xa-ds-NAME-waitcount | Number | The number of requests that had to wait for a connection. |
-| xa-ds-NAME-xacommitcount | Number |  |
-| xa-ds-NAME-xaendcount | Number |  |
-| xa-ds-NAME-xaforgetcount | Number |  |
-| xa-ds-NAME-xapreparecount | Number |  |
-| xa-ds-NAME-xarecovercount | Number |  |
-| xa-ds-NAME-xarollbackcount | Number |  |
-| xa-ds-NAME-xastartcount | Number |  |
+| xa-ds-NAME-active | Number | Number of active connections (in use or available in the pool). |
+| xa-ds-NAME-active-pct | Percentage | Active connections as percentage of available. |
+| xa-ds-NAME-available | Number | Number of available connections in the pool. |
+| xa-ds-NAME-blockingfailurecount | Number | Number of blocking failures. |
+| xa-ds-NAME-createdcount | Number | Number of connections created. |
+| xa-ds-NAME-destroyedcount | Number | Number of connections destroyed. |
+| xa-ds-NAME-idlecount | Number | Number of idle connections. |
+| xa-ds-NAME-inusecount | Number | Number of connections currently in use. |
+| xa-ds-NAME-maxused | Number | Maximum number of connections used. |
+| xa-ds-NAME-maxused-pct | Percentage | Max used connections as percentage of available. |
+| xa-ds-NAME-maxwaitcount | Number | Maximum number of requests waiting for a connection simultaneously. |
+| xa-ds-NAME-waitcount | Number | Number of requests that had to wait for a connection. |
+| xa-ds-NAME-xacommitcount | Number | Number of XA commit operations. |
+| xa-ds-NAME-xaendcount | Number | Number of XA end operations. |
+| xa-ds-NAME-xaforgetcount | Number | Number of XA forget operations. |
+| xa-ds-NAME-xapreparecount | Number | Number of XA prepare operations. |
+| xa-ds-NAME-xarecovercount | Number | Number of XA recover operations. |
+| xa-ds-NAME-xarollbackcount | Number | Number of XA rollback operations. |
+| xa-ds-NAME-xastartcount | Number | Number of XA start operations. |
 
 Also have a look at <https://access.redhat.com/documentation/en-us/jboss_enterprise_application_platform/6.2/html/administration_and_configuration_guide/datasource_statistics>.
 

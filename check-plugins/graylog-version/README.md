@@ -2,9 +2,21 @@
 
 ## Overview
 
-This plugin lets you track if Graylog is End-of-Life (EOL). To compare against the current/installed version of Graylog, the check has to run on the Graylog server itself.
+Checks the installed Graylog version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Data Collection:**
+
+* Determines the installed Graylog version from the package manager (`yum` on RHEL, `dpkg` on Debian)
+* Compares against the [endoflife.date API](https://endoflife.date/api/graylog.json) to determine EOL status and available updates
+* Caches API responses locally for 24 hours to reduce external requests
+
+**Compatibility:**
+
+* RHEL-based and Debian-based Linux distributions only (must run on the Graylog server itself)
+
+**Important Notes:**
+
+* The check must run locally on the Graylog server because it queries the local package manager for the installed version.
 
 
 ## Fact Sheet
@@ -12,10 +24,11 @@ This check plugin alerts n days before or after the EOL date is reached. Optiona
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/graylog-version> |
-| Check Interval Recommendation         | Once a day |
+| Nagios/Icinga Check Name              | `check_graylog_version` |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 
 
 ## Help
@@ -69,17 +82,20 @@ Graylog v5.0.13 (EOL 2023-10-30 -30d [WARNING], major 6.0.4 available, minor 5.2
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* OK if the installed version is not EOL and no update alerts are configured.
+* WARN if the installed version is EOL (considering `--offset-eol`, default: -30 days).
+* WARN if `--check-major` is set and a new major version is available.
+* WARN if `--check-minor` is set and a new minor version is available.
+* WARN if `--check-patch` is set and a new patch version is available.
+* UNKNOWN if Graylog is not found or the platform is not supported.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| graylog-version | Number | Installed Graylog version as float. "5.0.13" becomes "5.013". |
+| graylog-version | Number | Installed Graylog version as float. For example, "5.0.13" becomes "5.013". |
 
 
 ## Credits, License

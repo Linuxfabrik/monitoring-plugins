@@ -2,28 +2,42 @@
 
 ## Overview
 
-Checks your Infomaniak Swiss Backup product details via the Infomaniak API. To use this check, you have to create a Bearer Token at Infomaniak first.
+Checks Infomaniak Swiss Backup product details via the Infomaniak API. Alerts when products are locked, maintenance window is active, or storage quota is exceeded. Products can be filtered by customer or tag.
 
-The output table is sorted by the "Tags" column.
+**Alerting Logic:**
 
-Hints:
+* Alerts WARN or CRIT when a product's expiration date is within the configured threshold (in days)
+* Alerts WARN (default) or CRIT (if `--severity=crit`) when a product is locked, in maintenance, or has an operation in progress
+* Both `--ignore-*` filters accept Python regular expressions and can be specified multiple times
 
-* In the table output, the column header "Dev" means the number of devices created, "Maint." stands for "Maintenance" and "Busy" for the API result "has_operation_in_progress".
+**Data Collection:**
 
-Links:
+* Queries the Infomaniak API for all Swiss Backup product details
+* Requires a Bearer Token from Infomaniak
+* Output table is sorted by the "Tags" column
+* In the table output, the column header "Dev" means the number of devices created, "Maint." stands for "Maintenance", and "Busy" corresponds to the API field `has_operation_in_progress`
 
-* Swiss Backup: <https://www.infomaniak.com/en/swiss-backup>
-* API Documentation: <https://developer.infomaniak.com/docs/api/get/1/swiss_backups>
-* API Tokens: <https://manager.infomaniak.com/v3/$ACCOUNT_ID/ng/accounts/token>
+**Compatibility:**
+
+* Works with the Infomaniak Swiss Backup API v1
+
+**Important Notes:**
+
+* Links:
+
+    * Swiss Backup: <https://www.infomaniak.com/en/swiss-backup>
+    * API Documentation: <https://developer.infomaniak.com/docs/api/get/1/swiss_backups>
+    * API Tokens: <https://manager.infomaniak.com/v3/$ACCOUNT_ID/ng/accounts/token>
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/infomaniak-swiss-backup-products> |
+| Nagios/Icinga Check Name              | `check_infomaniak_swiss_backup_products` |
 | Check Interval Recommendation         | Once an hour |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--account-id` and `--token` are required) |
 | Compiled for Windows                  | No |
 
 
@@ -95,20 +109,24 @@ ID    ! Customer     ! Tag  ! Size (alloc/avail)  ! Dev ! Maint. ! Locked ! Busy
 
 ## States
 
-* CRIT if `--severity=crit` and one of "Maint.", "Locked" or "Busy" is `True`.
-* WARN if `--severity=warn` (default) and one of "Maint.", "Locked" or "Busy" is `True`.
-* WARN or CRIT if a product expires within a given threshold.
+* OK if all products are within their expiration thresholds and none are locked, in maintenance, or busy.
+* WARN if `--severity=warn` (default) and a product is locked, in maintenance, or has an operation in progress.
+* WARN if a product expires within `--warning` (default: 5) days.
+* CRIT if `--severity=crit` and a product is locked, in maintenance, or has an operation in progress.
+* CRIT if a product expires within `--critical` (default: 3) days.
+* UNKNOWN on invalid command-line arguments.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name                    | Type   | Description                                |
-|-------------------------|--------|--------------------------------------------|
-| \<ID\>-busy             | Number | 0 = not busy, 1 = operation in progress    |
-| \<ID\>-locked           | Number | 0 = unlocked, 1 = locked                   |
-| \<ID\>-maintenance      | Number | 0 = not in maintenance, 1 = in maintenance |
-| \<ID\>-size             | Bytes  | Available Storage Space                    |
-| \<ID\>-storage_reserved | Bytes  | Allocated Storage Space                    |
+| Name | Type | Description |
+|----|----|----|
+| \<ID\>-busy | Number | 0 = not busy, 1 = operation in progress. |
+| \<ID\>-locked | Number | 0 = unlocked, 1 = locked. |
+| \<ID\>-maintenance | Number | 0 = not in maintenance, 1 = in maintenance. |
+| \<ID\>-size | Bytes | Available storage space. |
+| \<ID\>-storage_reserved | Bytes | Allocated storage space. |
 
 
 ## Credits, License

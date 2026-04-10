@@ -2,16 +2,31 @@
 
 ## Overview
 
-This plugin lets you track if OpenVPN is End-of-Life (EOL). To compare against the current/installed version of OpenVPN, the check has to run on the machine running OpenVPN itself.
+Checks the installed OpenVPN version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Data Collection:**
+
+* Executes `openvpn --version` (at the configured `--path`) to determine the installed version
+* Queries the endoflife.date API at `https://endoflife.date/api/openvpn.json` to compare against known EOL dates and available releases
+* Caches the API response in a local SQLite database to reduce network requests
+
+**Alerting Logic:**
+
+* WARN if the installed version has reached or is approaching its EOL date (configurable via `--offset-eol`, default: -30 days)
+* Optional: WARN when a new major, minor, or patch release is available (each independently configurable)
+
+**Compatibility:**
+
+* Linux systems with OpenVPN installed
+* The check must run on the machine running OpenVPN itself to detect the installed version
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/openvpn-version> |
+| Nagios/Icinga Check Name              | `check_openvpn_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -72,17 +87,19 @@ OpenVPN v2.4.12 (full support ended on 2022-03-17; EOL 2023-03-31 -30d [WARNING]
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* OK if the installed version is not EOL and no newer versions are requested.
+* WARN if the installed version is EOL (or approaching EOL within `--offset-eol` days).
+* Optional: WARN when a new major version is available (`--check-major`).
+* Optional: WARN when a new minor version is available (`--check-minor`).
+* Optional: WARN when a new patch version is available (`--check-patch`).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| openvpn-version | Number | Installed OpenVPN version as float. "2.5.11" becomes "2.511". |
+| openvpn-version | Number | Installed OpenVPN version as a float. `2.5.11` becomes `2.511`. |
 
 
 ## Credits, License

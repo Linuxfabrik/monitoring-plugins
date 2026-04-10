@@ -2,24 +2,40 @@
 
 ## Overview
 
-This plugin lets you track if Rocket.Chat is End-of-Life (EOL). To compare against the current/installed version of Rocket.Chat, the check needs URL/API access to the Rocket.Chat server.
+Checks the installed Rocket.Chat version against the endoflife.date API and alerts if the version is end-of-life or if newer releases are available.
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Alerting Logic:**
 
-Hints:
+* WARN if the installed version is EOL (default: 30 days before the official EOL date, configurable via `--offset-eol`)
+* Optional: WARN when a new major, minor, or patch release is available (each independently enabled via `--check-major`, `--check-minor`, `--check-patch`)
+* `--always-ok` suppresses all alerts and always returns OK
 
-* See [Creating an API user account to monitor Rocket.Chat](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-ROCKETCHAT.md).
+**Data Collection:**
+
+* Authenticates against the Rocket.Chat REST API and reads the installed version from the statistics endpoint
+* Supports Rocket.Chat versions before and after 3.0.0 (different API response formats)
+* Queries the endoflife.date API (<https://endoflife.date/api/rocket-chat.json>) and caches the result in a local SQLite database
+
+**Important Notes:**
+
+* Requires a Rocket.Chat user with a strong password and the `view-statistics` permission (only)
+* See [Creating an API user account to monitor Rocket.Chat](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-ROCKETCHAT.md)
+
+**Compatibility:**
+
+* Linux
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/rocketchat-version> |
+| Nagios/Icinga Check Name              | `check_rocketchat_version` |
 | Check Interval Recommendation         | Once a day |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--username` and `--password` are required) |
 | Compiled for Windows                  | No |
-| Requirements                          | Requires a user with strong password and 'view-statistics' permission (only). |
+| Requirements                          | Requires a user with strong password and `view-statistics` permission (only). |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
 
 
@@ -80,10 +96,11 @@ Rocket.Chat v6.13.0 (full support ended on 2024-10-10; EOL 2025-04-30 -30d, majo
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* WARN if the installed version is EOL.
+* Optional: WARN when a new major version is available.
+* Optional: WARN when a new minor version is available.
+* Optional: WARN when a new patch version is available.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

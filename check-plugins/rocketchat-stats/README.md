@@ -2,22 +2,37 @@
 
 ## Overview
 
-This plugin lets you track statistics about a Rocket.Chat server.
+Monitors Rocket.Chat server statistics via the API, including total users, active users, online users, channels, messages, uploads, and file storage usage.
 
-Hints:
+**Alerting Logic:**
 
-* See [Creating an API user account to monitor Rocket.Chat](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-ROCKETCHAT.md).
+* Always returns OK
+
+**Data Collection:**
+
+* Authenticates against the Rocket.Chat REST API and queries the statistics endpoint
+* Reports users (total, online, busy, away, offline), types and distribution (connected, activated, deactivated, app users), uploads (count and size), rooms (channels, private groups, direct messages, discussions, omnichannel), and messages (total, threads, per room type)
+
+**Important Notes:**
+
+* Requires a Rocket.Chat user with a strong password and the `view-statistics` permission (only)
+* See [Creating an API user account to monitor Rocket.Chat](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-ROCKETCHAT.md)
+
+**Compatibility:**
+
+* Linux
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/rocketchat-stats> |
+| Nagios/Icinga Check Name              | `check_rocketchat_stats` |
 | Check Interval Recommendation         | Every 15 minutes |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--username` and `--password` are required) |
 | Compiled for Windows                  | No |
-| Requirements                          | Requires a user with strong password and 'view-statistics' permission (only). |
+| Requirements                          | Requires a user with strong password and `view-statistics` permission (only). |
 
 
 ## Help
@@ -55,8 +70,8 @@ Output:
 
 ```text
 8/325 users online, 295.2K msgs, 6.3K uploads, 4.3GiB upload total size, v6.4.7
-* Users: 325 total, 8 online, 0 busy, 1 away, 316 offline
-* Types and Distribution: 9 connected, 223 activated users, 0 activated guests, 100 deactivated users, 2 Rocket.Chat app users
+* Users: 325 total (8 online, 0 busy, 1 away, 316 offline)
+* Types and Distribution: 9 of 223 activated users online, 0 activated guests, 100 deactivated users, 2 Rocket.Chat app users
 * Total Uploads: 6285, 4.3GiB size
 * Total Rooms: 672 (1 channel, 96 private groups, 440 direct msg rooms, 0 discussions, 135 omnichannel rooms)
 * Total Messages: 295.2K (829 threads, 5 in channels, 178.3K in priv groups, 115.0K in direct msg, 1.9K in omnichannel)

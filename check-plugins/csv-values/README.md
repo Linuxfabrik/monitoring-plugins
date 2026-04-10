@@ -2,9 +2,29 @@
 
 ## Overview
 
-This check imports a CSV file into a local [SQLite database](https://www.sqlite.org) into a table named `data`, and can then run a separate warning and/or critical query on it. The result - the number of items found or a specific number, depending on the query - can be checked against a [range expression](https://github.com/Linuxfabrik/monitoring-plugins#threshold-and-ranges).
+Imports a CSV file (local, remote via URL, or from an SMB share) into a temporary SQLite database and runs configurable SQL queries against it. Separate queries can be defined for warning and critical conditions. The query result - either a row count or a specific value - is checked against Nagios range expressions. This makes it possible to monitor any data source that can export CSV.
 
-This monitoring plugin works for all conceivable kinds of CSV files. Large CSV files are handled with care by breaking the data into chunks. CSV files can be retrieved from the file system, from an SMB path or from a URL, both supporting authentication.
+**Data Collection:**
+
+* Reads CSV data from the local filesystem (`--filename`), from an HTTP/HTTPS URL (`--url`), or from an SMB share (`--url=smb://...`)
+* HTTP and SMB sources support authentication via `--username` and `--password`
+* The CSV data is imported into a local SQLite database table named `data`
+* Column names and types are defined via `--columns-query` using SQLite `CREATE TABLE` syntax (the actual CSV header names are irrelevant, columns are mapped positionally)
+* Large CSV files are handled in chunks (`--chunksize`, default: 1000 rows) to avoid memory exhaustion
+* Warning and critical SQL queries are executed independently against the `data` table
+* If a query returns one row with one column, that single value is checked against the threshold; otherwise the row count is checked
+* Result tables with more than 10 rows are truncated to the first 5 and last 5 entries
+
+**Compatibility:**
+
+* Linux (SMB access requires `PySmbClient` and `smbprotocol` Python modules)
+
+**Important Notes:**
+
+* `--filename` and `--url` are mutually exclusive
+* At least one of `--warning-query` or `--critical-query` must be provided
+* The `data` table has no `PRIMARY KEY` and no constraints; the default value for each column is `NULL`, the default collation is `BINARY`
+* Useful SQLite column datatypes: `TEXT`, `NUMERIC`, `INTEGER`, `REAL`, and SQLite 3.31.0+ generated columns
 
 As an example, consider a simple CSV list of clients:
 
@@ -25,16 +45,6 @@ First you need to tell `csv-values` the structure/data types of your CSV file li
 ```text
 Hostname TEXT, WaitingUpdates INTEGER
 ```
-
-Useful column [datatypes in SQLite](https://www.sqlite.org/datatype3.html) are:
-
-* `TEXT`
-* `NUMERIC`
-* `INTEGER`
-* `REAL`
-* SQLite 3.31.0+: Computed / [Generated Column](https://www.sqlite.org/gencol.html) example: `Used_GB INT GENERATED ALWAYS AS (round(Used/1024/1024/1024)) VIRTUAL'` ([Scalar Functions](https://www.sqlite.org/lang_corefunc.html))
-
-The `data` table created by the import has no `PRIMARY KEY` and no constraints of any kind. The default value of each column is `NULL`. The default collation sequence for each column of the new table is `BINARY`.
 
 One possible SQL statement for getting the number of clients with 5 or more waiting updates is:
 
@@ -77,11 +87,12 @@ Helpful resources:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/csv-values> |
+| Nagios/Icinga Check Name              | `check_csv_values` |
 | Check Interval Recommendation         | Every 5 minutes |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--columns-query` and at least one query are required) |
 | Compiled for Windows                  | No |
-| 3rd Party Python modules              | `PySmbClient`, `smbprotocol` |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-csv-values-*.db` |
+| 3rd Party Python modules              | `PySmbClient`, `smbprotocol` (only for SMB access) |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-csv-values-*.db` |
 
 
 ## Help
@@ -122,8 +133,7 @@ options:
                         `--critical`, otherwise the single value is used.
   --delimiter DELIMITER
                         CSV delimiter. Default: `","`.
-  --filename FILENAME   Path to CSV file. This is mutually exclusive with -u /
-                        --url.
+  --filename FILENAME   Path to CSV file. Mutually exclusive with --url.
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --newline NEWLINE     CSV newline. When reading input from the CSV, if
@@ -247,17 +257,19 @@ Checking a remote CSV file on a (not-mounted) samba/cifs share, plus authenticat
 
 ## States
 
-* WARN if number of rows or single value of `--warning-query` is outside `--warning` range
-* CRIT if number of rows or single value of `--critical-query` is outside `--critical` range
-* Otherwise OK
+* OK if both query results are within their respective threshold ranges.
+* WARN if the row count or single value of `--warning-query` is outside the `--warning` range.
+* CRIT if the row count or single value of `--critical-query` is outside the `--critical` range.
+* UNKNOWN if no queries are provided, or if `--filename` and `--url` are both specified, or if the URL protocol is unsupported.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name     | Type   | Description                                          |
-|----------|--------|------------------------------------------------------|
-| cnt_warn | Number | Number of rows or single value of `--warning-query`  |
-| cnt_crit | Number | Number of rows or single value of `--critical-query` |
+| Name | Type | Description |
+|----|----|----|
+| cnt_crit | Number | Row count or single value returned by `--critical-query`. |
+| cnt_warn | Number | Row count or single value returned by `--warning-query`. |
 
 
 ## Credits, License

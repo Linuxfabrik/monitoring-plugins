@@ -2,16 +2,30 @@
 
 ## Overview
 
-Checks the status of a Windows scheduled task.
+Checks the status of a Windows Scheduled Task. Alerts when the task is not in the expected status.
+
+**Alerting Logic:**
+
+* WARN (default) or CRIT (configurable via `--severity`) if the task is not in one of the expected statuses (default: Ready, Running)
+
+**Data Collection:**
+
+* Executes `schtasks /query /fo csv /nh` to list all scheduled tasks and their statuses
+* Matches the specified task name exactly
+
+**Compatibility:**
+
+* Windows
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/scheduled-task> |
+| Nagios/Icinga Check Name              | `check_scheduled_task` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--task` is required) |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
 
@@ -42,7 +56,7 @@ options:
 ## Usage Examples
 
 ```bash
-scheduled-task.exe --task \Microsoft\Windows\DiskCleanup\SilentCleanup --status Disabled  --severity crit
+scheduled-task.exe --task \Microsoft\Windows\DiskCleanup\SilentCleanup --status Disabled --severity crit
 ```
 
 Output:
@@ -54,8 +68,9 @@ Output:
 
 ## States
 
-* WARN if result does not match the expected status.
-* CRIT only if configured as such.
+* OK if the task is in one of the expected statuses.
+* WARN (default) or CRIT (depending on `--severity`) if the task is not in the expected status.
+* UNKNOWN if the specified scheduled task is not found.
 
 
 ## Perfdata / Metrics

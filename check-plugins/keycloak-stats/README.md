@@ -2,18 +2,29 @@
 
 ## Overview
 
-Returns some useful information about a Keycloak server using its HTTP-based API. Tested with Keycloak 18+.
+Reports statistics from a Keycloak server via its HTTP API, including uptime, Java version, JVM details, and enabled/disabled feature flags. This is an informational check that always returns OK.
 
-Hints:
+**Data Collection:**
 
-* See [Creating an API user account to monitor Keycloak](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-KEYCLOAK.md).
+* Authenticates against the Keycloak OIDC token endpoint using client credentials (`--client-id`, `--username`, `--password`)
+* Queries the Keycloak Admin REST API at `/admin/serverinfo` to retrieve system information and feature flags
+* Enabled/disabled features are available starting with Keycloak 22; on older versions, only disabled features are reported (from `profileInfo`)
+
+**Compatibility:**
+
+* Tested with Keycloak 18 and later
+
+**Important Notes:**
+
+* See [Creating an API user account to monitor Keycloak](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-KEYCLOAK.md) for setting up the required API credentials.
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/keycloak-stats> |
+| Nagios/Icinga Check Name              | `check_keycloak_stats` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -53,51 +64,25 @@ options:
 ./keycloak-stats --username=keycloak-monitoring --password=linuxfabrik --url=http://keycloak:8080
 ```
 
-Output ("Enabled Features" available with Keycloak 22+):
+Output (enabled features available with Keycloak 22+):
 
 ```text
 Up 5m 12s, running under user `keycloak`; Java v21.0.5, OpenJDK 64-Bit Server VM, /usr/lib/jvm/java-21-openjdk-21.0.5.0.11-2.el9.x86_64
 
-Enabled Features: 
+Enabled Features:
 * ACCOUNT_API (default)
 * ACCOUNT_V3 (default)
 * ADMIN_API (default)
 * ADMIN_V2 (default)
 * AUTHORIZATION (default)
 * CIBA (default)
-* CLIENT_POLICIES (default)
-* DEVICE_FLOW (default)
-* HOSTNAME_V2 (default)
-* IMPERSONATION (default)
-* KERBEROS (default)
-* LOGIN_V2 (default)
-* ORGANIZATION (default)
-* PAR (default)
-* PERSISTENT_USER_SESSIONS (default)
-* STEP_UP_AUTHENTICATION (default)
-* WEB_AUTHN (default)
+...
 
-Disabled Features: 
+Disabled Features:
 * ADMIN_FINE_GRAINED_AUTHZ (preview)
 * CACHE_EMBEDDED_REMOTE_STORE (experimental)
 * CLIENT_SECRET_ROTATION (preview)
-* CLIENT_TYPES (experimental)
-* CLUSTERLESS (experimental)
-* DECLARATIVE_UI (experimental)
-* DOCKER (disabled_by_default)
-* DPOP (preview)
-* DYNAMIC_SCOPES (experimental)
-* FIPS (disabled_by_default)
-* LOGIN_V1 (deprecated)
-* MULTI_SITE (disabled_by_default)
-* OID4VC_VCI (experimental)
-* OPENTELEMETRY (preview)
-* PASSKEYS (preview)
-* RECOVERY_CODES (preview)
-* SCRIPTS (preview)
-* TOKEN_EXCHANGE (preview)
-* TRANSIENT_USERS (experimental)
-* UPDATE_EMAIL (preview)
+...
 ```
 
 
@@ -108,9 +93,9 @@ Disabled Features:
 
 ## Perfdata / Metrics
 
-| Name   | Type    | Description                              |
-|--------|---------|------------------------------------------|
-| uptime | Seconds | The time the server has been running for |
+| Name | Type | Description |
+|----|----|----|
+| uptime | Seconds | Time the Keycloak server has been running. |
 
 
 ## Credits, License

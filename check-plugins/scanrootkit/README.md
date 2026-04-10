@@ -2,49 +2,53 @@
 
 ## Overview
 
-This monitoring plugin scans for round about 100 rootkits, from "55808 Trojan - Variant A" to "ZK Rootkit". New rootkit definitions can be easily added by dropping a <span class="title-ref">scanrootkit-NAME</span> YAML file into the <span class="title-ref">assets</span> folder.
+Scans the system for approximately 100 known rootkits by checking for their characteristic files, directories, and kernel symbols. New rootkit definitions can be added by dropping YAML files into the `assets` folder. Additionally performs in-depth checks for the Suckit rootkit (link count of `/sbin/init` and hidden file detection).
 
-Rootkit YAML file structure, example taken from `assets/scanrootkit-kbeast.yml`:
+**Alerting Logic:**
 
-```yaml
-# human-readable name of the rootkit
-name: 'KBeast Rootkit'
-files:
-  # list of files that identify the rootkit
-  - '/usr/_h4x_/ipsecs-kbeast-v1.ko'
-  - '/usr/_h4x_/_h4x_bd'
-  - '/usr/_h4x_/acctlog'
-dirs:
-  # list of directories that identify the rootkit
-  - '/usr/_h4x_'
-ksyms:
-  # list of items in the kernel symbols file that identify the rootkit
-  - 'h4x_delete_module'
-  - 'h4x_getdents64'
-  - 'h4x_kill'
-  - 'h4x_open'
-  - 'h4x_read'
-  - 'h4x_rename'
-  - 'h4x_rmdir'
-  - 'h4x_tcp4_seq_show'
-  - 'h4x_write'
-# optional "confidence level". if omitted, cl is 100. 100 means 100%. anything below 100%
-# confidence level currently just raises a warning.
-cl: 100
-```
+* WARN or CRIT (configurable via `--severity`, default: CRIT) if confirmed rootkit items or in-depth scan items are found
+* WARN if only possible rootkit items are found (confidence level below 100%), regardless of the selected severity
 
-Feel free to add more rootkit definitions by submitting a pull request.
+**Data Collection:**
 
-Credits:
+* Loads rootkit definitions from YAML files in the `assets` directory
+* Checks for rootkit-specific files and directories on the filesystem
+* Scans kernel symbols (`/proc/kallsyms` or `/proc/ksyms`) for rootkit indicators
+* Performs extra checks for Suckit rootkit (link count of `/sbin/init`, hidden file detection via `.xrk` and `.mem` suffixes)
 
-* This check plugin is heavily inspired by the [Rootkit Hunter Project](https://rkhunter.sourceforge.net/), which unfortunately seems to be inactive since 2018. :-( Therefore, we have taken all the rkhunter rootkit definitions, translated them to YAML and made them available with this check plugin.
+**Important Notes:**
+
+* Rootkit YAML file structure (example from `assets/scanrootkit-kbeast.yml`):
+
+    ```yaml
+    name: 'KBeast Rootkit'
+    files:
+      - '/usr/_h4x_/ipsecs-kbeast-v1.ko'
+      - '/usr/_h4x_/_h4x_bd'
+      - '/usr/_h4x_/acctlog'
+    dirs:
+      - '/usr/_h4x_'
+    ksyms:
+      - 'h4x_delete_module'
+      - 'h4x_getdents64'
+      - 'h4x_kill'
+    cl: 100
+    ```
+
+* Feel free to add more rootkit definitions by submitting a pull request
+* Inspired by the [Rootkit Hunter Project](https://rkhunter.sourceforge.net/), which has been inactive since 2018. All rkhunter rootkit definitions have been translated to YAML and made available with this check plugin.
+
+**Compatibility:**
+
+* Linux
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/scanrootkit> |
+| Nagios/Icinga Check Name              | `check_scanrootkit` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -91,17 +95,25 @@ Possible Rootkits:
 
 ## States
 
-* WARN or CRIT if rootkit items are found, depending on the severity (default: CRIT)
-* WARN if only possible rootkit items are found, regardless of the selected severity.
+* OK if no rootkit indicators are found.
+* WARN or CRIT (depending on `--severity`, default: CRIT) if confirmed rootkit items or in-depth scan items are found.
+* WARN if only possible rootkit items are found (confidence level below 100%), regardless of the selected severity.
+* UNKNOWN if no rootkit definition files are found in the `assets` directory.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| rootkit_items | Number | The number of rootkit items found on the system. |
-| rootkit_extra | Number | Number of rootkit items found by a specific deep scan. |
+| rootkit_extra | Number | Number of rootkit items found by the in-depth scan. |
+| rootkit_items | Number | The number of confirmed rootkit items found on the system. |
 | rootkit_possible | Number | Number of possible rootkit items found on the system. |
+
+
+## Troubleshooting
+
+`Python module "yaml" is not installed.`  
+Install `pyyaml`: `pip install pyyaml` or `dnf install python3-pyyaml`.
 
 
 ## Credits, License

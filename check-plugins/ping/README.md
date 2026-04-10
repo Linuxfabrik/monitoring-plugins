@@ -2,20 +2,35 @@
 
 ## Overview
 
-Sends ICMP ECHO_REQUEST to network hosts using the built-in `ping` command. Without any parameters it tries to send five packets within one second (so its fast!) and exits after five seconds timeout at the latest. It doesn't care about round trip times or packet loss as long the host is still reachable in some way. That means 90% packet loss is ok, while 100% are not. Why? If this check is used to test the host-liveliness (which in 99.9% is its use case), mostly all other service checks depend on its result. For that reason it should be as tolerant and reliable as possible and only throw CRIT (equal to DOWN) if the host is definitely not reachable at all.
+Sends ICMP ECHO_REQUEST packets to a network host using the system's built-in `ping` command. Reports round-trip time (min, avg, max, mdev) and packet loss percentage. Without any parameters, it sends five packets with a 0.2 second interval and exits after five seconds timeout at the latest.
 
-`check_ping` from `nagios-plugins` just prints `PING OK - Packet loss = 0%, RTA = 3.79 ms`, while this check tells you everything that you are used to if using the `ping` command directly: `PING localhost(localhost (::1)): 5 packets transmitted, 5 received, time 828ms. rtt min/avg/max/mdev = 0.029/0.113/0.189/0.052 ms`.
+**Alerting Logic:**
 
-This command works with both IPv4 and IPv6.
+* CRIT if 100% packet loss (destination host unreachable). This is intentionally CRIT instead of WARN because in host-liveliness checks, CRIT equals DOWN. Partial packet loss (even 90%) still results in OK because the host is reachable.
+* UNKNOWN if name or service is unknown, out of memory, or other ping errors.
+* `--always-ok` suppresses all alerts and always returns OK. Useful for hosts that block ICMP but can still execute check-plugins.
 
-The `--always-ok` parameter is useful for hosts that do not allow ping, but which can still execute check-plugins. The packet loss will be reported, but the state will be OK.
+**Data Collection:**
+
+* Executes the system `ping` command with quiet output (`-q`) to collect summary statistics
+* Works with both IPv4 and IPv6
+
+**Important Notes:**
+
+* This check is designed to be as tolerant as possible. It only reports CRIT when the host is definitively unreachable (0 received packets). Even with high packet loss, a single returned packet is sufficient to report OK.
+* The `--always-ok` parameter is useful for hosts that do not allow ICMP but can still execute check-plugins. The packet loss will be reported, but the state will be OK.
+
+**Compatibility:**
+
+* Linux only
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ping> |
+| Nagios/Icinga Check Name              | `check_ping` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -63,26 +78,27 @@ PING 192.0.2.10: 10 packets transmitted, 5 received, 50% packet loss, time 187ms
 
 ## States
 
-* CRIT if sending ICMP ECHO_REQUEST to network host fails
-* UNKNOWN if name or service is unknown, out of memory, etc.
-* Otherwise OK
+* OK if at least one packet is received.
+* CRIT if 0 packets are received (destination host unreachable).
+* UNKNOWN if name or service is unknown, out of memory, or other ping errors.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| checksum_corrupted | Number | Packets with corrupted checksum |
-| duplicates | Number | Duplicate packets. If duplicate packets are received, they are not included in the packet loss calculation, although the round trip time of these packets is used in calculating the minimum/average/maximum/mdev round-trip time numbers. |
-| errors | Number | Packets with errors |
-| packet_loss | Percentage | Packet loss in % |
-| received | Number | Received packets |
-| rtt_avg | Milliseconds | Average round trip time |
-| rtt_max | Milliseconds | Maximum round trip time |
-| rtt_mdev | Milliseconds | Population standard deviation (mdev), essentially an average of how far each ping RTT is from the mean RTT. The higher mdev is, the more variable the RTT is (over time). |
-| rtt_min | Milliseconds | Minimum round trip time |
-| time | Milliseconds | Time |
-| transmitted | Number | Transmitted packets |
+| checksum_corrupted | Number | Packets with corrupted checksum. |
+| duplicates | Number | Duplicate packets. Not included in the packet loss calculation, but their round trip time is used for min/avg/max/mdev. |
+| errors | Number | Packets with errors. |
+| packet_loss | Percentage | Packet loss, in percent. |
+| received | Number | Received packets. |
+| rtt_avg | Milliseconds | Average round trip time. |
+| rtt_max | Milliseconds | Maximum round trip time. |
+| rtt_mdev | Milliseconds | Population standard deviation (mdev). An average of how far each ping RTT is from the mean RTT. The higher mdev is, the more variable the RTT is over time. |
+| rtt_min | Milliseconds | Minimum round trip time. |
+| time | Milliseconds | Total time for the ping run. |
+| transmitted | Number | Transmitted packets. |
 
 
 ## Troubleshooting
@@ -93,7 +109,7 @@ From `man ping` and related to this check:
 When using ping for fault isolation, it should first be run on the
 local host, to verify that the local network interface is up and
 running. Then, hosts and gateways further and further away should be
-“pinged”. Round-trip times and packet loss statistics are computed. If
+"pinged". Round-trip times and packet loss statistics are computed. If
 duplicate packets are received, they are not included in the packet
 loss calculation, although the round trip time of these packets is used
 in calculating the minimum/average/maximum/mdev round-trip time

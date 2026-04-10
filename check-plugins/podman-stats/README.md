@@ -2,20 +2,45 @@
 
 ## Overview
 
-This check prints cpu and memory statistics for all running Podman containers, using the [podman stats](https://docs.podman.io/en/latest/markdown/podman-stats.1.html) command. Container CPU usage is divided by the available number of CPU cores ("normalized"). For Docker, use the [docker-stats](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/docker-stats) check instead.
+Reports CPU and memory usage for all running Podman containers. CPU usage is normalized by dividing by the number of available host CPU cores, so 100% means all host CPUs are fully utilized. For Docker, use the [docker-stats](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/docker-stats) check instead.
 
-Hints:
+**Alerting Logic:**
+
+* CPU alerts only trigger after the threshold has been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes
+* Memory alerts trigger immediately
+* WARN if any container CPU usage is above `--warning-cpu` (default: 80%) during the last n checks
+* CRIT if any container CPU usage is above `--critical-cpu` (default: 90%) during the last n checks
+* WARN if any container memory usage is above `--warning-mem` (default: 90%)
+* CRIT if any container memory usage is above `--critical-mem` (default: 95%)
+* CRIT on `podman info` or `podman stats` return codes != 0
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Executes `podman info --format json` to get host CPU count, image count, and total memory
+* Executes `podman stats --no-stream --format '{{json .}}'` to get per-container statistics
+* CPU usage is divided by the number of host CPU cores ("normalized"). On an 8-core system, a container using one core at full capacity would show 12.5%.
+* Uses a local SQLite database for CPU trend tracking across runs
+* Container names are shortened after the replica number by default (use `--full-name` for the full name)
+
+**Important Notes:**
 
 * Podman runs rootless by default. Without `sudo`, the check only sees containers of the executing user. To monitor containers across all users, run the check via `sudo` (the Icinga Director basket and sudoers file are pre-configured for this).
 * Plugin execution may take up to 10 seconds.
-* Since `podman stats` only returns byte-level data in a human-readable format (e.g. *221.2kB*), calculating network I/O and block I/O is imprecise. Therefore, these values are not used.
+* Since `podman stats` only returns byte-level data in a human-readable format (e.g. *221.2kB*), calculating network I/O and block I/O is imprecise. Therefore, these values are only reported as aggregate perfdata.
+* Memory usage is relative to the container's memory limit if one is set, otherwise relative to the total host memory.
+
+**Compatibility:**
+
+* Linux only
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/podman-stats> |
+| Nagios/Icinga Check Name              | `check_podman_stats` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -74,7 +99,7 @@ options:
 Output:
 
 ```text
-Everything is ok.
+Everything is ok, 3 containers checked.
 
 Container                 ! CPU % ! Mem % 
 --------------------------+-------+-------
@@ -86,26 +111,27 @@ myconti_ds_1              ! 0.0   ! 11.42
 
 ## States
 
-* CRIT on `podman info` or `podman stats` return codes != 0
-* WARN if any container cpu usage is above the warning cpu threshold during the last n checks (default: 5)
-* CRIT if any container cpu usage is above the critical cpu threshold during the last n checks (default: 5)
-* WARN or CRIT if any container memory usage is above the memory thresholds
-
-CPU usage is normalized by dividing by the number of host CPUs, so 100% means all host CPUs are fully utilized. On an 8-core system, a container using one core at full capacity would show 12.5%. Memory usage is relative to the container's memory limit if one is set, otherwise relative to the total host memory.
+* OK if all container CPU and memory usage are below the thresholds.
+* WARN if any container CPU usage is above `--warning-cpu` (default: 80%) during the last `--count` checks (default: 5).
+* WARN if any container memory usage is above `--warning-mem` (default: 90%).
+* CRIT if any container CPU usage is above `--critical-cpu` (default: 90%) during the last `--count` checks (default: 5).
+* CRIT if any container memory usage is above `--critical-mem` (default: 95%).
+* CRIT on `podman info` or `podman stats` return codes != 0.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name               | Type   | Description                                              |
 |--------------------|--------|----------------------------------------------------------|
-| block_input        | Bytes  | Total data read from block device across all containers   |
-| block_output       | Bytes  | Total data written to block device across all containers  |
-| containers_running | Number | Number of running containers                              |
-| cpu          | Number | Number of Host CPUs                                       |
-| images       | Number | Number of images                                          |
-| net_rx       | Bytes  | Total network bytes received across all containers        |
-| net_tx       | Bytes  | Total network bytes transmitted across all containers     |
-| ram          | Bytes  | Total Host Memory                                         |
+| block_input        | Bytes  | Total data read from block device across all containers.  |
+| block_output       | Bytes  | Total data written to block device across all containers. |
+| containers_running | Number | Number of running containers.                             |
+| cpu                | Number | Number of host CPUs.                                      |
+| images             | Number | Number of images.                                         |
+| net_rx             | Bytes  | Total network bytes received across all containers.       |
+| net_tx             | Bytes  | Total network bytes transmitted across all containers.    |
+| ram                | Bytes  | Total host memory.                                        |
 
 
 ## Credits, License

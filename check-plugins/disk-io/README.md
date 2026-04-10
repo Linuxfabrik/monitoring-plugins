@@ -2,62 +2,49 @@
 
 ## Overview
 
-Checks disk bandwidth over a period of time. The check tracks the maximum bandwidth and alerts if the bandwidth over the last n reads is above a certain percentage (by default 80/90% over the last 5 reads). This works similar to Load5, but at the disk I/O level.
+Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes. The check records per-disk read/write counters and then derives current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the period's total bandwidth against the maximum ever observed for that disk (RWmax). WARN/CRIT trigger if the period average exceeds the configured percentage of RWmax for COUNT consecutive runs.
 
-On Linux, the check plugin by default tries to find "important" disks automatically and returns only useful perfdata information, so as not to waste disk space in a time series database with unnecessary disk information (as in earlier versions). To do this, it looks for disks that are mounted to a folder.
+On Linux, the check also monitors the system-wide iowait percentage (CPU time spent waiting for I/O). The raw iowait value is normalized by multiplying it with the number of logical CPUs, so that 100% always means one CPU core is fully I/O-saturated, regardless of the total number of CPUs. This makes the default thresholds (80/90%) work consistently across different hardware. Like bandwidth alerts, iowait alerts require COUNT consecutive threshold violations.
 
-Disk I/O always starts at 10 MiB/sec, but stores the highest measured bandwidth, so it adjusts the `RWmax/s` value accordingly. For this reason, this check takes some time to warm up its (cached) readings: The check will throw some warnings and criticals during the first major disk activities above 10Mib/sec until the maximum bandwidth of the disk has been determined.
+Perfdata is emitted for each disk (busy_time, read_bytes, read_time, write_bytes, write_time) and for iowait, so you can graph trends. On Linux the check automatically focuses on "real" block devices with mountpoints; on Windows it uses psutil's disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders.
 
+This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.
 
-### iowait (Linux only)
+**Data Collection:**
 
-On Linux, the check also monitors the system-wide iowait percentage. iowait represents CPU time spent idle while waiting for I/O operations to complete. While technically a CPU metric, its diagnostic value is entirely in the disk I/O context, which is why it is part of this check rather than a separate one.
+* Uses `psutil` to collect per-disk I/O counters (read_bytes, write_bytes, busy_time, read_time, write_time)
+* On Linux, automatically detects "real" block devices that have mountpoints, filtering out virtual devices
+* On Linux, derives the system-wide iowait percentage non-blockingly from `/proc/stat` via `psutil.cpu_times()`
+* Stores counter snapshots in a local SQLite database and calculates deltas between consecutive runs
+* On the first run, returns "Waiting for more data." until at least two measurements are available
+* After a system reboot, counter values may be lower than the previous measurement. The check detects this and returns "Waiting for more data." until the next valid measurement pair
+* Disk I/O bandwidth tracking starts at 10 MiB/sec as a baseline, but stores the highest measured bandwidth, so the `RWmax/s` value adjusts accordingly over time. The check may throw warnings during the first major disk activities above 10 MiB/sec until the actual maximum bandwidth of the disk has been determined
+* Disks can be filtered by `--match` (Python regular expression matching block device, device mapper device, or mountpoint)
 
-The raw iowait value is normalized by multiplying it with the number of logical CPUs, so that 100% always means one CPU core is fully I/O-saturated, regardless of the total number of CPUs. Values above 100% indicate that more than one core is waiting for I/O. This normalization approach is inspired by [Glances](https://github.com/nicolargo/glances), which uses `100 / N` (where N = number of CPUs) as its critical threshold for raw iowait. The reason such thresholds appear low in Glances is that raw iowait is reported as a percentage of total CPU time across all cores: on a 4-core system, 25% raw iowait already means one entire core is doing nothing but waiting for I/O. By normalizing the value, the default thresholds (80/90%) work consistently across any hardware.
+**Compatibility:**
 
-Like bandwidth alerts, iowait alerts only trigger after `--count` consecutive threshold violations, suppressing short spikes.
+* Cross-platform: Linux, Windows, and all psutil-supported systems
+* On Linux with Kernel >= 4.18, requires `psutil` v5.7.0+ due to changes in `/proc/diskstats`
 
+**Important Notes:**
 
-### Example
-
-The (shortened) result of `./disk-io --count 5 --warning 80 --critical 90` could look like this:
-
-```text
-iowait: 0.1%. /dev/dm-4: 0.0B/s read1, 48.7KiB/s write1, 48.7KiB/s total, 227.9MiB/s max
-
-Name ! RWmax/s ! R1/s     ! W1/s     ! R5/s     ! W5/s     ! RW5/s              
------+---------+----------+----------+----------+----------+--------------------
-dm-0 ! 44.9MiB ! 42.8MiB  ! 17.2MiB  ! 23.1MiB  ! 18.6MiB  ! 36.3MiB [CRITICAL] 
-dm-1 ! 10.0MiB ! 4.7KiB   ! 4.0KiB   ! 2.0KiB   ! 6.8KiB   ! 8.7KiB             
-...
-```
-
-The first line shows the current iowait percentage followed by the disk with the currently highest bandwidth usage (here `dm-0`).
-
-The table columns mean:
-
-* RWmax: Here, a maximum bandwidth of 44.9 MB/sec was determined.
-* R1, W1: The current bandwidth is 23.6 MB/sec read and 17.2 MB/sec write.
-* R5, W5: The bandwidth from now to 5 measured values in the past is 23.1 MB/sec read and 18.6 MB/sec write.
-* First line in the table, RW5: Compared to the current values, there was a higher bandwidth for a while. Since a maximum of 44.9 MB/sec bandwidth has been measured for this disk so far, a mean bandwidth (RW5) value of 36.3 MB/sec results in a warning (`36.3 MB/sec >= 44.9 MB/sec * 80%`). The current value of 42.8 MB/sec doesn't matter, this is only a peak. The check alerts because there is unusual high disk I/O over a certain amount of time.
-
-Hints:
-
-* `--count=5` (the default) while checking every minute means that the check will report an alert if any of your disks have been above a threshold in the last 5 minutes.
-* The check uses the SQLite database `$TEMP/linuxfabrik-monitoring-plugins-disk-io.db` to store its historical data.
+* `--count=5` (the default) while checking every minute means that the check will alert if any of your disks have been above a threshold in the last 5 minutes
+* iowait is only available on Linux. Values above 100% indicate that more than one CPU core is waiting for I/O
+* Plugin execution may take a moment due to process enumeration when `--top` is enabled
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io> |
+| Nagios/Icinga Check Name              | `check_disk_io` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
 | Handles Periods                       | Yes |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-disk-io.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-disk-io.db` |
 
 
 ## Help
@@ -137,7 +124,7 @@ Match all disks except `vdc`, `vdh` and `vdz`:
 ./disk-io --match='^(?:(?!.*vdc|.*vdh|.*vdz).)*$'
 ```
 
-Example Output:
+Output:
 
 ```text
 iowait: 0.1%. /dev/dm-8: 5.6KiB/s read1, 2.2MiB/s write1, 2.2MiB/s total, 10.0MiB/s max
@@ -166,8 +153,13 @@ Top 5 processes that generate the most I/O traffic (r/w):
 
 ## States
 
-* WARN or CRIT if the bandwidth over the last n measured values is above a certain percentage, compared to the all time maximum bandwidth of this drive.
-* WARN or CRIT if iowait exceeds the threshold for `--count` consecutive runs (Linux only).
+* OK if disk bandwidth period average is below `--warning` (default: 80%) of the observed maximum for each disk.
+* OK with "Waiting for more data." on the first run or after a reboot.
+* WARN if the bandwidth period average is >= `--warning` (default: 80%) of the observed maximum for `--count` (default: 5) consecutive runs.
+* CRIT if the bandwidth period average is >= `--critical` (default: 90%) of the observed maximum for `--count` (default: 5) consecutive runs.
+* WARN if iowait is >= `--iowait-warning` (default: 80%) for `--count` (default: 5) consecutive runs (Linux only).
+* CRIT if iowait is >= `--iowait-critical` (default: 90%) for `--count` (default: 5) consecutive runs (Linux only).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
@@ -176,23 +168,29 @@ Global:
 
 | Name | Type | Description |
 |----|----|----|
-| iowait | Percentage | System-wide iowait (Linux only). |
+| iowait | Percentage | System-wide normalized iowait (Linux only). |
 
-Per (matched) disk, where <disk\> is the block device name:
+Per matched disk, where `<disk>` is the block device name:
 
 | Name | Type | Description |
 |----|----|----|
-| <disk\>\_busy_time | Continous Counter | Time spent doing actual I/Os (in milliseconds). |
-| <disk\>\_read_bytes | Continous Counter | Number of bytes read. |
-| <disk\>\_read_time | Continous Counter | Time spent reading from disk (in milliseconds). |
-| <disk\>\_write_bytes | Continous Counter | Number of bytes written. |
-| <disk\>\_write_time | Continous Counter | Time spent writing to disk (in milliseconds). |
+| `<disk>`\_busy_time | Continous Counter | Time spent doing actual I/Os (in milliseconds). |
+| `<disk>`\_read_bytes | Continous Counter | Number of bytes read. |
+| `<disk>`\_read_time | Continous Counter | Time spent reading from disk (in milliseconds). |
+| `<disk>`\_write_bytes | Continous Counter | Number of bytes written. |
+| `<disk>`\_write_time | Continous Counter | Time spent writing to disk (in milliseconds). |
 
 
 ## Troubleshooting
 
 `psutil raised error "not sure how to interpret line '...'"` or `Nothing checked. Running Kernel >= 4.18, this check needs the Python module psutil v5.7.0+`  
 Update the `psutil` library. On RHEL 8+, use at least `python38` and `python38-psutil` if using `dnf`.
+
+`Python module "psutil" is not installed.`  
+Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
+
+`Waiting for more data.`  
+This is expected on the first run. The check needs at least two measurements to calculate a delta. Wait for the next check interval.
 
 
 ## Credits, License

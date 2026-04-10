@@ -2,19 +2,34 @@
 
 ## Overview
 
-Checks the hit rate for open tables cache lookups in MySQL/MariaDB. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
+Checks the hit rate for open table cache lookups in MySQL/MariaDB. A low hit rate indicates that `table_open_cache` may need to be increased. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
 
-Hints:
+**Alerting Logic:**
+
+* WARN if the table cache hit rate is below 20%
+* When alerting, the plugin recommends increasing `table_open_cache` and warns about the relationship between `open_files_limit` and `table_open_cache`
+
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for `open_files_limit` and `table_open_cache`
+* Queries `SHOW GLOBAL STATUS` for `Open_tables`, `Opened_tables`, `Table_open_cache_hits`, and `Table_open_cache_misses`
+* If `Table_open_cache_hits` is available, the hit rate is calculated as `Table_open_cache_hits / (Table_open_cache_hits + Table_open_cache_misses) * 100`. Otherwise falls back to `Open_tables / Opened_tables * 100`.
+
+**Compatibility:**
+
+* Requires MySQL/MariaDB v5.1+
+
+**Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
-* Requires MySQL/MariaDB v5.1+.
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-table-cache> |
+| Nagios/Icinga Check Name              | `check_mysql_table_cache` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -65,7 +80,9 @@ Output:
 
 ## States
 
-* WARN if `table_cache_hit_rate` \< 20%
+* OK if the table cache hit rate is 20% or higher.
+* WARN if the table cache hit rate is below 20%.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
@@ -75,7 +92,7 @@ Output:
 | mysql_open_files_limit | Number | The number of file descriptors available to MariaDB. |
 | mysql_open_tables | Number | Number of currently opened tables, excluding temporary tables. |
 | mysql_opened_tables | Continous Counter | Number of tables the server has opened. |
-| mysql_table_cache_hit_rate | Percentage | Table_open_cache_hits / (Table_open_cache_hits + Table_open_cache_misses) \* 100. If Table_open_cache_hits is not available: Open_tables / Opened_tables \* 100 |
+| mysql_table_cache_hit_rate | Percentage | Table cache hit rate. |
 | mysql_table_open_cache | Number | Maximum number of open tables cached in one table cache instance. |
 | mysql_table_open_cache_hits | Continous Counter | Number of hits for open tables cache lookups. |
 | mysql_table_open_cache_misses | Continous Counter | Number of misses for open tables cache lookups. |
@@ -84,9 +101,7 @@ Output:
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
-
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).
-
 * Credits:
 
     * heavily inspired by MySQLTuner (<https://github.com/major/MySQLTuner-perl>)

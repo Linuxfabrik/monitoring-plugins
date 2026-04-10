@@ -2,20 +2,24 @@
 
 ## Overview
 
-Linuxfabrik in-house check, may not be useful for others. Checks the content of `/var/log/borg/borg.log`. Known Issue and Limitation is that the calculation of the borg process runtime can be wrong.
+Checks the status of the last borgbackup run by parsing the borg logfile. Alerts on non-zero return codes from the create or prune steps, and warns if the last successful backup is older than a configurable threshold (default: 24 hours). Also detects active borg mounts in /proc/mounts. Requires root or sudo.
 
-```bash
-cat /var/log/borg/borg-prune.log
-cat /var/log/borg/borg-create.log
-```
+**Data Collection:**
 
-```text
-Return code
-0: success (logged as INFO)
-1: warning (operation reached its normal end, but there were warnings – you should check the log, logged as WARNING)
-2: error (like a fatal error, a local or remote exception, the operation did not reach its normal end, logged as ERROR)
-128+N   killed by signal N (e.g. 137 == kill -9)
-```
+* Parses `/var/log/borg/borg.log` for four fields: `start`, `end`, `create_retc`, and `prune_retc`
+* Checks `/proc/mounts` for active `borgfs` mounts
+* Calculates the time since the last backup started and the backup duration
+
+**Compatibility:**
+
+* Linux only (relies on `/var/log/borg/borg.log` and `/proc/mounts`)
+
+**Important Notes:**
+
+* The logfile must contain lines in the format `start: YYYY-MM-DD HH:MM:SS`, `end: YYYY-MM-DD HH:MM:SS`, `create_retc: N`, `prune_retc: N`
+* Borg return code 1 (warning) is treated as OK by the check; return codes >= 2 trigger alerts
+* If the logfile is missing or incomplete (any of the four fields not found), the check exits with UNKNOWN
+* Active `borgfs` mounts are reported as WARN immediately, before evaluating the logfile
 
 
 ## Fact Sheet
@@ -23,6 +27,7 @@ Return code
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/borgbackup> |
+| Nagios/Icinga Check Name              | `check_borgbackup` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -52,7 +57,7 @@ options:
 ## Usage Examples
 
 ```bash
-./borgbackup 
+./borgbackup
 ```
 
 Output:
@@ -66,22 +71,27 @@ Last Backup started 2021-06-02 23:05:07, ended 2021-06-02 23:05:43, took 36s.
 
 ## States
 
-* WARN on active borg mounts
-* WARN on Borg return codes \> 1
-* WARN or CRIT if last backup start time \> n hours
+* OK if the last backup completed successfully (return codes < 2) and is within the time threshold.
+* WARN if active `borgfs` mounts are detected.
+* WARN if `create_retc` or `prune_retc` is >= 2.
+* WARN if the last backup started more than `--warning` hours ago (default: 24).
+* CRIT if the last backup started more than `--critical` hours ago (default: None).
+* UNKNOWN if the logfile `/var/log/borg/borg.log` is not found, empty, or missing expected fields.
 
 
 ## Perfdata / Metrics
 
-* create_retc
-* prune_retc
-* duration
+| Name | Type | Description |
+|----|----|----|
+| create_retc | Number | Return code of the borg create step (0 = success, 1 = warning, >= 2 = error). |
+| duration | Seconds | Duration of the backup run (end - start). |
+| prune_retc | Number | Return code of the borg prune step (0 = success, 1 = warning, >= 2 = error). |
 
 
 ## Troubleshooting
 
-local variable '...' referenced before assignment  
-Expected behaviour of the check. If either `starttime`, `endtime`, `create_retc` or `prune_retc` is missing (and hence this error message is returned), the backup has failed in any way.
+`Could not find all expected values in the logfile.`  
+If either `starttime`, `endtime`, `create_retc` or `prune_retc` is missing from the logfile, the backup has failed in some way. Check the borg logs for details.
 
 
 ## Credits, License

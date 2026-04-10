@@ -2,16 +2,36 @@
 
 ## Overview
 
-Checks the time of last data modification for a file or directory, in seconds.
+Checks the time since last modification of one or more files or directories. Supports glob patterns (including recursive), SMB shares, and optional aggregation (mean or median) across all matched files. Can also alert on the number of files within a specific age range. Requires root or sudo.
 
-The plugin is able to follow symbolic links. Depending on the file and user (e.g. running as *icinga*), sudo (sudoers) is needed. It supports globs in accordance with [Python 3](https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob) or [Python 2](https://docs.python.org/2.7/library/glob.html). Beware that using recursive globs might cause high memory usage. Also note that there are small differences in recursive file matching between Python 2 and Python 3.
+**Data Collection:**
+
+* Uses Python's `pathlib.Path.glob()` for local files and `lib.smb` for SMB shares
+* Follows symbolic links
+* Reads the `st_mtime` attribute from each file or directory
+* Supports filtering by `--only-files` or `--only-dirs`
+* Files that disappear during the check (e.g. temporary files) are silently skipped
+
+**Compatibility:**
+
+* Cross-platform: Linux and Windows
+* SMB share access requires the optional `PySmbClient` and `smbprotocol` Python modules
+* Recursive globs (`**`) can cause high memory usage on large directory trees
+
+**Important Notes:**
+
+* The `--filename` and `--url` parameters are mutually exclusive
+* Thresholds support Nagios ranges (e.g. `15:` to alert when files are *younger* than 15 seconds, or `10` for a simple upper bound)
+* The `--warning-count` and `--critical-count` thresholds control how many files may exceed the age thresholds before the check alerts. This allows monitoring whether an application produces or removes files at the expected rate
+* When more than 10 files are outside the thresholds, the output is truncated to the first and last 5 entries
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-age> |
+| Nagios/Icinga Check Name              | `check_file_age` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | Yes |
@@ -119,15 +139,20 @@ Everything is ok. 3 items checked. All within the specified count range, but 2 o
 
 ## States
 
-* WARN or CRIT on provided ranges.
+* OK if all items are within the specified count and time ranges.
+* WARN if the number of items exceeding the warning age is outside the `--warning-count` range (default: > 0).
+* CRIT if the number of items exceeding the critical age is outside the `--critical-count` range (default: > 0).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-The `--perfdata-mode` decides which aggregation mode is going to be used. The check won't return any performance data for empty directories (even with the flag being set).
+The `--perfdata-mode` parameter decides which aggregation mode is used. The check does not return any performance data for empty directories (even with the flag set).
 
-* `mean-ages`: Seconds. The mean, also known as the average (the sum divided by the number of elements).
-* `median-ages`: Seconds. The median, the "middle" element in a sorted list.
+| Name | Type | Description |
+|----|----|----|
+| mean-ages | Seconds | The mean (average) age across all matched files. Only with `--perfdata-mode=mean`. |
+| median-ages | Seconds | The median age across all matched files. Only with `--perfdata-mode=median`. |
 
 
 ## Credits, License

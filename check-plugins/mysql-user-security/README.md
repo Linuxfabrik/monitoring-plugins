@@ -2,11 +2,22 @@
 
 ## Overview
 
-Check user's security in MySQL/MariaDB. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl), v1.9.8.
+Checks MySQL/MariaDB user security settings, including accounts with empty passwords, accounts accessible from any host, and accounts with excessive privileges. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):security_recommendations(), v1.9.8.
 
-The users `mysql.sys` and `mariadb.sys`, which are system users used as the definer for view, procedures, and functions in the sys schema, are ignored, because they use an invalid password. This ensures that should these accounts get unlocked by mistake, it is still impossible to login. It is thus recommended not to reset the password. These users are required as long as a sys schema is installed.
+**Alerting Logic:**
 
-Hints:
+* WARN (or CRIT via `--severity`) if anonymous user accounts are found
+* WARN (or CRIT via `--severity`) if users without passwords are found
+* WARN (or CRIT via `--severity`) if users with their username as password are found (does not work on MySQL 8, ignored in that case)
+* WARN (or CRIT via `--severity`) if users without hostname restriction (`%`) are found
+* For each finding, the plugin provides ready-to-use SQL remediation commands (DROP USER, SET PASSWORD, RENAME USER)
+
+**Data Collection:**
+
+* Queries `mysql.user` and `mysql.global_priv` (on MariaDB 10.4+) to identify insecure accounts
+* The system users `mysql.sys` and `mariadb.sys` are excluded because they intentionally use invalid passwords as a security measure
+
+**Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 
@@ -14,8 +25,9 @@ Hints:
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-user-security> |
+| Nagios/Icinga Check Name              | `check_mysql_user_security` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -79,10 +91,12 @@ Restrict users:
 
 ## States
 
-* WARN if anonymous users are found
-* WARN if users having empty passwords are found
-* WARN if users with user / uppercase / capitalise user as password are found (does not work on MySQL 8, ignored)
-* WARN if users without hostname restriction are found
+* OK if no insecure accounts are found.
+* WARN (default) or CRIT (via `--severity`) if anonymous users are found.
+* WARN (default) or CRIT (via `--severity`) if users having empty passwords are found.
+* WARN (default) or CRIT (via `--severity`) if users with user / uppercase / capitalise user as password are found (does not work on MySQL 8, ignored).
+* WARN (default) or CRIT (via `--severity`) if users without hostname restriction are found.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
@@ -93,9 +107,7 @@ There is no perfdata.
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
-
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).
-
 * Credits:
 
     * heavily inspired by MySQLTuner (<https://github.com/major/MySQLTuner-perl>)

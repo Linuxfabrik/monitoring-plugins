@@ -2,7 +2,19 @@
 
 ## Overview
 
-The check warns before an expiration date of events that are scheduled to occur. Useful to warn before a hardware or contract expiration date. Use `./countdown --input='<Event Name>, <yyyy-mm-dd>, <WARN days before>, <CRIT days before>'` Can be specified multiple times.. For example, `./countdown --input='Supermicro X11 (SerNo ABCD), 2025-12-23, 60, 30'` returns WARN/CRIT 60/30 days before 2025-12-23, otherwise OK.
+Counts down to one or more user-defined expiration dates, such as certificate renewals, contract deadlines, or license expirations. Alerts when the remaining days fall below the configured warning or critical thresholds. Each item can have its own thresholds. Past dates are reported as expired.
+
+**Data Collection:**
+
+* No external data is collected; all information is provided via the `--input` parameter
+* Compares each expiration date against the current date and calculates the remaining days
+
+**Important Notes:**
+
+* Each `--input` item uses the format `"Display Name, YYYY-MM-DD, warn, crit"` where `warn` and `crit` are days before expiration
+* Setting `crit` to `None` means CRIT is never returned for that item
+* Setting `warn` to `None` means WARN is never returned for that item
+* Already expired dates are always reported with their respective threshold state
 
 
 ## Fact Sheet
@@ -10,8 +22,9 @@ The check warns before an expiration date of events that are scheduled to occur.
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/countdown> |
+| Nagios/Icinga Check Name              | `check_countdown` |
 | Check Interval Recommendation         | Twice a day |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--input` is required) |
 | Compiled for Windows                  | No |
 
 
@@ -52,10 +65,11 @@ There are one or more criticals.
 
 ## States
 
-For each event:
-
-* WARN: if event happens in warning days; 'None' is not possible
-* CRIT: if event happens in critical days; 'None' means that CRIT is never returned
+* OK if all items have more remaining days than their respective warning thresholds.
+* WARN if an item's remaining days are below its `warn` threshold.
+* CRIT if an item's remaining days are below its `crit` threshold (unless `crit` is set to `None`).
+* UNKNOWN if the `--input` format or timestamps are invalid.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

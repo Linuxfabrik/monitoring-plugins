@@ -2,22 +2,34 @@
 
 ## Overview
 
-Checks and tells how long the system has been running (in days).
+Reports how long a QNAP appliance running QTS has been running since the last boot.
 
-Hints and Recommendations:
+**Data Collection:**
+
+* Authenticates against the QTS API and fetches system information via `/cgi-bin/management/manaRequest.cgi`
+* Calculates uptime from the day, hour, minute, and second fields reported by QTS
+
+**Important Notes:**
 
 * Tested on [QuTScloud](https://www.qnap.com/en-us/download?model=qutscloud&category=firmware) v4.5.6+
 * The user used for monitoring must be a member of the "administrators" group. It is not sufficient to be a member of the "everyone" group.
+
+**Compatibility:**
+
+* Linux only
+* 3rd party Python module `xmltodict` required
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/qts-uptime> |
+| Nagios/Icinga Check Name              | `check_qts_uptime` |
 | Check Interval Recommendation         | Every 5 minutes |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--password` and `--url` are required) |
 | Compiled for Windows                  | No |
+| 3rd Party Python modules              | `xmltodict` |
 
 
 ## Help
@@ -64,7 +76,7 @@ Up 1W 6D
 
 | Name   | Type    | Description                              |
 |--------|---------|------------------------------------------|
-| uptime | Seconds | The time the server has been running for |
+| uptime | Seconds | The time the appliance has been running for. |
 
 
 ## Credits, License

@@ -2,24 +2,41 @@
 
 ## Overview
 
-Checks the disk SMART values returned by a QNAP Appliance running QTS. Disk temperature thresholds are determined automatically.
+Checks disk SMART values on QNAP appliances running QTS via the API. Reports drive health, temperature, and SMART attribute status for all installed HDDs and SSDs. Disk temperature thresholds are determined automatically from the QTS system configuration.
 
-This check does not run SMART itself. In order to get the latest values, schedule the in-built SMART check in the QTS webinterface.
+**Alerting Logic:**
 
-Hints and Recommendations:
+* WARN if any disk reports a non-normal SMART health status
+* WARN or CRIT if any disk temperature exceeds the thresholds configured in QTS (separate thresholds for HDD and SSD)
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Authenticates against the QTS API and fetches disk SMART data via `/cgi-bin/disk/qsmart.cgi`
+* Fetches system information via `/cgi-bin/management/manaRequest.cgi` to retrieve temperature thresholds
+* This check does not run SMART itself. To get the latest values, schedule the built-in SMART check in the QTS web interface.
+
+**Important Notes:**
 
 * Tested on [QuTScloud](https://www.qnap.com/en-us/download?model=qutscloud&category=firmware) v4.5.6+
 * The user used for monitoring must be a member of the "administrators" group. It is not sufficient to be a member of the "everyone" group.
+
+**Compatibility:**
+
+* Linux only
+* 3rd party Python module `xmltodict` required
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/qts-disk-smart> |
+| Nagios/Icinga Check Name              | `check_qts_disk_smart` |
 | Check Interval Recommendation         | Every 8 hours |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--password` and `--url` are required) |
 | Compiled for Windows                  | No |
+| 3rd Party Python modules              | `xmltodict` |
 
 
 ## Help
@@ -75,15 +92,18 @@ Checked 12 disks. All are healthy.
 
 ## States
 
-* OK if all disks are ok.
-* Otherwise WARN.
+* OK if all disks are healthy and temperatures are below the thresholds.
+* WARN if any disk reports a non-normal SMART health status or temperature exceeds the warning threshold.
+* CRIT if any disk temperature exceeds the critical threshold.
+* UNKNOWN if no disks are found.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name                                      | Type   | Description       |
 |-------------------------------------------|--------|-------------------|
-| NAME\_\<model\_\<serno\>\_temperature | Number | Temperature in °C |
+| NAME\_\<model\>\_\<serno\>\_temperature | Number | Temperature in degrees Celsius. |
 
 
 ## Credits, License

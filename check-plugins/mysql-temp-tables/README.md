@@ -2,9 +2,20 @@
 
 ## Overview
 
-Checks the number of on-disk versus in-memory temporary tables created in MySQL/MariaDB. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
+Checks the ratio of on-disk versus in-memory temporary tables in MySQL/MariaDB. A high rate of disk-based temporary tables indicates that `tmp_table_size` or `max_heap_table_size` may need to be increased. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
 
-Hints:
+**Alerting Logic:**
+
+* WARN if more than 25% of temporary tables are created on disk and `max(max_heap_table_size, tmp_table_size)` is below 256 MiB
+* WARN if more than 25% of temporary tables are created on disk and the maximum temporary table size is already 256 MiB or larger (recommends reducing result set size instead)
+
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for `max_heap_table_size` and `tmp_table_size`
+* Queries `SHOW GLOBAL STATUS` for `Created_tmp_disk_tables` and `Created_tmp_tables`
+* Calculates the disk temporary table rate as `Created_tmp_disk_tables / Created_tmp_tables * 100`
+
+**Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 
@@ -12,8 +23,9 @@ Hints:
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-temp-tables> |
+| Nagios/Icinga Check Name              | `check_mysql_temp_tables` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -70,7 +82,9 @@ Recommendations:
 
 ## States
 
-* WARN if `pct_temp_disk` (number of on-disk temporary tables) \> 25%
+* OK if the disk-based temporary table rate is 25% or lower, or if no temporary tables have been created.
+* WARN if more than 25% of temporary tables are created on disk.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
@@ -88,9 +102,7 @@ Recommendations:
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
-
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).
-
 * Credits:
 
     * heavily inspired by MySQLTuner (<https://github.com/major/MySQLTuner-perl>)

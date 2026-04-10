@@ -2,22 +2,35 @@
 
 ## Overview
 
-Checks the slow query log, which is a record of SQL queries that took a long time to perform on MySQL/MariaDB. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
+Checks the rate of slow queries in MySQL/MariaDB. A high slow query rate indicates queries that may need optimization. Also verifies that the slow query log is enabled and that `long_query_time` is set to a reasonable value.
 
-Hints:
+**Alerting Logic:**
+
+* WARN if the number of slow queries exceeds 5% of all queries (`Questions`)
+
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for `long_query_time` and `slow_query_log`
+* Queries `SHOW GLOBAL STATUS` for `Questions` and `Slow_queries`
+* Calculates the percentage of slow queries relative to total queries
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
+
+**Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
+* If the slow query rate triggers a warning, the check recommends enabling the slow query log (if disabled) to troubleshoot the offending queries
+* If `long_query_time` is set higher than 10 seconds, the check recommends lowering it
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-slow-queries> |
+| Nagios/Icinga Check Name              | `check_mysql_slow_queries` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Requirements                          | User with no privileges, locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |
 
 
@@ -64,25 +77,23 @@ Slow queries: 7.0% (7.0 slow queries/100.0 questions) [WARNING]. Set long_query_
 
 ## States
 
-* WARN if the number of slow queries is more than 5% of all queries.
+* WARN if the number of slow queries exceeds 5% of all queries.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| mysql_long_query_time | Seconds | If a query takes longer than this many seconds to execute, the Slow_queries status variable is incremented and, if enabled, the query is logged to the slow query log. |
-| mysql_questions | Continous Counter | Number of statements executed by the server, excluding COM_PING, COM_STATISTICS, COM_STMT_PREPARE, COM_STMT_CLOSE, and COM_STMT_RESET statements. Doesn't count statements executed within stored programs. |
-| mysql_slow_queries | Continous Counter | Number of queries which took longer than long_query_time to run. The slow query log does not need to be active for this to be recorded. |
-| mysql_pct_slow_queries | Percentage | Slow_queries / Questions \* 100 |
+| mysql_long_query_time | Seconds | If a query takes longer than this many seconds to execute, the `Slow_queries` status variable is incremented and, if enabled, the query is logged to the slow query log. |
+| mysql_pct_slow_queries | Percentage | Slow_queries / Questions * 100 |
+| mysql_questions | Continous Counter | Number of statements executed by the server, excluding COM_PING, COM_STATISTICS, COM_STMT_PREPARE, COM_STMT_CLOSE, and COM_STMT_RESET statements. |
+| mysql_slow_queries | Continous Counter | Number of queries which took longer than `long_query_time` to run. The slow query log does not need to be active for this to be recorded. |
 
 
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
-
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).
-
 * Credits:
-
     * heavily inspired by MySQLTuner (<https://github.com/major/MySQLTuner-perl>)

@@ -2,25 +2,34 @@
 
 ## Overview
 
-This plugin lets you track the number of active users over time, the number of shares in various categories and some storage statistics against a Nextcloud server. Might take up to 30 seconds for the first time; after that, still takes a few seconds.
+Monitors Nextcloud usage statistics via the server info API, including active user counts over time, file shares by category, and storage metrics. Also reports PHP, database, and web server configuration details.
 
-To access the serverinfo API you will need the credentials of an admin user. It is recommended to create an app password (in "Devices & sessions" at <https://cloud.example.com/index.php/settings/user/security>) or a separate user for that purpose.
+**Data Collection:**
 
-Hints:
+* Queries the Nextcloud serverinfo API endpoint (`/ocs/v2.php/apps/serverinfo/api/v1/info`) using HTTP Basic authentication
+* Reports active users (last 5 minutes, 1 hour, 24 hours), total files, apps, shares (by type), storage distribution, PHP settings, database type/size, and web server/memcache configuration
 
-* If you simply want to check the availability of the Nextcloud web frontend, you have to use other checks.
-* If a Nextcloud App leads to a "500 Internal Server Error", the Nextcloud API often still remains intact (so this check can't report this).
+**Compatibility:**
 
-Tested with Nextcloud 15+.
+* Tested with Nextcloud 15+
+
+**Important Notes:**
+
+* This plugin always returns OK and is purely informational
+* To access the serverinfo API you need credentials of an admin user. It is recommended to create an app password (in "Devices & sessions" at `https://cloud.example.com/index.php/settings/user/security`) or a separate user.
+* If you simply want to check the availability of the Nextcloud web frontend, you have to use other checks
+* If a Nextcloud App leads to a "500 Internal Server Error", the Nextcloud API often still remains intact, so this check cannot report that
+* Might take up to 30 seconds for the first time; after that, still takes a few seconds
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nextcloud-stats> |
+| Nagios/Icinga Check Name              | `check_nextcloud_stats` |
 | Check Interval Recommendation         | Every 15 minutes |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--password` is required) |
 | Compiled for Windows                  | No |
 | Requirements                          | Nextcloud App 'serverinfo' |
 
@@ -74,37 +83,39 @@ Output:
 
 ## Perfdata / Metrics
 
-* nc_active_users_last5min
-* nc_active_users_last1h
-* nc_active_users_last24h
-* nc_server_database_size
-* nc_shares_num_fed_shares_received
-* nc_shares_num_fed_shares_sent
-* nc_shares_num_shares
-* nc_shares_num_shares_groups
-* nc_shares_num_shares_link
-* nc_shares_num_shares_link_no_password
-* nc_shares_num_shares_mail
-* nc_shares_num_shares_room
-* nc_shares_num_shares_user
-* nc_storage_num_files
-* nc_storage_num_storages
-* nc_storage_num_storages_home
-* nc_storage_num_storages_local
-* nc_storage_num_storages_other
-* nc_storage_num_users: For num_users, the Nexctloud serverinfo app (NC21) returns the number of users that have ever existed, and not those that are enabled. See <https://github.com/nextcloud/serverinfo/issues/311>
-* nc_system_apps_num_installed
+| Name | Type | Description |
+|----|----|----|
+| nc_active_users_last1h | Number | Active users in the last hour. |
+| nc_active_users_last24h | Number | Active users in the last 24 hours. |
+| nc_active_users_last5min | Number | Active users in the last 5 minutes. |
+| nc_server_database_size | Bytes | Database size. |
+| nc_shares_num_fed_shares_received | Number | Number of received federated shares. |
+| nc_shares_num_fed_shares_sent | Number | Number of sent federated shares. |
+| nc_shares_num_shares | Number | Total number of shares. |
+| nc_shares_num_shares_groups | Number | Number of group shares. |
+| nc_shares_num_shares_link | Number | Number of link shares. |
+| nc_shares_num_shares_link_no_password | Number | Number of link shares without password. |
+| nc_shares_num_shares_mail | Number | Number of mail shares. |
+| nc_shares_num_shares_room | Number | Number of room shares. |
+| nc_shares_num_shares_user | Number | Number of user shares. |
+| nc_storage_num_files | Number | Total number of files. |
+| nc_storage_num_storages | Number | Total number of storages. |
+| nc_storage_num_storages_home | Number | Number of home storages. |
+| nc_storage_num_storages_local | Number | Number of local storages. |
+| nc_storage_num_storages_other | Number | Number of other storages. |
+| nc_storage_num_users | Number | Total number of users (note: this is the number of users that have ever existed, not those currently enabled). |
+| nc_system_apps_num_installed | Number | Number of installed apps. |
 
 
 ## Troubleshooting
 
-Unknown error while fetching <http://localhost/nextcloud/ocs/v2.php/apps/serverinfo/api/v1/info?format=json>, maybe timeout or error on webserver  
+`Unknown error while fetching http://localhost/nextcloud/ocs/v2.php/apps/serverinfo/api/v1/info?format=json, maybe timeout or error on webserver`
 Check the Nextcloud API endpoint URL. Maybe change from http(s)://localhost to http(s)://127.0.0.1.
 
-HTTP error "401 Unauthorized" while fetching <http://>...  
+`HTTP error "401 Unauthorized" while fetching http://...`
 Password is correct? Maybe you enabled 2FA. Use an app password for your monitoring server.
 
-Failed to execute script 'nextcloud-stats' due to unhandled exception!  
+`Failed to execute script 'nextcloud-stats' due to unhandled exception!`
 Use a newer version of this plugin.
 
 

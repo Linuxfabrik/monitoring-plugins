@@ -2,37 +2,53 @@
 
 ## Overview
 
-This check plugin monitors the memory pool usage of a WildFly server, using its HTTP-JSON based API (JBossAS REST Management API). This allows us to monitor the application server without any additional configuration and installation - no need to deploy WAR-Agents like Jolokia. The plugin supports both standalone mode and domain mode.
+Checks Java memory pool usage (Eden, Survivor, Old Gen, Metaspace, Compressed Class Space, Code Cache, etc.) on a WildFly/JBoss AS server via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode.
 
-Tested with WildFly 11 and WildFly 23+.
+**Alerting Logic:**
 
-Hints:
+* WARN if a memory pool instance is marked as invalid
+* WARN if the usage threshold of any memory pool has been exceeded (usage-threshold-exceeded)
+* WARN if the collection usage threshold of any memory pool has been exceeded (collection-usage-threshold-exceeded)
+* `--always-ok` suppresses all alerts and always returns OK
 
-* See [additional notes for all wildfly monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.md)
+**Data Collection:**
 
-* [How is the java memory pool divided?](https://stackoverflow.com/questions/1262328/how-is-the-java-memory-pool-divided)
+* Queries the WildFly management API at `/core-service/platform-mbean/type/memory-pool` using the `read-resource` operation with runtime data
+* Authenticates via HTTP Digest Auth (`--username`, `--password`)
+* Reports used/committed/max for each pool, both for regular usage and collection usage (if available)
+* Peak values are intentionally ignored as they are not relevant in a monitoring scenario with frequent checks
 
-    **Heap memory** is the runtime data area from which the Java VM allocates memory for all class instances and arrays. The heap may be of a fixed or variable size. The garbage collector is an automatic memory management system that reclaims heap memory for objects.
+**Important Notes:**
+
+* [How is the Java memory pool divided?](https://stackoverflow.com/questions/1262328/how-is-the-java-memory-pool-divided)
+
+    **Heap memory** is the runtime data area from which the Java VM allocates memory for all class instances and arrays. The garbage collector is an automatic memory management system that reclaims heap memory for objects.
 
     * PS Eden Space: The pool from which memory is initially allocated for most objects.
-    * PS Tenured Generation or PS Old Gen: The pool containing objects that have existed for some time in the survivor space
+    * PS Tenured Generation or PS Old Gen: The pool containing objects that have existed for some time in the survivor space.
     * PS Survivor Space: The pool containing objects that have survived the garbage collection of the Eden space.
 
-    **Non-heap memory** includes a method area shared among all threads and memory required for the internal processing or optimization for the Java VM. It stores per-class structures such as a runtime constant pool, field and method data, and the code for methods and constructors. The method area is logically part of the heap but, depending on the implementation, a Java VM may not garbage collect or compact it. Like the heap memory, the method area may be of a fixed or variable size. The memory for the method area does not need to be contiguous.
+    **Non-heap memory** includes a method area shared among all threads and memory required for the internal processing or optimization for the Java VM.
 
-    * Code Cache: The HotSpot Java VM also includes a code cache, containing memory that is used for compilation and storage of native code.
-    * Permanent Generation: The pool containing all the reflective data of the virtual machine itself, such as class and method objects. With Java VMs that use class data sharing, this generation is divided into read-only and read-write areas.
+    * Code Cache: Memory used for compilation and storage of native code.
+    * Permanent Generation: The pool containing all the reflective data of the virtual machine itself.
     * Compressed Class Space
     * Metaspace
+
+**Compatibility:**
+
+* Tested with WildFly 11 and WildFly 23+
+* See [additional notes for all wildfly monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.md)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wildfly-memory-pool-usage> |
+| Nagios/Icinga Check Name              | `check_wildfly_memory_pool_usage` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--username` and `--password` are required) |
 | Compiled for Windows                  | No |
 
 
@@ -74,7 +90,7 @@ options:
 ## Usage Examples
 
 ```bash
-./wildfly-memory-pool-usage --username wildfly-monitoring --password password --url http://wildfly:9990
+./wildfly-memory-pool-usage --username=wildfly-monitoring --password=password --url=http://wildfly:9990
 ```
 
 Output:
@@ -82,8 +98,8 @@ Output:
 ```text
 Everything is ok.
 
-name                   ! Type     ! Usage used / committed / max   ! Collection used / committed/ max 
------------------------+----------+--------------------------------+----------------------------------
+name                   ! Type     ! Usage used / committed / max    ! Collection used / committed/ max 
+-----------------------+----------+---------------------------------+----------------------------------
 Code_Cache             ! NON_HEAP ! 37.6MiB / 38.1MiB / 240.0MiB   ! N/A                              
 Metaspace              ! NON_HEAP ! 124.6MiB / 137.4MiB / 256.0MiB ! N/A                              
 Compressed_Class_Space ! NON_HEAP ! 16.7MiB / 20.1MiB / 248.0MiB   ! N/A                              
@@ -95,23 +111,25 @@ Tenured_Gen            ! HEAP     ! 65.7MiB / 109.0MiB / 341.4MiB  ! 65.4MiB / 8
 
 ## States
 
-* WARN if memory pool instance is invalid.
-* WARN if usage of the instance of a memory pool exceeded a threshold in any way.
-* WARN if usage of the instance of a memory pool collection exceeded a threshold in any way.
+* OK if no memory pool issues are detected.
+* WARN if a memory pool instance is invalid.
+* WARN if the usage threshold of any memory pool has been exceeded.
+* WARN if the collection usage threshold of any memory pool has been exceeded.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| memory-pool-NAME-usage-committed Bytes | Amount of memory that is reserved at the operating system level for the JVM process at the moment. |  |
-| memory-pool-NAME-usage-init | Bytes | The initial amount of memory that the JVM requested from the operating system at startup. Controlled by the `-Xms` cli option. |
-| memory-pool-NAME-usage-max Bytes | Maximum amount of memory that the JVM will ever try to request / allocate from the operating system. Controlled by the `-Xmx` cli option. |  |
-| memory-pool-NAME-usage-used Bytes | Amount of memory that is actually in use, so the memory consumed by all objects including the objects that are not reachable but haven't been garbaged collected yet. Can be lower than init. |  |
-| memory-pool-NAME-collection-usage-committed | Bytes | Only if 'Collection Usage' is enabled. |
-| memory-pool-NAME-collection-usage-init | Bytes | Only if 'Collection Usage' is enabled. |
-| memory-pool-NAME-collection-usage-max | Bytes | Only if 'Collection Usage' is enabled. |
-| memory-pool-NAME-collection-usage-used | Bytes | Only if 'Collection Usage' is enabled. |
+| memory-pool-NAME-collection-usage-committed | Bytes | Only if "Collection Usage" is enabled. |
+| memory-pool-NAME-collection-usage-init | Bytes | Only if "Collection Usage" is enabled. |
+| memory-pool-NAME-collection-usage-max | Bytes | Only if "Collection Usage" is enabled. |
+| memory-pool-NAME-collection-usage-used | Bytes | Only if "Collection Usage" is enabled. |
+| memory-pool-NAME-usage-committed | Bytes | Amount of memory reserved at the OS level for the JVM process. |
+| memory-pool-NAME-usage-init | Bytes | Initial amount of memory requested from the OS at startup (controlled by `-Xms`). |
+| memory-pool-NAME-usage-max | Bytes | Maximum amount of memory the JVM will try to allocate (controlled by `-Xmx`). |
+| memory-pool-NAME-usage-used | Bytes | Amount of memory actually in use, including unreachable objects not yet garbage collected. |
 
 
 ## Credits, License

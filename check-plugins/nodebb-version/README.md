@@ -2,14 +2,21 @@
 
 ## Overview
 
-This plugin lets you track if a NodeBB update is available.
+Checks if a NodeBB update is available by comparing the installed version against the latest release. Alerts when an update is available.
 
-The Plugin uses the Read API and Bearer Authentication. You need to issue a bearer token of type "user" in the NodeBB admin panel in order to grant access to the API. In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.
+**Data Collection:**
 
-* Settings \> API Access \> Create Token \> Specify your User ID and Description (for example "Linuxfabrik API Token").
+* Queries the NodeBB Read API endpoint `/api/admin/dashboard` using Bearer Authentication
+* Compares the installed NodeBB version against the latest available version
+* Reports the last restart timestamp including the user who triggered it
 
-Hints:
+**Alerting Logic:**
 
+* WARN if an update is available
+
+**Important Notes:**
+
+* You need to issue a bearer token of type "user" in the NodeBB admin panel: Settings > API Access > Create Token > Specify your User ID and Description (for example "Linuxfabrik API Token"). In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.
 * NodeBB Read API: <https://docs.nodebb.org/api/read/>
 * Requires NodeBB v1.14.4+.
 
@@ -17,12 +24,12 @@ Hints:
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-version> |
+| Nagios/Icinga Check Name              | `check_nodebb_version` |
 | Check Interval Recommendation         | Once a day |
-| Can be called without parameters      | No |
+| Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Requirements                          | NodeBB v1.14.4+ |
 
 
 ## Help
@@ -63,15 +70,16 @@ NodeBB v1.18.1 is available (installed: v1.17.1), Last restart: 2021-08-09 16:03
 
 ## States
 
-* If wanted, always returns OK,
-* else returns WARN if update is available.
+* OK if the installed version is up to date.
+* WARN if an update is available.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| nodebb-version | Number | Currently installed version. Example: '1.171' for v1.17.1 |
+| nodebb-version | Number | Currently installed version as a float. Example: `1.171` for v1.17.1. |
 
 
 ## Credits, License

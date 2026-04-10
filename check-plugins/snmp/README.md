@@ -2,25 +2,45 @@
 
 ## Overview
 
-This check utilizes `snmpget` to query for information on a network entity, so it provides all that `snmpget` is capable of, for example SNMP v2c and SNMP v3.
+Queries SNMP OIDs defined in a CSV file and checks the returned values against optional warning and critical thresholds. Supports SNMP v1, v2c, and v3 with authentication and privacy protocols.
 
-> [!NOTE]
-> Only use SNMP if there is no other way. SNMP puts much strain on the target system and the monitoring software.
->
-  * If you can use an agent of your monitoring software for monitoring, for example Icinga, and one of our plugins, do it.
-  * If you can't install an agent, but there is a good (REST-)API available (and maybe one of our plugins), use that.
-  * If you can't install an agent on a device and there is no (good) API, then use SNMP.
-  * If possible, use a SNMP specialized solution like [LibreNMS](https://www.librenms.org/) instead of this check.
-  * Prefer SNMPv2. Although completely insecure, it is fast and keeps the load on your appliance low.
+**Alerting Logic:**
+
+* OK, WARN, CRIT, or UNKNOWN depending on the OID definitions in the CSV file
+* WARN or CRIT conditions are defined per OID using Python expressions in the CSV file
+* Value changes can optionally be reported as WARN or CRIT via the "Report Change as" CSV column, persisted in a local SQLite database
+
+**Data Collection:**
+
+* Reads OID definitions from a CSV file in the `device-oids` directory (default: `any-any-any.csv`)
+* Calls `snmpget` in blocks of 25 OIDs per request to avoid "tooBig" errors
+* Supports re-calculation of values, custom units, human-readable formatting (bytes, seconds, bps), and computed values using Python expressions
+* Values can be shown in the first output line, filtered from the table, or excluded from perfdata
+
+**Important Notes:**
+
+* Only use SNMP if there is no other way. SNMP puts much strain on the target system and the monitoring software:
+    * If you can use an agent of your monitoring software (e.g. Icinga) and one of our plugins, do it
+    * If you can't install an agent but there is a good (REST-)API available, use that
+    * If you can't install an agent and there is no good API, then use SNMP
+    * If possible, use a specialized SNMP solution like [LibreNMS](https://www.librenms.org/) instead of this check
+    * Prefer SNMPv2. Although completely insecure, it is fast and keeps the load on your appliance low
+* The check divides the OID list automatically into blocks of 25 OIDs per SNMPGET request
+* If you acknowledge a value change in Icinga, the desired WARN or CRIT state remains. Delete `$TEMP/linuxfabrik-monitoring-plugins-snmp.db` to reset the inventory.
+
+**Compatibility:**
+
+* Linux
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/snmp> |
+| Nagios/Icinga Check Name              | `check_snmp` |
 | Check Interval Recommendation         | Every 5 minutes |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--hostname` is required) |
 | Compiled for Windows                  | No |
 | Requirements                          | `snmpget` from `net-snmp-utils` |
 | Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-snmp.db` |
@@ -150,6 +170,7 @@ UsedMem      ! 26370772 ! [OK]
 Memory Usage ! 40.06%   ! [OK]
 ```
 
+
 ## Installation
 
 Install `snmpget`:
@@ -162,7 +183,8 @@ yum -y install net-snmp-utils
 apt -y install snmp snmp-mibs-downloader
 ```
 
-## Plugin Directory Strcuture
+
+## Plugin Directory Structure
 
 ```text
 /usr/lib64/nagios/plugins/
@@ -173,11 +195,13 @@ apt -y install snmp snmp-mibs-downloader
 └── device-oids
 ```
 
+
 ## Handling MIBs
 
-If needed, get any MIB files ready. Copy them to `$HOME/.snmp/mibs` or `/usr/share/snmp/mibs`. If you prefer other locations, provide the paths using the `--mib-dir` parameter (same syntax as the `-M` parameter of `snmpget`). The checks comes with some predefined, device-dependend MIBs located at `/usr/lib64/nagios/plugins/device-mibs/`.
+If needed, get any MIB files ready. Copy them to `$HOME/.snmp/mibs` or `/usr/share/snmp/mibs`. If you prefer other locations, provide the paths using the `--mib-dir` parameter (same syntax as the `-M` parameter of `snmpget`). The check comes with some predefined, device-dependent MIBs located at `/usr/lib64/nagios/plugins/device-mibs/`.
 
 Create an OID list in `/usr/lib64/nagios/plugins/device-oids/...` using CSV format. For details, have a look at "Defining a Device" within this document.
+
 
 ## Defining a Device via CSV file
 
@@ -191,59 +215,58 @@ If you want to define a device-specific list of OIDs, including any calculations
 
 The columns in detail:
 
-* **OID**:  
-   String. The Object-Identifier from any of your MIB files.
+* **OID:**
+   String. The Object-Identifier from any of your MIB files.
 
-* **Name**:  
-   String. If provided, the check prints this instead of the OID.
+* **Name:**
+   String. If provided, the check prints this instead of the OID.
 
-* **Re-Calc**:  
-   Python code, or empty. Feel free to use any Python Code based on the variables `value` and `values`, which contain the result (always a string) of the SNMPGET operation on the given OID.
+* **Re-Calc:**
+   Python code, or empty. Feel free to use any Python code based on the variables `value` and `values`, which contain the result (always a string) of the SNMPGET operation on the given OID.
 
-* **Unit**:  
-   String, or empty. This is the "Unit of Measurement", case-insensitiv. One of:
+* **Unit:**
+   String, or empty. This is the "Unit of Measurement", case-insensitive. One of:
 
     * s - seconds (also us, ms)
     * % - percentage
     * B - bytes (also KB, MB, TB, ...)
     * bps - bits per second (also Kbps, Mbps, ...)
-    * c - a continous counter (such as bytes transmitted on an interface)
+    * c - a continuous counter (such as bytes transmitted on an interface)
 
-  If you provide two comma-separated units, for example "b,c", the first one will be used to display a human-readable format ("Bytes"), and the second one is used to suffix the perfdata ("continous counter").  
+  If you provide two comma-separated units, for example "b,c", the first one will be used to display a human-readable format ("Bytes"), and the second one is used to suffix the perfdata ("continuous counter").
   For output, the following units will always be converted to a human-friendly format:
 
     * s - seconds
     * b - bytes
     * bps - bits per second
 
-* **WARN**:  
-   Python condition, or empty. The warning condition for the re-calculated or raw `value`.
+* **WARN:**
+   Python condition, or empty. The warning condition for the re-calculated or raw `value`.
 
-* **CRIT**:  
-   Python condition, or empty. The critical condition for the re-calculated or raw `value`.
+* **CRIT:**
+   Python condition, or empty. The critical condition for the re-calculated or raw `value`.
 
-* **Show in first line**:  
-   Bool, either "False", "True", or empty. Should `value` be printed in the first line of the check output?
+* **Show in first line:**
+   Bool, either "False", "True", or empty. Should `value` be printed in the first line of the check output?
 
-* **Report Change as**:  
-   String, either "WARN", "CRIT", or empty. Should a change of `value` be reported as `WARN` or `CRIT`? The check stores the initial values on the first run in `$TEMP/linuxfabrik-monitoring-plugins-snmp.db`.
+* **Report Change as:**
+   String, either "WARN", "CRIT", or empty. Should a change of `value` be reported as `WARN` or `CRIT`? The check stores the initial values on the first run in `$TEMP/linuxfabrik-monitoring-plugins-snmp.db`.
 
-* **Ignore in Perfdata**:  
-   Bool, either "False", "True", or empty. By default, all numeric values are automatically returned as perfdata objects. Set to `True` to exclude this item from the perfdata list.
+* **Ignore in Perfdata:**
+   Bool, either "False", "True", or empty. By default, all numeric values are automatically returned as perfdata objects. Set to `True` to exclude this item from the perfdata list.
 
-* **Perfdata Alert Thresholds**:  
-   Python tuple. Add warning and critical thresholds to performance data by defining a valid Python tuple - first element for warning, second one for critical. Use double quotes around the tuple because the comma is the separator between the fields. Normally, the values of WARN and CRIT should be repeated here so that the actual thresholds used are written to the performance data.
+* **Perfdata Alert Thresholds:**
+   Python tuple. Add warning and critical thresholds to performance data by defining a valid Python tuple - first element for warning, second one for critical. Use double quotes around the tuple because the comma is the separator between the fields. Normally, the values of WARN and CRIT should be repeated here so that the actual thresholds used are written to the performance data.
 
-* **Skip Output**:  
-   Bool, either "False", "True", or empty. Should this row be included in the resulting table output? Set this to "True" if you only need the row for calculations.
+* **Skip Output:**
+   Bool, either "False", "True", or empty. Should this row be included in the resulting table output? Set this to "True" if you only need the row for calculations.
 
-The check divides the OID list automatically into blocks of 25 OIDs per SNMPGET request.
 
 ## Calculating and Comparing using `value` and `values`
 
 `value` contains the value of the *current* OID, simply and always as a Python string. `values` is a Python dictionary containing all *re-calculated* (or raw) values, up to this point. The dictionary keys are based on the "Name". If "Name" is not set, the dictionary keys are based on the "OID".
 
-The `value` returned by `snmpget` for a given *OID* is always a string. If you want to use it for calculations or integer-based comparisons, re-calculate it by specifying `int(value)` in column (SNMP knows nothing about floats).
+The `value` returned by `snmpget` for a given *OID* is always a string. If you want to use it for calculations or integer-based comparisons, re-calculate it by specifying `int(value)` in the column (SNMP knows nothing about floats).
 
 Both variables are allowed to be used in Python code in the columns "Re-Calc", "WARN" and "CRIT". This enables you to even warn in the current OID depending on previous values, for example.
 
@@ -257,6 +280,7 @@ In the last three lines of this example we simply calculate "NIC.1 Traffic" as a
 | IF-MIB::ifOutOctets.1 | NIC.1 tx | int(value) | b,c |  |  |
 | IF-MIB::ifInOctets.1 | NIC.1 rx | int(value) | b,c |  |  |
 | \<leave this empty\> | NIC.1 Traffic | values\['NIC.1 tx'\] + values\['NIC.1 rx'\] | b,c |  |  |
+
 
 ## Parameter Mapping `snmpget` vs. this Plugin
 
@@ -279,6 +303,7 @@ In the last three lines of this example we simply calculate "NIC.1 Traffic" as a
 | `-m MIB[:...]`  | `--mib MIB`                                              |
 | `-M DIR[:...]`  | `--mib-dir MIBDIR`                                       |
 
+
 ## How to fetch a list of OIDs
 
 Example:
@@ -294,35 +319,32 @@ snmpbulkwalk -v2c \
 
 ## States
 
-Depending on the OID definitions the check returns
-
-* OK
-* WARN
-* CRIT
-* UNKNOWN
+* OK, WARN, CRIT, or UNKNOWN depending on the OID definitions in the CSV file.
+* UNKNOWN if an OID returns "No Such Instance" or "No Such Object".
+* UNKNOWN if a Re-Calc expression fails.
 
 
 ## Perfdata / Metrics
 
-By default, all numeric values are automatically returned as perfdata objects.
+By default, all numeric values are automatically returned as perfdata objects. Use the "Ignore in Perfdata" CSV column to exclude specific items.
 
 
 ## Troubleshooting
 
-<span class="title-ref">IndexError: list index out of range</span>  
+`IndexError: list index out of range`  
 Something is wrong with your CSV file format. Try editing it in LibreOffice Calc, for example, to get the right amount of commas, quotes, etc.
 
-Too many object identifiers specified. Only 128 allowed in one request.  
+`Too many object identifiers specified. Only 128 allowed in one request.`  
 Probably your SNMP v3 parameters are incomplete or incorrect.
 
-add_mibdir: strings scanned in from .snmp/mibs/.index are too large. count = ...  
+`add_mibdir: strings scanned in from .snmp/mibs/.index are too large. count = ...`  
 There seems to be a malformed, a duplicated MIB file or one with spaces in its filename within one of your MIB directories.
 
-Error in packet. Reason: (tooBig) Response message would have been too large.  
-A "tooBig" response simply means that the SNMP agent tried to generate a response with all requested OID's, but the response grew too big for its buffer, resulting in this error message. To avoid this, we divide your OID list and send a maximum of 25 oids per request each.
+`Error in packet. Reason: (tooBig) Response message would have been too large.`  
+A "tooBig" response simply means that the SNMP agent tried to generate a response with all requested OIDs, but the response grew too big for its buffer, resulting in this error message. The check already limits requests to a maximum of 25 OIDs each.
 
-Within Icinga, if I acknowledge a value change in WARN or CRIT state, does the plugin returns OK?  
-If you acknowledge a value change in Icinga, the desired WARN or CRIT state remains - due to the fact that SNMP is mostly run against hardware, and you have to check what triggered the change. If everything is fine, delete `$TEMP/linuxfabrik-monitoring-plugins-snmp.db`. On the next run of the plugin, it will recreate the inventory.
+`Within Icinga, if I acknowledge a value change in WARN or CRIT state, does the plugin return OK?`  
+If you acknowledge a value change in Icinga, the desired WARN or CRIT state remains, because SNMP is mostly run against hardware and you have to check what triggered the change. If everything is fine, delete `$TEMP/linuxfabrik-monitoring-plugins-snmp.db`. On the next run, the plugin will recreate the inventory.
 
 
 ## Credits, License

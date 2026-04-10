@@ -2,27 +2,43 @@
 
 ## Overview
 
-The check calls `ipmitool sensor list` to fetch detailed sensor information. Running this check just makes sense against or on hardware using an IPMI interface. Needs sudo.
+Checks IPMI sensor readings (temperature, voltage, fan speed, power, etc.) using ipmitool. Alerts when any sensor reports a non-ok status. Provides detailed output including current values, thresholds, and sensor states. Requires root or sudo.
 
-Tested on:
+**Alerting Logic:**
 
-* Supermicro BMC
-* HPE iLO
+* Alerts WARN if a sensor is in "nc" (non-critical) state, meaning it is above or below a non-critical threshold
+* Alerts CRIT if a sensor is in "cr" (critical) state, meaning it is above or below a critical threshold
+* Alerts CRIT if a sensor is in "nr" (non-recoverable) state, indicating possible hardware damage
+* Sensors with status "na" (not available) or "ns" (not specified) are skipped
+* Thresholds are determined by the IPMI hardware itself, not by the check plugin
 
-Known Issues and Limitations:
+**Data Collection:**
 
-* `Discrete` sensors support is not implemented.
+* Executes `ipmitool sensor list` locally or against a remote BMC/iLO via IPMI over LAN
+* For remote access, supports both IPMI v1.5 (`--interface=lan`) and IPMI v2.0 (`--interface=lanplus`)
+* Emits perfdata for every threshold-based sensor with IPMI-reported warning, critical, and min/max values
+
+**Compatibility:**
+
+* Tested on Supermicro BMC and HPE iLO
+* Requires hardware with an IPMI interface
+
+**Important Notes:**
+
+* `Discrete` sensors are not supported and are silently skipped.
+* Requires the `ipmitool` command-line tool to be installed.
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ipmi-sensor> |
+| Nagios/Icinga Check Name              | `check_ipmi_sensor` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Requirements                          | command-line tool `ipmitool` |
+| Requirements                          | `ipmitool` |
 
 
 ## Help
@@ -72,53 +88,34 @@ options:
 Output:
 
 ```text
-Checked 60 sensors, all are ok.
+Everything is ok, checked 60 sensors.
 ```
 
 
 ## States
 
-* CRIT, if sensor value is non-recoverable (very worse).
-* CRIT, if sensor value is above/below critical threshold given by IPMI.
-* WARN, if sensor value is above/below IPMI non-critical threshold.
-* UNKNOWN on `ipmitool` not found or errors running `ipmitool`.
+* OK if all sensors report "ok" status.
+* WARN if any sensor is in "nc" (non-critical) state.
+* CRIT if any sensor is in "cr" (critical) state.
+* CRIT if any sensor is in "nr" (non-recoverable) state, indicating possible hardware damage.
+* UNKNOWN if `ipmitool` is not found or returns an error.
 
 
 ## Perfdata / Metrics
 
-Depends on your hardware - as an example:
+Perfdata depends on the hardware. Sensor names have spaces replaced with underscores. Example metrics from a Supermicro system:
 
-* 1.05V_PCH
-* 1.2V_BMC
-* 1.5V_PCH
-* 12V
-* 3.3VCC
-* 3.3VSB
-* 5VCC
-* 5VSB
-* CPU_Temp
-* DIMMA1_Temp
-* DIMMA2_Temp
-* DIMMB1_Temp
-* DIMMB2_Temp
-* DIMMC1_Temp
-* DIMMC2_Temp
-* DIMMD1_Temp
-* DIMMD2_Temp
-* FAN1
-* FAN2
-* FAN3
-* FAN4
-* PCH_Temp
-* Peripheral_Temp
-* System_Temp
-* VBAT
-* Vcpu
-* VcpuVRM_Temp
-* VDIMMAB
-* VDIMMCD
-* VmemABVRM_Temp
-* VmemCDVRM_Temp
+| Name | Type | Description |
+|----|----|----|
+| 12V | Number | 12V rail voltage reading. |
+| 3.3VCC | Number | 3.3V rail voltage reading. |
+| 5VCC | Number | 5V rail voltage reading. |
+| CPU_Temp | Number | CPU temperature reading. |
+| DIMMA1_Temp | Number | DIMM A1 temperature reading. |
+| FAN1 | Number | Fan 1 speed reading. |
+| System_Temp | Number | System temperature reading. |
+
+The actual metrics vary per hardware platform. Warning and critical thresholds in perfdata are taken from the IPMI-reported upper non-critical and upper critical values.
 
 
 ## Credits, License

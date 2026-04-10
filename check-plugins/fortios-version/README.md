@@ -2,9 +2,22 @@
 
 ## Overview
 
-This plugin lets you track if FortiOS is End-of-Life (EOL). To compare against the current/installed version of FortiOS, the check has to fetch the REST API of the FortiOS appliance.
+Checks the installed FortiOS version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Alerting Logic:**
+
+* WARN if the installed FortiOS version has reached or is approaching EOL (within `--offset-eol` days, default: 30 days before)
+* Optionally WARN when a new major, minor, or patch release is available (each independently configurable via `--check-major`, `--check-minor`, `--check-patch`)
+
+**Data Collection:**
+
+* Queries the FortiOS REST API endpoint `/api/v2/monitor/system/firmware/` to determine the installed version
+* Compares the installed version against the endoflife.date API (`https://endoflife.date/api/fortios.json`) to determine EOL status and available updates
+* Caches the endoflife.date API response in a local SQLite database (`$TEMP/linuxfabrik-lib-version.db`)
+
+**Compatibility:**
+
+* FortiGate appliances running FortiOS with REST API enabled
 
 
 ## Fact Sheet
@@ -12,10 +25,11 @@ This check plugin alerts n days before or after the EOL date is reached. Optiona
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fortios-version> |
+| Nagios/Icinga Check Name              | `check_fortios_version` |
 | Check Interval Recommendation         | Once a day |
-| Can be called without parameters      | Yes |
+| Can be called without parameters      | No (`--hostname` and `--password` are required) |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 
 
 ## Help
@@ -74,17 +88,19 @@ FortiOS v6.0.1 (EOL 2022-09-29 -30d [WARNING])
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* OK if the installed FortiOS version is not EOL and no newer release is flagged.
+* WARN if the installed version has reached or is approaching EOL (within `--offset-eol` days, default: -30).
+* WARN if `--check-major` is set and a newer major release is available.
+* WARN if `--check-minor` is set and a newer minor release is available.
+* WARN if `--check-patch` is set and a newer patch release is available.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| fortios-version | Number | Installed FortiOS version as float. "6.0.1" becomes "6.01". |
+| fortios-version | Number | Installed FortiOS version as float. For example, "6.0.1" becomes "6.01". |
 
 
 ## Credits, License

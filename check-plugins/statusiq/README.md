@@ -2,7 +2,24 @@
 
 ## Overview
 
-StatusIQ is a hosted status page provided by Site24x7. This check plugin retrieves the StatusIQ status page (must be rss-enabled) and returns a specific status - OK for "Operational" or "Informational" messages, WARN for "Under Maintenance", "Degraded Performance" and "Partial Outage", and CRIT for "Major Outage" messages. You only need to provide the URL to the StatusIQ page, for example "https://status.trustid.ch".
+Monitors a [StatusIQ](https://www.site24x7.com/statusiq/) (by Site24x7) status page via its RSS feed. Returns a component-by-component status overview with Nagios-compatible alerting.
+
+**Alerting Logic:**
+
+* OK for "Operational" or "Informational" messages
+* WARN for "Under Maintenance", "Degraded Performance", and "Partial Outage" messages
+* CRIT for "Major Outage" messages
+* UNKNOWN if the RSS feed appears to be disabled or returns no data
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Fetches the RSS feed of the specified StatusIQ status page (appends `/rss` to the URL)
+* Parses the XML feed using BeautifulSoup to extract component statuses and publication dates
+
+**Compatibility:**
+
+* Any StatusIQ status page with RSS enabled (e.g. `https://status.trustid.ch`, `https://status.kobv.de`)
 
 
 ## Fact Sheet
@@ -10,10 +27,10 @@ StatusIQ is a hosted status page provided by Site24x7. This check plugin retriev
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/statusiq> |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| 3rd Party Python modules              | `beautifulsoup` |
+| 3rd Party Python modules              | `beautifulsoup4` |
 
 
 ## Help
@@ -86,16 +103,19 @@ THW WILBERT - Operational       ! Wed, 26 Feb 2025 14:15:32 +0100 ! [OK]
 
 ## States
 
-* WARN for "Under Maintenance", "Degraded Performance" and "Partial Outage" messages
-* CRIT for "Major Outage" messages
+* OK if all components are "Operational" or "Informational".
+* WARN for "Under Maintenance", "Degraded Performance", or "Partial Outage" messages.
+* CRIT for "Major Outage" messages.
+* UNKNOWN if the RSS feed returns no data (RSS may be disabled for this page).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name     | Type   | Description               |
-|----------|--------|---------------------------|
+| Name | Type | Description |
+|----|----|----|
 | cnt_crit | Number | Number of critical events |
-| cnt_warn | Number | Number of warning events  |
+| cnt_warn | Number | Number of warning events |
 
 
 ## Credits, License

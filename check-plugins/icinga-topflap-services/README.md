@@ -2,32 +2,50 @@
 
 ## Overview
 
-This check plugin counts the number of state changes per service within a given lookback interval. This makes it possible to detect fast flapping services. The data is retrieved from the History \> Event Overview view in IcingaDB. To access the URL, all you need is an IcingaWeb2 user with the 'icingadb \> General Module Access' permission.
+Detects fast-flapping Icinga services by counting state changes per service within a configurable lookback interval. Queries the IcingaDB event history and alerts when any service exceeds the configured number of state changes.
 
-An output like `srv01 ! Swap usage ! 10 ! [WARNING]` means that the service 'Swap Usage' on host 'srv01' has had 10 service state changes in the lookback interval. With this information, you can now examine the history of the specified service.
+**Alerting Logic:**
 
-Instead of specifying url, user and password on the command line, you can create and specify an INI file like this
+* Alerts when any service has more state changes within the lookback period than the configured warning or critical threshold
+* Services currently in downtime are excluded from the analysis
+* The check ignores its own service (any service with "top" and "flap" in the display name)
+* Services with no display name (e.g. "Waiting for Icinga DB to synchronize the config.") are skipped
 
-```text
-[icingaweb2]
-url = http://localhost/icingaweb2/icingadb/history?limit=250
-username = alice
-password = linuxfabrik
-```
+**Data Collection:**
 
-Command line arguments override the settings in the password INI file.
+* Fetches data from the IcingaDB event history via the IcingaWeb2 REST API using HTTP Basic authentication
+* Groups events by host and service, then counts state changes per service within the lookback window
+* Uses a temporary SQLite database to store and aggregate event data per check run (dropped and recreated each run)
+* Credentials can be provided via command-line parameters or a password INI file (command-line takes precedence)
+
+**Compatibility:**
+
+* Requires IcingaDB with the IcingaWeb2 module
+* The IcingaWeb2 user needs at least the "icingadb > General Module Access" permission
+
+**Important Notes:**
+
+* Instead of specifying URL, username and password on the command line, you can create and specify an INI file:
+
+    ```text
+    [icingaweb2]
+    url = http://localhost/icingaweb2/icingadb/history?limit=250
+    username = alice
+    password = linuxfabrik
+    ```
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/icinga-topflap-services> |
+| Nagios/Icinga Check Name              | `check_icinga_topflap_services` |
 | Check Interval Recommendation         | Every 5 minutes |
-| Can be called without parameters      | Yes |
+| Can be called without parameters      | Yes (if `--pwfile` exists at the default path) |
 | Compiled for Windows                  | No |
-| Requirements                          | IcingaDB, Read access to `/icingaweb2/icingadb/history` |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-icinga-topflap-services.db` |
+| Requirements                          | IcingaDB, read access to `/icingaweb2/icingadb/history` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-icinga-topflap-services.db` |
 
 
 ## Help
@@ -86,14 +104,14 @@ options:
 Output:
 
 ```text
-There are warnings. (lookback=1D warn=5 crit=19)
+There are warnings. (lookback=1D warn=7 crit=19)
 
 Host            ! Service                 ! Cnt ! State     
 ----------------+-------------------------+-----+-----------
 srv-mon01       ! Swap Usage              ! 12  ! [WARNING] 
 srv-analytics01 ! Load                    ! 10  ! [WARNING] 
 srv-analytics01 ! CPU Usage               ! 8   ! [WARNING] 
-srv-vcs01       ! Swap Usage              ! 6   ! [WARNING] 
+srv-vcs01       ! Swap Usage              ! 6   ! [OK]      
 srv-cloud02     ! Apache httpd Status     ! 4   ! [OK]      
 srv-repo01      ! Journald Usage          ! 2   ! [OK]      
 srv-cloud01     ! Nextcloud Stats         ! 2   ! [OK]      
@@ -102,7 +120,11 @@ srv-cloud01     ! Nextcloud Stats         ! 2   ! [OK]
 
 ## States
 
-* WARN or CRIT if a specified number of flapping services are found within the lookback interval.
+* OK if no service exceeds the warning threshold for state changes within the lookback period.
+* WARN if any service has >= `--warning` (default: 7) state changes.
+* CRIT if any service has >= `--critical` (default: 19) state changes.
+* UNKNOWN on missing credentials, unreadable password file, or invalid command-line arguments.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

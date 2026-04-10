@@ -2,23 +2,35 @@
 
 ## Overview
 
-Checks if a certain amount of transactions used a temporary disk cache because they could not fit in the regular binary log cache in MySQL/MariaDB. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
+Checks whether transactions in MySQL/MariaDB had to use a temporary disk cache because they exceeded the configured binary log cache size (`binlog_cache_size`). A high disk cache usage rate indicates that `binlog_cache_size` should be increased.
 
-Hints:
+**Alerting Logic:**
+
+* WARN if less than 90% of all transactions using the binary log cache were served from memory (i.e. more than 10% had to fall back to disk)
+
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for `binlog_cache_size` and `log_bin`
+* Queries `SHOW GLOBAL STATUS` for `Binlog_cache_disk_use` and `Binlog_cache_use`
+* Calculates the percentage of transactions served from memory vs. disk
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
+
+**Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
-* If `log_bin` is set to `OFF`, this check makes no sense.
+* If `log_bin` is set to `OFF`, the check exits with UNKNOWN because binary logging is disabled and this check makes no sense
+* Returns UNKNOWN if binary logging is disabled
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-binlog-cache> |
+| Nagios/Icinga Check Name              | `check_mysql_binlog_cache` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Requirements                          | User with no privileges, locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |
 
 
@@ -67,24 +79,23 @@ Output:
 ## States
 
 * WARN if more than 10% of all transactions using the binary log cache are read from disk.
+* UNKNOWN if binary logging is disabled (`log_bin = OFF`).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| mysql_binlog_cache_disk_use | Continous Counter | Number of transactions which used a temporary disk cache because they could not fit in the regular binary log cache, being larger than binlog_cache_size. |
-| mysql_binlog_cache_size | Bytes | If the binary log is active, this variable determines the size in bytes, per-connection, of the cache holding a record of binary log changes during a transaction. |
-| mysql_binlog_cache_use | Continous Counter | Number of transaction which used the regular binary log cache, being smaller than binlog_cache_size. |
-| mysql_pct_binlog_cache | Percentage | (Binlog_cache_use - Binlog_cache_disk_use) / Binlog_cache_use \* 100 |
+| mysql_binlog_cache_disk_use | Continous Counter | Number of transactions which used a temporary disk cache because they could not fit in the regular binary log cache, being larger than `binlog_cache_size`. |
+| mysql_binlog_cache_size | Bytes | Size in bytes, per-connection, of the cache holding a record of binary log changes during a transaction. |
+| mysql_binlog_cache_use | Continous Counter | Number of transactions which used the regular binary log cache, being smaller than `binlog_cache_size`. |
+| mysql_pct_binlog_cache | Percentage | (Binlog_cache_use - Binlog_cache_disk_use) / Binlog_cache_use * 100 |
 
 
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
-
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).
-
 * Credits:
-
     * heavily inspired by MySQLTuner (<https://github.com/major/MySQLTuner-perl>)

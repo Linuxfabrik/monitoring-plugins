@@ -2,16 +2,31 @@
 
 ## Overview
 
-This plugin lets you track if Valkey is End-of-Life (EOL). To compare against the current/installed version of Valkey, the check has to run on the Valkey server itself.
+Checks the installed Valkey version against the endoflife.date API and alerts if the version is end-of-life or if newer releases are available. The check must run on the Valkey server itself, as it uses `valkey-server --version` to determine the installed version.
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Alerting Logic:**
+
+* WARN when the installed version reaches its EOL date (default: 30 days before the official EOL date, configurable via `--offset-eol`)
+* Optional: WARN when a new major, minor, or patch version is available (each independently via `--check-major`, `--check-minor`, `--check-patch`)
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Executes `valkey-server --version` locally to determine the installed version
+* Queries the [endoflife.date API](https://endoflife.date/api/valkey.json) to fetch EOL dates and latest available versions
+* Caches API responses in a SQLite database to reduce network calls
+
+**Compatibility:**
+
+* Tested with Valkey 7.2 and 8.0
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/valkey-version> |
+| Nagios/Icinga Check Name              | `check_valkey_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -69,10 +84,11 @@ Valkey v8.0.3 (EOL unknown, minor 8.1.1 available)
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* WARN if the installed version is EOL (or within the configured offset).
+* Optional: WARN when a new major version is available (`--check-major`).
+* Optional: WARN when a new minor version is available (`--check-minor`).
+* Optional: WARN when a new patch version is available (`--check-patch`).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

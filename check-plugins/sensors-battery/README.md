@@ -2,18 +2,33 @@
 
 ## Overview
 
-Return battery status information. If no battery is installed or the metrics cannot be determined, 'OK' is returned.
+Reports battery status information including charge percentage, time remaining, and power source (AC or battery). Returns OK if no battery is installed or if metrics cannot be determined.
 
-Hints:
+**Alerting Logic:**
 
-* Run `sensors-detect --auto` beforehand to scan your system for the various hardware monitoring chips or sensors supported by libsensors or, more generally, by the lm_sensors tool suite.
+* WARN if battery power left is at or below `--warning` (default: 20%)
+* CRIT if battery power left is at or below `--critical` (default: 5%)
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Uses `psutil.sensors_battery()` to read battery charge percentage, time remaining, and power plug status
+
+**Important Notes:**
+
+* Run `sensors-detect --auto` beforehand to scan the system for hardware monitoring chips supported by libsensors / lm_sensors
+
+**Compatibility:**
+
+* Linux and all psutil-supported systems with battery hardware
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/sensors-battery> |
+| Nagios/Icinga Check Name              | `check_sensors_battery` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -55,13 +70,26 @@ Output:
 
 ## States
 
-* WARN or CRIT if battery power left as % is below a given threshold.
+* OK if battery power is above the warning threshold or if the battery is plugged in.
+* OK if no battery is installed.
+* WARN if battery power left is at or below `--warning` (default: 20%).
+* CRIT if battery power left is at or below `--critical` (default: 5%).
+* UNKNOWN if the platform is not supported by psutil.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-* battery power as a percentage (%)
-* time left (seconds)
+| Name | Type | Description |
+|----|----|----|
+| battery_percent | Percentage | Battery charge level. |
+| battery_secsleft | Seconds | Estimated time remaining on battery. |
+
+
+## Troubleshooting
+
+`Python module "psutil" is not installed.`  
+Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
 
 ## Credits, License

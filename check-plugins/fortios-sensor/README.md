@@ -2,7 +2,20 @@
 
 ## Overview
 
-The check fetches detailed sensor information from a Forti Appliance like FortiGate running FortiOS, using the FortiOS REST API. Warns automatically by comparing to pre-defined appliance thresholds. The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".
+Checks hardware sensor readings (temperature, voltage, fan speed) on FortiGate appliances running FortiOS via the REST API. Alerts when any sensor value crosses the appliance-defined thresholds (`lower_non_critical`, `lower_critical`, `upper_non_critical`, `upper_critical`). Sensors reporting a value of 0.0 are skipped automatically. Authentication uses a single API token (token-based authentication).
+
+**Alerting Logic:**
+
+* Uses the appliance's built-in threshold values for each sensor to determine WARN and CRIT states
+* Alerts separately on lower and upper threshold violations (e.g. a voltage dropping below its lower critical limit, or a temperature exceeding its upper non-critical limit)
+
+**Data Collection:**
+
+* Queries the FortiOS REST API endpoint `/api/v2/monitor/system/sensor-info/select` to fetch all hardware sensor readings and their thresholds
+
+**Compatibility:**
+
+* FortiGate appliances running FortiOS with REST API enabled
 
 
 ## Fact Sheet
@@ -10,8 +23,9 @@ The check fetches detailed sensor information from a Forti Appliance like FortiG
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fortios-sensor> |
+| Nagios/Icinga Check Name              | `check_fortios_sensor` |
 | Check Interval Recommendation         | Every 15 minutes |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--hostname` and `--password` are required) |
 | Compiled for Windows                  | No |
 
 
@@ -46,78 +60,31 @@ options:
 ./fortios-sensor --hostname fortigate-cluster.linuxfabrik.io --password mypass
 ```
 
+Output:
+
+```text
+Checked 42 sensors, all are ok.
+```
+
+Output (with warnings):
+
+```text
+Checked 42 sensors. There are warnings.
+* MAC_AVS 1V (0.92 V) is less or equal to a certain threshold (0.9214/0.892)
+```
+
 
 ## States
 
-* CRIT, if sensor value is \<= lower_critical or \>= upper_critical
-* WARN, if sensor value is \<= lower_non_critical or \>= upper_non_critical
+* OK if all sensor values are within their non-critical thresholds.
+* WARN if any sensor value is <= `lower_non_critical` or >= `upper_non_critical`.
+* CRIT if any sensor value is <= `lower_critical` or >= `upper_critical`.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-Depends on your hardware. Example:
-
-* fan.fan1
-* fan.fan2
-* fan.fan3
-* fan.fan4
-* fan.fan5
-* fan.fan6
-* fan.ps1_fan_1
-* fan.ps2_fan_1
-* temperature.cpu_0_core_0
-* temperature.cpu_0_core_1
-* temperature.cpu_0_core_2
-* temperature.cpu_0_core_3
-* temperature.cpu_0_core_4
-* temperature.cpu_0_core_5
-* temperature.cpu_0_core_6
-* temperature.cpu_0_core_7
-* temperature.cpu_1_core_0
-* temperature.cpu_1_core_1
-* temperature.cpu_1_core_2
-* temperature.cpu_1_core_3
-* temperature.cpu_1_core_4
-* temperature.cpu_1_core_5
-* temperature.cpu_1_core_6
-* temperature.cpu_1_core_7
-* temperature.dts_cpu0
-* temperature.dts_cpu1
-* temperature.ps1_temp
-* temperature.ps2_temp
-* temperature.td1
-* temperature.td2
-* temperature.td3
-* temperature.td4
-* temperature.ts1
-* temperature.ts2
-* temperature.ts3
-* temperature.ts4
-* temperature.ts5
-* voltage.+12v
-* voltage.+3.3vsb
-* voltage.+3.3vsb_smc
-* voltage.3vdd
-* voltage.cpu0_pvccin
-* voltage.cpu1_pvccin
-* voltage.mac_1.025v
-* voltage.mac_avs_1v
-* voltage.p1v05_pch
-* voltage.p3v3_aux
-* voltage.ps1_vin
-* voltage.ps1_vout_12v
-* voltage.ps2_vin
-* voltage.ps2_vout_12v
-* voltage.pvccio
-* voltage.pvddq_ab
-* voltage.pvddq_ef
-* voltage.pvtt_ab
-* voltage.pvtt_cd
-* voltage.pvtt_gh
-* voltage.vcc1.15v
-* voltage.vcc2.5v
-* voltage.vcc3v3
-* voltage.vcc5v
+Depends on the hardware sensors present on your appliance. Each sensor is reported by its ID (e.g. `fan.fan1`, `temperature.cpu_0_core_0`, `voltage.mac_avs_1v`). The warning and critical thresholds are set to the appliance's `upper_non_critical` and `upper_critical` values, with min/max set to `lower_non_recoverable` and `upper_non_recoverable`.
 
 
 ## Credits, License

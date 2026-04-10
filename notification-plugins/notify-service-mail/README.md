@@ -2,15 +2,23 @@
 
 ## Overview
 
-Sends notifications for services using mail.
+Sends service notifications via email for Icinga/Nagios. Generates an HTML-formatted email with color-coded notification types and service states, including an embedded Icinga logo. Includes host display name, service display name, service state, service output, IP address, event time, perfdata, and an optional link to Icinga Web 2.
 
-Note: Use the `--short` parameter to create a short message without a subject, for exmple for sending to a SMS relay service.
+**Data Collection:**
+
+* All notification data is passed via command-line parameters from the Icinga/Nagios notification system
+* Sends the email via SMTP (`--mail-server`, default: localhost, port 25)
+* Supports SMTP authentication via `--mail-user` and `--mail-password`
+
+**Important Notes:**
+
+* Use the `--short` parameter to create a short message without a subject, for example for sending to a SMS relay service.
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Notification Plugin Download          | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/notification-plugins/notify-service-mail> |
 | Can be called without parameters      | No |
 | Compiled for Windows                  | No |
@@ -84,6 +92,35 @@ optional arguments:
                         Set the service state.
   --servicename SERVICENAME
                         Set the servicename.
+```
+
+
+## Usage Examples
+
+```bash
+./notify-service-mail \
+    --datetime="2026-04-09 10:30:00" \
+    --host-displayname="webserver01" \
+    --service-displayname="HTTP" \
+    --service-state=CRITICAL \
+    --service-output="HTTP CRITICAL - Connection refused" \
+    --hostname=webserver01.example.com \
+    --notification-type=PROBLEM \
+    --mail-recipient=admin@example.com \
+    --mail-sender=icinga@example.com
+```
+
+Short message (e.g. for SMS relay):
+
+```bash
+./notify-service-mail \
+    --short \
+    --datetime="2026-04-09 10:30:00" \
+    --host-displayname="webserver01" \
+    --service-displayname="HTTP" \
+    --service-state=CRITICAL \
+    --mail-recipient=sms-relay@example.com \
+    --mail-sender=icinga@example.com
 ```
 
 

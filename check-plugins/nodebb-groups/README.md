@@ -2,16 +2,16 @@
 
 ## Overview
 
-Get NodeBB post / group settings.
+Monitors NodeBB group statistics via the admin API, including group count and membership numbers. This is an informational check only.
 
-The Plugin uses the Read API and Bearer Authentication. You need to issue a bearer token of type "user" in the NodeBB admin panel in order to grant access to the API. In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.
+**Data Collection:**
 
-To create a Bearer Token, do this:
+* Queries the NodeBB Read API endpoint `/api/admin/settings/post` using Bearer Authentication
+* Reports the number of groups exempt from the post queue, with details on the newest group including name, visibility, member count, and creation date
 
-* Settings \> API Access \> Create Token \> Specify your User ID and Description (for example "Linuxfabrik API Token").
+**Important Notes:**
 
-Hints:
-
+* You need to issue a bearer token of type "user" in the NodeBB admin panel: Settings > API Access > Create Token > Specify your User ID and Description (for example "Linuxfabrik API Token"). In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.
 * NodeBB Read API: <https://docs.nodebb.org/api/read/>
 * Requires NodeBB v1.14.4+.
 
@@ -19,12 +19,12 @@ Hints:
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-groups> |
+| Nagios/Icinga Check Name              | `check_nodebb_groups` |
 | Check Interval Recommendation         | Once a day |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--token` is required) |
 | Compiled for Windows                  | No |
-| Requirements                          | NodeBB v1.14.4+ |
 
 
 ## Help
@@ -52,7 +52,7 @@ options:
 ## Usage Examples
 
 ```bash
-./nodebb-groups --token edd956be-9ea5-4f2a-94ca-3948a1b9d184 --warning 120 --critical 365
+./nodebb-groups --token edd956be-9ea5-4f2a-94ca-3948a1b9d184
 ```
 
 Output:
@@ -74,9 +74,9 @@ createtime                      ! slug        ! memberCount
 
 ## Perfdata / Metrics
 
-| Name  | Type   | Description     |
-|-------|--------|-----------------|
-| posts | Number | Number of posts |
+| Name | Type | Description |
+|----|----|----|
+| posts | Number | Number of groups exempt from the post queue. |
 
 
 ## Credits, License

@@ -2,23 +2,41 @@
 
 ## Overview
 
-This plugin lets you track if a QTS update is available. To check for updates, this plugin requests the in-built update check of the appliance.
+Checks if firmware updates are available for a QNAP appliance running QTS by querying the QNAP update API. Reports the currently installed version and alerts when a newer firmware version is available.
 
-Hints and Recommendations:
+**Alerting Logic:**
+
+* WARN if a firmware update is available
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Authenticates against the QTS API and fetches system information via `/cgi-bin/management/manaRequest.cgi`
+* Checks for updates via `/cgi-bin/sys/sysRequest.cgi?subfunc=firm_update`
+* Compares the installed version against the latest available version
+
+**Important Notes:**
 
 * Tested on [QuTScloud](https://www.qnap.com/en-us/download?model=qutscloud&category=firmware) v4.5.6+
-* Does not work on QTS 4.3 or less (see [\#701](https://github.com/Linuxfabrik/monitoring-plugins/issues/701) for details).
+* Does not work on QTS 4.3 or less (see [#701](https://github.com/Linuxfabrik/monitoring-plugins/issues/701) for details).
 * The user used for monitoring must be a member of the "administrators" group. It is not sufficient to be a member of the "everyone" group.
+
+**Compatibility:**
+
+* Linux only
+* 3rd party Python module `xmltodict` required
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/qts-version> |
+| Nagios/Icinga Check Name              | `check_qts_version` |
 | Check Interval Recommendation         | Once a day |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--password` and `--url` are required) |
 | Compiled for Windows                  | No |
+| 3rd Party Python modules              | `xmltodict` |
 
 
 ## Help
@@ -60,8 +78,9 @@ QTS vc5.0.1.2374 Build 20230419 installed, QTS vc5.1.0.2498 Build 20230822 avail
 
 ## States
 
-* If wanted, always returns OK,
-* else returns WARN if update is available.
+* OK if the installed firmware is up to date.
+* WARN if a firmware update is available.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

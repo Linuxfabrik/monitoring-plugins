@@ -2,16 +2,16 @@
 
 ## Overview
 
-Get NodeBB event log.
+Retrieves recent events from the NodeBB event log via the admin API. Reports administrative actions such as user bans, plugin activations, and configuration changes. This is an informational check only.
 
-The Plugin uses the Read API and Bearer Authentication. You need to issue a bearer token of type "user" in the NodeBB admin panel in order to grant access to the API. In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.
+**Data Collection:**
 
-To create a Bearer Token, do this:
+* Queries the NodeBB Read API endpoint `/api/admin/advanced/events` using Bearer Authentication
+* Displays the latest events with event ID, user ID, display name, event type, timestamp with human-readable age, and IP address
 
-* Settings \> API Access \> Create Token \> Specify your User ID and Description (for example "Linuxfabrik API Token").
+**Important Notes:**
 
-Hints:
-
+* You need to issue a bearer token of type "user" in the NodeBB admin panel: Settings > API Access > Create Token > Specify your User ID and Description (for example "Linuxfabrik API Token"). In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.
 * NodeBB Read API: <https://docs.nodebb.org/api/read/>
 * Requires NodeBB v1.14.4+.
 
@@ -19,12 +19,12 @@ Hints:
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-events> |
+| Nagios/Icinga Check Name              | `check_nodebb_events` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--token` is required) |
 | Compiled for Windows                  | No |
-| Requirements                          | NodeBB v1.14.4+ |
 
 
 ## Help
@@ -53,7 +53,7 @@ options:
 ## Usage Examples
 
 ```bash
-./nodebb-events --token edd956be-9ea5-4f2a-94ca-3948a1b9d184 --severity warn
+./nodebb-events --token edd956be-9ea5-4f2a-94ca-3948a1b9d184
 ```
 
 Output:

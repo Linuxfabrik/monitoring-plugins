@@ -2,20 +2,29 @@
 
 ## Overview
 
-This plugin lets you track if MediaWiki is End-of-Life (EOL). To compare against the current/installed version of MediaWiki, the check has to run on the MediaWiki server itself.
+Checks the installed MediaWiki version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Data Collection:**
+
+* Reads the installed MediaWiki version from the `Defines.php` file (default: `/var/www/html/wiki/includes/Defines.php`)
+* Compares the installed version against the [endoflife.date API](https://endoflife.date/api/mediawiki.json) to determine EOL status and available updates
+* Uses SQLite to cache API responses between runs
+
+**Compatibility:**
+
+* Linux (requires local filesystem access to the MediaWiki installation)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mediawiki-version> |
+| Nagios/Icinga Check Name              | `check_mediawiki_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 
 
 ## Help
@@ -72,17 +81,20 @@ MediaWiki v1.39.3 (EOL 2025-11-30 -30d, minor 1.41.0 available, patch 1.39.6 ava
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* OK if the installed version is not EOL and no relevant updates are available.
+* WARN if the installed version is EOL.
+* WARN if `--check-major` is set and a new major version is available.
+* WARN if `--check-minor` is set and a new minor version is available.
+* WARN if `--check-patch` is set and a new patch version is available.
+* UNKNOWN if the MediaWiki `Defines.php` or version information cannot be found.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| mediawiki-version | Number | Installed MediaWiki version as float. "1.39.3" becomes "1.393". |
+| mediawiki-version | Float | Installed MediaWiki version as a floating-point number. For example, "1.39.3" becomes "1.393". |
 
 
 ## Credits, License

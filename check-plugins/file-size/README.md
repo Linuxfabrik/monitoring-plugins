@@ -2,16 +2,34 @@
 
 ## Overview
 
-Checks the size of files in bytes, ignoring directories as the size of a directory is not defined consistently across file systems and is never the size of the contents. This check supports both Nagios ranges and Samba shares.
+Checks file sizes against configurable thresholds using human-readable units (e.g. 25M, 1G). Supports glob patterns and SMB shares. Directories are skipped because their reported size is not meaningful across filesystems. Alerts when any file exceeds the configured size thresholds. Requires root or sudo.
 
-The plugin can follow symbolic links. Depending on the file and user (e.g. running as *icinga*), sudo (sudoers) may be required. It supports globs according to [Python 3](https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob). Note that using recursive globs can cause high memory usage. Also note that the plugin requires a valid qualifier when specifying parameters, e.g. `--warning=10K` for 10 KiB (instead of `--warning=10000` as in previous versions).
+**Data Collection:**
+
+* Uses Python's `glob.iglob()` for local files and `lib.smb` for SMB shares
+* Follows symbolic links
+* Reads `st_size` from `os.stat()` for each matched file
+* Directories are silently skipped
+
+**Compatibility:**
+
+* Cross-platform: Linux and Windows
+* SMB share access requires the optional `PySmbClient` and `smbprotocol` Python modules
+* Recursive globs (`**`) can cause high memory usage on large directory trees
+
+**Important Notes:**
+
+* The `--filename` and `--url` parameters are mutually exclusive
+* Thresholds accept human-readable units (base 1024). Valid qualifiers: `b`, `k`/`kb`/`kib`, `m`/`mb`/`mib`, `g`/`gb`/`gib`, etc. Nagios ranges are supported (e.g. `:1G` alerts if size exceeds 1 GiB, `6 KiB:10k` alerts outside the 6-10 KiB range)
+* Returns UNKNOWN if no files are found
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-size> |
+| Nagios/Icinga Check Name              | `check_file_size` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | Yes |
@@ -128,8 +146,11 @@ The same as above, but recursive (might use a lot of memory):
 
 ## States
 
-* OK if all the found files are below the given size thresholds.
-* Otherwise CRIT or WARN.
+* OK if all found files are within the given size thresholds (default: 25M/1G).
+* WARN if any file exceeds `--warning` (default: 25M).
+* CRIT if any file exceeds `--critical` (default: 1G).
+* UNKNOWN if no files are found.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

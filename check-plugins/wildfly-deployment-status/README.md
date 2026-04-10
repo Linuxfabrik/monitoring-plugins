@@ -2,22 +2,35 @@
 
 ## Overview
 
-This check plugin monitors the deployment status of a WildFly server, using its HTTP-JSON based API (JBossAS REST Management API). This allows us to monitor the application server without any additional configuration and installation - no need to deploy WAR-Agents like Jolokia. The plugin supports both standalone mode and domain mode.
+Checks the deployment status of applications on a WildFly/JBoss AS server via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode.
 
-Tested with WildFly 11 and WildFly 23+.
+**Alerting Logic:**
 
-Hints:
+* OK if deployment state is "OK" or "RUNNING"
+* WARN if deployment state is "STOPPED"
+* CRIT for any other deployment state
+* `--always-ok` suppresses all alerts and always returns OK
 
+**Data Collection:**
+
+* Queries the WildFly management API at `/deployment/*` using the `read-attribute` operation for the `status` attribute
+* Authenticates via HTTP Digest Auth (`--username`, `--password`)
+* Specific deployments can be checked using `--deployment` (repeatable); if omitted, all deployments are checked
+
+**Compatibility:**
+
+* Tested with WildFly 11 and WildFly 23+
 * See [additional notes for all wildfly monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.md)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wildfly-deployment-status> |
+| Nagios/Icinga Check Name              | `check_wildfly_deployment_status` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--username` and `--password` are required) |
 | Compiled for Windows                  | No |
 
 
@@ -63,12 +76,16 @@ options:
 
 ## Usage Examples
 
-```bash
-# check all deployments
-./wildfly-deployment-status --username wildfly-monitoring --password password --url http://wildfly:9990
+Check all deployments:
 
-# just check specific deployments
-./wildfly-deployment-status --username wildfly-monitoring --password password --url http://wildfly:9990 --deployment MyFirstApp --deployment MySecondApp
+```bash
+./wildfly-deployment-status --username=wildfly-monitoring --password=password --url=http://wildfly:9990
+```
+
+Check specific deployments:
+
+```bash
+./wildfly-deployment-status --username=wildfly-monitoring --password=password --url=http://wildfly:9990 --deployment=MyFirstApp --deployment=MySecondApp
 ```
 
 Output:
@@ -83,18 +100,17 @@ Output:
 
 ## States
 
-Triggers an alarm on its own.
-
-* OK: app state in \['OK', 'RUNNING'\]
-* WARN: app state in \['STOPPED'\]
-* CRIT: everything else
+* OK if deployment state is "OK" or "RUNNING".
+* WARN if deployment state is "STOPPED".
+* CRIT for any other deployment state.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| deployment-state-NAME | Number | 0 (STATE_OK), 1 (STATE_WARN), 2 (STATE_CRIT) |
+| deployment-state-NAME | Number | 0 (OK), 1 (WARN), 2 (CRIT). |
 
 
 ## Credits, License

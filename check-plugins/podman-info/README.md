@@ -2,18 +2,34 @@
 
 ## Overview
 
-Displays system-wide Podman information. For Docker, use the [docker-info](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/docker-info) check instead.
+Displays system-wide Podman information including container counts, image count, storage driver, runtime version, available CPUs, and total memory. For Docker, use the [docker-info](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/docker-info) check instead.
 
-Hints:
+**Alerting Logic:**
+
+* WARN on `podman info` warnings in stderr
+* CRIT on `podman info` errors in stderr or return codes != 0
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Executes `podman info --format json` to collect system-wide Podman information
+* Parses container counts (running, paused, stopped), image count, storage driver, logging driver, registries, Podman version, CPU count, and total memory
+
+**Important Notes:**
 
 * Podman runs rootless by default. Without `sudo`, the check only sees containers of the executing user. To monitor containers across all users, run the check via `sudo` (the Icinga Director basket and sudoers file are pre-configured for this).
+
+**Compatibility:**
+
+* Linux only
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/podman-info> |
+| Nagios/Icinga Check Name              | `check_podman_info` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -52,22 +68,23 @@ Output:
 
 ## States
 
-* WARN on `podman info` warnings
-* CRIT on `podman info` errors
-* CRIT on `podman info` return codes != 0
+* OK if `podman info` completes without warnings or errors.
+* WARN on `podman info` warnings in stderr.
+* CRIT on `podman info` errors in stderr or return codes != 0.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name               | Type   | Description                  |
 |--------------------|--------|------------------------------|
-| containers         | Number | Number of containers         |
-| containers_paused  | Number | Number of paused containers  |
-| containers_running | Number | Number of running containers |
-| containers_stopped | Number | Number of stopped containers |
-| cpu                | Number | Number of Host CPUs          |
-| images             | Number | Number of images             |
-| ram                | Number | Total Host Memory            |
+| containers         | Number | Number of containers.         |
+| containers_paused  | Number | Number of paused containers.  |
+| containers_running | Number | Number of running containers. |
+| containers_stopped | Number | Number of stopped containers. |
+| cpu                | Number | Number of host CPUs.          |
+| images             | Number | Number of images.             |
+| ram                | Bytes  | Total host memory.            |
 
 
 ## Credits, License

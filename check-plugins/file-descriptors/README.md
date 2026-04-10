@@ -2,14 +2,25 @@
 
 ## Overview
 
-Checks the number of assigned file handles in percent. Also shows the top 5 processes that currently have the highest number of open file descriptors (not cumulative). Depending on the user (e.g. running as *icinga*), sudo (sudoers) is needed.
+Checks the system-wide file descriptor usage as a percentage of the kernel maximum. Also lists the top processes consuming the most file descriptors to help identify the source of high usage. Alerts when usage exceeds the configured thresholds.
+
+**Data Collection:**
+
+* Reads `/proc/sys/fs/file-nr` to obtain the number of allocated file handles and the system-wide maximum
+* Uses `psutil.process_iter()` to aggregate open file descriptors per process name for the top-N list
+
+**Compatibility:**
+
+* Linux only (reads `/proc/sys/fs/file-nr`)
+* Depending on the user (e.g. running as `icinga`), sudo (sudoers) may be needed to read all process information
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-descriptors> |
+| Nagios/Icinga Check Name              | `check_file_descriptors` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -51,23 +62,28 @@ Output:
 ```text
 2.2% file descriptors used (2.1K/94.1K)
 
-Top3 processes opening file descriptors:
+Top 5 processes opening file descriptors:
 1. mongod: 183 FD
 2. master: 91 FD
 3. mariadbd: 75 FD
+4. icinga2: 62 FD
+5. php-fpm: 48 FD
 ```
 
 
 ## States
 
-* WARN or CRIT if usage of file descriptors in % is above a given threshold.
+* OK if file descriptor usage is below `--warning` (default: 90%).
+* WARN if file descriptor usage is >= `--warning` (default: 90%).
+* CRIT if file descriptor usage is >= `--critical` (default: 95%).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| fd | Percentage | Number of allocated file handles / number of system-wide maximum number of file handles \* 100 |
+| fd | Percentage | Allocated file handles divided by the system-wide maximum, multiplied by 100. |
 
 
 ## Credits, License

@@ -2,26 +2,34 @@
 
 ## Overview
 
-Measures the usage of all mounted disk *partitions*. It does not check the usage on the raw disks, because in LVM for example, more than one disk can be a member of a logical volume, and some of the disks might be full - which is fine as long as LVM has some space available.
+Checks used or free disk space for each mounted partition. By default, only physical devices are checked (hard disks, USB drives), ignoring pseudo and memory filesystems. Supports filtering by mountpoint pattern or filesystem type. Thresholds can be set as percentages or absolute values, and can target either used or free space. Note that on Unix systems, 5% of disk space is typically reserved for root and not reflected in the available space shown to regular users. Alerts when usage exceeds the configured thresholds.
 
-By default, this plugin only checks physical devices (e.g. hard disks, CD-ROM drives, USB keys) and ignores all others (e.g. pseudo, memory, duplicate, inaccessible file systems). You can override this behaviour by using the `--fstype` parameter and specifying which file system types should be checked explicitly.
+**Data Collection:**
 
-To get a list of file system types you can specify, run `disk-usage --list-fstype` first (as file system types are machine dependent).
+* Uses `psutil` to enumerate mounted partitions and query disk usage per mountpoint
+* By default, only physical devices are checked (e.g. hard disks, CD-ROM drives, USB keys), ignoring pseudo, memory, duplicate, and inaccessible file systems
+* Read-only and special file systems (iso9660, squashfs, UDF, CDFS) are skipped by default
+* The `--fstype` parameter overrides the default behavior, allowing specific file system types to be checked
+* Mountpoints can be filtered using `--include-pattern`, `--include-regex`, `--exclude-pattern`, and `--exclude-regex`. Includes are matched before excludes
+* Perfdata output can be limited using `--perfdata-regex`
 
-> [!NOTE]
-> UNIX usually reserves 5% of the total disk space for the root user. `total` and `used` fields on UNIX refer to the overall total and used space, whereas `free` represents the space available for the user and `percent` represents the user utilization. That is why `percent` value may look 5% bigger than what you would expect it to be (starting with psutil v4.3.0; quote from the [psutil documentation](https://psutil.readthedocs.io/en/latest/)).
+**Compatibility:**
 
-Hints:
+* Cross-platform: Linux, Windows, and all psutil-supported systems
+* On Windows, mount point folder paths and drive letters are supported. Use drive letters without backslash (e.g. `Y:` or `Y`) for filtering. Parameter values with spaces must be enclosed in double quotes (single quotes do not work on Windows)
 
-* On Windows, mount point folder paths are also supported.
-* Important when using parameter values on Windows: As long as there is no space in the value, it works without quotes. If you need quotes, they must be enclosed in double quotes (single quotes will not work). Working example: `disk-usage.exe --include-pattern="Sales Documents"`
+**Important Notes:**
+
+* On Unix systems, `total` and `used` refer to the overall total and used space, whereas `free` represents the space available for the user and `percent` represents the user utilization. That is why `percent` may appear 5% higher than expected (starting with psutil v4.3.0)
+* Run `disk-usage --list-fstypes` to see which file system types are available on the current machine and which are checked by default
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-usage> |
+| Nagios/Icinga Check Name              | `check_disk_usage` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | Yes |
@@ -172,18 +180,28 @@ Some other examples:
 
 ## States
 
-* WARN or CRIT if disk usage in percent is above a given threshold.
+* OK if disk usage is below the warning threshold.
+* WARN if disk usage is >= `--warning` (default: 90%USED).
+* CRIT if disk usage is >= `--critical` (default: 95%USED).
+* UNKNOWN on invalid parameter values or regex compilation errors.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 Can be limited by using `--perfdata-regex`.
 
-| Name                   | Type       | Description      |
-|------------------------|------------|------------------|
-| \<mountpoint\>-percent | Percentage | Usage in percent |
-| \<mountpoint\>-total   | Bytes      | Total Disksize   |
-| \<mountpoint\>-usage   | Bytes      | Usage in Bytes   |
+| Name | Type | Description |
+|----|----|----|
+| `<mountpoint>`-percent | Percentage | Disk usage in percent. |
+| `<mountpoint>`-total | Bytes | Total disk size. |
+| `<mountpoint>`-usage | Bytes | Disk usage in bytes. |
+
+
+## Troubleshooting
+
+`Python module "psutil" is not installed.`  
+Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
 
 ## Credits, License

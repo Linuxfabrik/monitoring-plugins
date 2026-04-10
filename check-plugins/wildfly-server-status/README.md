@@ -2,22 +2,34 @@
 
 ## Overview
 
-This check plugin monitors a WildFly server, using its HTTP-JSON based API (JBossAS REST Management API). This allows us to monitor the application server without any additional configuration and installation - no need to deploy WAR-Agents like Jolokia. The plugin supports both standalone mode and domain mode.
+Checks the overall server status of a WildFly/JBoss AS instance via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode. Reports server state, launch type, running mode, and product version.
 
-Tested with WildFly 11 and WildFly 23+.
+**Alerting Logic:**
 
-Hints:
+* OK if `server-state` is "running"
+* WARN if `server-state` is "reload-required" or "restart-required"
+* CRIT for any other server state
+* `--always-ok` suppresses all alerts and always returns OK
 
+**Data Collection:**
+
+* Queries the WildFly management API for `server-state`, `launch-type`, `running-mode`, and `product-version` (falls back to `release-version` if `product-version` is not available)
+* Authenticates via HTTP Digest Auth (`--username`, `--password`)
+
+**Compatibility:**
+
+* Tested with WildFly 11 and WildFly 23+
 * See [additional notes for all wildfly monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.md)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wildfly-server-status> |
+| Nagios/Icinga Check Name              | `check_wildfly_server_status` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--username` and `--password` are required) |
 | Compiled for Windows                  | No |
 
 
@@ -58,7 +70,7 @@ options:
 ## Usage Examples
 
 ```bash
-./wildfly-server-status --username wildfly-monitoring --password password --url http://wildfly:9990
+./wildfly-server-status --username=wildfly-monitoring --password=password --url=http://wildfly:9990
 ```
 
 Output:
@@ -70,16 +82,17 @@ Server status "running", Launch Type STANDALONE, Running Mode NORMAL, v23.0.0.Fi
 
 ## States
 
-Triggers an alarm on its own.
-
-* OK: server-state == 'running'
-* WARN: server-state in \['reload-required', 'restart-required'\]
-* CRIT: everything else
+* OK if `server-state` is "running".
+* WARN if `server-state` is "reload-required" or "restart-required".
+* CRIT for any other server state.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-* server-state: 0 (STATE_OK), 1 (STATE_WARN), 2 (STATE_CRIT)
+| Name | Type | Description |
+|----|----|----|
+| server-state | Number | 0 (OK/running), 1 (WARN/reload-required or restart-required), 2 (CRIT/other). |
 
 
 ## Credits, License

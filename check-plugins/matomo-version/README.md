@@ -2,20 +2,29 @@
 
 ## Overview
 
-This plugin lets you track if Matomo is End-of-Life (EOL). To compare against the current/installed version of Matomo, the check has to run on the Matomo server itself.
+Checks the installed Matomo version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Data Collection:**
+
+* Reads the installed Matomo version from `core/Version.php` in the local installation directory (default: `/var/www/html/matomo`)
+* Compares the installed version against the [endoflife.date API](https://endoflife.date/api/matomo.json) to determine EOL status and available updates
+* Uses SQLite to cache API responses between runs
+
+**Compatibility:**
+
+* Linux (requires local filesystem access to the Matomo installation)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/matomo-version> |
+| Nagios/Icinga Check Name              | `check_matomo_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 
 
 ## Help
@@ -74,17 +83,20 @@ Matomo v5.3.2 (EOL unknown)
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* OK if the installed version is not EOL and no relevant updates are available.
+* WARN if the installed version is EOL.
+* WARN if `--check-major` is set and a new major version is available.
+* WARN if `--check-minor` is set and a new minor version is available.
+* WARN if `--check-patch` is set and a new patch version is available.
+* UNKNOWN if the Matomo installation or version information cannot be found.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| matomo-version | Number | Installed Matomo version as float. "5.3.2" becomes "5.32". |
+| matomo-version | Float | Installed Matomo version as a floating-point number. For example, "5.3.2" becomes "5.32". |
 
 
 ## Credits, License

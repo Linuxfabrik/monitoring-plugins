@@ -2,16 +2,31 @@
 
 ## Overview
 
-This plugin lets you track if Java (OpenJDK Red Hat Version) is End-of-Life (EOL). To compare against the current/installed version of Java, the check has to run on the Java server itself.
+Checks the installed Red Hat OpenJDK version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Data Collection:**
+
+* Executes `java -version` (at the configured `--path`) to determine the installed version
+* Queries the endoflife.date API at `https://endoflife.date/api/redhat-build-of-openjdk.json` to compare against known EOL dates and available releases
+* Caches the API response in a local SQLite database to reduce network requests
+
+**Alerting Logic:**
+
+* WARN if the installed version has reached or is approaching its EOL date (configurable via `--offset-eol`, default: -30 days)
+* Optional: WARN when a new major, minor, or patch release is available (each independently configurable)
+
+**Compatibility:**
+
+* Linux systems with Red Hat build of OpenJDK installed
+* The check must run on the Java server itself to detect the installed version
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/openjdk-redhat-version> |
+| Nagios/Icinga Check Name              | `check_openjdk_redhat_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -71,17 +86,19 @@ Java (Red Hat build of OpenJDK) v17.0.8 (EOL 2027-10-30 -30d, patch 17.0.9.0.9-1
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* OK if the installed version is not EOL and no newer versions are requested.
+* WARN if the installed version is EOL (or approaching EOL within `--offset-eol` days).
+* Optional: WARN when a new major version is available (`--check-major`).
+* Optional: WARN when a new minor version is available (`--check-minor`).
+* Optional: WARN when a new patch version is available (`--check-patch`).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| openjdk-redhat-version | Number | Installed Java (OpenJDK Red Hat Version) version as float. "20.0.2" becomes "20.02". |
+| openjdk-redhat-version | Number | Installed Java version as a float. `20.0.2` becomes `20.02`. |
 
 
 ## Credits, License

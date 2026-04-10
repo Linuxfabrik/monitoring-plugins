@@ -2,20 +2,33 @@
 
 ## Overview
 
-This plugin lets you track if Nextcloud is End-of-Life (EOL). To compare against the current/installed version of Nextcloud, the check has to run on the nextcloud server itself and needs access to the Nextcloud installation directory.
+Checks the installed Nextcloud version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable. Requires root or sudo.
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Alerting Logic:**
 
-Hints:
+* WARN if the installed version has reached its EOL date (considering the configured offset)
+* Optional: WARN when a new major version is available (`--check-major`)
+* Optional: WARN when a new minor version is available (`--check-minor`)
+* Optional: WARN when a new patch version is available (`--check-patch`)
 
-* Passwordless or otherwise configured sudo permissions are required for the UID under which the Nextcloud application is running.
+**Data Collection:**
+
+* Runs Nextcloud `occ config:list` via sudo to determine the installed version
+* Queries the [endoflife.date API](https://endoflife.date/) for Nextcloud lifecycle data
+* Caches the API response in a local SQLite database to reduce API calls
+
+**Compatibility:**
+
+* Must run on the Nextcloud server itself to access the installation directory
+* Requires passwordless or otherwise configured sudo permissions for the UID under which the Nextcloud application is running
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nextcloud-version> |
+| Nagios/Icinga Check Name              | `check_nextcloud_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -77,10 +90,12 @@ Nextcloud v22.1.7 (EOL 2022-07-01 -30d [WARNING], major 27.1.2 available, minor 
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* OK if the installed version is not EOL and no newer versions are requested to be checked.
+* WARN if the software is EOL.
+* Optional: WARN when a new major version is available.
+* Optional: WARN when a new minor version is available.
+* Optional: WARN when a new patch version is available.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
@@ -92,7 +107,7 @@ Nextcloud v22.1.7 (EOL 2022-07-01 -30d [WARNING], major 27.1.2 available, minor 
 
 ## Troubleshooting
 
-`Error running sudo -u \#48 /var/www/html/nextcloud/occ config:list: rc=1 sudo: /var/www/html/nextcloud/occ: command not found`:
+`Error running sudo -u \#48 /var/www/html/nextcloud/occ config:list: rc=1 sudo: /var/www/html/nextcloud/occ: command not found`
 Permission for `/var/www/html/nextcloud/occ` must be `0755`.
 
 

@@ -2,12 +2,30 @@
 
 ## Overview
 
-Statuspal is a status page provider from Germany. This check plugin gets the summary of a Statuspal status page, checks its status, services, active incidents and lists maintenances. You need to provide the URL to the Statuspal API `summary` endpoint.
+Monitors a [Statuspal](https://www.statuspal.io/) status page, checking overall status, service states, active incidents, and scheduled maintenances.
 
-Hints:
+**Alerting Logic:**
 
-* Website: <https://www.statuspal.io/>
+* OK if all services are operational (incident type is `None`, `scheduled`, or `info`)
+* WARN for minor incidents or degraded performance (`minor`, `performance`)
+* CRIT for major incidents or emergency maintenance (`major`, `emergency-maintenance`)
+* If an ongoing maintenance is detected (start time in the past), a notification is prepended to the output
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Fetches JSON from the Statuspal API v2 `summary` endpoint
+* Recursively flattens nested service trees into a dotted hierarchy (e.g. `Global.DNS`)
+* Lists active incidents with their latest update, and upcoming/ongoing maintenances
+
+**Important Notes:**
+
+* You need to provide the URL to the Statuspal API `summary` endpoint
 * API Documentation: <https://www.statuspal.io/api-docs/v2>
+
+**Compatibility:**
+
+* Statuspal EU (`statuspal.eu`) and US (`statuspal.io`) endpoints
 
 List of public Statuspal sites - Europe:
 
@@ -30,8 +48,6 @@ List of public Statuspal sites - USA:
 * <https://statuspal.io/api/v2/status_pages/animaker/summary>
 * <https://statuspal.io/api/v2/status_pages/anycloud/summary>
 * <https://statuspal.io/api/v2/status_pages/aplaut/summary>
-* <https://statuspal.io/api/v2/status_pages/aplaut/summary>
-* <https://statuspal.io/api/v2/status_pages/arvancloud/summary>
 * <https://statuspal.io/api/v2/status_pages/arvancloud/summary>
 * <https://statuspal.io/api/v2/status_pages/as134220/summary>
 * <https://statuspal.io/api/v2/status_pages/ascentlogistics/summary>
@@ -51,10 +67,9 @@ List of public Statuspal sites - USA:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/statuspal> |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| 3rd Party Python modules              | `flatdict` |
 
 
 ## Help
@@ -63,26 +78,26 @@ List of public Statuspal sites - USA:
 usage: statuspal [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
                  [--test TEST] [--timeout TIMEOUT] [--url URL]
 
-Statuspal is a status page provider from Germany. This check plugin gets the
-summary of a Statuspal status page, checks its status, services, active
-incidents and lists maintenances. You need to provide the URL to the Statuspal
-API `summary` endpoint.
+Monitors a Statuspal status page, including overall status, service states,
+active incidents, and scheduled maintenances. Alerts on degraded services,
+ongoing incidents, or emergency maintenance windows.
 
 options:
   -h, --help         show this help message and exit
   -V, --version      show program's version number and exit
   --always-ok        Always returns OK.
-  --insecure         This option explicitly allows to perform "insecure" SSL
-                     connections. Default: False
-  --no-proxy         Do not use a proxy. Default: False
+  --insecure         This option explicitly allows insecure SSL connections.
+  --no-proxy         Do not use a proxy.
   --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
                      stderr-file,expected-retc".
   --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
-  --url URL          Statuspal API URL. Default: https://statuspal.eu/api/v2/s
-                     tatus_pages/exoscalestatus/summary
+  --url URL          Statuspal API URL pointing to the summary endpoint.
+                     Default: https://statuspal.eu/api/v2/status_pages/exoscal
+                     estatus/summary
 ```
 
-## Usage statuspals
+
+## Usage Examples
 
 ```bash
 ./statuspal --url=https://statuspal.eu/api/v2/status_pages/exoscalestatus/summary
@@ -128,16 +143,18 @@ Global IT Monitoring                  ! [CRITICAL]
 
 ## States
 
-* WARN if minor incidents are found.
-* CRIT if major incidents are found.
+* OK if all services are operational.
+* WARN if minor incidents or degraded performance are found.
+* CRIT if major incidents or emergency maintenance are found.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name     | Type   | Description               |
-|----------|--------|---------------------------|
+| Name | Type | Description |
+|----|----|----|
 | cnt_crit | Number | Number of critical events |
-| cnt_warn | Number | Number of warning events  |
+| cnt_warn | Number | Number of warning events |
 
 
 ## Credits, License

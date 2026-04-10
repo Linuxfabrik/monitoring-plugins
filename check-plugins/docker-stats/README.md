@@ -2,24 +2,38 @@
 
 ## Overview
 
-This check prints cpu and memory statistics for all running Docker containers, using the [docker stats](https://docs.docker.com/engine/reference/commandline/stats/) command. Container CPU usage is divided by the available number of CPU cores ("normalized"). For Podman, use the [podman-stats](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/podman-stats) check instead.
+Reports CPU and memory usage for all running Docker containers. CPU usage is normalized by dividing by the number of available host CPU cores. CPU alerts only trigger after the threshold has been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes. Memory alerts trigger immediately. Uses a local SQLite database for CPU trend tracking across runs. For Podman, use the podman-stats check instead. Requires root or sudo.
 
-Hints:
+**Data Collection:**
 
-* Plugin execution may take up to 10 seconds.
-* Since `docker stats` only returns byte-level data in a human-readable format (e.g. *4.82GB*), calculating network I/O (`RX bps`, `TX bps`) and block I/O (`BlockIn/s`, `BlockOut/s`) is imprecise. Therefore, these values are not used at all.
+* Executes `docker info` to determine the number of host CPU cores
+* Executes `docker stats --no-stream` to get a one-shot snapshot of CPU and memory usage for all running containers
+* CPU usage is divided by the number of host CPUs, so 100% means all host CPUs are fully utilized. On an 8-core system, a container using one core at full capacity shows 12.5%
+* Memory usage is relative to the container's memory limit if one is set, otherwise relative to the total host memory
+* Stores per-container CPU usage values in a local SQLite database to track trends across consecutive runs
+* Since `docker stats` only returns byte-level data in a human-readable format (e.g. "4.82GB"), network I/O and block I/O values are not used due to imprecision
+
+**Compatibility:**
+
+* Linux only (Docker must be installed and the daemon running)
+
+**Important Notes:**
+
+* Plugin execution may take up to 10 seconds due to `docker stats --no-stream`
+* Container names are shortened after the replica number by default (e.g. `traefik_traefik.2`). Use `--full-name` to show the full container name
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/docker-stats> |
+| Nagios/Icinga Check Name              | `check_docker_stats` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
 | Handles Periods                       | Yes |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-docker-stats.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-docker-stats.db` |
 
 
 ## Help
@@ -73,7 +87,7 @@ options:
 Output:
 
 ```text
-Everything is ok.
+Everything is ok, 3 containers checked.
 
 Container                 ! CPU % ! Mem % 
 --------------------------+-------+-------
@@ -85,20 +99,21 @@ myconti_ds_1              ! 0.0   ! 11.42
 
 ## States
 
-* CRIT on `docker info` or `docker stats` return codes != 0
-* WARN if any container cpu usage is above the warning cpu threshold during the last n checks (default: 5)
-* CRIT if any container cpu usage is above the critical cpu threshold during the last n checks (default: 5)
-* WARN or CRIT if any container memory usage is above the memory thresholds
-
-CPU usage is normalized by dividing by the number of host CPUs, so 100% means all host CPUs are fully utilized. On an 8-core system, a container using one core at full capacity would show 12.5%. Memory usage is relative to the container's memory limit if one is set, otherwise relative to the total host memory.
+* OK if all container CPU and memory usage values are below the thresholds.
+* WARN if any container CPU usage is >= `--warning-cpu` (default: 80%) for `--count` (default: 5) consecutive runs.
+* CRIT if any container CPU usage is >= `--critical-cpu` (default: 90%) for `--count` (default: 5) consecutive runs.
+* WARN if any container memory usage is >= `--warning-mem` (default: 90%).
+* CRIT if any container memory usage is >= `--critical-mem` (default: 95%).
+* CRIT if `docker info` or `docker stats` returns a non-zero exit code.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name       | Type   | Description                  |
-|------------|--------|------------------------------|
-| containers_running | Number | Number of running containers |
-| cpu        | Number | Number of Host CPUs          |
+| Name | Type | Description |
+|----|----|----|
+| containers_running | Number | Number of running containers. |
+| cpu | Number | Number of host CPUs. |
 
 
 ## Credits, License

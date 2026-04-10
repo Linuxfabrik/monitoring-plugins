@@ -2,49 +2,41 @@
 
 ## Overview
 
-Prints the number of currently running processes and warns on metrics like process counts, process memory usage or CPU usage. You may filter the process list by process name, arguments and/or user name using regular expressions.
+Monitors running processes and alerts on process count, aggregated memory usage, or aggregated CPU usage. Processes can be filtered by name, command-line arguments, and user name using regular expressions. Optionally lists the top processes by CPU time and memory usage.
 
-Hints:
+**Alerting Logic:**
 
-* CPU usage: The `--warning-cpu-percent` and `--critical-cpu-percent` thresholds compare the aggregated CPU usage of all matching processes against the given threshold. This requires at least two consecutive check runs for the delta calculation. A value of 100% equals one fully utilized CPU core. On multi-core systems, values above 100% are possible.
-* Memory: The `--top` table reports per-process memory fields from psutil's `memory_info()`. Note the differences in memory counting between tools such as `top`, `htop`, `glances`, `GNOME System Monitor` and others. The way memory is counted also changes between different Linux kernel versions. The following fields are available (all values in bytes):
+* WARN or CRIT if the number of matching processes is outside the `--warning`/`--critical` range (supports Nagios ranges)
+* WARN or CRIT if aggregated memory usage (bytes or percent) is outside the `--warning-mem`/`--critical-mem` or `--warning-mem-percent`/`--critical-mem-percent` ranges
+* WARN or CRIT if aggregated CPU usage is outside the `--warning-cpu-percent`/`--critical-cpu-percent` ranges (requires two consecutive check runs)
+* WARN or CRIT if the oldest matching process age exceeds `--warning-age`/`--critical-age` thresholds
+* `--always-ok` suppresses all alerts and always returns OK
 
-Portable (all platforms):
+**Data Collection:**
 
-| Field | Description |
-|----|----|
-| rss | Resident Set Size. The non-swapped physical memory a process has used. On UNIX matches the `top` RES column. On Windows maps to `WorkingSetSize`. |
-| vms | Virtual Memory Size. The total amount of virtual memory used by the process. On UNIX matches the `top` VIRT column. On Windows maps to `PrivateUsage` (private committed pages only), which differs from the UNIX definition. |
+* Uses `psutil.process_iter()` to iterate over all running processes
+* Collects per-process data: name, status, memory_info, cpu_times, create_time, cmdline, username (depending on which filters and features are enabled)
+* `--argument`, `--command`, and `--username` use Python regular expressions (case-insensitive)
+* The `--top` table aggregates processes by name and shows the top N by cumulative CPU time
+* CPU usage (`--warning-cpu-percent`/`--critical-cpu-percent`) requires a local SQLite database for delta calculation between runs. A value of 100% equals one fully utilized CPU core. On multi-core systems, values above 100% are possible.
+* Supports extended reporting via `--lengthy`, which adds all platform-specific `memory_info()` fields to the `--top` table
 
-Linux:
+**Important Notes:**
 
-| Field | Description |
-|----|----|
-| data | Aka DRS (Data Resident Set). Covers the data and stack segments combined (from `/proc/<pid>/statm`). Matches `top`'s DATA column. |
-| shared | Shared memory that could be shared with other processes (shared libraries, memory-mapped files). Counted even if no other process is currently mapping it. Matches `top`'s SHR column. |
-| text | Aka TRS (Text Resident Set). Resident memory devoted to executable code. This memory is read-only and typically shared across all processes running the same binary. Matches `top`'s CODE column. |
+* Some process names in psutil do not match the ones from `ps aux`. Use the troubleshooting section below to get the correct process names.
+* Memory fields vary by platform. On Linux: rss, vms, shared, text, lib, data, dirty. On Windows: rss, vms, num_page_faults, peak_rss, peak_paged_pool, paged_pool, peak_nonpaged_pool, nonpaged_pool, peak_vms, private. Fields not available on the current platform are automatically omitted.
 
-Windows:
+**Compatibility:**
 
-| Field | Description |
-|----|----|
-| nonpaged_pool | Current nonpaged pool usage. Kernel memory used for objects that must remain in physical memory. |
-| num_page_faults | The number of page faults. |
-| pagefile | The Commit Charge value for this process (same as `vms`). |
-| paged_pool | Current paged pool usage. Kernel memory used for objects created by the process that can be paged to disk. |
-| peak_nonpaged_pool | Peak nonpaged pool usage. |
-| peak_paged_pool | Peak paged pool usage. |
-| peak_pagefile | Peak Commit Charge during the lifetime of this process. |
-| peak_wset | Peak working set size (same as peak RSS). |
-| private | Same as `vms`. |
-| wset | Current working set size (same as `rss`). |
+* Cross-platform: Linux and Windows
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/procs> |
+| Nagios/Icinga Check Name              | `check_procs` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | Yes |
@@ -191,27 +183,35 @@ Other examples:
 
 ## States
 
-* WARN or CRIT depending on your parameters, or if no process can be found.
+* OK if all metrics are within the configured thresholds.
+* WARN or CRIT if the number of matching processes is outside the `--warning`/`--critical` range.
+* WARN or CRIT if aggregated memory usage exceeds the configured thresholds.
+* WARN or CRIT if aggregated CPU usage exceeds the configured thresholds (requires two consecutive runs).
+* WARN or CRIT if the oldest matching process age exceeds the configured thresholds.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| procs | Number | Number of procs found matching the filter criteria |
-| procs_age | Continous Counter | Age of the oldest proc found in seconds |
-| procs_cpu_percent | Percentage | Aggregated CPU usage of all matching processes (only when using `--warning-cpu-percent` or `--critical-cpu-percent`) |
-| procs_dead | Number | Number of dead procs |
-| procs_mem | Bytes | RAM usage of procs found |
-| procs_mem_percent | Percentage | RAM usage of procs found |
-| procs_running | Number | Number of procs in running state |
-| procs_sleeping | Number | Number of procs in idle or interruptible sleep state |
-| procs_stopped | Number | Number of procs stopped by debugger during the tracing or by job control signal |
-| procs_uninterruptible | Number | Number of procs in uninterruptible state |
-| procs_zombies | Number | Number of zombie processes |
+| procs | Number | Number of processes found matching the filter criteria. |
+| procs_age | Continous Counter | Age of the oldest process found, in seconds. |
+| procs_cpu_percent | Percentage | Aggregated CPU usage of all matching processes (only when using `--warning-cpu-percent` or `--critical-cpu-percent`). |
+| procs_dead | Number | Number of dead processes. |
+| procs_mem | Bytes | Aggregated RSS memory usage of matching processes. |
+| procs_mem_percent | Percentage | Aggregated RSS memory usage, in percent. |
+| procs_running | Number | Number of processes in running state. |
+| procs_sleeping | Number | Number of processes in idle or interruptible sleep state. |
+| procs_stopped | Number | Number of processes stopped by debugger during tracing or by job control signal. |
+| procs_uninterruptible | Number | Number of processes in uninterruptible state. |
+| procs_zombies | Number | Number of zombie processes. |
 
 
 ## Troubleshooting
+
+`Python module "psutil" is not installed.`
+Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
 How to get process names? Some process names in Python's psutil do not match the ones from `ps aux`. To get a list with all processes, their names and details from a Python point of view, do:
 

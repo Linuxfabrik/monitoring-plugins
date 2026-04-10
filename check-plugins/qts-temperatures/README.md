@@ -2,22 +2,39 @@
 
 ## Overview
 
-Checks system and CPU temperatures. All temperatures are expressed in celsius. Temperature thresholds are determined automatically.
+Checks system and CPU temperatures on QNAP appliances running QTS via the HTTP API. All temperatures are expressed in Celsius. Temperature thresholds are determined automatically from the QTS system configuration.
 
-Hints and Recommendations:
+**Alerting Logic:**
+
+* WARN or CRIT if the system or CPU temperature exceeds the thresholds configured in QTS
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Authenticates against the QTS API and fetches system information via `/cgi-bin/management/manaRequest.cgi`
+* Reads system temperature (`sys_tempc`), CPU temperature (`cpu_tempc`), and the corresponding warning/error thresholds from the QTS configuration
+
+**Important Notes:**
 
 * Tested on [QuTScloud](https://www.qnap.com/en-us/download?model=qutscloud&category=firmware) v4.5.6+
 * The user used for monitoring must be a member of the "administrators" group. It is not sufficient to be a member of the "everyone" group.
+
+**Compatibility:**
+
+* Linux only
+* 3rd party Python module `xmltodict` required
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/qts-temperatures> |
+| Nagios/Icinga Check Name              | `check_qts_temperatures` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--password` and `--url` are required) |
 | Compiled for Windows                  | No |
+| 3rd Party Python modules              | `xmltodict` |
 
 
 ## Help
@@ -59,15 +76,18 @@ Sys: 59°C (Thresholds: 60/70°C), CPU: 82°C (Thresholds: 80/85°C) [WARNING]
 
 ## States
 
-* WARN or CRIT if temperature for a sensor is above the given thresholds.
+* OK if both system and CPU temperatures are below the QTS-configured thresholds.
+* WARN if the system or CPU temperature exceeds the warning threshold configured in QTS.
+* CRIT if the system or CPU temperature exceeds the error threshold configured in QTS.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name    | Type   | Description               |
-|---------|--------|---------------------------|
-| cputemp | Number | CPU temperature in °C.    |
-| systemp | Number | System temperature in °C. |
+| Name    | Type   | Description                        |
+|---------|--------|------------------------------------|
+| cputemp | Number | CPU temperature, in degrees Celsius.    |
+| systemp | Number | System temperature, in degrees Celsius. |
 
 
 ## Credits, License

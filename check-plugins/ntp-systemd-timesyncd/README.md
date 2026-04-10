@@ -2,28 +2,31 @@
 
 ## Overview
 
-This plugin checks the state of systemd-timesyncd. It also prints
+Checks the state of systemd-timesyncd, including synchronization status, server reachability, and stratum level. Alerts if time synchronization is inactive or if the stratum exceeds the configured limit.
 
-* `LinkNTPServers`
-* `SystemNTPServers`
-* `FallbackNTPServers`
-* `ServerName`
-* `ServerAddress`
-* `RootDistanceMaxUSec`
-* `PollIntervalMinUSec`
-* `PollIntervalMaxUSec`
-* `PollIntervalUSec`
-* `NTPMessage`
-* `Frequency`
+**Data Collection:**
 
-The stratum of the NTP time source determines its quality. The stratum is equal to the number of hops to a reference clock (which is stratum 0). A NTP server connected directly to the reference clock is Stratum 1, a client connected to this NTP server is Stratum 2, etc.
+* Executes `timedatectl show-timesync --all` to obtain the current synchronization status
+* Parses the NTP message to extract the stratum value
+* Displays the full timedatectl output including configured NTP servers, server name and address, root distance, poll intervals, NTP message details, and frequency
+
+**Alerting Logic:**
+
+* WARN if stratum is >= `--stratum` (default: 6)
+* WARN if no NTP server is used (ServerAddress is null)
+
+**Compatibility:**
+
+* Linux systems using systemd-timesyncd for time synchronization
+* The stratum of the NTP time source determines its quality. The stratum is equal to the number of hops to a reference clock (stratum 0). A NTP server connected directly to the reference clock is Stratum 1, a client connected to this NTP server is Stratum 2, etc.
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ntp-systemd-timesyncd> |
+| Nagios/Icinga Check Name              | `check_ntp_systemd_timesyncd` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -79,24 +82,25 @@ Frequency=-1365573
 
 ## States
 
-* WARN if stratum is \>= `--stratum`.
+* OK if the stratum is below the configured limit and an NTP server is in use.
+* WARN if stratum is >= `--stratum` (default: 6).
 * WARN if no NTP server is used.
 
 
 ## Perfdata / Metrics
 
-| Name    | Type   | Description |
-|---------|--------|-------------|
-| stratum | Number | Stratum     |
+| Name | Type | Description |
+|----|----|----|
+| stratum | Number | Stratum of the currently used NTP server. |
 
 
 ## Troubleshooting
 
-Failed to parse bus message: No such device or address  
-You don't have `systemd-timesyncd`.
+`Failed to parse bus message: No such device or address`  
+You don't have `systemd-timesyncd` installed or the service is not running.
 
-No NTP server used.  
-This message occurs when systemd-timesyncd is running, and systemd-timesyncd does (currently) not use any ntp server.
+`No NTP server used.`  
+This message occurs when systemd-timesyncd is running but does not currently use any NTP server.
 
 
 ## Credits, License

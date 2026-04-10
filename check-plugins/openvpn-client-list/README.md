@@ -2,14 +2,29 @@
 
 ## Overview
 
-Prints a list of all clients connected to the OpenVPN Server, and optionally checks their number against thresholds. Fetches the info from `/var/log/openvpn-status.log` (default), which you configure on your OpenVPN appliance using `status /var/log/openvpn-status.log`. Needs sudo.
+Lists all clients currently connected to an OpenVPN server by parsing the status log file. Reports client name, remote address, bytes received and sent, and connection time. Optionally checks the number of connected clients against thresholds.
+
+**Data Collection:**
+
+* Reads the OpenVPN status log file (default: `/var/log/openvpn-status.log`)
+* Parses `CLIENT_LIST` entries to extract client name, external IP, internal IP, and connection time
+* The status log file must be configured on the OpenVPN server using `status /var/log/openvpn-status.log`
+
+**Alerting Logic:**
+
+* WARN or CRIT if the number of connected clients exceeds the configured thresholds
+
+**Important Notes:**
+
+* Requires root or sudo to read the OpenVPN status log file.
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/openvpn-client-list> |
+| Nagios/Icinga Check Name              | `check_openvpn_client_list` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -62,12 +77,22 @@ e@linuxfabrik.ch 5.6.7.8      10.123.11.2 Mon May 31 23:08:38 2021
 
 ## States
 
-* WARN or CRIT if number of connected users is above a given threshold.
+* OK if the number of connected clients is below the thresholds.
+* WARN if the number of connected clients is >= `--warning`.
+* CRIT if the number of connected clients is >= `--critical`.
 
 
 ## Perfdata / Metrics
 
-* Number of clients connected.
+| Name | Type | Description |
+|----|----|----|
+| clients | Number | Number of clients currently connected to the OpenVPN server. |
+
+
+## Troubleshooting
+
+`Failed to read file /var/log/openvpn-status.log.`  
+The status log file does not exist or is not readable. Verify that the OpenVPN server is configured with `status /var/log/openvpn-status.log` and that the check has sufficient permissions (root or sudo).
 
 
 ## Credits, License

@@ -2,27 +2,36 @@
 
 ## Overview
 
-This is a monitoring plugin for any application implementing the [Spring Boot Rest API Actuator](https://docs.spring.io/spring-boot/api/rest/actuator/health.html) `/health` endpoint. It supports fine-grained overrides to adjust alerting behaviour and applying Nagios-style threshold ranges to detailed numeric metrics.
+Monitors a [Spring Boot Actuator](https://docs.spring.io/spring-boot/api/rest/actuator/health.html) `/health` endpoint, checking overall application health and individual component states (database, disk, mail, etc.).
 
-If not overridden, the status from the health endpoint map to Nagios states as follows:
+**Alerting Logic:**
 
-* UP, GREEN > OK
-* DEGRADED, YELLOW > WARN
-* DOWN and all other > CRIT
+* If not overridden, API statuses map to Nagios states as follows: UP/GREEN = OK, DEGRADED/YELLOW = WARN, DOWN and all others = CRIT
+* `--component-severity` allows overriding the Nagios state for a specific component and API status combination
+* `--detail-severity` applies Nagios-style threshold ranges to numeric component detail values (e.g. free disk space, active connections)
+* Returns WARN on HTTP status codes >= 300 (e.g. 503 for DEGRADED/DOWN)
+* `--always-ok` suppresses all alerts and always returns OK
 
-Hints:
+**Data Collection:**
 
-* Tested with Better EHR
-* Tested with petclinic
+* Fetches JSON from the configured Spring Boot Actuator health endpoint via HTTP(S)
+* Iterates over all components and their detail values reported by the API
+* All numeric detail values are automatically exposed as perfdata
+
+**Compatibility:**
+
+* Tested with Spring PetClinic and Better EHR
+* Any application exposing a Spring Boot Actuator `/health` endpoint should work
 
 
 ## Fact Sheet
 
-| Fact                             | Value                                                                                       |
-|----------------------------------|---------------------------------------------------------------------------------------------|
-| Check Plugin Download            | https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/spring-boot-actuator-health |
-| Check Interval Recommendation    | Once a minute                                                                               |
-| Can be called without parameters | Yes                                                                                         |
+| Fact | Value |
+|----|----|
+| Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/spring-boot-actuator-health> |
+| Check Interval Recommendation         | Once a minute |
+| Can be called without parameters      | Yes |
+| Compiled for Windows                  | No |
 
 
 ## Help
@@ -96,8 +105,7 @@ options:
     --detail-severity=hikariConnectionPool,activeConnections,@10:20,@0:9
 ```
 
-
-### Output:
+Output:
 
 ```text
 Overall status of the application: UP, API Status Code: 200 [CRITICAL]
@@ -125,22 +133,25 @@ ssl       ! invalidChains   ! []                                  ! [OK]
 
 ## States
 
-* Returns WARN on HTTP status code >= 300
-* Returns CRIT if overall application status is DOWN
-* Returns OK, WARN, CRIT or UNKNOWN depending on API state, component or component details states.
-* `--always-ok` forces the check to always return OK.
+* OK if all components report UP/GREEN and no detail thresholds are exceeded.
+* WARN on HTTP status code >= 300.
+* WARN if any component reports DEGRADED/YELLOW (unless overridden via `--component-severity`).
+* CRIT if overall application status is DOWN.
+* CRIT if any component reports DOWN (unless overridden via `--component-severity`).
+* CRIT if any numeric detail value exceeds the `--detail-severity` threshold.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-Each *numeric*  component detail value is exposed as perfdata.
+Each numeric component detail value is exposed as perfdata. Additionally, the Nagios state of each component is exposed (0=OK, 1=WARN, 2=CRIT, 3=UNKNOWN).
 
-| Name              | Type   | Description             |
-| ----------------- | ------ | ----------------------- |
-| diskSpace_free    | Bytes  | Free disk space         |
-| diskSpace_total   | Bytes  | Total disk space        |
-| hikariConnectionPool_activeConnections | Number | Active DB connections   |
-| ...               | ...    | Other component details |
+| Name | Type | Description |
+|----|----|----|
+| diskSpace_free | Bytes | Free disk space |
+| diskSpace_total | Bytes | Total disk space |
+| hikariConnectionPool_activeConnections | Number | Active DB connections |
+| ... | ... | Other numeric component details |
 
 
 ## Development

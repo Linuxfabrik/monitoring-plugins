@@ -2,7 +2,22 @@
 
 ## Overview
 
-Checks the the number of pending Windows updates.
+Checks the number of pending Windows updates using the Windows Update COM API.
+
+**Alerting Logic:**
+
+* WARN if the number of pending updates is >= `--warning` (default: 2)
+* CRIT if the number of pending updates is >= `--critical` (default: 50)
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Uses the `Microsoft.Update.Session` COM object to query for updates where `IsInstalled=0`
+* Lists all pending updates with their title and last deployment change time
+
+**Compatibility:**
+
+* Windows only
 
 
 ## Fact Sheet
@@ -52,12 +67,17 @@ There are 3 pending updates:
 
 ## States
 
-* WARN or CRIT if number of updates is above a given threshold.
+* OK if no pending updates or the count is below the warning threshold.
+* WARN if the number of pending updates is >= `--warning` (default: 2).
+* CRIT if the number of pending updates is >= `--critical` (default: 50).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-* `pending_updates`: Number of pending updates.
+| Name | Type | Description |
+|----|----|----|
+| pending_updates | Number | Number of pending updates |
 
 
 ## Credits, License

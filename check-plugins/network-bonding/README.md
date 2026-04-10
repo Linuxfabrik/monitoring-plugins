@@ -2,14 +2,29 @@
 
 ## Overview
 
-Reports the state of all channel bonding interfaces. Channel bonding enables two or more network interfaces to act as one, simultaneously increasing the bandwidth and providing redundancy.
+Reports the state of network bonding (channel bonding) interfaces. Checks that all slave interfaces are active and that the bonding mode and link status are healthy. Channel bonding allows two or more network interfaces to act as one, increasing bandwidth and providing redundancy. Requires root or sudo.
+
+**Alerting Logic:**
+
+* WARN if any slave interface in a bond has an MII status other than "up"
+* WARN if LACP bonding mode (IEEE 802.3ad) is configured but the partner MAC address is `00:00:00:00:00:00`, indicating that LACP is not properly configured on the switch side
+
+**Data Collection:**
+
+* Reads bonding interface status from `/proc/net/bonding/`
+* Parses MII status, link failure count, bonding mode, and partner MAC address for each bond and its slave interfaces
+
+**Compatibility:**
+
+* Linux only
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/network-bonding> |
+| Nagios/Icinga Check Name              | `check_network_bonding` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -53,12 +68,18 @@ One or more errors.
 
 ## States
 
-* WARN if any interface in a bonding interface is not up, or if there are warnings considering the configuration.
+* OK if all bonding interfaces and their slaves are healthy.
+* WARN if any slave interface in a bond is not up.
+* WARN if LACP partner MAC address cannot be detected.
+* UNKNOWN if no bonding interfaces are found.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-* `link_failure_count` (for each interface)
+| Name | Type | Description |
+|----|----|----|
+| \<bond\>\_\<slave\>\_link_failure_count | Number | Link failure count per slave interface. |
 
 
 ## Credits, License

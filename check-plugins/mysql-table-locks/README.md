@@ -2,9 +2,19 @@
 
 ## Overview
 
-Checks whether a certain percentage of table locks had to wait in MySQL/MariaDB. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
+Checks the rate of table locks that had to wait in MySQL/MariaDB. A high wait rate indicates contention between concurrent queries. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
 
-Hints:
+**Alerting Logic:**
+
+* WARN if less than 95% of table locks were acquired immediately
+* When alerting, the plugin recommends optimizing queries and/or using InnoDB to reduce lock contention
+
+**Data Collection:**
+
+* Queries `SHOW GLOBAL STATUS` for `Table_locks_immediate` and `Table_locks_waited`
+* Calculates the immediate lock rate as `Table_locks_immediate / (Table_locks_waited + Table_locks_immediate) * 100`
+
+**Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 
@@ -12,8 +22,9 @@ Hints:
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-table-locks> |
+| Nagios/Icinga Check Name              | `check_mysql_table_locks` |
 | Check Interval Recommendation         | Once an hour |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -64,7 +75,9 @@ Output:
 
 ## States
 
-* WARN if less than 95% table locks were completed immediately.
+* OK if 95% or more of table locks were acquired immediately.
+* WARN if less than 95% of table locks were acquired immediately.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
@@ -79,9 +92,7 @@ Output:
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
-
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).
-
 * Credits:
 
     * heavily inspired by MySQLTuner (<https://github.com/major/MySQLTuner-perl>)

@@ -2,7 +2,25 @@
 
 ## Overview
 
-This check "allows a server administrator to find out how well their server is performing". For the check plugin to work you have to enable `mod_status` and set `ExtendedStatus` to `On`. Have a look at <https://httpd.apache.org/docs/2.4/mod/mod_status.html>.
+Monitors Apache httpd performance via the mod_status endpoint (server-status?auto). Alerts when worker usage exceeds the configured thresholds. Reports busy and idle workers, request rates, bytes served, CPU load, connection states, and system load averages. Requires "ExtendedStatus On" in the Apache configuration for full metrics. Uses a local SQLite database to calculate per-second rates from cumulative counters.
+
+**Data Collection:**
+
+* Fetches data from the Apache `mod_status` machine-readable endpoint (`server-status?auto`)
+* Parses the scoreboard to count workers in each state (reading, replying, keepalive, DNS lookup, closing, logging, starting, finishing, waiting, free slots)
+* Uses a local SQLite database to store previous values and calculate per-interval deltas for accesses, bytes, and duration
+* On the first run (or after a restart), returns "Waiting for more data." until at least two measurements are available
+
+**Compatibility:**
+
+* Works with any Apache httpd version that provides `mod_status`
+* Some metrics (connection stats, load averages, processes) are only available in newer versions of `mod_status`
+
+**Important Notes:**
+
+* `mod_status` must be loaded and `ExtendedStatus On` must be set in the Apache configuration for full metrics. Without `ExtendedStatus`, only worker counts and scoreboard data are reported.
+* The check alerts on the percentage of busy workers relative to the total number of worker slots (busy + idle + free)
+* Workers in the "Gracefully finishing" (G) state are counted as idle workers, not busy workers
 
 Busy workers (workers serving requests) are:
 
@@ -72,11 +90,11 @@ If you want to configure `/server-status` in a virtual host:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/apache-httpd-status> |
-| Check Interval Recommendation         | Once a minute |
+| Nagios/Icinga Check Name              | `check_apache_httpd_status` |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Requirements                          | Enable `mod_status` and set `ExtendedStatus` to `On` |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-apache-httpd-status.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-apache-httpd-status.db` |
 
 
 ## Help
@@ -149,44 +167,48 @@ Server Built                   ! Jun  2 2021 00:00:00
 
 ## States
 
-* WARN or CRIT if more than 80% or 95% busy workers compared to the total possible number of workers found.
+* OK if the percentage of busy workers is below the warning threshold.
+* OK with "Waiting for more data." on the first run or after an Apache restart.
+* WARN if the percentage of busy workers is >= `--warning` (default: 80).
+* CRIT if the percentage of busy workers is >= `--critical` (default: 95).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| Accesses | Number | A total number of accesses and byte count served |
-| BusyWorkers | Number | workers_closing + workers_dns + workers_idle + workers_keepalive + workers_logging + workers_reading + workers_replying + workers_starting |
-| Bytes | Number | Bytes sent |
-| ConnsAsyncClosing | Number |  |
-| ConnsAsyncKeepAlive | Number |  |
-| ConnsAsyncWriting | Number |  |
-| ConnsTotal | Number |  |
-| CPULoad | Number |  |
-| IdleWorkers | Number | workers_finishing + workers_waiting |
-| Load1 | Number |  |
-| Load15 | Number |  |
-| Load5 | Number |  |
-| ParentServerConfigGeneration | Number |  |
-| ParentServerMPMGeneration | Number |  |
-| Processes | Number |  |
-| Stopping | Number |  |
-| Total Duration | Seconds |  |
-| TotalWorkers | Number |  |
-| Uptime | Seconds | The time the server has been running for |
-| WorkerUsagePercentage | Percentage |  |
-| workers_closing | Number | BusyWorkers; Closing connection, 'C' in Apache Scoreboard (SERVER_CLOSING) |
-| workers_dns | Number | BusyWorkers; DNS Lookup,'D' in Apache Scoreboard (SERVER_BUSY_DNS) |
-| workers_finishing | Number | IdleWorkers; Gracefully finishing, 'G' in Apache Scoreboard (SERVER_GRACEFUL) |
-| workers_free | Number | Open slot with no current process, '.' in Apache Scoreboard (SERVER_DEAD) |
-| workers_idle | Number | BusyWorkers; Idle cleanup of worker, 'I' in Apache Scoreboard (SERVER_IDLE_KILL) |
-| workers_keepalive | Number | BusyWorkers; Keepalive (read), 'K' in Apache Scoreboard (SERVER_BUSY_KEEPALIVE) |
-| workers_logging | Number | BusyWorkers; Logging, 'L' in Apache Scoreboard (SERVER_BUSY_LOG) |
-| workers_reading | Number | BusyWorkers; Reading Request, 'R' in Apache Scoreboard (SERVER_BUSY_READ) |
-| workers_replying | Number | BusyWorkers; Sending Reply, 'W' in Apache Scoreboard (SERVER_BUSY_WRITE) |
-| workers_starting | Number | BusyWorkers; Starting up, 'S' in Apache Scoreboard (SERVER_STARTING) |
-| workers_waiting | Number | IdleWorkers; Waiting for Connection, '\_' in Apache Scoreboard (SERVER_READY) |
+| Accesses | Number | Total number of accesses during the check interval. |
+| BusyWorkers | Number | Number of workers currently processing requests. |
+| Bytes | Bytes | Total bytes served during the check interval. |
+| ConnsAsyncClosing | Number | Number of async connections in closing state. |
+| ConnsAsyncKeepAlive | Number | Number of async connections in keep-alive state. |
+| ConnsAsyncWriting | Number | Number of async connections in writing state. |
+| ConnsTotal | Number | Total number of connections. |
+| CPULoad | Number | CPU load of the Apache process. |
+| IdleWorkers | Number | Number of idle workers (finishing + waiting). |
+| Load1 | Number | System load average, 1 minute. |
+| Load15 | Number | System load average, 15 minutes. |
+| Load5 | Number | System load average, 5 minutes. |
+| ParentServerConfigGeneration | Number | Apache configuration generation counter. |
+| ParentServerMPMGeneration | Number | Apache MPM generation counter. |
+| Processes | Number | Number of Apache processes. |
+| Stopping | Number | Number of stopping processes. |
+| Total Duration | Seconds | Total duration of all requests during the check interval. |
+| TotalWorkers | Number | Total number of worker slots (busy + idle + free). |
+| Uptime | Seconds | Time the server has been running. |
+| WorkerUsagePercentage | Percentage | Percentage of workers currently processing requests. |
+| workers_closing | Number | Workers closing connections ("C" in scoreboard). |
+| workers_dns | Number | Workers performing DNS lookup ("D" in scoreboard). |
+| workers_finishing | Number | Workers gracefully finishing ("G" in scoreboard). |
+| workers_free | Number | Open slots with no current process ("." in scoreboard). |
+| workers_idle | Number | Workers in idle cleanup ("I" in scoreboard). |
+| workers_keepalive | Number | Workers in keepalive read ("K" in scoreboard). |
+| workers_logging | Number | Workers logging ("L" in scoreboard). |
+| workers_reading | Number | Workers reading request ("R" in scoreboard). |
+| workers_replying | Number | Workers sending reply ("W" in scoreboard). |
+| workers_starting | Number | Workers starting up ("S" in scoreboard). |
+| workers_waiting | Number | Workers waiting for connection ("_" in scoreboard). |
 
 
 ## Troubleshooting

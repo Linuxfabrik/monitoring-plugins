@@ -2,7 +2,22 @@
 
 ## Overview
 
-Checks current settings of the system clock and RTC, including whether network time synchronization is active - the same as if using `timedatectl status` manually.
+Checks system clock and RTC settings via `timedatectl status`, including whether network time synchronization is active and whether the system clock is synchronized.
+
+**Alerting Logic:**
+
+* WARN if the system is configured to read the RTC time in the local time zone (`RTC in local TZ: yes`), as this causes problems with time zone changes and daylight saving time adjustments
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Executes `timedatectl status` and parses its output
+* Reports NTP synchronization status, NTP service state, and RTC configuration
+* Uses `timedatectl status` (not `timedatectl show`) for compatibility with older systemd versions (e.g. RHEL 7)
+
+**Compatibility:**
+
+* Linux with systemd (any version supporting `timedatectl status`)
 
 
 ## Fact Sheet
@@ -42,13 +57,21 @@ options:
 Output:
 
 ```text
+System clock synchronized: yes, NTP service: active, RTC in local TZ: no
+```
+
+Output (RTC misconfigured):
+
+```text
 System clock synchronized: yes. NTP service: active. The system is configured to read the RTC time in the local time zone. This mode cannot be fully supported. It will create various problems with time zone changes and daylight saving time adjustments. The RTC time is never updated, it relies on external facilities to maintain it. If at all possible, use RTC in UTC by calling `timedatectl set-local-rtc 0` [WARNING].
 ```
 
 
 ## States
 
-* WARN if system is configured to read the RTC time in the local time zone.
+* OK if NTP is synchronized and RTC is set to UTC.
+* WARN if the system is configured to read the RTC time in the local time zone.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

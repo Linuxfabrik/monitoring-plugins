@@ -2,24 +2,40 @@
 
 ## Overview
 
-Checks current and maximum possible memory usage specifically for MySQL/MariaDB. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
+Checks current and maximum possible memory usage specifically for MySQL/MariaDB. Calculates the theoretical maximum memory consumption based on global buffers, per-thread buffers, max connections, and Performance Schema usage. Compares this against the physical memory of the server.
 
-Hints:
+**Alerting Logic:**
+
+* WARN if max used memory > 2 GiB on 32-bit systems
+* WARN if max used memory > 95% of physical memory
+* WARN if total physical memory < max peak memory + memory used by other processes (excluding mysqld/mariadbd/systemd)
+
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for all relevant buffer size variables (`innodb_buffer_pool_size`, `key_buffer_size`, `sort_buffer_size`, `join_buffer_size`, `max_connections`, etc.)
+* Queries `SHOW GLOBAL STATUS` for `Max_used_connections`
+* Queries Performance Schema for current memory usage (if enabled)
+* Uses `psutil` (if available) to determine memory consumption of other running processes
+* Uses `os.sysconf` to determine total physical memory
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
+
+**Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
-* Requires MySQL/MariaDB v4+.
-* Must be running locally on the MySQL/MariaDB server to be able to check the system requirements.
+* Requires MySQL/MariaDB v4+
+* Must be running locally on the MySQL/MariaDB server to check system memory
+* User account requires PROCESS privileges
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-memory> |
+| Nagios/Icinga Check Name              | `check_mysql_memory` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
-| Requirements                          | User with PROCESS privileges, locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `psutil`, `pymysql` |
 
 
@@ -58,7 +74,7 @@ options:
 Output:
 
 ```text
-67.6% - total: 31.3GiB, used: 21.1GiB. Maximum possible memory usage is 99.5% (possible peak: 31.1GiB). Reduce your overall MySQL memory footprint for system stability. Overall possible memory usage with other processes will exceed memory . Dedicate this server to your database for highest performance.
+67.6% - total: 31.3GiB, used: 21.1GiB. Maximum possible memory usage is 99.5% (possible peak: 31.1GiB). Overall possible memory usage (31.1GiB) with other processes (5.2GiB) will exceed physical memory (31.3GiB). [WARNING]
 
 Calculations:
 * Memory usage according to Performance Schema: pfm = 0.0B
@@ -68,61 +84,59 @@ Calculations:
 * Max. Used Memory: mum = sb + mtptb + pfm = 18.3GiB + 2.8GiB + 0.0B = 21.1GiB
 * Possible Peak Memory: ppm = sb + tptb + pfm = 18.3GiB + 12.8GiB + 0.0B = 31.1GiB
 * Physical Memory: pm = 31.3GiB
-* Max Used Memory %: mump = mum / pm * 100 = 21.1GiB / 31.3GiB * 100 = 67.6B%
-* Max Possible Memory Usage %: mpmu = ppm / pm * 100 = 31.1GiB / 31.3GiB * 100 = 99.5B%
+* Max Used Memory %: mump = mum / pm * 100 = 21.1GiB / 31.3GiB * 100 = 67.6%
+* Max Possible Memory Usage %: mpmu = ppm / pm * 100 = 31.1GiB / 31.3GiB * 100 = 99.5%
 ```
 
 
 ## States
 
-* WARN if max_used_memory \> 2 GB on 32 bit systems.
-* WARN if max_used_memory \> 85%.
-* WARN if physical_memory \< max_peak_memory + memory usage by other processes (except some specific like MySQL/MariaDB or Systemd).
+* WARN if max used memory > 2 GiB on 32-bit systems.
+* WARN if max used memory > 95% of physical memory.
+* WARN if physical memory < max peak memory + memory usage by other processes (excluding mysqld, mariadbd, and systemd).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| mysql_aria_pagecache_buffer_size | Bytes | The size of the buffer used for index and data blocks for Aria tables. This can include explicit Aria tables, system tables, and temporary tables. |
-| mysql_innodb_buffer_pool_size | Bytes | InnoDB buffer pool size in bytes. The primary value to adjust on a database server with entirely/primarily InnoDB tables, can be set up to 80% of the total memory in these environments. |
-| mysql_innodb_log_buffer_size | Bytes | Size in bytes of the buffer for writing InnoDB redo log files to disk. Increasing this means larger transactions can run without needing to perform disk I/O before committing. |
-| mysql_join_buffer_size | Bytes | Minimum size in bytes of the buffer used for queries that cannot use an index, and instead perform a full table scan. |
+| mysql_aria_pagecache_buffer_size | Bytes | The size of the buffer used for index and data blocks for Aria tables. |
+| mysql_innodb_buffer_pool_size | Bytes | InnoDB buffer pool size in bytes. |
+| mysql_innodb_log_buffer_size | Bytes | Size in bytes of the buffer for writing InnoDB redo log files to disk. |
+| mysql_join_buffer_size | Bytes | Minimum size in bytes of the buffer used for queries that cannot use an index. |
 | mysql_key_buffer_size | Bytes | Size of the buffer for the index blocks used by MyISAM tables and shared for all threads. |
-| mysql_max_allowed_packet | Bytes | Maximum size in bytes of a packet or a generated/intermediate string. The packet message buffer is initialized with the value from net_buffer_length, but can grow up to max_allowed_packet bytes. |
+| mysql_max_allowed_packet | Bytes | Maximum size in bytes of a packet or a generated/intermediate string. |
 | mysql_max_connections | Number | The maximum number of simultaneous client connections. |
 | mysql_max_heap_table_size | Bytes | Maximum size in bytes for user-created MEMORY tables. |
 | mysql_max_peak_memory | Bytes | server_buffers + total_per_thread_buffers + performance schema usage |
 | mysql_max_tmp_table_size | Bytes | max(max_heap_table_size, tmp_table_size) |
-| mysql_max_total_per_thread_buffers | Bytes | per_thread_buffers \* max_used_connections |
-| mysql_max_used_connections | Number | Max number of connections ever open at the same time. The global value can be flushed by FLUSH STATUS. |
+| mysql_max_total_per_thread_buffers | Bytes | per_thread_buffers * max_used_connections |
+| mysql_max_used_connections | Number | Max number of connections ever open at the same time. |
 | mysql_max_used_memory | Bytes | server_buffers + max_total_per_thread_buffers + performance schema usage |
-| mysql_pct_max_physical_memory | Percentage | max_peak_memory / physical_memory \* 100 |
-| mysql_pct_max_used_memory | Percentage | max_used_memory / physical_memory \* 100 |
-| mysql_per_thread_buffers | Bytes | Have a look at the source code. |
+| mysql_pct_max_physical_memory | Percentage | max_peak_memory / physical_memory * 100 |
+| mysql_pct_max_used_memory | Percentage | max_used_memory / physical_memory * 100 |
+| mysql_per_thread_buffers | Bytes | Sum of all per-thread buffer sizes (read_buffer_size + read_rnd_buffer_size + sort_buffer_size + thread_stack + max_allowed_packet + join_buffer_size). |
 | mysql_physical_memory | Bytes | Total physical memory (exclusive swap). |
-| mysql_query_cache_size | Bytes | Size in bytes available to the query cache. About 40KB is needed for query cache structures, so setting a size lower than this will result in a warning. |
-| mysql_read_buffer_size | Bytes | Each thread performing a sequential scan (for MyISAM, Aria and MERGE tables) allocates a buffer of this size in bytes for each table scanned. |
+| mysql_query_cache_size | Bytes | Size in bytes available to the query cache. |
+| mysql_read_buffer_size | Bytes | Each thread performing a sequential scan allocates a buffer of this size in bytes for each table scanned. |
 | mysql_read_rnd_buffer_size | Bytes | Size in bytes of the buffer used when reading rows from a MyISAM table in sorted order after a key sort. |
-| mysql_server_buffers | Bytes | Have a look at the source code. |
-| mysql_sort_buffer_size | Bytes | Each session performing a sort allocates a buffer with this amount of memory. Not specific to any storage engine. |
+| mysql_server_buffers | Bytes | Sum of all global buffer sizes (key_buffer_size + max_tmp_table_size + innodb_buffer_pool_size + innodb_additional_mem_pool_size + innodb_log_buffer_size + query_cache_size + aria_pagecache_buffer_size). |
+| mysql_sort_buffer_size | Bytes | Each session performing a sort allocates a buffer with this amount of memory. |
 | mysql_thread_stack | Bytes | Stack size for each thread. |
-| mysql_tmp_table_size | Bytes | The largest size for temporary tables in memory (not MEMORY tables) although if max_heap_table_size is smaller the lower limit will apply. |
-| mysql_total_per_thread_buffers | Bytes | per_thread_buffers \* max_connections |
+| mysql_tmp_table_size | Bytes | The largest size for temporary tables in memory (not MEMORY tables). |
+| mysql_total_per_thread_buffers | Bytes | per_thread_buffers * max_connections |
 
 
 ## Troubleshooting
 
-Overall possible memory usage with other process will exceed memory \[WARNING\]. Dedicate this server to your database for highest performance.  
-Decrease `max_connections`, tune buffer settings, stop other processes or increase memory.
+`Overall possible memory usage with other process will exceed memory [WARNING]. Dedicate this server to your database for highest performance.`
+Decrease `max_connections`, tune buffer settings, stop other processes, or increase memory.
 
 
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
-
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).
-
 * Credits:
-
     * heavily inspired by MySQLTuner (<https://github.com/major/MySQLTuner-perl>)

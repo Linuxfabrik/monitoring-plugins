@@ -2,25 +2,32 @@
 
 ## Overview
 
-Returns a bunch of performance data on a Jitsi Videobridge (v2.1+) using the [REST version of the COLIBRI protocol](https://github.com/jitsi/jitsi-videobridge/blob/master/doc/rest-colibri.md).
+Monitors Jitsi Videobridge performance via the COLIBRI REST API. Reports conference count, participant count, video channels, bitrates, packet rates, and other bridge metrics.
 
-The [statistics](https://github.com/jitsi/jitsi-videobridge/blob/master/doc/statistics.md) are available through the `/colibri/stats` endpoint on the *private* REST interface that [must be activated first](https://github.com/jitsi/jitsi-videobridge/blob/master/doc/rest.md).
+**Data Collection:**
 
-The check does not convert the `total` values into discrete values. Instead, all totals are reported as "continous counters", otherwise the duration of the conferences will not be displayed nicely on the timeline, for example.
+* Queries the `/colibri/stats` endpoint on the Jitsi Videobridge private REST interface
+* The [private REST interface must be activated first](https://github.com/jitsi/jitsi-videobridge/blob/master/doc/rest.md)
+* All `total_*` values are reported as continuous counters (uom `c`) so that graphing tools like Grafana can display rates over time correctly
+* For details on the statistics, see the [Jitsi Videobridge statistics documentation](https://github.com/jitsi/jitsi-videobridge/blob/master/doc/statistics.md)
 
-For a discussion on how many users Jitsi support see [here1](https://community.jitsi.org/t/maximum-number-of-participants-on-a-meeting-on-meet-jit-si-server/22273/2), [here2](https://community.jitsi.org/t/update-on-maximum-number-of-participants-on-jitsi/97695/2) and [here3](https://meetrix.io/blog/webrtc/jitsi/how-many-users-does-jitsi-support.html)
+**Compatibility:**
 
-Hints:
+* Jitsi Videobridge v2.1+
 
-* DTLS: Datagram Transport Layer Security
-* MUC: Multi-User Channel
+**Important Notes:**
+
+* This check always returns OK. It is designed purely as a metrics collector for graphing dashboards.
+* DTLS = Datagram Transport Layer Security, MUC = Multi-User Channel
+* For a discussion on how many users Jitsi supports, see [here](https://community.jitsi.org/t/maximum-number-of-participants-on-a-meeting-on-meet-jit-si-server/22273/2) and [here](https://community.jitsi.org/t/update-on-maximum-number-of-participants-on-jitsi/97695/2)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/jitsi-videobridge-stats> |
+| Nagios/Icinga Check Name              | `check_jitsi_videobridge_stats` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -71,68 +78,69 @@ Output:
 ## States
 
 * Always returns OK.
+* `--always-ok` has no additional effect since the check never alerts.
 
 
 ## Perfdata / Metrics
 
-For details have a look [here](https://github.com/jitsi/jitsi-videobridge/blob/master/doc/statistics.md) (not all make sense in PerfData).
+For details see the [Jitsi Videobridge statistics documentation](https://github.com/jitsi/jitsi-videobridge/blob/master/doc/statistics.md).
 
 | Name | Type | Description |
 |----|----|----|
-| bit_rate_download | Bits per Second | the current incoming bitrate (RTP) in kilobits per second. |
-| bit_rate_upload | Bits per Second | the current outgoing bitrate (RTP) in kilobits per second. |
-| conferences | Number | The current number of conferences. |
-| current_timestamp | Number | the UTC time at which the report was generated. |
-| dtls_failed_endpoints | Continous Counter | the total number of endpoints which failed to establish a DTLS connection. |
-| endpoints_sending_audio | Number | current number of endpoints sending (non-silence) audio. |
-| endpoints_sending_video | Number | current number of endpoints sending video. |
-| endpoints_with_spurious_remb | Continous Counter | total number of endpoints which have sent an RTCP REMB packet when REMB was not signaled. |
-| endpoints | Number | the current number of endpoints, including <span class="title-ref">octo</span> endpoints. |
-| graceful_shutdown | Number | whether jitsi-videobridge is currently in graceful shutdown mode (hosting existing conferences, but not accepting new ones). |
-| inactive_conferences | Number | current number of conferences in which no endpoints are sending audio nor video. Note that this includes conferences which are currently using a peer-to-peer transport. |
-| inactive_endpoints | Number | current number of endpoints in inactive conferences (see <span class="title-ref">inactive_conferences</span>). |
-| largest_conference | Number | the size of the current largest conference (counting all endpoints, including <span class="title-ref">octo</span> endpoints which are connected to a different jitsi-videobridge instance) |
-| local_active_endpoints | Number | the current number of local endpoints (not <span class="title-ref">octo</span>) which are in an active conference. This includes endpoints which are not sending audio or video, but are in an active conference (i.e. they are receive-only). |
-| local_endpoints | Number | the current number of local (non-<span class="title-ref">octo</span>) endpoints. |
-| num_eps_oversending | Number | current number of endpoints to which we are oversending. |
-| octo_conferences | Number | current number of conferences in which <span class="title-ref">octo</span> is enabled. |
-| octo_endpoints | Number | current number of <span class="title-ref">octo</span> endpoints (connected to remove jitsi-videobridge instances). |
-| octo_receive_bitrate | Number | current incoming bitrate on the <span class="title-ref">octo</span> channel (combined for all conferences) in bits per second. |
-| octo_receive_packet_rate | Number | current incoming packet rate on the <span class="title-ref">octo</span> channel (combined for all conferences) in packets per second. |
-| octo_send_bitrate | Number | current outgoing bitrate on the <span class="title-ref">octo</span> channel (combined for all conferences) in bits per second. |
-| octo_send_packet_rate | Number | current outgoing packet rate on the <span class="title-ref">octo</span> channel (combined for all conferences) in packets per second. |
-| p2p_conferences | Number | current number of peer-to-peer conferences. These are conferences of size 2 in which no endpoint is sending audio not video. Presumably the endpoints are using a peer-to-peer transport at this time. |
-| packet_rate_download | Number | current RTP incoming packet rate in packets per second. |
-| packet_rate_upload | Number | current RTP outgoing packet rate in packets per second. |
-| preemptive_kfr_sent | Continous Counter | total number of preemptive keyframe requests sent. |
-| receive_only_endpoints | Number | current number of endpoints which are not sending audio nor video. |
-| rtt_aggregate | Milliseconds | round-trip-time measured via RTCP averaged over all local endpoints with a valid RTT measurement in milliseconds. |
-| stress_level | Number | current stress level on the bridge, with 0 indicating no load and 1 indicating the load is at full capacity (though values \>1 are permitted). |
-| threads | Number | current number of JVM threads. |
-| total_bytes_received_octo | Continous Counter | total number of bytes received on the <span class="title-ref">octo</span> channel. |
-| total_bytes_received | Continous Counter | total number of bytes received in RTP. |
-| total_bytes_sent_octo | Continous Counter | total number of bytes sent on the <span class="title-ref">octo</span> channel. |
-| total_bytes_sent | Continous Counter | total number of bytes sent in RTP. |
-| total_colibri_web_socket_messages_received | Continous Counter | total number of messages received on a Colibri 'bridge channel' messages received on a WebSocket. |
-| total_colibri_web_socket_messages_sent | Continous Counter | total number of messages sent over a Colibri 'bridge channel' messages sent over a WebSocket. |
-| total_conference_seconds | Continous Counter | total number of conference-seconds served (only updates once a conference expires). |
-| total_conferences_completed | Continous Counter | total number of conferences completed. |
-| total_conferences_created | Continous Counter | total number of conferences created. |
-| total_data_channel_messages_received | Continous Counter | total number of Colibri 'bridge channel' messages received on SCTP data channels. |
-| total_data_channel_messages_sent | Continous Counter | total number of Colibri 'bridge channel' messages sent over SCTP data channels. |
-| total_dominant_speaker_changes | Continous Counter | total number of times the dominant speaker in a conference changed. |
-| total_failed_conferences | Continous Counter | total number of conferences in which no endpoints succeeded to establish an ICE connection. |
-| total_ice_failed | Continous Counter | total number of endpoints which failed to establish an ICE connection. |
-| total_ice_succeeded_relayed | Continous Counter | total number of endpoints which connected through a TURN relay (currently broken). |
-| total_ice_succeeded | Continous Counter | total number of endpoints which successfully established an ICE connection. |
-| total_packets_dropped_octo | Continous Counter | total number of packets dropped on the <span class="title-ref">octo</span> channel. |
-| total_packets_received_octo | Continous Counter | total number packets received on the <span class="title-ref">octo</span> channel. |
-| total_packets_received | Continous Counter | total number of RTP packets received. |
-| total_packets_sent_octo | Continous Counter | total number packets sent over the <span class="title-ref">octo</span> channel. |
-| total_packets_sent | Continous Counter | total number of RTP packets sent. |
-| total_partially_failed_conferences | Continous Counter | total number of conferences in which at least one endpoint failed to establish an ICE connection. |
-| total_participants | Continous Counter | total number of endpoints created. |
-| version | Number | the version of jitsi-videobridge. |
+| bit_rate_download | Bits per Second | Current incoming bitrate (RTP) in kilobits per second. |
+| bit_rate_upload | Bits per Second | Current outgoing bitrate (RTP) in kilobits per second. |
+| conferences | Number | Current number of conferences. |
+| current_timestamp | Number | UTC time at which the report was generated. |
+| dtls_failed_endpoints | Continuous Counter | Total number of endpoints which failed to establish a DTLS connection. |
+| endpoints | Number | Current number of endpoints, including octo endpoints. |
+| endpoints_sending_audio | Number | Current number of endpoints sending (non-silence) audio. |
+| endpoints_sending_video | Number | Current number of endpoints sending video. |
+| endpoints_with_spurious_remb | Continuous Counter | Total number of endpoints which sent an RTCP REMB packet when REMB was not signaled. |
+| graceful_shutdown | Number | Whether the bridge is in graceful shutdown mode (1 = yes). |
+| inactive_conferences | Number | Current number of conferences with no endpoints sending audio or video. |
+| inactive_endpoints | Number | Current number of endpoints in inactive conferences. |
+| largest_conference | Number | Size of the current largest conference (all endpoints including octo). |
+| local_active_endpoints | Number | Current number of local endpoints in an active conference. |
+| local_endpoints | Number | Current number of local (non-octo) endpoints. |
+| num_eps_oversending | Number | Current number of endpoints to which the bridge is oversending. |
+| octo_conferences | Number | Current number of conferences with octo enabled. |
+| octo_endpoints | Number | Current number of octo endpoints (connected to remote bridges). |
+| octo_receive_bitrate | Number | Current incoming bitrate on the octo channel in bits per second. |
+| octo_receive_packet_rate | Number | Current incoming packet rate on the octo channel in packets per second. |
+| octo_send_bitrate | Number | Current outgoing bitrate on the octo channel in bits per second. |
+| octo_send_packet_rate | Number | Current outgoing packet rate on the octo channel in packets per second. |
+| p2p_conferences | Number | Current number of peer-to-peer conferences. |
+| packet_rate_download | Number | Current RTP incoming packet rate in packets per second. |
+| packet_rate_upload | Number | Current RTP outgoing packet rate in packets per second. |
+| preemptive_kfr_sent | Continuous Counter | Total number of preemptive keyframe requests sent. |
+| receive_only_endpoints | Number | Current number of endpoints not sending audio or video. |
+| rtt_aggregate | Milliseconds | Round-trip time averaged over all local endpoints with a valid RTT measurement. |
+| stress_level | Number | Current stress level on the bridge (0 = no load, 1 = full capacity, values > 1 permitted). |
+| threads | Number | Current number of JVM threads. |
+| total_bytes_received | Continuous Counter | Total number of bytes received in RTP. |
+| total_bytes_received_octo | Continuous Counter | Total number of bytes received on the octo channel. |
+| total_bytes_sent | Continuous Counter | Total number of bytes sent in RTP. |
+| total_bytes_sent_octo | Continuous Counter | Total number of bytes sent on the octo channel. |
+| total_colibri_web_socket_messages_received | Continuous Counter | Total number of Colibri bridge channel messages received on a WebSocket. |
+| total_colibri_web_socket_messages_sent | Continuous Counter | Total number of Colibri bridge channel messages sent over a WebSocket. |
+| total_conference_seconds | Continuous Counter | Total number of conference-seconds served (updates once a conference expires). |
+| total_conferences_completed | Continuous Counter | Total number of conferences completed. |
+| total_conferences_created | Continuous Counter | Total number of conferences created. |
+| total_data_channel_messages_received | Continuous Counter | Total number of Colibri bridge channel messages received on SCTP data channels. |
+| total_data_channel_messages_sent | Continuous Counter | Total number of Colibri bridge channel messages sent over SCTP data channels. |
+| total_dominant_speaker_changes | Continuous Counter | Total number of times the dominant speaker changed in a conference. |
+| total_failed_conferences | Continuous Counter | Total number of conferences in which no endpoint established an ICE connection. |
+| total_ice_failed | Continuous Counter | Total number of endpoints which failed to establish an ICE connection. |
+| total_ice_succeeded | Continuous Counter | Total number of endpoints which successfully established an ICE connection. |
+| total_ice_succeeded_relayed | Continuous Counter | Total number of endpoints which connected through a TURN relay. |
+| total_packets_dropped_octo | Continuous Counter | Total number of packets dropped on the octo channel. |
+| total_packets_received | Continuous Counter | Total number of RTP packets received. |
+| total_packets_received_octo | Continuous Counter | Total number of packets received on the octo channel. |
+| total_packets_sent | Continuous Counter | Total number of RTP packets sent. |
+| total_packets_sent_octo | Continuous Counter | Total number of packets sent over the octo channel. |
+| total_partially_failed_conferences | Continuous Counter | Total number of conferences in which at least one endpoint failed an ICE connection. |
+| total_participants | Continuous Counter | Total number of endpoints created. |
+| version | Number | The version of jitsi-videobridge as float. |
 
 
 ## Credits, License

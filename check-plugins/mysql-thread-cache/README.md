@@ -2,18 +2,32 @@
 
 ## Overview
 
-MySQL/MariaDB tracks the number of threads it caches for re-use. This plug-in checks the cache hit rate after a minimum uptime of one hour. If the thread pool is active, `thread_cache_size` is ignored. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
+Checks how effectively MySQL/MariaDB caches threads for re-use. A low cache hit rate means the server frequently creates new threads, which is expensive. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
 
-Hints:
+**Alerting Logic:**
+
+* WARN if `thread_cache_size` is 0 (thread cache disabled)
+* WARN if thread cache hit rate is 50% or lower, but only after the server has been running for at least one hour (to let the cache warm up)
+* No alert is raised when the thread pool is active, because `thread_cache_size` is ignored in that case
+
+**Data Collection:**
+
+* Queries `SHOW GLOBAL VARIABLES` for `have_threadpool` and `thread_cache_size`
+* Queries `SHOW GLOBAL STATUS` for `Connections`, `Threads_created`, and `Uptime`
+* Calculates the hit rate as `100 - (Threads_created / Connections * 100)`
+
+**Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
+* When the thread pool is enabled (Percona or MariaDB), the value of `thread_cache_size` is ignored and `Threads_cached` shows 0
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-thread-cache> |
+| Nagios/Icinga Check Name              | `check_mysql_thread_cache` |
 | Check Interval Recommendation         | Once an hour |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -65,8 +79,10 @@ Output:
 
 ## States
 
-* WARN if `thread_cache_size` is `0`.
-* WARN if thread cache hit rate is \<= 50%.
+* OK if the thread cache hit rate is above 50% (after at least one hour of uptime) or if the thread pool is active.
+* WARN if `thread_cache_size` is 0.
+* WARN if thread cache hit rate is 50% or lower.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
@@ -82,9 +98,7 @@ Output:
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
-
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).
-
 * Credits:
 
     * heavily inspired by MySQLTuner (<https://github.com/major/MySQLTuner-perl>)

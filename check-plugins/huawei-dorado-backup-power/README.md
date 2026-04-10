@@ -2,13 +2,23 @@
 
 ## Overview
 
-Batch querying all backup power modules (Backup Battery Unit (BBU)) of a Huawei OceanStor Dorado storage system via the REST Interface, using the `https://${ip}:${port}/deviceManager/rest/${deviceId}/backup_power` endpoint. Cookies and iBaseTokens are stored and re-used (the session timeout period is usually 20 minutes).
+Checks the health status of all backup power modules (BBU) on a Huawei OceanStor Dorado storage system via the REST API (`/backup_power` endpoint). Alerts when any module reports a non-normal health or running state.
 
-Hints:
+**Data Collection:**
 
-* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0.
+* Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/backup_power` to retrieve all BBU module data
+* Reports health status, running status, charge count, remaining service life, and voltage for each BBU
+* Cookies and iBaseTokens are cached and re-used (the session timeout period is usually 20 minutes, configurable via `--cache-expire`)
+
+**Compatibility:**
+
+* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
+
+**Important Notes:**
+
 * Create a read-only API user that can perform query only.
-* Sometimes the API returns `This operation fails to be performed because of the unauthorized REST. Before performing this operation, ensure that REST is authorized.`, although everything is fine. In this case, the check simply tries to retrieve the data again, a maximum of 9 times within 9 seconds.
+* Sometimes the API returns "This operation fails to be performed because of the unauthorized REST. Before performing this operation, ensure that REST is authorized.", although everything is fine. In this case, the check retries the request, a maximum of 9 times within 9 seconds.
+* `--insecure` is enabled by default because Huawei OceanStor Dorado typically uses self-signed certificates.
 
 
 ## Fact Sheet
@@ -16,10 +26,11 @@ Hints:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/huawei-dorado-backup-power> |
+| Nagios/Icinga Check Name              | `check_huawei_dorado_backup_power` |
 | Check Interval Recommendation         | Every 15 minutes |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--device-id`, `--password`, `--url`, and `--username` are required) |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | Yes |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
 
 
 ## Help
@@ -84,22 +95,24 @@ Fetched API 2 times
 
 ## States
 
-* UNKNOWN on invalid responses or responses with error codes.
-* WARN if BBU health status is not equal to "Normal".
-* WARN if BBU running status is not equal to "Normal", "Running", "Online", "Charging" or "Charging completed".
+* OK if all BBU modules report normal health and running status.
+* WARN if any BBU health status is not "Normal".
+* WARN if any BBU running status is not "Normal", "Running", "Online", "Charging", or "Charging completed".
+* UNKNOWN on invalid API responses or responses with error codes.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| \<UUID\>\_CHARGETIMES | Number | Discharge count. |
-| \<UUID\>\_HEALTHSTATUS | Number | 0: unknown, 1: normal, 2: faulty, 3: about to fail, 12: low battery |
-| \<UUID\>\_REMAINLIFEDAYS | Seconds | Remaining service life. |
-| \<UUID\>\_RUNNINGSTATUS | Number | 0: unknown, 1: normal, 2: running, 27: online, 28: offline, 48: charging, 49: charging completed, 50: discharging |
-| \<UUID\>\_VOLTAGE | Number | Current voltage. |
+| \<UUID\>_CHARGETIMES | Number | Discharge count. |
+| \<UUID\>_HEALTHSTATUS | Number | 0: unknown, 1: normal, 2: faulty, 3: about to fail, 12: low battery. |
+| \<UUID\>_REMAINLIFEDAYS | Seconds | Remaining service life. |
+| \<UUID\>_RUNNINGSTATUS | Number | 0: unknown, 1: normal, 2: running, 27: online, 28: offline, 48: charging, 49: charging completed, 50: discharging. |
+| \<UUID\>_VOLTAGE | Number | Current voltage. |
 
-Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
+See the [Huawei OceanStor Dorado API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 
 
 ## Credits, License

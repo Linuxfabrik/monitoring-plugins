@@ -2,16 +2,34 @@
 
 ## Overview
 
-Checks the number of matching files or directories found. It can be also used to check the existence / absence of a single file.
+Counts the number of files matching a glob pattern and alerts when the count exceeds the configured thresholds. Can filter by modification time range, restrict to files or directories only, and supports SMB shares.
 
-Depending on the file and user (e.g. running as *icinga*), sudo (sudoers) is needed. It supports globs in accordance with [Python 3](https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob). Beware that using recursive globs might cause high memory usage. Optionally, the check can be restricted to only consider files that were modified in a given timerange.
+**Data Collection:**
+
+* Uses Python's `pathlib.Path.glob()` for local files and `lib.smb` for SMB shares
+* Applies `os.stat()` once per item to determine type and modification time, minimizing syscalls
+* When both `--warning` and `--critical` thresholds are simple numeric values, the check breaks early once the threshold is exceeded (to save time and resources on directories with millions of files)
+
+**Compatibility:**
+
+* Cross-platform: Linux and Windows
+* SMB share access requires the optional `PySmbClient` and `smbprotocol` Python modules
+* Recursive globs (`**`) can cause high memory usage on large directory trees
+
+**Important Notes:**
+
+* The `--filename` and `--url` parameters are mutually exclusive
+* Thresholds support Nagios ranges. Use `--warning 1` to check for file existence (warn if missing) or `--warning '~:0'` to check for file absence (warn if present)
+* `--timerange` accepts Nagios range syntax in seconds. Only files whose modification time falls within this range are counted
+* Depending on the file and user (e.g. running as `icinga`), sudo (sudoers) may be needed
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|------|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-count> |
+| Nagios/Icinga Check Name              | `check_file_count` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | Yes |
@@ -84,13 +102,17 @@ Found 1 matching file (thresholds 1/None)|'file_count'=1;1;;0;
 
 ## States
 
-* OK if all the found files (in accordance with the filtering parameters) are within the given thresholds (ranges).
-* Otherwise CRIT or WARN.
+* OK if the file count is within the given thresholds (Nagios ranges).
+* WARN if the file count is outside `--warning`.
+* CRIT if the file count is outside `--critical`.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-* `file_count`: Number. Count of the files that were found in accordance with the filtering parameters.
+| Name | Type | Description |
+|----|----|----|
+| file_count | Number | Count of files matching the glob pattern and filters. |
 
 
 ## Credits, License

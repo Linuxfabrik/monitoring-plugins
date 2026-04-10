@@ -2,16 +2,32 @@
 
 ## Overview
 
-This plugin lets you track if MySQL/MariaDB is End-of-Life (EOL). To compare against the current/installed version of MySQL/MariaDB, the check has to run on the MySQL/MariaDB server itself.
+Checks the installed MySQL/MariaDB version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
-This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+**Alerting Logic:**
+
+* WARN if the installed version has reached its EOL date (considering the configured offset)
+* Optional: WARN when a new major version is available (`--check-major`)
+* Optional: WARN when a new minor version is available (`--check-minor`)
+* Optional: WARN when a new patch version is available (`--check-patch`)
+
+**Data Collection:**
+
+* Detects the installed version by running `mysqld --version`, `mariadb --version`, or `mysql --version`
+* Queries the [endoflife.date API](https://endoflife.date/) for MySQL or MariaDB lifecycle data
+* Caches the API response in a local SQLite database to reduce API calls
+
+**Compatibility:**
+
+* Must run on the MySQL/MariaDB server itself to detect the installed version
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-version> |
+| Nagios/Icinga Check Name              | `check_mysql_version` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -69,10 +85,12 @@ MariaDB v10.5.21 (EOL 2025-06-24 -30d, major 11.1.2 available, minor 10.11.5 ava
 
 ## States
 
-* WARN if software is EOL
-* Optional: WARN when new major version is available
-* Optional: WARN when new minor version is available
-* Optional: WARN when new patch version is available
+* OK if the installed version is not EOL and no newer versions are requested to be checked.
+* WARN if the software is EOL.
+* Optional: WARN when a new major version is available.
+* Optional: WARN when a new minor version is available.
+* Optional: WARN when a new patch version is available.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

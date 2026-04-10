@@ -2,15 +2,27 @@
 
 ## Overview
 
-This check targets the JSON endpoint of a [COMET SYSTEM](https://www.cometsystem.com/) Web Sensor. Cometsystem web sensors allow configuration of two separate alarms for each channel. The alarm mode selects the direction of the alarm - lower than limit, higher than limit or disabled. This check plugin allows you to define a severity for each channel and alarm mode.
+Reads sensor data from Comet System Web Sensors via their JSON API endpoint. Monitors channels such as temperature, humidity, and other environmental values. Alarm states are mapped to configurable severity levels using a flexible pattern matching system (e.g. "temp:high:crit", "humi:low:warn").
 
-The repeating `--severity` parameter can be set in different ways:
+**Data Collection:**
 
-* `--severity ok|warn|crit|unknown`: High and low alarm severity for all channels and all alarm modes.
-* `--severity part-of-channel-name:ok|warn|crit|unknown`: High and low alarm severity for a specific channel and all alarm modes. You just need to specify a part of the channel name. Case-insensitive.
-* `--severity part-of-channel-name:low|high:ok|warn|crit|unknown`: Alarm severity for a specific channel and a specific alarm mode.
+* Fetches sensor data from the JSON endpoint of a [COMET SYSTEM](https://www.cometsystem.com/) Web Sensor (e.g. `http://example.com/values.json`)
+* Iterates over all channels (`ch1`, `ch2`, ...) and reads their name, value, unit, and alarm state
+* Alarm mode per channel selects the direction: lower than limit (low alarm), higher than limit (high alarm), or disabled
 
-The order of `--severity` matters, the first match wins.
+**Compatibility:**
+
+* Works with any Comet System Web Sensor that exposes a `/values.json` endpoint
+
+**Important Notes:**
+
+* The repeating `--severity` parameter can be set in different ways:
+
+    * `--severity ok|warn|crit|unknown`: High and low alarm severity for all channels and all alarm modes.
+    * `--severity part-of-channel-name:ok|warn|crit|unknown`: High and low alarm severity for a specific channel and all alarm modes. You just need to specify a part of the channel name. Case-insensitive.
+    * `--severity part-of-channel-name:low|high:ok|warn|crit|unknown`: Alarm severity for a specific channel and a specific alarm mode.
+
+* The order of `--severity` matters, the first match wins. If no `--severity` is specified, any alarm defaults to WARN.
 
 Example:
 
@@ -26,8 +38,9 @@ Here, the check raises critical for any channel with "temp" in its name on high 
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cometsystem> |
-| Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Nagios/Icinga Check Name              | `check_cometsystem` |
+| Check Interval Recommendation         | Every minute |
+| Can be called without parameters      | No (`--url` is required) |
 | Compiled for Windows                  | No |
 
 
@@ -84,19 +97,22 @@ ch4 ! Atmospheric pressure !       ! 958.6hPa
 
 ## States
 
-* WARN for any alarm threshold violations.
+* OK if no sensor alarms are active.
+* WARN, CRIT, or UNKNOWN depending on the `--severity` configuration when a sensor alarm is triggered. Default for any alarm without a matching `--severity` rule is WARN.
+* UNKNOWN if the URL does not return valid JSON or the expected channel data is missing.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-Name of the channel and its value, depend on the Web Sensor model and its configuration. For example:
+Channel names and values depend on the Web Sensor model and its configuration. For example:
 
 | Name | Type | Description |
 |----|----|----|
-| Atmospheric pressure | Number Barometric pressure or weight of the atmosphere above. |  |
-| Dew point | Number Temperature at which condensation starts. |  |
+| Atmospheric pressure | Number | Barometric pressure or weight of the atmosphere above. |
+| Dew point | Number | Temperature at which condensation starts. |
 | Relative humidity | Percentage | Relative humidity. |
-| Temperature | Number Temperature in C or F. |  |
+| Temperature | Number | Temperature in C or F. |
 
 
 ## Credits, License

@@ -2,22 +2,27 @@
 
 ## Overview
 
-This check plugin prints the garbage collector of a WildFly server, using its HTTP-JSON based API (JBossAS REST Management API). This allows us to monitor the application server without any additional configuration and installation - no need to deploy WAR-Agents like Jolokia. The plugin supports both standalone mode and domain mode.
+Reports garbage collector statistics from a WildFly/JBoss AS server via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode. Reports collection count and total collection time for each garbage collector.
 
-Tested with WildFly 11 and WildFly 23+.
+**Data Collection:**
 
-Hints:
+* Queries the WildFly management API at `/core-service/platform-mbean/type/garbage-collector` using the `read-resource` operation with runtime data
+* Authenticates via HTTP Digest Auth (`--username`, `--password`)
 
+**Compatibility:**
+
+* Tested with WildFly 11 and WildFly 23+
 * See [additional notes for all wildfly monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.md)
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wildfly-gc-status> |
+| Nagios/Icinga Check Name              | `check_wildfly_gc_status` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--username` and `--password` are required) |
 | Compiled for Windows                  | No |
 
 
@@ -56,7 +61,7 @@ options:
 ## Usage Examples
 
 ```bash
-./wildfly-gc-status --username wildfly-monitoring --password password --url http://wildfly:9990
+./wildfly-gc-status --username=wildfly-monitoring --password=password --url=http://wildfly:9990
 ```
 
 Output:
@@ -75,10 +80,10 @@ MarkSweepCompact: CollectionCount 2.0, CollectionTime 1s; Copy: CollectionCount 
 
 | Name | Type | Description |
 |----|----|----|
-| garbage-collector-NAME-collection-count | Continous Counter | The total number of collections that have occurred. |
-| garbage-collector-NAME-collection-time | Milliseconds | The approximate accumulated collection elapsed time in milliseconds. |
+| garbage-collector-NAME-collection-count | Continuous Counter | Total number of collections that have occurred. |
+| garbage-collector-NAME-collection-time | Milliseconds | Approximate accumulated collection elapsed time. |
 
-NAME is the name of the garbage collector.
+NAME is the name of the garbage collector (e.g. "MarkSweepCompact", "Copy").
 
 
 ## Credits, License

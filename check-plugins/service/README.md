@@ -2,29 +2,40 @@
 
 ## Overview
 
-Verifies that a set of Windows services, specified by name and specific startup types, are in specific states (such as "running") - in other words, this plugin checks the number of services in specific service states against thresholds.
+Checks the state of one or more Windows services. Accepts the case-insensitive service name (not the display name) and supports Python regular expressions to match multiple services. Verifies that the number of services in the expected state falls within the specified Nagios range thresholds.
 
-You have to provide the case-insensitive Windows "Service Name", not the "Display Name". Supports Python regular expressions, so you are able to check multiple Windows services on a host with almost the same name, for example.
+**Alerting Logic:**
 
-Example:
+* WARN if the number of services in the expected status falls outside the `--warning` range (default: `1:`, meaning at least one must match)
+* CRIT if the number of services in the expected status falls outside the `--critical` range (default: none)
+* `--always-ok` suppresses all alerts and always returns OK
 
-* Display Name: "Diagnostic Policy Service"
-* Service Name: `DPS` (provide this)
+**Data Collection:**
 
-Hints:
+* Uses `psutil.win_service_iter()` to enumerate all Windows services
+* Filters services by name (regex), start type (`--starttype`, default: automatic), and expected status (`--status`, default: running)
+* Counts how many matching services are in the expected status and compares against the threshold ranges
 
+**Important Notes:**
+
+* Provide the case-insensitive Windows "Service Name", not the "Display Name". Example: Display Name "Diagnostic Policy Service" has Service Name `DPS` (provide `DPS`)
 * For use in Icinga Director: If the service name contains a `$`, this dollar sign must be escaped with another dollar sign. Since the plugin is capable of regular expressions, this character must also be escaped with a backslash. So if you want to check `my$service`, you have to specify `my\$$service`.
 * On the Windows command line: If you want to check `my$service`, you have to specify `my\$service`.
 * On the Windows command line: Only use double quotes to provide regexes to `--service`; if running unit tests on Linux, use single quotes instead.
+
+**Compatibility:**
+
+* Windows
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|---|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/service> |
+| Nagios/Icinga Check Name              | `check_service` |
 | Check Interval Recommendation         | Once a minute |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--service` is required) |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
 
@@ -80,7 +91,7 @@ Display Name          ! Service Name ! Status  ! Startup
 Base Filtering Engine ! BFE          ! running ! automatic
 ```
 
-Check that there are at least 10 but not more than 20 Windows Services named "myapp followed by a 4-digit serial number" meet the status "running":
+Check that there are at least 10 but not more than 20 Windows services named "myapp followed by a 4-digit serial number" meeting the status "running":
 
 ```bash
 service --service="^myapp[0-9]{4}$" --starttype=automatic --status=running --warning=10:19
@@ -97,34 +108,20 @@ myapp0815         ! myapp0815    ! running ! automatic
 myapp4711         ! myapp4711    ! running ! automatic
 ```
 
-Check that ALL services with startup type "automatic" are running, except for a few that are known for a delayed or triggered start (we'll filter these by name). In other words: First get all the services, filter out a few with a negative lookahead, and set the alert threshold to alert if at least one of the remaining services is NOT running:
+Check that ALL services with startup type "automatic" are running, except for a few that are known for a delayed or triggered start:
 
 ```bash
 service --service="^(?!DPS|MSDTC|MapsBroker|UsoSvc|Dnscache|gpsvc$).*$" --starttype=automatic --status=continue_pending --status=pause_pending --status=paused --status=start_pending --status=stop_pending --status=stopped --warning 0
 ```
 
-Output (shortened):
-
-```text
-45 services named r`^(?!DPS!MSDTC!MapsBroker!UsoSvc!Dnscache!gpsvc$).*$` and start type ['automatic'] found, 2 in status ['continue_pending', 'pause_pending', 'paused', 'start_pending', 'stop_pending', 'stopped'] (thresholds 0/None) [WARNING].
-
-Display Name                                   ! Service Name           ! Status  ! Startup
------------------------------------------------+------------------------+---------+-----------
-DCOM Server Process Launcher                   ! DcomLaunch             ! running ! automatic
-User Profile Service                           ! ProfSvc                ! running ! automatic
-Remote Registry                                ! RemoteRegistry         ! stopped ! automatic
-RPC Endpoint Mapper                            ! RpcEptMapper           ! running ! automatic
-Remote Procedure Call (RPC)                    ! RpcSs                  ! running ! automatic
-Print Spooler                                  ! Spooler                ! running ! automatic
-Software Protection                            ! sppsvc                 ! stopped ! automatic
-OpenSSH SSH Server                             ! sshd                   ! running ! automatic
-SysMain                                        ! SysMain                ! running ! automatic
-```
-
 
 ## States
 
-* WARN or CRIT if the number of services found does not match the specified ranges.
+* OK if the number of services in the expected status falls within the threshold ranges.
+* WARN if the number of services in the expected status falls outside `--warning` (default: `1:`).
+* CRIT if the number of services in the expected status falls outside `--critical`.
+* UNKNOWN if the service regex is invalid or no matching services are found.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics

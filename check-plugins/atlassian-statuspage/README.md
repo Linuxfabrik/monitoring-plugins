@@ -2,7 +2,17 @@
 
 ## Overview
 
-Receive alerts on incidents on a specific [Atlassian Statuspage](https://www.atlassian.com/software/statuspage). The plugin requires access to the <span class="title-ref">/api/v2/status.json</span> endpoint.
+Monitors a public Atlassian Statuspage for incidents and maintenance windows. Returns OK when no incidents are reported, WARN for minor incidents or scheduled maintenance, and CRIT for major or critical incidents. Works with any Statuspage-powered status page, not just Atlassian's own.
+
+**Data Collection:**
+
+* Queries the `/api/v2/status.json` endpoint of the specified Statuspage URL
+* Maps the Statuspage incident indicator to Nagios states according to the [Atlassian impact calculation](https://support.atlassian.com/statuspage/docs/top-level-status-and-incident-impact-calculations/)
+* Reports the time elapsed since the last status update when an incident is active
+
+**Compatibility:**
+
+* Works with any public status page powered by Atlassian Statuspage (e.g. GitHub, Cloudflare, Datadog)
 
 
 ## Fact Sheet
@@ -10,7 +20,8 @@ Receive alerts on incidents on a specific [Atlassian Statuspage](https://www.atl
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/atlassian-statuspage> |
-| Check Interval Recommendation         | Once a minute |
+| Nagios/Icinga Check Name              | `check_atlassian_statuspage` |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
 
@@ -55,16 +66,16 @@ Minor Service Outage @ https://www.githubstatus.com, last update at 2025-05-28T1
 
 ## States
 
-See <https://support.atlassian.com/statuspage/docs/top-level-status-and-incident-impact-calculations/>:
-
-* WARN if statuspage reports \['minor', 'maintenance'\]
-* CRIT if statuspage reports \['major', 'critical'\]
+* OK if the Statuspage indicator is "none" (no active incidents).
+* WARN if the Statuspage indicator is "minor" or "maintenance".
+* CRIT if the Statuspage indicator is "major" or "critical".
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name   | Type   | Description                                                  |
-|--------|--------|--------------------------------------------------------------|
+| Name | Type | Description |
+|----|----|----|
 | impact | Number | The current state (0 = OK, 1 = WARN, 2 = CRIT, 3 = UNKNOWN). |
 
 

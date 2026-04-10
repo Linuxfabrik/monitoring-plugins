@@ -2,9 +2,26 @@
 
 ## Overview
 
-The plugin can also display the last downtime timestamp and duration - the shorter the intervals at which it is run, the more accurate the downtime info will be.
+Reports how long the system has been running since the last boot. Optionally displays the timestamp and duration of the last downtime - the more frequently the check runs, the more accurate the downtime information will be.
 
-Note that the plugin requires a time qualifier when specifying parameters, e.g. `--warning=180D` for 180 days (instead of `--warning=180` as in older versions).
+**Alerting Logic:**
+
+* Thresholds use a human-readable format with time qualifiers: `s` (seconds), `m` (minutes), `h` (hours), `D` (days), `W` (weeks), `M` (months), `Y` (years)
+* Supports Nagios range syntax, e.g. `5m:180D` warns if uptime is not between 5 minutes and 180 days
+* WARN if uptime is outside `--warning` range (default: `3m:180D`, i.e. warns if less than 3 minutes or more than 180 days)
+* CRIT if uptime is outside `--critical` range (default: `:1Y`, i.e. crits if more than 1 year)
+* Useful for detecting servers that have not been rebooted after patching, or unexpected reboots
+* `--always-ok` suppresses all alerts and always returns OK
+
+**Data Collection:**
+
+* Uses `psutil.boot_time()` to determine the boot timestamp and calculate uptime
+* Stores timestamps in a SQLite database to detect reboots and calculate downtime duration between runs
+* On the first run after a reboot, reports the approximate time and duration of the last power event
+
+**Compatibility:**
+
+* Cross-platform: Linux and Windows
 
 
 ## Fact Sheet
@@ -12,7 +29,7 @@ Note that the plugin requires a time qualifier when specifying parameters, e.g. 
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/uptime> |
-| Check Interval Recommendation         | Once a minute |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
@@ -77,7 +94,6 @@ Warn if not in 5 minutes to 6 months and 5 days uptime. If more than 2 years up,
 
 ```bash
 ./uptime --warning=5m:6M5D --critical=2Y
-# alternatively: ./uptime --warning='5m:6M 5D' --critical=2Y
 ```
 
 Output over time:
@@ -88,7 +104,7 @@ Up 6M since 2024-03-30 08:08:01 (thresholds 5m:6M5D/2Y)
 Up 6M 6D since 2024-03-30 08:08:01 (thresholds 5m:6M5D/2Y) [WARNING]
 ```
 
-Output after planned/unplanned shutdown/power down and subsequent boot:
+Output after planned/unplanned shutdown and subsequent boot:
 
 ```text
 Up 1m 57s since 2024-11-22 14:44:31 (thresholds 3m:180D/:1Y) [WARNING].
@@ -98,14 +114,23 @@ Last power event at ~2024-11-22 14:44:18 and down for ~13s.
 
 ## States
 
-* WARN or CRIT if system uptime is above a given threshold.
+* OK if uptime is within the configured range.
+* WARN if uptime is outside `--warning` range (default: `3m:180D`).
+* CRIT if uptime is outside `--critical` range (default: `:1Y`).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-| Name   | Type    | Description       |
-|--------|---------|-------------------|
+| Name | Type | Description |
+|----|----|----|
 | uptime | Seconds | Uptime in seconds |
+
+
+## Troubleshooting
+
+`Python module "psutil" is not installed.`
+Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
 
 ## Credits, License

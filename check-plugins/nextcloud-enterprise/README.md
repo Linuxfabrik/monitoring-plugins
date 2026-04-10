@@ -2,21 +2,30 @@
 
 ## Overview
 
-This monitoring plugin provides information about an installed Nextcloud Enterprise subscription.
+Retrieves and displays information about an installed Nextcloud Enterprise subscription, including license status, expiration date, and supported user count. Requires root or sudo.
 
-The line 'Subscr.: 300 users, Limit: 180 users' means that you have a subscription for a maximum of 300 users, but have set a limit of 180 users using the command `sudo -u apache /var/www/html/nextcloud/occ config:app:set support user-limit --value=180`. If you haven't set this kind of user limit, the line would be printed as 'Subscr.: 300 users, Limit: not set'.
+**Data Collection:**
 
-Hints:
+* Runs Nextcloud `occ` commands via sudo to retrieve subscription key, last response data, and user limit configuration
+* Displays subscription details including end date, level, account manager, and per-feature subscription status (groupware, talk, collabora, onlyoffice, outlook, sip_bridge)
 
-* This plugin does not currently raise any alerts.
-* Passwordless or otherwise configured sudo permissions are required for the UID under which the Nextcloud application is running.
+**Compatibility:**
+
+* Linux only
+* Requires passwordless or otherwise configured sudo permissions for the UID under which the Nextcloud application is running
+
+**Important Notes:**
+
+* This plugin currently always returns OK and is purely informational
+* The "Limit" value in the output refers to the user limit set via `occ config:app:set support user-limit --value=N`. If not set, it shows "not set".
 
 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----|
+|----|-----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nextcloud-enterprise> |
+| Nagios/Icinga Check Name              | `check_nextcloud_enterprise` |
 | Check Interval Recommendation         | Once a day |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
@@ -43,7 +52,7 @@ options:
 ## Usage Examples
 
 ```bash
-./nextcloud-version --path=/var/www/html/nextcloud
+./nextcloud-enterprise --path=/var/www/html/nextcloud
 ```
 
 Output:
@@ -73,7 +82,7 @@ sip_bridge ! False           ! 0     ! None    !       !          !
 
 | Name | Type | Description |
 |----|----|----|
-| user_limit | Number | Number of users set by `config:app:set support user-limit` |
+| user_limit | Number | Number of users set by `config:app:set support user-limit`. |
 
 
 ## Credits, License

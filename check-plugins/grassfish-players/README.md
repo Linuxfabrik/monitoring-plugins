@@ -2,13 +2,23 @@
 
 ## Overview
 
-The Grassfish Platform offers a unified way to manage Digital Signage touchpoints. This monitoring plugin shows you a list of Grassfish players whose data transfer status is overdue, whose last access date is more than `--warning` hours ago or who are unlicensed. The list of players can be filtered. You must provide both the Grassfish hostname and a Grassfish token for this check to work.
+Monitors Grassfish digital signage players via the Grassfish API. Lists players whose data transfer is overdue, whose last access exceeds the configured threshold, or who are unlicensed. The player list can be filtered. Requires a Grassfish hostname and API token. Supports extended reporting via `--lengthy`.
 
-Tested with Grassfish v1.12.
+**Data Collection:**
 
-Hints:
+* Queries the Grassfish API (`/gv2/webservices/API` by default) to retrieve all player data
+* Players can be filtered by `--box-id` (regex), `--box-state`, `--custom-id` (regex), `--is-installed`, `--is-licensed`, and `--transfer-status`
+* By default, only players in "activated" state are checked
+* Only players with warnings are shown in the table output (truncated to 10 entries)
 
-* May take more than 10 seconds to execute.
+**Compatibility:**
+
+* Tested with Grassfish API v1.12
+
+**Important Notes:**
+
+* May take more than 10 seconds to execute depending on the number of players. Consider increasing `--timeout` if needed.
+* `--box-id` and `--custom-id` support Python regular expressions (case-insensitive).
 
 
 ## Fact Sheet
@@ -16,8 +26,9 @@ Hints:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/grassfish-players> |
-| Check Interval Recommendation         | Once an hour |
-| Can be called without parameters      | No |
+| Nagios/Icinga Check Name              | `check_grassfish_players` |
+| Check Interval Recommendation         | Every hour |
+| Can be called without parameters      | No (`--hostname` and `--token` are required) |
 | Compiled for Windows                  | No |
 
 
@@ -106,20 +117,22 @@ GP117-117 ! ColorDoorSignPlayerSaas ! Grassfish Player 117 ! Activated ! False [
 
 ## States
 
-* WARN if player is not licensed
-* WARN if player's transfer status is "Overdue"
-* WARN if player's last access timestamp is \> `--warning` hours (which considers player is offline)
+* OK if all players are licensed, transfer status is not "Overdue", and last access is within `--warning` hours.
+* WARN if a player is not licensed.
+* WARN if a player's transfer status is "Overdue".
+* WARN if a player's last access is > `--warning` hours ago (default: 8 hours), which considers the player offline.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| grassfish_play_players | Number | Number of matching players found |
-| grassfish_play_unlicensed | Number | Number of unlicensed players |
-| grassfish_play_transfer_overdue | Number | Number of player with transfer status "Overdue" |
-| grassfish_play_access_overdue | Number | Number of players with last access timestamp \> `--warning` hours |
-| grassfish_play_warnings | Number | grassfish_play_unlicensed + grassfish_play_transfer_overdue + grassfish_play_access_overdue |
+| grassfish_play_access_overdue | Number | Number of players with last access > `--warning` hours ago. |
+| grassfish_play_players | Number | Number of matching players found. |
+| grassfish_play_transfer_overdue | Number | Number of players with transfer status "Overdue". |
+| grassfish_play_unlicensed | Number | Number of unlicensed players. |
+| grassfish_play_warnings | Number | Total number of players with any warning. |
 
 
 ## Credits, License

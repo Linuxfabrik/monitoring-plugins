@@ -2,7 +2,13 @@
 
 ## Overview
 
-Monitors system-wide CPU utilization with sustained load detection to avoid false alerts from short-lived spikes. Reports percentages across all standard CPU time categories (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus calculated overall CPU usage (100 - idle - nice).
+Reports CPU utilization percentages for all available time categories (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall cpu-usage (100 - idle - nice).
+
+Thresholds (WARN/CRIT) are checked against user, system, iowait, and cpu-usage. An alert is raised only if the threshold is exceeded for COUNT consecutive runs, suppressing short spikes and focusing on sustained load.
+
+Perfdata is emitted for every field to enable full graphing. Extended stats (context switches, interrupts, etc.) are included if supported on this platform.
+
+This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.
 
 **Alerting Logic:**
 
@@ -13,14 +19,15 @@ Monitors system-wide CPU utilization with sustained load detection to avoid fals
 
 **Data Collection:**
 
-* System-wide aggregate CPU statistics (not per-core)
-* Non-blocking measurement using SQLite state persistence between runs
-* Platform-specific extended metrics where available (context switches, interrupts, soft interrupts)
+* System-wide aggregate CPU statistics (not per-core) via `psutil.cpu_times()`
+* Non-blocking measurement using SQLite state persistence between runs: stores a raw CPU time snapshot and computes the delta against the previous run
+* On the first run, falls back to a short 0.25s blocking sample to produce sane output
+* Platform-specific extended metrics where available: context switches, interrupts, soft interrupts (requires psutil >= 4.1.0)
+* Detects and skips all-zero CPU samples (can occur on Windows systems with many cores) to avoid false 100% usage reports
 
 **Compatibility:**
 
 * Cross-platform: Linux, Windows, and all psutil-supported systems
-* Uses SQLite database (`$TEMP/linuxfabrik-monitoring-plugins-cpu-usage.db`) for trend tracking
 
 
 ## Fact Sheet
@@ -28,12 +35,13 @@ Monitors system-wide CPU utilization with sustained load detection to avoid fals
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage> |
+| Nagios/Icinga Check Name              | `check_cpu_usage` |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
 | Handles Periods                       | Yes |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-cpu-usage.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cpu-usage.db` |
 
 
 ## Help
@@ -80,27 +88,35 @@ interrupts: 582.9M, soft_interrupts: 343.6M, ctx_switches: 1.1G
 
 ## States
 
-* OK if `user`, `system`, `iowait` and overall `cpu-usage` (minus `nice`) are all below the thresholds within the last `--count` checks.
-* Otherwise CRIT or WARN.
+* OK if `user`, `system`, `iowait`, and overall `cpu-usage` are all below the thresholds within the last `--count` checks (default: 5).
+* OK with "Waiting for more data (got an all-zero CPU sample, skipping)." if an all-zero sample is detected.
+* WARN if any of the checked fields exceeds `--warning` (default: 80) for `--count` consecutive runs.
+* CRIT if any of the checked fields exceeds `--critical` (default: 90) for `--count` consecutive runs.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| cpu-usage | Percentage | The overall cpu usage. This is (100 - `idle`). |
-| ctx_switches | Continous Counter | Number of context switches (voluntary + involuntary) since boot. A context switch is a procedure that a computer's CPU (central processing unit) follows to change from one task (or process) to another while ensuring that the tasks do not conflict. |
-| guest | Percentage | Linux 2.6.24+: Time spent running a virtual CPU. |
-| guest_nice | Percentage | Linux 3.2.0+ |
-| idle | Percentage | If the CPU has completed all tasks it is idle. |
+| cpu-usage | Percentage | The overall CPU usage (100 - `idle` - `nice`). |
+| ctx_switches | Continous Counter | Number of context switches (voluntary + involuntary) since boot. |
+| guest | Percentage | Time spent running a virtual CPU (Linux 2.6.24+). |
+| guest_nice | Percentage | Time spent running a niced guest (Linux 3.2.0+). |
 | interrupts | Continous Counter | Number of interrupts since boot. |
-| iowait | Percentage | Time spent waiting for I/O to complete. This is not accounted in idle time counter. |
-| irq | Percentage | Time spent for servicing hardware interrupts. |
-| nice | Percentage | Time spent by niced (prioritized) processes executing in user mode; this also includes guest_nice time. |
+| iowait | Percentage | Time spent waiting for I/O to complete. |
+| irq | Percentage | Time spent servicing hardware interrupts. |
+| nice | Percentage | Time spent by niced (prioritized) processes executing in user mode. |
 | soft_interrupts | Continous Counter | Number of software interrupts since boot. |
-| steal | Percentage | Linux 2.6.11+; Percentage of time a virtual CPU waits for a real CPU while the hypervisor is servicing another virtual processor. |
-| system | Percentage | Percent time spent in kernel space. System CPU time is the time spent running code in the Operating System kernel. |
-| user | Percentage | Percent time spent in user space. User CPU time is the time spent on the processor running your program's code (or code in libraries). |
+| steal | Percentage | Time a virtual CPU waits for a real CPU while the hypervisor is servicing another virtual processor (Linux 2.6.11+). |
+| system | Percentage | Time spent in kernel space. |
+| user | Percentage | Time spent in user space. |
+
+
+## Troubleshooting
+
+`Python module "psutil" is not installed.`  
+Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
 
 ## Credits, License

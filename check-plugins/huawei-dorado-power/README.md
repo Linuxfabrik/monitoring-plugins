@@ -2,13 +2,27 @@
 
 ## Overview
 
-Batch query basic status and performance data about a Huawei OceanStor Dorado storage system via the REST Interface, using the `https://${ip}:${port}/deviceManager/rest/${deviceId}/power` endpoint. Cookies and iBaseTokens are stored and re-used (the session timeout period is usually 20 minutes).
+Checks the health and running status of all power supply units (PSUs) on a Huawei OceanStor Dorado storage system via the REST API (`/power` endpoint). Alerts when any PSU reports a non-normal health or running state. Reports manufacturer, model, serial number, production date, input/output voltage and temperature per PSU.
 
-Hints:
+**Alerting Logic:**
 
-* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0.
-* Create a read-only API user that can perform query only.
-* Sometimes the API returns `This operation fails to be performed because of the unauthorized REST. Before performing this operation, ensure that REST is authorized.`, although everything is fine. In this case, the check simply tries to retrieve the data again, a maximum of 9 times within 9 seconds.
+* WARN if any PSU's health status is not "Normal"
+* WARN if any PSU's running status is not "Normal", "Running" or "Online"
+
+**Data Collection:**
+
+* Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/power`
+* Authenticates via session tokens (iBaseToken + cookie), cached in a SQLite database to avoid repeated logins
+* On transient authorization errors, automatically retries up to 9 times with 1-second intervals
+
+**Compatibility:**
+
+* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
+
+**Important Notes:**
+
+* Create a read-only API user that can perform queries only
+* The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
 
 
 ## Fact Sheet
@@ -16,10 +30,11 @@ Hints:
 | Fact | Value |
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/huawei-dorado-power> |
+| Nagios/Icinga Check Name              | `check_huawei_dorado_power` |
 | Check Interval Recommendation         | Every 5 minutes |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (`--device-id`, `--password`, `--url` and `--username` are required) |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | Yes |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
 
 
 ## Help
@@ -72,14 +87,7 @@ UUID       ! Location    ! Manufacturer ! Model         ! SerialNumber         !
 -----------+-------------+--------------+---------------+----------------------+------------+---------+----------+------+-----------+-----------
 23:23.0.0  ! CTE0.PSU0   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0       ! 0        ! 0    ! [OK]      ! [OK]      
 23:23.0.1  ! CTE0.PSU1   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0       ! 0        ! 0    ! [OK]      ! [OK]      
-23:23.0.2  ! CTE0.PSU2   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-21 ! 0       ! 0        ! 0    ! [OK]      ! [OK]      
-23:23.0.3  ! CTE0.PSU3   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0       ! 0        ! 0    ! [OK]      ! [OK]      
 23:23.64.0 ! DAE000.PSU0 ! Huawei       ! PAC2000S12-BG ! 12345678             ! 2020-12-02 ! 0       ! 0        ! 0    ! [OK]      ! [OK]      
-23:23.64.1 ! DAE000.PSU1 ! Huawei       ! PAC2000S12-BG ! 12345678             ! 2020-12-02 ! 0       ! 0        ! 0    ! [OK]      ! [OK]      
-23:23.65.0 ! DAE010.PSU0 ! Huawei       ! PAC2000S12-BG ! 12345678             ! 2020-12-02 ! 0       ! 0        ! 0    ! [OK]      ! [OK]      
-23:23.65.1 ! DAE010.PSU1 ! Huawei       ! PAC2000S12-BG ! 12345678             ! 2020-12-02 ! 0       ! 0        ! 0    ! [OK]      ! [OK]      
-23:23.66.0 ! DAE020.PSU0 ! Huawei       ! PAC2000S12-BG ! 12345678             ! 2020-12-02 ! 0       ! 0        ! 0    ! [OK]      ! [OK]      
-23:23.66.1 ! DAE020.PSU1 ! Huawei       ! PAC2000S12-BG ! 12345678             ! 2020-12-02 ! 0       ! 0        ! 0    ! [OK]      ! [OK]      
 23:0.0B.0  ! CTE0.PSU 0  ! VAPEL        ! HSP960-D1205D ! 21022701328NE5000004 ! 2014-05-03 ! 0       ! 0        ! 0    ! [WARNING] ! [WARNING]   
 
 Fetched API 2 times
@@ -88,22 +96,33 @@ Fetched API 2 times
 
 ## States
 
-* UNKNOWN on invalid responses or responses with error codes.
-* WARN if power health status is not equal to "Normal".
-* WARN if power running status is not equal to "Normal", "Running" or "Online".
+* OK if all PSUs report normal health and running status.
+* WARN if any PSU's health status is not "Normal".
+* WARN if any PSU's running status is not "Normal", "Running" or "Online".
+* UNKNOWN on invalid API responses or responses with error codes.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| \<UUID\>\_HEALTHSTATUS | Number | 0: unknown, 1: normal, 2: faulty, 9: inconsistent, 11: no input |
-| \<UUID\>\_INPUTVOLTAGE | Number | Output voltage. (MV) |
-| \<UUID\>\_OUTPUTVOLTAGE | Number | Input voltage. (MV) |
-| \<UUID\>\_RUNNINGSTATUS | Number | 0: unknown, 1: normal, 2: running, 27: online, 28: offline |
+| \<UUID\>\_HEALTHSTATUS | Number | 0: unknown, 1: normal, 2: faulty, 9: inconsistent, 11: no input. |
+| \<UUID\>\_INPUTVOLTAGE | Number | Input voltage (millivolts). |
+| \<UUID\>\_OUTPUTVOLTAGE | Number | Output voltage (millivolts). |
+| \<UUID\>\_RUNNINGSTATUS | Number | 0: unknown, 1: normal, 2: running, 27: online, 28: offline. |
 | \<UUID\>\_TEMPERATURE | Number | Temperature. |
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
+
+
+## Troubleshooting
+
+`Got no valuable response from https://...`
+Check the `--url`, `--device-id`, `--username` and `--password` parameters. Verify that the API user has query permissions and that the storage system REST API is reachable.
+
+`This operation fails to be performed because of the unauthorized REST.`
+This is a known transient issue with the Huawei REST API. The check retries automatically up to 9 times. If the error persists, verify the API credentials and session timeout settings.
 
 
 ## Credits, License
