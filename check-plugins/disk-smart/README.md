@@ -13,11 +13,11 @@ Queries SMART (Self-Monitoring, Analysis, and Reporting Technology) data from ha
 
 **Compatibility:**
 
-* Linux only (requires `smartctl` from the `smartmontools` package)
-* Supports ATA/SATA and SCSI/SAS hard drives and solid-state drives
+* Cross-platform (requires `smartctl` from the `smartmontools` package)
 
 **Important Notes:**
 
+* Supports ATA/SATA and SCSI/SAS hard drives and solid-state drives
 * Run `/usr/sbin/update-smart-drivedb` periodically to update the drive database, which can improve attribute interpretation
 * Use `--full` to also alert on notices (assumptions), not just on actual SMART issues
 

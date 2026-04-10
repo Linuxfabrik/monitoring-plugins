@@ -12,10 +12,11 @@ Monitors the Infomaniak status page for open events and incidents. Alerts when a
 
 **Compatibility:**
 
-* Works with the Infomaniak API v2
+* Cross-platform
 
 **Important Notes:**
 
+* Works with the Infomaniak API v2
 * The API call may take more than 10 seconds. The default timeout is 28 seconds.
 * Known service categories that can be filtered with `--service`:
 

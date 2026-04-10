@@ -13,11 +13,12 @@ Detects fast-flapping Icinga services by counting state changes per service with
 
 **Compatibility:**
 
-* Requires IcingaDB with the IcingaWeb2 module
-* The IcingaWeb2 user needs at least the "icingadb > General Module Access" permission
+* Cross-platform
 
 **Important Notes:**
 
+* Requires IcingaDB with the IcingaWeb2 module
+* The IcingaWeb2 user needs at least the "icingadb > General Module Access" permission
 * Instead of specifying URL, username and password on the command line, you can create and specify an INI file:
 
     ```text

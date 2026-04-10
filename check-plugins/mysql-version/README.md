@@ -12,7 +12,12 @@ Checks the installed MySQL/MariaDB version against the endoflife.date API and al
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * Must run on the MySQL/MariaDB server itself to detect the installed version
+
 
 
 ## Fact Sheet

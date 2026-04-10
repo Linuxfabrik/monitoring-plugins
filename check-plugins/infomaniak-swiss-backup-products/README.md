@@ -13,10 +13,11 @@ Checks Infomaniak Swiss Backup product details via the Infomaniak API. Alerts wh
 
 **Compatibility:**
 
-* Works with the Infomaniak Swiss Backup API v1
+* Cross-platform
 
 **Important Notes:**
 
+* Works with the Infomaniak Swiss Backup API v1
 * Links:
 
     * Swiss Backup: <https://www.infomaniak.com/en/swiss-backup>

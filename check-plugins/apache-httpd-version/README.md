@@ -12,8 +12,13 @@ Checks the installed Apache httpd version against the endoflife.date API and ale
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * Runs on all systems where the Apache binary is named either `httpd` or `apache2`
 * Must run on the Apache httpd server itself to detect the installed version
+
 
 
 ## Fact Sheet

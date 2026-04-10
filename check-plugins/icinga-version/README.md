@@ -12,10 +12,11 @@ Checks the installed Icinga version against the endoflife.date API and alerts if
 
 **Compatibility:**
 
-* Must run on the host where the Icinga2 daemon is installed
+* Cross-platform
 
 **Important Notes:**
 
+* Must run on the host where the Icinga2 daemon is installed
 * The check returns UNKNOWN if the `icinga2` binary is not found on the system
 
 

@@ -12,11 +12,12 @@ Checks the IPMI System Event Log (SEL) for entries and alerts when events are fo
 
 **Compatibility:**
 
-* Tested on Supermicro BMC and HPE iLO
-* Requires hardware with an IPMI interface
+* Cross-platform
 
 **Important Notes:**
 
+* Tested on Supermicro BMC and HPE iLO
+* Requires hardware with an IPMI interface
 * `Discrete` sensors support is not implemented.
 * Requires the `ipmitool` command-line tool to be installed.
 

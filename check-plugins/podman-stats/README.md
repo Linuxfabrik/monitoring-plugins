@@ -21,7 +21,7 @@ Reports CPU and memory usage for all running Podman containers. CPU usage is nor
 
 **Compatibility:**
 
-* Linux only
+* Cross-platform
 
 
 ## Fact Sheet

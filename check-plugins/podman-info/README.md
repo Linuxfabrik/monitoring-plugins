@@ -15,7 +15,7 @@ Displays system-wide Podman information including container counts, image count,
 
 **Compatibility:**
 
-* Linux only
+* Cross-platform
 
 
 ## Fact Sheet

@@ -12,10 +12,11 @@ Checks the hit rate for open table cache lookups in MySQL/MariaDB. A low hit rat
 
 **Compatibility:**
 
-* Requires MySQL/MariaDB v5.1+
+* Cross-platform
 
 **Important Notes:**
 
+* Requires MySQL/MariaDB v5.1+
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 
 

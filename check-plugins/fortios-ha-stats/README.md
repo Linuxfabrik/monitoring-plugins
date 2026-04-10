@@ -13,7 +13,12 @@ Monitors the high-availability cluster status on FortiGate appliances running Fo
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * FortiGate appliances running FortiOS with REST API access and HA configured
+
 
 
 ## Fact Sheet

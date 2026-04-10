@@ -13,7 +13,11 @@ Checks the installed OpenVPN version against the endoflife.date API and alerts i
 **Compatibility:**
 
 * Linux systems with OpenVPN installed
+
+**Important Notes:**
+
 * The check must run on the machine running OpenVPN itself to detect the installed version
+
 
 
 ## Fact Sheet

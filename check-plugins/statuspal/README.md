@@ -12,12 +12,15 @@ Monitors a [Statuspal](https://www.statuspal.io/) status page, checking overall 
 
 **Important Notes:**
 
+* Statuspal EU (`statuspal.eu`) and US (`statuspal.io`) endpoints
 * You need to provide the URL to the Statuspal API `summary` endpoint
 * API Documentation: <https://www.statuspal.io/api-docs/v2>
 
 **Compatibility:**
 
-* Statuspal EU (`statuspal.eu`) and US (`statuspal.io`) endpoints
+* Cross-platform
+
+**Important Notes:**
 
 List of public Statuspal sites - Europe:
 

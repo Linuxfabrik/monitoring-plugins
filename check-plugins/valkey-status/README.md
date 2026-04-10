@@ -15,10 +15,11 @@ Monitors a Valkey server via the `INFO` command and the `MEMORY DOCTOR` subcomma
 
 **Compatibility:**
 
-* Tested with Valkey 7.2 and 8.0
+* Cross-platform
 
 **Important Notes:**
 
+* Tested with Valkey 7.2 and 8.0
 * "I'm here to keep you safe, Sam. I want to help you." comes from the character GERTY in the movie "Moon" (2009).
 
 

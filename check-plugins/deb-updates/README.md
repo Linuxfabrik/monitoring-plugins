@@ -13,10 +13,11 @@ Checks for available APT package updates on Debian, Ubuntu, and compatible syste
 
 **Compatibility:**
 
-* Debian 11+, Ubuntu 20+, and other apt-based distributions
+* Cross-platform
 
 **Important Notes:**
 
+* Debian 11+, Ubuntu 20+, and other apt-based distributions
 * The plugin stores all relevant information in a local SQLite database. For the `--query` parameter, the following database column is available: `package` (TEXT)
 * As the output interface of the `apt` tool is not stable, the database table has been kept deliberately simple and consists of only one column
 * The user running this plugin must have sudo permissions with NOPASSWD for `apt-get update`

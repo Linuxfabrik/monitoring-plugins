@@ -12,10 +12,11 @@ Monitors memory utilization on FortiGate appliances running FortiOS via the REST
 
 **Compatibility:**
 
-* FortiGate appliances running FortiOS with REST API access
+* Cross-platform
 
 **Important Notes:**
 
+* FortiGate appliances running FortiOS with REST API access
 * The globally configured `memory-use-threshold-green` takes precedence over `--warning`, and `memory-use-threshold-red` takes precedence over `--critical`
 
 

@@ -12,7 +12,12 @@ Monitors a public Atlassian Statuspage for incidents and maintenance windows. Re
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * Works with any public status page powered by Atlassian Statuspage (e.g. GitHub, Cloudflare, Datadog)
+
 
 
 ## Fact Sheet

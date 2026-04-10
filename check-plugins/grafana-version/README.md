@@ -12,7 +12,7 @@ Checks the installed Grafana version against the endoflife.date API and alerts i
 
 **Compatibility:**
 
-* Linux only (must run on the Grafana server itself)
+* Cross-platform (must run on the Grafana server itself)
 
 **Important Notes:**
 

@@ -15,10 +15,11 @@ Checks if screens attached to Grassfish digital signage players are on or off vi
 
 **Compatibility:**
 
-* Tested with Grassfish API v1.12
+* Cross-platform
 
 **Important Notes:**
 
+* Tested with Grassfish API v1.12
 * Takes approximately 5 minutes for 1000 screens because each player's screen data requires a separate API call.
 * `--box-id` and `--custom-id` support Python regular expressions (case-insensitive).
 

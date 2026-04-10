@@ -11,7 +11,12 @@ Monitors a [StatusIQ](https://www.site24x7.com/statusiq/) (by Site24x7) status p
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * Any StatusIQ status page with RSS enabled (e.g. `https://status.trustid.ch`, `https://status.kobv.de`)
+
 
 
 ## Fact Sheet

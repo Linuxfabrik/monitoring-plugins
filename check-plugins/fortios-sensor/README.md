@@ -10,7 +10,12 @@ Checks hardware sensor readings (temperature, voltage, fan speed) on FortiGate a
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * FortiGate appliances running FortiOS with REST API enabled
+
 
 
 ## Fact Sheet

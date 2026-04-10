@@ -13,7 +13,7 @@ Verifies that critical system files have the expected owner and group. Ships wit
 
 **Compatibility:**
 
-* Linux only
+* Cross-platform
 
 **Important Notes:**
 

@@ -11,7 +11,7 @@ Displays system-wide Docker information including container counts (running, pau
 
 **Compatibility:**
 
-* Linux only (Docker must be installed and the daemon running)
+* Cross-platform (Docker must be installed and the daemon running)
 
 
 ## Fact Sheet

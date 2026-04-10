@@ -13,6 +13,7 @@ Checks Java memory pool usage (Eden, Survivor, Old Gen, Metaspace, Compressed Cl
 
 **Important Notes:**
 
+* Tested with WildFly 11 and WildFly 23+
 * [How is the Java memory pool divided?](https://stackoverflow.com/questions/1262328/how-is-the-java-memory-pool-divided)
 
     **Heap memory** is the runtime data area from which the Java VM allocates memory for all class instances and arrays. The garbage collector is an automatic memory management system that reclaims heap memory for objects.
@@ -30,7 +31,6 @@ Checks Java memory pool usage (Eden, Survivor, Old Gen, Metaspace, Compressed Cl
 
 **Compatibility:**
 
-* Tested with WildFly 11 and WildFly 23+
 * See [additional notes for all wildfly monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.md)
 
 

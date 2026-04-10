@@ -11,10 +11,11 @@ Monitors available Grassfish digital signage licenses via the Grassfish API. Ale
 
 **Compatibility:**
 
-* Tested with Grassfish API v1.12
+* Cross-platform
 
 **Important Notes:**
 
+* Tested with Grassfish API v1.12
 * May take more than 10 seconds to execute depending on the API response time. Consider increasing `--timeout` if needed.
 
 

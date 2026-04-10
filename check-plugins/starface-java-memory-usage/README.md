@@ -12,7 +12,12 @@ Monitors Java heap and non-heap memory usage of the Starface PBX. If the JVM rep
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
+
 
 
 ## Fact Sheet

@@ -12,7 +12,12 @@ Monitors virtual services on a KEMP LoadMaster appliance via its REST API and al
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * Any KEMP LoadMaster appliance with REST API enabled
+
 
 
 ## Fact Sheet

@@ -12,8 +12,12 @@ Checks the installed Postfix version against the endoflife.date API and alerts i
 
 **Compatibility:**
 
-* Linux only
+* Cross-platform
+
+**Important Notes:**
+
 * Must run on the Postfix server itself
+
 
 
 ## Fact Sheet

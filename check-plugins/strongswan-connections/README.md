@@ -12,12 +12,13 @@ Checks IPSec connection states on a strongSwan VPN gateway by connecting to the 
 
 **Important Notes:**
 
+* strongSwan with VICI interface (swanctl); tested with VICI protocol versions 5.7 and 5.9
 * Must be run locally on the strongSwan host (needs access to the VICI socket)
 * Requires root or sudo
 
 **Compatibility:**
 
-* strongSwan with VICI interface (swanctl); tested with VICI protocol versions 5.7 and 5.9
+* Cross-platform
 
 
 ## Fact Sheet

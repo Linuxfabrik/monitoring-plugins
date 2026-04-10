@@ -14,11 +14,12 @@ Executes a command on a remote host via SSH and evaluates the result. Returns ST
 
 **Compatibility:**
 
-* Requires SSH access to the remote host
-* Requires the `sshpass` command-line tool if password-based authentication is used
+* Cross-platform
 
 **Important Notes:**
 
+* Requires SSH access to the remote host
+* Requires the `sshpass` command-line tool if password-based authentication is used
 * Password-based authentication (`--password`) is not recommended. If used, `ps` will expose the SSH password on the monitoring host.
 * The `--shell` option enables shell expansion for environment variables and file globs but can be a security hazard. Without it, only simple commands without globs or pipes are supported.
 * Supports multiple `--identity` files and `--ssh-option` parameters for fine-grained SSH configuration

@@ -12,7 +12,12 @@ Checks the overall health of a Starface PBX, reporting system state, version, li
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
+
 
 
 ## Fact Sheet

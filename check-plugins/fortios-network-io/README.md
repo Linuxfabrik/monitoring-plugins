@@ -13,10 +13,11 @@ Monitors network I/O and link states on all interfaces of FortiGate appliances r
 
 **Compatibility:**
 
-* FortiGate appliances running FortiOS with REST API enabled
+* Cross-platform
 
 **Important Notes:**
 
+* FortiGate appliances running FortiOS with REST API enabled
 * The `--always-ok` parameter is accepted but has no effect (the plugin does not pass it to the output function)
 
 

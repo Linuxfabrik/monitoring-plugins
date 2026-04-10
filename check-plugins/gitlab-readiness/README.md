@@ -12,10 +12,11 @@ Checks whether the GitLab instance is ready to accept traffic by querying the `/
 
 **Compatibility:**
 
-* Requires GitLab 9.1.0+
+* Cross-platform
 
 **Important Notes:**
 
+* Requires GitLab 9.1.0+
 * To access monitoring resources, the requesting client IP needs to be included in the allowlist. For details, see [how to add IPs to the allowlist for the monitoring endpoints](https://docs.gitlab.com/ee/administration/monitoring/ip_allowlist.html).
 * This check is exempt from Rack Attack.
 * GitLab Health Checks: <https://docs.gitlab.com/ee/administration/monitoring/health_check.html>

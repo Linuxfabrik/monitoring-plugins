@@ -11,13 +11,13 @@ Monitors system memory utilization on QNAP appliances running QTS via the HTTP A
 
 **Important Notes:**
 
+* 3rd party Python module `xmltodict` required
 * Tested on [QuTScloud](https://www.qnap.com/en-us/download?model=qutscloud&category=firmware) v4.5.6+
 * The user used for monitoring must be a member of the "administrators" group. It is not sufficient to be a member of the "everyone" group.
 
 **Compatibility:**
 
-* Linux only
-* 3rd party Python module `xmltodict` required
+* Cross-platform
 
 
 ## Fact Sheet

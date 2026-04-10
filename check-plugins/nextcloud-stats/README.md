@@ -11,10 +11,11 @@ Monitors Nextcloud usage statistics via the server info API, including active us
 
 **Compatibility:**
 
-* Tested with Nextcloud 15+
+* Cross-platform
 
 **Important Notes:**
 
+* Tested with Nextcloud 15+
 * This plugin always returns OK and is purely informational
 * To access the serverinfo API you need credentials of an admin user. It is recommended to create an app password (in "Devices & sessions" at `https://cloud.example.com/index.php/settings/user/security`) or a separate user.
 * If you simply want to check the availability of the Nextcloud web frontend, you have to use other checks

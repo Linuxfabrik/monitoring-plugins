@@ -12,7 +12,12 @@ Checks the installed Valkey version against the endoflife.date API and alerts if
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * Tested with Valkey 7.2 and 8.0
+
 
 
 ## Fact Sheet

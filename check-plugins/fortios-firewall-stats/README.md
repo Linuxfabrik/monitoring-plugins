@@ -13,10 +13,11 @@ Summarizes traffic statistics for all IPv4 and IPv6 firewall policies on FortiGa
 
 **Compatibility:**
 
-* FortiGate appliances running FortiOS with REST API access
+* Cross-platform
 
 **Important Notes:**
 
+* FortiGate appliances running FortiOS with REST API access
 * This is a reporting-only check. It does not apply thresholds and always returns OK unless both API requests fail (UNKNOWN).
 
 

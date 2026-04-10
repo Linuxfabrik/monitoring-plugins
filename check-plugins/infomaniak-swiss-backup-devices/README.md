@@ -12,10 +12,11 @@ Checks each backup device (slot) across all Infomaniak Swiss Backup products via
 
 **Compatibility:**
 
-* Works with the Infomaniak Swiss Backup API v1
+* Cross-platform
 
 **Important Notes:**
 
+* Works with the Infomaniak Swiss Backup API v1
 * The check may take 10 seconds or more. Increasing the runtime timeout to 30 seconds is recommended.
 * You may retrieve usage values while Infomaniak's API is still compiling the usage statistic. This can cause a temporary drop in reported usage that returns to normal on the next check run.
 

@@ -11,10 +11,11 @@ Checks how long ago the last APT package manager activity occurred (install, upd
 
 **Compatibility:**
 
-* Debian, Ubuntu, and other dpkg-based distributions
+* Cross-platform
 
 **Important Notes:**
 
+* Debian, Ubuntu, and other dpkg-based distributions
 * If one or more packages have a missing "Last-Modified" timestamp (for example due to deleted files), the check returns WARN with a hint to reinstall the affected packages
 * If dpkg-query returns no data at all (for example if an update has never been performed), the check returns UNKNOWN
 

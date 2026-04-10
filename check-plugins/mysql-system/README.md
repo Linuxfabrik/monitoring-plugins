@@ -12,11 +12,11 @@ Checks system requirements and kernel settings specifically for MySQL/MariaDB, i
 
 **Compatibility:**
 
-* Must be running locally on the MySQL/MariaDB server to check the system requirements
 * On Windows there are no kernel settings that can be checked
 
 **Important Notes:**
 
+* Must be running locally on the MySQL/MariaDB server to check the system requirements
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 * Unlike MySQLTuner, this plugin does not check if all processes other than MySQL/MariaDB use more than 15% of total system memory. You may intentionally run a small DB on an application server, or the DB may not need 85% of available RAM.
 

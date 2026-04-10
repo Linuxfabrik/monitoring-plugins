@@ -14,11 +14,11 @@ Monitors HAProxy performance and health via the stats endpoint. Reports frontend
 
 **Compatibility:**
 
-* Linux only
-* HAProxy with `stats enable` directive or Unix socket configured
+* Cross-platform
 
 **Important Notes:**
 
+* HAProxy with `stats enable` directive or Unix socket configured
 * To use Unix socket access (the default), HAProxy must be configured with a `stats socket` directive in its `global` section:
 
     ```text

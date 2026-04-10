@@ -13,7 +13,11 @@ Checks the state of systemd-timesyncd, including synchronization status, server 
 **Compatibility:**
 
 * Linux systems using systemd-timesyncd for time synchronization
+
+**Important Notes:**
+
 * The stratum of the NTP time source determines its quality. The stratum is equal to the number of hops to a reference clock (stratum 0). A NTP server connected directly to the reference clock is Stratum 1, a client connected to this NTP server is Stratum 2, etc.
+
 
 
 ## Fact Sheet

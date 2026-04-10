@@ -12,7 +12,12 @@ Checks whether a newer version of mydumper/myloader is available by comparing th
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * Requires `mydumper` to be installed and available in the system PATH
+
 
 
 ## Fact Sheet

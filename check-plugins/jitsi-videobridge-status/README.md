@@ -13,7 +13,12 @@ Checks the Jitsi Videobridge health state via the `/about/health` REST endpoint.
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * Jitsi Videobridge v2.1+
+
 
 
 ## Fact Sheet

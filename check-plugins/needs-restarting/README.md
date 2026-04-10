@@ -12,11 +12,11 @@ Checks for processes that were started before they or one of their dependencies 
 **Compatibility:**
 
 * Linux only
-* Red Hat-based distributions (RHEL, CentOS, Fedora, etc.)
-* Debian-based distributions (Debian, Ubuntu, etc.)
 
 **Important Notes:**
 
+* Red Hat-based distributions (RHEL, CentOS, Fedora, etc.)
+* Debian-based distributions (Debian, Ubuntu, etc.)
 * May take more than 10 seconds on Red Hat to execute
 
 

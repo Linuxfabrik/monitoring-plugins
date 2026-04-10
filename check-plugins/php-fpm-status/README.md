@@ -13,7 +13,12 @@ Monitors PHP-FPM pool performance via the status page. Reports active processes,
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * Requires a configured PHP-FPM status page (e.g. `pm.status_path = /fpm-status` in `/etc/php-fpm.d/<poolname>.conf`)
+
 
 PHP-FPM config example:
 

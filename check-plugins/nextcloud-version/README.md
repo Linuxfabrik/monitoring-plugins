@@ -13,7 +13,12 @@ Checks the installed Nextcloud version against the endoflife.date API and alerts
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * Must run on the Nextcloud server itself to access the installation directory
+
 
 
 ## Fact Sheet

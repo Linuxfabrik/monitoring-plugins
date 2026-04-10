@@ -12,7 +12,12 @@ Checks the installed Apache Solr version against the endoflife.date API and aler
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * Must run on the Apache Solr server itself to detect the installed version
+
 
 
 ## Fact Sheet

@@ -11,10 +11,11 @@ Checks whether the GitLab application server is running by querying the `/-/heal
 
 **Compatibility:**
 
-* GitLab 9.1.0 or later
+* Cross-platform
 
 **Important Notes:**
 
+* GitLab 9.1.0 or later
 * The requesting client IP must be included in the GitLab monitoring allowlist. See [how to add IPs to the allowlist](https://docs.gitlab.com/ee/administration/monitoring/ip_allowlist.html).
 * GitLab Health Checks documentation: <https://docs.gitlab.com/ee/administration/monitoring/health_check.html>
 

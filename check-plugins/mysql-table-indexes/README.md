@@ -11,10 +11,11 @@ Checks for tables without indexes in MySQL/MariaDB. Missing indexes on base tabl
 
 **Compatibility:**
 
-* Requires MySQL/MariaDB v5.5+
+* Cross-platform
 
 **Important Notes:**
 
+* Requires MySQL/MariaDB v5.5+
 * See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 * User account requires access to `INFORMATION_SCHEMA` (user with no privileges is sufficient) and SELECT privileges on all schemas and tables to provide accurate results
 * [For most INFORMATION_SCHEMA tables, each MySQL user has the right to access them, but can see only the rows in the tables that correspond to objects for which the user has the proper access privileges.](https://dev.mysql.com/doc/refman/5.7/en/information-schema-introduction.html#information-schema-privileges) [So you can't grant permission to INFORMATION_SCHEMA directly, you have to grant SELECT permission to the tables on your own schemas, and as you do, those tables will start showing up in INFORMATION_SCHEMA queries.](https://stackoverflow.com/questions/60499772/cannot-grant-mysql-user-access-to-information-schema-database)

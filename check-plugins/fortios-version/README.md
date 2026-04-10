@@ -12,7 +12,12 @@ Checks the installed FortiOS version against the endoflife.date API and alerts i
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * FortiGate appliances running FortiOS with REST API enabled
+
 
 
 ## Fact Sheet

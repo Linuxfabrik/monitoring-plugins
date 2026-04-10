@@ -13,11 +13,12 @@ Monitors Apache httpd performance via the mod_status endpoint (server-status?aut
 
 **Compatibility:**
 
-* Works with any Apache httpd version that provides `mod_status`
-* Some metrics (connection stats, load averages, processes) are only available in newer versions of `mod_status`
+* Cross-platform
 
 **Important Notes:**
 
+* Works with any Apache httpd version that provides `mod_status`
+* Some metrics (connection stats, load averages, processes) are only available in newer versions of `mod_status`
 * `mod_status` must be loaded and `ExtendedStatus On` must be set in the Apache configuration for full metrics. Without `ExtendedStatus`, only worker counts and scoreboard data are reported.
 * The check alerts on the percentage of busy workers relative to the total number of worker slots (busy + idle + free)
 * Workers in the "Gracefully finishing" (G) state are counted as idle workers, not busy workers

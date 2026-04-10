@@ -13,14 +13,14 @@ Checks the state of all physical drives and storage media in a Redfish-compatibl
 
 **Important Notes:**
 
+* Tested on DELL iDRAC and DMTF Simulator
 * A check takes up to 10 seconds. Increasing runtime timeout to 30 seconds is recommended.
 * This check runs with both HTTP and HTTPS. It uses GET requests only.
 * No additional Python Redfish modules need to be installed.
 
 **Compatibility:**
 
-* Tested on DELL iDRAC and DMTF Simulator
-* Linux only
+* Cross-platform
 
 
 ## Fact Sheet

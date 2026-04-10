@@ -12,14 +12,14 @@ Checks the System Event Log (SEL) of Redfish-compatible servers via the Redfish 
 
 **Important Notes:**
 
+* Tested on DELL iDRAC and DMTF Simulator
+* Vendor support: AMI, Avigilon, Cisco, Dell, HPE/HP, Lenovo, Supermicro, TS Fujitsu, and generic Redfish implementations
 * This check runs with both HTTP and HTTPS. It uses GET requests only.
 * No additional Python Redfish modules need to be installed.
 
 **Compatibility:**
 
-* Tested on DELL iDRAC and DMTF Simulator
-* Vendor support: AMI, Avigilon, Cisco, Dell, HPE/HP, Lenovo, Supermicro, TS Fujitsu, and generic Redfish implementations
-* Linux only
+* Cross-platform
 
 
 ## Fact Sheet

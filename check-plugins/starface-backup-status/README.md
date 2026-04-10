@@ -12,7 +12,12 @@ Checks the status of the most recent backup of a Starface PBX, including backup 
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
+
 
 
 ## Fact Sheet

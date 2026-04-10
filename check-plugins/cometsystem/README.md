@@ -12,10 +12,11 @@ Reads sensor data from Comet System Web Sensors via their JSON API endpoint. Mon
 
 **Compatibility:**
 
-* Works with any Comet System Web Sensor that exposes a `/values.json` endpoint
+* Cross-platform
 
 **Important Notes:**
 
+* Works with any Comet System Web Sensor that exposes a `/values.json` endpoint
 * The repeating `--severity` parameter can be set in different ways:
 
     * `--severity ok|warn|crit|unknown`: High and low alarm severity for all channels and all alarm modes.

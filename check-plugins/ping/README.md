@@ -16,7 +16,7 @@ Sends ICMP ECHO_REQUEST packets to a network host using the system's built-in `p
 
 **Compatibility:**
 
-* Linux only
+* Cross-platform
 
 
 ## Fact Sheet

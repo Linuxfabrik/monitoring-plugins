@@ -12,8 +12,12 @@ Checks the installed Python version against the endoflife.date API and alerts if
 
 **Compatibility:**
 
-* Linux only
+* Cross-platform
+
+**Important Notes:**
+
 * Must run on the server where Python is installed
+
 
 
 ## Fact Sheet

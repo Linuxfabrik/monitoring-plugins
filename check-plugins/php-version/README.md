@@ -12,8 +12,12 @@ Checks the installed PHP version against the endoflife.date API and alerts if th
 
 **Compatibility:**
 
-* Linux only
+* Cross-platform
+
+**Important Notes:**
+
 * Must run on the PHP server itself
+
 
 
 ## Fact Sheet

@@ -13,6 +13,7 @@ Monitors XA datasource connection pool metrics on a WildFly/JBoss AS server via 
 
 **Important Notes:**
 
+* Tested with WildFly 11 and WildFly 23+
 * To enable database statistics:
 
     * Open the WildFly Admin Console
@@ -22,7 +23,6 @@ Monitors XA datasource connection pool metrics on a WildFly/JBoss AS server via 
 
 **Compatibility:**
 
-* Tested with WildFly 11 and WildFly 23+
 * See [additional notes for all wildfly monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.md)
 
 

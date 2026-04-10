@@ -12,8 +12,13 @@ Monitors a [Spring Boot Actuator](https://docs.spring.io/spring-boot/api/rest/ac
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * Tested with Spring PetClinic and Better EHR
 * Any application exposing a Spring Boot Actuator `/health` endpoint should work
+
 
 
 ## Fact Sheet

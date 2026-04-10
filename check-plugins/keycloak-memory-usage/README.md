@@ -11,10 +11,11 @@ Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP A
 
 **Compatibility:**
 
-* Tested with Keycloak 18 and later
+* Cross-platform
 
 **Important Notes:**
 
+* Tested with Keycloak 18 and later
 * See [Creating an API user account to monitor Keycloak](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-KEYCLOAK.md) for setting up the required API credentials.
 
 

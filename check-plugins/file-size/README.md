@@ -14,11 +14,11 @@ Checks file sizes against configurable thresholds using human-readable units (e.
 **Compatibility:**
 
 * Cross-platform: Linux and Windows
-* SMB share access requires the optional `PySmbClient` and `smbprotocol` Python modules
-* Recursive globs (`**`) can cause high memory usage on large directory trees
 
 **Important Notes:**
 
+* SMB share access requires the optional `PySmbClient` and `smbprotocol` Python modules
+* Recursive globs (`**`) can cause high memory usage on large directory trees
 * The `--filename` and `--url` parameters are mutually exclusive
 * Thresholds accept human-readable units (base 1024). Valid qualifiers: `b`, `k`/`kb`/`kib`, `m`/`mb`/`mib`, `g`/`gb`/`gib`, etc. Nagios ranges are supported (e.g. `:1G` alerts if size exceeds 1 GiB, `6 KiB:10k` alerts outside the 6-10 KiB range)
 * Returns UNKNOWN if no files are found

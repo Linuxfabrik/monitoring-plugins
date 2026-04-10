@@ -14,7 +14,12 @@ Monitors the health and performance of an Axenita/Achilles installation by query
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * Requires network access to the Axenita/Achilles API (default: `http://localhost:10000/achilles/ar`)
+
 
 
 ## Fact Sheet

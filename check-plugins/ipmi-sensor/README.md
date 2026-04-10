@@ -12,11 +12,12 @@ Checks IPMI sensor readings (temperature, voltage, fan speed, power, etc.) using
 
 **Compatibility:**
 
-* Tested on Supermicro BMC and HPE iLO
-* Requires hardware with an IPMI interface
+* Cross-platform
 
 **Important Notes:**
 
+* Tested on Supermicro BMC and HPE iLO
+* Requires hardware with an IPMI interface
 * `Discrete` sensors are not supported and are silently skipped.
 * Requires the `ipmitool` command-line tool to be installed.
 

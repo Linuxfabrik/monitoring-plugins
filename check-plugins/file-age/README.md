@@ -15,11 +15,11 @@ Checks the time since last modification of one or more files or directories. Sup
 **Compatibility:**
 
 * Cross-platform: Linux and Windows
-* SMB share access requires the optional `PySmbClient` and `smbprotocol` Python modules
-* Recursive globs (`**`) can cause high memory usage on large directory trees
 
 **Important Notes:**
 
+* SMB share access requires the optional `PySmbClient` and `smbprotocol` Python modules
+* Recursive globs (`**`) can cause high memory usage on large directory trees
 * The `--filename` and `--url` parameters are mutually exclusive
 * Thresholds support Nagios ranges (e.g. `15:` to alert when files are *younger* than 15 seconds, or `10` for a simple upper bound)
 * The `--warning-count` and `--critical-count` thresholds control how many files may exceed the age thresholds before the check alerts. This allows monitoring whether an application produces or removes files at the expected rate

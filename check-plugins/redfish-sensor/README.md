@@ -14,14 +14,14 @@ Checks hardware sensor readings (temperature, voltage, fan speed, power) from th
 
 **Important Notes:**
 
+* Tested on DELL iDRAC and DMTF Simulator
 * A check takes up to 10 seconds. Increasing runtime timeout to 30 seconds is recommended.
 * This check runs with both HTTP and HTTPS. It uses GET requests only.
 * No additional Python Redfish modules need to be installed.
 
 **Compatibility:**
 
-* Tested on DELL iDRAC and DMTF Simulator
-* Linux only
+* Cross-platform
 
 
 ## Fact Sheet

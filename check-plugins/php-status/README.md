@@ -20,7 +20,7 @@ Checks PHP configuration and health, including startup errors, missing modules, 
 
 **Compatibility:**
 
-* Linux only
+* Cross-platform
 
 Apache httpd config example for the optional monitoring.php:
 

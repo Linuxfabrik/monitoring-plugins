@@ -12,7 +12,12 @@ Checks whether the installed Moodle version is end-of-life (EOL) by comparing th
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * Requires local file system access to the Moodle installation directory
+
 
 
 ## Fact Sheet

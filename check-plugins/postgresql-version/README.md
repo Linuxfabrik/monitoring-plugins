@@ -12,8 +12,12 @@ Checks the installed PostgreSQL version against the endoflife.date API and alert
 
 **Compatibility:**
 
-* Linux only
+* Cross-platform
+
+**Important Notes:**
+
 * Must run on the PostgreSQL server itself
+
 
 
 ## Fact Sheet

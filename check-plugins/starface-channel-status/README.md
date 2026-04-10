@@ -12,7 +12,12 @@ Counts the number of active DAHDI, SIP, and other channels on a Starface PBX, an
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * Requires the [Starface Monitoring Module](https://wiki.fluxpunkt.de/display/FPW/Monitoring) to be installed on the PBX
+
 
 
 ## Fact Sheet

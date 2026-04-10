@@ -11,8 +11,12 @@ Reports garbage collector statistics from a WildFly/JBoss AS server via its HTTP
 
 **Compatibility:**
 
-* Tested with WildFly 11 and WildFly 23+
 * See [additional notes for all wildfly monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.md)
+
+**Important Notes:**
+
+* Tested with WildFly 11 and WildFly 23+
+
 
 
 ## Fact Sheet

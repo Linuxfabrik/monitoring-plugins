@@ -13,11 +13,11 @@ Counts the number of files matching a glob pattern and alerts when the count exc
 **Compatibility:**
 
 * Cross-platform: Linux and Windows
-* SMB share access requires the optional `PySmbClient` and `smbprotocol` Python modules
-* Recursive globs (`**`) can cause high memory usage on large directory trees
 
 **Important Notes:**
 
+* SMB share access requires the optional `PySmbClient` and `smbprotocol` Python modules
+* Recursive globs (`**`) can cause high memory usage on large directory trees
 * The `--filename` and `--url` parameters are mutually exclusive
 * Thresholds support Nagios ranges. Use `--warning 1` to check for file existence (warn if missing) or `--warning '~:0'` to check for file absence (warn if present)
 * `--timerange` accepts Nagios range syntax in seconds. Only files whose modification time falls within this range are counted

@@ -12,7 +12,7 @@ Retrieves and displays information about an installed Nextcloud Enterprise subsc
 
 **Compatibility:**
 
-* Linux only
+* Cross-platform
 
 **Important Notes:**
 

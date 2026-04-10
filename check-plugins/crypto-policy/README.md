@@ -11,7 +11,12 @@ Verifies that the system-wide cryptographic policy (as reported by update-crypto
 
 **Compatibility:**
 
+* Cross-platform
+
+**Important Notes:**
+
 * RHEL/CentOS/Fedora and other distributions that ship `update-crypto-policies`
+
 
 
 ## Fact Sheet

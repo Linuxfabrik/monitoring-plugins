@@ -12,7 +12,7 @@ Checks the installed GitLab version against the endoflife.date API and alerts if
 
 **Compatibility:**
 
-* Linux only (must run on the GitLab server itself)
+* Cross-platform (must run on the GitLab server itself)
 
 **Important Notes:**
 

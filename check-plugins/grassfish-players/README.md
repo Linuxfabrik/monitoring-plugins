@@ -13,10 +13,11 @@ Monitors Grassfish digital signage players via the Grassfish API. Lists players 
 
 **Compatibility:**
 
-* Tested with Grassfish API v1.12
+* Cross-platform
 
 **Important Notes:**
 
+* Tested with Grassfish API v1.12
 * May take more than 10 seconds to execute depending on the number of players. Consider increasing `--timeout` if needed.
 * `--box-id` and `--custom-id` support Python regular expressions (case-insensitive).
 

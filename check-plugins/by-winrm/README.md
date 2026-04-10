@@ -16,11 +16,11 @@ This plugin executes PowerShell commands or scripts on remote Windows hosts via 
 **Compatibility:**
 
 * Runs on Linux and connects to remote Windows hosts
-* Supports NTLM, Kerberos, CredSSP, Basic, and plaintext transports
-* JEA endpoints are only supported with `pypsrp` (via `--winrm-configuration-name`)
 
 **Important Notes:**
 
+* Supports NTLM, Kerberos, CredSSP, Basic, and plaintext transports
+* JEA endpoints are only supported with `pypsrp` (via `--winrm-configuration-name`)
 * This plugin is ideal for retrieving Windows-specific metrics, running custom PowerShell-based health checks (such as inventory, backup status, or failover cluster queries), and accessing systems like Active Directory, Exchange, SQL Server, or Hyper-V
 * It is especially useful in environments where installing a monitoring agent is not possible or desired
 * For Kerberos transport, configure `/etc/krb5.conf` and obtain a ticket via `kinit` before running the plugin. When Kerberos credentials are present in the cache, `--winrm-username` and `--winrm-password` can be omitted.

@@ -12,10 +12,11 @@ Checks the health status of all backup power modules (BBU) on a Huawei OceanStor
 
 **Compatibility:**
 
-* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
+* Cross-platform
 
 **Important Notes:**
 
+* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
 * Create a read-only API user that can perform query only.
 * Sometimes the API returns "This operation fails to be performed because of the unauthorized REST. Before performing this operation, ensure that REST is authorized.", although everything is fine. In this case, the check retries the request, a maximum of 9 times within 9 seconds.
 * `--insecure` is enabled by default because Huawei OceanStor Dorado typically uses self-signed certificates.
