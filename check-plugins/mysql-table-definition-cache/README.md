@@ -11,7 +11,87 @@ Checks the table definition cache size in MySQL/MariaDB. A cache that is too sma
 
 **Compatibility:**
 
-* Cross-platform
+* Requires MySQL/MariaDB v5.1+
+
+**Important Notes:**
+
+* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
+* User account requires access to `INFORMATION_SCHEMA` (user with no privileges is sufficient) and SELECT privileges on all schemas and tables to provide accurate results
+* [For most INFORMATION_SCHEMA tables, each MySQL user has the right to access them, but can see only the rows in the tables that correspond to objects for which the user has the proper access privileges.](https://dev.mysql.com/doc/refman/5.7/en/information-schema-introduction.html#information-schema-privileges) [So you can't grant permission to INFORMATION_SCHEMA directly, you have to grant SELECT permission to the tables on your own schemas, and as you do, those tables will start showing up in INFORMATION_SCHEMA queries.](https://stackoverflow.com/questions/60499772/cannot-grant-mysql-user-access-to-information-schema-database)
 
 
-**
+## Fact Sheet
+
+| Fact | Value |
+|----|-----|
+| Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-table-definition-cache> |
+| Nagios/Icinga Check Name              | `check_mysql_table_definition_cache` |
+| Check Interval Recommendation         | Once an hour |
+| Can be called without parameters      | Yes |
+| Compiled for Windows                  | No |
+| 3rd Party Python modules              | `pymysql` |
+
+
+## Help
+
+```text
+usage: mysql-table-definition-cache [-h] [-V] [--always-ok]
+                                    [--defaults-file DEFAULTS_FILE]
+                                    [--defaults-group DEFAULTS_GROUP]
+                                    [--timeout TIMEOUT]
+
+Checks the table definition cache size in MySQL/MariaDB. Alerts if the cache
+is too small to hold definitions for all tables, causing repeated disk reads.
+
+options:
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
+  --defaults-file DEFAULTS_FILE
+                        MySQL/MariaDB cnf file to read parameters like user,
+                        host and password from (instead of specifying them on
+                        the command line). Example:
+                        `/var/spool/icinga2/.my.cnf`. Default:
+                        /var/spool/icinga2/.my.cnf
+  --defaults-group DEFAULTS_GROUP
+                        Group/section to read from in the cnf file. Default:
+                        client
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+```
+
+
+## Usage Examples
+
+```bash
+./mysql-table-definition-cache --defaults-file=/var/spool/icinga2/.my.cnf
+```
+
+Output:
+
+```text
+table_definition_cache (400) is lower than number of tables (516) [WARNING]. Set table_definition_cache > 516 or to -1 (autosizing if supported).
+```
+
+
+## States
+
+* OK if `table_definition_cache` is large enough to hold all table definitions, or set to `-1` (autosizing).
+* WARN if the number of table definitions that can be cached is less than the total number of tables.
+* `--always-ok` suppresses all alerts and always returns OK.
+
+
+## Perfdata / Metrics
+
+| Name | Type | Description |
+|----|----|----|
+| mysql_table_definition_cache | Number | Number of table definitions that can be cached. |
+| mysql_total_tables | Number | Total number of tables. |
+
+
+## Credits, License
+
+* Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
+* License: The Unlicense, see [LICENSE file](https://unlicense.org/).
+* Credits:
+
+    * heavily inspired by MySQLTuner (<https://github.com/major/MySQLTuner-perl>)

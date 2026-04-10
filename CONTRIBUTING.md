@@ -912,7 +912,7 @@ Each plugin README follows a fixed structure. See [check-plugins/example/README.
 1. **Overview**: Describes *what* the plugin does. A leading sentence stating the main purpose. This must include at least the text from the plugin's `DESCRIPTION` variable. Followed by subsections:
 
     * **Data Collection**: How data is gathered (shell command, API, psutil, etc.), filtering options, SQLite usage, non-blocking measurement.
-    * **Compatibility**: Supported platforms only (Linux, Windows, Cross-platform). No version requirements, no tool dependencies, no module requirements - those belong in Important Notes or the Fact Sheet.
+    * **Compatibility**: Supported platforms, required tools or modules.
     * **Important Notes** (optional): Operational edge cases the admin must know before deploying, for example: "Requires sudo", "Only works with Redis 3.0+", "First run returns OK with 'Waiting for more data.'", "After a reboot, counters reset and the check waits for a new baseline". No implementation details - only things that affect deployment and daily operations.
 
 2. **Fact Sheet**: Key properties as a table (download link, check name, check interval, parameters required, Windows support, 3rd party modules, state file path, etc.). Only list applicable rows.

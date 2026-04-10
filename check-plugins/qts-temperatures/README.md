@@ -11,13 +11,81 @@ Checks system and CPU temperatures on QNAP appliances running QTS via the HTTP A
 
 **Important Notes:**
 
-* 3rd party Python module `xmltodict` required
 * Tested on [QuTScloud](https://www.qnap.com/en-us/download?model=qutscloud&category=firmware) v4.5.6+
 * The user used for monitoring must be a member of the "administrators" group. It is not sufficient to be a member of the "everyone" group.
 
 **Compatibility:**
 
 * Linux only
+* 3rd party Python module `xmltodict` required
 
 
-## 
+## Fact Sheet
+
+| Fact | Value |
+|----|-----|
+| Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/qts-temperatures> |
+| Nagios/Icinga Check Name              | `check_qts_temperatures` |
+| Check Interval Recommendation         | Once a minute |
+| Can be called without parameters      | No (`--password` and `--url` are required) |
+| Compiled for Windows                  | No |
+| 3rd Party Python modules              | `xmltodict` |
+
+
+## Help
+
+```text
+usage: qts-temperatures [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
+                        --password PASSWORD [--timeout TIMEOUT] --url URL
+                        [--username USERNAME]
+
+Checks system and disk temperatures on QNAP appliances running QTS via the
+API. Alerts when temperatures exceed the configured thresholds.
+
+options:
+  -h, --help           show this help message and exit
+  -V, --version        show program's version number and exit
+  --always-ok          Always returns OK.
+  --insecure           This option explicitly allows insecure SSL connections.
+  --no-proxy           Do not use a proxy.
+  --password PASSWORD  QTS API password.
+  --timeout TIMEOUT    Network timeout in seconds. Default: 6 (seconds)
+  --url URL            QTS-based appliance URL. Example:
+                       `--url=https://192.168.1.1:8080`.
+  --username USERNAME  QTS API username. Default: admin
+```
+
+
+## Usage Examples
+
+```bash
+./qts-temperatures --url http://qts:8080 --username admin --password linuxfabrik --insecure
+```
+
+Output:
+
+```text
+Sys: 59°C (Thresholds: 60/70°C), CPU: 82°C (Thresholds: 80/85°C) [WARNING]
+```
+
+
+## States
+
+* OK if both system and CPU temperatures are below the QTS-configured thresholds.
+* WARN if the system or CPU temperature exceeds the warning threshold configured in QTS.
+* CRIT if the system or CPU temperature exceeds the error threshold configured in QTS.
+* `--always-ok` suppresses all alerts and always returns OK.
+
+
+## Perfdata / Metrics
+
+| Name    | Type   | Description                        |
+|---------|--------|------------------------------------|
+| cputemp | Number | CPU temperature, in degrees Celsius.    |
+| systemp | Number | System temperature, in degrees Celsius. |
+
+
+## Credits, License
+
+* Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
+* License: The Unlicense, see [LICENSE file](https://unlicense.org/).
