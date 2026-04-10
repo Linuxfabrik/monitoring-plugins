@@ -61,33 +61,34 @@ def parse_args():
 
     parser.add_argument(
         '--icinga-service-name',
-        help='Unique name of the service using this check within Icinga. '
-        'Take it from the `__name` service attribute, for example '
-        '`icinga-server!my-service-name`.',
+        help='Unique name of the service using this check within Icinga, '
+        'taken from the `__name` service attribute. '
+        'Example: `icinga-server!my-service-name`.',
         dest='ICINGA_SERVICE_NAME',
     )
 
     parser.add_argument(
         '--icinga-password',
-        help='Icinga API password.',
+        help='Password for the Icinga API.',
         dest='ICINGA_PASSWORD',
     )
 
     parser.add_argument(
         '--icinga-url',
-        help='Icinga API URL, for example https://icinga-server:5665',
+        help='Icinga API URL. Example: `https://icinga-server:5665`.',
         dest='ICINGA_URL',
     )
 
     parser.add_argument(
         '--icinga-username',
-        help='Icinga API username.',
+        help='Username for the Icinga API.',
         dest='ICINGA_USERNAME',
     )
 
     parser.add_argument(
         '--icinga-callback',
-        help='Get the service acknowledgement from Icinga. Default: %(default)s',
+        help='Query Icinga for the service acknowledgement state and auto-clear alerts on ack. '
+        'Default: %(default)s.',
         dest='ICINGA_CALLBACK',
         action='store_true',
         default=DEFAULT_ICINGA_CALLBACK,  # False
@@ -103,7 +104,7 @@ def parse_args():
 
     parser.add_argument(
         '--latest',
-        help='Return the newest/latest feed item (may be in the future).',
+        help='Return the newest feed item, even if its timestamp is in the future.',
         dest='LATEST',
         action='store_true',
         default=False,
@@ -119,7 +120,7 @@ def parse_args():
 
     parser.add_argument(
         '--no-summary',
-        help='Do not show the feed item summary. Default: %(default)s',
+        help='Suppress the feed item summary in the output. Default: %(default)s.',
         dest='NO_SUMMARY',
         action='store_true',
         default=DEFAULT_NO_SUMMARY,  # False
@@ -127,7 +128,7 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        help=lib.args.help('--timeout') + ' Default: %(default)s.',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -135,7 +136,7 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='The Feed URL. Default: %(default)s',
+        help='RSS or Atom feed URL. Default: %(default)s.',
         dest='FEED_URL',
         default=DEFAULT_FEED_URL,
     )
@@ -143,8 +144,8 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='How long should this check return a warning on new entries? '
-        'Default: %(default)s (minutes)',
+        help='Time window in minutes during which new feed entries trigger a warning. '
+        'Default: %(default)s.',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,

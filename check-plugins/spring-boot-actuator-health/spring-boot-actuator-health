@@ -65,11 +65,10 @@ def parse_args():
         type=lib.args.csv,
         metavar='COMPONENT_NAME,API_STATUS,NAGIOS_STATE',
         action='append',
-        help='Map API status for a specific component like `UP`, `DEGRADED` and `DOWN` to a '
-        'Nagios state, where Nagios state is one of `ok`, `warn`, `crit` or `unknown` '
-        '(repeating). '
+        help='Map an API status (`UP`, `DEGRADED`, `DOWN`) for a specific component to a Nagios state (`ok`, `warn`, `crit`, `unknown`). '
+        'Can be specified multiple times. '
         'Format: `component-name,api-status,nagios-state`. '
-        'Example: `hikariConnectionPool,DEGRADED,crit`',
+        'Example: `--component-severity hikariConnectionPool,DEGRADED,crit`.',
     )
 
     parser.add_argument(
@@ -78,11 +77,11 @@ def parse_args():
         type=lib.args.csv,
         metavar='COMPONENT_NAME,DETAIL_NAME,WARN,CRIT',
         action='append',
-        help='Set a threshold for a *numeric* component detail value '
-        '(repeating). '
+        help='Threshold for a numeric component detail value. '
         'Supports Nagios ranges. '
+        'Can be specified multiple times. '
         'Format: `component-name,detail-name,warn,crit`. '
-        'Example: `hikariConnectionPool,activeConnections,@10:20,@0:9`',
+        'Example: `--detail-severity hikariConnectionPool,activeConnections,@10:20,@0:9`.',
     )
 
     parser.add_argument(
@@ -126,8 +125,9 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='Spring Boot Actuator Health Endpoint, for example http://server:80/health/diskSpace. '
-        'Default: %(default)s',
+        help='Spring Boot Actuator health endpoint URL. '
+        'Example: `--url http://server:80/health/diskSpace`. '
+        'Default: %(default)s.',
         dest='URL',
         default=DEFAULT_URL,
     )

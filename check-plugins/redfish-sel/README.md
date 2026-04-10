@@ -32,16 +32,16 @@ usage: redfish-sel [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
                    [--password PASSWORD] [--test TEST] [--timeout TIMEOUT]
                    [--url URL] [--username USERNAME]
 
-Checks the System Event Log (SEL) of the Redfish Manager collection. Returns
-an alert based on the severity of the messages.
+Checks the System Event Log (SEL) of Redfish-compatible servers via the
+Redfish API. Alerts based on the severity of log entries. Entries can be
+filtered by regex.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  --insecure           This option explicitly allows to perform "insecure" SSL
-                       connections. Default: True
-  --no-proxy           Do not use a proxy. Default: False
+  --insecure           This option explicitly allows insecure SSL connections.
+  --no-proxy           Do not use a proxy.
   --password PASSWORD  Redfish API password.
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".

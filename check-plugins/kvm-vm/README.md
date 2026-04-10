@@ -44,7 +44,10 @@ The state field lists what state each domain (a VM) is currently in. A domain ca
 ```text
 usage: kvm-vm [-h] [-V] [--always-ok]
 
-Check VMs on a KVM host using "virsh list".
+Lists all virtual machines on a KVM host using "virsh list" and checks their
+states. Alerts on VMs that are not in the expected running state. Reports VM
+name, state, autostart configuration, and persistent status. Requires root or
+sudo.
 
 options:
   -h, --help     show this help message and exit

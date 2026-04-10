@@ -54,8 +54,7 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for the number of pending updates. '
-        'Default: %(default)s',
+        help='CRIT threshold for the number of outdated packages. Default: %(default)s',
         dest='CRIT',
         default=DEFAULT_CRIT,
         type=lib.args.int_or_none,
@@ -63,16 +62,17 @@ def parse_args():
 
     parser.add_argument(
         '--exclude',
-        help='Exclude specified package from the output.',
+        help='Package name to exclude from the output. '
+        'Can be specified multiple times.',
         dest='EXCLUDE',
         action='append',
     )
 
     parser.add_argument(
         '--extra-index-url',
-        help='Extra URLs of package indexes to use in addition to '
-        '--index-url. Should follow the same rules as '
-        '--index-url.',
+        help='Extra URL of a package index to use in addition to --index-url. '
+        'Should follow the same rules as --index-url. '
+        'Can be specified multiple times.',
         dest='EXTRA_INDEX_URL',
         action='append',
         default=None,
@@ -80,11 +80,10 @@ def parse_args():
 
     parser.add_argument(
         '--find-links',
-        help='If a URL or path to an html file, then parse for links to '
-        'archives such as sdist (.tar.gz) or wheel (.whl) files. '
-        "If a local path or file:// URL that's a directory, "
-        'then look for archives in the directory listing. '
-        'Links to VCS project URLs are not supported.',
+        help='URL or path to an HTML file to parse for links to archives (.tar.gz, .whl). '
+        'If a local path or file:// URL pointing to a directory, look for archives in the directory listing. '
+        'VCS project URLs are not supported. '
+        'Can be specified multiple times.',
         dest='FIND_LINKS',
         action='append',
         default=None,
@@ -92,17 +91,13 @@ def parse_args():
 
     parser.add_argument(
         '--index-url',
-        help='Base URL of the Python Package Index. '
-        'This should point to a repository compliant with PEP 503 '
-        '(the simple repository API) or a local directory laid out '
-        'in the same format.',
+        help='Base URL of the Python Package Index (PEP 503 compliant repository or local directory in the same format).',
         dest='INDEX_URL',
     )
 
     parser.add_argument(
         '--local',
-        help='If in a virtualenv that has global access, do not list '
-        'globally-installed packages.',
+        help='If in a virtualenv that has global access, do not list globally-installed packages.',
         dest='LOCAL',
         action='store_true',
         default=False,
@@ -110,7 +105,7 @@ def parse_args():
 
     parser.add_argument(
         '--no-index',
-        help='Ignore package index (only looking at --find-links URLs instead).',
+        help='Ignore the package index and only look at --find-links URLs.',
         dest='NO_INDEX',
         action='store_true',
         default=False,
@@ -118,7 +113,7 @@ def parse_args():
 
     parser.add_argument(
         '--not-required',
-        help='List packages that are not dependencies of installed packages.',
+        help='Only list packages that are not dependencies of other installed packages.',
         dest='NOT_REQUIRED',
         action='store_true',
         default=False,
@@ -126,8 +121,8 @@ def parse_args():
 
     parser.add_argument(
         '--pre',
-        help='Include pre-release and development versions. By default, '
-        'pip only finds stable versions.',
+        help='Include pre-release and development versions. '
+        'By default, pip only finds stable versions.',
         dest='PRE',
         action='store_true',
         default=False,
@@ -142,7 +137,7 @@ def parse_args():
 
     parser.add_argument(
         '--user',
-        help='Only output packages installed in user-site.',
+        help='Only check packages installed in the user-site directory.',
         dest='USER',
         action='store_true',
         default=False,
@@ -150,7 +145,7 @@ def parse_args():
 
     parser.add_argument(
         '--virtualenv',
-        help='Path to the virtualenv that will be activated before checking for updates. '
+        help='Path to a virtualenv activate script to source before checking for updates. '
         'Example: `/opt/sphinx-venv/bin/activate`',
         dest='VIRTUALENV',
     )
@@ -158,8 +153,7 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for the number of pending updates. '
-        'Default: %(default)s',
+        help='WARN threshold for the number of outdated packages. Default: %(default)s',
         dest='WARN',
         default=DEFAULT_WARN,
         type=lib.args.int_or_none,

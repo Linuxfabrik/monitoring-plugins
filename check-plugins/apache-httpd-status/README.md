@@ -86,24 +86,28 @@ usage: apache-httpd-status [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
                            [--no-proxy] [--test TEST] [--timeout TIMEOUT]
                            [-u URL] [-w WARN]
 
-Checks how well an Apache httpd server is performing.
+Monitors Apache httpd performance via the mod_status endpoint (server-
+status?auto). Alerts when worker usage exceeds the configured thresholds.
+Reports busy and idle workers, request rates, bytes served, CPU load,
+connection states, and system load averages. Requires "ExtendedStatus On" in
+the Apache configuration for full metrics. Uses a local SQLite database to
+calculate per-second rates from cumulative counters.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  Set the CRIT threshold for the number of workers
-                       processing requests in percent. Default: >= 95
-  --insecure           This option explicitly allows to perform "insecure" SSL
-                       connections. Default: False
-  --no-proxy           Do not use a proxy. Default: False
+  -c, --critical CRIT  CRIT threshold for the percentage of workers processing
+                       requests. Default: >= 95.
+  --insecure           This option explicitly allows insecure SSL connections.
+  --no-proxy           Do not use a proxy.
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".
   --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
   -u, --url URL        Apache Server Status URL. Default:
-                       http://localhost/server-status
-  -w, --warning WARN   Set the WARN threshold for the number of workers
-                       processing requests in percent. Default: >= 80
+                       http://localhost/server-status.
+  -w, --warning WARN   WARN threshold for the percentage of workers processing
+                       requests. Default: >= 80.
 ```
 
 

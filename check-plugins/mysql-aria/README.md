@@ -33,18 +33,19 @@ Hints:
 usage: mysql-aria [-h] [-V] [--always-ok] [--defaults-file DEFAULTS_FILE]
                   [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
 
-Checks some metrics of the Aria Storage Engine in MySQL/MariaDB.
+Checks metrics of the Aria storage engine in MySQL/MariaDB, including page
+cache read and write hit rates. Alerts when cache efficiency drops below
+optimal levels.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --defaults-file DEFAULTS_FILE
-                        Specifies a cnf file to read parameters like user,
-                        host and password from (instead of specifying them on
-                        the command line), for example
-                        `/var/spool/icinga2/.my.cnf`. Default:
-                        /var/spool/icinga2/.my.cnf
+                        MySQL/MariaDB cnf file to read user, host and password
+                        from (instead of specifying them on the command line).
+                        Example: `/var/spool/icinga2/.my.cnf`. Default:
+                        /var/spool/icinga2/.my.cnf.
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client

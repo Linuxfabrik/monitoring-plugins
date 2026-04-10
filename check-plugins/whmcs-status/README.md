@@ -59,24 +59,26 @@ usage: whmcs-status [-h] [-V] --identifier IDENTIFIER [--insecure]
                     [--no-proxy] [-p PASSWORD] --secret SECRET [--test TEST]
                     [--timeout TIMEOUT] [--url URL] [--username USERNAME]
 
-Returns the health status of a WHMCS server using its HTTP-based API.
+Monitors the health status of a WHMCS installation via its system status API.
+Reports module versions, license status, and system health indicators. Alerts
+when the server reports an unhealthy state.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --identifier IDENTIFIER
-                        WHMCS API identifier. Default: None
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
+                        WHMCS API identifier.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
-                        HTTP basic auth password.
-  --secret SECRET       WHMCS API secret. Default: None
+                        HTTP Basic Auth password.
+  --secret SECRET       WHMCS API secret.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  --url URL             WHMCS API URL. Default: http://127.0.0.1:8080
-  --username USERNAME   HTTP basic auth username.
+  --url URL             WHMCS API URL. Default: http://127.0.0.1:8080.
+  --username USERNAME   HTTP Basic Auth username.
 ```
 
 

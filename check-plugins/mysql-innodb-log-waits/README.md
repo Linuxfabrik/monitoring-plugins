@@ -29,19 +29,20 @@ usage: mysql-innodb-log-waits [-h] [-V] [--always-ok]
                               [--defaults-group DEFAULTS_GROUP]
                               [--timeout TIMEOUT]
 
-Checks the number of times InnoDB was forced to wait for log writes to be
-flushed due to the log buffer being too small in MySQL/MariaDB.
+Checks how often InnoDB had to wait for log writes to be flushed because the
+log buffer was too small in MySQL/MariaDB. Frequent waits indicate that
+innodb_log_buffer_size should be increased. Alerts when log waits occur too
+frequently.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --defaults-file DEFAULTS_FILE
-                        Specifies a cnf file to read parameters like user,
-                        host and password from (instead of specifying them on
-                        the command line), for example
-                        `/var/spool/icinga2/.my.cnf`. Default:
-                        /var/spool/icinga2/.my.cnf
+                        MySQL/MariaDB cnf file to read user, host and password
+                        from (instead of specifying them on the command line).
+                        Example: `/var/spool/icinga2/.my.cnf`. Default:
+                        /var/spool/icinga2/.my.cnf.
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client

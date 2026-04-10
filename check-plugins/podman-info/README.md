@@ -24,8 +24,9 @@ Hints:
 ```text
 usage: podman-info [-h] [-V] [--always-ok] [--test TEST]
 
-Displays system-wide Podman information. For Docker, use the docker-info check
-instead.
+Displays system-wide Podman information including container counts, image
+count, storage driver, runtime version, available CPUs, and total memory. For
+Docker, use the docker-info check instead. Requires root or sudo.
 
 options:
   -h, --help     show this help message and exit

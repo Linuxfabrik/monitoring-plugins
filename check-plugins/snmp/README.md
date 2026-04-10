@@ -42,68 +42,61 @@ usage: snmp [-h] [-V] [--community COMMUNITY] [--device DEVICE] [--hide-ok]
             [--v3-security-engine-id V3_SECURITY_ENGINE_ID]
             [--v3-username V3_USERNAME]
 
-This check is a SNMP application that uses the SNMP GET request to query for
-information on a network entity. The object identifiers (OIDs) of interest
-have to be defined in a CSV file, including optional WARN and CRIT parameters.
+Queries SNMP OIDs defined in a CSV file and checks the returned values against
+optional warning and critical thresholds. Supports SNMP v1, v2c, and v3 with
+authentication and privacy protocols.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --community COMMUNITY
-                        SNMP Version 1 or 2c specific. Set the community
-                        string. Default: public.
-  --device DEVICE       The name of a device file containing the SNMP-OIDs,
-                        located under `./device-oids`, for example `switch-
-                        fs-s3900.csv` or `printer-brother-mfcj5720dw.csv`.
-                        `any-any-any.csv` is a good starting point showing
-                        some features. The file name is irrelevant. We
-                        recommend the three-part structure, where the first
-                        "any" refers to the device class, the second "any"
-                        refers to the vendor, and the third refers to the
-                        model. Default: any-any-any.csv.
-  --hide-ok             Don't print OIDs with OK state. Default: False.
-  --hide-table          Suppress the output of the table. Default: False.
+                        SNMP v1/v2c community string. Default: public.
+  --device DEVICE       Name of a CSV file containing the SNMP OIDs, located
+                        under `./device-oids`. The recommended naming
+                        convention is `class-vendor-model.csv`. `any-any-
+                        any.csv` is a good starting point showing some
+                        features. Example: `--device switch-fs-s3900.csv`.
+                        Default: any-any-any.csv.
+  --hide-ok             Suppress OIDs with OK state from output. Default:
+                        False.
+  --hide-table          Suppress the table from output. Default: False.
   -H, --hostname HOSTNAME
-                        SNMP Appliance address.
-  --mib MIB             Load given list of MIBs, for example `+FS-MIB` or `FS-
-                        MIB:BROTHER-MIB`. Behaves like the `-m` option of
-                        `snmpget`.
-  --mib-dir MIB_DIR     Look in given list of directories for MIBs. Behaves
-                        like the `-M` option of `snmpget`. Default:
-                        $HOME/.snmp/mibs:/usr/share/snmp/mibs.
+                        SNMP appliance hostname or IP address.
+  --mib MIB             MIB(s) to load, behaves like the `-m` option of
+                        `snmpget`. Example: `--mib "+FS-MIB"` or `--mib "FS-
+                        MIB:BROTHER-MIB"`.
+  --mib-dir MIB_DIR     Colon-separated list of directories to search for
+                        MIBs, behaves like the `-M` option of `snmpget`.
+                        Default: $HOME/.snmp/mibs:/usr/share/snmp/mibs.
   --snmp-version {1,2c,3}
-                        Specifies SNMP version to use. Default: 2c.
+                        SNMP version to use. Default: 2c.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   -t, --timeout TIMEOUT
                         Network timeout in seconds. Default: 7 (seconds).
   --v3-auth-prot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}
-                        SNMP Version 3 specific. Set authentication protocol.
+                        SNMPv3 authentication protocol.
   --v3-auth-prot-password V3_AUTH_PROT_PASSWORD
-                        SNMP Version 3 specific. Set authentication protocol
-                        pass phrase.
+                        SNMPv3 authentication protocol passphrase.
   --v3-boots-time V3_BOOTS_TIME
-                        SNMP Version 3 specific. Set destination engine
-                        boots/time.
+                        SNMPv3 destination engine boots/time.
   --v3-context V3_CONTEXT
-                        SNMP Version 3 specific. Set context name (e.g.
-                        bridge1).
+                        SNMPv3 context name. Example: `--v3-context bridge1`.
   --v3-context-engine-id V3_CONTEXT_ENGINE_ID
-                        SNMP Version 3 specific. Set context engine ID (e.g.
-                        800000020109840301).
+                        SNMPv3 context engine ID. Example: `--v3-context-
+                        engine-id 800000020109840301`.
   --v3-level {noAuthNoPriv,authNoPriv,authPriv}
-                        SNMP Version 3 specific. Set security level.
+                        SNMPv3 security level.
   --v3-priv-prot {DES,AES,AES-192,AES-256}
-                        SNMP Version 3 specific. Set privacy protocol.
+                        SNMPv3 privacy protocol.
   --v3-priv-prot-password V3_PRIV_PROT_PASSWORD
-                        SNMP Version 3 specific. Set privacy protocol pass
-                        phrase.
+                        SNMPv3 privacy protocol passphrase.
   --v3-security-engine-id V3_SECURITY_ENGINE_ID
-                        SNMP Version 3 specific. Set security engine ID (e.g.
-                        800000020109840301).
+                        SNMPv3 security engine ID. Example: `--v3-security-
+                        engine-id 800000020109840301`.
   --v3-username V3_USERNAME
-                        SNMP Version 3 specific. Set security name (e.g.
-                        bert).
+                        SNMPv3 security name (username). Example:
+                        `--v3-username bert`.
 ```
 
 

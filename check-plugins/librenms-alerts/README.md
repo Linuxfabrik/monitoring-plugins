@@ -36,14 +36,10 @@ usage: librenms-alerts [-h] [-V] [--always-ok] [--defaults-file DEFAULTS_FILE]
                        [--lengthy] [--severity {warn,crit}]
                        [--timeout TIMEOUT]
 
-This check warns of unacknowledged alerts in LibreNMS and reports the most
-recent alert for each device (only for those that do not have "Disabled
-alerting" in their LibreNMS device settings). If alerts have been triggered in
-LibreNMS, you will see them on the *Alerts > Notifications* page within the
-Web UI. When you acknowledge an alert in LibreNMS, this check will change the
-status for the corresponding device to OK. This check requires direct access
-to the LibreNMS MySQL/MariaDB database, because the API is simply too resource
-intensive for use in a large scale environment.
+Checks for unacknowledged alerts in LibreNMS and reports the most recent alert
+per device. Only considers devices that do not have alerting disabled in their
+LibreNMS settings. Requires direct access to the LibreNMS MySQL/MariaDB
+database. Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -51,24 +47,24 @@ options:
   --always-ok           Always returns OK.
   --defaults-file DEFAULTS_FILE
                         Specifies a cnf file to read parameters like user,
-                        host and password from (instead of specifying them on
-                        the command line), for example
-                        `/var/spool/icinga2/.my.cnf`. Default:
-                        /var/spool/icinga2/.my.cnf
+                        host and password from (for MySQL/MariaDB cnf-style
+                        files). Example: `/var/spool/icinga2/.my.cnf`.
+                        Default: /var/spool/icinga2/.my.cnf
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
   --device-group DEVICE_GROUP
-                        Filter by LibreNMS Device Group. Supports SQL
-                        Wildcards.
+                        Filter by LibreNMS device group. Supports SQL
+                        wildcards.
   --device-hostname DEVICE_HOSTNAME
-                        Filter by LibreNMS Hostname (repeating).
+                        Filter by LibreNMS hostname. Can be specified multiple
+                        times.
   --device-type {appliance,collaboration,environment,firewall,loadbalancer,management,network,power,printer,server,storage,wireless,workstation}
-                        Filter by LibreNMS Device Type (repeating).
+                        Filter by LibreNMS device type. Can be specified
+                        multiple times.
   --lengthy             Extended reporting.
   --severity {warn,crit}
-                        Severity for alerts. One of "warn" or "crit". Default:
-                        crit
+                        Severity for alerting. Default: crit
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 

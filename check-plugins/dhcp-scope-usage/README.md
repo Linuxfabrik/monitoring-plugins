@@ -33,31 +33,36 @@ usage: dhcp-scope-usage [-h] [-V] [--always-ok] [-c CRIT] [-H HOSTNAME]
                         [--winrm-transport {basic,ntlm,kerberos,credssp,plaintext}]
                         [--winrm-username WINRM_USERNAME]
 
-Checks the IPv4 scope usage for a Windows DHCP server service.
+Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM
+and queries scope statistics using PowerShell. Alerts when the address pool
+usage of any scope exceeds the configured thresholds (default: WARN at 80%,
+CRIT at 90%).
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Set the CRIT threshold as a percentage. Default: >= 90
+  -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
+                        Default: >= 90
   -H, --hostname HOSTNAME
                         Specifies the DNS name, or IPv4 or IPv6 address, of
                         the target computer that runs the DHCP server service.
                         Default: localhost
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
-  -w, --warning WARN    Set the WARN threshold as a percentage. Default: >= 80
+  -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
+                        Default: >= 80
   --winrm-domain WINRM_DOMAIN
                         WinRM Domain Name. Default: None
   --winrm-hostname WINRM_HOSTNAME
                         Target Windows computer on which the command will be
                         executed.
   --winrm-password WINRM_PASSWORD
-                        WinRM Account Password.
+                        WinRM account password.
   --winrm-transport {basic,ntlm,kerberos,credssp,plaintext}
                         WinRM transport type. Default: ntlm
   --winrm-username WINRM_USERNAME
-                        WinRM Account Name. Default: Administrator
+                        WinRM account name. Default: Administrator
 ```
 
 

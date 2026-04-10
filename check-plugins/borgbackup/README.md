@@ -33,16 +33,19 @@ Return code
 ```text
 usage: borgbackup [-h] [-V] [-c CRIT] [-w WARN]
 
-Checks the date and return code of the last borgbackup, according to the
-logfile.
+Checks the status of the last borgbackup run by parsing the borg logfile.
+Alerts on non-zero return codes from the create or prune steps, and warns if
+the last successful backup is older than a configurable threshold (default: 24
+hours). Also detects active borg mounts in /proc/mounts. Requires root or
+sudo.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
-  -c, --critical CRIT  Set the critical threshold for the time difference to
-                       the start of the last backup (in hours). Default: None
-  -w, --warning WARN   Set the warning threshold for the time difference to
-                       the start of the last backup (in hours). Default: 24
+  -c, --critical CRIT  CRIT threshold for the time since the last backup
+                       started, in hours. Default: None.
+  -w, --warning WARN   WARN threshold for the time since the last backup
+                       started, in hours. Default: 24.
 ```
 
 

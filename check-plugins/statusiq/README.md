@@ -22,24 +22,21 @@ StatusIQ is a hosted status page provided by Site24x7. This check plugin retriev
 usage: statusiq [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
                 [--test TEST] [--timeout TIMEOUT] [--url URL]
 
-StatusIQ is a hosted status page provided by Site24x7. This check plugin
-retrieves the StatusIQ status page (must be rss-enabled) and returns a
-specific status - OK for "Operational" or "Informational" messages, WARN for
-"Under Maintenance", "Degraded Performance" and "Partial Outage", and CRIT for
-"Major Outage" messages. You only need to provide the URL to the StatusIQ
-page, for example "https://status.trustid.ch".
+Monitors a StatusIQ (by Site24x7) status page via its RSS feed. Returns OK for
+operational or informational messages, WARN for maintenance windows, and CRIT
+for service disruptions or degraded performance.
 
 options:
   -h, --help         show this help message and exit
   -V, --version      show program's version number and exit
   --always-ok        Always returns OK.
-  --insecure         This option explicitly allows to perform "insecure" SSL
-                     connections. Default: False
-  --no-proxy         Do not use a proxy. Default: False
+  --insecure         This option explicitly allows insecure SSL connections.
+  --no-proxy         Do not use a proxy.
   --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
                      stderr-file,expected-retc".
-  --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
-  --url URL          StatusIQ URL. Default: https://status.trustid.ch
+  --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds).
+  --url URL          StatusIQ status page URL. Default:
+                     https://status.trustid.ch.
 ```
 
 

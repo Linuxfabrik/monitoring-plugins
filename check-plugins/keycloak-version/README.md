@@ -35,40 +35,41 @@ usage: keycloak-version [-h] [-V] [--always-ok] [--check-major]
                         [--realm REALM] [--timeout TIMEOUT] [--url URL]
                         [--username USERNAME]
 
-Tracks if Keycloak is EOL.
+Checks the installed Keycloak version against the endoflife.date API and
+alerts if the version is end-of-life or if newer major, minor, or patch
+releases are available. By default, alerts 30 days before the official EOL
+date. The offset is configurable.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --check-major         Alert me when there is a new major release available,
-                        even if the current version of my product is not EOL.
-                        Example: Notify when I run v26 (not yet EOL) and v27
-                        is available. Default: False
-  --check-minor         Alert me when there is a new major.minor release
-                        available, even if the current version of my product
-                        is not EOL. Example: Notify when I run v26.2 (not yet
-                        EOL) and v26.3 is available. Default: False
-  --check-patch         Alert me when there is a new major.minor.patch release
-                        available, even if the current version of my product
-                        is not EOL. Example: Notify when I run v26.2.7 (not
-                        yet EOL) and v26.2.8 is available. Default: False
+  --check-major         Alert when a new major release is available, even if
+                        the current version is not yet EOL. Example: running
+                        v26 (not yet EOL) and v27 is available.
+  --check-minor         Alert when a new major.minor release is available,
+                        even if the current version is not yet EOL. Example:
+                        running v26.2 (not yet EOL) and v26.3 is available.
+  --check-patch         Alert when a new major.minor.patch release is
+                        available, even if the current version is not yet EOL.
+                        Example: running v26.2.7 (not yet EOL) and v26.2.8 is
+                        available.
   --client-id CLIENT_ID
-                        Keycloak API Client-ID. Default: admin-cli
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
+                        Keycloak API Client-ID. Default: admin-cli.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
   --offset-eol OFFSET_EOL
-                        Alert me n days before ("-30") or after an EOL date
-                        ("30" or "+30"). Default: -30 days
+                        Alert n days before ("-30") or after an EOL date ("30"
+                        or "+30"). Default: -30 days
   -p, --password PASSWORD
-                        Keycloak API password. Default: admin
+                        Keycloak API password. Default: admin.
   --path PATH           Local path to your Keycloak installation. Default:
-                        /opt/keycloak
-  --realm REALM         Keycloak API Realm. Default: master
+                        /opt/keycloak.
+  --realm REALM         Keycloak API realm. Default: master.
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  --url URL             Keycloak API URL. Default: http://127.0.0.1:8080
-  --username USERNAME   Keycloak API username. Default: admin
+  --url URL             Keycloak API URL. Default: http://127.0.0.1:8080.
+  --username USERNAME   Keycloak API username. Default: admin.
 ```
 
 

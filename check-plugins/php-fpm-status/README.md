@@ -41,34 +41,35 @@ usage: php-fpm-status [-h] [-V] [--always-ok] [-c CRIT]
                       [--timeout TIMEOUT] [-u URL] [-w WARN]
                       [--warning-slowreq WARN_SLOW_REQUESTS]
 
-This check collects information from the PHP-FPM status page and alerts on
-certain overuse. In addition, a table is printed which contains each pool
-process in the status "Running" (information relates to the current request
-that is being served).
+Monitors PHP-FPM pool performance via the status page. Reports active
+processes, listen queue depth, idle workers, request rates, and memory usage
+per pool. Alerts when the pool approaches capacity. Also lists currently
+running processes with their request details. Supports extended reporting via
+--lengthy.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Set the CRIT threshold for queue usage as a
-                        percentage. Default: >= 90
+  -c, --critical CRIT   CRIT threshold for queue usage, in percent. Default:
+                        >= 90
   --critical-slowreq CRIT_SLOW_REQUESTS
-                        Set the CRIT threshold for slow requests. Default: >=
-                        100
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
+                        CRIT threshold for the number of slow requests.
+                        Default: >= 100
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
   --lengthy             Extended reporting.
-  --no-proxy            Do not use a proxy. Default: False
+  --no-proxy            Do not use a proxy.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  -u, --url URL         PHP-FPM Status URL. Default: http://localhost/fpm-
-                        status
-  -w, --warning WARN    Set the WARN threshold for queue usage as a
-                        percentage. Default: >= 80
+  -u, --url URL         PHP-FPM status page URL. Default:
+                        http://localhost/fpm-status
+  -w, --warning WARN    WARN threshold for queue usage, in percent. Default:
+                        >= 80
   --warning-slowreq WARN_SLOW_REQUESTS
-                        Set the WARN threshold for slow requests. Default: >=
-                        1
+                        WARN threshold for the number of slow requests.
+                        Default: >= 1
 ```
 
 

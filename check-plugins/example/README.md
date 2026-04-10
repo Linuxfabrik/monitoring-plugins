@@ -33,8 +33,9 @@ Skeleton plugin demonstrating all standard patterns and library functions: argpa
 
 ```text
 usage: example [-h] [-V] [--always-ok] [-c CRIT] [--ignore-regex IGNORE_REGEX]
-               [--lengthy] [--module MODULE] [--name NAME] [--test TEST]
-               [--timeout TIMEOUT] --token TOKEN [-w WARN]
+               [--insecure] [--lengthy] [--module MODULE] [--name NAME]
+               [--no-proxy] [--test TEST] [--timeout TIMEOUT] --token TOKEN
+               [--url URL] [-w WARN]
 
 Skeleton plugin demonstrating all standard patterns and library functions:
 argparse with append/deprecated/suppress parameters, (success, result) error
@@ -46,21 +47,29 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Set the CRIT threshold as a percentage. Default: >= 90
+  -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
+                        Default: >= 90
   --ignore-regex IGNORE_REGEX
-                        Any english title matching this python regex will be
-                        ignored (repeating). Example: '(?i)linuxfabrik' for a
-                        case-insensitive search for "linuxfabrik".
+                        Any item matching this Python regex will be ignored.
+                        Can be specified multiple times. Example:
+                        `(?i)linuxfabrik` for a case-insensitive match.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
   --lengthy             Extended reporting.
-  --module MODULE       "modulename" to check (startswith), for example
-                        `--module json --module mbstring` (repeating)
-  --name NAME           Only check items with this name (repeating). If not
-                        specified, all items are checked.
+  --module MODULE       "modulename" to check (startswith). Can be specified
+                        multiple times. Example: `--module json --module
+                        mbstring`
+  --name NAME           Only check items with this name. Can be specified
+                        multiple times. If not specified, all items are
+                        checked.
+  --no-proxy            Do not use a proxy.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  --token TOKEN         Software API token
-  -w, --warning WARN    Set the WARN threshold as a percentage. Default: >= 80
+  --token TOKEN         Software API token.
+  --url URL             URL to the endpoint. Default: http://localhost
+  -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
+                        Default: >= 80
 ```
 
 

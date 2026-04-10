@@ -57,7 +57,7 @@ def parse_args():
 
     parser.add_argument(
         '--only-critical',
-        help='Only collect critical updates and upgrades.',
+        help='Only report security updates and upgrades.',
         dest='ONLY_CRITICAL',
         action='store_true',
         default=False,
@@ -65,13 +65,11 @@ def parse_args():
 
     parser.add_argument(
         '--query',
-        help='The list of available updates and upgrades is stored in a SQL table. '
-        'Provide the SQL `WHEN` statement part to narrow down results. '
-        ' Example: '
-        '`--query=\'package like "bind9-%%"\'`. '
-        'Also supports regular expressions via a REGEXP statement. '
-        'Have a look at the README for a list of available columns. '
-        'If this parameter is used, a list of matching updates is printed. '
+        help='SQL WHERE clause to filter the list of available updates. '
+        'Supports regular expressions via a REGEXP statement. '
+        'See the README for a list of available columns. '
+        'If specified, a list of matching updates is printed. '
+        'Example: `--query=\'package like "bind9-%%"\'`. '
         'Default: %(default)s',
         dest='QUERY',
         default=DEFAULT_QUERY,
@@ -88,7 +86,8 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='Minimum number of packages to return WARNING. Default: %(default)s.',
+        help='Minimum number of available updates to return WARNING. '
+        'Default: %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,

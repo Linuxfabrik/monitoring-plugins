@@ -30,19 +30,20 @@ usage: mysql-binlog-cache [-h] [-V] [--always-ok]
                           [--defaults-group DEFAULTS_GROUP]
                           [--timeout TIMEOUT]
 
-Checks if a certain amount of transactions used a temporary disk cache because
-they could not fit in the regular binary log cache in MySQL/MariaDB.
+Checks if transactions in MySQL/MariaDB had to use a temporary disk cache
+because they exceeded the configured binary log cache size. A high disk cache
+usage rate indicates that binlog_cache_size should be increased. Alerts when
+the disk cache usage rate is too high.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --defaults-file DEFAULTS_FILE
-                        Specifies a cnf file to read parameters like user,
-                        host and password from (instead of specifying them on
-                        the command line), for example
-                        `/var/spool/icinga2/.my.cnf`. Default:
-                        /var/spool/icinga2/.my.cnf
+                        MySQL/MariaDB cnf file to read user, host and password
+                        from (instead of specifying them on the command line).
+                        Example: `/var/spool/icinga2/.my.cnf`. Default:
+                        /var/spool/icinga2/.my.cnf.
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client

@@ -21,17 +21,18 @@ Checks the current mode of SELinux against a desired mode, and returns a warning
 usage: selinux-mode [-h] [-V] [--always-ok]
                     [--mode {enforcing,permissive,disabled}]
 
-Checks the current mode of SELinux against a desired mode, and returns a
-warning on a non-match.
+Verifies that the current SELinux mode (enforcing, permissive, or disabled)
+matches the expected setting. Returns WARN if the actual mode differs from the
+desired one.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --mode {enforcing,permissive,disabled}
-                        The expected SELinux mode, one of "enforcing",
+                        Expected SELinux mode, one of "enforcing",
                         "permissive" or "disabled" (case-insensitive).
-                        Default: enforcing
+                        Default: enforcing.
 ```
 
 

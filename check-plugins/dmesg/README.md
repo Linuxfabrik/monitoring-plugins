@@ -25,9 +25,10 @@ Be aware that the reported timestamps could be inaccurate. The time source used 
 usage: dmesg [-h] [-V] [--always-ok] [--ignore IGNORE]
              [--severity {warn,crit}] [--test TEST]
 
-Checks dmesg for emerg, alert, crit and err messages. Executes `dmesg
---level=emerg,alert,crit,err --ctime `. If you fixed the issues (or just want
-to clear them), use `dmesg --clear` to clear the Kernel Ring Buffer Messages.
+Checks the kernel ring buffer (dmesg) for messages at severity levels emerg,
+alert, crit, and err. Known false positives and hardware-specific noise are
+filtered out by default. To clear reported messages after resolving the
+underlying issue, run "dmesg --clear". Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit

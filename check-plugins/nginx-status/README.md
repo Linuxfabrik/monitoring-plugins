@@ -39,22 +39,24 @@ usage: nginx-status [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
                     [--no-proxy] [--timeout TIMEOUT] [-u URL] [-w WARN]
                     [--test TEST]
 
-This check provides NGINX basic status information.
+Monitors NGINX performance via the stub_status module. Reports active
+connections, accepts, handled requests, and connection states (reading,
+writing, waiting). Alerts when active connections exceed the configured
+thresholds.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  Set the CRIT threshold for the number of active
-                       connections. Default: >= 486
-  --insecure           This option explicitly allows to perform "insecure" SSL
-                       connections. Default: False
-  --no-proxy           Do not use a proxy. Default: False
+  -c, --critical CRIT  CRIT threshold for the number of active connections.
+                       Supports Nagios ranges. Default: >= 486
+  --insecure           This option explicitly allows insecure SSL connections.
+  --no-proxy           Do not use a proxy.
   --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
-  -u, --url URL        NGINX Server Status URL. Default:
+  -u, --url URL        NGINX stub_status URL. Default:
                        http://localhost/server-status
-  -w, --warning WARN   Set the WARN threshold for the number of active
-                       connections. Default: >= 460
+  -w, --warning WARN   WARN threshold for the number of active connections.
+                       Supports Nagios ranges. Default: >= 460
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".
 ```

@@ -20,17 +20,18 @@ Checks the current tuned profile against a desired one, and returns a warning on
 ```text
 usage: tuned-profile [-h] [-V] [--always-ok] [--profile TUNED_PROFILE]
 
-Checks the current tuned profile against a desired one, and returns a warning
-on a non-match.
+Verifies that the current tuned profile matches the expected setting. Returns
+WARN if the active profile differs from the desired one. Useful for ensuring
+consistent performance tuning across a fleet of servers.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --profile TUNED_PROFILE
-                        The expected tuned profile (full name), for example
-                        "virtual-guest" (case-insensitive). Default: virtual-
-                        guest
+                        Expected tuned profile name (case-insensitive).
+                        Example: `--profile virtual-guest`. Default: virtual-
+                        guest.
 ```
 
 

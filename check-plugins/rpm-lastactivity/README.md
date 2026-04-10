@@ -20,14 +20,18 @@ Checks the timespan since the last package manager activity, for example due to 
 ```text
 usage: rpm-lastactivity [-h] [-V] [-c CRIT] [-w WARN]
 
-Checks the timespan since the last package manager activity, for example due
-to a yum/dnf install/update.
+Checks how long ago the last RPM package manager activity occurred (install,
+update, or remove via yum/dnf). Alerts if no package management activity has
+happened within the configured thresholds. Useful for detecting servers that
+have not been patched in a long time.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
-  -c, --critical CRIT  Set the critical threshold (in days). Default: 365
-  -w, --warning WARN   Set the warning threshold (in days). Default: 90
+  -c, --critical CRIT  CRIT threshold for the time since the last RPM
+                       activity, in days. Default: 365
+  -w, --warning WARN   WARN threshold for the time since the last RPM
+                       activity, in days. Default: 90
 ```
 
 

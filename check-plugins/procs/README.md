@@ -66,67 +66,66 @@ usage: procs [-h] [-V] [--always-ok] [--argument ARGUMENT] [--command COMMAND]
              [--warning-age WARN_AGE] [--warning-cpu-percent WARN_CPU_PERCENT]
              [--warning-mem WARN_MEM] [--warning-mem-percent WARN_MEM_PERCENT]
 
-Prints the number of currently running processes and warns on metrics like
-process counts, process memory usage or CPU usage. You may filter the process
-list by process name, arguments and/or user name using regular expressions.
+Monitors running processes and alerts on process count, aggregated memory
+usage, or aggregated CPU usage. Processes can be filtered by name, command-
+line arguments, and user name using regular expressions. Optionally lists the
+top processes by CPU time and memory usage. Supports extended reporting via
+--lengthy.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --argument ARGUMENT   Filter: Search only for processes where the command
-                        line matches ARGUMENT as a regular expression (case-
-                        insensitive). Example: `--argument="--
-                        config.*production"`
-  --command COMMAND     Filter: Search only for processes whose name matches
-                        COMMAND as a regular expression (case-insensitive).
-                        Example: `--command="^(apache|httpd)"`
-  -c, --critical CRIT   Threshold for the number of processes. Type: None or
-                        Range. Default: None
+  --argument ARGUMENT   Filter by command line arguments using a regular
+                        expression (case-insensitive). Example: `--argument="
+                        --config.*production"`
+  --command COMMAND     Filter by process name using a regular expression
+                        (case-insensitive). Example:
+                        `--command="^(apache|httpd)"`
+  -c, --critical CRIT   CRIT threshold for the number of matching processes.
+                        Supports Nagios ranges. Default: None
   --critical-age CRIT_AGE
-                        Threshold for age of the process, in seconds. Type:
-                        None or Range. Default: None
+                        CRIT threshold for age of the oldest matching process,
+                        in seconds. Supports Nagios ranges. Default: None
   --critical-cpu-percent CRIT_CPU_PERCENT
-                        Threshold for CPU usage of all matching processes, in
-                        percent. Requires two consecutive check runs to
-                        calculate. A value of 100% equals one fully utilized
-                        CPU core. Type: None or Range. Default: None
+                        CRIT threshold for aggregated CPU usage of all
+                        matching processes, in percent. Requires two
+                        consecutive check runs to calculate. 100% equals one
+                        fully utilized CPU core. Supports Nagios ranges.
+                        Default: None
   --critical-mem CRIT_MEM
-                        Threshold for memory usage, in bytes. Type: None or
-                        Range. Default: None
+                        CRIT threshold for aggregated memory usage, in bytes.
+                        Supports Nagios ranges. Default: None
   --critical-mem-percent CRIT_MEM_PERCENT
-                        Threshold for memory usage, in percent. Type: None or
-                        Range. Default: None
+                        CRIT threshold for aggregated memory usage, in
+                        percent. Supports Nagios ranges. Default: None
   --lengthy             Extended reporting.
-  --no-kthreads         Filter: Only scan for non kernel threads (works on
-                        Linux only). Default: False
+  --no-kthreads         Exclude kernel threads from the scan (Linux only).
   --status {dead,disk-sleep,idle,locked,parked,running,sleeping,stopped,suspended,tracing-stop,waiting,wake-kill,waking,zombie}
-                        Filter: Search only for processes that have a specific
-                        status. Default: None
-  --top TOP             List the top N processes using the most CPU time.
-                        Processes with zero CPU time are excluded from the
-                        table. Use `--top=0` to disable this feature. Default:
-                        5
-  --username USERNAME   Filter: Search only for processes whose user name
-                        matches USERNAME as a regular expression (case-
+                        Filter by process status. Default: None
+  --top TOP             Number of top processes by CPU time to display.
+                        Processes with zero CPU time are excluded. Use
+                        `--top=0` to disable. Default: 5
+  --username USERNAME   Filter by user name using a regular expression (case-
                         insensitive). Example: `--username="^(apache|www-
                         data)$"`
-  -w, --warning WARN    Threshold for the number of processes. Type: None or
-                        Range. Default: None
+  -w, --warning WARN    WARN threshold for the number of matching processes.
+                        Supports Nagios ranges. Default: None
   --warning-age WARN_AGE
-                        Threshold for age of the process, in seconds. Type:
-                        None or Range. Default: None
+                        WARN threshold for age of the oldest matching process,
+                        in seconds. Supports Nagios ranges. Default: None
   --warning-cpu-percent WARN_CPU_PERCENT
-                        Threshold for CPU usage of all matching processes, in
-                        percent. Requires two consecutive check runs to
-                        calculate. A value of 100% equals one fully utilized
-                        CPU core. Type: None or Range. Default: None
+                        WARN threshold for aggregated CPU usage of all
+                        matching processes, in percent. Requires two
+                        consecutive check runs to calculate. 100% equals one
+                        fully utilized CPU core. Supports Nagios ranges.
+                        Default: None
   --warning-mem WARN_MEM
-                        Threshold for memory usage, in bytes. Type: None or
-                        Range. Default: None
+                        WARN threshold for aggregated memory usage, in bytes.
+                        Supports Nagios ranges. Default: None
   --warning-mem-percent WARN_MEM_PERCENT
-                        Threshold for memory usage, in percent. Type: None or
-                        Range. Default: None
+                        WARN threshold for aggregated memory usage, in
+                        percent. Supports Nagios ranges. Default: None
 ```
 
 

@@ -28,26 +28,27 @@ usage: keycloak-memory-usage [-h] [-V] [--always-ok] [--client-id CLIENT_ID]
                              [--url URL] [--username USERNAME]
                              [--warning WARN]
 
-This check plugin monitors the memory usage of a Keycloak server using its
-HTTP-based API. Tested with Keycloak 18+.
+Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP
+API. Alerts when memory usage exceeds the configured thresholds. Tested with
+Keycloak 18 and later.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --client-id CLIENT_ID
-                        Keycloak API Client-ID. Default: admin-cli
-  --critical CRIT       Set the critical threshold.
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
+                        Keycloak API Client-ID. Default: admin-cli.
+  --critical CRIT       CRIT threshold in percent. Supports Nagios ranges.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
-                        Keycloak API password. Default: admin
-  --realm REALM         Keycloak API Realm. Default: master
+                        Keycloak API password. Default: admin.
+  --realm REALM         Keycloak API realm. Default: master.
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  --url URL             Keycloak API URL. Default: http://127.0.0.1:8080
-  --username USERNAME   Keycloak API username. Default: admin
-  --warning WARN        Set the warning threshold.
+  --url URL             Keycloak API URL. Default: http://127.0.0.1:8080.
+  --username USERNAME   Keycloak API username. Default: admin.
+  --warning WARN        WARN threshold in percent. Supports Nagios ranges.
 ```
 
 

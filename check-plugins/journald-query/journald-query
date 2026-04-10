@@ -73,26 +73,26 @@ def parse_args():
 
     parser.add_argument(
         '--facility',
-        help='journalctl: Filter output by syslog facility. Takes a '
-        'comma-separated list of numbers or facility names. '
-        'Default: %(default)s',
+        help='Filter output by syslog facility (passed to journalctl). '
+        'Takes a comma-separated list of numbers or facility names. '
+        'Default: %(default)s.',
         dest='FACILITY',
         default=DEFAULT_FACILITY,
     )
 
     parser.add_argument(
         '--identifier',
-        help='journalctl: Show messages for the specified syslog identifier. '
-        'Default: %(default)s',
+        help='Show messages for the specified syslog identifier (passed to journalctl). '
+        'Default: %(default)s.',
         dest='IDENTIFIER',
         default=DEFAULT_IDENTIFIER,
     )
 
     parser.add_argument(
         '--ignore-pattern',
-        help='Any line containing this case-sensitive pattern on the MESSAGE field will be '
-        'ignored (repeating). So, unlike `journalctl`, you can easily use '
-        'strings to ignore certain messages.',
+        help='Any line containing this case-sensitive string in the MESSAGE field will be ignored. '
+        'Can be specified multiple times. '
+        'Unlike journalctl, this allows easy string-based filtering.',
         action='append',
         default=None,
         dest='IGNORE_PATTERN',
@@ -100,11 +100,9 @@ def parse_args():
 
     parser.add_argument(
         '--ignore-regex',
-        help='Any line matching this Python regex on the MESSAGE field will be '
-        'ignored (repeating). So, unlike `journalctl`, you can easily use '
-        'a regex to ignore certain messages. '
-        "Example: '(?i)linuxfabrik' for a case-insensitive search for "
-        '"linuxfabrik".',
+        help='Any line matching this Python regex on the MESSAGE field will be ignored. '
+        'Can be specified multiple times. '
+        "Example: `--ignore-regex='(?i)linuxfabrik'`.",
         action='append',
         default=None,
         dest='IGNORE_REGEX',
@@ -112,18 +110,16 @@ def parse_args():
 
     parser.add_argument(
         '--priority',
-        help='journalctl: Filter output by message priorities or priority '
-        'ranges. '
-        'Default: %(default)s',
+        help='Filter output by message priorities or priority ranges (passed to journalctl). '
+        'Default: %(default)s.',
         dest='PRIORITY',
         default=DEFAULT_PRIORITY,
     )
 
     parser.add_argument(
         '--severity',
-        help='Severity for alerts if journalctl returns results. One of '
-        '"warn" or "crit". '
-        'Default: %(default)s',
+        help='Severity for alerts when journalctl returns results. '
+        'Default: %(default)s.',
         dest='SEVERITY',
         default=DEFAULT_SERVERITY,
         choices=['warn', 'crit'],
@@ -131,9 +127,8 @@ def parse_args():
 
     parser.add_argument(
         '--since',
-        help='journalctl: Start showing entries on or newer than the '
-        'specified date. '
-        'Default: >= %(default)s',
+        help='Show entries on or newer than the specified date (passed to journalctl). '
+        'Default: %(default)s.',
         dest='SINCE',
         default=DEFAULT_SINCE,
     )
@@ -147,9 +142,9 @@ def parse_args():
 
     parser.add_argument(
         '--unit',
-        help='journalctl: Show messages for the specified systemd unit '
-        'UNIT|PATTERN. This parameter can be specified multiple times. '
-        'Default: %(default)s',
+        help='Show messages for the specified systemd unit UNIT|PATTERN (passed to journalctl). '
+        'Can be specified multiple times. '
+        'Default: %(default)s.',
         dest='UNIT',
         default=DEFAULT_UNIT,
         action='append',
@@ -157,9 +152,9 @@ def parse_args():
 
     parser.add_argument(
         '--user-unit',
-        help='journalctl: Show messages for the specified user session unit. '
-        'This parameter can be specified multiple times. '
-        'Default: %(default)s',
+        help='Show messages for the specified user session unit (passed to journalctl). '
+        'Can be specified multiple times. '
+        'Default: %(default)s.',
         dest='USER_UNIT',
         default=DEFAULT_USER_UNIT,
         action='append',

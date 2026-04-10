@@ -32,30 +32,34 @@ usage: huawei-dorado-system [-h] [-V] [--always-ok]
                             [--timeout TIMEOUT] -u URL --username USERNAME
                             [-w WARN]
 
-Query basic status and performance data about a Huawei OceanStor Dorado
-storage system via the REST Interface, using the ``/system/`` endpoint.
+Checks overall system health, capacity, and performance of a Huawei OceanStor
+Dorado storage system via the REST API (/system endpoint). Reports health
+status, running status, storage capacity, and I/O performance metrics. Alerts
+when the system reports a non-normal health or running state.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
-                        The amount of time after which the credential cache
-                        expires, in minutes. Default: 15
-  -c, --critical CRIT   Set the CRIT threshold as a percentage. Default: >= 95
+                        The amount of time after which the credential/data
+                        cache expires, in minutes. Default: 15
+  -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
+                        Default: >= 95
   --device-id DEVICE_ID
-                        Huawei OceanStor Dorado API Device ID.
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: True
-  --no-proxy            Do not use a proxy. Default: False
-  --password PASSWORD   Huawei OceanStor Dorado API Password.
-  --scope SCOPE         Huawei OceanStor Dorado API Scope.
+                        Huawei OceanStor Dorado API device ID.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
+  --password PASSWORD   Huawei OceanStor Dorado API password.
+  --scope SCOPE         Huawei OceanStor Dorado API scope.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
-  --username USERNAME   Huawei OceanStor Dorado API Username.
-  -w, --warning WARN    Set the WARN threshold as a percentage. Default: >= 90
+  --username USERNAME   Huawei OceanStor Dorado API username.
+  -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
+                        Default: >= 90
 ```
 
 

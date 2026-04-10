@@ -29,28 +29,30 @@ usage: safenet-hsm-state [-h] [-V] [--always-ok] [-c CRIT] -H HOSTNAME
                          [--timeout TIMEOUT] [-u {admin,pseoperator}]
                          [-w WARN]
 
-This monitoring plugin checks the current state of a Gemalto SafeNet
-ProtectServer Network HSM via SSH and a PSESH command, and displays the
-current state of the HSM adapter.
+Checks the current state of a Gemalto SafeNet ProtectServer Network HSM via
+SSH by running a PSESH command on the appliance. Alerts when the HSM adapter
+reports a non-operational state.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Set the CRIT threshold as a percentage. Default: >= 90
+  -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
+                        Default: >= 90
   -H, --hostname HOSTNAME
-                        SafeNet HSM hostname
+                        SafeNet HSM hostname or IP address.
   -p, --password PASSWORD
-                        SafeNet HSM password
+                        SafeNet HSM password.
   --severity {warn,crit}
                         Severity for alerting. Default: crit
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --username {admin,pseoperator}
-                        SafeNet HSM Username, for example "admin" or
-                        "pseoperator". Default: pseoperator
-  -w, --warning WARN    Set the WARN threshold as a percentage. Default: >= 80
+                        SafeNet HSM username. Example: `--username admin`.
+                        Default: pseoperator.
+  -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
+                        Default: >= 80
 ```
 
 

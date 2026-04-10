@@ -33,30 +33,30 @@ usage: starface-backup-status [-h] [-V] [--always-ok]
                               [-H HOSTNAME] [--port PORT] [--test TEST]
                               [--timeout TIMEOUT] [-w WARN] [--ipv6]
 
-Checks the status of the newest backups of the Starface PBX. It uses the data
-output of the Starface Monitoring Module, which was originally written for
-Check_MK and listens on port 6556. Supports both IPv4 and IPv6. Fetched data
-is cached up to one minute, so that other Starface plugins running in parallel
-do not query the data again and overload the PBX.
+Checks the status of the newest backups of a Starface PBX via its monitoring
+module on port 6556. Reports backup age, size, and success state. Supports
+both IPv4 and IPv6. Data is cached to avoid overloading the PBX when multiple
+checks run in parallel. Alerts when the latest backup has failed or is too
+old.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
-                        The amount of time after which the cached data
-                        expires, in minutes. Default: 1
-  -c, --critical CRIT   Set the critical threshold for the time difference to
-                        the start of the last backup (in hours). Default: None
+                        The amount of time after which the credential/data
+                        cache expires, in minutes. Default: 1
+  -c, --critical CRIT   CRIT threshold for the age of the last backup, in
+                        hours. Default: None.
   -H, --hostname HOSTNAME
-                        Starface PBX address, can be IP address or hostname.
-                        Default: localhost
-  --port PORT           Starface PBX monitoring port. Default: 6556
+                        Starface PBX hostname or IP address. Default:
+                        localhost.
+  --port PORT           Starface PBX monitoring port. Default: 6556.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  -w, --warning WARN    Set the warning threshold for the time difference to
-                        the start of the last backup (in hours). Default: 24
+  -w, --warning WARN    WARN threshold for the age of the last backup, in
+                        hours. Default: 24.
   --ipv6                Use IPv6.
 ```
 

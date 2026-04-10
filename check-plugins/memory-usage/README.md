@@ -50,23 +50,20 @@ Monitors physical memory utilization with threshold-based alerting on overall me
 ```text
 usage: memory-usage [-h] [-V] [--always-ok] [-c CRIT] [--top TOP] [-w WARN]
 
-Displays system memory usage and alerts on sustained high usage. Reports
-total/used/available/free plus shared/buffers/cached, and evaluates WARN/CRIT
-against the overall usage percentage. Perfdata is emitted for all fields so
-you can graph trends over time. With `--top`, the most memory-consuming
-processes are listed (by RSS and percentage) to aid quick diagnosis. Cross-
-platform on all psutil-supported systems (Linux, Windows, *BSD, macOS).
+Monitors system memory usage and alerts when the overall usage percentage
+exceeds the configured thresholds. Reports total, used, available, and free
+memory plus shared, buffers, and cached values. Optionally lists the top
+memory-consuming processes via --top to help identify the source of high
+usage.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  Set the critical threshold for memory usage (in
-                       percent). Default: 95
-  --top TOP            List x "Top most memory consuming processes". Use
-                       `--top=0` to disable this feature. Default: 5
-  -w, --warning WARN   Set the warning threshold for memory usage (in
-                       percent). Default: 90
+  -c, --critical CRIT  CRIT threshold for memory usage in percent. Default: 95
+  --top TOP            Number of top memory-consuming processes to list. Use
+                       `--top=0` to disable. Default: 5
+  -w, --warning WARN   WARN threshold for memory usage in percent. Default: 90
 ```
 
 

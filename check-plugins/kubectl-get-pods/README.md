@@ -38,33 +38,26 @@ usage: kubectl-get-pods [-h] [-V] [--always-ok] [--all-namespaces]
                         [--kubeconfig KUBECONFIG] [--query QUERY]
                         [--severity {warn,crit}] [--test TEST]
 
-Checks the health and status of Kubernetes Pods by running `kubectl get pods`
-and parsing the results. Prints a table listing namespace, pod name,
-readiness, status, restart count, pod age, and IP address. Adds performance
-data for each pod status (Running, Pending, Failed, Succeeded, Unknown). By
-default, only shows pods from the current namespace. Use `--all-namespaces` to
-check across all namespaces. The plugin also stores a temporary local SQLite
-database during runtime (no persistent history). Results can therefore be
-filtered with a custom SQL `--query` (e.g., by namespace, pod name, or
-status). See the README for more details. Pending and Failed pods can trigger
-a WARNING or CRITICAL state (configurable via `--severity`), while Unknown
-pods result in an UNKNOWN state. Intended for use with Nagios/Icinga to detect
-Kubernetes pod issues like stuck, failing, or unreachable pods.
+Checks the health and status of Kubernetes pods by running "kubectl get pods"
+and parsing the results. Lists namespace, pod name, readiness, status, restart
+count, age, and IP address. Alerts on pending and failed pods with
+configurable severity. Results can be filtered with a custom SQL query.
+Supports all namespaces or a single one.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --all-namespaces      If present, list the requested object(s) across all
-                        namespaces. Namespace in current context is ignored
-                        even if specified with `--namespace`. Default: False
+  --all-namespaces      List pods across all namespaces. Namespace in current
+                        context is ignored even if specified with
+                        `--namespace`. Default: False
   --kubeconfig KUBECONFIG
                         Path to the kubeconfig file. Default:
                         /var/spool/icinga2/.kubeconfig
-  --query QUERY         Provide the SQL `WHEN` statement part to narrow down
-                        results. Example: `namespace = 'mynamespace' and name
-                        like 'prod-%' and status != 'running'`. Have a look at
-                        the README for a list of available columns. Default: 1
+  --query QUERY         SQL WHERE clause to narrow down results. Have a look
+                        at the README for a list of available columns.
+                        Example: `namespace = 'mynamespace' and name like
+                        'prod-%' and status != 'running'`. Default: 1
   --severity {warn,crit}
                         Severity for alerting. Default: crit
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-

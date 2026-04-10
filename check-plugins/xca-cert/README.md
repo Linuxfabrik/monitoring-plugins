@@ -30,26 +30,27 @@ usage: xca-cert [-h] [-V] [-c CRIT] [--defaults-file DEFAULTS_FILE]
                 [--defaults-group DEFAULTS_GROUP] [--prefix PREFIX]
                 [--timeout TIMEOUT] [-w WARN]
 
-Checks expiration date of certificates in a XCA based MySQL/MariaDB database.
+Checks the expiration dates of certificates stored in a XCA-managed
+MySQL/MariaDB database. Alerts when certificates are about to expire or have
+already expired.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
-  -c, --critical CRIT   Set the critical for the expiration date in days.
-                        Default: 5
+  -c, --critical CRIT   CRIT threshold for certificate expiration in days.
+                        Default: 5.
   --defaults-file DEFAULTS_FILE
                         Specifies a cnf file to read parameters like user,
-                        host and password from (instead of specifying them on
-                        the command line), for example
-                        `/var/spool/icinga2/.my.cnf`. Default:
-                        /var/spool/icinga2/.my.cnf
+                        host and password from (for MySQL/MariaDB cnf-style
+                        files). Example: `/var/spool/icinga2/.my.cnf`.
+                        Default: /var/spool/icinga2/.my.cnf.
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
-                        client
-  --prefix PREFIX       Set the table prefix of the XCA database.
+                        client.
+  --prefix PREFIX       Table name prefix used in the XCA database.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  -w, --warning WARN    Set the warning for the expiration date in days.
-                        Default: 14
+  -w, --warning WARN    WARN threshold for certificate expiration in days.
+                        Default: 14.
 ```
 
 

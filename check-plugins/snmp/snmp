@@ -62,20 +62,17 @@ def parse_args():
 
     parser.add_argument(
         '--community',
-        help='SNMP Version 1 or 2c specific. Set the community string. '
-        'Default: %(default)s.',
+        help='SNMP v1/v2c community string. Default: %(default)s.',
         default='public',
         dest='COMMUNITY',
     )
 
     parser.add_argument(
         '--device',
-        help='The name of a device file containing the SNMP-OIDs, located under `./device-oids`, '
-        'for example `switch-fs-s3900.csv` or `printer-brother-mfcj5720dw.csv`. '
+        help='Name of a CSV file containing the SNMP OIDs, located under `./device-oids`. '
+        'The recommended naming convention is `class-vendor-model.csv`. '
         '`any-any-any.csv` is a good starting point showing some features. '
-        'The file name is irrelevant. We recommend the three-part structure, where the first '
-        '"any" refers to the device class, the second "any" refers to the '
-        'vendor, and the third refers to the model. '
+        'Example: `--device switch-fs-s3900.csv`. '
         'Default: %(default)s.',
         dest='DEVICE',
         default='any-any-any.csv',
@@ -83,7 +80,7 @@ def parse_args():
 
     parser.add_argument(
         '--hide-ok',
-        help="Don't print OIDs with OK state. Default: %(default)s.",
+        help='Suppress OIDs with OK state from output. Default: %(default)s.',
         dest='HIDEOK',
         action='store_true',
         default=False,
@@ -91,7 +88,7 @@ def parse_args():
 
     parser.add_argument(
         '--hide-table',
-        help='Suppress the output of the table. Default: %(default)s.',
+        help='Suppress the table from output. Default: %(default)s.',
         dest='HIDE_TABLE',
         default=DEFAULT_HIDE_TABLE,
         action='store_true',
@@ -100,22 +97,21 @@ def parse_args():
     parser.add_argument(
         '-H',
         '--hostname',
-        help='SNMP Appliance address.',
+        help='SNMP appliance hostname or IP address.',
         dest='HOSTNAME',
         required=True,
     )
 
     parser.add_argument(
         '--mib',
-        help='Load given list of MIBs, for example `+FS-MIB` or `FS-MIB:BROTHER-MIB`. Behaves '
-        'like the `-m` option of `snmpget`.',
+        help='MIB(s) to load, behaves like the `-m` option of `snmpget`. '
+        'Example: `--mib "+FS-MIB"` or `--mib "FS-MIB:BROTHER-MIB"`.',
         dest='MIB',
     )
 
     parser.add_argument(
         '--mib-dir',
-        help='Look in given list of directories for MIBs. Behaves like the `-M` option '
-        'of `snmpget`. '
+        help='Colon-separated list of directories to search for MIBs, behaves like the `-M` option of `snmpget`. '
         'Default: %(default)s.',
         dest='MIB_DIR',
         default='$HOME/.snmp/mibs:/usr/share/snmp/mibs',
@@ -123,7 +119,7 @@ def parse_args():
 
     parser.add_argument(
         '--snmp-version',
-        help='Specifies SNMP version to use. Default: %(default)s.',
+        help='SNMP version to use. Default: %(default)s.',
         dest='SNMP_VERSION',
         choices=['1', '2c', '3'],
         default='2c',
@@ -147,64 +143,66 @@ def parse_args():
 
     parser.add_argument(
         '--v3-auth-prot',
-        help='SNMP Version 3 specific. Set authentication protocol.',
+        help='SNMPv3 authentication protocol.',
         dest='V3_AUTH_PROT',
         choices=['MD5', 'SHA', 'SHA-224', 'SHA-256', 'SHA-384', 'SHA-512'],
     )
 
     parser.add_argument(
         '--v3-auth-prot-password',
-        help='SNMP Version 3 specific. Set authentication protocol pass phrase.',
+        help='SNMPv3 authentication protocol passphrase.',
         dest='V3_AUTH_PROT_PASSWORD',
     )
 
     parser.add_argument(
         '--v3-boots-time',
-        help='SNMP Version 3 specific. Set destination engine boots/time.',
+        help='SNMPv3 destination engine boots/time.',
         dest='V3_BOOTS_TIME',
     )
 
     parser.add_argument(
         '--v3-context',
-        help='SNMP Version 3 specific. Set context name (e.g. bridge1).',
+        help='SNMPv3 context name. Example: `--v3-context bridge1`.',
         dest='V3_CONTEXT',
     )
 
     parser.add_argument(
         '--v3-context-engine-id',
-        help='SNMP Version 3 specific. Set context engine ID (e.g. 800000020109840301).',
+        help='SNMPv3 context engine ID. '
+        'Example: `--v3-context-engine-id 800000020109840301`.',
         dest='V3_CONTEXT_ENGINE_ID',
     )
 
     parser.add_argument(
         '--v3-level',
-        help='SNMP Version 3 specific. Set security level.',
+        help='SNMPv3 security level.',
         dest='V3_LEVEL',
         choices=['noAuthNoPriv', 'authNoPriv', 'authPriv'],
     )
 
     parser.add_argument(
         '--v3-priv-prot',
-        help='SNMP Version 3 specific. Set privacy protocol.',
+        help='SNMPv3 privacy protocol.',
         dest='V3_PRIV_PROT',
         choices=['DES', 'AES', 'AES-192', 'AES-256'],
     )
 
     parser.add_argument(
         '--v3-priv-prot-password',
-        help='SNMP Version 3 specific. Set privacy protocol pass phrase.',
+        help='SNMPv3 privacy protocol passphrase.',
         dest='V3_PRIV_PROT_PASSWORD',
     )
 
     parser.add_argument(
         '--v3-security-engine-id',
-        help='SNMP Version 3 specific. Set security engine ID (e.g. 800000020109840301).',
+        help='SNMPv3 security engine ID. '
+        'Example: `--v3-security-engine-id 800000020109840301`.',
         dest='V3_SECURITY_ENGINE_ID',
     )
 
     parser.add_argument(
         '--v3-username',
-        help='SNMP Version 3 specific. Set security name (e.g. bert).',
+        help='SNMPv3 security name (username). Example: `--v3-username bert`.',
         dest='V3_USERNAME',
     )
 

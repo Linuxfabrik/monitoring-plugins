@@ -43,26 +43,25 @@ Hints:
 usage: openstack-swift-stat [-h] [-V] [--always-ok] [-c CRIT]
                             [--rc-file RC_FILE] [--test TEST] [-w WARN]
 
-The OpenStack Object Store project, known as Swift, offers cloud storage
-software so that you can store and retrieve lots of data with a simple API.
-This monitoring plugin displays and checks information for a Swift account and
-depending containers.
+Checks OpenStack Swift object storage account statistics, including total
+container count, object count, and bytes used. Alerts when storage usage
+exceeds the configured thresholds.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  CRIT when only so many GiB are available. Default: <=
-                       10
-  --rc-file RC_FILE    Specifies a rc file to read connection parameters like
-                       OS_USERNAME from (instead of specifying them on the
-                       command line), for example
+  -c, --critical CRIT  CRIT threshold for remaining free space, in GiB.
+                       Default: <= 10
+  --rc-file RC_FILE    Path to a rc file containing OpenStack connection
+                       parameters like OS_USERNAME (instead of specifying them
+                       on the command line). Example:
                        `/var/spool/icinga2/.openstack.cnf`. Default:
                        /var/spool/icinga2/.openstack.cnf
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".
-  -w, --warning WARN   WARN when only so many GiB are available. Default: <=
-                       50
+  -w, --warning WARN   WARN threshold for remaining free space, in GiB.
+                       Default: <= 50
 ```
 
 

@@ -35,28 +35,29 @@ usage: starface-java-memory-usage [-h] [-V] [--always-ok]
                                   [--timeout TIMEOUT] [--warning WARN]
                                   [--ipv6]
 
-Monitors the heap and non-heap memory usage of the Java VM of the Starface
-PBX. It uses the data output of the Starface Monitoring Module, which was
-originally written for Check_MK and listens on port 6556. Supports both IPv4
-and IPv6. Fetched data is cached up to one minute, so that other Starface
-plugins running in parallel do not query the data again and overload the PBX.
+Monitors Java heap and non-heap memory usage of a Starface PBX via its
+monitoring module on port 6556. Alerts when memory usage exceeds the
+configured thresholds. Supports both IPv4 and IPv6. Data is cached to avoid
+overloading the PBX when multiple checks run in parallel.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
-                        The amount of time after which the cached data
-                        expires, in minutes. Default: 1
-  --critical CRIT       Set the critical threshold (percentage). Default: 90
+                        The amount of time after which the credential/data
+                        cache expires, in minutes. Default: 1.
+  --critical CRIT       CRIT threshold in percent. Supports Nagios ranges.
+                        Default: >= 90.
   -H, --hostname HOSTNAME
-                        Starface PBX address, can be IP address or hostname.
-                        Default: localhost
-  --port PORT           Starface PBX monitoring port. Default: 6556
+                        Starface PBX hostname or IP address. Default:
+                        localhost.
+  --port PORT           Starface PBX monitoring port. Default: 6556.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
-  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  --warning WARN        Set the warning threshold (percentage). Default: 80
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds).
+  --warning WARN        WARN threshold in percent. Supports Nagios ranges.
+                        Default: >= 80.
   --ipv6                Use IPv6.
 ```
 

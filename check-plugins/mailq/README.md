@@ -25,17 +25,18 @@ Hints:
 ```text
 usage: mailq [-h] [-V] [--always-ok] [-c CRIT] [--test TEST] [-w WARN]
 
-Checks the mail queue.
+Checks the number of messages in the mail queue using the "mailq" command.
+Alerts when the queue length exceeds the configured thresholds.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  Set the critical threshold for mails in the queue.
+  -c, --critical CRIT  CRIT threshold for the number of mails in the queue.
                        Default: 250
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".
-  -w, --warning WARN   Set the warning threshold for mails in the queue.
+  -w, --warning WARN   WARN threshold for the number of mails in the queue.
                        Default: 2
 ```
 

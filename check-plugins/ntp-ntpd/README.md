@@ -36,14 +36,14 @@ The stratum of the NTP time source determines its quality. The stratum is equal 
 usage: ntp-ntpd [-h] [-V] [-c CRIT] [--stratum STRATUM] [--test TEST]
                 [-w WARN]
 
-This plugin checks the clock offset of ntpd in milliseconds compared to ntp
-servers.
+Checks the clock offset of ntpd in milliseconds compared to the configured NTP
+servers. Alerts when the offset exceeds the configured thresholds.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
-  -c, --critical CRIT  Set the critical threshold for the ntp time offset, in
-                       ms. Default: 86400000ms
+  -c, --critical CRIT  CRIT threshold for the NTP time offset, in
+                       milliseconds. Default: 86400000ms
   --stratum STRATUM    Warns if the determined stratum of the time server is
                        greater than or equal to this value. Stratum 1
                        indicates a computer with a locally attached reference
@@ -53,8 +53,8 @@ options:
                        and so on. Default: 6
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".
-  -w, --warning WARN   Set the warning threshold for the ntp time offset, in
-                       ms. Default: 800ms
+  -w, --warning WARN   WARN threshold for the NTP time offset, in
+                       milliseconds. Default: 800ms
 ```
 
 

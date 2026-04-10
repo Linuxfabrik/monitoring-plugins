@@ -26,24 +26,30 @@ usage: metabase-stats [-h] [-V] [--cache-expire CACHE_EXPIRE] [-c CRIT]
                       [--timeout TIMEOUT] [--url URL] [--username USERNAME]
                       [-w WARN]
 
-This check gets some recent activity from Metabase.
+Retrieves recent activity and usage statistics from a Metabase instance via
+its API. Reports active users, executed queries, dashboards, and other
+operational metrics. Credentials are cached to reduce API calls.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --cache-expire CACHE_EXPIRE
-                        The amount of time after which the credential cache
-                        expires, in hours. Default: 335
-  -c, --critical CRIT   Set the CRIT threshold as a percentage. Default: >= 90
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
+                        Time after which the credential cache expires, in
+                        hours. Default: 335.
+  -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
+                        Default: >= 90
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
-                        Metabase API password.
+                        Password for authenticating against the Metabase API.
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  --url URL             Metabase API URL. Default: http://localhost:3000
-  --username USERNAME   Metabase API username. Default: metabase-admin
-  -w, --warning WARN    Set the WARN threshold as a percentage. Default: >= 80
+  --url URL             Base URL of the Metabase instance. Default:
+                        http://localhost:3000.
+  --username USERNAME   Username for authenticating against the Metabase API.
+                        Default: metabase-admin.
+  -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
+                        Default: >= 80
 ```
 
 

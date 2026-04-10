@@ -23,9 +23,9 @@ For further information, have a look at <https://xfs.org/index.php/Runtime_Stats
 ```text
 usage: fs-xfs-stats [-h] [-V]
 
-This check provides some internal XFS statistics to user's view, which can be
-helpful on debugging/understanding IO characteristics and optimizing
-performance.
+Reports internal XFS filesystem statistics from /proc/fs/xfs/stat. Useful for
+understanding I/O characteristics and identifying performance bottlenecks on
+XFS volumes.
 
 options:
   -h, --help     show this help message and exit

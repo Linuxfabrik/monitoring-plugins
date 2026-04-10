@@ -41,30 +41,35 @@ usage: wildfly-xa-datasource-stats [-h] [-V] [--always-ok] [--critical CRIT]
                                    [--timeout TIMEOUT] [--url URL]
                                    --username USERNAME [--warning WARN]
 
-Returns metrics about XA Datasources of a Wildfly/JBossAS over HTTP.
+Monitors XA datasource connection pool metrics on a WildFly/JBoss AS server
+via its HTTP management API. Reports active, available, and idle connections.
+Alerts when pool usage exceeds the configured thresholds.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --critical CRIT       Set the critical threshold.
+  --critical CRIT       CRIT threshold in percent. Supports Nagios ranges.
   --datasource DATASOURCE
-                        The name of a specific datasource (repeating).
-                        Default: None
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --instance INSTANCE   The instance (server-config) to check if running in
-                        domain mode.
+                        XA datasource name to check. Can be specified multiple
+                        times. If not specified, all XA datasources are
+                        checked.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --instance INSTANCE   WildFly instance (server-config) to check when running
+                        in domain mode.
   --mode {standalone,domain}
-                        The mode the server is running.
-  --no-proxy            Do not use a proxy. Default: False
-  --node NODE           The node (host) if running in domain mode.
+                        WildFly server mode. Default: standalone.
+  --no-proxy            Do not use a proxy.
+  --node NODE           WildFly node (host) when running in domain mode.
   -p, --password PASSWORD
-                        WildFly API password.
+                        WildFly management API password.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  --url URL             WildFly API URL. Default: http://localhost:9990
-  --username USERNAME   WildFly API username. Default: wildfly-monitoring
-  --warning WARN        Set the warning threshold.
+  --url URL             WildFly management API URL. Default:
+                        http://localhost:9990.
+  --username USERNAME   WildFly management API username. Default: wildfly-
+                        monitoring.
+  --warning WARN        WARN threshold in percent. Supports Nagios ranges.
 ```
 
 

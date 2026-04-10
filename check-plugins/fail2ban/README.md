@@ -20,18 +20,21 @@ Checks the amount of banned IP addresses for all jails in Fail2ban.
 ```text
 usage: fail2ban [-h] [-V] [--always-ok] [-c CRIT] [--test TEST] [-w WARN]
 
-In fail2ban, checks the amount of banned IP addresses per jail.
+Checks the number of currently banned IP addresses across all fail2ban jails.
+Reports the total ban count and a per-jail breakdown. Alerts when the number
+of banned IPs in any jail exceeds the configured thresholds. Requires root or
+sudo.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  Set the critical threshold for banned IPs per jail.
-                       Default: 10000
+  -c, --critical CRIT  CRIT threshold for the number of banned IPs per jail.
+                       Default: 10000.
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".
-  -w, --warning WARN   Set the warning threshold for banned IPs per jail.
-                       Default: 2500
+  -w, --warning WARN   WARN threshold for the number of banned IPs per jail.
+                       Default: 2500.
 ```
 
 

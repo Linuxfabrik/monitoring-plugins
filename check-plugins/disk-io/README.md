@@ -92,39 +92,35 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --count COUNT         Number of times the value must exceed specified
-                        thresholds before alerting. Default: 5
-  --critical CRIT       Threshold for disk bandwidth saturation (over the last
-                        `--count` measurements) as a percentage of the maximum
-                        bandwidth the disk can support. Default: >= 90
+  --count COUNT         Number of consecutive checks the threshold must be
+                        exceeded before alerting. Default: 5.
+  --critical CRIT       CRIT threshold for disk bandwidth saturation as a
+                        percentage of the observed maximum, measured over the
+                        last `--count` runs. Default: >= 90.
   --iowait-critical IOWAIT_CRIT
-                        Set the critical threshold for normalized iowait in
-                        percent (Linux only). The iowait value is normalized
-                        so that 100% means one CPU core is fully
-                        I/O-saturated. Values above 100% indicate that more
-                        than one core is waiting for I/O. Default: >= 90
+                        CRIT threshold for normalized iowait in percent (Linux
+                        only). The iowait value is normalized so that 100%
+                        means one CPU core is fully I/O-saturated. Values
+                        above 100% indicate that more than one core is waiting
+                        for I/O. Default: >= 90.
   --iowait-warning IOWAIT_WARN
-                        Set the warning threshold for normalized iowait in
-                        percent (Linux only). The iowait value is normalized
-                        so that 100% means one CPU core is fully
-                        I/O-saturated. Values above 100% indicate that more
-                        than one core is waiting for I/O. Default: >= 80
-  --match MATCH         Match on disk names. Uses Python regular expressions
-                        without any external flags like `re.IGNORECASE`. The
-                        regular expression is applied to each line of the
-                        output. Examples: `(?i)example` to match the word
-                        "example" in a case-insensitive manner.
-                        `^(?!.*example).*$` to match any string except
-                        "example" (negative lookahead). `(?: ... )*` is a non-
-                        capturing group that matches any sequence of
-                        characters that satisfy the condition inside it, zero
-                        or more times. Default:
-  --top TOP             List x "Top processes that generated the most I/O
-                        traffic". Use `--top=0` to disable this feature.
-                        Default: 5
-  --warning WARN        Threshold for disk bandwidth saturation (over the last
-                        `--count` measurements) as a percentage of the maximum
-                        bandwidth the disk can support. Default: >= 80
+                        WARN threshold for normalized iowait in percent (Linux
+                        only). The iowait value is normalized so that 100%
+                        means one CPU core is fully I/O-saturated. Values
+                        above 100% indicate that more than one core is waiting
+                        for I/O. Default: >= 80.
+  --match MATCH         Filter by disk name. Filter by this Python regular
+                        expression. Case-sensitive by default; use `(?i)` for
+                        case-insensitive matching. Can be specified multiple
+                        times. Examples: `(?i)example` to match "example"
+                        regardless of case. `^(?!.*example).*$` to match any
+                        string except "example" (negative lookahead). Default:
+                        .
+  --top TOP             Number of top processes to list by I/O traffic. Use
+                        `--top=0` to disable. Default: 5.
+  --warning WARN        WARN threshold for disk bandwidth saturation as a
+                        percentage of the observed maximum, measured over the
+                        last `--count` runs. Default: >= 80.
 ```
 
 

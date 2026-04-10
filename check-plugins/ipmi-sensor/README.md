@@ -34,30 +34,32 @@ usage: ipmi-sensor [-h] [-V] [--authtype {NONE,PASSWORD,MD2,MD5,OEM}]
                    [--privlevel {CALLBACK,USER,OPERATOR,ADMINISTRATOR}]
                    [--test TEST] [--username USERNAME]
 
-Checks IPMI sensor information in detail.
+Checks IPMI sensor readings (temperature, voltage, fan speed, power, etc.)
+using ipmitool. Alerts when any sensor reports a non-ok status. Provides
+detailed output including current values, thresholds, and sensor states.
+Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --authtype {NONE,PASSWORD,MD2,MD5,OEM}
-                        Specify an authentication type to use during IPMIv1.5
-                        lan session activation. Supported types are NONE,
-                        PASSWORD, MD2, MD5, or OEM.
+                        Authentication type for IPMIv1.5 lan session
+                        activation. Supported types are NONE, PASSWORD, MD2,
+                        MD5, or OEM. Default: NONE.
   -H, --hostname HOSTNAME
-                        Remote server address, can be IP address or hostname.
-                        This option is required for lan and lanplus
-                        interfaces.
+                        Remote server address, can be a hostname or IP
+                        address. Required for lan and lanplus interfaces.
   --interface {lan,lanplus}
-                        Selects IPMI interface to use. Supported types are
-                        "lan" (= IPMI v1.5) or "lanplus" (= IPMI v2.0).
+                        IPMI interface to use. Supported types are "lan" (IPMI
+                        v1.5) or "lanplus" (IPMI v2.0). Default: lan.
   --password PASSWORD   Remote server password.
-  --port PORT           Remote server UDP port to connect to. Default: 623
+  --port PORT           Remote server UDP port to connect to. Default: 623.
   --privlevel {CALLBACK,USER,OPERATOR,ADMINISTRATOR}
                         Force session privilege level. Can be CALLBACK, USER,
-                        OPERATOR, ADMINISTRATOR. Default: USER
+                        OPERATOR, ADMINISTRATOR. Default: USER.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
-  --username USERNAME   Remote server username, default is NULL user.
+  --username USERNAME   Remote server username. Default: NULL.
 ```
 
 

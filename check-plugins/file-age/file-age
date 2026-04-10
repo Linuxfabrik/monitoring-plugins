@@ -77,33 +77,31 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for file age in seconds. '
-        'Supports ranges. '
-        'Default: >= %(default)ss (365d)',
+        help='CRIT threshold for file age in seconds. Supports Nagios ranges. '
+        'Default: >= %(default)s (365d).',
         dest='CRIT',
         default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
         '--critical-count',
-        help='CRIT threshold for the number of files found within the critical age. '
-        'Supports ranges. '
-        'Default: > %(default)s',
+        help='CRIT threshold for the number of files exceeding the critical age. Supports Nagios ranges. '
+        'Default: > %(default)s.',
         dest='CRIT_COUNT',
         default=DEFAULT_CRIT_COUNT,
     )
 
     parser.add_argument(
         '--filename',
-        help='File or directory name to check. '
-        'Supports glob in accordance with https://docs.python.org/2.7/library/glob.html. '
-        'Beware of using recursive globs. This is mutually exclusive with -u / --url.',
+        help='File or directory name to check (supports glob patterns). '
+        'Beware of recursive globs. '
+        'Mutually exclusive with --url.',
         dest='FILENAME',
     )
 
     parser.add_argument(
         '--only-dirs',
-        help='Only consider directories.',
+        help='Only consider directories, ignoring files.',
         dest='ONLY_DIRS',
         action='store_true',
         default=False,
@@ -111,7 +109,7 @@ def parse_args():
 
     parser.add_argument(
         '--only-files',
-        help='Only consider files.',
+        help='Only consider files, ignoring directories.',
         dest='ONLY_FILES',
         action='store_true',
         default=False,
@@ -119,15 +117,15 @@ def parse_args():
 
     parser.add_argument(
         '--password',
-        help='SMB: Password.',
+        help='Password for SMB authentication.',
         dest='PASSWORD',
     )
 
     parser.add_argument(
         '--pattern',
-        help='SMB: The search string to match against the names of SMB directories or files. '
-        "This pattern can use '*' as a wildcard for multiple chars and '?' as a wildcard for "
-        'a single char. Does not support regex patterns. '
+        help='SMB search pattern to match directory or file names. '
+        'Use `*` for multiple characters and `?` for a single character. '
+        'Does not support regex. '
         'Default: %(default)s.',
         dest='PATTERN',
         default=DEFAULT_PATTERN,
@@ -135,7 +133,8 @@ def parse_args():
 
     parser.add_argument(
         '--perfdata-mode',
-        help='Performance data aggregation mode. Default: %(default)s.',
+        help='Aggregation mode for performance data across matched files. '
+        'Default: %(default)s.',
         dest='PERFDATA_MODE',
         default=DEFAULT_PERFDATA_MODE,
         choices=[
@@ -147,7 +146,7 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        help=lib.args.help('--timeout') + ' Default: %(default)s.',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -156,33 +155,31 @@ def parse_args():
     parser.add_argument(
         '-u',
         '--url',
-        help='SMB: URL of the file (or directory) to check, starting with "smb://". '
-        'This is mutually exclusive with --filename.',
+        help='SMB URL of the file or directory to check, starting with `smb://`. '
+        'Mutually exclusive with --filename.',
         dest='URL',
         type=str,
     )
 
     parser.add_argument(
         '--username',
-        help='SMB: Username.',
+        help='Username for SMB authentication.',
         dest='USERNAME',
     )
 
     parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for file age in seconds. '
-        'Supports ranges. '
-        'Default: >= %(default)ss (30d)',
+        help='WARN threshold for file age in seconds. Supports Nagios ranges. '
+        'Default: >= %(default)s (30d).',
         dest='WARN',
         default=DEFAULT_WARN,
     )
 
     parser.add_argument(
         '--warning-count',
-        help='WARN threshold for the number of files found within the warning age. '
-        'Supports ranges. '
-        'Default: > %(default)s (30d)',
+        help='WARN threshold for the number of files exceeding the warning age. Supports Nagios ranges. '
+        'Default: > %(default)s.',
         dest='WARN_COUNT',
         default=DEFAULT_WARN_COUNT,
     )

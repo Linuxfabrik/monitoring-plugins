@@ -38,75 +38,63 @@ usage: disk-usage [-h] [-V] [--always-ok] [-c CRIT]
                   [--include-regex INCLUDE_REGEX] [--list-fstypes]
                   [--perfdata-regex PERFDATA_REGEX] [-w WARN]
 
-Checks the used disk space, for each partition.
+Checks used or free disk space for each mounted partition. By default, only
+physical devices are checked (hard disks, USB drives), ignoring pseudo and
+memory filesystems. Supports filtering by mountpoint pattern or filesystem
+type. Thresholds can be set as percentages or absolute values, and can target
+either used or free space. Note that on Unix systems, 5% of disk space is
+typically reserved for root and not reflected in the available space shown to
+regular users. Alerts when usage exceeds the configured thresholds.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Critical threshold, of the form
-                        "<number>[unit][method]", where unit is one of
-                        `%|K|M|G|T|P` and method is one of `USED|FREE`. If
-                        "unit" is omitted, `%` is assumed. `K` means
-                        `kibibyte` etc. If "method" is omitted, `USED` is
-                        assumed. `USED` means "number ore more", `FREE` means
-                        "number or less". Examples: `95` = alert at 95% usage
-                        or more. `9.5M` = alert when 9.5 MiB or more is used.
-                        Other self-explanatory examples are `95%USED`,
-                        `5%FREE`, `9.5GFREE`, `1400GUSED`. Default: 95%USED
+  -c, --critical CRIT   CRIT threshold in the form `<number>[unit][method]`.
+                        Unit is one of `%|K|M|G|T|P` (default: `%`). `K` means
+                        kibibyte etc. Method is one of `USED|FREE` (default:
+                        `USED`). `USED` means "number or more", `FREE` means
+                        "number or less". Examples: `95` = 95% used. `9.5M` =
+                        9.5 MiB used. `5%FREE`. `1400GUSED`. Default: 95%USED.
   --exclude-pattern EXCLUDE_PATTERN
-                        Any mountpoint matching this pattern (case-
-                        insensitive) will count as an exclude. The mountpoint
-                        is excluded if it contains the specified value.
-                        Example: "boot" excludes "/boot" as well as
-                        "/boot/efi". Can be specified multiple times. On
-                        Windows, use drive letters without backslash ("Y:" or
-                        "Y"). Includes are matched before excludes.
+                        Exclude any mountpoint containing this substring
+                        (case-insensitive). Example: `boot` excludes `/boot`
+                        and `/boot/efi`. Can be specified multiple times. On
+                        Windows, use drive letters without backslash (`Y:` or
+                        `Y`). Includes are matched before excludes.
   --exclude-regex EXCLUDE_REGEX
-                        Any mountpoint matching this python regex (case-
-                        insensitive) will count as an exclude. Can be
-                        specified multiple times. On Windows, use drive
-                        letters without backslash ("Y:" or "Y"). Includes are
-                        matched before excludes.
-  --fstype FSTYPE       By default, this plugin only checks physical devices
-                        (e.g. hard disks, CD-ROM drives, USB keys) and ignores
-                        all others (e.g. pseudo, memory, duplicate,
-                        inaccessible file systems). You can override this
-                        behaviour with this parameter by specifying which file
-                        system types should be checked explicitly. Can be
-                        specified multiple times. To get a list of file system
-                        types you can specify, run `disk-usage --list-fstype`
-                        first (as file system types are machine dependent).
+                        Exclude any mountpoint matching this Python regex
+                        (case-insensitive). Can be specified multiple times.
+                        On Windows, use drive letters without backslash (`Y:`
+                        or `Y`). Includes are matched before excludes.
+  --fstype FSTYPE       Override the default behaviour (check physical devices
+                        only) and check these file system types instead. Can
+                        be specified multiple times. Run `disk-usage --list-
+                        fstypes` first to see available types (they are
+                        machine dependent).
   --include-pattern INCLUDE_PATTERN
-                        Any mountpoint matching this pattern (case-
-                        insensitive) will count as an include. The mountpoint
-                        is included if it contains the specified value.
-                        Example: "boot" includes "/boot" as well as
-                        "/boot/efi". Can be specified multiple times. On
-                        Windows, use drive letters without backslash ("Y:" or
-                        "Y"). Includes are matched before excludes.
+                        Only include mountpoints containing this substring
+                        (case-insensitive). Example: `boot` includes `/boot`
+                        and `/boot/efi`. Can be specified multiple times. On
+                        Windows, use drive letters without backslash (`Y:` or
+                        `Y`). Includes are matched before excludes.
   --include-regex INCLUDE_REGEX
-                        Any mountpoint matching this python regex (case-
-                        insensitive) will count as an include. Can be
-                        specified multiple times. On Windows, use drive
-                        letters without backslash ("Y:" or "Y"). Includes are
-                        matched before excludes.
-  --list-fstypes        Show which file system types are available and which
-                        are checked by default.
+                        Only include mountpoints matching this Python regex
+                        (case-insensitive). Can be specified multiple times.
+                        On Windows, use drive letters without backslash (`Y:`
+                        or `Y`). Includes are matched before excludes.
+  --list-fstypes        Print available file system types and which ones are
+                        checked by default, then exit.
   --perfdata-regex PERFDATA_REGEX
-                        Only print perfdata keys matching this python regex.
-                        For a list of perfdata keys, have a look at the README
-                        and run this plugin. Can be specified multiple times.
-  -w, --warning WARN    Warning threshold, of the form
-                        "<number>[unit][method]", where unit is one of
-                        `%|K|M|G|T|P` and method is one of `USED|FREE`. If
-                        "unit" is omitted, `%` is assumed. `K` means
-                        `kibibyte` etc. If "method" is omitted, `USED` is
-                        assumed. `USED` means "number ore more", `FREE` means
-                        "number or less". Examples: `95` = alert at 95% usage.
-                        `9.5M` = alert when 9.5 MiB is used. Other self-
-                        explanatory examples are `95%USED`, `5%FREE`,
-                        `9.5GFREE`, `1400GUSED`. Default: 90%USED
+                        Only emit perfdata keys matching this Python regex.
+                        For a list of perfdata keys, see the README or run
+                        this plugin. Can be specified multiple times.
+  -w, --warning WARN    WARN threshold in the form `<number>[unit][method]`.
+                        Unit is one of `%|K|M|G|T|P` (default: `%`). `K` means
+                        kibibyte etc. Method is one of `USED|FREE` (default:
+                        `USED`). `USED` means "number or more", `FREE` means
+                        "number or less". Examples: `95` = 95% used. `9.5M` =
+                        9.5 MiB used. `5%FREE`. `1400GUSED`. Default: 90%USED.
 ```
 
 

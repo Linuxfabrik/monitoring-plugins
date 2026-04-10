@@ -47,31 +47,35 @@ usage: haproxy-status [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
                       [--timeout TIMEOUT] [-u URL] [--username USERNAME]
                       [-w WARN]
 
-This check shows you an abundance of metrics that cover the health of your
-HAProxy server, current request rates, response times, and more.
+Monitors HAProxy performance and health via the stats endpoint. Reports
+frontend and backend session usage, request rates, response times, error
+rates, and server states. Alerts when session usage exceeds the configured
+thresholds. Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Set the CRIT threshold as a percentage. Default: >= 95
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
+  -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
+                        Default: >= 95
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
   --lengthy             Extended reporting.
-  --no-proxy            Do not use a proxy. Default: False
+  --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
-                        HAProxy Stats Auth password (not needed for socket
-                        access).
+                        HAProxy stats auth password. Not needed for socket
+                        access.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  -u, --url URL         HAProxy Stats URI. Can be either
-                        `unix:///path/to/haproxy.sock` or an URL like
-                        `https://webserver:8443/server-status`. Default:
-                        unix:///run/haproxy.sock
-  --username USERNAME   HAProxy Stats Auth username (not needed for socket
-                        access). Default: haproxy-stats
-  -w, --warning WARN    Set the WARN threshold as a percentage. Default: >= 80
+  -u, --url URL         HAProxy stats URI. Accepts
+                        `unix:///path/to/haproxy.sock` or an HTTP(S) URL.
+                        Example: `--url https://webserver:8443/server-status`.
+                        Default: unix:///run/haproxy.sock.
+  --username USERNAME   HAProxy stats auth username. Not needed for socket
+                        access. Default: haproxy-stats.
+  -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
+                        Default: >= 80
 ```
 
 

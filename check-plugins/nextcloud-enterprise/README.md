@@ -27,14 +27,16 @@ Hints:
 ```text
 usage: nextcloud-enterprise [-h] [-V] [--path PATH]
 
-Provides information about an installed Nextcloud Enterprise subscription.
+Retrieves and displays information about an installed Nextcloud Enterprise
+subscription, including license status, expiration date, and supported user
+count. Alerts when the subscription is expired or about to expire. Requires
+root or sudo.
 
 options:
   -h, --help     show this help message and exit
   -V, --version  show program's version number and exit
-  --path PATH    Local path to your Nextcloud installation, typically within
-                 your Webserver's Document Root. Default:
-                 /var/www/html/nextcloud
+  --path PATH    Local path to the Nextcloud installation, typically the web
+                 server document root. Default: /var/www/html/nextcloud
 ```
 
 

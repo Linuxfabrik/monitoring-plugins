@@ -34,7 +34,9 @@ The stratum of the NTP time source determines its quality. The stratum is equal 
 ```text
 usage: ntp-systemd-timesyncd [-h] [-V] [--stratum STRATUM] [--test TEST]
 
-This plugin checks the state of systemd-timesyncd.
+Checks the state of systemd-timesyncd, including synchronization status,
+server reachability, and stratum level. Alerts if time synchronization is
+inactive or if the stratum exceeds the configured limit.
 
 options:
   -h, --help         show this help message and exit

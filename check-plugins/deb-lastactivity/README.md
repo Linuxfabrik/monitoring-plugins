@@ -20,16 +20,20 @@ Checks the timespan since the last package manager activity, for example due to 
 ```text
 usage: deb-lastactivity [-h] [-V] [-c CRIT] [--test TEST] [-w WARN]
 
-Checks the timespan since the last package manager activity, for example due
-to an apt install/update.
+Checks how long ago the last APT package manager activity occurred (install,
+update, or remove). Alerts if no package management activity has happened
+within the configured thresholds (default: WARN after 90 days, CRIT after 365
+days). Useful for detecting servers that have not been patched in a long time.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
-  -c, --critical CRIT  Set the critical threshold (in days). Default: 365
+  -c, --critical CRIT  CRIT threshold for time since last package manager
+                       activity, in days. Default: 365.
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".
-  -w, --warning WARN   Set the warning threshold (in days). Default: 90
+  -w, --warning WARN   WARN threshold for time since last package manager
+                       activity, in days. Default: 90.
 ```
 
 

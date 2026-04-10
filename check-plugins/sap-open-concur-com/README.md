@@ -27,29 +27,29 @@ usage: sap-open-concur-com [-h] [--always-ok] [-V]
                            [--no-proxy] [--service SERVICE] [--test TEST]
                            [--timeout TIMEOUT] [--utc-offset UTC_OFFSET]
 
-This plugin checks for incidents mentioned at the SAP Concur Open
-(https://open.concur.com/) Service Status Dashboard.
+Monitors the SAP Concur Open status page (open.concur.com) for active service
+incidents. Alerts when unresolved incidents are reported on the dashboard.
 
 options:
   -h, --help            show this help message and exit
   --always-ok           Always returns OK.
   -V, --version         show program's version number and exit
   --datacenter {us,us2,eu,eu2,cn,pscc}
-                        Datacenter to query. Default: eu
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
-  --service SERVICE     Service to check. One of "Analysis/Intelligence",
-                        "Compleat (TMC Services)", "Expense", "Imaging",
-                        "Invoice", "Mobile", "Request", "Travel", or simply
-                        "All". Check https://open.concur.com to see which
-                        service is available for which data center. Default:
-                        All
+                        SAP Concur datacenter to query. Default: eu.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
+  --service SERVICE     SAP Concur service to check. One of
+                        "Analysis/Intelligence", "Compleat (TMC Services)",
+                        "Expense", "Imaging", "Invoice", "Mobile", "Request",
+                        "Travel", or simply "All". Check
+                        https://open.concur.com to see which service is
+                        available for which datacenter. Default: All.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --utc-offset UTC_OFFSET
-                        UTC offset. Default: +0200
+                        UTC offset for timestamp display. Default: +0200.
 ```
 
 

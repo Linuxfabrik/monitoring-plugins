@@ -20,24 +20,16 @@ The check works fine for tcp connections, but not for udp. The port response for
 ## Help
 
 ```text
-usage: network-port-tcp [-h] [-V] [-H HOSTNAME] [-p PORT]
-                        [--portname PORTNAME] [--severity {warn,crit}]
-                        [-t TIMEOUT] [--type {tcp,tcp6}]
-
-Checks whether a network port is reachable.
-
-options:
-  -h, --help            show this help message and exit
-  -V, --version         show program's version number and exit
-  -H, --hostname HOSTNAME
-                        The host or ip address to check. Default: localhost
-  -p, --port PORT       The port number. Default: 22
-  --portname PORTNAME   The display name of the port.
-  --severity {warn,crit}
-                        Severity for alerting. Default: warn
-  -t, --timeout TIMEOUT
-                        Network timeout. Default: 2
-  --type {tcp,tcp6}     Connection type. Default: tcp
+Traceback (most recent call last):
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/network-port-tcp/network-port-tcp", line 141, in 'module'
+    main()
+    ~~~~^^
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/network-port-tcp/network-port-tcp", line 105, in main
+    args = parse_args()
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/network-port-tcp/network-port-tcp", line 72, in parse_args
+    help=lib.args.help('--severity') + ' Default: %(default)s',
+         ^^^^^^^^
+AttributeError: module 'lib' has no attribute 'args'
 ```
 
 

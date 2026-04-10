@@ -25,19 +25,17 @@ Alerts on load average are only set on 15 minutes time period. For this, the che
 ```text
 usage: load [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
 
-Return the average system load per CPU over the last 1, 5 and 15 minutes. In
-short, "load" is the average sum of the number of processes waiting in the
-run-queue plus the number currently executing over 1, 5, and 15 minute time
-periods.
+Reports the average system load per CPU over the last 1, 5, and 15 minutes.
+Load represents the average number of processes waiting in the run queue plus
+those currently executing. The values are normalized by dividing by the number
+of CPUs. Alerts when the load average exceeds the configured thresholds.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  Set the critical threshold for load15 per CPU. Default:
-                       5.0
-  -w, --warning WARN   Set the warning threshold for load15 per CPU. Default:
-                       1.15
+  -c, --critical CRIT  CRIT threshold for load15 per CPU. Default: 5.0
+  -w, --warning WARN   WARN threshold for load15 per CPU. Default: 1.15
 ```
 
 

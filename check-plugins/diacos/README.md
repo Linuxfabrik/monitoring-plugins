@@ -33,50 +33,57 @@ usage: diacos [-h] [-V] [--always-ok] [-c CRITICAL] [--insecure]
               [--search-year YEAR] [--test TEST] [--timeout TIMEOUT]
               [--url URL] [-w WARNING]
 
-This plugin checks availability and performance of an ID DIACOS® installation
-by doing a login, search and logout. (https://www.id-suisse-
-ag.ch/loesungen/abrechnung/id-diacos/)
+Checks availability and response time of an ID DIACOS installation by
+performing a full login, diagnosis search, and logout cycle. Alerts if the
+total response time exceeds the configured thresholds. Useful for monitoring
+the health of DIACOS medical billing systems.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
-  --always-ok           Always return OK.
+  --always-ok           Always returns OK.
   -c, --critical CRITICAL
-                        Critical threshold for duration of
-                        login+search+logout. Default: 6000 (ms)
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
+                        CRIT threshold for the total duration of login,
+                        search, and logout, in milliseconds. Default: 6000.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
   --login-computer COMPUTER
-                        user.Login argument COMPUTER. Default: Brower_APP
-  --login-ip IP         user.Login argument IP. Default: 127.0.0.1
+                        COMPUTER argument for the user.Login API call.
+                        Default: Brower_APP.
+  --login-ip IP         IP argument for the user.Login API call. Default:
+                        127.0.0.1.
   --login-licence LICENCE
-                        user.Login argument LICENCE (required)
-  --login-name NAME     user.Login argument NAME (required)
-  --no-proxy            Do not use a proxy. Default: False
+                        LICENCE argument for the user.Login API call
+                        (required).
+  --login-name NAME     NAME argument for the user.Login API call (required).
+  --no-proxy            Do not use a proxy.
   --search-concept-filter CONCEPT_FILTER
-                        classification.SearchDiagnoses argument
-                        CONCEPT_FILTER. Default: %25R239%3BC%3BD99.99
+                        CONCEPT_FILTER argument for the
+                        classification.SearchDiagnoses API call. Default:
+                        %25R239%3BC%3BD99.99.
   --search-country COUNTRY
-                        classification.SearchDiagnoses argument COUNTRY.
-                        Default: CH
+                        COUNTRY argument for the
+                        classification.SearchDiagnoses API call. Default: CH.
   --search-format FORMAT
-                        classification.SearchDiagnoses argument FORMAT.
-                        Default: %25T0%25C%3F%25I%25R
+                        FORMAT argument for the classification.SearchDiagnoses
+                        API call. Default: %25T0%25C%3F%25I%25R.
   --search-searchtext SEARCHTEXT
-                        classification.SearchDiagnoses argument SEARCHTEXT.
-                        Default: Haut
+                        SEARCHTEXT argument for the
+                        classification.SearchDiagnoses API call. Default:
+                        Haut.
   --search-sort-mode SORT_MODE
-                        classification.SearchDiagnoses argument SORT_MODE.
-                        Default: %25T
-  --search-year YEAR    classification.SearchDiagnoses argument YEAR. Default:
-                        2020
+                        SORT_MODE argument for the
+                        classification.SearchDiagnoses API call. Default:
+                        %25T.
+  --search-year YEAR    YEAR argument for the classification.SearchDiagnoses
+                        API call. Default: 2020.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 7 (seconds)
-  --url URL             ID DIACOS URL. Default: http://localhost:9999
+  --url URL             ID DIACOS base URL. Default: http://localhost:9999.
   -w, --warning WARNING
-                        Warning threshold for duration of login+search+logout.
-                        Default: 3000 (ms)
+                        WARN threshold for the total duration of login,
+                        search, and logout, in milliseconds. Default: 3000.
 ```
 
 

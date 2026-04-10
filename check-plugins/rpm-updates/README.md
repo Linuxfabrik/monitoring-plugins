@@ -66,29 +66,25 @@ The 'Type' column in the output lists the type of update for each intermediate v
 usage: rpm-updates [-h] [-V] [--always-ok] [--only-critical] [--query QUERY]
                    [--timeout TIMEOUT] [-w WARN]
 
-Displays available updates, including a list of advisories about newer
-versions of installed packages. For these advisories, the plugin takes only
-the latest installed versions of packages into account. In case of the kernel
-packages (when multiple version could be installed simultaneously) also
-packages of the currently running version of kernel are added. This plugin
-only lists updates and upgrades and provides relevant alerts. It never
-actually runs an update.
+Checks for available RPM package updates on RHEL, CentOS, Fedora, and
+compatible systems. Reports the number and type of available advisories
+(bugfix, enhancement, security). Alerts when updates are available. This check
+only lists updates and never actually installs anything.
 
 options:
   -h, --help          show this help message and exit
   -V, --version       show program's version number and exit
   --always-ok         Always returns OK.
-  --only-critical     Only collect critical updates and upgrades.
-  --query QUERY       The list of available updates and upgrades is stored in
-                      a SQL table. Provide the SQL `WHEN` statement part to
-                      narrow down results. Example: `--query='package like
-                      "bind9-%"'`. Also supports regular expressions via a
-                      REGEXP statement. Have a look at the README for a list
-                      of available columns. If this parameter is used, a list
-                      of matching updates is printed. Default: 1
-  --timeout TIMEOUT   Plugin timeout in seconds. Default: 120 (seconds)
-  -w, --warning WARN  Minimum number of packages to return WARNING. Default:
-                      1.
+  --only-critical     Only report security updates and upgrades.
+  --query QUERY       SQL WHERE clause to filter the list of available
+                      updates. Supports regular expressions via a REGEXP
+                      statement. See the README for a list of available
+                      columns. If specified, a list of matching updates is
+                      printed. Example: `--query='package like "bind9-%"'`.
+                      Default: 1
+  --timeout TIMEOUT   Network timeout in seconds. Default: 120 (seconds)
+  -w, --warning WARN  Minimum number of available updates to return WARNING.
+                      Default: 1
 ```
 
 

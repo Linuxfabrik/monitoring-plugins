@@ -28,22 +28,24 @@ usage: virustotal-scan-url [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
                            [--severity {warn,crit}] [--test TEST]
                            [--timeout TIMEOUT] --token TOKEN --url URL
 
-Analyses URLs to detect malware and other breaches using VirusTotal.
+Submits a URL to VirusTotal for analysis and checks the scan results. Alerts
+when any antivirus engine flags the URL as malicious or suspicious. Requires a
+VirusTotal API key.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
   --severity {warn,crit}
                         Severity for alerting. Default: warn
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  --token TOKEN         VirusTotal API token
-  --url URL             URL to scan.
+  --token TOKEN         VirusTotal API token.
+  --url URL             URL to submit for scanning.
 ```
 
 

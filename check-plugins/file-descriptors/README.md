@@ -22,18 +22,21 @@ Checks the number of assigned file handles in percent. Also shows the top 5 proc
 usage: file-descriptors [-h] [-V] [--always-ok] [-c CRIT] [--top TOP]
                         [-w WARN]
 
-Checks the number of allocated file handles in percent.
+Checks the system-wide file descriptor usage as a percentage of the kernel
+maximum. Also lists the top processes consuming the most file descriptors to
+help identify the source of high usage. Alerts when usage exceeds the
+configured thresholds.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  Set the critical threshold for file descriptor usage
-                       (in percent). Default: 95
-  --top TOP            List x "Top processes opening file descriptors".
-                       Default: 5
-  -w, --warning WARN   Set the warning threshold for file descriptor usage (in
-                       percent). Default: 90
+  -c, --critical CRIT  CRIT threshold for file descriptor usage in percent.
+                       Default: 95.
+  --top TOP            Number of top processes to list by open file
+                       descriptors. Default: 5.
+  -w, --warning WARN   WARN threshold for file descriptor usage in percent.
+                       Default: 90.
 ```
 
 

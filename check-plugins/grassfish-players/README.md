@@ -34,47 +34,51 @@ usage: grassfish-players [-h] [-V] [--always-ok] [--api-version API_VERSION]
                          [--transfer-status {complete,overdue,pending}]
                          [-w WARN] [-u URL]
 
-This monitoring plugin shows you a list of Grassfish players whose data
-transfer status is overdue, whose last access date is more than `--warning`
-hours ago or who are unlicensed. The list of players can be filtered. You must
-provide both the Grassfish hostname and a Grassfish token for this check to
-work.
+Monitors Grassfish digital signage players via the Grassfish API. Lists
+players whose data transfer is overdue, whose last access exceeds the
+configured threshold, or who are unlicensed. The player list can be filtered.
+Requires a Grassfish hostname and API token. Supports extended reporting via
+--lengthy.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --api-version API_VERSION
-                        Grassfish API Version. Default: 1.12
-  --box-id BOX_ID       Filter by specific box IDs. Supports Python Regular
-                        Expressions (regex, case-insensitive).
+                        Grassfish API version. Default: 1.12.
+  --box-id BOX_ID       Filter by box ID. Supports Python regular expressions
+                        (case-insensitive). Example: `--box-id
+                        "^player-0[1-3]$"`.
   --box-state {activated,deleted,new,reserved,undefined}
-                        Filter by specific box state. Repeating.
+                        Filter by box state. Can be specified multiple times.
+                        Default: None.
   --custom-id CUSTOM_ID
-                        Filter by specific custom IDs. Supports Python Regular
-                        Expressions (regex, case-insensitive).
+                        Filter by custom ID. Supports Python regular
+                        expressions (case-insensitive). Example: `--custom-id
+                        "(?i)lobby"`.
   -H, --hostname HOSTNAME
-                        Grassfish hostname. Default: None
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
+                        Grassfish hostname.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
   --is-installed {yes,no}
-                        Filter by boxes that are installed (= "yes") or not (=
-                        "no"). Repeating.
+                        Filter by installation status ("yes" or "no"). Can be
+                        specified multiple times.
   --is-licensed {yes,no}
-                        Filter by boxes that are licensed (= "yes") or not (=
-                        "no"). Repeating.
+                        Filter by license status ("yes" or "no"). Can be
+                        specified multiple times.
   --lengthy             Extended reporting.
-  --no-proxy            Do not use a proxy. Default: False
-  --port PORT           Grassfish port. Default: 443
+  --no-proxy            Do not use a proxy.
+  --port PORT           Grassfish port number. Default: 443.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  --token TOKEN         Grassfish API token
+  --token TOKEN         Grassfish API token.
   --transfer-status {complete,overdue,pending}
-                        Filter by specific data transfer status. Repeating.
-  -w, --warning WARN    Set the WARN threshold for Last Access in hours
-                        (considers player is offline). Default: > 8 h
-  -u, --url URL         Grassfish API URL. Default: /gv2/webservices/API
+                        Filter by data transfer status. Can be specified
+                        multiple times.
+  -w, --warning WARN    WARN threshold for last access in hours (player
+                        considered offline above this value). Default: > 8 h.
+  -u, --url URL         Grassfish API URL. Default: /gv2/webservices/API.
 ```
 
 

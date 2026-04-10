@@ -25,16 +25,15 @@ Hints:
 ```text
 usage: sensors-fans [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
 
-Return hardware fans speed. Fan speed is expressed in RPM (rounds per minute).
+Reports hardware fan speeds in RPM (rounds per minute). Alerts when fan speeds
+fall outside the thresholds reported by the hardware sensors.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  Set the critical threshold for fan speed in RPM.
-                       Default: 20000
-  -w, --warning WARN   Set the warning threshold for fan speed in RPM.
-                       Default: 10000
+  -c, --critical CRIT  CRIT threshold for fan speed, in RPM. Default: 20000.
+  -w, --warning WARN   WARN threshold for fan speed, in RPM. Default: 10000.
 ```
 
 

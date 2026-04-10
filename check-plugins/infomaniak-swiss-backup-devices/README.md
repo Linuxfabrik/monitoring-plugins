@@ -42,42 +42,48 @@ usage: infomaniak-swiss-backup-devices [-h] [-V] --account-id ACCOUNT_ID
                                        [--timeout TIMEOUT] --token TOKEN
                                        [--test TEST] [-w WARN]
 
-Checks each device / slot of all your Infomaniak Swiss backup products via the
-Infomaniak API.
+Checks each backup device (slot) across all Infomaniak Swiss Backup products
+via the Infomaniak API. Alerts when storage usage exceeds the configured
+thresholds or when a device reports an error state. Devices can be filtered by
+customer, name, tag, or user.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --account-id ACCOUNT_ID
-                        Infomaniak Account-ID
+                        Infomaniak account ID.
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Set the CRIT threshold as a percentage. Default: >= 95
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
+  -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
+                        Default: >= 95
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
   --ignore-customer IGNORE_CUSTOMER
                         Any device whose product customer name matches this
-                        python regex will be ignored (repeating). Example:
-                        '(?i)test' for a case-insensitive search for "test".
+                        Python regex will be ignored. Can be specified
+                        multiple times. Example: `--ignore-customer
+                        "(?i)test"`.
   --ignore-name IGNORE_NAME
-                        Any device whose name matches this python regex will
-                        be ignored (repeating). Example: '(?i)old-backup' for
-                        a case-insensitive search for "old-backup".
+                        Any device whose name matches this Python regex will
+                        be ignored. Can be specified multiple times. Example:
+                        `--ignore-name "(?i)old-backup"`.
   --ignore-tag IGNORE_TAG
-                        Any device whose product tag matches this python regex
-                        will be ignored (repeating). Example: '(?i)deprecated'
-                        for a case-insensitive search for "deprecated".
+                        Any device whose product tag matches this Python regex
+                        will be ignored. Can be specified multiple times.
+                        Example: `--ignore-tag "(?i)deprecated"`.
   --ignore-user IGNORE_USER
-                        Any device whose username matches this python regex
-                        will be ignored (repeating). Example: '(?i)testuser'
-                        for a case-insensitive search for "testuser".
+                        Any device whose username matches this Python regex
+                        will be ignored. Can be specified multiple times.
+                        Example: `--ignore-user "(?i)testuser"`.
   --severity {warn,crit}
-                        Severity for alerting other values. Default: warn
+                        Severity for alerting on locked devices. Default:
+                        warn.
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  --token TOKEN         Infomaniak API token
+  --token TOKEN         Infomaniak API token.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
-  -w, --warning WARN    Set the WARN threshold as a percentage. Default: >= 90
+  -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
+                        Default: >= 90
 ```
 
 

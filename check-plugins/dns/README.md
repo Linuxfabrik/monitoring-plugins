@@ -23,25 +23,25 @@ This command works with both IPv4 and IPv6.
 usage: dns [-h] [-V] [--always-ok] [-c CRIT] [-H HOSTNAME] [-p PORT]
            [--type {udp,udp6,tcp,tcp6}] [-w WARN]
 
-Performs a DNS lookup and converts a hostname to one or more IP addresses.
-Only the name servers configured on the machine running this check plugin (for
-example those visible in `/etc/resolv.conf`) will be queried - you can't query
-other DNS servers. This command works with both IPv4 and IPv6.
+Performs a DNS lookup and resolves a hostname to one or more IP addresses.
+Queries the name servers configured on the local machine (e.g. those listed in
+/etc/resolv.conf). Measures and alerts on the lookup response time. Works with
+both IPv4 and IPv6.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Return critical if elapsed time in ms exceeds value.
-                        Default: None
+  -c, --critical CRIT   CRIT threshold for DNS lookup time in milliseconds.
+                        Default: None.
   -H, --hostname HOSTNAME
-                        The host or ip address to check. Default: localhost
-  -p, --port PORT       The port number. Default: 53
+                        Hostname or IP address to resolve. Default: localhost.
+  -p, --port PORT       Port number to query. Default: 53.
   --type {udp,udp6,tcp,tcp6}
-                        Connection type. Can be optionally specified in order
-                        to narrow the list of addresses returned.
-  -w, --warning WARN    Return warning if elapsed time in ms exceeds value.
-                        Default: None
+                        Connection type to narrow the list of returned
+                        addresses.
+  -w, --warning WARN    WARN threshold for DNS lookup time in milliseconds.
+                        Default: None.
 ```
 
 

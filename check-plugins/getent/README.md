@@ -26,19 +26,19 @@ For details have a look at `man getent`.
 ```text
 usage: getent [-h] [-V] [--database DATABASE] [--key KEY]
 
-Attempts to obtain entries from Name Service Switch (NSS) libraries and warns
-of errors or missing matches.
+Queries the Name Service Switch (NSS) for entries in system databases such as
+group, hosts, networks, passwd, protocols, or services. Alerts if the lookup
+fails or if a specific key is not found.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
-  --database DATABASE  May be any of those supported by "getent", for example
-                       "group", "hosts" etc. Default: group
-  --key KEY            If one or more key arguments are provided, then only
-                       the entries that match the supplied keys will be
-                       fetched. Otherwise, if no key is provided, all entries
-                       will be fetched (unless the database does not support
-                       enumeration). (repeating)
+  --database DATABASE  NSS database to query. May be any database supported by
+                       "getent". Example: `--database passwd`. Default: group.
+  --key KEY            Lookup key to search for in the database. If not
+                       specified, all entries are fetched (unless the database
+                       does not support enumeration). Can be specified
+                       multiple times. Example: `--key root --key nobody`.
 ```
 
 

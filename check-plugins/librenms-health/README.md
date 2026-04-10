@@ -35,10 +35,10 @@ usage: librenms-health [-h] [-V] [--always-ok] [--defaults-file DEFAULTS_FILE]
                        [--device-type {appliance,collaboration,environment,firewall,loadbalancer,management,network,power,printer,server,storage,wireless,workstation}]
                        [--lengthy] [--timeout TIMEOUT]
 
-This check plugin retrieves sensor information for each device from a LibreNMS
-instance. This check requires direct access to the LibreNMS MySQL/MariaDB
-database, because the API is simply too resource intensive for use in a large
-scale environment.
+Retrieves hardware sensor information (temperature, humidity, voltage, power,
+etc.) for each device from a LibreNMS instance. Alerts when sensor values
+exceed their configured thresholds. Requires direct access to the LibreNMS
+MySQL/MariaDB database. Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -46,20 +46,21 @@ options:
   --always-ok           Always returns OK.
   --defaults-file DEFAULTS_FILE
                         Specifies a cnf file to read parameters like user,
-                        host and password from (instead of specifying them on
-                        the command line), for example
-                        `/var/spool/icinga2/.my.cnf`. Default:
-                        /var/spool/icinga2/.my.cnf
+                        host and password from (for MySQL/MariaDB cnf-style
+                        files). Example: `/var/spool/icinga2/.my.cnf`.
+                        Default: /var/spool/icinga2/.my.cnf
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
   --device-group DEVICE_GROUP
-                        Filter by LibreNMS Device Group. Supports SQL
-                        Wildcards.
+                        Filter by LibreNMS device group. Supports SQL
+                        wildcards.
   --device-hostname DEVICE_HOSTNAME
-                        Filter by LibreNMS Hostname (repeating).
+                        Filter by LibreNMS hostname. Can be specified multiple
+                        times.
   --device-type {appliance,collaboration,environment,firewall,loadbalancer,management,network,power,printer,server,storage,wireless,workstation}
-                        Filter by LibreNMS Device Type (repeating).
+                        Filter by LibreNMS device type. Can be specified
+                        multiple times.
   --lengthy             Extended reporting.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```

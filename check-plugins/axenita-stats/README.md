@@ -21,15 +21,18 @@ With this plugin you can track some values of the Axenita application, currently
 usage: axenita-stats [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
                      [--test TEST] [--timeout TIMEOUT] [--url URL]
 
-With this plugin you can track some values of the Axenita application.
+Monitors the health and performance of an Axenita/Achilles installation by
+querying four API endpoints: ReadModel state, active user sessions, build
+information, and maintenance mode status. Alerts if any endpoint returns an
+error, if the ReadModel initialization is incomplete, or if maintenance mode
+is active.
 
 options:
   -h, --help         show this help message and exit
   -V, --version      show program's version number and exit
   --always-ok        Always returns OK.
-  --insecure         This option explicitly allows to perform "insecure" SSL
-                     connections. Default: False
-  --no-proxy         Do not use a proxy. Default: False
+  --insecure         This option explicitly allows insecure SSL connections.
+  --no-proxy         Do not use a proxy.
   --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
                      stderr-file,expected-retc".
   --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)

@@ -104,7 +104,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "This plugin tests if a local or remote DHCP server can offer IPv4 addresses (to a specific subnet). It emulates a DHCP client and checks the DHCP offer response from the DHCP server. It only sends a DHCPDISCOVER, not a DHCPREQUEST. ",
+            "notes": "Tests if a DHCP server can offer IPv4 addresses by emulating a DHCP client. Sends a DHCPDISCOVER packet and verifies that the server responds with a valid DHCPOFFER. Only performs the discovery step without requesting an actual lease (no DHCPREQUEST). Works with both local and relayed DHCP servers, and can target a specific subnet. Alerts if the server does not respond or the response is invalid. Requires root or sudo.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dhcp-relayed",
             "object_name": "tpl-service-dhcp-relayed",
             "object_type": "template",
@@ -137,7 +137,7 @@
         "2": {
             "varname": "dhcp_relayed_bind_address",
             "caption": "Dhcp Relayed: Bind Address",
-            "description": "Bind the socket to address. The socket must not already be bound.",
+            "description": "Local address to bind the socket to.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -148,7 +148,7 @@
         "3": {
             "varname": "dhcp_relayed_hostname",
             "caption": "Dhcp Relayed: Hostname",
-            "description": "DHCP server address, can be IP address or hostname.",
+            "description": "DHCP server address, hostname or IP address. If omitted, the request is sent as broadcast.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -159,7 +159,7 @@
         "4": {
             "varname": "dhcp_relayed_mac",
             "caption": "Dhcp Relayed: Mac",
-            "description": "Network MAC address to use. Doesn't have to be an existing MAC address. If you specify `--mac=random`, a random MAC address will be used. If omitted, the hardware address is obtained as described in https://docs.python.org/3/library/uuid.html#uuid.getnode.",
+            "description": "Network MAC address to use in the DHCP request. Does not have to be an existing MAC address. Use `--mac=random` for a random MAC address. If omitted, the local hardware address is used.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -170,7 +170,7 @@
         "5": {
             "varname": "dhcp_relayed_subnet_mask",
             "caption": "Dhcp Relayed: Subnet Mask",
-            "description": "The subnet mask option specifies the client's subnet mask. Example: 255.255.255.248.",
+            "description": "Subnet mask for the DHCP request. Example: `255.255.255.248`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -181,7 +181,7 @@
         "6": {
             "varname": "dhcp_relayed_subnet_selection",
             "caption": "Dhcp Relayed: Subnet Selection",
-            "description": "The subnet selection option would override a DHCP server's normal methods of selecting the subnet on which to allocate an address for a client. Example: 192.168.122.0.",
+            "description": "Override the DHCP server subnet selection for address allocation (RFC 3011). Example: `192.168.122.0`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

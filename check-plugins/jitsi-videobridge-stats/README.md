@@ -34,16 +34,17 @@ usage: jitsi-videobridge-stats [-h] [-V] [--always-ok] [--insecure]
                                [--timeout TIMEOUT] [--url URL]
                                [--username USERNAME]
 
-Returns a bunch of performance data on a Jitsi Videobridge using the REST
-version of the COLIBRI protocol.
+Monitors Jitsi Videobridge performance via the COLIBRI REST API. Reports
+conference count, participant count, video channels, bitrates, packet rates,
+and other bridge metrics.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
                         Jitsi API password.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-

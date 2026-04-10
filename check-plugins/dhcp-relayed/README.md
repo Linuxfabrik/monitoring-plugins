@@ -28,34 +28,34 @@ usage: dhcp-relayed [-h] [-V] [--always-ok] [--bind-address BIND_ADDRESS]
                     [-H HOSTNAME] [--mac MAC] [--subnet-mask SUBNET_MASK]
                     [--subnet-selection SUBNET_SELECTION] [--timeout TIMEOUT]
 
-This plugin tests if a local or remote DHCP server can offer IPv4 addresses
-(to a specific subnet). It emulates a DHCP client and checks the DHCP offer
-response from the DHCP server. It only sends a DHCPDISCOVER, not a
-DHCPREQUEST.
+Tests if a DHCP server can offer IPv4 addresses by emulating a DHCP client.
+Sends a DHCPDISCOVER packet and verifies that the server responds with a valid
+DHCPOFFER. Only performs the discovery step without requesting an actual lease
+(no DHCPREQUEST). Works with both local and relayed DHCP servers, and can
+target a specific subnet. Alerts if the server does not respond or the
+response is invalid. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --bind-address BIND_ADDRESS
-                        Bind the socket to address. The socket must not
-                        already be bound. Default: 0.0.0.0
+                        Local address to bind the socket to. Default: 0.0.0.0.
   -H, --hostname HOSTNAME
-                        DHCP server address, can be IP address or hostname.
-                        Default: None
-  --mac MAC             Network MAC address to use. Doesn't have to be an
-                        existing MAC address. If you specify `--mac=random`, a
-                        random MAC address will be used. If omitted, the
-                        hardware address is obtained as described in https://d
-                        ocs.python.org/3/library/uuid.html#uuid.getnode.
+                        DHCP server address, hostname or IP address. If
+                        omitted, the request is sent as broadcast. Default:
+                        None.
+  --mac MAC             Network MAC address to use in the DHCP request. Does
+                        not have to be an existing MAC address. Use
+                        `--mac=random` for a random MAC address. If omitted,
+                        the local hardware address is used.
   --subnet-mask SUBNET_MASK
-                        The subnet mask option specifies the client's subnet
-                        mask. Example: 255.255.255.248. Default: None
+                        Subnet mask for the DHCP request. Example:
+                        `255.255.255.248`. Default: None.
   --subnet-selection SUBNET_SELECTION
-                        The subnet selection option would override a DHCP
-                        server's normal methods of selecting the subnet on
-                        which to allocate an address for a client. Example:
-                        192.168.122.0. Default: None
+                        Override the DHCP server subnet selection for address
+                        allocation (RFC 3011). Example: `192.168.122.0`.
+                        Default: None.
   --timeout TIMEOUT     Network timeout in seconds. Default: 7 (seconds)
 ```
 

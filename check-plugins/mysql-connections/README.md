@@ -29,25 +29,26 @@ usage: mysql-connections [-h] [-V] [--always-ok]
                          [--defaults-group DEFAULTS_GROUP]
                          [--ignore-name-resolution] [--timeout TIMEOUT]
 
-Checks the connection usage rate, the rate of aborted connections and if name
-resolution is active for new connections on MySQL/MariaDB.
+Checks the connection usage rate and the rate of aborted connections in
+MySQL/MariaDB. Also verifies whether name resolution is enabled for new
+connections, which can impact performance. Alerts when connection usage or
+abort rates exceed acceptable levels.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --defaults-file DEFAULTS_FILE
-                        Specifies a cnf file to read parameters like user,
-                        host and password from (instead of specifying them on
-                        the command line), for example
-                        `/var/spool/icinga2/.my.cnf`. Default:
-                        /var/spool/icinga2/.my.cnf
+                        MySQL/MariaDB cnf file to read user, host and password
+                        from (instead of specifying them on the command line).
+                        Example: `/var/spool/icinga2/.my.cnf`. Default:
+                        /var/spool/icinga2/.my.cnf.
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
   --ignore-name-resolution
-                        Do not check if name resolution is active. Default:
-                        False
+                        Suppress the warning about active name resolution.
+                        Default: False.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 

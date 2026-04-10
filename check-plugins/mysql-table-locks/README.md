@@ -28,19 +28,20 @@ usage: mysql-table-locks [-h] [-V] [--always-ok]
                          [--defaults-file DEFAULTS_FILE]
                          [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
 
-Checks whether a certain percentage of table locks had to wait in
-MySQL/MariaDB.
+Checks the rate of table locks that had to wait in MySQL/MariaDB. A high wait
+rate indicates contention between concurrent queries. Alerts when the lock
+wait rate is too high.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --defaults-file DEFAULTS_FILE
-                        Specifies a cnf file to read parameters like user,
+                        MySQL/MariaDB cnf file to read parameters like user,
                         host and password from (instead of specifying them on
-                        the command line), for example
+                        the command line). Example:
                         `/var/spool/icinga2/.my.cnf`. Default:
-                        /var/spool/icinga2/.my.cnf
+                        /var/spool/icinga2/.my.cnf.
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client

@@ -27,19 +27,19 @@ Hints:
 usage: nextcloud-security-scan [-h] [-V] [--insecure] [--no-proxy]
                                [--timeout TIMEOUT] [--trigger TRIGGER] -u URL
 
-Checks the security of your private Nextcloud server.
+Checks the security of a private Nextcloud server using the Nextcloud security
+scanner. Reports the assigned security rating and alerts on known
+vulnerabilities in the installed version.
 
 options:
   -h, --help         show this help message and exit
   -V, --version      show program's version number and exit
-  --insecure         This option explicitly allows to perform "insecure" SSL
-                     connections. Default: False
-  --no-proxy         Do not use a proxy. Default: False
+  --insecure         This option explicitly allows insecure SSL connections.
+  --no-proxy         Do not use a proxy.
   --timeout TIMEOUT  Network timeout in seconds. Default: 7 (seconds)
-  --trigger TRIGGER  Trigger re-scan of the Nextcloud server if result on
-                     scan.nextcloud.com is older than n days. Default: 14
-                     (days)
-  -u, --url URL      Nextcloud API URL, for example "cloud.linuxfabrik.io".
+  --trigger TRIGGER  Trigger a re-scan if the result on scan.nextcloud.com is
+                     older than this many days. Default: 14 (days)
+  -u, --url URL      Nextcloud server URL. Example: `cloud.example.com`.
 ```
 
 

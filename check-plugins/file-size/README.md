@@ -25,36 +25,40 @@ usage: file-size [-h] [-V] [--always-ok] [-c CRIT] [--filename FILENAME]
                  [--pattern PATTERN] [--password PASSWORD] [--timeout TIMEOUT]
                  [-u URL] [--username USERNAME] [-w WARN]
 
-Checks the size for a file (in bytes).
+Checks file sizes against configurable thresholds using human-readable units
+(e.g. 25M, 1G). Supports glob patterns and SMB shares. Directories are skipped
+because their reported size is not meaningful across filesystems. Alerts when
+any file exceeds the configured size thresholds. Requires root or sudo.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  Threshold for the file size in a human readable format
-                       (base is always 1024; valid qualifiers are b, k/kb/kib,
-                       m/mb/mib, g/gb/gib etc.). Supports Nagios ranges.
-                       Example: `:1G` alerts if size is greater than 1
-                       GiB.Default: 1G
-  --filename FILENAME  File name to check. Supports glob in accordance with
-                       https://docs.python.org/2.7/library/glob.html. Note
-                       that using recursive globs can cause high memory usage.
-                       This is mutually exclusive with `-u` / `--url`.
-  --pattern PATTERN    The search string to match against the names of SMB
-                       directories or files. This pattern can use "*"" as a
-                       wildcard for multiple chars and "?"" as a wildcard for
-                       a single char. Does not support regex patterns.
-                       Default: *.
-  --password PASSWORD  SMB Password.
+  -c, --critical CRIT  CRIT threshold for the file size in human-readable
+                       format (base is always 1024; valid qualifiers are b,
+                       k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios
+                       ranges. Example: `:1G` alerts if size is greater than 1
+                       GiB. Default: 1G.
+  --filename FILENAME  Path of the file to check. Supports glob patterns
+                       according to
+                       https://docs.python.org/3/library/glob.html. Recursive
+                       globs can cause high memory usage. Mutually exclusive
+                       with `-u` / `--url`. Example: `--filename /tmp/*.log`.
+  --pattern PATTERN    Search string to match against SMB directory or file
+                       names. Use `*` as a wildcard for multiple characters
+                       and `?` for a single character. Does not support regex
+                       patterns. Default: *.
+  --password PASSWORD  Password for SMB authentication.
   --timeout TIMEOUT    Network timeout in seconds. Default: 3 (seconds)
-  -u, --url URL        Set the url of the file to check, starting with
-                       "smb://". This is mutually exclusive with `--filename`.
-  --username USERNAME  SMB Username.
-  -w, --warning WARN   Threshold for the file size in a human readable format
-                       (base is always 1024; valid qualifiers are b, k/kb/kib,
-                       m/mb/mib, g/gb/gib etc.). Supports Nagios ranges.
-                       Example: `:1G` alerts if size is greater than 1
-                       GiB.Default: 25M
+  -u, --url URL        URL of the file to check, starting with `smb://`.
+                       Mutually exclusive with `--filename`. Example: `--url
+                       smb://server/share/path`.
+  --username USERNAME  Username for SMB authentication.
+  -w, --warning WARN   WARN threshold for the file size in human-readable
+                       format (base is always 1024; valid qualifiers are b,
+                       k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios
+                       ranges. Example: `:1G` alerts if size is greater than 1
+                       GiB. Default: 25M.
 ```
 
 

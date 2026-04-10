@@ -27,27 +27,28 @@ usage: matomo-reporting [-h] [-V] [--always-ok] [--date DATE]
                         [--no-proxy] [--password PASSWORD] [--period PERIOD]
                         [--timeout TIMEOUT] [-u URL]
 
-This plugin lets you check the most common analytics values from Matomo, for
-one or several websites and for any given date and period.
+Retrieves common analytics values from a Matomo instance, including visits,
+unique visitors, bounce rate, and actions. Supports one or multiple websites
+and any date range or period.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  --date DATE          REST API date, for example "date=last10" or
-                       "date="today". Default: today
-  --idsite IDSITE      REST API idSite, for example "idsite=1", "idsite=1,4,5"
-                       or "idsite=all". Default: 1
-  --insecure           This option explicitly allows to perform "insecure" SSL
-                       connections. Default: False
+  --date DATE          Matomo REST API date parameter. Example: `last10` or
+                       `today`. Default: today
+  --idsite IDSITE      Matomo REST API idSite parameter. Example: `1`, `1,4,5`
+                       or `all`. Default: 1
+  --insecure           This option explicitly allows insecure SSL connections.
   --metric METRIC      Filter the output and optionally check against
-                       thresholds or ranges, for example "--metric
-                       nb_visits,100:,50:" (repeating, csv, works with
-                       ranges). Default: None
-  --no-proxy           Do not use a proxy. Default: False
-  --password PASSWORD  REST API Access Token. Default: anonymous
-  --period PERIOD      REST API period, for example "period=range" or
-                       "period=day". Default: day
+                       thresholds or ranges. Format:
+                       `metric_name[,warn_range][,crit_range]`. Can be
+                       specified multiple times. Example: `--metric
+                       nb_visits,100:,50:`. Default: None
+  --no-proxy           Do not use a proxy.
+  --password PASSWORD  Matomo REST API access token. Default: anonymous
+  --period PERIOD      Matomo REST API period parameter. Example: `range` or
+                       `day`. Default: day
   --timeout TIMEOUT    Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL        Matomo URL. Default: https://demo.matomo.org
 ```

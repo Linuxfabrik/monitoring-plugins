@@ -45,31 +45,34 @@ usage: php-status [-h] [-V] [--always-ok] [-c CRIT] [--config CONFIG] [--dev]
                   [--module MODULES] [--insecure] [--no-proxy]
                   [--timeout TIMEOUT] [--url URL] [-w WARN]
 
-This plugin checks for PHP startup errors, missing modules and misconfigured
-php.ini directives.
+Checks PHP configuration and health, including startup errors, missing
+modules, and misconfigured php.ini directives. Optionally reads extended PHP
+information from a monitoring helper script deployed in the web server
+context. Alerts on startup errors, missing modules, or insecure settings.
+Requires root or sudo.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  Set the CRIT threshold for Opcache usage as a
-                       percentage. Default: >= None
-  --config CONFIG      "key=value" pairs to check (startswith), for example
-                       `--config "memory_limit=128M"` (repeating)
-  --dev                Be more tolerant in development environments: Allow
-                       `display_errors=On` and `display_startup_errors=On`.
-  --module MODULES     "modulename" to check (startswith), for example
-                       `--module json --module mbstring` (repeating)
-  --insecure           This option explicitly allows to perform "insecure" SSL
-                       connections. Default: False
-  --no-proxy           Do not use a proxy. Default: False
+  -c, --critical CRIT  CRIT threshold for Opcache usage, in percent. Default:
+                       >= None
+  --config CONFIG      PHP ini "key=value" pair to check (startswith match).
+                       Can be specified multiple times. Example: `--config
+                       "memory_limit=128M"`
+  --dev                Development mode. Tolerates `display_errors=On` and
+                       `display_startup_errors=On`.
+  --module MODULES     PHP module name to check (startswith match). Can be
+                       specified multiple times. Example: `--module json
+                       --module mbstring`
+  --insecure           This option explicitly allows insecure SSL connections.
+  --no-proxy           Do not use a proxy.
   --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
-  --url URL            URL to optional PHP `monitoring.php` script. The plugin
-                       will work, but its accuracy will be reduced if the
-                       `monitoring.php` file cannot be fetched via HTTP(S).
-                       Default: http://localhost/monitoring.php
-  -w, --warning WARN   Set the WARN threshold for Opcache usage as a
-                       percentage. Default: >= 90
+  --url URL            URL to the optional PHP `monitoring.php` helper script.
+                       Without it the plugin still works, but with reduced
+                       accuracy. Default: http://localhost/monitoring.php
+  -w, --warning WARN   WARN threshold for Opcache usage, in percent. Default:
+                       >= 90
 ```
 
 

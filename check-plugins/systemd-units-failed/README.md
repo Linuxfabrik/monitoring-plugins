@@ -21,15 +21,18 @@ This plugin warns on any `systemd` unit file which is in a failed state (whether
 usage: systemd-units-failed [-h] [-V] [--always-ok] [--ignore IGNORE]
                             [--test TEST]
 
-Warns on any failed systemd units.
+Checks for failed systemd units. Alerts when any unit is in a failed state.
+Specific units can be excluded from the check via --ignore with regular
+expressions.
 
 options:
   -h, --help       show this help message and exit
   -V, --version    show program's version number and exit
   --always-ok      Always returns OK.
-  --ignore IGNORE  Ignore a unit, for example "dhcpd.service" (repeating).
-                   Supports glob according to
-                   https://docs.python.org/3/library/fnmatch.html. Default: []
+  --ignore IGNORE  Unit name to exclude from the check. Can be specified
+                   multiple times. Supports glob patterns according to
+                   https://docs.python.org/3/library/fnmatch.html. Example:
+                   `--ignore "dhcpd.service"`. Default: [].
   --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
                    file,expected-retc".
 ```

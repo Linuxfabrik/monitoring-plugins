@@ -96,10 +96,12 @@ usage: csv-values [-h] [-V] [--always-ok] [--chunksize CHUNKSIZE]
                   [--username USERNAME] [-w WARN]
                   [--warning-query WARNING_QUERY]
 
-This check imports a CSV file into an SQLite database and can then run a
-separate warning query and/or a critical query against it. The result - the
-number of items found or a specific number - can be checked against a range
-expression.
+Imports a CSV file (local, remote via URL, or from an SMB share) into a
+temporary SQLite database and runs configurable SQL queries against it.
+Separate queries can be defined for warning and critical conditions. The query
+result - either a row count or a specific value - is checked against Nagios
+range expressions. This makes it possible to monitor any data source that can
+export CSV.
 
 options:
   -h, --help            show this help message and exit
@@ -113,7 +115,7 @@ options:
                         Describe the columns and their datatypes using an sql
                         statement. Example: `"col1 INTEGER PRIMARY KEY, col2
                         TEXT NOT NULL, col3 TEXT NOT NULL UNIQUE"`
-  -c, --critical CRIT   Set the CRIT threshold. Supports ranges.
+  -c, --critical CRIT   CRIT threshold. Supports ranges.
   --critical-query CRITICAL_QUERY
                         `SELECT` statement. If its result contains more than
                         one column, the number of rows is checked against
@@ -122,8 +124,8 @@ options:
                         CSV delimiter. Default: `","`
   --filename FILENAME   Path to CSV file. This is mutually exclusive with -u /
                         --url.
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
   --newline NEWLINE     CSV newline. When reading input from the CSV, if
                         newline is `None`, universal newlines mode is enabled.
                         Lines in the input can end in `" "`, `" "`, or `" "`,
@@ -134,18 +136,18 @@ options:
                         the other legal values, input lines are only
                         terminated by the given string, and the line ending is
                         returned to this plugin untranslated. Default: None
-  --no-proxy            Do not use a proxy. Default: False
+  --no-proxy            Do not use a proxy.
   --password PASSWORD   SMB or HTTP Basic Auth Password.
   --quotechar QUOTECHAR
                         CSV quotechar. Default: `"`
   --skip-header         Treat the first row as header names, and skip this
                         row. Default: False
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  -u, --url URL         Set the url of the CSV file, either starting with
-                        "http://", "https://" or "smb://". This is mutually
-                        exclusive with --filename.
+  -u, --url URL         URL of the CSV file, either starting with "http://",
+                        "https://" or "smb://". This is mutually exclusive
+                        with --filename.
   --username USERNAME   SMB or HTTP Basic Auth Username.
-  -w, --warning WARN    Set the WARN threshold. Supports ranges.
+  -w, --warning WARN    WARN threshold. Supports ranges.
   --warning-query WARNING_QUERY
                         `SELECT` statement. If its result contains more than
                         one column, the number of rows is checked against

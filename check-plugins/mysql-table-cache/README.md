@@ -29,18 +29,20 @@ usage: mysql-table-cache [-h] [-V] [--always-ok]
                          [--defaults-file DEFAULTS_FILE]
                          [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
 
-Checks the hit rate for open tables cache lookups in MySQL/MariaDB.
+Checks the hit rate for open table cache lookups in MySQL/MariaDB. A low hit
+rate indicates that table_open_cache may need to be increased. Alerts when the
+hit rate drops below acceptable levels.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --defaults-file DEFAULTS_FILE
-                        Specifies a cnf file to read parameters like user,
+                        MySQL/MariaDB cnf file to read parameters like user,
                         host and password from (instead of specifying them on
-                        the command line), for example
+                        the command line). Example:
                         `/var/spool/icinga2/.my.cnf`. Default:
-                        /var/spool/icinga2/.my.cnf
+                        /var/spool/icinga2/.my.cnf.
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client

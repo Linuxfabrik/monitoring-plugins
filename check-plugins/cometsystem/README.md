@@ -38,26 +38,27 @@ usage: cometsystem [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
                    [--severity SEVERITY] [--test TEST] [--timeout TIMEOUT]
                    -u URL
 
-This check targets the JSON endpoint of https://www.cometsystem.com/ Web
-Sensors.
+Reads sensor data from Comet System Web Sensors via their JSON API endpoint.
+Monitors channels such as temperature, humidity, and other environmental
+values. Alarm states are mapped to configurable severity levels using a
+flexible pattern matching system (e.g. "temp:high:crit", "humi:low:warn").
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  --insecure           This option explicitly allows to perform "insecure" SSL
-                       connections. Default: False
-  --no-proxy           Do not use a proxy. Default: False
-  --severity SEVERITY  Severity for alerting, order matters, first match on
+  --insecure           This option explicitly allows insecure SSL connections.
+  --no-proxy           Do not use a proxy.
+  --severity SEVERITY  Severity for alerting. Order matters, first match on
                        part of a channel name wins. Have a look at the README
-                       for details. Example: `--severity temp:high:crit
-                       --severity dew:low:crit --severity humi:ok --severity
-                       warn`. Repeating. Default: warn
+                       for details. Can be specified multiple times. Example:
+                       `--severity temp:high:crit --severity dew:low:crit
+                       --severity humi:ok --severity warn`. Default: warn.
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".
   --timeout TIMEOUT    Network timeout in seconds. Default: 5 (seconds)
-  -u, --url URL        Comet system URL pointing to the JSON file
-                       (http://example.com/values.json).
+  -u, --url URL        Comet System URL pointing to the JSON endpoint.
+                       Example: `http://example.com/values.json`.
 ```
 
 

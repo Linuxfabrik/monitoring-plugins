@@ -31,30 +31,27 @@ usage: qts-cpu-usage [-h] [-V] [--always-ok] [--count COUNT] [-c CRIT]
                      [--timeout TIMEOUT] --url URL [--username USERNAME]
                      [-w WARN]
 
-Returns the current system-wide CPU utilization as a percentage from QNAP
-Appliances running QTS via API. Warns only if the overall CPU usage is above a
-certain threshold within the last n checks (default: 5). The authentication is
-done via a single API token (Token-based authentication), not via Session-
-based authentication, which is stated as "legacy".
+Monitors CPU utilization on QNAP appliances running QTS via the API. Alerts
+only if the threshold has been exceeded for a configurable number of
+consecutive check runs (default: 5), suppressing short spikes.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  --count COUNT        Number of times the value must exceed specified
-                       thresholds before alerting. Default: 5
-  -c, --critical CRIT  Set the critical threshold CPU Usage Percentage.
-                       Default: 90
-  --insecure           This option explicitly allows to perform "insecure" SSL
-                       connections. Default: False
-  --no-proxy           Do not use a proxy. Default: False
-  --password PASSWORD  QTS Password.
+  --count COUNT        Number of consecutive checks the threshold must be
+                       exceeded before alerting. Default: 5
+  -c, --critical CRIT  CRIT threshold in percent. Supports Nagios ranges.
+                       Default: >= 90
+  --insecure           This option explicitly allows insecure SSL connections.
+  --no-proxy           Do not use a proxy.
+  --password PASSWORD  QTS API password.
   --timeout TIMEOUT    Network timeout in seconds. Default: 6 (seconds)
-  --url URL            QTS-based Appliance URL, for example
-                       https://192.168.1.1:8080.
-  --username USERNAME  QTS User. Default: admin
-  -w, --warning WARN   Set the warning threshold CPU Usage Percentage.
-                       Default: 80
+  --url URL            QTS-based appliance URL. Example:
+                       `https://192.0.2.10:8080`
+  --username USERNAME  QTS API username. Default: admin
+  -w, --warning WARN   WARN threshold in percent. Supports Nagios ranges.
+                       Default: >= 80
 ```
 
 

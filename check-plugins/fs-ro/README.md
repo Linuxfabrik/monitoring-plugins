@@ -20,18 +20,21 @@ This plugin checks for read-only mount points, such as `/` mounted read-only due
 ```text
 usage: fs-ro [-h] [-V] [--always-ok] [--ignore IGNORE] [--test TEST]
 
-This plugin checks for read-only mount points, such as `/` mounted read-only
-due to file system errors, mounted CD-ROMs or ISO files, etc. It always
-ignores ramfs and squashfs (snapd) by default.
+Checks for unexpectedly read-only mounted filesystems, such as a root
+filesystem that switched to read-only due to disk errors. Ignores ramfs,
+squashfs (snapd), and other pseudo-filesystems by default. Additional
+mountpoints can be excluded via --ignore. Alerts when a read-only filesystem
+is detected that should be writable.
 
 options:
   -h, --help       show this help message and exit
   -V, --version    show program's version number and exit
   --always-ok      Always returns OK.
-  --ignore IGNORE  Mount point that should be ignored (repeatable). For
-                   example, if you provide `/sys/fs`, all mount points
-                   starting with `/sys/fs` will be ignored. Default:
-                   /dev/loop, /proc, /run/credentials, /snap, /sys/fs
+  --ignore IGNORE  Mount point prefix to ignore. All mount points starting
+                   with this value will be skipped. Can be specified multiple
+                   times. Example: `--ignore /sys/fs` ignores `/sys/fs/cgroup`
+                   and similar. Default: /dev/loop, /proc, /run/credentials,
+                   /snap, /sys/fs.
   --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
                    file,expected-retc".
 ```

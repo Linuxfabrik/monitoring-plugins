@@ -112,7 +112,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the status of the newest backups of the Starface PBX. It uses the data output of the Starface Monitoring Module, which was originally written for Check_MK and listens on port 6556. Supports both IPv4 and IPv6. Fetched data is cached up to one minute, so that other Starface plugins running in parallel do not query the data again and overload the PBX.",
+            "notes": "Checks the status of the newest backups of a Starface PBX via its monitoring module on port 6556. Reports backup age, size, and success state. Supports both IPv4 and IPv6. Data is cached to avoid overloading the PBX when multiple checks run in parallel. Alerts when the latest backup has failed or is too old.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/starface-backup-status",
             "object_name": "tpl-service-starface-backup-status",
             "object_type": "template",
@@ -149,7 +149,7 @@
         "2": {
             "varname": "starface_backup_status_cache_expire",
             "caption": "Starface Backup Status: Cache Expire",
-            "description": "The amount of time after which the cached data expires, in minutes.",
+            "description": "The amount of time after which the credential/data cache expires, in minutes.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -160,7 +160,7 @@
         "3": {
             "varname": "starface_backup_status_critical",
             "caption": "Starface Backup Status: Critical",
-            "description": "Set the critical threshold for the time difference to the start of the last backup (in hours).",
+            "description": "CRIT threshold for the age of the last backup, in hours.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -171,7 +171,7 @@
         "4": {
             "varname": "starface_backup_status_hostname",
             "caption": "Starface Backup Status: Hostname",
-            "description": "Starface PBX address, can be IP address or hostname.",
+            "description": "Starface PBX hostname or IP address.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -204,7 +204,7 @@
         "7": {
             "varname": "starface_backup_status_warning",
             "caption": "Starface Backup Status: Warning",
-            "description": "Set the warning threshold for the time difference to the start of the last backup (in hours).",
+            "description": "WARN threshold for the age of the last backup, in hours.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

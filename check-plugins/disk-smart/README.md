@@ -34,20 +34,23 @@ Hints:
 usage: disk-smart [-h] [-V] [--always-ok] [--full] [--ignore IGNORE]
                   [--test TEST]
 
-This check is some kind of user interface for smartctl, which is a tool for
-querying and controlling SMART (Self-Monitoring, Analysis, and Reporting
-Technology) data in hard disk and solid-state drives. It allows you to inspect
-the drive's SMART data to determine its health.
+Queries SMART (Self-Monitoring, Analysis, and Reporting Technology) data from
+hard disks and solid-state drives using smartctl. Inspects drive health
+attributes, error logs, and self-test results to detect failing or degraded
+drives before data loss occurs. Supports both SCSI and ATA drives, including
+drives behind hardware RAID controllers when the correct device type is
+specified. Alerts when any drive reports failing health attributes, SMART
+errors, or failed self-tests. Requires root or sudo.
 
 options:
   -h, --help       show this help message and exit
   -V, --version    show program's version number and exit
   --always-ok      Always returns OK.
-  --full           If set, also warn on any assumptions (in GSmartControl
-                   stated as "notice" messages), otherwise just warn on "real"
-                   SMART issues. Default: False
-  --ignore IGNORE  A comma-separated list of disks which should be ignored, in
-                   the format 'sda,sdb'. Default: []
+  --full           Also warn on assumptions (stated as "notice" in
+                   GSmartControl), not just on actual SMART issues. Default:
+                   False.
+  --ignore IGNORE  Comma-separated list of disk names to ignore. Example:
+                   `sda,sdb`. Default: [].
   --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
                    file,expected-retc".
 ```

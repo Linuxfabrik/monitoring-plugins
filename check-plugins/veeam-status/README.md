@@ -42,48 +42,44 @@ usage: veeam-status [-h] [-V] [--always-ok] [-c CRIT]
                     [--warnings-job-runs WARNINGS_JOB_RUNS]
                     [--warning-vm-lastest-states WARNING_VM_LASTEST_STATES]
 
-Checks Veeam for failed VM or jobs, jobs that are running too long, and
-overuse of the backup repositories. In addition, the check provides
-information about backup infrastructure components and performed backup and
-replication jobs, executed jobs, their status and duration, backed up and
-replicated VMs, available recovery points and backup repositories, their
-capacity, free storage space and size of the backup files - using the Veeam
-Enterprise Manager API (requires a Veeam Enterprise License).
+Monitors Veeam Backup & Replication via PowerShell, checking for failed VMs
+and jobs, jobs running longer than expected, and backup repository usage. Also
+reports backup infrastructure component status and recent job results.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Set the CRIT threshold for Backup Size as a
-                        percentage. Default: >= 90
+  -c, --critical CRIT   CRIT threshold for backup repository usage as a
+                        percentage. Default: >= 90.
   --failed-job-runs FAILED_JOB_RUNS
-                        Veeam threshold for `FailedJobRuns`. Default: > 0
+                        Veeam threshold for `FailedJobRuns`. Default: > 0.
   --failed-vm-lastest-states FAILED_VM_LASTEST_STATES
                         Veeam threshold for `FailedVmLastestStates`. Default:
-                        > 0
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: True
+                        > 0.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
   --max-backup-job-duration MAX_BACKUP_JOB_DURATION
-                        Veeam threshold for `MaxBackupJobDuration`. Default: >
-                        86400
+                        Maximum allowed backup job duration in seconds.
+                        Default: > 86400.
   --max-replica-job-duration MAX_REPLICA_JOB_DURATION
-                        Veeam threshold for `MaxDurationReplicaJobName`.
-                        Default: > 86400
-  --no-proxy            Do not use a proxy. Default: False
+                        Maximum allowed replica job duration in seconds.
+                        Default: > 86400.
+  --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
-                        Veeam API password.
+                        Veeam REST API password.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  --url URL             Veeam API URL. Default: https://localhost:9398
-  --username USERNAME   Veeam API username. Default: Administrator
-  -w, --warning WARN    Set the WARN threshold for Backup Size as a
-                        percentage. Default: >= 80
+  --url URL             Veeam REST API URL. Default: https://localhost:9398.
+  --username USERNAME   Veeam REST API username. Default: Administrator.
+  -w, --warning WARN    WARN threshold for backup repository usage as a
+                        percentage. Default: >= 80.
   --warnings-job-runs WARNINGS_JOB_RUNS
-                        Veeam threshold for `WarningsJobRuns`. Default: > 0
+                        Veeam threshold for `WarningsJobRuns`. Default: > 0.
   --warning-vm-lastest-states WARNING_VM_LASTEST_STATES
                         Veeam threshold for `WarningVmLastestStates`. Default:
-                        > 0
+                        > 0.
 ```
 
 

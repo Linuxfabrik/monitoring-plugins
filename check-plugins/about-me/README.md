@@ -36,28 +36,31 @@ Plugin execution may take up to 30 seconds, depending on the amount or type of i
 usage: about-me [-h] [-V] [--dmidecode] [--insecure] [--no-proxy]
                 [--public-ip-url PUBLIC_IP_URL] [--tags] [--timeout TIMEOUT]
 
-Provides a quick overview of host dimensions and software.
+Collects and displays key system information: OS and kernel version, CPU
+configuration (physical, logical, and usable cores plus frequency), RAM, disk
+count, virtualization type, network interfaces, listening ports, systemd
+services and timers, cron jobs, installed packages, and user accounts.
+Optionally queries dmidecode for firmware and hardware details, and fetches
+the public IP address. This check is purely informational and never raises
+alerts. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
-  --dmidecode           Use the `dmidecode` command to gather additional
-                        hardware information, such as a list of the system's
-                        components, as well as other useful details like
-                        serial numbers and BIOS revisions. If enabled, this
-                        feature requires sudo permissions. Default: False
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
+  --dmidecode           Gather additional hardware information via the
+                        `dmidecode` command, such as system components, serial
+                        numbers, and BIOS revisions. Requires sudo
+                        permissions.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
   --public-ip-url PUBLIC_IP_URL
-                        If you want this check to return the public IP
-                        address, specify one ore more comma-separated URLs to
-                        "what is my ip" online services. For example: "https:/
-                        /ipv4.icanhazip.com,https://ipecho.net/plain,https://i
-                        pinfo.io/ip" (these examples are located in the United
-                        States). Default: None
+                        One or more comma-separated URLs to "what is my ip"
+                        online services for fetching the public IP address.
+                        Example: `https://ipv4.icanhazip.com,https://ipecho.ne
+                        t/plain,https://ipinfo.io/ip`. Default: None.
   --tags                Guess a list of tags to apply in Icinga Director
-                        (Linuxfabrik Basket Config).
+                        (Linuxfabrik Basket config).
   --timeout TIMEOUT     Network timeout in seconds. Default: 2 (seconds)
 ```
 

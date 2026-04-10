@@ -37,18 +37,19 @@ usage: mysql-innodb-buffer-pool-size [-h] [-V] [--always-ok]
                                      [--defaults-group DEFAULTS_GROUP]
                                      [--timeout TIMEOUT]
 
-Checks the size of the InnoDB buffer pool in MySQL/MariaDB.
+Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares
+the configured size against the recommended size based on actual data and
+index sizes. Alerts if the buffer pool is significantly undersized.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --defaults-file DEFAULTS_FILE
-                        Specifies a cnf file to read parameters like user,
-                        host and password from (instead of specifying them on
-                        the command line), for example
-                        `/var/spool/icinga2/.my.cnf`. Default:
-                        /var/spool/icinga2/.my.cnf
+                        MySQL/MariaDB cnf file to read user, host and password
+                        from (instead of specifying them on the command line).
+                        Example: `/var/spool/icinga2/.my.cnf`. Default:
+                        /var/spool/icinga2/.my.cnf.
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client

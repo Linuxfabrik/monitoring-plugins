@@ -27,34 +27,34 @@ usage: file-count [-h] [-V] [--always-ok] [-c CRIT] [--filename FILENAME]
                   [--timerange TIMERANGE] [-u URL] [--username USERNAME]
                   [-w WARN]
 
-Checks the number of matching files.
+Counts the number of files matching a glob pattern and alerts when the count
+exceeds the configured thresholds. Can filter by modification time range,
+restrict to files or directories only, and supports SMB shares.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Set the critical number of files. Supports ranges.
-  --filename FILENAME   File (or directory) name to check. Supports glob in
-                        accordance with https://docs.python.org/3/library/path
-                        lib.html#pathlib.Path.glob. Beware of using recursive
-                        globs. This is mutually exclusive with -u / --url.
-  --only-dirs           Only count directories.
-  --only-files          Only count files.
-  --password PASSWORD   SMB Password.
-  --pattern PATTERN     The search string to match against the names of SMB
-                        directories or files. This pattern can use '*' as a
-                        wildcard for multiple chars and '?' as a wildcard for
-                        a single char. Does not support regex patterns.
-                        Default: *.
-  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+  -c, --critical CRIT   CRIT threshold for the number of matching files.
+                        Supports Nagios ranges.
+  --filename FILENAME   File or directory name to check (supports glob
+                        patterns). Beware of recursive globs. Mutually
+                        exclusive with --url.
+  --only-dirs           Only count directories, ignoring files.
+  --only-files          Only count files, ignoring directories.
+  --password PASSWORD   Password for SMB authentication.
+  --pattern PATTERN     SMB search pattern to match directory or file names.
+                        Use `*` for multiple characters and `?` for a single
+                        character. Does not support regex. Default: *.
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3.
   --timerange TIMERANGE
-                        Set the timerange (seconds) in which the files should
-                        be considered. Supports ranges.
-  -u, --url URL         Set the url of the file (or directory) to check,
-                        starting with "smb://". This is mutually exclusive
-                        with --filename.
-  --username USERNAME   SMB Username.
-  -w, --warning WARN    Set the warning number of files. Supports ranges.
+                        Only count files modified within this time range in
+                        seconds. Supports Nagios ranges.
+  -u, --url URL         SMB URL of the file or directory to check, starting
+                        with `smb://`. Mutually exclusive with --filename.
+  --username USERNAME   Username for SMB authentication.
+  -w, --warning WARN    WARN threshold for the number of matching files.
+                        Supports Nagios ranges.
 ```
 
 

@@ -56,12 +56,12 @@ options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  --count COUNT        Number of times the value must exceed specified
-                       thresholds before alerting. Default: 5
-  -c, --critical CRIT  Set the critical threshold CPU Usage Percentage.
-                       Default: 90
-  -w, --warning WARN   Set the warning threshold CPU Usage Percentage.
-                       Default: 80
+  --count COUNT        Number of consecutive checks the threshold must be
+                       exceeded before alerting. Default: 5
+  -c, --critical CRIT  CRIT threshold in percent. Supports Nagios ranges.
+                       Default: >= 90
+  -w, --warning WARN   WARN threshold in percent. Supports Nagios ranges.
+                       Default: >= 80
 ```
 
 

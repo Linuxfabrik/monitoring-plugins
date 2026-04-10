@@ -26,17 +26,16 @@ Hints:
 usage: rocketchat-stats [-h] [-V] [--insecure] [--no-proxy] -p PASSWORD
                         [--timeout TIMEOUT] [--url URL] --username USERNAME
 
-This plugin allows you to track statistics about a Rocket.Chat server,
-structured in the same way as on the https://rocket.chat/admin/info page.
-Requires a user with a strong password and (only) "view-statistics"
-permission.
+Monitors Rocket.Chat server statistics via the API, including total users,
+active users, online users, channels, messages, uploads, and file storage
+usage. Requires a user with "view-statistics" permission.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
                         Rocket.Chat API password.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)

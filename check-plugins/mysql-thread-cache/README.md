@@ -29,18 +29,20 @@ usage: mysql-thread-cache [-h] [-V] [--always-ok]
                           [--defaults-group DEFAULTS_GROUP]
                           [--timeout TIMEOUT]
 
-Checks the number of threads MySQL/MariaDB caches for re-use.
+Checks how effectively MySQL/MariaDB caches threads for re-use. A low cache
+hit rate means the server frequently creates new threads, which is expensive.
+Alerts when the cache hit rate is too low.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --defaults-file DEFAULTS_FILE
-                        Specifies a cnf file to read parameters like user,
+                        MySQL/MariaDB cnf file to read parameters like user,
                         host and password from (instead of specifying them on
-                        the command line), for example
+                        the command line). Example:
                         `/var/spool/icinga2/.my.cnf`. Default:
-                        /var/spool/icinga2/.my.cnf
+                        /var/spool/icinga2/.my.cnf.
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client

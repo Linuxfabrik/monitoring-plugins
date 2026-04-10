@@ -130,7 +130,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks MySQL/MariaDB log content the same way MySQLTuner does, but also in case the DB is down.",
+            "notes": "Scans the MySQL/MariaDB error log for warnings and errors, similar to how MySQLTuner analyzes the log. Works even when the database is down by reading the log file directly. Uses a cache to avoid re-reading already processed entries. Requires root or sudo.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-logfile",
             "object_name": "tpl-service-mysql-logfile",
             "object_type": "template",
@@ -169,7 +169,7 @@
         "2": {
             "varname": "mysql_logfile_cache_expire",
             "caption": "MySQL Logfile: Cache Expire",
-            "description": "The amount of time after which the cached data expires, in minutes.",
+            "description": "The amount of time after which the credential/data cache expires, in minutes.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -180,7 +180,7 @@
         "3": {
             "varname": "mysql_logfile_defaults_file",
             "caption": "MySQL Logfile: Defaults File",
-            "description": "Specifies a cnf file to read parameters like user, host and password from (instead of specifying them on the command line), for example `/var/spool/icinga2/.my.cnf`.",
+            "description": "MySQL/MariaDB cnf file to read user, host and password from. Example: `--defaults-file=/var/spool/icinga2/.my.cnf`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -202,7 +202,7 @@
         "5": {
             "varname": "mysql_logfile_hostname",
             "caption": "MySQL Logfile: Hostname",
-            "description": "MySQL/MariaDB hostname.",
+            "description": "MySQL/MariaDB hostname or IP address.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -213,7 +213,7 @@
         "6": {
             "varname": "mysql_logfile_ignore_pattern",
             "caption": "MySQL Logfile: Ignore Pattern",
-            "description": "Any line containing this pattern will be ignored (must be lowercase; repeating).",
+            "description": "Any line containing this pattern will be ignored. Must be lowercase. Can be specified multiple times.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -224,7 +224,7 @@
         "7": {
             "varname": "mysql_logfile_ignore_regex",
             "caption": "MySQL Logfile: Ignore Regex",
-            "description": "Any line matching this python regex will be ignored.",
+            "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -235,7 +235,7 @@
         "8": {
             "varname": "mysql_logfile_port",
             "caption": "MySQL Logfile: Port",
-            "description": "MySQL/MariaDB port.",
+            "description": "MySQL/MariaDB port number.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -246,7 +246,7 @@
         "9": {
             "varname": "mysql_logfile_server_log",
             "caption": "MySQL Logfile: Server Log",
-            "description": "One of:  Path to error log file (including filename);  docker:CONTAINER;  podman:CONTAINER;  kubectl:CONTAINER;  systemd:UNITNAME.  If ommitted, this check tries to fetch the logfile location automatically. ",
+            "description": "Log source to read from. Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER` or `systemd:UNITNAME`. If omitted, the check tries to fetch the logfile location automatically.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

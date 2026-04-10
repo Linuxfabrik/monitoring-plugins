@@ -27,17 +27,18 @@ Hints:
 usage: mysql-joins [-h] [-V] [--always-ok] [--defaults-file DEFAULTS_FILE]
                    [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
 
-Checks if many joins per day without indexes were executed on MySQL/MariaDB.
+Checks the rate of joins executed without indexes in MySQL/MariaDB. A high
+rate of full joins indicates missing indexes and can severely impact query
+performance. Alerts when the rate of joins without indexes is too high.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --defaults-file DEFAULTS_FILE
-                        Specifies a cnf file to read parameters like user,
-                        host and password from (instead of specifying them on
-                        the command line), for example
-                        `/var/spool/icinga2/.my.cnf`. Default:
+                        MySQL/MariaDB cnf file to read user, host and password
+                        from. Example: `--defaults-
+                        file=/var/spool/icinga2/.my.cnf`. Default:
                         /var/spool/icinga2/.my.cnf
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:

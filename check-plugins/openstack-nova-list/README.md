@@ -37,17 +37,17 @@ export OS_PASSWORD
 ```text
 usage: openstack-nova-list [-h] [-V] [--always-ok] [--rc-file RC_FILE]
 
-Nova is the OpenStack project that provides a way to provision compute
-instances (aka virtual servers). This monitoring plugin lists all virtual
-servers and checks their status.
+Lists all OpenStack Nova compute instances (virtual servers) and checks their
+status. Alerts when any instance is in an error state or has been shelved.
+Reports instance name, status, power state, and creation date.
 
 options:
   -h, --help         show this help message and exit
   -V, --version      show program's version number and exit
   --always-ok        Always returns OK.
-  --rc-file RC_FILE  Specifies a rc file to read connection parameters like
-                     OS_USERNAME from (instead of specifying them on the
-                     command line), for example
+  --rc-file RC_FILE  Path to a rc file containing OpenStack connection
+                     parameters like OS_USERNAME (instead of specifying them
+                     on the command line). Example:
                      `/var/spool/icinga2/.openstack.cnf`. Default:
                      /var/spool/icinga2/.openstack.cnf
 ```

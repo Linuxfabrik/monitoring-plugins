@@ -431,7 +431,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Scans a logfile for a set of patterns or regex and alerts on the number of matches.",
+            "notes": "Scans a logfile for matching patterns or regular expressions and alerts based on the number of matches found. Reads the file backwards from the end and supports Icinga acknowledgement integration to suppress repeated alerts for known issues. Configurable alarm duration limits how long matches trigger alerts. Requires root or sudo.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/logfile",
             "object_name": "tpl-service-logfile",
             "object_type": "template",
@@ -537,7 +537,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Scans a logfile for a set of patterns or regex and alerts on the number of matches.",
+            "notes": "Scans a logfile for matching patterns or regular expressions and alerts based on the number of matches found. Reads the file backwards from the end and supports Icinga acknowledgement integration to suppress repeated alerts for known issues. Configurable alarm duration limits how long matches trigger alerts. Requires root or sudo.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/logfile",
             "object_name": "tpl-service-logfile-windows",
             "object_type": "template",
@@ -574,7 +574,7 @@
         "1": {
             "varname": "logfile_alarm_duration",
             "caption": "Logfile: Alarm Duration",
-            "description": "How long should this check return an alert on new matches (in minutes)? This is overwritten by --icinga-callback.",
+            "description": "Duration in minutes for how long new matches trigger an alert. Overwritten by `--icinga-callback`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -594,7 +594,7 @@
         "3": {
             "varname": "logfile_critical",
             "caption": "Logfile: Critical",
-            "description": "Set the critical threshold for the number of found critical matches.",
+            "description": "CRIT threshold for the number of found critical matches.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -605,7 +605,7 @@
         "4": {
             "varname": "logfile_critical_pattern",
             "caption": "Logfile: Critical Pattern",
-            "description": "Any line containing this pattern will count as a critical.",
+            "description": "Any line containing this pattern will count as a critical. Can be specified multiple times.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -616,7 +616,7 @@
         "5": {
             "varname": "logfile_critical_regex",
             "caption": "Logfile: Critical Regex",
-            "description": "Any line matching this Python regex will count as a critical.",
+            "description": "Any line matching this Python regex will count as a critical. Can be specified multiple times.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -627,7 +627,7 @@
         "6": {
             "varname": "logfile_filename",
             "caption": "Logfile: Filename",
-            "description": "Set the path to the logfile.",
+            "description": "Path to the logfile.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -638,7 +638,7 @@
         "7": {
             "varname": "logfile_icinga_callback",
             "caption": "Logfile: Icinga Callback?",
-            "description": "Get the service acknowledgement from Icinga. This overwrites `--alarm-duration`.",
+            "description": "Get the service acknowledgement from Icinga. Overwrites `--alarm-duration`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -658,7 +658,7 @@
         "9": {
             "varname": "logfile_icinga_service_name",
             "caption": "Logfile: Icinga Service Name",
-            "description": "Unique name of the service using this check within Icinga. Take it from the `__name` service attribute, for example `icinga-server!my-service-name`.",
+            "description": "Unique name of the service using this check within Icinga. Take it from the `__name` service attribute. Example: `icinga-server!my-service-name`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -669,7 +669,7 @@
         "10": {
             "varname": "logfile_icinga_url",
             "caption": "Logfile: Icinga URL",
-            "description": "Icinga API URL, for example https://icinga-server:5665.",
+            "description": "Icinga API URL. Example: `https://icinga-server:5665`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -691,7 +691,7 @@
         "12": {
             "varname": "logfile_ignore_pattern",
             "caption": "Logfile: Ignore Pattern",
-            "description": "Any line containing this pattern will be ignored.",
+            "description": "Any item containing this pattern will be ignored. Can be specified multiple times. Example: `boot` matches both `/boot` and `/boot/efi`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -702,7 +702,7 @@
         "13": {
             "varname": "logfile_ignore_regex",
             "caption": "Logfile: Ignore Regex",
-            "description": "Any line matching this Python regex will be ignored.",
+            "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -713,7 +713,7 @@
         "14": {
             "varname": "logfile_insecure",
             "caption": "Logfile: Insecure?",
-            "description": "This option explicitly allows to perform \"insecure\" SSL connections.",
+            "description": "This option explicitly allows insecure SSL connections.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -731,7 +731,7 @@
         "16": {
             "varname": "logfile_suppress_lines",
             "caption": "Logfile: Suppress Lines?",
-            "description": "Suppress the found lines in the output, only report the number of findings.",
+            "description": "Suppress the found lines in the output and only report the number of findings.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -751,7 +751,7 @@
         "18": {
             "varname": "logfile_warning",
             "caption": "Logfile: Warning",
-            "description": "Set the warning threshold for the number of found warning matches.",
+            "description": "WARN threshold for the number of found warning matches.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -762,7 +762,7 @@
         "19": {
             "varname": "logfile_warning_pattern",
             "caption": "Logfile: Warning Pattern",
-            "description": "Any line containing this pattern will count as a warning.",
+            "description": "Any line containing this pattern will count as a warning. Can be specified multiple times.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -773,7 +773,7 @@
         "20": {
             "varname": "logfile_warning_regex",
             "caption": "Logfile: Warning Regex",
-            "description": "Any line matching this Python regex will count as a warning.",
+            "description": "Any line matching this Python regex will count as a warning. Can be specified multiple times.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -784,7 +784,7 @@
         "21": {
             "varname": "logfile_windows_alarm_duration",
             "caption": "Logfile: Alarm Duration",
-            "description": "How long should this check return an alert on new matches (in minutes)? This is overwritten by --icinga-callback.",
+            "description": "Duration in minutes for how long new matches trigger an alert. Overwritten by `--icinga-callback`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -804,7 +804,7 @@
         "23": {
             "varname": "logfile_windows_critical",
             "caption": "Logfile: Critical",
-            "description": "Set the critical threshold for the number of found critical matches.",
+            "description": "CRIT threshold for the number of found critical matches.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -815,7 +815,7 @@
         "24": {
             "varname": "logfile_windows_critical_pattern",
             "caption": "Logfile: Critical Pattern",
-            "description": "Any line containing this pattern will count as a critical.",
+            "description": "Any line containing this pattern will count as a critical. Can be specified multiple times.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -826,7 +826,7 @@
         "25": {
             "varname": "logfile_windows_critical_regex",
             "caption": "Logfile: Critical Regex",
-            "description": "Any line matching this Python regex will count as a critical.",
+            "description": "Any line matching this Python regex will count as a critical. Can be specified multiple times.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -837,7 +837,7 @@
         "26": {
             "varname": "logfile_windows_filename",
             "caption": "Logfile: Filename",
-            "description": "Set the path to the logfile.",
+            "description": "Path to the logfile.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -848,7 +848,7 @@
         "27": {
             "varname": "logfile_windows_icinga_callback",
             "caption": "Logfile: Icinga Callback?",
-            "description": "Get the service acknowledgement from Icinga. This overwrites `--alarm-duration`.",
+            "description": "Get the service acknowledgement from Icinga. Overwrites `--alarm-duration`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -868,7 +868,7 @@
         "29": {
             "varname": "logfile_windows_icinga_service_name",
             "caption": "Logfile: Icinga Service Name",
-            "description": "Unique name of the service using this check within Icinga. Take it from the `__name` service attribute, for example `icinga-server!my-service-name`.",
+            "description": "Unique name of the service using this check within Icinga. Take it from the `__name` service attribute. Example: `icinga-server!my-service-name`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -879,7 +879,7 @@
         "30": {
             "varname": "logfile_windows_icinga_url",
             "caption": "Logfile: Icinga URL",
-            "description": "Icinga API URL, for example https://icinga-server:5665.",
+            "description": "Icinga API URL. Example: `https://icinga-server:5665`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -901,7 +901,7 @@
         "32": {
             "varname": "logfile_windows_ignore_pattern",
             "caption": "Logfile: Ignore Pattern",
-            "description": "Any line containing this pattern will be ignored.",
+            "description": "Any item containing this pattern will be ignored. Can be specified multiple times. Example: `boot` matches both `/boot` and `/boot/efi`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -912,7 +912,7 @@
         "33": {
             "varname": "logfile_windows_ignore_regex",
             "caption": "Logfile: Ignore Regex",
-            "description": "Any line matching this Python regex will be ignored.",
+            "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -923,7 +923,7 @@
         "34": {
             "varname": "logfile_windows_insecure",
             "caption": "Logfile: Insecure?",
-            "description": "This option explicitly allows to perform \"insecure\" SSL connections.",
+            "description": "This option explicitly allows insecure SSL connections.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -941,7 +941,7 @@
         "36": {
             "varname": "logfile_windows_suppress_lines",
             "caption": "Logfile: Suppress Lines?",
-            "description": "Suppress the found lines in the output, only report the number of findings.",
+            "description": "Suppress the found lines in the output and only report the number of findings.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -961,7 +961,7 @@
         "38": {
             "varname": "logfile_windows_warning",
             "caption": "Logfile: Warning",
-            "description": "Set the warning threshold for the number of found warning matches.",
+            "description": "WARN threshold for the number of found warning matches.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -972,7 +972,7 @@
         "39": {
             "varname": "logfile_windows_warning_pattern",
             "caption": "Logfile: Warning Pattern",
-            "description": "Any line containing this pattern will count as a warning.",
+            "description": "Any line containing this pattern will count as a warning. Can be specified multiple times.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -983,7 +983,7 @@
         "40": {
             "varname": "logfile_windows_warning_regex",
             "caption": "Logfile: Warning Regex",
-            "description": "Any line matching this Python regex will count as a warning.",
+            "description": "Any line matching this Python regex will count as a warning. Can be specified multiple times.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {

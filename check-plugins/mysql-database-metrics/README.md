@@ -34,19 +34,19 @@ usage: mysql-database-metrics [-h] [-V] [--always-ok]
                               [--defaults-group DEFAULTS_GROUP]
                               [--timeout TIMEOUT]
 
-Checks index sizes and consistent engine and collation use in MySQL/MariaDB
-schemas.
+Checks index sizes, fragmentation, and consistent engine and collation usage
+across all schemas in MySQL/MariaDB. Alerts on mixed storage engines or
+collations within a single schema.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --defaults-file DEFAULTS_FILE
-                        Specifies a cnf file to read parameters like user,
-                        host and password from (instead of specifying them on
-                        the command line), for example
-                        `/var/spool/icinga2/.my.cnf`. Default:
-                        /var/spool/icinga2/.my.cnf
+                        MySQL/MariaDB cnf file to read user, host and password
+                        from (instead of specifying them on the command line).
+                        Example: `/var/spool/icinga2/.my.cnf`. Default:
+                        /var/spool/icinga2/.my.cnf.
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client

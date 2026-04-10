@@ -31,24 +31,26 @@ usage: mysql-user-security [-h] [-V] [--always-ok]
                            [--defaults-group DEFAULTS_GROUP]
                            [--severity {warn,crit}] [--timeout TIMEOUT]
 
-Check user's security in MySQL/MariaDB.
+Checks MySQL/MariaDB user security settings, including accounts with empty
+passwords, accounts accessible from any host, and accounts with excessive
+privileges. Alerts on insecure account configurations.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --defaults-file DEFAULTS_FILE
-                        Specifies a cnf file to read parameters like user,
+                        MySQL/MariaDB cnf file to read parameters like user,
                         host and password from (instead of specifying them on
-                        the command line), for example
+                        the command line). Example:
                         `/var/spool/icinga2/.my.cnf`. Default:
-                        /var/spool/icinga2/.my.cnf
+                        /var/spool/icinga2/.my.cnf.
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
   --severity {warn,crit}
                         Severity for alerts that do not depend on thresholds.
-                        One of "warn" or "crit". Default: warn
+                        One of "warn" or "crit". Default: warn.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 

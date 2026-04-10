@@ -27,17 +27,19 @@ Hints:
 usage: mysql-sorts [-h] [-V] [--always-ok] [--defaults-file DEFAULTS_FILE]
                    [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
 
-Checks some sort metrics on MySQL/MariaDB.
+Checks sort operations in MySQL/MariaDB, including the rate of sort merge
+passes that required temporary disk files. A high rate indicates that
+sort_buffer_size may need to be increased. Alerts when the disk-based sort
+rate is too high.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --defaults-file DEFAULTS_FILE
-                        Specifies a cnf file to read parameters like user,
-                        host and password from (instead of specifying them on
-                        the command line), for example
-                        `/var/spool/icinga2/.my.cnf`. Default:
+                        MySQL/MariaDB cnf file to read user, host and password
+                        from. Example: `--defaults-
+                        file=/var/spool/icinga2/.my.cnf`. Default:
                         /var/spool/icinga2/.my.cnf
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:

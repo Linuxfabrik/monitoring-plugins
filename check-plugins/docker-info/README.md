@@ -20,8 +20,11 @@ Displays system-wide Docker information. For Podman, use the [podman-info](https
 ```text
 usage: docker-info [-h] [-V] [--always-ok] [--test TEST]
 
-Displays system-wide Docker information. For Podman, use the podman-info check
-instead.
+Displays system-wide Docker information including container counts (running,
+paused, stopped), image count, storage and logging driver, Docker version,
+available CPUs, and total memory. Also monitors the Docker daemon for warnings
+or errors. For Podman, use the podman-info check instead. Requires root or
+sudo.
 
 options:
   -h, --help     show this help message and exit

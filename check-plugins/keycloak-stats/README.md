@@ -26,23 +26,24 @@ usage: keycloak-stats [-h] [-V] [--client-id CLIENT_ID] [--insecure]
                       [--no-proxy] [-p PASSWORD] [--realm REALM]
                       [--timeout TIMEOUT] [--url URL] [--username USERNAME]
 
-Returns some useful information about a Keycloak server using its HTTP-based
-API. Tested with Keycloak 18+.
+Reports statistics from a Keycloak server via its HTTP API, including realm
+count, client count, user count, and active sessions. Tested with Keycloak 18
+and later.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --client-id CLIENT_ID
-                        Keycloak API Client-ID. Default: admin-cli
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
+                        Keycloak API Client-ID. Default: admin-cli.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
-                        Keycloak API password. Default: admin
-  --realm REALM         Keycloak API Realm. Default: master
+                        Keycloak API password. Default: admin.
+  --realm REALM         Keycloak API realm. Default: master.
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  --url URL             Keycloak API URL. Default: http://127.0.0.1:8080
-  --username USERNAME   Keycloak API username. Default: admin
+  --url URL             Keycloak API URL. Default: http://127.0.0.1:8080.
+  --username USERNAME   Keycloak API username. Default: admin.
 ```
 
 

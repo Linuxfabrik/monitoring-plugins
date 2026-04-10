@@ -28,16 +28,18 @@ usage: gitlab-health [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
                      [--severity {warn,crit}] [--test TEST]
                      [--timeout TIMEOUT] [--url URL]
 
-Checks whether the GitLab application server is running. It does not hit the
-database or verifies other services are running.
+Checks whether the GitLab application server is running by querying the
+/-/health endpoint. This is a lightweight probe that does not hit the database
+or verify other backend services. Alerts when the server does not respond or
+reports unhealthy.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
   --severity {warn,crit}
                         Severity for alerting. Default: warn
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-

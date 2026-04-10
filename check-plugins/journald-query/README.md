@@ -37,46 +37,46 @@ usage: journald-query [-h] [-V] [--always-ok] [--facility FACILITY]
                       [--severity {warn,crit}] [--since SINCE] [--test TEST]
                       [--unit UNIT] [--user-unit USER_UNIT]
 
-Query the systemd journal and alert on any events found. For help on any of
-the journalctl-specific parameters, see `man journalctl`.
+Queries the systemd journal using journalctl and alerts when matching entries
+are found. Supports all journalctl filtering options such as --unit,
+--priority, --facility, --identifier, and --grep. Useful for monitoring
+specific log patterns in real time. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --facility FACILITY   journalctl: Filter output by syslog facility. Takes a
-                        comma-separated list of numbers or facility names.
-                        Default: None
+  --facility FACILITY   Filter output by syslog facility (passed to
+                        journalctl). Takes a comma-separated list of numbers
+                        or facility names. Default: None.
   --identifier IDENTIFIER
-                        journalctl: Show messages for the specified syslog
-                        identifier. Default: None
+                        Show messages for the specified syslog identifier
+                        (passed to journalctl). Default: None.
   --ignore-pattern IGNORE_PATTERN
-                        Any line containing this case-sensitive pattern on the
-                        MESSAGE field will be ignored (repeating). So, unlike
-                        `journalctl`, you can easily use strings to ignore
-                        certain messages.
+                        Any line containing this case-sensitive string in the
+                        MESSAGE field will be ignored. Can be specified
+                        multiple times. Unlike journalctl, this allows easy
+                        string-based filtering.
   --ignore-regex IGNORE_REGEX
                         Any line matching this Python regex on the MESSAGE
-                        field will be ignored (repeating). So, unlike
-                        `journalctl`, you can easily use a regex to ignore
-                        certain messages. Example: '(?i)linuxfabrik' for a
-                        case-insensitive search for "linuxfabrik".
-  --priority PRIORITY   journalctl: Filter output by message priorities or
-                        priority ranges. Default: emerg..err
+                        field will be ignored. Can be specified multiple
+                        times. Example: `--ignore-regex='(?i)linuxfabrik'`.
+  --priority PRIORITY   Filter output by message priorities or priority ranges
+                        (passed to journalctl). Default: emerg..err.
   --severity {warn,crit}
-                        Severity for alerts if journalctl returns results. One
-                        of "warn" or "crit". Default: warn
-  --since SINCE         journalctl: Start showing entries on or newer than the
-                        specified date. Default: >= -8h
+                        Severity for alerts when journalctl returns results.
+                        Default: warn.
+  --since SINCE         Show entries on or newer than the specified date
+                        (passed to journalctl). Default: -8h.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
-  --unit UNIT           journalctl: Show messages for the specified systemd
-                        unit UNIT|PATTERN. This parameter can be specified
-                        multiple times. Default: None
+  --unit UNIT           Show messages for the specified systemd unit
+                        UNIT|PATTERN (passed to journalctl). Can be specified
+                        multiple times. Default: None.
   --user-unit USER_UNIT
-                        journalctl: Show messages for the specified user
-                        session unit. This parameter can be specified multiple
-                        times. Default: None
+                        Show messages for the specified user session unit
+                        (passed to journalctl). Can be specified multiple
+                        times. Default: None.
 ```
 
 

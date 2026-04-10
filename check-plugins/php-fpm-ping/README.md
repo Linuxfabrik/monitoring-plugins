@@ -40,22 +40,23 @@ usage: php-fpm-ping [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
                     [--response RESPONSE] [--severity {warn,crit}]
                     [--test TEST] [--timeout TIMEOUT] [-u URL]
 
-Fetches the ping monitoring page of PHP-FPM.
+Checks whether PHP-FPM is alive by fetching its ping monitoring page. Returns
+OK if FPM responds with the expected "pong" reply.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
-  --response RESPONSE   Expected PHP-FPM Ping response. Default: pong
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
+  --response RESPONSE   Expected PHP-FPM ping response string. Default: pong
   --severity {warn,crit}
                         Severity for alerting. Default: warn
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  -u, --url URL         PHP-FPM Ping URL. Default: http://localhost/fpm-ping
+  -u, --url URL         PHP-FPM ping URL. Default: http://localhost/fpm-ping
 ```
 
 

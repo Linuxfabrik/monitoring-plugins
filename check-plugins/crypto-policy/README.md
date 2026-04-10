@@ -20,16 +20,18 @@ Checks the system's current crypto policy against a desired one, and returns a w
 ```text
 usage: crypto-policy [-h] [-V] [--always-ok] [--policy CRYPTO_POLICY]
 
-Checks the current crypto policy against a desired one, and returns a warning
-on a non-match.
+Verifies that the system-wide cryptographic policy (as reported by update-
+crypto-policies) matches the expected setting. Returns WARN if the current
+policy differs from the desired one (default: "DEFAULT"). Useful for ensuring
+consistent TLS and cipher configurations across a fleet of servers.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --policy CRYPTO_POLICY
-                        The expected crypto policy (full name), for example
-                        "FUTURE" (case-insensitive). Default: DEFAULT
+                        Expected crypto policy name. Case-insensitive.
+                        Example: `FUTURE`. Default: DEFAULT.
 ```
 
 

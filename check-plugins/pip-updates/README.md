@@ -29,47 +29,50 @@ usage: pip-updates [-h] [-V] [--always-ok] [-c CRIT] [--exclude EXCLUDE]
                    [--no-index] [--not-required] [--pre] [--test TEST]
                    [--user] [--virtualenv VIRTUALENV] [-w WARN]
 
-Checks if there are outdated Python packages, installed via `pip`.
+Checks for outdated Python packages installed via pip. Reports the number of
+packages with available updates and lists them. Alerts when the count exceeds
+the configured threshold.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Set the critical threshold for the number of pending
-                        updates. Default: 100
-  --exclude EXCLUDE     Exclude specified package from the output.
+  -c, --critical CRIT   CRIT threshold for the number of outdated packages.
+                        Default: 100
+  --exclude EXCLUDE     Package name to exclude from the output. Can be
+                        specified multiple times.
   --extra-index-url EXTRA_INDEX_URL
-                        Extra URLs of package indexes to use in addition to
+                        Extra URL of a package index to use in addition to
                         --index-url. Should follow the same rules as --index-
-                        url.
+                        url. Can be specified multiple times.
   --find-links FIND_LINKS
-                        If a URL or path to an html file, then parse for links
-                        to archives such as sdist (.tar.gz) or wheel (.whl)
-                        files. If a local path or file:// URL that's a
-                        directory, then look for archives in the directory
-                        listing. Links to VCS project URLs are not supported.
+                        URL or path to an HTML file to parse for links to
+                        archives (.tar.gz, .whl). If a local path or file://
+                        URL pointing to a directory, look for archives in the
+                        directory listing. VCS project URLs are not supported.
+                        Can be specified multiple times.
   --index-url INDEX_URL
-                        Base URL of the Python Package Index. This should
-                        point to a repository compliant with PEP 503 (the
-                        simple repository API) or a local directory laid out
-                        in the same format.
+                        Base URL of the Python Package Index (PEP 503
+                        compliant repository or local directory in the same
+                        format).
   --local               If in a virtualenv that has global access, do not list
                         globally-installed packages.
-  --no-index            Ignore package index (only looking at --find-links
-                        URLs instead).
-  --not-required        List packages that are not dependencies of installed
-                        packages.
+  --no-index            Ignore the package index and only look at --find-links
+                        URLs.
+  --not-required        Only list packages that are not dependencies of other
+                        installed packages.
   --pre                 Include pre-release and development versions. By
                         default, pip only finds stable versions.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
-  --user                Only output packages installed in user-site.
+  --user                Only check packages installed in the user-site
+                        directory.
   --virtualenv VIRTUALENV
-                        Path to the virtualenv that will be activated before
+                        Path to a virtualenv activate script to source before
                         checking for updates. Example: `/opt/sphinx-
                         venv/bin/activate`
-  -w, --warning WARN    Set the warning threshold for the number of pending
-                        updates. Default: 10
+  -w, --warning WARN    WARN threshold for the number of outdated packages.
+                        Default: 10
 ```
 
 

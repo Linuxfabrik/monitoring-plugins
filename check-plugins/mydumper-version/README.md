@@ -21,15 +21,16 @@ This plugin lets you track whether a mydumper update is available. To check for 
 ```text
 usage: mydumper-version [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
 
-This plugin lets you track if mydumper updates are available.
+Checks if a newer version of mydumper is available by querying the GitHub
+releases API. Alerts when the installed version is outdated.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
-                        The amount of time after which the update check cache
-                        expires, in hours. Default: 24
+                        The amount of time after which the credential/data
+                        cache expires, in minutes. Default: 24
 ```
 
 

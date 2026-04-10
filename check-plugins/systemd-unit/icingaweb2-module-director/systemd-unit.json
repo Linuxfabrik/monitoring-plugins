@@ -114,7 +114,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the state of a service, socket, device, mount, automount, swap, target, path, timer, slice or scope - using systemd/systemctl. For example, to check if the service \"sshd\" is running, use `systemd-unit --substate=running --unit=sshd`. Have a look at the README for more details.",
+            "notes": "Checks the state of a specific systemd unit (service, socket, device, mount, timer, scope, etc.) via systemctl. Verifies the active state, sub-state, load state, and unit file state against expected values. Alerts when the unit is not in the expected state. Requires root or sudo.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/systemd-unit",
             "object_name": "tpl-service-systemd-unit",
             "object_type": "template",
@@ -650,7 +650,7 @@
         "1": {
             "varname": "systemd_unit_activestate",
             "caption": "Systemd Unit: Activestate",
-            "description": "Expected systemd ActiveState (repeating). This is the high-level unit activation state(s), i.e. generalization of SUB. If ommited or set to \"None\", the unit's active state will not be checked.",
+            "description": "Expected systemd ActiveState (high-level unit activation state, i.e. generalization of SUB). Can be specified multiple times. If omitted or set to \"None\", the unit's active state will not be checked.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -663,7 +663,7 @@
         "2": {
             "varname": "systemd_unit_loadstate",
             "caption": "Systemd Unit: Loadstate",
-            "description": "Expected systemd LoadState. Reflects whether the unit definition was properly loaded. If ommited or set to \"None\", the unit's load state will not be checked.",
+            "description": "Expected systemd LoadState, reflecting whether the unit definition was properly loaded. If omitted or set to \"None\", the unit's load state will not be checked.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -676,7 +676,7 @@
         "3": {
             "varname": "systemd_unit_machine",
             "caption": "Systemd Unit: Machine",
-            "description": "Execute operation on a local container. Specify a container name to connect to, optionally prefixed by a user name to connect as and a separating \"@\" character. If the special string \".host\" is used in place of the container name, a connection to the local system is made (which is useful to connect to a specific user's user bus: \"--user --machine=lennart@.host\"). If the \"@\" syntax is not used, the connection is made as root user. If the \"@\" syntax is used either the left hand side or the right hand side may be omitted (but not both) in which case the local user name and \".host\" are implied.",
+            "description": "Execute operation on a local container. Specify a container name to connect to, optionally prefixed by a user name and a separating \"@\" character. The special string \".host\" connects to the local system (useful for reaching a specific user's bus: `--user --machine=lennart@.host`). Without \"@\" syntax, the connection is made as root. With \"@\" syntax, either side may be omitted (but not both), defaulting to the local user name and \".host\".",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -700,7 +700,7 @@
         "5": {
             "varname": "systemd_unit_substate",
             "caption": "Systemd Unit: Substate",
-            "description": "Expected systemd SubState (repeating). This is the low-level unit activation state(s); values depend on unit type. If ommited or set to \"None\", the unit's substate will not be checked.",
+            "description": "Expected systemd SubState (low-level unit activation state; values depend on unit type). Can be specified multiple times. If omitted or set to \"None\", the unit's substate will not be checked.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -713,7 +713,7 @@
         "6": {
             "varname": "systemd_unit_unit",
             "caption": "Systemd Unit: Unit",
-            "description": "The unit name (service, timer, mount etc.). Required. For example \"sshd\", \"sshd.service\", \"my-samba-mount.mount\" etc.",
+            "description": "Systemd unit name to check (service, timer, mount, etc.). Required. Example: `--unit sshd.service`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -724,7 +724,7 @@
         "7": {
             "varname": "systemd_unit_unitfilestate",
             "caption": "Systemd Unit: Unitfilestate",
-            "description": "Expected systemd UnitFileState. If set to \"empty\", checks exactly for `UnitFileState=\"\"`. If ommited or set to \"None\", the unit's unit-file state will not be checked. ",
+            "description": "Expected systemd UnitFileState. If set to \"empty\", checks exactly for `UnitFileState=\"\"`. If omitted or set to \"None\", the unit's unit-file state will not be checked.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -737,7 +737,7 @@
         "8": {
             "varname": "systemd_unit_user",
             "caption": "Systemd Unit: User?",
-            "description": "Talk to the service manager of the calling user, rather than the service manager of the system.",
+            "description": "Talk to the service manager of the calling user rather than the service manager of the system.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},

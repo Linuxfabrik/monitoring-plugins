@@ -21,17 +21,19 @@ Tests if a temporary file can be created, written to a specified path, read, and
 usage: path-rw-test [-h] [-V] [--always-ok] [--path PATH]
                     [--severity {warn,crit}]
 
-Tests if a temporary file can be created, written to a specified path, read,
-and then deleted. Especially useful with mounted file systems such as NFS or
-SMB. The local temporary directory is always tested, regardless of whether the
-check is called with or without parameters. May require sudo privileges.
+Tests if a path is writable and readable by creating, writing, reading, and
+deleting a temporary file. Especially useful for mounted filesystems such as
+NFS or SMB where the mount may silently become read-only or unresponsive. The
+local temporary directory is always tested as a baseline. Alerts if the path
+is not writable or readable. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --path PATH           Path to which the file is to be written and from which
-                        it will be deleted (repeating). Default: ['/tmp']
+  --path PATH           Path to test for read/write access by creating and
+                        deleting a temporary file. Can be specified multiple
+                        times. Default: ['/tmp']
   --severity {warn,crit}
                         Severity for alerting. Default: warn
 ```

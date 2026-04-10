@@ -9,7 +9,7 @@ Use `--warning-pattern` or `--warning-regex` to limit which lines will be consid
 The same applies to the `critical` counterparts.
 
 * The `pattern` arguments are compared using the python `in` operator. This is more efficient than using a regex in most cases.
-* The `regex` arguments are compared using python regex.
+* The `regex` arguments are compared using Python regex.
 
 With this check, you can acknowledge the warning in IcingaWeb, so that the check changes back to OK. To enable the check plugin to get the ACK status from Icinga and therefore automatically switch to OK, you have to create an Icinga API User like so:
 
@@ -54,57 +54,63 @@ usage: logfile [-h] [-V] [--alarm-duration ALARM_DURATION] [--always-ok]
                [--timeout TIMEOUT] [-w WARN] [--warning-pattern WARN_PATTERN]
                [--warning-regex WARN_REGEX]
 
-Scans a logfile for a set of patterns or regex and alerts on the number of
-matches.
+Scans a logfile for matching patterns or regular expressions and alerts based
+on the number of matches found. Reads the file backwards from the end and
+supports Icinga acknowledgement integration to suppress repeated alerts for
+known issues. Configurable alarm duration limits how long matches trigger
+alerts. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --alarm-duration ALARM_DURATION
-                        How long should this check return an alert on new
-                        matches (in minutes)? This is overwritten by --icinga-
-                        callback. Default: 60
+                        Duration in minutes for how long new matches trigger
+                        an alert. Overwritten by `--icinga-callback`. Default:
+                        60
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Set the critical threshold for the number of found
-                        critical matches. Default: 1
+  -c, --critical CRIT   CRIT threshold for the number of found critical
+                        matches. Default: 1
   --critical-pattern CRIT_PATTERN
                         Any line containing this pattern will count as a
-                        critical.
+                        critical. Can be specified multiple times.
   --critical-regex CRIT_REGEX
                         Any line matching this Python regex will count as a
-                        critical.
-  --filename FILENAME   Set the path to the logfile.
-  --icinga-callback     Get the service acknowledgement from Icinga. This
-                        overwrites `--alarm-duration`. Default: False
+                        critical. Can be specified multiple times.
+  --filename FILENAME   Path to the logfile.
+  --icinga-callback     Get the service acknowledgement from Icinga.
+                        Overwrites `--alarm-duration`. Default: False
   --icinga-password ICINGA_PASSWORD
                         Icinga API password.
   --icinga-service-name ICINGA_SERVICE_NAME
                         Unique name of the service using this check within
-                        Icinga. Take it from the `__name` service attribute,
-                        for example `icinga-server!my-service-name`.
+                        Icinga. Take it from the `__name` service attribute.
+                        Example: `icinga-server!my-service-name`.
   --icinga-url ICINGA_URL
-                        Icinga API URL, for example https://icinga-
-                        server:5665.
+                        Icinga API URL. Example: `https://icinga-server:5665`.
   --icinga-username ICINGA_USERNAME
                         Icinga API username.
   --ignore-pattern IGNORE_PATTERN
-                        Any line containing this pattern will be ignored.
+                        Any item containing this pattern will be ignored. Can
+                        be specified multiple times. Example: `boot` matches
+                        both `/boot` and `/boot/efi`.
   --ignore-regex IGNORE_REGEX
-                        Any line matching this Python regex will be ignored.
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: True
-  --no-proxy            Do not use a proxy. Default: False
-  --suppress-lines      Suppress the found lines in the output, only report
+                        Any item matching this Python regex will be ignored.
+                        Can be specified multiple times. Example:
+                        `(?i)linuxfabrik` for a case-insensitive match.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
+  --suppress-lines      Suppress the found lines in the output and only report
                         the number of findings.
   --timeout TIMEOUT     Network timeout in seconds. Default: 5 (seconds)
-  -w, --warning WARN    Set the warning threshold for the number of found
-                        warning matches. Default: 1
+  -w, --warning WARN    WARN threshold for the number of found warning
+                        matches. Default: 1
   --warning-pattern WARN_PATTERN
                         Any line containing this pattern will count as a
-                        warning.
+                        warning. Can be specified multiple times.
   --warning-regex WARN_REGEX
                         Any line matching this Python regex will count as a
-                        warning.
+                        warning. Can be specified multiple times.
 ```
 
 

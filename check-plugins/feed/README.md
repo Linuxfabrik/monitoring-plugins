@@ -39,9 +39,11 @@ usage: feed [-h] [-V] [--always-ok]
             [--insecure] [--latest] [--no-proxy] [--no-summary]
             [--timeout TIMEOUT] [--url FEED_URL] [-w WARN]
 
-Warns on new feed items of an RSS or Atom feed. Does not warn any more if you
-acknowledge the warning in Icingaweb2, and/or if a given amount of time is
-over.
+Monitors an RSS or Atom feed for new entries and alerts when new items appear
+within a configurable time window (default: 3 days). If Icinga callback is
+enabled, the alert is automatically cleared once the corresponding service is
+acknowledged in Icinga. After the time window expires, the alert clears
+regardless of acknowledgement status.
 
 options:
   -h, --help            show this help message and exit
@@ -49,27 +51,28 @@ options:
   --always-ok           Always returns OK.
   --icinga-service-name ICINGA_SERVICE_NAME
                         Unique name of the service using this check within
-                        Icinga. Take it from the `__name` service attribute,
-                        for example `icinga-server!my-service-name`.
+                        Icinga, taken from the `__name` service attribute.
+                        Example: `icinga-server!my-service-name`.
   --icinga-password ICINGA_PASSWORD
-                        Icinga API password.
+                        Password for the Icinga API.
   --icinga-url ICINGA_URL
-                        Icinga API URL, for example https://icinga-server:5665
+                        Icinga API URL. Example: `https://icinga-server:5665`.
   --icinga-username ICINGA_USERNAME
-                        Icinga API username.
-  --icinga-callback     Get the service acknowledgement from Icinga. Default:
-                        False
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --latest              Return the newest/latest feed item (may be in the
-                        future).
-  --no-proxy            Do not use a proxy. Default: False
-  --no-summary          Do not show the feed item summary. Default: False
-  --timeout TIMEOUT     Network timeout in seconds. Default: 5 (seconds)
-  --url FEED_URL        The Feed URL. Default:
-                        https://www.heise.de/security/rss/alert-news-atom.xml
-  -w, --warning WARN    How long should this check return a warning on new
-                        entries? Default: 4320 (minutes)
+                        Username for the Icinga API.
+  --icinga-callback     Query Icinga for the service acknowledgement state and
+                        auto-clear alerts on ack. Default: False.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --latest              Return the newest feed item, even if its timestamp is
+                        in the future.
+  --no-proxy            Do not use a proxy.
+  --no-summary          Suppress the feed item summary in the output. Default:
+                        False.
+  --timeout TIMEOUT     Network timeout in seconds. Default: 5.
+  --url FEED_URL        RSS or Atom feed URL. Default:
+                        https://www.heise.de/security/rss/alert-news-atom.xml.
+  -w, --warning WARN    Time window in minutes during which new feed entries
+                        trigger a warning. Default: 4320.
 ```
 
 

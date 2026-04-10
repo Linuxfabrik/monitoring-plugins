@@ -28,23 +28,26 @@ Hints:
 ```text
 usage: users [-h] [-V] [-c CRIT] [--test TEST] [-w WARN]
 
-Counts how many users are currently logged in, both via tty (on Windows:
-Console) and pts (on Linux: typically ssh, on Windows: RDP). Also counts the
-disconnected users on Windows (closed connections without logging out).
+Counts the number of currently logged-in users by session type: tty (console)
+and pts (SSH on Linux, RDP on Windows). On Windows, also counts disconnected
+sessions (closed connections without logging out). Alerts when the total user
+count exceeds the configured thresholds.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
-  -c, --critical CRIT  Set the critical threshold for logged in tty/pts users,
-                       in the format "3,10". On Windows, you can additionally
-                       set it for disconnected users, in the format "3,10,1".
-                       Default: [None, None, None]
+  -c, --critical CRIT  Threshold for logged-in tty/pts users, in the format
+                       "tty,pts". On Windows, you can additionally specify a
+                       threshold for disconnected users in the format
+                       "tty,pts,disc". Example: `--critical 3,10`. Default:
+                       [None, None, None].
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".
-  -w, --warning WARN   Set the warning threshold for logged in tty/pts users,
-                       in the format "1,5". On Windows, you can additionally
-                       set it for disconnected users, in the format "1,5,10".
-                       Default: [1, 20, 1]
+  -w, --warning WARN   Threshold for logged-in tty/pts users, in the format
+                       "tty,pts". On Windows, you can additionally specify a
+                       threshold for disconnected users in the format
+                       "tty,pts,disc". Example: `--warning 1,5`. Default: [1,
+                       20, 1].
 ```
 
 

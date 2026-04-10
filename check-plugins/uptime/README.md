@@ -24,24 +24,26 @@ Note that the plugin requires a time qualifier when specifying parameters, e.g. 
 ```text
 usage: uptime [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
 
-Check how long the system has been running. The plugin can also display the
-last downtime timestamp and duration - the shorter the intervals at which it
-is run, the more accurate the downtime info will be.
+Reports how long the system has been running since the last boot. Optionally
+displays the timestamp and duration of the last downtime - the more frequently
+the check runs, the more accurate the downtime information will be. Alerts
+when uptime exceeds the configured thresholds (useful for detecting servers
+that have not been rebooted after patching).
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  Threshold for the uptime in a human readable format
-                       (10m = 10 minutes; s = seconds, m = minutes, h = hours,
-                       D = days, W = weeks, M = months, Y = years). Supports
-                       Nagios ranges. Example: `:1Y` alerts if uptime is
-                       greater than 1 year. Default: :1Y
-  -w, --warning WARN   Threshold for the uptime in a human readable format
-                       (10m = 10 minutes; s = seconds, m = minutes, h = hours,
-                       D = days, W = weeks, M = months, Y = years). Supports
-                       Nagios ranges. Example: `5m:180D` warns if uptime is
-                       not between 5 minutes and 180 days. Default: 3m:180D
+  -c, --critical CRIT  Threshold for the uptime in a human-readable format (s
+                       = seconds, m = minutes, h = hours, D = days, W = weeks,
+                       M = months, Y = years). Supports Nagios ranges.
+                       Example: `:1Y` alerts if uptime is greater than 1 year.
+                       Default: :1Y.
+  -w, --warning WARN   Threshold for the uptime in a human-readable format (s
+                       = seconds, m = minutes, h = hours, D = days, W = weeks,
+                       M = months, Y = years). Supports Nagios ranges.
+                       Example: `5m:180D` warns if uptime is not between 5
+                       minutes and 180 days. Default: 3m:180D.
 ```
 
 

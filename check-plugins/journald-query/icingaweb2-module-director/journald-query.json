@@ -132,7 +132,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Query the systemd journal and alert on any events found. For help on any of the journalctl-specific parameters, see `man journalctl`.",
+            "notes": "Queries the systemd journal using journalctl and alerts when matching entries are found. Supports all journalctl filtering options such as --unit, --priority, --facility, --identifier, and --grep. Useful for monitoring specific log patterns in real time. Requires root or sudo.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/journald-query",
             "object_name": "tpl-service-journald-query",
             "object_type": "template",
@@ -191,7 +191,7 @@
         "2": {
             "varname": "journald_query_facility",
             "caption": "Journald Query: Facility",
-            "description": "journalctl: Filter output by syslog facility. Takes a comma-separated list of numbers or facility names.",
+            "description": "Filter output by syslog facility (passed to journalctl). Takes a comma-separated list of numbers or facility names.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -202,7 +202,7 @@
         "3": {
             "varname": "journald_query_identifier",
             "caption": "Journald Query: Identifier",
-            "description": "journalctl: Show messages for the specified syslog identifier.",
+            "description": "Show messages for the specified syslog identifier (passed to journalctl).",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -213,7 +213,7 @@
         "4": {
             "varname": "journald_query_ignore_pattern",
             "caption": "Journald Query: Ignore Pattern",
-            "description": "Any line containing this case-sensitive pattern on the MESSAGE field will be ignored (repeating). So, unlike `journalctl`, you can easily use strings to ignore certain messages.",
+            "description": "Any line containing this case-sensitive string in the MESSAGE field will be ignored. Can be specified multiple times. Unlike journalctl, this allows easy string-based filtering.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -224,7 +224,7 @@
         "5": {
             "varname": "journald_query_ignore_regex",
             "caption": "Journald Query: Ignore Regex",
-            "description": "Any line matching this Python regex on the MESSAGE field will be ignored (repeating). So, unlike `journalctl`, you can easily use a regex to ignore certain messages. Example: '(?i)linuxfabrik' for a case-insensitive search for \"linuxfabrik\".",
+            "description": "Any line matching this Python regex on the MESSAGE field will be ignored. Can be specified multiple times. Example: `--ignore-regex='(?i)linuxfabrik'`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -235,7 +235,7 @@
         "6": {
             "varname": "journald_query_priority",
             "caption": "Journald Query: Priority",
-            "description": "journalctl: Filter output by message priorities or priority ranges.",
+            "description": "Filter output by message priorities or priority ranges (passed to journalctl).",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -246,7 +246,7 @@
         "7": {
             "varname": "journald_query_severity",
             "caption": "Journald Query: Severity",
-            "description": "Severity for alerts if journalctl returns results. One of \"warn\" or \"crit\".",
+            "description": "Severity for alerts when journalctl returns results.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -259,7 +259,7 @@
         "8": {
             "varname": "journald_query_since",
             "caption": "Journald Query: Since",
-            "description": "journalctl: Start showing entries on or newer than the specified date.",
+            "description": "Show entries on or newer than the specified date (passed to journalctl).",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -270,7 +270,7 @@
         "9": {
             "varname": "journald_query_unit",
             "caption": "Journald Query: Unit",
-            "description": "journalctl: Show messages for the specified systemd unit UNIT|PATTERN. This parameter can be specified multiple times.",
+            "description": "Show messages for the specified systemd unit UNIT|PATTERN (passed to journalctl). Can be specified multiple times.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -281,7 +281,7 @@
         "10": {
             "varname": "journald_query_user_unit",
             "caption": "Journald Query: User Unit",
-            "description": "journalctl: Show messages for the specified user session unit. This parameter can be specified multiple times.",
+            "description": "Show messages for the specified user session unit (passed to journalctl). Can be specified multiple times.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {

@@ -57,9 +57,8 @@ def parse_args():
 
     parser.add_argument(
         '--defaults-file',
-        help='Specifies a cnf file to read parameters like user, host and '
-        'password from (instead of specifying them on the command line), '
-        'for example `/var/spool/icinga2/.my.cnf`. '
+        help=lib.args.help('--defaults-file') + ' '
+        'Example: `/var/spool/icinga2/.my.cnf`. '
         'Default: %(default)s',
         dest='DEFAULTS_FILE',
         default=DEFAULT_DEFAULTS_FILE,
@@ -74,20 +73,20 @@ def parse_args():
 
     parser.add_argument(
         '--device-group',
-        help='Filter by LibreNMS Device Group. Supports SQL Wildcards.',
+        help='Filter by LibreNMS device group. Supports SQL wildcards.',
         dest='DEVICE_GROUP',
     )
 
     parser.add_argument(
         '--device-hostname',
-        help='Filter by LibreNMS Hostname (repeating).',
+        help='Filter by LibreNMS hostname. Can be specified multiple times.',
         dest='DEVICE_HOSTNAME',
         action='append',
     )
 
     parser.add_argument(
         '--device-type',
-        help='Filter by LibreNMS Device Type (repeating).',
+        help='Filter by LibreNMS device type. Can be specified multiple times.',
         dest='DEVICE_TYPE',
         action='append',
         choices=[  # taken from the librenms source file resources/definitions/config_definitions.json
@@ -109,7 +108,7 @@ def parse_args():
 
     parser.add_argument(
         '--lengthy',
-        help='Extended reporting. ',
+        help=lib.args.help('--lengthy'),
         dest='LENGTHY',
         action='store_true',
         default=DEFAULT_LENGTHY,
@@ -117,7 +116,7 @@ def parse_args():
 
     parser.add_argument(
         '--severity',
-        help='Severity for alerts. One of "warn" or "crit". Default: %(default)s',
+        help=lib.args.help('--severity') + ' Default: %(default)s',
         dest='SEVERITY',
         default=DEFAULT_SERVERITY,
         choices=['warn', 'crit'],

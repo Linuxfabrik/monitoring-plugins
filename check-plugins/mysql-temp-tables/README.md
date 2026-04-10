@@ -28,19 +28,21 @@ usage: mysql-temp-tables [-h] [-V] [--always-ok]
                          [--defaults-file DEFAULTS_FILE]
                          [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
 
-Checks the number of on-disk versus in-memory temporary tables created in
-MySQL/MariaDB.
+Checks the ratio of on-disk versus in-memory temporary tables in
+MySQL/MariaDB. A high rate of disk-based temporary tables indicates that
+tmp_table_size or max_heap_table_size may need to be increased. Alerts when
+the disk-based temporary table rate is too high.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --defaults-file DEFAULTS_FILE
-                        Specifies a cnf file to read parameters like user,
+                        MySQL/MariaDB cnf file to read parameters like user,
                         host and password from (instead of specifying them on
-                        the command line), for example
+                        the command line). Example:
                         `/var/spool/icinga2/.my.cnf`. Default:
-                        /var/spool/icinga2/.my.cnf
+                        /var/spool/icinga2/.my.cnf.
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client

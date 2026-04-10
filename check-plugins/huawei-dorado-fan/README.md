@@ -30,28 +30,29 @@ usage: huawei-dorado-fan [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
                          --password PASSWORD [--scope SCOPE] [--test TEST]
                          [--timeout TIMEOUT] -u URL --username USERNAME
 
-Batch query basic information about fans on a Huawei OceanStor Dorado storage
-system via the REST Interface, using the ``/fan`` endpoint.
+Checks the health and running status of all fans on a Huawei OceanStor Dorado
+storage system via the REST API (/fan endpoint). Alerts when any fan reports a
+non-normal state.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
-                        The amount of time after which the credential cache
-                        expires, in minutes. Default: 15
+                        The amount of time after which the credential/data
+                        cache expires, in minutes. Default: 15
   --device-id DEVICE_ID
-                        Huawei OceanStor Dorado API Device ID.
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: True
-  --no-proxy            Do not use a proxy. Default: False
-  --password PASSWORD   Huawei OceanStor Dorado API Password.
-  --scope SCOPE         Huawei OceanStor Dorado API Scope.
+                        Huawei OceanStor Dorado API device ID.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
+  --password PASSWORD   Huawei OceanStor Dorado API password.
+  --scope SCOPE         Huawei OceanStor Dorado API scope.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
-  --username USERNAME   Huawei OceanStor Dorado API Username.
+  --username USERNAME   Huawei OceanStor Dorado API username.
 ```
 
 

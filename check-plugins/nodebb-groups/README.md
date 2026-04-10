@@ -33,18 +33,18 @@ Hints:
 usage: nodebb-groups [-h] [-V] [--insecure] [--no-proxy] [--test TEST]
                      [--timeout TIMEOUT] -p TOKEN [--url URL]
 
-Get NodeBB post settings.
+Monitors NodeBB group statistics via the admin API, including group count and
+membership numbers.
 
 options:
   -h, --help         show this help message and exit
   -V, --version      show program's version number and exit
-  --insecure         This option explicitly allows to perform "insecure" SSL
-                     connections. Default: False
-  --no-proxy         Do not use a proxy. Default: False
+  --insecure         This option explicitly allows insecure SSL connections.
+  --no-proxy         Do not use a proxy.
   --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
                      stderr-file,expected-retc".
   --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
-  -p, --token TOKEN  NodeBB API Bearer token.
+  -p, --token TOKEN  NodeBB API bearer token.
   --url URL          NodeBB API URL. Default: http://localhost:4567/forum
 ```
 

@@ -25,14 +25,16 @@ Hints:
 usage: ntp-w32tm [-h] [-V] [-c CRIT] [--stratum STRATUM] [--test TEST]
                  [-w WARN]
 
-This monitoring plugin runs `w32tm /query /status /verbose` (Windows) to help
-diagnose problems with the time settings.
+Checks the Windows Time Service (w32tm) status, including clock offset,
+stratum, and time source. Useful for diagnosing time synchronization issues on
+Windows servers. Alerts when the clock offset exceeds the configured
+thresholds.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
-  -c, --critical CRIT  Set the critical threshold for the time since "Last
-                       Good Sync", in s. Default: 129600s
+  -c, --critical CRIT  CRIT threshold for the time since "Last Good Sync", in
+                       seconds. Default: 129600
   --stratum STRATUM    Warns if the determined stratum of the time server is
                        greater than or equal to this value. Stratum 1
                        indicates a computer with a locally attached reference
@@ -42,8 +44,8 @@ options:
                        and so on. Default: 6
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".
-  -w, --warning WARN   Set the warning threshold for the time since "Last Good
-                       Sync", in s. Default: 28800s
+  -w, --warning WARN   WARN threshold for the time since "Last Good Sync", in
+                       seconds. Default: 28800
 ```
 
 

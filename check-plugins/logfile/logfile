@@ -55,8 +55,8 @@ def parse_args():
 
     parser.add_argument(
         '--alarm-duration',
-        help='How long should this check return an alert on new matches (in minutes)? '
-        'This is overwritten by --icinga-callback. '
+        help='Duration in minutes for how long new matches trigger an alert. '
+        'Overwritten by `--icinga-callback`. '
         'Default: %(default)s',
         dest='ALARM_DURATION',
         type=int,
@@ -82,7 +82,8 @@ def parse_args():
 
     parser.add_argument(
         '--critical-pattern',
-        help='Any line containing this pattern will count as a critical.',
+        help='Any line containing this pattern will count as a critical. '
+        'Can be specified multiple times.',
         action='append',
         default=None,
         dest='CRIT_PATTERN',
@@ -90,7 +91,8 @@ def parse_args():
 
     parser.add_argument(
         '--critical-regex',
-        help='Any line matching this Python regex will count as a critical.',
+        help='Any line matching this Python regex will count as a critical. '
+        'Can be specified multiple times.',
         action='append',
         dest='CRIT_REGEX',
         default=None,
@@ -106,7 +108,8 @@ def parse_args():
 
     parser.add_argument(
         '--icinga-callback',
-        help='Get the service acknowledgement from Icinga. This overwrites `--alarm-duration`. '
+        help='Get the service acknowledgement from Icinga. '
+        'Overwrites `--alarm-duration`. '
         'Default: %(default)s',
         dest='ICINGA_CALLBACK',
         action='store_true',
@@ -122,14 +125,14 @@ def parse_args():
     parser.add_argument(
         '--icinga-service-name',
         help='Unique name of the service using this check within Icinga. '
-        'Take it from the `__name` service attribute, for example '
-        '`icinga-server!my-service-name`.',
+        'Take it from the `__name` service attribute. '
+        'Example: `icinga-server!my-service-name`.',
         dest='ICINGA_SERVICE_NAME',
     )
 
     parser.add_argument(
         '--icinga-url',
-        help='Icinga API URL, for example https://icinga-server:5665.',
+        help='Icinga API URL. Example: `https://icinga-server:5665`.',
         dest='ICINGA_URL',
     )
 
@@ -141,7 +144,7 @@ def parse_args():
 
     parser.add_argument(
         '--ignore-pattern',
-        help='Any line containing this pattern will be ignored.',
+        help=lib.args.help('--ignore-pattern'),
         action='append',
         default=None,
         dest='IGNORE_PATTERN',
@@ -173,7 +176,7 @@ def parse_args():
 
     parser.add_argument(
         '--suppress-lines',
-        help='Suppress the found lines in the output, only report the number of findings.',
+        help='Suppress the found lines in the output and only report the number of findings.',
         dest='SUPPRESS_OUTPUT',
         action='store_true',
         default=False,
@@ -198,7 +201,8 @@ def parse_args():
 
     parser.add_argument(
         '--warning-pattern',
-        help='Any line containing this pattern will count as a warning.',
+        help='Any line containing this pattern will count as a warning. '
+        'Can be specified multiple times.',
         action='append',
         default=None,
         dest='WARN_PATTERN',
@@ -206,7 +210,8 @@ def parse_args():
 
     parser.add_argument(
         '--warning-regex',
-        help='Any line matching this Python regex will count as a warning.',
+        help='Any line matching this Python regex will count as a warning. '
+        'Can be specified multiple times.',
         action='append',
         dest='WARN_REGEX',
         default=None,

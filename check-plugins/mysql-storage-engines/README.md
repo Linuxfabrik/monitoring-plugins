@@ -35,18 +35,19 @@ usage: mysql-storage-engines [-h] [-V] [--always-ok]
                              [--defaults-group DEFAULTS_GROUP]
                              [--timeout TIMEOUT]
 
-Checks storage engines, fragmented tables and autoindex usage in
-MySQL/MariaDB.
+Checks storage engine configuration in MySQL/MariaDB, including fragmented
+tables that may benefit from optimization and tables using non-default or
+deprecated storage engines. Alerts on fragmented tables or non-default engine
+usage.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --defaults-file DEFAULTS_FILE
-                        Specifies a cnf file to read parameters like user,
-                        host and password from (instead of specifying them on
-                        the command line), for example
-                        `/var/spool/icinga2/.my.cnf`. Default:
+                        MySQL/MariaDB cnf file to read user, host and password
+                        from. Example: `--defaults-
+                        file=/var/spool/icinga2/.my.cnf`. Default:
                         /var/spool/icinga2/.my.cnf
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:

@@ -26,33 +26,32 @@ usage: fortios-memory-usage [-h] [-V] [--always-ok] [-c CRIT] -H HOSTNAME
                             [--insecure] [--no-proxy] --password PASSWORD
                             [--timeout TIMEOUT] [-w WARN]
 
-Displays amount of used memory in percent, and checks against configured or
-given thresholds.
+Monitors memory utilization on FortiGate appliances running FortiOS via the
+REST API. First checks against the globally configured memory-use-threshold on
+the appliance, then falls back to command-line thresholds if no global
+configuration exists. Alerts when memory usage exceeds the configured
+thresholds.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Set the critical threshold for memory usage (in
-                        percent). Hint: This plugin tries to check against the
-                        global configured `memory-use-threshold-green` and
-                        `memory-use-threshold-red` first; only if there is no
-                        value, the check's command line values are used.
-                        Default: 88
+  -c, --critical CRIT   CRIT threshold for memory usage in percent. The plugin
+                        first checks against the globally configured `memory-
+                        use-threshold-red` on the appliance; this value is
+                        only used if no global threshold exists. Default: 88.
   -H, --hostname HOSTNAME
-                        FortiOS-based Appliance address, optional including
-                        port ("192.168.1.1:443").
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
-  --password PASSWORD   FortiOS REST API Single Access Token.
+                        FortiOS-based appliance address, optionally including
+                        port. Example: `--hostname 192.168.1.1:443`.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
+  --password PASSWORD   FortiOS REST API single-use access token.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  -w, --warning WARN    Set the warning threshold for memory usage (in
-                        percent). Hint: This plugin tries to check against the
-                        global configured `memory-use-threshold-green` and
-                        `memory-use-threshold-red` first; only if there is no
-                        value, the check's command line values are used.
-                        Default: 82
+  -w, --warning WARN    WARN threshold for memory usage in percent. The plugin
+                        first checks against the globally configured `memory-
+                        use-threshold-green` on the appliance; this value is
+                        only used if no global threshold exists. Default: 82.
 ```
 
 

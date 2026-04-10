@@ -120,7 +120,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Returns the current system-wide CPU utilization as a percentage from Forti Appliances like FortiGate running FortiOS via FortiOS REST API. Warns only if the overall CPU usage is above a certain threshold within the last n checks (default: 5). The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as \"legacy\". Hint: This plugin tries to check against the global configured `cpu-use-threshold` first; only if there is no value, the check's command line values (or their defaults) are used.",
+            "notes": "Monitors CPU utilization on FortiGate appliances running FortiOS via the REST API. Alerts only if the threshold has been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes. First checks against the globally configured cpu-use-threshold on the appliance, then falls back to command-line thresholds.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fortios-cpu-usage",
             "object_name": "tpl-service-fortios-cpu-usage",
             "object_type": "template",
@@ -157,7 +157,7 @@
         "2": {
             "varname": "fortios_cpu_usage_count",
             "caption": "FortiOS CPU Usage: Count",
-            "description": "Number of times the value must exceed specified thresholds before alerting.",
+            "description": "Number of consecutive checks the threshold must be exceeded before alerting.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -168,7 +168,7 @@
         "3": {
             "varname": "fortios_cpu_usage_critical",
             "caption": "FortiOS CPU Usage: Critical",
-            "description": "Set the critical threshold CPU Usage Percentage. Hint: This plugin tries to check against the global configured `cpu-use-threshold` first; only if there is no value, the check's command line values (or their defaults) are used.",
+            "description": "CRIT threshold for CPU usage in percent. The plugin first checks against the globally configured `cpu-use-threshold` on the appliance; this value is only used if no global threshold exists.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -179,7 +179,7 @@
         "4": {
             "varname": "fortios_cpu_usage_hostname",
             "caption": "FortiOS CPU Usage: Hostname",
-            "description": "FortiOS-based Appliance address, optional including port (\"192.168.1.1:443\").",
+            "description": "FortiOS-based appliance address, optionally including port. Example: `--hostname 192.168.1.1:443`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -190,7 +190,7 @@
         "5": {
             "varname": "fortios_cpu_usage_insecure",
             "caption": "FortiOS CPU Usage: Insecure?",
-            "description": "This option explicitly allows to perform \"insecure\" SSL connections.",
+            "description": "This option explicitly allows insecure SSL connections.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -208,7 +208,7 @@
         "7": {
             "varname": "fortios_cpu_usage_password",
             "caption": "FortiOS CPU Usage: Password",
-            "description": "FortiOS REST API Single Access Token.",
+            "description": "FortiOS REST API single-use access token.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -230,7 +230,7 @@
         "9": {
             "varname": "fortios_cpu_usage_warning",
             "caption": "FortiOS CPU Usage: Warning",
-            "description": "Set the warning threshold CPU Usage Percentage. Hint: This plugin tries to check against the global configured `cpu-use-threshold` first; only if there is no value, the check's command line values (or their defaults) are used.",
+            "description": "WARN threshold for CPU usage in percent. The plugin first checks against the globally configured `cpu-use-threshold` on the appliance; this value is only used if no global threshold exists.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

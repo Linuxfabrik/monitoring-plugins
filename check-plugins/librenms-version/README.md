@@ -28,18 +28,17 @@ Hints:
 usage: librenms-version [-h] [-V] [--insecure] [--no-proxy]
                         [--timeout TIMEOUT] --token TOKEN [--url URL]
 
-This check displays LibreNMS instance information, using its API. This is not
-a "is there a new version out there" check as LibreNMS is capable of updating
-itself (if running the Git version).
+Displays LibreNMS instance information including version, database schema,
+Python and RRDtool versions via the LibreNMS API. This check does not track
+new releases since LibreNMS can update itself when running the Git version.
 
 options:
   -h, --help         show this help message and exit
   -V, --version      show program's version number and exit
-  --insecure         This option explicitly allows to perform "insecure" SSL
-                     connections. Default: False
-  --no-proxy         Do not use a proxy. Default: False
+  --insecure         This option explicitly allows insecure SSL connections.
+  --no-proxy         Do not use a proxy.
   --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
-  --token TOKEN      LibreNMS API token
+  --token TOKEN      LibreNMS API token.
   --url URL          LibreNMS API URL. Default: http://localhost
 ```
 

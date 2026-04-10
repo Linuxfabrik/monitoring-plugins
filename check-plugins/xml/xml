@@ -47,7 +47,7 @@ def parse_args():
 
     parser.add_argument(
         '--always-ok',
-        help='Always return OK.',
+        help=lib.args.help('--always-ok'),
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
@@ -55,8 +55,8 @@ def parse_args():
 
     parser.add_argument(
         '--expect',
-        help="String to expect in the xpath's location. If ommitted, just checks "
-        'if the XPath exists.',
+        help='Expected string at the XPath location. '
+        'If omitted, just checks whether the XPath exists.',
         dest='EXPECT',
     )
 
@@ -70,11 +70,9 @@ def parse_args():
 
     parser.add_argument(
         '--namespace',
-        help='If your XPath expression uses namespace prefixes, you must define them in a prefix '
-        'mapping. This parameter expects a mapping for the namespace prefix used in the '
-        'XPath expression to namespace URI (repeatable). For example like so: '
-        '--namespace="prefix1:https://schemas.xmlsoap.org/prefix1/" '
-        '--namespace="prefix2:https://schemas.xmlsoap.org/prefix2/"',
+        help='Namespace prefix-to-URI mapping for XPath expressions. '
+        'Can be specified multiple times. '
+        'Example: `--namespace="prefix1:https://schemas.xmlsoap.org/prefix1/"`.',
         dest='NAMESPACES',
         action='append',
     )
@@ -89,7 +87,7 @@ def parse_args():
 
     parser.add_argument(
         '--password',
-        help='Password (HTTP Basic Auth).',
+        help='HTTP Basic Auth password.',
         dest='PASSWORD',
     )
 
@@ -103,21 +101,21 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='WSDL Endpoint URL. Default: %(default)s',
+        help='XML endpoint URL.',
         dest='URL',
         required=True,
     )
 
     parser.add_argument(
         '--username',
-        help='Username (HTTP Basic Auth).',
+        help='HTTP Basic Auth username.',
         dest='USERNAME',
     )
 
     parser.add_argument(
         '--xpath',
-        help='XPath to query. The result must point to a single value '
-        '(attribute or node content). Lists/arrays are not supported.',
+        help='XPath expression to query. Must point to a single value (attribute or node content). '
+        'Lists/arrays are not supported.',
         dest='XPATH',
         required=True,
     )

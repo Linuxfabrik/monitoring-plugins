@@ -21,19 +21,21 @@ The check fetches detailed sensor information from a Forti Appliance like FortiG
 usage: fortios-sensor [-h] [-V] [--always-ok] -H HOSTNAME [--insecure]
                       [--no-proxy] --password PASSWORD [--timeout TIMEOUT]
 
-Checks FortiOS sensor information in detail.
+Checks hardware sensor readings (temperature, voltage, fan speed) on FortiGate
+appliances running FortiOS via the REST API. Alerts when any sensor reports an
+alarm condition.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   -H, --hostname HOSTNAME
-                        FortiOS-based Appliance address, optional including
-                        port ("192.168.1.1:443").
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
-  --password PASSWORD   FortiOS REST API Single Access Token.
+                        FortiOS-based appliance address, optionally including
+                        port. Example: `--hostname 192.168.1.1:443`.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
+  --password PASSWORD   FortiOS REST API single-use access token.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 

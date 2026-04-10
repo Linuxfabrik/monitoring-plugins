@@ -49,24 +49,24 @@ usage: network-connections [-h] [-V]
                            [--conn-type {all,tcp,tcp6,udp,udp6}] [-c CRIT]
                            [-w WARN]
 
-Counts system-wide socket connections like tcp, tcp6, udp or udp6. If you have
-too many connections like TCP_CLOSE and therefore get errors like "too many
-files open", reconfigure and/or restart the application that is receiving or
-processing those connections.
+Counts system-wide socket connections by type (TCP, TCP6, UDP, UDP6) and
+state. Alerts when the total number of connections in a specific state exceeds
+the configured thresholds. Useful for detecting connection leaks or
+applications that do not properly close sockets.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --conn-status {all,close,close_wait,closing,established,fin_wait1,fin_wait2,last_ack,listen,none,syn_recv,syn_sent,time_wait}
-                        Filter the status of the connections (repeating).
-                        Default: None
+                        Filter connections by status. Can be specified
+                        multiple times. Default: None.
   --conn-type {all,tcp,tcp6,udp,udp6}
-                        Filter the family/type of the connections (repeating).
-                        Default: None
-  -c, --critical CRIT   Threshold for the number of connections. Type: None or
-                        Range. Default: None
-  -w, --warning WARN    Threshold for the number of connections. Type: None or
-                        Range. Default: None
+                        Filter connections by family/type. Can be specified
+                        multiple times. Default: None.
+  -c, --critical CRIT   CRIT threshold for the number of connections. Supports
+                        Nagios ranges. Default: None.
+  -w, --warning WARN    WARN threshold for the number of connections. Supports
+                        Nagios ranges. Default: None.
 ```
 
 

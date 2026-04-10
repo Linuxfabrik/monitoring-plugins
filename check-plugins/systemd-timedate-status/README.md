@@ -20,8 +20,9 @@ Checks current settings of the system clock and RTC, including whether network t
 ```text
 usage: systemd-timedate-status [-h] [-V] [--always-ok] [--test TEST]
 
-Checks current settings of the system clock and RTC, including whether network
-time synchronization is active.
+Checks system clock and RTC settings via timedatectl, including whether
+network time synchronization is active and whether the system clock is
+synchronized. Alerts on misconfigured time settings.
 
 options:
   -h, --help     show this help message and exit

@@ -25,14 +25,16 @@ Refer to the [online manual](https://restic.readthedocs.io/en/latest/index.html)
 usage: restic-check [-h] [-V] [--password-file PASSWORD_FILE] --repo REPO
                     [--test TEST]
 
-Check the restic repository for errors.
+Verifies the integrity of a restic backup repository by running "restic
+check". Alerts when the repository contains errors or inconsistencies.
+Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --password-file PASSWORD_FILE
-                        File to read the repository password from
-  --repo REPO           Repository location
+                        Path to the file containing the repository password.
+  --repo REPO           Restic repository location.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
 ```

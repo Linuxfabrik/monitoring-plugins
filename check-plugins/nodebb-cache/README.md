@@ -34,25 +34,28 @@ usage: nodebb-cache [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
                     [--no-proxy] [--severity {warn,crit}] [--test TEST]
                     [--timeout TIMEOUT] -p TOKEN [--url URL] [-w WARN]
 
-Get NodeBB system cache info.
+Monitors NodeBB cache usage via the admin API. Alerts when cache utilization
+exceeds the configured thresholds.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Set the CRIT threshold as a percentage. Default: >= 90
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
+  -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
+                        Default: >= 90
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
   --severity {warn,crit}
                         Severity for alerts that do not depend on thresholds.
                         One of "warn" or "crit". Default: warn
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  -p, --token TOKEN     NodeBB API Bearer token.
+  -p, --token TOKEN     NodeBB API bearer token.
   --url URL             NodeBB API URL. Default: http://localhost:4567/forum
-  -w, --warning WARN    Set the WARN threshold as a percentage. Default: >= 80
+  -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
+                        Default: >= 80
 ```
 
 

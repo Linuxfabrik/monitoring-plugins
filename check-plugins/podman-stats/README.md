@@ -31,35 +31,37 @@ usage: podman-stats [-h] [-V] [--always-ok] [--count COUNT]
                     [--full-name] [--test TEST] [--warning-cpu WARN_CPU]
                     [--warning-mem WARN_MEM]
 
-This check prints cpu and memory statistics for all running Podman containers,
-using the "podman stats" command. Container CPU usage is divided by the
-available number of CPU cores ("normalized"). For Docker, use the docker-stats
-check instead.
+Reports CPU and memory usage for all running Podman containers. CPU usage is
+normalized by dividing by the number of available host CPU cores. CPU alerts
+only trigger after the threshold has been exceeded for a configurable number
+of consecutive check runs (default: 5), suppressing short spikes. Memory
+alerts trigger immediately. Uses a local SQLite database for CPU trend
+tracking across runs. For Docker, use the docker-stats check instead. Requires
+root or sudo.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --count COUNT         Number of times the value must exceed specified
-                        thresholds before alerting. Default: 5
+  --count COUNT         Number of consecutive checks the threshold must be
+                        exceeded before alerting. Default: 5
   --critical-cpu CRIT_CPU
-                        Set the critical threshold CPU Usage Percentage.
-                        Default: 90
+                        CRIT threshold for CPU usage, in percent. Default: >=
+                        90
   --critical-mem CRIT_MEM
-                        Set the critical threshold Memory Usage Percentage.
-                        Default: 95
-  --full-name           Use full container name, for example
-                        `traefik_traefik.2.1idw12p2yqp`. If ommitted, the name
-                        will be shortened after the replica number (default
-                        behaviour).
+                        CRIT threshold for memory usage, in percent. Default:
+                        >= 95
+  --full-name           Use the full container name instead of shortening it
+                        after the replica number. Example:
+                        `traefik_traefik.2.1idw12p2yqp`
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --warning-cpu WARN_CPU
-                        Set the warning threshold CPU Usage Percentage.
-                        Default: 80
+                        WARN threshold for CPU usage, in percent. Default: >=
+                        80
   --warning-mem WARN_MEM
-                        Set the warning threshold Memory Usage Percentage.
-                        Default: 90
+                        WARN threshold for memory usage, in percent. Default:
+                        >= 90
 ```
 
 

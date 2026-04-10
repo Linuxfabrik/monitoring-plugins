@@ -26,19 +26,19 @@ Hints and Recommendations:
 usage: qts-uptime [-h] [-V] [--insecure] [--no-proxy] --password PASSWORD
                   [--timeout TIMEOUT] --url URL [--username USERNAME]
 
-Tells how long the QTS system has been running.
+Reports how long a QNAP appliance running QTS has been running since the last
+boot.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
-  --insecure           This option explicitly allows to perform "insecure" SSL
-                       connections. Default: False
-  --no-proxy           Do not use a proxy. Default: False
-  --password PASSWORD  QTS Password.
+  --insecure           This option explicitly allows insecure SSL connections.
+  --no-proxy           Do not use a proxy.
+  --password PASSWORD  QTS API password.
   --timeout TIMEOUT    Network timeout in seconds. Default: 6 (seconds)
-  --url URL            QTS-based Appliance URL, for example
-                       https://192.168.1.1:8080.
-  --username USERNAME  QTS User. Default: admin
+  --url URL            QTS-based appliance URL. Example:
+                       `--url=https://192.168.1.1:8080`
+  --username USERNAME  QTS API username. Default: admin
 ```
 
 

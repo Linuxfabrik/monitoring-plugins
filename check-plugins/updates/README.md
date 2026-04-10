@@ -20,16 +20,17 @@ Checks the the number of pending Windows updates.
 ```text
 usage: updates [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
 
-Checks the number of pending Windows updates.
+Checks the number of pending Windows updates. Alerts when the update count
+exceeds the configured thresholds.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  Set the critical threshold for the number of pending
-                       updates. Default: 50
-  -w, --warning WARN   Set the warning threshold for the number of pending
-                       updates. Default: 2
+  -c, --critical CRIT  Threshold for the number of pending updates. Default:
+                       50.
+  -w, --warning WARN   Threshold for the number of pending updates. Default:
+                       2.
 ```
 
 

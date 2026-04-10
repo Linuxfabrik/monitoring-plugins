@@ -27,23 +27,23 @@ The `--always-ok` parameter is useful for hosts that do not allow ping, but whic
 usage: ping [-h] [-V] [--always-ok] [--count COUNT] [-H HOSTNAME]
             [--interval INTERVAL] [-t DEADLINE]
 
-Sends ICMP ECHO_REQUEST to network hosts using the built-in `ping` command.
+Sends ICMP ECHO_REQUEST packets to a network host using the system's built-in
+ping command. Reports round-trip time (min, avg, max) and packet loss
+percentage. Alerts on packet loss or high latency.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --count COUNT         Stop after sending count ECHO_REQUEST packets.
-                        Default: 5
+  --count COUNT         Number of ECHO_REQUEST packets to send. Default: 5
   -H, --hostname HOSTNAME
-                        The ping destination. Default: 127.0.0.1
-  --interval INTERVAL   Wait interval seconds between sending each packet.
-                        Real number allowed with dot as a decimal separator
-                        (regardless locale setup). Default: 0.2
+                        Hostname or IP address to ping. Default: 127.0.0.1
+  --interval INTERVAL   Interval between sending each packet, in seconds.
+                        Accepts real numbers with dot as decimal separator
+                        (regardless of locale). Default: 0.2
   -t, --timeout DEADLINE
-                        Specify a timeout, in seconds, before ping exits
-                        regardless of how many packets have been sent or
-                        received. Default: 5
+                        Timeout in seconds before ping exits regardless of how
+                        many packets have been sent or received. Default: 5
 ```
 
 

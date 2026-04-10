@@ -31,15 +31,18 @@ Hints:
 usage: mysql-system [-h] [-V] [--always-ok]
                     [--maxportsallowed MAXPORTSALLOWED]
 
-Checks system requirements and kernel settings specifically for MySQL/MariaDB.
+Checks system requirements and kernel settings for MySQL/MariaDB, including
+swap configuration, open file limits, and other OS-level parameters that
+affect database performance and stability. Alerts on misconfigured system
+settings.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --maxportsallowed MAXPORTSALLOWED
-                        Number of ports opened allowed on this host. Default:
-                        0 (check disabled)
+                        Maximum number of open ports allowed on this host. 0
+                        disables the check. Default: 0.
 ```
 
 

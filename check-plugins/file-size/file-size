@@ -68,30 +68,31 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='Threshold for the file size in a human readable format '
+        help='CRIT threshold for the file size in human-readable format '
         '(base is always 1024; valid qualifiers are '
         'b, k/kb/kib, m/mb/mib, g/gb/gib etc.). '
         'Supports Nagios ranges. '
-        'Example: `:1G` alerts if size is greater than 1 GiB.'
-        'Default: %(default)s',
+        'Example: `:1G` alerts if size is greater than 1 GiB. '
+        'Default: %(default)s.',
         dest='CRIT',
         default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
         '--filename',
-        help='File name to check. Supports glob in accordance with '
-        'https://docs.python.org/2.7/library/glob.html. Note that using recursive globs '
-        'can cause high memory usage. '
-        'This is mutually exclusive with `-u` / `--url`.',
+        help='Path of the file to check. '
+        'Supports glob patterns according to https://docs.python.org/3/library/glob.html. '
+        'Recursive globs can cause high memory usage. '
+        'Mutually exclusive with `-u` / `--url`. '
+        'Example: `--filename /tmp/*.log`.',
         dest='FILENAME',
     )
 
     parser.add_argument(
         '--pattern',
-        help='The search string to match against the names of SMB directories or files. '
-        'This pattern can use "*"" as a wildcard for multiple chars and "?"" as a wildcard '
-        'for a single char. Does not support regex patterns. '
+        help='Search string to match against SMB directory or file names. '
+        'Use `*` as a wildcard for multiple characters and `?` for a single character. '
+        'Does not support regex patterns. '
         'Default: %(default)s.',
         dest='PATTERN',
         default=DEFAULT_PATTERN,
@@ -99,7 +100,7 @@ def parse_args():
 
     parser.add_argument(
         '--password',
-        help='SMB password.',
+        help='Password for SMB authentication.',
         dest='PASSWORD',
     )
 
@@ -114,27 +115,28 @@ def parse_args():
     parser.add_argument(
         '-u',
         '--url',
-        help='URL of the file to check, starting with "smb://". '
-        'This is mutually exclusive with `--filename`.',
+        help='URL of the file to check, starting with `smb://`. '
+        'Mutually exclusive with `--filename`. '
+        'Example: `--url smb://server/share/path`.',
         dest='URL',
         type=str,
     )
 
     parser.add_argument(
         '--username',
-        help='SMB username.',
+        help='Username for SMB authentication.',
         dest='USERNAME',
     )
 
     parser.add_argument(
         '-w',
         '--warning',
-        help='Threshold for the file size in a human readable format '
+        help='WARN threshold for the file size in human-readable format '
         '(base is always 1024; valid qualifiers are '
         'b, k/kb/kib, m/mb/mib, g/gb/gib etc.). '
         'Supports Nagios ranges. '
-        'Example: `:1G` alerts if size is greater than 1 GiB.'
-        'Default: %(default)s',
+        'Example: `:1G` alerts if size is greater than 1 GiB. '
+        'Default: %(default)s.',
         dest='WARN',
         default=DEFAULT_WARN,
     )

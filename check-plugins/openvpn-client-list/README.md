@@ -21,19 +21,21 @@ Prints a list of all clients connected to the OpenVPN Server, and optionally che
 usage: openvpn-client-list [-h] [-V] [-c CRIT] [--filename FILENAME]
                            [--test TEST] [-w WARN]
 
-Prints a list of all clients connected to the OpenVPN Server
+Lists all clients currently connected to an OpenVPN server by parsing the
+status log file. Reports client name, remote address, bytes received and sent,
+and connection time. Requires root or sudo.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
-  -c, --critical CRIT  Set the critical threshold for the number of connected
-                       clients. Default: None
-  --filename FILENAME  Set the path of the log filename. Default:
+  -c, --critical CRIT  CRIT threshold for the number of connected clients.
+                       Default: None
+  --filename FILENAME  Path to the OpenVPN status log file. Default:
                        /var/log/openvpn-status.log
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".
-  -w, --warning WARN   Set the warning threshold for the number of connected
-                       clients. Default: None
+  -w, --warning WARN   WARN threshold for the number of connected clients.
+                       Default: None
 ```
 
 

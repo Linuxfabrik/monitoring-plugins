@@ -29,24 +29,27 @@ usage: wildfly-gc-status [-h] [-V] [--insecure] [--instance INSTANCE]
                          [--node NODE] -p PASSWORD [--timeout TIMEOUT]
                          [--url URL] --username USERNAME
 
-Prints the status of the Wildfly/JBossAS garbage collector.
+Reports garbage collector statistics from a WildFly/JBoss AS server via its
+HTTP management API, including GC count and total GC time for each collector.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --instance INSTANCE   The instance (server-config) to check if running in
-                        domain mode.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --instance INSTANCE   WildFly instance (server-config) to check when running
+                        in domain mode.
   --mode {standalone,domain}
-                        The mode the server is running.
-  --no-proxy            Do not use a proxy. Default: False
-  --node NODE           The node (host) if running in domain mode.
+                        WildFly server mode. Default: standalone.
+  --no-proxy            Do not use a proxy.
+  --node NODE           WildFly node (host) when running in domain mode.
   -p, --password PASSWORD
-                        WildFly API password.
+                        WildFly management API password.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  --url URL             WildFly API URL. Default: http://localhost:9990
-  --username USERNAME   WildFly API username. Default: wildfly-monitoring
+  --url URL             WildFly management API URL. Default:
+                        http://localhost:9990.
+  --username USERNAME   WildFly management API username. Default: wildfly-
+                        monitoring.
 ```
 
 

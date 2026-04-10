@@ -96,7 +96,7 @@ options:
                         Any line matching this pattern (case-insensitive) will
                         count as a critical. Can be specified multiple times.
   --critical-regex CRIT_REGEX
-                        Any line matching this python regex (case-insensitive)
+                        Any line matching this Python regex (case-insensitive)
                         will count as a critical. Can be specified multiple
                         times.
   --severity-retc {ok,warn,crit,unknown}
@@ -119,7 +119,7 @@ options:
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --verbose             Makes this plugin verbose during the operation. Useful
-                        for debugging and seeing what's going on under the
+                        for debugging and seeing what is going on under the
                         hood. Default: False
   -w, --warning WARN    WARN threshold for single numeric return values.
                         Supports Nagios ranges. Example: `@10:20` alerts if
@@ -128,7 +128,7 @@ options:
                         Any line matching this pattern (case-insensitive) will
                         count as a warning. Can be specified multiple times.
   --warning-regex WARN_REGEX
-                        Any line matching this python regex (case-insensitive)
+                        Any line matching this Python regex (case-insensitive)
                         will count as a warning. Can be specified multiple
                         times.
   --winrm-configuration-name WINRM_CONFIGURATION_NAME

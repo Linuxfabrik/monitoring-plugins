@@ -243,7 +243,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the size for a file (in bytes).",
+            "notes": "Checks file sizes against configurable thresholds using human-readable units (e.g. 25M, 1G). Supports glob patterns and SMB shares. Directories are skipped because their reported size is not meaningful across filesystems. Alerts when any file exceeds the configured size thresholds. Requires root or sudo.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-size",
             "object_name": "tpl-service-file-size",
             "object_type": "template",
@@ -338,7 +338,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the size for a file (in bytes).",
+            "notes": "Checks file sizes against configurable thresholds using human-readable units (e.g. 25M, 1G). Supports glob patterns and SMB shares. Directories are skipped because their reported size is not meaningful across filesystems. Alerts when any file exceeds the configured size thresholds. Requires root or sudo.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-size",
             "object_name": "tpl-service-file-size-windows",
             "object_type": "template",
@@ -373,7 +373,7 @@
         "2": {
             "varname": "file_size_critical",
             "caption": "File Size: Critical",
-            "description": "Threshold for the file size in a human readable format (base is always 1024; valid qualifiers are b, k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.Default: %(default)s",
+            "description": "CRIT threshold for the file size in human-readable format (base is always 1024; valid qualifiers are b, k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -384,7 +384,7 @@
         "3": {
             "varname": "file_size_filename",
             "caption": "File Size: Filename",
-            "description": "File name to check. Supports glob in accordance with https://docs.python.org/2.7/library/glob.html. Note that using recursive globs can cause high memory usage. This is mutually exclusive with `-u` / `--url`.",
+            "description": "Path of the file to check. Supports glob patterns according to https://docs.python.org/3/library/glob.html. Recursive globs can cause high memory usage. Mutually exclusive with `-u` / `--url`. Example: `--filename /tmp/*.log`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -395,7 +395,7 @@
         "4": {
             "varname": "file_size_pattern",
             "caption": "File Size: Pattern",
-            "description": "The search string to match against the names of SMB directories or files. This pattern can use \"*\"\" as a wildcard for multiple chars and \"?\"\" as a wildcard for a single char. Does not support regex patterns.",
+            "description": "Search string to match against SMB directory or file names. Use `*` as a wildcard for multiple characters and `?` for a single character. Does not support regex patterns.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -406,7 +406,7 @@
         "5": {
             "varname": "file_size_password",
             "caption": "File Size: Password",
-            "description": "SMB Password.",
+            "description": "Password for SMB authentication.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -428,7 +428,7 @@
         "7": {
             "varname": "file_size_url",
             "caption": "File Size: URL",
-            "description": "Set the url of the file to check, starting with \"smb://\". This is mutually exclusive with `--filename`.",
+            "description": "URL of the file to check, starting with `smb://`. Mutually exclusive with `--filename`. Example: `--url smb://server/share/path`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -439,7 +439,7 @@
         "8": {
             "varname": "file_size_username",
             "caption": "File Size: Username",
-            "description": "SMB Username.",
+            "description": "Username for SMB authentication.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -450,7 +450,7 @@
         "9": {
             "varname": "file_size_warning",
             "caption": "File Size: Warning",
-            "description": "Threshold for the file size in a human readable format (base is always 1024; valid qualifiers are b, k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.Default: %(default)s",
+            "description": "WARN threshold for the file size in human-readable format (base is always 1024; valid qualifiers are b, k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -470,7 +470,7 @@
         "11": {
             "varname": "file_size_windows_critical",
             "caption": "File Size: Critical",
-            "description": "Threshold for the file size in a human readable format (base is always 1024; valid qualifiers are b, k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.Default: %(default)s",
+            "description": "CRIT threshold for the file size in human-readable format (base is always 1024; valid qualifiers are b, k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -481,7 +481,7 @@
         "12": {
             "varname": "file_size_windows_filename",
             "caption": "File Size: Filename",
-            "description": "File name to check. Supports glob in accordance with https://docs.python.org/2.7/library/glob.html. Note that using recursive globs can cause high memory usage. This is mutually exclusive with `-u` / `--url`.",
+            "description": "Path of the file to check. Supports glob patterns according to https://docs.python.org/3/library/glob.html. Recursive globs can cause high memory usage. Mutually exclusive with `-u` / `--url`. Example: `--filename /tmp/*.log`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -492,7 +492,7 @@
         "13": {
             "varname": "file_size_windows_pattern",
             "caption": "File Size: Pattern",
-            "description": "The search string to match against the names of SMB directories or files. This pattern can use \"*\"\" as a wildcard for multiple chars and \"?\"\" as a wildcard for a single char. Does not support regex patterns.",
+            "description": "Search string to match against SMB directory or file names. Use `*` as a wildcard for multiple characters and `?` for a single character. Does not support regex patterns.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -503,7 +503,7 @@
         "14": {
             "varname": "file_size_windows_password",
             "caption": "File Size: Password",
-            "description": "SMB Password.",
+            "description": "Password for SMB authentication.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -525,7 +525,7 @@
         "16": {
             "varname": "file_size_windows_url",
             "caption": "File Size: URL",
-            "description": "Set the url of the file to check, starting with \"smb://\". This is mutually exclusive with `--filename`.",
+            "description": "URL of the file to check, starting with `smb://`. Mutually exclusive with `--filename`. Example: `--url smb://server/share/path`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -536,7 +536,7 @@
         "17": {
             "varname": "file_size_windows_username",
             "caption": "File Size: Username",
-            "description": "SMB Username.",
+            "description": "Username for SMB authentication.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -547,7 +547,7 @@
         "18": {
             "varname": "file_size_windows_warning",
             "caption": "File Size: Warning",
-            "description": "Threshold for the file size in a human readable format (base is always 1024; valid qualifiers are b, k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.Default: %(default)s",
+            "description": "WARN threshold for the file size in human-readable format (base is always 1024; valid qualifiers are b, k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

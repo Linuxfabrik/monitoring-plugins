@@ -44,38 +44,43 @@ usage: mysql-logfile [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
                      [--ignore-regex IGNORE_REGEX] [--port PORT]
                      [--server-log SERVER_LOG] [--timeout TIMEOUT]
 
-Checks MySQL/MariaDB log content the same way MySQLTuner does, but also in
-case the DB is down.
+Scans the MySQL/MariaDB error log for warnings and errors, similar to how
+MySQLTuner analyzes the log. Works even when the database is down by reading
+the log file directly. Uses a cache to avoid re-reading already processed
+entries. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
-                        The amount of time after which the cached data
-                        expires, in minutes. Default: 7200
+                        The amount of time after which the credential/data
+                        cache expires, in minutes. Default: 7200
   --defaults-file DEFAULTS_FILE
-                        Specifies a cnf file to read parameters like user,
-                        host and password from (instead of specifying them on
-                        the command line), for example
-                        `/var/spool/icinga2/.my.cnf`. Default:
+                        MySQL/MariaDB cnf file to read user, host and password
+                        from. Example: `--defaults-
+                        file=/var/spool/icinga2/.my.cnf`. Default:
                         /var/spool/icinga2/.my.cnf
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
   -H, --hostname HOSTNAME
-                        MySQL/MariaDB hostname. Default: 127.0.0.1
+                        MySQL/MariaDB hostname or IP address. Default:
+                        127.0.0.1
   --ignore-pattern IGNORE_PATTERN
-                        Any line containing this pattern will be ignored (must
-                        be lowercase; repeating).
+                        Any line containing this pattern will be ignored. Must
+                        be lowercase. Can be specified multiple times.
   --ignore-regex IGNORE_REGEX
-                        Any line matching this python regex will be ignored.
-  --port PORT           MySQL/MariaDB port. Default: 3306
+                        Any item matching this Python regex will be ignored.
+                        Can be specified multiple times. Example:
+                        `(?i)linuxfabrik` for a case-insensitive match.
+  --port PORT           MySQL/MariaDB port number. Default: 3306
   --server-log SERVER_LOG
-                        One of: Path to error log file (including filename);
-                        docker:CONTAINER; podman:CONTAINER; kubectl:CONTAINER;
-                        systemd:UNITNAME. If ommitted, this check tries to
-                        fetch the logfile location automatically.
+                        Log source to read from. Accepts a file path,
+                        `docker:CONTAINER`, `podman:CONTAINER`,
+                        `kubectl:CONTAINER` or `systemd:UNITNAME`. If omitted,
+                        the check tries to fetch the logfile location
+                        automatically.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 

@@ -21,15 +21,17 @@ Receive alerts on incidents on a specific [Atlassian Statuspage](https://www.atl
 usage: atlassian-statuspage [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
                             [--test TEST] [--timeout TIMEOUT] [--url URL]
 
-Receive alerts on incidents on a specific Atlassian Statuspage.
+Monitors a public Atlassian Statuspage for incidents and maintenance windows.
+Returns OK when no incidents are reported, WARN for minor incidents or
+scheduled maintenance, and CRIT for major or critical incidents. Works with
+any Statuspage-powered status page, not just Atlassian's own.
 
 options:
   -h, --help         show this help message and exit
   -V, --version      show program's version number and exit
   --always-ok        Always returns OK.
-  --insecure         This option explicitly allows to perform "insecure" SSL
-                     connections. Default: False
-  --no-proxy         Do not use a proxy. Default: False
+  --insecure         This option explicitly allows insecure SSL connections.
+  --no-proxy         Do not use a proxy.
   --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
                      stderr-file,expected-retc".
   --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)

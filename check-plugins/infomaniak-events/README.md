@@ -48,24 +48,26 @@ usage: infomaniak-events [-h] [-V] [--always-ok] [--ignore-regex IGNORE_REGEX]
                          [--insecure] [--no-proxy] [--service SERVICE]
                          [--timeout TIMEOUT] --token TOKEN [--test TEST]
 
-Informs you about open events at Infomaniak.
+Monitors the Infomaniak status page for open events and incidents. Alerts when
+active events are reported.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --ignore-regex IGNORE_REGEX
-                        Any english title matching this python regex will be
-                        ignored (repeating). Example: '(?i)linuxfabrik' for a
-                        case-insensitive search for "linuxfabrik".
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
-  --service SERVICE     Only report this service category (repeating).
-                        Example: `--service=swiss_backup
-                        --service=public_cloud`. Default: none (so report all)
+                        Any English event title matching this Python regex
+                        will be ignored. Can be specified multiple times.
+                        Example: `--ignore-regex "(?i)linuxfabrik"`.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
+  --service SERVICE     Only report events for this service category. Can be
+                        specified multiple times. If not specified, all
+                        categories are reported. Example: `--service
+                        swiss_backup --service public_cloud`.
   --timeout TIMEOUT     Network timeout in seconds. Default: 28 (seconds)
-  --token TOKEN         Infomaniak API token
+  --token TOKEN         Infomaniak API token.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
 ```

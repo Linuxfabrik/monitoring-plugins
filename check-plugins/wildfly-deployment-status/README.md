@@ -31,28 +31,33 @@ usage: wildfly-deployment-status [-h] [-V] [--always-ok]
                                  [--node NODE] -p PASSWORD [--timeout TIMEOUT]
                                  [--url URL] --username USERNAME
 
-Checks the deployment status of a Wildfly/JBossAS over HTTP.
+Checks the deployment status of applications on a WildFly/JBoss AS server via
+its HTTP management API. Alerts when any deployment is not in the expected
+enabled state.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --deployment DEPLOYMENT
-                        The name of an application whose deployment status is
-                        to be checked (repeating). Default: None
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --instance INSTANCE   The instance (server-config) to check if running in
-                        domain mode.
+                        Application deployment name to check. Can be specified
+                        multiple times. If not specified, all deployments are
+                        checked.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --instance INSTANCE   WildFly instance (server-config) to check when running
+                        in domain mode.
   --mode {standalone,domain}
-                        The mode the server is running.
-  --no-proxy            Do not use a proxy. Default: False
-  --node NODE           The node (host) if running in domain mode.
+                        WildFly server mode. Default: standalone.
+  --no-proxy            Do not use a proxy.
+  --node NODE           WildFly node (host) when running in domain mode.
   -p, --password PASSWORD
-                        WildFly API password.
+                        WildFly management API password.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  --url URL             WildFly API URL. Default: http://localhost:9990
-  --username USERNAME   WildFly API username. Default: wildfly-monitoring
+  --url URL             WildFly management API URL. Default:
+                        http://localhost:9990.
+  --username USERNAME   WildFly management API username. Default: wildfly-
+                        monitoring.
 ```
 
 

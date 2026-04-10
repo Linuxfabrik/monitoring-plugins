@@ -26,16 +26,16 @@ Links:
 usage: githubstatus [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
                     [--test TEST] [--timeout TIMEOUT]
 
-Checks the GitHub status page, including a status indicator, component
-statuses and unresolved incidents.
+Monitors the GitHub status page for service disruptions. Reports the overall
+status indicator, individual component states, and any unresolved incidents.
+Alerts on active incidents or degraded components.
 
 options:
   -h, --help         show this help message and exit
   -V, --version      show program's version number and exit
   --always-ok        Always returns OK.
-  --insecure         This option explicitly allows to perform "insecure" SSL
-                     connections. Default: False
-  --no-proxy         Do not use a proxy. Default: False
+  --insecure         This option explicitly allows insecure SSL connections.
+  --no-proxy         Do not use a proxy.
   --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
                      stderr-file,expected-retc".
   --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)

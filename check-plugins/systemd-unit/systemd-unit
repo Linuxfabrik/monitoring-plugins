@@ -46,9 +46,9 @@ def parse_args():
 
     parser.add_argument(
         '--activestate',
-        help='Expected systemd ActiveState (repeating). This is the high-level unit activation '
-        'state(s), i.e. generalization of SUB. '
-        'If ommited or set to "None", the unit\'s active state will not be checked.',
+        help='Expected systemd ActiveState (high-level unit activation state, i.e. generalization of SUB). '
+        'Can be specified multiple times. '
+        'If omitted or set to "None", the unit\'s active state will not be checked.',
         dest='ACTIVESTATE',
         default=None,
         action='append',
@@ -64,10 +64,9 @@ def parse_args():
 
     parser.add_argument(
         '--loadstate',
-        help='Expected systemd LoadState. Reflects whether the unit definition was properly '
-        'loaded. '
-        'If ommited or set to "None", the unit\'s load state will not be checked. '
-        'Default: %(default)s',
+        help='Expected systemd LoadState, reflecting whether the unit definition was properly loaded. '
+        'If omitted or set to "None", the unit\'s load state will not be checked. '
+        'Default: %(default)s.',
         dest='LOADSTATE',
         default=DEFAULT_LOADSTATE,
         choices=[
@@ -87,20 +86,20 @@ def parse_args():
 
     parser.add_argument(
         '--machine',
-        help='Execute operation on a local container. Specify a container name to connect to, '
-        'optionally prefixed by a user name to connect as and a separating "@" character. If '
-        'the special string ".host" is used in place of the container name, a connection to '
-        "the local system is made (which is useful to connect to a specific user's user "
-        'bus: "--user --machine=lennart@.host"). If the "@" syntax is not used, the '
-        'connection is made as root user. If the "@" syntax is used either the left hand '
-        'side or the right hand side may be omitted (but not both) in which case the local '
-        'user name and ".host" are implied.',
+        help='Execute operation on a local container. '
+        'Specify a container name to connect to, optionally prefixed by a user name '
+        'and a separating "@" character. '
+        'The special string ".host" connects to the local system '
+        "(useful for reaching a specific user's bus: `--user --machine=lennart@.host`). "
+        'Without "@" syntax, the connection is made as root. '
+        'With "@" syntax, either side may be omitted (but not both), '
+        'defaulting to the local user name and ".host".',
         dest='MACHINE',
     )
 
     parser.add_argument(
         '--severity',
-        help=lib.args.help('--severity') + ' Default: %(default)s',
+        help=lib.args.help('--severity') + ' Default: %(default)s.',
         dest='SEVERITY',
         default=DEFAULT_SEVERITY,
         choices=['warn', 'crit'],
@@ -108,9 +107,9 @@ def parse_args():
 
     parser.add_argument(
         '--substate',
-        help='Expected systemd SubState (repeating). This is the low-level unit activation '
-        'state(s); values depend on unit type. '
-        'If ommited or set to "None", the unit\'s substate will not be checked.',
+        help='Expected systemd SubState (low-level unit activation state; values depend on unit type). '
+        'Can be specified multiple times. '
+        'If omitted or set to "None", the unit\'s substate will not be checked.',
         dest='SUBSTATE',
         default=None,
         action='append',
@@ -165,8 +164,9 @@ def parse_args():
 
     parser.add_argument(
         '--unit',
-        help='The unit name (service, timer, mount etc.). Required. For example "sshd", '
-        '"sshd.service", "my-samba-mount.mount" etc.',
+        help='Systemd unit name to check (service, timer, mount, etc.). '
+        'Required. '
+        'Example: `--unit sshd.service`.',
         dest='UNIT',
         required=True,
     )
@@ -175,7 +175,7 @@ def parse_args():
         '--unitfilestate',
         help='Expected systemd UnitFileState. '
         'If set to "empty", checks exactly for `UnitFileState=""`. '
-        'If ommited or set to "None", the unit\'s unit-file state will not be checked. ',
+        'If omitted or set to "None", the unit\'s unit-file state will not be checked.',
         dest='UNITFILESTATE',
         choices=[
             'None',
@@ -197,8 +197,7 @@ def parse_args():
 
     parser.add_argument(
         '--user',
-        help='Talk to the service manager of the calling user, rather than the service manager of '
-        'the system.',
+        help='Talk to the service manager of the calling user rather than the service manager of the system.',
         dest='USER',
         action='store_true',
         default=False,

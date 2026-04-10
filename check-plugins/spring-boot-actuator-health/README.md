@@ -34,38 +34,40 @@ usage: spring-boot-actuator-health [-h] [-V] [--always-ok]
                                    [--insecure] [--no-proxy] [--test TEST]
                                    [--timeout TIMEOUT] [--url URL] [--verbose]
 
-This is a monitoring plugin for the Spring Boot Actuator `/health` endpoint
-(e.g. http://localhost:port/actuator/health/db). It supports fine-grained
-overrides to adjust alerting behaviour and applying Nagios-style threshold
-ranges to detailed numeric metrics.
+Monitors a Spring Boot application via its Actuator /health endpoint. Checks
+overall health status and individual component states (database, disk, mail,
+etc.). Supports fine-grained severity overrides per component and sub-
+component. Alerts when the application or any component reports an unhealthy
+state.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --component-severity COMPONENT_NAME,API_STATUS,NAGIOS_STATE
-                        Set the API status for a specific component like `UP`,
-                        `DEGRADED` and `DOWN` to a Nagios state, where Nagios
-                        state is one of `ok`, `warn`, `crit` or `unknown`
-                        (repeating). Format: `component-name,api-
-                        status,nagios-state`. Example:
-                        `hikariConnectionPool,DEGRADED,crit`
+                        Map an API status (`UP`, `DEGRADED`, `DOWN`) for a
+                        specific component to a Nagios state (`ok`, `warn`,
+                        `crit`, `unknown`). Can be specified multiple times.
+                        Format: `component-name,api-status,nagios-state`.
+                        Example: `--component-severity
+                        hikariConnectionPool,DEGRADED,crit`.
   --detail-severity COMPONENT_NAME,DETAIL_NAME,WARN,CRIT
-                        Set a threshold for a *numeric* component detail value
-                        (repeating). Supports Nagios ranges. Format:
-                        `component-name,detail-name,warn,crit`. Example:
-                        `hikariConnectionPool,activeConnections,@10:20,@0:9`
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
+                        Threshold for a numeric component detail value.
+                        Supports Nagios ranges. Can be specified multiple
+                        times. Format: `component-name,detail-name,warn,crit`.
+                        Example: `--detail-severity
+                        hikariConnectionPool,activeConnections,@10:20,@0:9`.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  --url URL             Spring Boot Actuator Health Endpoint, for example
-                        http://server:80/health/diskSpace. Default:
-                        http://localhost:80/health
+  --url URL             Spring Boot Actuator health endpoint URL. Example:
+                        `--url http://server:80/health/diskSpace`. Default:
+                        http://localhost:80/health.
   --verbose             Makes this plugin verbose during the operation. Useful
-                        for debugging and seeing what's going on under the
+                        for debugging and seeing what is going on under the
                         hood. Default: False
 ```
 

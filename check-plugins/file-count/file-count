@@ -62,22 +62,21 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for the number of files. Supports ranges.',
+        help='CRIT threshold for the number of matching files. Supports Nagios ranges.',
         dest='CRIT',
     )
 
     parser.add_argument(
         '--filename',
-        help='File (or directory) name to check. Supports glob in accordance with '
-        'https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob. '
-        'Beware of using recursive globs. '
-        'This is mutually exclusive with -u / --url.',
+        help='File or directory name to check (supports glob patterns). '
+        'Beware of recursive globs. '
+        'Mutually exclusive with --url.',
         dest='FILENAME',
     )
 
     parser.add_argument(
         '--only-dirs',
-        help='Only count directories.',
+        help='Only count directories, ignoring files.',
         dest='ONLY_DIRS',
         action='store_true',
         default=False,
@@ -85,7 +84,7 @@ def parse_args():
 
     parser.add_argument(
         '--only-files',
-        help='Only count files.',
+        help='Only count files, ignoring directories.',
         dest='ONLY_FILES',
         action='store_true',
         default=False,
@@ -93,16 +92,15 @@ def parse_args():
 
     parser.add_argument(
         '--password',
-        help='SMB password.',
+        help='Password for SMB authentication.',
         dest='PASSWORD',
     )
 
     parser.add_argument(
         '--pattern',
-        help='The search string to match against the names of SMB directories or files. '
-        "This pattern can use '*' as a wildcard for multiple chars and '?' as a wildcard for "
-        'a single char. '
-        'Does not support regex patterns. '
+        help='SMB search pattern to match directory or file names. '
+        'Use `*` for multiple characters and `?` for a single character. '
+        'Does not support regex. '
         'Default: %(default)s.',
         dest='PATTERN',
         default=DEFAULT_PATTERN,
@@ -110,7 +108,7 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        help=lib.args.help('--timeout') + ' Default: %(default)s.',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -118,30 +116,29 @@ def parse_args():
 
     parser.add_argument(
         '--timerange',
-        help='Timerange (seconds) in which the files should be considered. '
-        'Supports ranges.',
+        help='Only count files modified within this time range in seconds. Supports Nagios ranges.',
         dest='TIMERANGE',
     )
 
     parser.add_argument(
         '-u',
         '--url',
-        help='URL of the file (or directory) to check, starting with "smb://". '
-        'This is mutually exclusive with --filename.',
+        help='SMB URL of the file or directory to check, starting with `smb://`. '
+        'Mutually exclusive with --filename.',
         dest='URL',
         type=str,
     )
 
     parser.add_argument(
         '--username',
-        help='SMB username.',
+        help='Username for SMB authentication.',
         dest='USERNAME',
     )
 
     parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for the number of files. Supports ranges.',
+        help='WARN threshold for the number of matching files. Supports Nagios ranges.',
         dest='WARN',
     )
 

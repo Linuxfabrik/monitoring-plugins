@@ -196,7 +196,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "This monitoring plugin checks if the screens attached to a Grassfish player are on or off. The list of players can be filtered. You must provide both the Grassfish hostname and a Grassfish token for this check to work.",
+            "notes": "Checks if screens attached to Grassfish digital signage players are on or off via the Grassfish API. The player list can be filtered by box state, customer ID, or custom ID. Requires a Grassfish hostname and API token. Alerts when screens are unexpectedly off. Supports extended reporting via --lengthy.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/grassfish-screens",
             "object_name": "tpl-service-grassfish-screens",
             "object_type": "template",
@@ -342,7 +342,7 @@
         "2": {
             "varname": "grassfish_screens_api_version",
             "caption": "Grassfish Screens: Api Version",
-            "description": "Grassfish API Version.",
+            "description": "Grassfish API version.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -353,7 +353,7 @@
         "3": {
             "varname": "grassfish_screens_box_id",
             "caption": "Grassfish Screens: Box ID",
-            "description": "Filter by specific box IDs. Supports Python Regular Expressions (regex, case-insensitive).",
+            "description": "Filter by box ID. Supports Python regular expressions (case-insensitive). Example: `--box-id \"^player-0[1-3]$\"`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -364,7 +364,7 @@
         "4": {
             "varname": "grassfish_screens_box_state",
             "caption": "Grassfish Screens: Box State",
-            "description": "Filter by specific box state. Repeating.",
+            "description": "Filter by box state. Can be specified multiple times.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -377,7 +377,7 @@
         "5": {
             "varname": "grassfish_screens_cache_expire",
             "caption": "Grassfish Screens: Cache Expire",
-            "description": "The amount of time after which the cached data expires, in hours.",
+            "description": "Time after which cached screen data expires, in hours.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -388,7 +388,7 @@
         "6": {
             "varname": "grassfish_screens_custom_id",
             "caption": "Grassfish Screens: Custom ID",
-            "description": "Filter by specific custom IDs. Supports Python Regular Expressions (regex, case-insensitive).",
+            "description": "Filter by custom ID. Supports Python regular expressions (case-insensitive). Example: `--custom-id \"(?i)lobby\"`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -410,7 +410,7 @@
         "8": {
             "varname": "grassfish_screens_insecure",
             "caption": "Grassfish Screens: Insecure?",
-            "description": "This option explicitly allows to perform \"insecure\" SSL connections.",
+            "description": "This option explicitly allows insecure SSL connections.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -419,7 +419,7 @@
         "9": {
             "varname": "grassfish_screens_is_installed",
             "caption": "Grassfish Screens: Is Installed",
-            "description": "Filter by boxes that are installed (= \"yes\") or not (= \"no\"). Repeating.",
+            "description": "Filter by installation status (\"yes\" or \"no\"). Can be specified multiple times.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -432,7 +432,7 @@
         "10": {
             "varname": "grassfish_screens_is_licensed",
             "caption": "Grassfish Screens: Is Licensed",
-            "description": "Filter by boxes that are licensed (= \"yes\") or not (= \"no\"). Repeating.",
+            "description": "Filter by license status (\"yes\" or \"no\"). Can be specified multiple times.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -463,7 +463,7 @@
         "13": {
             "varname": "grassfish_screens_port",
             "caption": "Grassfish Screens: Port",
-            "description": "Grassfish port.",
+            "description": "Grassfish port number.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -485,7 +485,7 @@
         "15": {
             "varname": "grassfish_screens_token",
             "caption": "Grassfish Screens: Token",
-            "description": "Grassfish API token",
+            "description": "Grassfish API token.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -496,7 +496,7 @@
         "16": {
             "varname": "grassfish_screens_transfer_status",
             "caption": "Grassfish Screens: Transfer Status",
-            "description": "Filter by specific data transfer status. Repeating.",
+            "description": "Filter by data transfer status. Can be specified multiple times.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -509,7 +509,7 @@
         "17": {
             "varname": "grassfish_screens_warning",
             "caption": "Grassfish Screens: Warning",
-            "description": "Set the WARN threshold for Last Access in hours (considers screen is off).",
+            "description": "WARN threshold for last screen update in hours (screen considered off above this value).",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

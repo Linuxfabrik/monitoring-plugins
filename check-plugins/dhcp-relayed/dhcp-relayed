@@ -57,8 +57,7 @@ def parse_args():
 
     parser.add_argument(
         '--bind-address',
-        help='Bind the socket to address. The socket must not already be bound. '
-        'Default: %(default)s',
+        help='Local address to bind the socket to. Default: %(default)s.',
         dest='BIND_ADDRESS',
         default=DEFAULT_BIND_ADDRESS,
     )
@@ -66,35 +65,36 @@ def parse_args():
     parser.add_argument(
         '-H',
         '--hostname',
-        help='DHCP server address, can be IP address or hostname. Default: %(default)s',
+        help='DHCP server address, hostname or IP address. '
+        'If omitted, the request is sent as broadcast. '
+        'Default: %(default)s.',
         dest='HOSTNAME',
         default=None,
     )
 
     parser.add_argument(
         '--mac',
-        help="Network MAC address to use. Doesn't have to be an existing MAC address. "
-        'If you specify `--mac=random`, a random MAC address will be used. '
-        'If omitted, the hardware address is obtained as described in '
-        'https://docs.python.org/3/library/uuid.html#uuid.getnode.',
+        help='Network MAC address to use in the DHCP request. '
+        'Does not have to be an existing MAC address. '
+        'Use `--mac=random` for a random MAC address. '
+        'If omitted, the local hardware address is used.',
         dest='MAC',
     )
 
     parser.add_argument(
         '--subnet-mask',
-        help="The subnet mask option specifies the client's subnet mask. "
-        'Example: 255.255.255.248. '
-        'Default: %(default)s',
+        help='Subnet mask for the DHCP request. '
+        'Example: `255.255.255.248`. '
+        'Default: %(default)s.',
         dest='SUBNET_MASK',
         default=None,
     )
 
     parser.add_argument(
         '--subnet-selection',
-        help="The subnet selection option would override a DHCP server's normal methods of "
-        'selecting the subnet on which to allocate an address for a client. '
-        'Example: 192.168.122.0. '
-        'Default: %(default)s',
+        help='Override the DHCP server subnet selection for address allocation (RFC 3011). '
+        'Example: `192.168.122.0`. '
+        'Default: %(default)s.',
         dest='SUBNET_SELECTION',
         default=None,
     )

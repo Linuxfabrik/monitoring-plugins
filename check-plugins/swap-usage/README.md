@@ -21,19 +21,18 @@ Displays amount of free and used swap space in the system, checks against used s
 ```text
 usage: swap-usage [-h] [-V] [--always-ok] [-c CRIT] [--top TOP] [-w WARN]
 
-Displays amount of free and used swap space in the system, checks against used
-swap in percent.
+Monitors swap space usage as a percentage of total swap. Optionally lists the
+top processes consuming the most swap to help identify the source of high
+usage. Alerts when usage exceeds the configured thresholds.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  Set the critical threshold for swap usage (in percent).
-                       Default: 90
-  --top TOP            List x "Top processes that use the most swap space"
-                       (except on Windows). Default: 5
-  -w, --warning WARN   Set the warning threshold for swap usage (in percent).
-                       Default: 70
+  -c, --critical CRIT  Threshold for swap usage, in percent. Default: 90.
+  --top TOP            Number of top processes consuming the most swap space
+                       to list (not available on Windows). Default: 5.
+  -w, --warning WARN   Threshold for swap usage, in percent. Default: 70.
 ```
 
 

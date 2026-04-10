@@ -136,7 +136,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "This check plugin counts the number of state changes per service within a given lookback interval. This makes it possible to detect fast flapping services. The data is determined in the 'History > Event Overview' view in IcingaDB. An output like `srv01 ! Swap Usage ! 10 ! [WARNING]` means that the service 'Swap Usage' on host 'srv01' has had 10 service state changes in the lookback interval. With this information, you can now examine the history of the specified service. ",
+            "notes": "Detects fast-flapping Icinga services by counting state changes per service within a configurable lookback interval. Queries the IcingaDB event history and alerts when any service exceeds the configured number of state changes.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/icinga-topflap-services",
             "object_name": "tpl-service-icinga-topflap-services",
             "object_type": "template",
@@ -174,7 +174,7 @@
         "2": {
             "varname": "icinga_topflap_services_critical",
             "caption": "Icinga Topflap Services: Critical",
-            "description": "Critical number of state changes per service within the \"lookback\" period. Supports Nagios ranges.",
+            "description": "CRIT threshold for the number of state changes per service within the lookback period. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -185,7 +185,7 @@
         "3": {
             "varname": "icinga_topflap_services_insecure",
             "caption": "Icinga Topflap Services: Insecure?",
-            "description": "This option explicitly allows to perform \"insecure\" SSL connections.",
+            "description": "This option explicitly allows insecure SSL connections.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -194,7 +194,7 @@
         "4": {
             "varname": "icinga_topflap_services_lookback",
             "caption": "Icinga Topflap Services: Lookback",
-            "description": "Seconds in the past that the plugin should consider when looking for data.",
+            "description": "Time window in seconds to consider for state change counting.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -214,7 +214,7 @@
         "6": {
             "varname": "icinga_topflap_services_password",
             "caption": "Icinga Topflap Services: Password",
-            "description": "IcingaWeb Password. Takes precedence over setting in `--password-file`.",
+            "description": "IcingaWeb password. Takes precedence over the value in `--pwfile`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -225,7 +225,7 @@
         "7": {
             "varname": "icinga_topflap_services_pwfile",
             "caption": "Icinga Topflap Services: Pwfile",
-            "description": "Specifies a password file to read \"url\", \"user\" or \"password\" for IcingaWeb from (instead of specifying them on the command line), for example `/var/spool/icinga2/.icingaweb`.",
+            "description": "Path to a password file containing \"url\", \"user\" and \"password\" for IcingaWeb. Example: `--pwfile /var/spool/icinga2/.icingaweb`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -247,7 +247,7 @@
         "9": {
             "varname": "icinga_topflap_services_url",
             "caption": "Icinga Topflap Services: URL",
-            "description": "URL to IcingaDB > History > Event Overview, including filter parameters. Takes precedence over setting in `--password-file`.Something like `https:/icinga//icingaweb2/icingadb/history?limit=250",
+            "description": "IcingaDB event history URL including filter parameters. Takes precedence over the value in `--pwfile`. Example: `--url https://icinga/icingaweb2/icingadb/history?limit=250`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -258,7 +258,7 @@
         "10": {
             "varname": "icinga_topflap_services_username",
             "caption": "Icinga Topflap Services: Username",
-            "description": "IcingaWeb Username. Takes precedence over setting in `--password-file`.",
+            "description": "IcingaWeb username. Takes precedence over the value in `--pwfile`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -269,7 +269,7 @@
         "11": {
             "varname": "icinga_topflap_services_warning",
             "caption": "Icinga Topflap Services: Warning",
-            "description": "Warning number of state changes per service within the \"lookback\" period. Supports Nagios ranges.",
+            "description": "WARN threshold for the number of state changes per service within the lookback period. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

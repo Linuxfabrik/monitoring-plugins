@@ -26,15 +26,16 @@ usage: jitsi-videobridge-status [-h] [-V] [--always-ok] [--insecure]
                                 [--timeout TIMEOUT] [--url URL]
                                 [--username USERNAME]
 
-Checks the Jitsi Videobridge health state.
+Checks the Jitsi Videobridge health state via the /about/health REST endpoint.
+Returns OK if the bridge is healthy, WARN or CRIT otherwise.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
                         Jitsi API password.
   --severity {warn,crit}

@@ -37,27 +37,28 @@ usage: service [-h] [-V] [--always-ok] [-c CRIT] --service SERVICE
                [--status {continue_pending,pause_pending,paused,running,start_pending,stop_pending,stopped}]
                [--test TEST] [-w WARN]
 
-Checks the state of one or more Windows services. You have to provide the
-case-insensitive "Service Name", not the "Display Name". Supports Python
-regular expressions, so you are able to check multiple Windows services on a
-host with almost the same name, for example.
+Checks the state of one or more Windows services. Accepts the case-insensitive
+service name (not the display name) and supports regular expressions to match
+multiple services. Alerts on services that are not in the expected state.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Set the CRIT threshold. Accepts ranges. Default:
-                        "None"
-  --service SERVICE     Name of the service(s). Supports Python Regular
-                        Expressions (regex).
+  -c, --critical CRIT   CRIT threshold for the number of services in the
+                        expected status. Accepts Nagios ranges. Default: None.
+  --service SERVICE     Name of the Windows service(s) to check. Supports
+                        Python regular expressions (regex).
   --starttype {automatic,disabled,manual}
-                        Filter for service start type. Default: automatic
+                        Filter by service start type. Can be specified
+                        multiple times. Default: automatic.
   --status {continue_pending,pause_pending,paused,running,start_pending,stop_pending,stopped}
-                        At least one expected service status (repeating).
-                        Default: running
+                        Expected service status. Can be specified multiple
+                        times. Default: running.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
-  -w, --warning WARN    Set the WARN threshold. Accepts ranges. Default: "1:"
+  -w, --warning WARN    WARN threshold for the number of services in the
+                        expected status. Accepts Nagios ranges. Default: 1:.
 ```
 
 

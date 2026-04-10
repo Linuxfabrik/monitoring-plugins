@@ -52,22 +52,27 @@ Hints:
 usage: network-io [-h] [-V] [--always-ok] [--count COUNT] [--critical CRIT]
                   [--ignore IGNORE] [--warning WARN]
 
-Checks network IO.
+Monitors network I/O throughput per interface over time. Calculates bytes per
+second from cumulative counters using SQLite state persistence between runs.
+Alerts only if bandwidth thresholds have been exceeded for a configurable
+number of consecutive check runs (default: 5), suppressing short spikes. Also
+reports packet rates, errors, and drops per interface.
 
 options:
   -h, --help       show this help message and exit
   -V, --version    show program's version number and exit
   --always-ok      Always returns OK.
-  --count COUNT    Number of times the value must exceed specified thresholds
+  --count COUNT    Number of consecutive checks the threshold must be exceeded
                    before alerting. Default: 5
-  --critical CRIT  Set the CRIT threshold for network I/O rx/tx rate over the
-                   entire period as a percentage of the maximum network I/O
-                   rate. Default: >= 90
-  --ignore IGNORE  Ignore network interfaces starting with a string like "tun"
-                   (repeating). Default: ['lo']
-  --warning WARN   Set the CRIT threshold for network I/O rx/tx rate over the
-                   entire period as a percentage of the maximum network I/O
-                   rate. Default: >= 80
+  --critical CRIT  CRIT threshold for network I/O rx/tx rate over the entire
+                   period as a percentage of the maximum network I/O rate.
+                   Default: >= 90.
+  --ignore IGNORE  Ignore network interfaces starting with this string. Can be
+                   specified multiple times. Example: `--ignore tun`. Default:
+                   ['lo'].
+  --warning WARN   WARN threshold for network I/O rx/tx rate over the entire
+                   period as a percentage of the maximum network I/O rate.
+                   Default: >= 80.
 ```
 
 

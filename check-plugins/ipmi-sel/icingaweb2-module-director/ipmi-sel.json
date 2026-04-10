@@ -130,7 +130,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the IPMI System Event Log (SEL) and returns WARN if there are entries. Use \"ipmitool sel clear\" to clear the IPMI System Event Log (SEL).",
+            "notes": "Checks the IPMI System Event Log (SEL) for entries and alerts when events are found. Entries can be filtered by regex using --ignore. To clear the SEL after resolving issues, run \"ipmitool sel clear\". Requires root or sudo.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ipmi-sel",
             "object_name": "tpl-service-ipmi-sel",
             "object_type": "template",
@@ -336,7 +336,7 @@
         "1": {
             "varname": "ipmi_sel_authtype",
             "caption": "IPMI SEL: Authtype",
-            "description": "Specify an authentication type to use during IPMIv1.5 lan session activation. Supported types are NONE, PASSWORD, MD2, MD5, or OEM.",
+            "description": "Authentication type for IPMIv1.5 lan session activation. Supported types are NONE, PASSWORD, MD2, MD5, or OEM.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -349,7 +349,7 @@
         "2": {
             "varname": "ipmi_sel_hostname",
             "caption": "IPMI SEL: Hostname",
-            "description": "Remote server address, can be IP address or hostname. This option is required for lan and lanplus interfaces.",
+            "description": "Remote server address, can be a hostname or IP address. Required for lan and lanplus interfaces.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -360,7 +360,7 @@
         "3": {
             "varname": "ipmi_sel_ignore",
             "caption": "IPMI SEL: Ignore",
-            "description": "Ignore SEL entries matching this Python regular expression (repeating). Example: `--ignore=\"Log area reset/cleared\"`",
+            "description": "Ignore SEL entries matching this Python regular expression. Can be specified multiple times. Example: `--ignore=\"Log area reset/cleared\"`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -371,7 +371,7 @@
         "4": {
             "varname": "ipmi_sel_interface",
             "caption": "IPMI SEL: Interface",
-            "description": "Selects IPMI interface to use. Supported types are \"lan\" (= IPMI v1.5) or \"lanplus\" (= IPMI v2.0).",
+            "description": "IPMI interface to use. Supported types are \"lan\" (IPMI v1.5) or \"lanplus\" (IPMI v2.0).",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {

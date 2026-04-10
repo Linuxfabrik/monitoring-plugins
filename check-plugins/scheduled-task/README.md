@@ -23,17 +23,19 @@ usage: scheduled-task [-h] [-V] [--severity {warn,crit}]
                       [--status {Disabled,Queued,Ready,Running,Unknown}]
                       --task TASK
 
-Check the status of a scheduled task.
+Checks the status and last result of a Windows Scheduled Task. Alerts when the
+task has failed or returned a non-zero exit code.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --severity {warn,crit}
-                        Severity if something is found. Default: warn
+                        Severity when the task is not in the expected status.
+                        Default: warn.
   --status {Disabled,Queued,Ready,Running,Unknown}
-                        Expected task status (repeating). Default: ['Ready',
-                        'Running']
-  --task TASK           Name of the scheduled task.
+                        Expected task status. Can be specified multiple times.
+                        Default: ['Ready', 'Running'].
+  --task TASK           Name of the Windows scheduled task to check.
 ```
 
 

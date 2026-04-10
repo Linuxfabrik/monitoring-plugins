@@ -22,17 +22,16 @@ Retrieves the HIN status page from <https://support.hin.ch/de/> and searches for
 usage: hin-status [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
                   [--test TEST] [--timeout TIMEOUT] [--url URL]
 
-Retrieves the HIN status page from https://support.hin.ch/de/ and searches for
-out-of-service messages. Unfortunately there is no machine-readable version
-yet, so the plugin has to rely on the WordPress-generated HTML content.
+Monitors the HIN (Health Info Net) status page for service disruptions. Parses
+the support website for outage announcements since no machine-readable API is
+available. Alerts when active incidents are detected.
 
 options:
   -h, --help         show this help message and exit
   -V, --version      show program's version number and exit
   --always-ok        Always returns OK.
-  --insecure         This option explicitly allows to perform "insecure" SSL
-                     connections. Default: False
-  --no-proxy         Do not use a proxy. Default: False
+  --insecure         This option explicitly allows insecure SSL connections.
+  --no-proxy         Do not use a proxy.
   --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
                      stderr-file,expected-retc".
   --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)

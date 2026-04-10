@@ -29,34 +29,35 @@ usage: restic-snapshots [-h] [-V] [-c CRIT] [--group-by GROUP_BY]
                         [--password-file PASSWORD_FILE] [--path PATH]
                         --repo REPO [--tag TAG] [--test TEST] [-w WARN]
 
-Check the age of the newest restic repository snapshot.
+Checks the age of the newest snapshot in a restic repository. Alerts when the
+most recent backup is older than the configured thresholds. Useful for
+detecting failed or missing backup runs. Supports extended reporting via
+--lengthy. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
-  -c, --critical CRIT   Set the critical threshold for the time difference to
-                        the start of the last backup (in each group) (in
-                        hours). Default: None
-  --group-by GROUP_BY   String for grouping snapshots by host,paths,tags.
-                        Default: host,paths
-  --host HOST           Only consider snapshots for this host (can be
-                        specified multiple times).
-  --latest LATEST       Only show the last n snapshots for each host and path.
+  -c, --critical CRIT   CRIT threshold for the age of the newest snapshot in
+                        each group, in hours. Default: None
+  --group-by GROUP_BY   Comma-separated list of fields to group snapshots by.
+                        Allowed values: host, paths, tags. Default: host,paths
+  --host HOST           Only consider snapshots for this host. Can be
+                        specified multiple times.
+  --latest LATEST       Number of latest snapshots to show per host and path.
                         Default: 3
   --lengthy             Extended reporting.
   --password-file PASSWORD_FILE
-                        File to read the repository password from.
-  --path PATH           Only consider snapshots for this path (can be
-                        specified multiple times).
-  --repo REPO           Repository location
-  --tag TAG             Only consider snapshots which include this taglist in
-                        the format `tag[,tag,...]` (can be specified multiple
-                        times).
+                        Path to the file containing the repository password.
+  --path PATH           Only consider snapshots for this path. Can be
+                        specified multiple times.
+  --repo REPO           Restic repository location.
+  --tag TAG             Only consider snapshots matching this taglist in the
+                        format `tag[,tag,...]`. Can be specified multiple
+                        times.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
-  -w, --warning WARN    Set the warning threshold for the time difference to
-                        the start of the last backup (in each group) (in
-                        hours). Default: 24
+  -w, --warning WARN    WARN threshold for the age of the newest snapshot in
+                        each group, in hours. Default: 24
 ```
 
 

@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Normalize all `from lib.globals import` to single-line format
 * Refactor all `get_perfdata()` calls to use keyword arguments instead of positional (consistent with example plugin)
 * Refactor all standard parameter help texts to use `lib.args.help()` for consistency across plugins
+* Rewrite all parameter help texts for consistency: purpose first, format, repeating, example, default as separate sentences
 * Replace stiff "Set the ..." formulations in parameter help texts with concise wording
 * Remove all inline `pylint: disable` comments from plugins, unit tests, and tools
 * Replace all bare `except:` with `except Exception:` across all plugins and tools

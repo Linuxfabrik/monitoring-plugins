@@ -38,35 +38,38 @@ usage: infomaniak-swiss-backup-products [-h] [-V] --account-id ACCOUNT_ID
                                         [--timeout TIMEOUT] --token TOKEN
                                         [--test TEST] [-w WARN]
 
-Checks your Infomaniak Swiss Backup product details via the Infomaniak API.
+Checks Infomaniak Swiss Backup product details via the Infomaniak API. Alerts
+when products are locked, maintenance window is active, or storage quota is
+exceeded. Products can be filtered by customer or tag.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --account-id ACCOUNT_ID
-                        Infomaniak Account-ID
+                        Infomaniak Account-ID.
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Set the critical for the expiration date in days.
-                        Default: 3
+  -c, --critical CRIT   CRIT threshold for the expiration date, in days.
+                        Default: 3.
   --ignore-customer IGNORE_CUSTOMER
-                        Any product whose customer name matches this python
-                        regex will be ignored (repeating). Example: '(?i)test'
-                        for a case-insensitive search for "test".
+                        Any product whose customer name matches this Python
+                        regex will be ignored. Can be specified multiple
+                        times. Example: `--ignore-customer='(?i)test'`.
   --ignore-tag IGNORE_TAG
-                        Any product whose tag matches this python regex will
-                        be ignored (repeating). Example: '(?i)deprecated' for
-                        a case-insensitive search for "deprecated".
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
+                        Any product whose tag matches this Python regex will
+                        be ignored. Can be specified multiple times. Example:
+                        `--ignore-tag='(?i)deprecated'`.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
   --severity {warn,crit}
-                        Severity for alerting other values. Default: warn
+                        Severity for alerting on locked, maintenance, or busy
+                        products. Default: warn.
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  --token TOKEN         Infomaniak API token
+  --token TOKEN         Infomaniak API token.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
-  -w, --warning WARN    Set the warning for the expiration date in days.
-                        Default: 5
+  -w, --warning WARN    WARN threshold for the expiration date, in days.
+                        Default: 5.
 ```
 
 

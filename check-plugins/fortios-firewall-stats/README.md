@@ -22,22 +22,21 @@ usage: fortios-firewall-stats [-h] [-V] [--always-ok] -H HOSTNAME [--insecure]
                               [--no-proxy] --password PASSWORD
                               [--timeout TIMEOUT]
 
-Summarizes traffic statistics for all IPv4 and IPv6 firewall policies from
-Forti Appliances like FortiGate running FortiOS via FortiOS REST API. The
-authentication is done via a single API token (Token-based authentication),
-not via Session-based authentication, which is stated as "legacy".
+Summarizes traffic statistics for all IPv4 and IPv6 firewall policies on
+FortiGate appliances running FortiOS via the REST API. Reports byte and packet
+counters, active sessions, and hit counts per policy.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   -H, --hostname HOSTNAME
-                        FortiOS-based Appliance address, optional including
-                        port ("192.168.1.1:443").
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
-  --password PASSWORD   FortiOS REST API Single Access Token.
+                        FortiOS-based appliance address, optionally including
+                        port. Example: `--hostname 192.168.1.1:443`.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
+  --password PASSWORD   FortiOS REST API single-use access token.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 

@@ -22,18 +22,17 @@ If you get an alert, use <span class="title-ref">find \$MOUNT -xdev -printf '%hn
 ```text
 usage: fs-inodes [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
 
-Checks the percentage of inode space used. To do this, this plugin fetches a
-list of local devices that are in use and have a filesystem on them.
-Filesystems that do not report inode usage are skipped.
+Checks the percentage of used inodes on local filesystems. Fetches a list of
+local devices that are in use and have a filesystem. Filesystems that do not
+report inode usage (such as some network filesystems) are skipped
+automatically. Alerts when inode usage exceeds the configured thresholds.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  Set the critical threshold inode usage percentage.
-                       Default: 95
-  -w, --warning WARN   Set the warning threshold inode usage percentage.
-                       Default: 90
+  -c, --critical CRIT  CRIT threshold for inode usage in percent. Default: 95.
+  -w, --warning WARN   WARN threshold for inode usage in percent. Default: 90.
 ```
 
 

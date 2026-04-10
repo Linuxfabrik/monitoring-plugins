@@ -28,45 +28,41 @@ usage: file-age [-h] [-V] [--always-ok] [-c CRIT]
                 [--timeout TIMEOUT] [-u URL] [--username USERNAME] [-w WARN]
                 [--warning-count WARN_COUNT]
 
-Checks the time of last data modification for a file or directory, in seconds.
+Checks the time since last modification of one or more files or directories.
+Supports glob patterns (including recursive), SMB shares, and optional
+aggregation (mean or median) across all matched files. Can also alert on the
+number of files within a specific age range. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Set the critical age threshold in seconds. Supports
-                        ranges. Default: >= 31536000s (365d)
+  -c, --critical CRIT   CRIT threshold for file age in seconds. Supports
+                        Nagios ranges. Default: >= 31536000 (365d).
   --critical-count CRIT_COUNT
-                        Set the critical threshold for the number of files
-                        found within the critical age. Supports ranges.
-                        Default: > 0
-  --filename FILENAME   File or directory name to check. Supports glob in
-                        accordance with
-                        https://docs.python.org/2.7/library/glob.html. Beware
-                        of using recursive globs. This is mutually exclusive
-                        with -u / --url.
-  --only-dirs           Only consider directories.
-  --only-files          Only consider files.
-  --password PASSWORD   SMB: Password.
-  --pattern PATTERN     SMB: The search string to match against the names of
-                        SMB directories or files. This pattern can use '*' as
-                        a wildcard for multiple chars and '?' as a wildcard
-                        for a single char. Does not support regex patterns.
-                        Default: *.
+                        CRIT threshold for the number of files exceeding the
+                        critical age. Supports Nagios ranges. Default: > 0.
+  --filename FILENAME   File or directory name to check (supports glob
+                        patterns). Beware of recursive globs. Mutually
+                        exclusive with --url.
+  --only-dirs           Only consider directories, ignoring files.
+  --only-files          Only consider files, ignoring directories.
+  --password PASSWORD   Password for SMB authentication.
+  --pattern PATTERN     SMB search pattern to match directory or file names.
+                        Use `*` for multiple characters and `?` for a single
+                        character. Does not support regex. Default: *.
   --perfdata-mode {mean,median,None}
-                        Set the performance data aggregation mode. Default:
-                        None.
-  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  -u, --url URL         SMB: Set the url of the file (or directory) to check,
-                        starting with "smb://". This is mutually exclusive
-                        with --filename.
-  --username USERNAME   SMB: Username.
-  -w, --warning WARN    Set the warning age threshold in seconds. Supports
-                        ranges. Default: >= 2592000s (30d)
+                        Aggregation mode for performance data across matched
+                        files. Default: None.
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3.
+  -u, --url URL         SMB URL of the file or directory to check, starting
+                        with `smb://`. Mutually exclusive with --filename.
+  --username USERNAME   Username for SMB authentication.
+  -w, --warning WARN    WARN threshold for file age in seconds. Supports
+                        Nagios ranges. Default: >= 2592000 (30d).
   --warning-count WARN_COUNT
-                        Set the warning threshold for the number of files
-                        found within the warning age. Supports ranges.
-                        Default: > 0 (30d)
+                        WARN threshold for the number of files exceeding the
+                        warning age. Supports Nagios ranges. Default: > 0.
 ```
 
 

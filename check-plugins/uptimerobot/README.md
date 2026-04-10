@@ -21,21 +21,20 @@ Alerts on all monitors in down or unknown status on a given UptimeRobot status p
 usage: uptimerobot [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
                    [--test TEST] [--timeout TIMEOUT] [--url URL]
 
-Alerts on all monitors in down or unknown status on a given UptimeRobot status
-page.
+Monitors all configured UptimeRobot monitors via the UptimeRobot API. Alerts
+on any monitor that is in a down or unknown state.
 
 options:
   -h, --help         show this help message and exit
   -V, --version      show program's version number and exit
   --always-ok        Always returns OK.
-  --insecure         This option explicitly allows to perform "insecure" SSL
-                     connections. Default: False
-  --no-proxy         Do not use a proxy. Default: False
+  --insecure         This option explicitly allows insecure SSL connections.
+  --no-proxy         Do not use a proxy.
   --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
                      stderr-file,expected-retc".
-  --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
-  --url URL          UptimeRobot Status Page URL. Default:
-                     https://status.linuxfabrik.io
+  --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds).
+  --url URL          UptimeRobot status page URL. Default:
+                     https://status.linuxfabrik.io.
 ```
 
 

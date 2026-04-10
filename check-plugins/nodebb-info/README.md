@@ -34,22 +34,25 @@ usage: nodebb-info [-h] [-V] [--always-ok] [-c CRIT] [--insecure] [--no-proxy]
                    [--test TEST] [--timeout TIMEOUT] -p TOKEN [--url URL]
                    [-w WARN]
 
-Get NodeBB process/system information.
+Retrieves NodeBB process and system information via the admin API, including
+Node.js version, uptime, memory usage, and Git commit hash. Alerts when memory
+usage exceeds the configured thresholds.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  Set the CRIT threshold as a percentage. Default: >= 95
-  --insecure           This option explicitly allows to perform "insecure" SSL
-                       connections. Default: False
-  --no-proxy           Do not use a proxy. Default: False
+  -c, --critical CRIT  CRIT threshold in percent. Supports Nagios ranges.
+                       Default: >= 95
+  --insecure           This option explicitly allows insecure SSL connections.
+  --no-proxy           Do not use a proxy.
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".
   --timeout TIMEOUT    Network timeout in seconds. Default: 3 (seconds)
-  -p, --token TOKEN    NodeBB API Bearer token.
+  -p, --token TOKEN    NodeBB API bearer token.
   --url URL            NodeBB API URL. Default: http://localhost:4567/forum
-  -w, --warning WARN   Set the WARN threshold as a percentage. Default: >= 90
+  -w, --warning WARN   WARN threshold in percent. Supports Nagios ranges.
+                       Default: >= 90
 ```
 
 

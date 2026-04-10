@@ -2,7 +2,7 @@
 
 ## Overview
 
-The check warns before an expiration date of events that are scheduled to occur. Useful to warn before a hardware or contract expiration date. Use `./countdown --input='<Event Name>, <yyyy-mm-dd>, <WARN days before>, <CRIT days before>'` (repeating). For example, `./countdown --input='Supermicro X11 (SerNo ABCD), 2025-12-23, 60, 30'` returns WARN/CRIT 60/30 days before 2025-12-23, otherwise OK.
+The check warns before an expiration date of events that are scheduled to occur. Useful to warn before a hardware or contract expiration date. Use `./countdown --input='<Event Name>, <yyyy-mm-dd>, <WARN days before>, <CRIT days before>'` Can be specified multiple times.. For example, `./countdown --input='Supermicro X11 (SerNo ABCD), 2025-12-23, 60, 30'` returns WARN/CRIT 60/30 days before 2025-12-23, otherwise OK.
 
 
 ## Fact Sheet
@@ -20,13 +20,18 @@ The check warns before an expiration date of events that are scheduled to occur.
 ```text
 usage: countdown [-h] [-V] [--always-ok] --input INPUT
 
-Warns before an expiration date is scheduled to occur.
+Counts down to one or more user-defined expiration dates, such as certificate
+renewals, contract deadlines, or license expirations. Alerts when the
+remaining days fall below the configured warning or critical thresholds. Each
+item can have its own thresholds. Past dates are reported as expired.
 
 options:
   -h, --help     show this help message and exit
   -V, --version  show program's version number and exit
   --always-ok    Always returns OK.
-  --input INPUT  "Display Name 1, yyyy-mm-dd, warn, crit" (repeating)
+  --input INPUT  Countdown item in the format "Display Name, YYYY-MM-DD, warn,
+                 crit". Can be specified multiple times. Example: `--input
+                 "Supermicro SYS1, 2025-01-10, 50, 30"`.
 ```
 
 

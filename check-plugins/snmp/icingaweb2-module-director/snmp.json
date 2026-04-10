@@ -200,7 +200,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "This check is a SNMP application that uses the SNMP GET request to query for information on a network entity. The object identifiers (OIDs) of interest have to be defined in a CSV file, including optional WARN and CRIT parameters.",
+            "notes": "Queries SNMP OIDs defined in a CSV file and checks the returned values against optional warning and critical thresholds. Supports SNMP v1, v2c, and v3 with authentication and privacy protocols.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/snmp",
             "object_name": "tpl-service-snmp",
             "object_type": "template",
@@ -354,7 +354,7 @@
         "1": {
             "varname": "snmp_community",
             "caption": "SNMP: Community",
-            "description": "SNMP Version 1 or 2c specific. Set the community string.",
+            "description": "SNMP v1/v2c community string.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -365,7 +365,7 @@
         "2": {
             "varname": "snmp_device",
             "caption": "SNMP: Device",
-            "description": "The name of a device file containing the SNMP-OIDs, located under `./device-oids`, for example `switch-fs-s3900.csv` or `printer-brother-mfcj5720dw.csv`. `any-any-any.csv` is a good starting point showing some features. The file name is irrelevant. We recommend the three-part structure, where the first \"any\" refers to the device class, the second \"any\" refers to the vendor, and the third refers to the model.",
+            "description": "Name of a CSV file containing the SNMP OIDs, located under `./device-oids`. The recommended naming convention is `class-vendor-model.csv`. `any-any-any.csv` is a good starting point showing some features. Example: `--device switch-fs-s3900.csv`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -376,7 +376,7 @@
         "3": {
             "varname": "snmp_hide_ok",
             "caption": "SNMP: Hide OK?",
-            "description": "Don't print OIDs with OK state.",
+            "description": "Suppress OIDs with OK state from output.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -385,7 +385,7 @@
         "4": {
             "varname": "snmp_hide_table",
             "caption": "SNMP: Hide Table?",
-            "description": "Suppress the output of the table.",
+            "description": "Suppress the table from output.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -394,7 +394,7 @@
         "5": {
             "varname": "snmp_hostname",
             "caption": "SNMP: Hostname",
-            "description": "SNMP Appliance address.",
+            "description": "SNMP appliance hostname or IP address.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -405,7 +405,7 @@
         "6": {
             "varname": "snmp_mib",
             "caption": "SNMP: MIB",
-            "description": "Load given list of MIBs, for example `+FS-MIB` or `FS-MIB:BROTHER-MIB`. Behaves like the `-m` option of `snmpget`.",
+            "description": "MIB(s) to load, behaves like the `-m` option of `snmpget`. Example: `--mib \"+FS-MIB\"` or `--mib \"FS-MIB:BROTHER-MIB\"`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -416,7 +416,7 @@
         "7": {
             "varname": "snmp_mib_dir",
             "caption": "SNMP: MIB Dir",
-            "description": "Look in given list of directories for MIBs. Behaves like the `-M` option of `snmpget`.",
+            "description": "Colon-separated list of directories to search for MIBs, behaves like the `-M` option of `snmpget`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -427,7 +427,7 @@
         "8": {
             "varname": "snmp_snmp_version",
             "caption": "SNMP: SNMP Version",
-            "description": "Specifies SNMP version to use.",
+            "description": "SNMP version to use.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -451,7 +451,7 @@
         "10": {
             "varname": "snmp_v3_auth_prot",
             "caption": "SNMP: v3 Auth Prot",
-            "description": "SNMP Version 3 specific. Set authentication protocol.",
+            "description": "SNMPv3 authentication protocol.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -464,7 +464,7 @@
         "11": {
             "varname": "snmp_v3_auth_prot_password",
             "caption": "SNMP: v3 Auth Prot Password",
-            "description": "SNMP Version 3 specific. Set authentication protocol pass phrase.",
+            "description": "SNMPv3 authentication protocol passphrase.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -475,7 +475,7 @@
         "12": {
             "varname": "snmp_v3_boots_time",
             "caption": "SNMP: v3 Boots Time",
-            "description": "SNMP Version 3 specific. Set destination engine boots/time.",
+            "description": "SNMPv3 destination engine boots/time.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -486,7 +486,7 @@
         "13": {
             "varname": "snmp_v3_context",
             "caption": "SNMP: v3 Context",
-            "description": "SNMP Version 3 specific. Set context name (e.g. bridge1).",
+            "description": "SNMPv3 context name. Example: `--v3-context bridge1`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -497,7 +497,7 @@
         "14": {
             "varname": "snmp_v3_context_engine_id",
             "caption": "SNMP: v3 Context Engine ID",
-            "description": "SNMP Version 3 specific. Set context engine ID (e.g. 800000020109840301).",
+            "description": "SNMPv3 context engine ID. Example: `--v3-context-engine-id 800000020109840301`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -508,7 +508,7 @@
         "15": {
             "varname": "snmp_v3_level",
             "caption": "SNMP: v3 Level",
-            "description": "SNMP Version 3 specific. Set security level.",
+            "description": "SNMPv3 security level.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -521,7 +521,7 @@
         "16": {
             "varname": "snmp_v3_priv_prot",
             "caption": "SNMP: v3 Priv Prot",
-            "description": "SNMP Version 3 specific. Set privacy protocol.",
+            "description": "SNMPv3 privacy protocol.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -534,7 +534,7 @@
         "17": {
             "varname": "snmp_v3_priv_prot_password",
             "caption": "SNMP: v3 Priv Prot Password",
-            "description": "SNMP Version 3 specific. Set privacy protocol pass phrase.",
+            "description": "SNMPv3 privacy protocol passphrase.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -545,7 +545,7 @@
         "18": {
             "varname": "snmp_v3_security_engine_id",
             "caption": "SNMP: v3 Security Engine ID",
-            "description": "SNMP Version 3 specific. Set security engine ID (e.g. 800000020109840301).",
+            "description": "SNMPv3 security engine ID. Example: `--v3-security-engine-id 800000020109840301`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -556,7 +556,7 @@
         "19": {
             "varname": "snmp_v3_username",
             "caption": "SNMP: v3 Username",
-            "description": "SNMP Version 3 specific. Set security name (e.g. bert).",
+            "description": "SNMPv3 security name (username). Example: `--v3-username bert`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

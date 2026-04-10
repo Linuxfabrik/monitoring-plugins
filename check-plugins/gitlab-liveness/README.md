@@ -29,17 +29,18 @@ usage: gitlab-liveness [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
                        [--severity {warn,crit}] [--test TEST]
                        [--timeout TIMEOUT] [--url URL]
 
-Checks whether the application server is running. This probe is used to know
-if Rails Controllers are not deadlocked due to a multi-threading. Requires
-GitLab 12.4+.
+Checks whether the GitLab application server is alive by querying the
+/-/liveness endpoint. This probe detects deadlocked Rails controllers caused
+by multi-threading issues. Requires GitLab 12.4 or later. Alerts when the
+server does not respond or reports a deadlock.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
   --severity {warn,crit}
                         Severity for alerting. Default: warn
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-

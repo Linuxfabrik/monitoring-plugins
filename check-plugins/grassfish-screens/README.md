@@ -36,48 +36,53 @@ usage: grassfish-screens [-h] [-V] [--always-ok] [--api-version API_VERSION]
                          [--transfer-status {complete,overdue,pending}]
                          [-w WARN] [-u URL]
 
-This monitoring plugin checks if the screens attached to a Grassfish player
-are on or off. The list of players can be filtered. You must provide both the
-Grassfish hostname and a Grassfish token for this check to work.
+Checks if screens attached to Grassfish digital signage players are on or off
+via the Grassfish API. The player list can be filtered by box state, customer
+ID, or custom ID. Requires a Grassfish hostname and API token. Alerts when
+screens are unexpectedly off. Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --api-version API_VERSION
-                        Grassfish API Version. Default: 1.12
-  --box-id BOX_ID       Filter by specific box IDs. Supports Python Regular
-                        Expressions (regex, case-insensitive).
+                        Grassfish API version. Default: 1.12.
+  --box-id BOX_ID       Filter by box ID. Supports Python regular expressions
+                        (case-insensitive). Example: `--box-id
+                        "^player-0[1-3]$"`.
   --box-state {activated,deleted,new,reserved,undefined}
-                        Filter by specific box state. Repeating.
+                        Filter by box state. Can be specified multiple times.
+                        Default: None.
   --cache-expire CACHE_EXPIRE
-                        The amount of time after which the cached data
-                        expires, in hours. Default: 8
+                        Time after which cached screen data expires, in hours.
+                        Default: 8.
   --custom-id CUSTOM_ID
-                        Filter by specific custom IDs. Supports Python Regular
-                        Expressions (regex, case-insensitive).
+                        Filter by custom ID. Supports Python regular
+                        expressions (case-insensitive). Example: `--custom-id
+                        "(?i)lobby"`.
   -H, --hostname HOSTNAME
-                        Grassfish hostname. Default: None
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
+                        Grassfish hostname.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
   --is-installed {yes,no}
-                        Filter by boxes that are installed (= "yes") or not (=
-                        "no"). Repeating.
+                        Filter by installation status ("yes" or "no"). Can be
+                        specified multiple times.
   --is-licensed {yes,no}
-                        Filter by boxes that are licensed (= "yes") or not (=
-                        "no"). Repeating.
+                        Filter by license status ("yes" or "no"). Can be
+                        specified multiple times.
   --lengthy             Extended reporting.
-  --no-proxy            Do not use a proxy. Default: False
-  --port PORT           Grassfish port. Default: 443
+  --no-proxy            Do not use a proxy.
+  --port PORT           Grassfish port number. Default: 443.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  --token TOKEN         Grassfish API token
+  --token TOKEN         Grassfish API token.
   --transfer-status {complete,overdue,pending}
-                        Filter by specific data transfer status. Repeating.
-  -w, --warning WARN    Set the WARN threshold for Last Access in hours
-                        (considers screen is off). Default: > 8 h
-  -u, --url URL         Grassfish API URL. Default: /gv2/webservices/API
+                        Filter by data transfer status. Can be specified
+                        multiple times.
+  -w, --warning WARN    WARN threshold for last screen update in hours (screen
+                        considered off above this value). Default: > 8 h.
+  -u, --url URL         Grassfish API URL. Default: /gv2/webservices/API.
 ```
 
 

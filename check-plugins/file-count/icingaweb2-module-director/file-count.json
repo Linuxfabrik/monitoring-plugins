@@ -291,7 +291,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the number of matching files.",
+            "notes": "Counts the number of files matching a glob pattern and alerts when the count exceeds the configured thresholds. Can filter by modification time range, restrict to files or directories only, and supports SMB shares.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-count",
             "object_name": "tpl-service-file-count",
             "object_type": "template",
@@ -386,7 +386,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the number of matching files.",
+            "notes": "Counts the number of files matching a glob pattern and alerts when the count exceeds the configured thresholds. Can filter by modification time range, restrict to files or directories only, and supports SMB shares.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-count",
             "object_name": "tpl-service-file-count-windows",
             "object_type": "template",
@@ -421,7 +421,7 @@
         "2": {
             "varname": "file_count_critical",
             "caption": "File Count: Critical",
-            "description": "Set the critical number of files. Supports ranges.",
+            "description": "CRIT threshold for the number of matching files. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -432,7 +432,7 @@
         "3": {
             "varname": "file_count_filename",
             "caption": "File Count: Filename",
-            "description": "File (or directory) name to check. Supports glob in accordance with https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob. Beware of using recursive globs. This is mutually exclusive with -u / --url.",
+            "description": "File or directory name to check (supports glob patterns). Beware of recursive globs. Mutually exclusive with --url.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -443,7 +443,7 @@
         "4": {
             "varname": "file_count_only_dirs",
             "caption": "File Count: Only Dirs?",
-            "description": "Only count directories.",
+            "description": "Only count directories, ignoring files.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -452,7 +452,7 @@
         "5": {
             "varname": "file_count_only_files",
             "caption": "File Count: Only Files?",
-            "description": "Only count files.",
+            "description": "Only count files, ignoring directories.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -461,7 +461,7 @@
         "6": {
             "varname": "file_count_password",
             "caption": "File Count: Password",
-            "description": "SMB Password.",
+            "description": "Password for SMB authentication.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -472,7 +472,7 @@
         "7": {
             "varname": "file_count_pattern",
             "caption": "File Count: Pattern",
-            "description": "The search string to match against the names of SMB directories or files. This pattern can use '*' as a wildcard for multiple chars and '?' as a wildcard for a single char. Does not support regex patterns.",
+            "description": "SMB search pattern to match directory or file names. Use `*` for multiple characters and `?` for a single character. Does not support regex.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -494,7 +494,7 @@
         "9": {
             "varname": "file_count_timerange",
             "caption": "File Count: Timerange",
-            "description": "Set the timerange (seconds) in which the files should be considered. Supports ranges.",
+            "description": "Only count files modified within this time range in seconds. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -505,7 +505,7 @@
         "10": {
             "varname": "file_count_url",
             "caption": "File Count: URL",
-            "description": "Set the url of the file (or directory) to check, starting with \"smb://\". This is mutually exclusive with --filename.",
+            "description": "SMB URL of the file or directory to check, starting with `smb://`. Mutually exclusive with --filename.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -516,7 +516,7 @@
         "11": {
             "varname": "file_count_username",
             "caption": "File Count: Username",
-            "description": "SMB Username.",
+            "description": "Username for SMB authentication.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -527,7 +527,7 @@
         "12": {
             "varname": "file_count_warning",
             "caption": "File Count: Warning",
-            "description": "Set the warning number of files. Supports ranges.",
+            "description": "WARN threshold for the number of matching files. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -547,7 +547,7 @@
         "14": {
             "varname": "file_count_windows_critical",
             "caption": "File Count: Critical",
-            "description": "Set the critical number of files. Supports ranges.",
+            "description": "CRIT threshold for the number of matching files. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -558,7 +558,7 @@
         "15": {
             "varname": "file_count_windows_filename",
             "caption": "File Count: Filename",
-            "description": "File (or directory) name to check. Supports glob in accordance with https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob. Beware of using recursive globs. This is mutually exclusive with -u / --url.",
+            "description": "File or directory name to check (supports glob patterns). Beware of recursive globs. Mutually exclusive with --url.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -569,7 +569,7 @@
         "16": {
             "varname": "file_count_windows_only_dirs",
             "caption": "File Count: Only Dirs?",
-            "description": "Only count directories.",
+            "description": "Only count directories, ignoring files.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -578,7 +578,7 @@
         "17": {
             "varname": "file_count_windows_only_files",
             "caption": "File Count: Only Files?",
-            "description": "Only count files.",
+            "description": "Only count files, ignoring directories.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -587,7 +587,7 @@
         "18": {
             "varname": "file_count_windows_password",
             "caption": "File Count: Password",
-            "description": "SMB Password.",
+            "description": "Password for SMB authentication.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -598,7 +598,7 @@
         "19": {
             "varname": "file_count_windows_pattern",
             "caption": "File Count: Pattern",
-            "description": "The search string to match against the names of SMB directories or files. This pattern can use '*' as a wildcard for multiple chars and '?' as a wildcard for a single char. Does not support regex patterns.",
+            "description": "SMB search pattern to match directory or file names. Use `*` for multiple characters and `?` for a single character. Does not support regex.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -620,7 +620,7 @@
         "21": {
             "varname": "file_count_windows_timerange",
             "caption": "File Count: Timerange",
-            "description": "Set the timerange (seconds) in which the files should be considered. Supports ranges.",
+            "description": "Only count files modified within this time range in seconds. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -631,7 +631,7 @@
         "22": {
             "varname": "file_count_windows_url",
             "caption": "File Count: URL",
-            "description": "Set the url of the file (or directory) to check, starting with \"smb://\". This is mutually exclusive with --filename.",
+            "description": "SMB URL of the file or directory to check, starting with `smb://`. Mutually exclusive with --filename.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -642,7 +642,7 @@
         "23": {
             "varname": "file_count_windows_username",
             "caption": "File Count: Username",
-            "description": "SMB Username.",
+            "description": "Username for SMB authentication.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -653,7 +653,7 @@
         "24": {
             "varname": "file_count_windows_warning",
             "caption": "File Count: Warning",
-            "description": "Set the warning number of files. Supports ranges.",
+            "description": "WARN threshold for the number of matching files. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

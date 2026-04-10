@@ -33,28 +33,29 @@ usage: huawei-dorado-backup-power [-h] [-V] [--always-ok]
                                   [--timeout TIMEOUT] -u URL
                                   --username USERNAME
 
-Batch querying all backup power modules of a Huawei OceanStor Dorado storage
-system via the REST Interface, using the ``/backup_power`` endpoint.
+Checks the health status of all backup power modules (BBU) on a Huawei
+OceanStor Dorado storage system via the REST API (/backup_power endpoint).
+Alerts when any module reports a non-normal health state.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
-                        The amount of time after which the credential cache
-                        expires, in minutes. Default: 15
+                        The amount of time after which the credential/data
+                        cache expires, in minutes. Default: 15
   --device-id DEVICE_ID
-                        Huawei OceanStor Dorado API Device ID.
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: True
-  --no-proxy            Do not use a proxy. Default: False
-  --password PASSWORD   Huawei OceanStor Dorado API Password.
-  --scope SCOPE         Huawei OceanStor Dorado API Scope.
+                        Huawei OceanStor Dorado device ID.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
+  --password PASSWORD   Huawei OceanStor Dorado API password.
+  --scope SCOPE         Huawei OceanStor Dorado API scope. Default: 0.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
-  --username USERNAME   Huawei OceanStor Dorado API Username.
+  --username USERNAME   Huawei OceanStor Dorado API username.
 ```
 
 

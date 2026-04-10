@@ -30,17 +30,18 @@ usage: mysql-replica-status [-h] [-V] [--always-ok]
                             [--defaults-group DEFAULTS_GROUP]
                             [--severity {warn,crit}] [--timeout TIMEOUT]
 
-Checks the replication status of MySQL/MariaDB.
+Checks the replication status of a MySQL/MariaDB replica, including I/O thread
+state, SQL thread state, seconds behind master, and replication errors. Alerts
+when replication is broken or lagging.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --defaults-file DEFAULTS_FILE
-                        Specifies a cnf file to read parameters like user,
-                        host and password from (instead of specifying them on
-                        the command line), for example
-                        `/var/spool/icinga2/.my.cnf`. Default:
+                        MySQL/MariaDB cnf file to read user, host and password
+                        from. Example: `--defaults-
+                        file=/var/spool/icinga2/.my.cnf`. Default:
                         /var/spool/icinga2/.my.cnf
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:

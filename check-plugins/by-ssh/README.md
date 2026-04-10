@@ -33,10 +33,11 @@ usage: by-ssh [-h] [-V] [--always-ok] --command COMMAND
               [--verbose] [-w WARN] [--warning-pattern WARN_PATTERN]
               [--warning-regex WARN_REGEX]
 
-This plugin uses SSH to execute a command on a remote host, returning STDOUT
-and, in case of failure, STDERR and the command's return code. With this
-information and with pattern matching on STDOUT, the plugin can alert with
-selectable severities.
+Executes a command on a remote host via SSH and evaluates the result. Returns
+STDOUT and, in case of failure, STDERR and the command's exit code. Supports
+pattern matching on STDOUT to detect specific conditions, with configurable
+alert severities per match. Can also alert on single numeric return values
+against warning and critical thresholds.
 
 options:
   -h, --help            show this help message and exit
@@ -58,7 +59,7 @@ options:
                         Any line matching this pattern (case-insensitive) will
                         count as a critical. Can be specified multiple times.
   --critical-regex CRIT_REGEX
-                        Any line matching this python regex (case-insensitive)
+                        Any line matching this Python regex (case-insensitive)
                         will count as a critical. Can be specified multiple
                         times.
   --disable-pseudo-terminal
@@ -128,7 +129,7 @@ options:
   -u, --username USERNAME
                         SSH: Username. Default: root
   --verbose             Makes this plugin verbose during the operation. Useful
-                        for debugging and seeing what's going on under the
+                        for debugging and seeing what is going on under the
                         hood. Default: False
   -w, --warning WARN    WARN threshold for single numeric return values.
                         Supports Nagios ranges. Example: `@10:20` alerts if
@@ -137,7 +138,7 @@ options:
                         Any line matching this pattern (case-insensitive) will
                         count as a warning. Can be specified multiple times.
   --warning-regex WARN_REGEX
-                        Any line matching this python regex (case-insensitive)
+                        Any line matching this Python regex (case-insensitive)
                         will count as a warning. Can be specified multiple
                         times.
 ```

@@ -25,33 +25,35 @@ usage: json-values [-h] [-V] [--always-ok] [--filename FILENAME] [--insecure]
                    [--state-key STATE_KEY] [--timeout TIMEOUT] [-u URL]
                    [--username USERNAME]
 
-This check parses a flat json array from a file or url and simply returns the
-message, state and perfdata from the json.
+Parses a JSON array from a file, URL, or SMB share and extracts message,
+state, and perfdata values from specific keys. Useful for integrating custom
+applications or APIs that provide monitoring data in JSON format. Alerts based
+on the state value extracted from the JSON data.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --filename FILENAME   Set the url of the json file. This is mutually
-                        exclusive with -u / --url.
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
+  --filename FILENAME   Path to a local JSON file. Mutually exclusive with -u
+                        / --url.
+  --insecure            This option explicitly allows insecure SSL
+                        connections. Default: False.
   --message-key MESSAGE_KEY
-                        Name of the json array key containing the output
-                        message. Default: message
-  --no-proxy            Do not use a proxy. Default: False
-  --password PASSWORD   SMB Password.
+                        Name of the JSON array key containing the output
+                        message. Default: message.
+  --no-proxy            Do not use a proxy.
+  --password PASSWORD   Password for SMB authentication.
   --perfdata-key PERFDATA_KEY
-                        Name of the json array key containing the perfdata.
-                        Default: perfdata
+                        Name of the JSON array key containing the perfdata.
+                        Default: perfdata.
   --state-key STATE_KEY
-                        Name of the json array key containing the state.
-                        Default: state
+                        Name of the JSON array key containing the state.
+                        Default: state.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  -u, --url URL         Set the url of the json file, either starting with
-                        "http://", "https://" or "smb://". This is mutually
-                        exclusive with --filename.
-  --username USERNAME   SMB Username.
+  -u, --url URL         URL of the JSON file, starting with "http://",
+                        "https://", or "smb://". Mutually exclusive with
+                        --filename.
+  --username USERNAME   Username for SMB authentication.
 ```
 
 

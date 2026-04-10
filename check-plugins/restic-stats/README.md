@@ -32,25 +32,27 @@ usage: restic-stats [-h] [-V] [--host HOST]
                     [--password-file PASSWORD_FILE] [--path PATH] --repo REPO
                     [--tag TAG] [--test TEST]
 
-Walk multiple snapshots in a repository and accumulate statistics about the
-data stored therein. It reports on the number of unique files and their sizes,
-according to one of the counting modes as given by the --mode flag.
+Collects statistics across multiple snapshots in a restic repository,
+including the number of unique files and their total size. Supports different
+counting modes (restore-size, files-by-contents, raw-data). Requires root or
+sudo.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
-  --host HOST           Only consider snapshots for this host (can be
-                        specified multiple times).
+  --host HOST           Only consider snapshots for this host. Can be
+                        specified multiple times.
   --mode {restore-size,files-by-contents,blobs-per-file,raw-data}
-                        Counting mode. Default: restore-size
+                        Counting mode for the statistics calculation. Default:
+                        restore-size
   --password-file PASSWORD_FILE
-                        File to read the repository password from
-  --path PATH           Only consider snapshots for this path (can be
-                        specified multiple times).
-  --repo REPO           Repository location
-  --tag TAG             Only consider snapshots which include this taglist in
-                        the format `tag[,tag,...]` (can be specified multiple
-                        times).
+                        Path to the file containing the repository password.
+  --path PATH           Only consider snapshots for this path. Can be
+                        specified multiple times.
+  --repo REPO           Restic repository location.
+  --tag TAG             Only consider snapshots matching this taglist in the
+                        format `tag[,tag,...]`. Can be specified multiple
+                        times.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
 ```

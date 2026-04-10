@@ -25,18 +25,18 @@ Hints:
 ```text
 usage: sensors-temperatures [-h] [-V] [--always-ok] [--ignore IGNORE]
 
-Return certain hardware temperature sensors (it may be a CPU, an hard disk or
-something else, depending on the OS and its configuration). All temperatures
-are expressed in celsius. Check is done automatically against hardware
-thresholds. If sensors are not supported by the OS OK is returned.
+Reports hardware temperature sensor readings (CPU, disk, chipset, etc.) in
+Celsius. Automatically checks against hardware-defined thresholds. Sensors can
+be filtered by name using --ignore with regular expressions. Alerts when any
+sensor exceeds its hardware-defined thresholds.
 
 options:
   -h, --help       show this help message and exit
   -V, --version    show program's version number and exit
   --always-ok      Always returns OK.
   --ignore IGNORE  Ignore sensors matching this Python regular expression on
-                   the sensor name or label (repeating). Example:
-                   `--ignore="iwlwifi_1"` or `--ignore="^acpitz"`
+                   the sensor name or label. Can be specified multiple times.
+                   Example: `--ignore="iwlwifi_1"` or `--ignore="^acpitz"`.
 ```
 
 

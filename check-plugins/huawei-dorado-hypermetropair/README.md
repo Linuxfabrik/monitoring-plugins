@@ -33,29 +33,29 @@ usage: huawei-dorado-hypermetropair [-h] [-V] [--always-ok]
                                     [--timeout TIMEOUT] -u URL
                                     --username USERNAME
 
-Batch query basic information about HyperMetroPairs of a Huawei OceanStor
-Dorado storage system via the REST Interface, using the ``/hypermetropair``
-endpoint.
+Checks the health and running status of all HyperMetro pairs on a Huawei
+OceanStor Dorado storage system via the REST API (/hypermetropair endpoint).
+Alerts when any pair reports a non-normal state or synchronization issue.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
-                        The amount of time after which the credential cache
-                        expires, in minutes. Default: 15
+                        The amount of time after which the credential/data
+                        cache expires, in minutes. Default: 15
   --device-id DEVICE_ID
-                        Huawei OceanStor Dorado API Device ID.
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: True
-  --no-proxy            Do not use a proxy. Default: False
-  --password PASSWORD   Huawei OceanStor Dorado API Password.
-  --scope SCOPE         Huawei OceanStor Dorado API Scope.
+                        Huawei OceanStor Dorado API device ID.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
+  --password PASSWORD   Huawei OceanStor Dorado API password.
+  --scope SCOPE         Huawei OceanStor Dorado API scope.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
-  --username USERNAME   Huawei OceanStor Dorado API Username.
+  --username USERNAME   Huawei OceanStor Dorado API username.
 ```
 
 

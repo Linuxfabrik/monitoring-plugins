@@ -25,17 +25,18 @@ Hints:
 ```text
 usage: sensors-battery [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
 
-Return battery status information. If no battery is installed or metrics can't
-be determined OK is returned.
+Reports battery status information including charge percentage, time
+remaining, and power source (AC or battery). Returns OK if no battery is
+installed or if metrics cannot be determined.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  Set the critical threshold for battery power left as a
-                       percentage. Default: 5
-  -w, --warning WARN   Set the warning threshold for battery power left as a
-                       percentage. Default: 20
+  -c, --critical CRIT  CRIT threshold for battery power left, in percent.
+                       Default: 5.
+  -w, --warning WARN   WARN threshold for battery power left, in percent.
+                       Default: 20.
 ```
 
 

@@ -52,8 +52,8 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for the time difference to the start of the last backup '
-        '(in each group) (in hours). Default: %(default)s',
+        help='CRIT threshold for the age of the newest snapshot in each group, in hours. '
+        'Default: %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
@@ -61,14 +61,16 @@ def parse_args():
 
     parser.add_argument(
         '--group-by',
-        help='String for grouping snapshots by host,paths,tags. Default: %(default)s',
+        help='Comma-separated list of fields to group snapshots by. '
+        'Allowed values: host, paths, tags. '
+        'Default: %(default)s',
         dest='GROUP_BY',
         default=DEFAULT_GROUP_BY,
     )
 
     parser.add_argument(
         '--host',
-        help='Only consider snapshots for this host (can be specified multiple times).',
+        help='Only consider snapshots for this host. Can be specified multiple times.',
         dest='HOST',
         action='append',
         default=None,
@@ -76,7 +78,8 @@ def parse_args():
 
     parser.add_argument(
         '--latest',
-        help='Only show the last n snapshots for each host and path. Default: %(default)s',
+        help='Number of latest snapshots to show per host and path. '
+        'Default: %(default)s',
         dest='LATEST',
         type=int,
         default=DEFAULT_LATEST,
@@ -92,13 +95,13 @@ def parse_args():
 
     parser.add_argument(
         '--password-file',
-        help='File to read the repository password from.',
+        help='Path to the file containing the repository password.',
         dest='PASSWORD_FILE',
     )
 
     parser.add_argument(
         '--path',
-        help='Only consider snapshots for this path (can be specified multiple times).',
+        help='Only consider snapshots for this path. Can be specified multiple times.',
         dest='PATH',
         action='append',
         default=None,
@@ -106,15 +109,15 @@ def parse_args():
 
     parser.add_argument(
         '--repo',
-        help='Repository location',
+        help='Restic repository location.',
         dest='REPO',
         required=True,
     )
 
     parser.add_argument(
         '--tag',
-        help='Only consider snapshots which include this taglist in the format `tag[,tag,...]` '
-        '(can be specified multiple times).',
+        help='Only consider snapshots matching this taglist in the format `tag[,tag,...]`. '
+        'Can be specified multiple times.',
         dest='TAG',
         action='append',
         default=None,
@@ -130,8 +133,8 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for the time difference to the start of the last backup '
-        '(in each group) (in hours). Default: %(default)s',
+        help='WARN threshold for the age of the newest snapshot in each group, in hours. '
+        'Default: %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,

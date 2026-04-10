@@ -122,7 +122,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "This check warns of unacknowledged alerts in LibreNMS and reports the most recent alert for each device (only for those that do not have \"Disabled alerting\" in their LibreNMS device settings). If alerts have been triggered in LibreNMS, you will see them on the *Alerts > Notifications* page within the Web UI. When you acknowledge an alert in LibreNMS, this check will change the status for the corresponding device to OK. This check requires direct access to the LibreNMS MySQL/MariaDB database, because the API is simply too resource intensive for use in a large scale environment.",
+            "notes": "Checks for unacknowledged alerts in LibreNMS and reports the most recent alert per device. Only considers devices that do not have alerting disabled in their LibreNMS settings. Requires direct access to the LibreNMS MySQL/MariaDB database. Supports extended reporting via --lengthy.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/librenms-alerts",
             "object_name": "tpl-service-librenms-alerts",
             "object_type": "template",
@@ -266,7 +266,7 @@
         "2": {
             "varname": "librenms_alerts_defaults_file",
             "caption": "LibreNMS Alerts: Defaults File",
-            "description": "Specifies a cnf file to read parameters like user, host and password from (instead of specifying them on the command line), for example `/var/spool/icinga2/.my.cnf`.",
+            "description": "Specifies a cnf file to read parameters like user, host and password from (for MySQL/MariaDB cnf-style files). Example: `/var/spool/icinga2/.my.cnf`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -288,7 +288,7 @@
         "4": {
             "varname": "librenms_alerts_device_group",
             "caption": "LibreNMS Alerts: Device Group",
-            "description": "Filter by LibreNMS Device Group. Supports SQL Wildcards.",
+            "description": "Filter by LibreNMS device group. Supports SQL wildcards.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -299,7 +299,7 @@
         "5": {
             "varname": "librenms_alerts_device_hostname",
             "caption": "LibreNMS Alerts: Device Hostname",
-            "description": "Filter by LibreNMS Hostname (repeating).",
+            "description": "Filter by LibreNMS hostname. Can be specified multiple times.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -310,7 +310,7 @@
         "6": {
             "varname": "librenms_alerts_device_type",
             "caption": "LibreNMS Alerts: Device Type",
-            "description": "Filter by LibreNMS Device Type (repeating).",
+            "description": "Filter by LibreNMS device type. Can be specified multiple times.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -323,7 +323,7 @@
         "7": {
             "varname": "librenms_alerts_lengthy",
             "caption": "LibreNMS Alerts: Lengthy?",
-            "description": "Extended reporting. ",
+            "description": "Extended reporting.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -332,7 +332,7 @@
         "8": {
             "varname": "librenms_alerts_severity",
             "caption": "LibreNMS Alerts: Severity",
-            "description": "Severity for alerts. One of \"warn\" or \"crit\".",
+            "description": "Severity for alerting.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {

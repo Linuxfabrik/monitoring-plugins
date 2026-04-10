@@ -71,34 +71,36 @@ usage: mysql-query [-h] [-V] [--always-ok] [-c CRIT]
                    [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
                    [-w WARN] [--warning-query WARNING_QUERY]
 
-This check connects to a MySQL/MariaDB database and can then run a separate
-warning and/or critical query against it. The result - the number of items
-found or a specific number - can be checked against a range expression.
+Connects to a MySQL/MariaDB database and runs configurable SQL queries for
+warning and critical conditions. The query result - either a row count or a
+specific value - is checked against Nagios range expressions. Useful for
+custom application-level monitoring.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Set the CRIT threshold. Supports ranges.
+  -c, --critical CRIT   CRIT threshold as a Nagios range expression.
   --critical-query CRITICAL_QUERY
-                        `SELECT` statement. If its result contains more than
-                        one column, the number of rows is checked against
-                        `--critical`, otherwise the single value is used.
+                        `SELECT` statement to evaluate for CRIT. If the result
+                        contains more than one column, the row count is
+                        checked against `--critical`. Otherwise the single
+                        returned value is used.
   --defaults-file DEFAULTS_FILE
-                        Specifies a cnf file to read parameters like user,
-                        host and password from (instead of specifying them on
-                        the command line), for example
-                        `/var/spool/icinga2/.my.cnf`. Default:
+                        MySQL/MariaDB cnf file to read user, host and password
+                        from. Example: `--defaults-
+                        file=/var/spool/icinga2/.my.cnf`. Default:
                         /var/spool/icinga2/.my.cnf
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  -w, --warning WARN    Set the WARN threshold. Supports ranges.
+  -w, --warning WARN    WARN threshold as a Nagios range expression.
   --warning-query WARNING_QUERY
-                        `SELECT` statement. If its result contains more than
-                        one column, the number of rows is checked against
-                        `--warning`, otherwise the single value is used.
+                        `SELECT` statement to evaluate for WARN. If the result
+                        contains more than one column, the row count is
+                        checked against `--warning`. Otherwise the single
+                        returned value is used.
 ```
 
 

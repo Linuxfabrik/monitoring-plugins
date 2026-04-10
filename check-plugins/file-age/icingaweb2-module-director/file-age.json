@@ -323,7 +323,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the time of last data modification for a file or directory, in seconds.",
+            "notes": "Checks the time since last modification of one or more files or directories. Supports glob patterns (including recursive), SMB shares, and optional aggregation (mean or median) across all matched files. Can also alert on the number of files within a specific age range. Requires root or sudo.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-age",
             "object_name": "tpl-service-file-age",
             "object_type": "template",
@@ -422,7 +422,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the time of last data modification for a file or directory, in seconds.",
+            "notes": "Checks the time since last modification of one or more files or directories. Supports glob patterns (including recursive), SMB shares, and optional aggregation (mean or median) across all matched files. Can also alert on the number of files within a specific age range. Requires root or sudo.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-age",
             "object_name": "tpl-service-file-age-windows",
             "object_type": "template",
@@ -513,7 +513,7 @@
         "2": {
             "varname": "file_age_critical",
             "caption": "File Age: Critical",
-            "description": "Set the critical age threshold in seconds. Supports ranges.",
+            "description": "CRIT threshold for file age in seconds. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -524,7 +524,7 @@
         "3": {
             "varname": "file_age_critical_count",
             "caption": "File Age: Critical Count",
-            "description": "Set the critical threshold for the number of files found within the critical age. Supports ranges.",
+            "description": "CRIT threshold for the number of files exceeding the critical age. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -535,7 +535,7 @@
         "4": {
             "varname": "file_age_filename",
             "caption": "File Age: Filename",
-            "description": "File or directory name to check. Supports glob in accordance with https://docs.python.org/2.7/library/glob.html. Beware of using recursive globs. This is mutually exclusive with -u / --url.",
+            "description": "File or directory name to check (supports glob patterns). Beware of recursive globs. Mutually exclusive with --url.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -546,7 +546,7 @@
         "5": {
             "varname": "file_age_only_dirs",
             "caption": "File Age: Only Dirs?",
-            "description": "Only consider directories.",
+            "description": "Only consider directories, ignoring files.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -555,7 +555,7 @@
         "6": {
             "varname": "file_age_only_files",
             "caption": "File Age: Only Files?",
-            "description": "Only consider files.",
+            "description": "Only consider files, ignoring directories.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -564,7 +564,7 @@
         "7": {
             "varname": "file_age_password",
             "caption": "File Age: Password",
-            "description": "SMB: Password.",
+            "description": "Password for SMB authentication.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -575,7 +575,7 @@
         "8": {
             "varname": "file_age_pattern",
             "caption": "File Age: Pattern",
-            "description": "SMB: The search string to match against the names of SMB directories or files. This pattern can use '*' as a wildcard for multiple chars and '?' as a wildcard for a single char. Does not support regex patterns.",
+            "description": "SMB search pattern to match directory or file names. Use `*` for multiple characters and `?` for a single character. Does not support regex.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -586,7 +586,7 @@
         "9": {
             "varname": "file_age_perfdata_mode",
             "caption": "File Age: Perfdata Mode",
-            "description": "Set the performance data aggregation mode.",
+            "description": "Aggregation mode for performance data across matched files.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -610,7 +610,7 @@
         "11": {
             "varname": "file_age_url",
             "caption": "File Age: URL",
-            "description": "SMB: Set the url of the file (or directory) to check, starting with \"smb://\". This is mutually exclusive with --filename.",
+            "description": "SMB URL of the file or directory to check, starting with `smb://`. Mutually exclusive with --filename.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -621,7 +621,7 @@
         "12": {
             "varname": "file_age_username",
             "caption": "File Age: Username",
-            "description": "SMB: Username.",
+            "description": "Username for SMB authentication.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -632,7 +632,7 @@
         "13": {
             "varname": "file_age_warning",
             "caption": "File Age: Warning",
-            "description": "Set the warning age threshold in seconds. Supports ranges.",
+            "description": "WARN threshold for file age in seconds. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -643,7 +643,7 @@
         "14": {
             "varname": "file_age_warning_count",
             "caption": "File Age: Warning Count",
-            "description": "Set the warning threshold for the number of files found within the warning age. Supports ranges.",
+            "description": "WARN threshold for the number of files exceeding the warning age. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -663,7 +663,7 @@
         "16": {
             "varname": "file_age_windows_critical",
             "caption": "File Age: Critical",
-            "description": "Set the critical age threshold in seconds. Supports ranges.",
+            "description": "CRIT threshold for file age in seconds. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -674,7 +674,7 @@
         "17": {
             "varname": "file_age_windows_critical_count",
             "caption": "File Age: Critical Count",
-            "description": "Set the critical threshold for the number of files found within the critical age. Supports ranges.",
+            "description": "CRIT threshold for the number of files exceeding the critical age. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -685,7 +685,7 @@
         "18": {
             "varname": "file_age_windows_filename",
             "caption": "File Age: Filename",
-            "description": "File or directory name to check. Supports glob in accordance with https://docs.python.org/2.7/library/glob.html. Beware of using recursive globs. This is mutually exclusive with -u / --url.",
+            "description": "File or directory name to check (supports glob patterns). Beware of recursive globs. Mutually exclusive with --url.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -696,7 +696,7 @@
         "19": {
             "varname": "file_age_windows_only_dirs",
             "caption": "File Age: Only Dirs?",
-            "description": "Only consider directories.",
+            "description": "Only consider directories, ignoring files.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -705,7 +705,7 @@
         "20": {
             "varname": "file_age_windows_only_files",
             "caption": "File Age: Only Files?",
-            "description": "Only consider files.",
+            "description": "Only consider files, ignoring directories.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -714,7 +714,7 @@
         "21": {
             "varname": "file_age_windows_password",
             "caption": "File Age: Password",
-            "description": "SMB: Password.",
+            "description": "Password for SMB authentication.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -725,7 +725,7 @@
         "22": {
             "varname": "file_age_windows_pattern",
             "caption": "File Age: Pattern",
-            "description": "SMB: The search string to match against the names of SMB directories or files. This pattern can use '*' as a wildcard for multiple chars and '?' as a wildcard for a single char. Does not support regex patterns.",
+            "description": "SMB search pattern to match directory or file names. Use `*` for multiple characters and `?` for a single character. Does not support regex.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -736,7 +736,7 @@
         "23": {
             "varname": "file_age_windows_perfdata_mode",
             "caption": "File Age: Perfdata Mode",
-            "description": "Set the performance data aggregation mode.",
+            "description": "Aggregation mode for performance data across matched files.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -760,7 +760,7 @@
         "25": {
             "varname": "file_age_windows_url",
             "caption": "File Age: URL",
-            "description": "SMB: Set the url of the file (or directory) to check, starting with \"smb://\". This is mutually exclusive with --filename.",
+            "description": "SMB URL of the file or directory to check, starting with `smb://`. Mutually exclusive with --filename.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -771,7 +771,7 @@
         "26": {
             "varname": "file_age_windows_username",
             "caption": "File Age: Username",
-            "description": "SMB: Username.",
+            "description": "Username for SMB authentication.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -782,7 +782,7 @@
         "27": {
             "varname": "file_age_windows_warning",
             "caption": "File Age: Warning",
-            "description": "Set the warning age threshold in seconds. Supports ranges.",
+            "description": "WARN threshold for file age in seconds. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -793,7 +793,7 @@
         "28": {
             "varname": "file_age_windows_warning_count",
             "caption": "File Age: Warning Count",
-            "description": "Set the warning threshold for the number of files found within the warning age. Supports ranges.",
+            "description": "WARN threshold for the number of files exceeding the warning age. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

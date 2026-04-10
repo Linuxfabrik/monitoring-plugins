@@ -78,16 +78,14 @@ def parse_args():
 
     parser.add_argument(
         '--argument',
-        help='Filter: Search only for processes where the command line matches '
-        'ARGUMENT as a regular expression (case-insensitive). '
+        help='Filter by command line arguments using a regular expression (case-insensitive). '
         'Example: `--argument="--config.*production"`',
         dest='ARGUMENT',
     )
 
     parser.add_argument(
         '--command',
-        help='Filter: Search only for processes whose name matches '
-        'COMMAND as a regular expression (case-insensitive). '
+        help='Filter by process name using a regular expression (case-insensitive). '
         'Example: `--command="^(apache|httpd)"`',
         dest='COMMAND',
     )
@@ -95,8 +93,8 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='Threshold for the number of processes. '
-        'Type: None or Range. '
+        help='CRIT threshold for the number of matching processes. '
+        'Supports Nagios ranges. '
         'Default: %(default)s',
         default=DEFAULT_CRIT,
         dest='CRIT',
@@ -104,8 +102,8 @@ def parse_args():
 
     parser.add_argument(
         '--critical-age',
-        help='Threshold for age of the process, in seconds. '
-        'Type: None or Range. '
+        help='CRIT threshold for age of the oldest matching process, in seconds. '
+        'Supports Nagios ranges. '
         'Default: %(default)s',
         default=DEFAULT_CRIT_AGE,
         dest='CRIT_AGE',
@@ -113,10 +111,10 @@ def parse_args():
 
     parser.add_argument(
         '--critical-cpu-percent',
-        help='Threshold for CPU usage of all matching processes, in percent. '
+        help='CRIT threshold for aggregated CPU usage of all matching processes, in percent. '
         'Requires two consecutive check runs to calculate. '
-        'A value of 100%% equals one fully utilized CPU core. '
-        'Type: None or Range. '
+        '100%% equals one fully utilized CPU core. '
+        'Supports Nagios ranges. '
         'Default: %(default)s',
         default=DEFAULT_CRIT_CPU_PERCENT,
         dest='CRIT_CPU_PERCENT',
@@ -124,8 +122,8 @@ def parse_args():
 
     parser.add_argument(
         '--critical-mem',
-        help='Threshold for memory usage, in bytes. '
-        'Type: None or Range. '
+        help='CRIT threshold for aggregated memory usage, in bytes. '
+        'Supports Nagios ranges. '
         'Default: %(default)s',
         default=DEFAULT_CRIT_MEM,
         dest='CRIT_MEM',
@@ -133,8 +131,8 @@ def parse_args():
 
     parser.add_argument(
         '--critical-mem-percent',
-        help='Threshold for memory usage, in percent. '
-        'Type: None or Range. '
+        help='CRIT threshold for aggregated memory usage, in percent. '
+        'Supports Nagios ranges. '
         'Default: %(default)s',
         default=DEFAULT_CRIT_MEM_PERCENT,
         dest='CRIT_MEM_PERCENT',
@@ -150,8 +148,7 @@ def parse_args():
 
     parser.add_argument(
         '--no-kthreads',
-        help='Filter: Only scan for non kernel threads (works on Linux only). '
-        'Default: %(default)s',
+        help='Exclude kernel threads from the scan (Linux only).',
         dest='NO_KTHREADS',
         default=DEFAULT_NO_KTHREADS,
         action='store_true',
@@ -159,8 +156,7 @@ def parse_args():
 
     parser.add_argument(
         '--status',
-        help='Filter: Search only for processes that have a specific status. '
-        'Default: %(default)s',
+        help='Filter by process status. Default: %(default)s',
         dest='STATUS',
         default=DEFAULT_STATUS,
         choices=[
@@ -183,9 +179,9 @@ def parse_args():
 
     parser.add_argument(
         '--top',
-        help='List the top N processes using the most CPU time. '
-        'Processes with zero CPU time are excluded from the table. '
-        'Use `--top=0` to disable this feature. '
+        help='Number of top processes by CPU time to display. '
+        'Processes with zero CPU time are excluded. '
+        'Use `--top=0` to disable. '
         'Default: %(default)s',
         dest='TOP',
         type=int,
@@ -194,8 +190,7 @@ def parse_args():
 
     parser.add_argument(
         '--username',
-        help='Filter: Search only for processes whose user name matches '
-        'USERNAME as a regular expression (case-insensitive). '
+        help='Filter by user name using a regular expression (case-insensitive). '
         'Example: `--username="^(apache|www-data)$"`',
         dest='USERNAME',
     )
@@ -203,8 +198,8 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='Threshold for the number of processes. '
-        'Type: None or Range. '
+        help='WARN threshold for the number of matching processes. '
+        'Supports Nagios ranges. '
         'Default: %(default)s',
         dest='WARN',
         default=DEFAULT_WARN,
@@ -212,8 +207,8 @@ def parse_args():
 
     parser.add_argument(
         '--warning-age',
-        help='Threshold for age of the process, in seconds. '
-        'Type: None or Range. '
+        help='WARN threshold for age of the oldest matching process, in seconds. '
+        'Supports Nagios ranges. '
         'Default: %(default)s',
         default=DEFAULT_WARN_AGE,
         dest='WARN_AGE',
@@ -221,10 +216,10 @@ def parse_args():
 
     parser.add_argument(
         '--warning-cpu-percent',
-        help='Threshold for CPU usage of all matching processes, in percent. '
+        help='WARN threshold for aggregated CPU usage of all matching processes, in percent. '
         'Requires two consecutive check runs to calculate. '
-        'A value of 100%% equals one fully utilized CPU core. '
-        'Type: None or Range. '
+        '100%% equals one fully utilized CPU core. '
+        'Supports Nagios ranges. '
         'Default: %(default)s',
         default=DEFAULT_WARN_CPU_PERCENT,
         dest='WARN_CPU_PERCENT',
@@ -232,8 +227,8 @@ def parse_args():
 
     parser.add_argument(
         '--warning-mem',
-        help='Threshold for memory usage, in bytes. '
-        'Type: None or Range. '
+        help='WARN threshold for aggregated memory usage, in bytes. '
+        'Supports Nagios ranges. '
         'Default: %(default)s',
         default=DEFAULT_WARN_MEM,
         dest='WARN_MEM',
@@ -241,8 +236,8 @@ def parse_args():
 
     parser.add_argument(
         '--warning-mem-percent',
-        help='Threshold for memory usage, in percent. '
-        'Type: None or Range. '
+        help='WARN threshold for aggregated memory usage, in percent. '
+        'Supports Nagios ranges. '
         'Default: %(default)s',
         default=DEFAULT_WARN_MEM_PERCENT,
         dest='WARN_MEM_PERCENT',

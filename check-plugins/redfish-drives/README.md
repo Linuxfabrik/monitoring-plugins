@@ -33,16 +33,16 @@ usage: redfish-drives [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
                       [--password PASSWORD] [--timeout TIMEOUT] [--url URL]
                       [--username USERNAME]
 
-Checks the state of all drives or other physical storage media in the Systems
-collection.
+Checks the state of all physical drives and storage media in a Redfish-
+compatible server via the Redfish API. Alerts when any drive reports a
+degraded or failed state.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  --insecure           This option explicitly allows to perform "insecure" SSL
-                       connections. Default: True
-  --no-proxy           Do not use a proxy. Default: False
+  --insecure           This option explicitly allows insecure SSL connections.
+  --no-proxy           Do not use a proxy.
   --password PASSWORD  Redfish API password.
   --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
   --url URL            Redfish API URL. Default: https://localhost:5000

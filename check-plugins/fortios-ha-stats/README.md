@@ -23,24 +23,24 @@ usage: fortios-ha-stats [-h] [-V] [--always-ok] [--count COUNT] -H HOSTNAME
                         [--insecure] [--no-proxy] --password PASSWORD
                         [--timeout TIMEOUT]
 
-Returns statistics for members of HA cluster from Forti Appliances like
-FortiGate running FortiOS via FortiOS REST API. Warns if the number of HA
-members is more or less than expected (default: 2). The authentication is done
-via a single API token (Token-based authentication), not via Session-based
-authentication, which is stated as "legacy".
+Monitors the high-availability cluster status on FortiGate appliances running
+FortiOS via the REST API. Alerts if the number of HA members differs from the
+expected count (default: 2). Reports serial number, role, priority, hostname,
+and synchronization status per member.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --count COUNT         Number of expected cluster members. Default: 2
+  --count COUNT         Expected number of HA cluster members. Alerts if the
+                        actual count differs. Default: 2.
   -H, --hostname HOSTNAME
-                        FortiOS-based Appliance address, optional including
-                        port ("192.168.1.1:443").
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
-  --no-proxy            Do not use a proxy. Default: False
-  --password PASSWORD   FortiOS REST API Single Access Token.
+                        FortiOS-based appliance address, optionally including
+                        port. Example: `--hostname 192.168.1.1:443`.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
+  --password PASSWORD   FortiOS REST API single-use access token.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 

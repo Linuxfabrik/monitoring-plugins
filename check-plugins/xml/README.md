@@ -23,32 +23,29 @@ usage: xml [-h] [-V] [--always-ok] [--expect EXPECT] [--insecure]
            [--namespace NAMESPACES] [--no-proxy] [--password PASSWORD]
            [--timeout TIMEOUT] --url URL [--username USERNAME] --xpath XPATH
 
-This plugin checks for a matching string in a XML document, fetched via
-http(s). Simple XPath syntax, prefix namespaces and HTTP Basic Auth are
-supported.
+Fetches an XML document via HTTP(S) and checks for a matching string using
+XPath expressions. Supports namespace prefixes and HTTP Basic Authentication.
+Alerts when the expected value is not found or does not match.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
-  --always-ok           Always return OK.
-  --expect EXPECT       String to expect in the xpath's location. If ommitted,
-                        just checks if the XPath exists.
-  --insecure            This option explicitly allows to perform "insecure"
-                        SSL connections. Default: False
+  --always-ok           Always returns OK.
+  --expect EXPECT       Expected string at the XPath location. If omitted,
+                        just checks whether the XPath exists.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
   --namespace NAMESPACES
-                        If your XPath expression uses namespace prefixes, you
-                        must define them in a prefix mapping. This parameter
-                        expects a mapping for the namespace prefix used in the
-                        XPath expression to namespace URI (repeatable). For
-                        example like so: --namespace="prefix1:https://schemas.
-                        xmlsoap.org/prefix1/" --namespace="prefix2:https://sch
-                        emas.xmlsoap.org/prefix2/"
-  --no-proxy            Do not use a proxy. Default: False
-  --password PASSWORD   Password (HTTP Basic Auth).
+                        Namespace prefix-to-URI mapping for XPath expressions.
+                        Can be specified multiple times. Example: `--
+                        namespace="prefix1:https://schemas.xmlsoap.org/prefix1
+                        /"`.
+  --no-proxy            Do not use a proxy.
+  --password PASSWORD   HTTP Basic Auth password.
   --timeout TIMEOUT     Network timeout in seconds. Default: 7 (seconds)
-  --url URL             WSDL Endpoint URL. Default: None
-  --username USERNAME   Username (HTTP Basic Auth).
-  --xpath XPATH         XPath to query. The result must point to a single
+  --url URL             XML endpoint URL.
+  --username USERNAME   HTTP Basic Auth username.
+  --xpath XPATH         XPath expression to query. Must point to a single
                         value (attribute or node content). Lists/arrays are
                         not supported.
 ```

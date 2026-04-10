@@ -124,6 +124,7 @@ def generate_mkdocs_yml(nav_sections):
     lines.append('')
     lines.append('not_in_nav: |')
     lines.append('  CHANGELOG.md')
+    lines.append('  check-plugins/example/README.md')
     lines.append('  CODE_OF_CONDUCT.md')
     lines.append('')
 
@@ -193,6 +194,14 @@ def main():
     mkdocs_path = os.path.join(REPO_ROOT, 'mkdocs.yml')
     with open(mkdocs_path, 'w') as f:
         f.write(mkdocs_content)
+
+    # Create symlink for the example plugin (not in nav, but linked from contributing.md)
+    example_source = os.path.join(REPO_ROOT, 'check-plugins', 'example', 'README.md')
+    if os.path.isfile(example_source):
+        example_target_dir = os.path.join(DOCS_DIR, 'check-plugins', 'example')
+        os.makedirs(example_target_dir, exist_ok=True)
+        example_target = os.path.join(example_target_dir, 'README.md')
+        create_symlink(example_source, example_target)
 
     # Count
     total_symlinks = len(TOP_LEVEL_DOCS)

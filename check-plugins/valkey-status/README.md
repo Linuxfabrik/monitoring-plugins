@@ -31,44 +31,49 @@ usage: valkey-status [-h] [-V] [--always-ok] [--cacert CACERT] [-c CRIT]
                      [--socket SOCKET] [--test TEST] [--tls]
                      [--username USERNAME] [--verbose] [-w WARN]
 
-Returns information and statistics about a Valkey server. Alerts on memory
-consumption, memory fragmentation, hit rates and more.
+Monitors a Valkey server via the INFO command. Reports memory usage,
+fragmentation ratio, keyspace hit rate, connected clients, replication status,
+and persistence state. Alerts on memory consumption, high fragmentation, and
+low hit rates.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --cacert CACERT       CA Certificate file to verify with. Needs `--tls`.
-                        Default: /etc/pki/tls/certs/rootCA.pem
-  -c, --critical CRIT   Set the CRIT memory usage threshold as a percentage.
-                        Default: >= None
+  --cacert CACERT       CA certificate file for TLS verification. Requires
+                        `--tls`. Default: /etc/pki/tls/certs/rootCA.pem.
+  -c, --critical CRIT   CRIT threshold for memory usage in percent. Default:
+                        >= None.
   -H, --hostname HOSTNAME
-                        Valkey server hostname. Default: 127.0.0.1
-  --ignore-maxmemory0   Don't warn about Valkey' maxmemory=0. Default: False
-  --ignore-overcommit   Don't warn about vm.overcommit_memory<>1. Default:
-                        False
-  --ignore-somaxconn    Don't warn about net.core.somaxconn <
-                        net.ipv4.tcp_max_syn_backlog. Default: False
+                        Valkey server hostname. Default: 127.0.0.1.
+  --ignore-maxmemory0   Suppress warning when Valkey maxmemory is set to 0
+                        (unlimited).
+  --ignore-overcommit   Suppress warning when vm.overcommit_memory is not set
+                        to 1.
+  --ignore-somaxconn    Suppress warning when net.core.somaxconn is lower than
+                        net.ipv4.tcp_max_syn_backlog.
   --ignore-sync-partial-err
-                        Don't warn about partial sync errors (because if you
-                        have an asynchronous replication, a small number of
-                        "denied partial resync requests" might be normal).
-                        Default: False
-  --ignore-thp          Don't warn about transparent huge page setting.
-                        Default: False
+                        Suppress warning about partial sync errors. Useful
+                        when asynchronous replication is in use, where a small
+                        number of "denied partial resync requests" might be
+                        normal.
+  --ignore-thp          Suppress warning about transparent huge pages being
+                        set to "always".
   -p, --password PASSWORD
-                        Password to use when connecting to the Valkey server.
-  --port PORT           Valkey server port. Default: 6379
-  --socket SOCKET       Valkey server socket (overrides hostname and port).
+                        Password for Valkey server authentication.
+  --port PORT           Valkey server port. Default: 6379.
+  --socket SOCKET       Valkey server Unix socket path. Overrides hostname and
+                        port.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
-  --tls                 Establish a secure TLS connection to Valkey.
-  --username USERNAME   Username to use when connecting to the Valkey server.
+  --tls                 Establish a secure TLS connection to the Valkey
+                        server.
+  --username USERNAME   Username for Valkey server authentication.
   --verbose             Makes this plugin verbose during the operation. Useful
-                        for debugging and seeing what's going on under the
-                        hood. Default: False
-  -w, --warning WARN    Set the WARN memory usage threshold as a percentage.
-                        Default: >= 90
+                        for debugging and seeing what is going on under the
+                        hood.
+  -w, --warning WARN    WARN threshold for memory usage in percent. Default:
+                        >= 90.
 ```
 
 

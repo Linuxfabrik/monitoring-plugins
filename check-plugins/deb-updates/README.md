@@ -37,26 +37,25 @@ bind9-dnsutils/stable,stable-security 1:9.18.33-1~deb12u2 amd64 [upgradable from
 usage: deb-updates [-h] [-V] [--always-ok] [--only-critical] [--query QUERY]
                    [--timeout TIMEOUT] [-w WARN]
 
-This plugin checks for software updates on systems that use package management
-systems based on the apt-get(8) command found in Debian GNU/Linux and
-compatible. This plugin only lists updates and upgrades, and provides the
-relevant alerts. It never actually runs an update.
+Checks for available APT package updates on Debian, Ubuntu, and compatible
+systems. Reports the number of pending updates and upgrades, and alerts when
+updates are available. This check only lists updates and never actually
+installs anything. Requires root or sudo.
 
 options:
   -h, --help          show this help message and exit
   -V, --version       show program's version number and exit
   --always-ok         Always returns OK.
-  --only-critical     Only collect critical updates and upgrades.
-  --query QUERY       The list of available updates and upgrades is stored in
-                      a SQL table. Provide the SQL `WHEN` statement part to
-                      narrow down results. Example: `--query='package like
-                      "bind9-%"'`. Also supports regular expressions via a
-                      REGEXP statement. Have a look at the README for a list
-                      of available columns. If this parameter is used, a list
-                      of matching updates is printed. Default: 1
-  --timeout TIMEOUT   Plugin timeout in seconds. Default: 60 (seconds)
-  -w, --warning WARN  Minimum number of packages to return WARNING. Default:
-                      1.
+  --only-critical     Only report security-critical updates and upgrades.
+  --query QUERY       SQL WHERE clause to narrow down results from the
+                      internal updates table. Supports regular expressions via
+                      a REGEXP statement. If specified, a list of matching
+                      updates is printed. Have a look at the README for a list
+                      of available columns. Example: `--query='package like
+                      "bind9-%"'`. Default: 1.
+  --timeout TIMEOUT   Network timeout in seconds. Default: 60 (seconds)
+  -w, --warning WARN  Minimum number of pending packages to trigger a WARNING.
+                      Default: 1.
 ```
 
 

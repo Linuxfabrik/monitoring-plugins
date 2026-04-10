@@ -89,8 +89,7 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for Opcache usage as a percentage. '
-        'Default: >= %(default)s',
+        help='CRIT threshold for Opcache usage, in percent. Default: >= %(default)s',
         dest='CRIT',
         type=lib.args.int_or_none,
         default=DEFAULT_CRIT,
@@ -98,8 +97,9 @@ def parse_args():
 
     parser.add_argument(
         '--config',
-        help='"key=value" pairs to check (startswith), for example '
-        '`--config "memory_limit=128M"` (repeating)',
+        help='PHP ini "key=value" pair to check (startswith match). '
+        'Can be specified multiple times. '
+        'Example: `--config "memory_limit=128M"`',
         dest='CONFIG',
         action='append',
         default=None,
@@ -107,8 +107,8 @@ def parse_args():
 
     parser.add_argument(
         '--dev',
-        help='Be more tolerant in development environments: Allow `display_errors=On` and '
-        '`display_startup_errors=On`.',
+        help='Development mode. '
+        'Tolerates `display_errors=On` and `display_startup_errors=On`.',
         dest='DEV',
         action='store_true',
         default=False,
@@ -116,8 +116,9 @@ def parse_args():
 
     parser.add_argument(
         '--module',
-        help='"modulename" to check (startswith), for example '
-        '`--module json --module mbstring` (repeating)',
+        help='PHP module name to check (startswith match). '
+        'Can be specified multiple times. '
+        'Example: `--module json --module mbstring`',
         dest='MODULES',
         action='append',
         default=None,
@@ -149,9 +150,8 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='URL to optional PHP `monitoring.php` script. '
-        'The plugin will work, but its accuracy will be reduced if the `monitoring.php` file '
-        'cannot be fetched via HTTP(S). '
+        help='URL to the optional PHP `monitoring.php` helper script. '
+        'Without it the plugin still works, but with reduced accuracy. '
         'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
@@ -160,8 +160,7 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for Opcache usage as a percentage. '
-        'Default: >= %(default)s',
+        help='WARN threshold for Opcache usage, in percent. Default: >= %(default)s',
         dest='WARN',
         type=lib.args.int_or_none,
         default=DEFAULT_WARN,

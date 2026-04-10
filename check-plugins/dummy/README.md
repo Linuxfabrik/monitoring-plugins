@@ -22,7 +22,8 @@ This check just returns the given message, state and perfdata. It comes in handy
 usage: dummy [-h] [-V] [--always-ok] [--message MESSAGE] [--perfdata PERFDATA]
              [--state {ok,warn,crit,unk}]
 
-This check just returns the given message, state and perfdata.
+Returns a freely configurable message, state, and perfdata. Useful for testing
+monitoring configurations, simulating alerts, or generating placeholder data.
 
 options:
   -h, --help            show this help message and exit

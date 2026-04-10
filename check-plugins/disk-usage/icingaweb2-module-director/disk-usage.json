@@ -254,7 +254,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the used disk space, for each partition.",
+            "notes": "Checks used or free disk space for each mounted partition. By default, only physical devices are checked (hard disks, USB drives), ignoring pseudo and memory filesystems. Supports filtering by mountpoint pattern or filesystem type. Thresholds can be set as percentages or absolute values, and can target either used or free space. Note that on Unix systems, 5% of disk space is typically reserved for root and not reflected in the available space shown to regular users. Alerts when usage exceeds the configured thresholds.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-usage",
             "object_name": "tpl-service-disk-usage",
             "object_type": "template",
@@ -309,7 +309,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the used disk space, for each partition.",
+            "notes": "Checks used or free disk space for each mounted partition. By default, only physical devices are checked (hard disks, USB drives), ignoring pseudo and memory filesystems. Supports filtering by mountpoint pattern or filesystem type. Thresholds can be set as percentages or absolute values, and can target either used or free space. Note that on Unix systems, 5% of disk space is typically reserved for root and not reflected in the available space shown to regular users. Alerts when usage exceeds the configured thresholds.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-usage",
             "object_name": "tpl-service-disk-usage-windows",
             "object_type": "template",
@@ -349,7 +349,7 @@
         "2": {
             "varname": "disk_usage_critical",
             "caption": "Disk Usage: Critical",
-            "description": "Critical threshold, of the form \"<number>[unit][method]\", where unit is one of `%|K|M|G|T|P` and method is one of `USED|FREE`. If \"unit\" is omitted, `%` is assumed. `K` means `kibibyte` etc. If \"method\" is omitted, `USED` is assumed. `USED` means \"number ore more\", `FREE` means \"number or less\". Examples: `95` = alert at 95% usage or more. `9.5M` = alert when 9.5 MiB or more is used. Other self-explanatory examples are `95%USED`, `5%FREE`, `9.5GFREE`, `1400GUSED`.",
+            "description": "CRIT threshold in the form `<number>[unit][method]`. Unit is one of `%|K|M|G|T|P` (default: `%`). `K` means kibibyte etc. Method is one of `USED|FREE` (default: `USED`). `USED` means \"number or more\", `FREE` means \"number or less\". Examples: `95` = 95% used. `9.5M` = 9.5 MiB used. `5%FREE`. `1400GUSED`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -360,7 +360,7 @@
         "3": {
             "varname": "disk_usage_exclude_pattern",
             "caption": "Disk Usage: Exclude Pattern",
-            "description": "Any mountpoint matching this pattern (case-insensitive) will count as an exclude. The mountpoint is excluded if it contains the specified value. Example: \"boot\" excludes \"/boot\" as well as \"/boot/efi\". Can be specified multiple times. On Windows, use drive letters without backslash (\"Y:\" or \"Y\"). Includes are matched before excludes.",
+            "description": "Exclude any mountpoint containing this substring (case-insensitive). Example: `boot` excludes `/boot` and `/boot/efi`. Can be specified multiple times. On Windows, use drive letters without backslash (`Y:` or `Y`). Includes are matched before excludes.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -371,7 +371,7 @@
         "4": {
             "varname": "disk_usage_exclude_regex",
             "caption": "Disk Usage: Exclude Regex",
-            "description": "Any mountpoint matching this python regex (case-insensitive) will count as an exclude. Can be specified multiple times. On Windows, use drive letters without backslash (\"Y:\" or \"Y\"). Includes are matched before excludes.",
+            "description": "Exclude any mountpoint matching this Python regex (case-insensitive). Can be specified multiple times. On Windows, use drive letters without backslash (`Y:` or `Y`). Includes are matched before excludes.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -382,7 +382,7 @@
         "5": {
             "varname": "disk_usage_fstype",
             "caption": "Disk Usage: Fstype",
-            "description": "By default, this plugin only checks physical devices (e.g. hard disks, CD-ROM drives, USB keys) and ignores all others (e.g. pseudo, memory, duplicate, inaccessible file systems). You can override this behaviour with this parameter by specifying which file system types should be checked explicitly. Can be specified multiple times. To get a list of file system types you can specify, run `disk-usage --list-fstype` first (as file system types are machine dependent).",
+            "description": "Override the default behaviour (check physical devices only) and check these file system types instead. Can be specified multiple times. Run `disk-usage --list-fstypes` first to see available types (they are machine dependent).",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -393,7 +393,7 @@
         "6": {
             "varname": "disk_usage_include_pattern",
             "caption": "Disk Usage: Include Pattern",
-            "description": "Any mountpoint matching this pattern (case-insensitive) will count as an include. The mountpoint is included if it contains the specified value. Example: \"boot\" includes \"/boot\" as well as \"/boot/efi\". Can be specified multiple times. On Windows, use drive letters without backslash (\"Y:\" or \"Y\"). Includes are matched before excludes.",
+            "description": "Only include mountpoints containing this substring (case-insensitive). Example: `boot` includes `/boot` and `/boot/efi`. Can be specified multiple times. On Windows, use drive letters without backslash (`Y:` or `Y`). Includes are matched before excludes.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -404,7 +404,7 @@
         "7": {
             "varname": "disk_usage_include_regex",
             "caption": "Disk Usage: Include Regex",
-            "description": "Any mountpoint matching this python regex (case-insensitive) will count as an include. Can be specified multiple times. On Windows, use drive letters without backslash (\"Y:\" or \"Y\"). Includes are matched before excludes.",
+            "description": "Only include mountpoints matching this Python regex (case-insensitive). Can be specified multiple times. On Windows, use drive letters without backslash (`Y:` or `Y`). Includes are matched before excludes.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -415,7 +415,7 @@
         "8": {
             "varname": "disk_usage_list_fstypes",
             "caption": "Disk Usage: List Fstypes?",
-            "description": "Show which file system types are available and which are checked by default.",
+            "description": "Print available file system types and which ones are checked by default, then exit.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -424,7 +424,7 @@
         "9": {
             "varname": "disk_usage_perfdata_regex",
             "caption": "Disk Usage: Perfdata Regex",
-            "description": "Only print perfdata keys matching this python regex. For a list of perfdata keys, have a look at the README and run this plugin. Can be specified multiple times.",
+            "description": "Only emit perfdata keys matching this Python regex. For a list of perfdata keys, see the README or run this plugin. Can be specified multiple times.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -435,7 +435,7 @@
         "10": {
             "varname": "disk_usage_warning",
             "caption": "Disk Usage: Warning",
-            "description": "Warning threshold, of the form \"<number>[unit][method]\", where unit is one of `%|K|M|G|T|P` and method is one of `USED|FREE`. If \"unit\" is omitted, `%` is assumed. `K` means `kibibyte` etc. If \"method\" is omitted, `USED` is assumed. `USED` means \"number ore more\", `FREE` means \"number or less\". Examples: `95` = alert at 95% usage. `9.5M` = alert when 9.5 MiB is used. Other self-explanatory examples are `95%USED`, `5%FREE`, `9.5GFREE`, `1400GUSED`.",
+            "description": "WARN threshold in the form `<number>[unit][method]`. Unit is one of `%|K|M|G|T|P` (default: `%`). `K` means kibibyte etc. Method is one of `USED|FREE` (default: `USED`). `USED` means \"number or more\", `FREE` means \"number or less\". Examples: `95` = 95% used. `9.5M` = 9.5 MiB used. `5%FREE`. `1400GUSED`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -455,7 +455,7 @@
         "12": {
             "varname": "disk_usage_windows_critical",
             "caption": "Disk Usage: Critical",
-            "description": "Critical threshold, of the form \"<number>[unit][method]\", where unit is one of `%|K|M|G|T|P` and method is one of `USED|FREE`. If \"unit\" is omitted, `%` is assumed. `K` means `kibibyte` etc. If \"method\" is omitted, `USED` is assumed. `USED` means \"number ore more\", `FREE` means \"number or less\". Examples: `95` = alert at 95% usage or more. `9.5M` = alert when 9.5 MiB or more is used. Other self-explanatory examples are `95%USED`, `5%FREE`, `9.5GFREE`, `1400GUSED`.",
+            "description": "CRIT threshold in the form `<number>[unit][method]`. Unit is one of `%|K|M|G|T|P` (default: `%`). `K` means kibibyte etc. Method is one of `USED|FREE` (default: `USED`). `USED` means \"number or more\", `FREE` means \"number or less\". Examples: `95` = 95% used. `9.5M` = 9.5 MiB used. `5%FREE`. `1400GUSED`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -466,7 +466,7 @@
         "13": {
             "varname": "disk_usage_windows_exclude_pattern",
             "caption": "Disk Usage: Exclude Pattern",
-            "description": "Any mountpoint matching this pattern (case-insensitive) will count as an exclude. The mountpoint is excluded if it contains the specified value. Example: \"boot\" excludes \"/boot\" as well as \"/boot/efi\". Can be specified multiple times. On Windows, use drive letters without backslash (\"Y:\" or \"Y\"). Includes are matched before excludes.",
+            "description": "Exclude any mountpoint containing this substring (case-insensitive). Example: `boot` excludes `/boot` and `/boot/efi`. Can be specified multiple times. On Windows, use drive letters without backslash (`Y:` or `Y`). Includes are matched before excludes.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -477,7 +477,7 @@
         "14": {
             "varname": "disk_usage_windows_exclude_regex",
             "caption": "Disk Usage: Exclude Regex",
-            "description": "Any mountpoint matching this python regex (case-insensitive) will count as an exclude. Can be specified multiple times. On Windows, use drive letters without backslash (\"Y:\" or \"Y\"). Includes are matched before excludes.",
+            "description": "Exclude any mountpoint matching this Python regex (case-insensitive). Can be specified multiple times. On Windows, use drive letters without backslash (`Y:` or `Y`). Includes are matched before excludes.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -488,7 +488,7 @@
         "15": {
             "varname": "disk_usage_windows_fstype",
             "caption": "Disk Usage: Fstype",
-            "description": "By default, this plugin only checks physical devices (e.g. hard disks, CD-ROM drives, USB keys) and ignores all others (e.g. pseudo, memory, duplicate, inaccessible file systems). You can override this behaviour with this parameter by specifying which file system types should be checked explicitly. Can be specified multiple times. To get a list of file system types you can specify, run `disk-usage --list-fstype` first (as file system types are machine dependent).",
+            "description": "Override the default behaviour (check physical devices only) and check these file system types instead. Can be specified multiple times. Run `disk-usage --list-fstypes` first to see available types (they are machine dependent).",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -499,7 +499,7 @@
         "16": {
             "varname": "disk_usage_windows_include_pattern",
             "caption": "Disk Usage: Include Pattern",
-            "description": "Any mountpoint matching this pattern (case-insensitive) will count as an include. The mountpoint is included if it contains the specified value. Example: \"boot\" includes \"/boot\" as well as \"/boot/efi\". Can be specified multiple times. On Windows, use drive letters without backslash (\"Y:\" or \"Y\"). Includes are matched before excludes.",
+            "description": "Only include mountpoints containing this substring (case-insensitive). Example: `boot` includes `/boot` and `/boot/efi`. Can be specified multiple times. On Windows, use drive letters without backslash (`Y:` or `Y`). Includes are matched before excludes.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -510,7 +510,7 @@
         "17": {
             "varname": "disk_usage_windows_include_regex",
             "caption": "Disk Usage: Include Regex",
-            "description": "Any mountpoint matching this python regex (case-insensitive) will count as an include. Can be specified multiple times. On Windows, use drive letters without backslash (\"Y:\" or \"Y\"). Includes are matched before excludes.",
+            "description": "Only include mountpoints matching this Python regex (case-insensitive). Can be specified multiple times. On Windows, use drive letters without backslash (`Y:` or `Y`). Includes are matched before excludes.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -521,7 +521,7 @@
         "18": {
             "varname": "disk_usage_windows_list_fstypes",
             "caption": "Disk Usage: List Fstypes?",
-            "description": "Show which file system types are available and which are checked by default.",
+            "description": "Print available file system types and which ones are checked by default, then exit.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -530,7 +530,7 @@
         "19": {
             "varname": "disk_usage_windows_perfdata_regex",
             "caption": "Disk Usage: Perfdata Regex",
-            "description": "Only print perfdata keys matching this python regex. For a list of perfdata keys, have a look at the README and run this plugin. Can be specified multiple times.",
+            "description": "Only emit perfdata keys matching this Python regex. For a list of perfdata keys, see the README or run this plugin. Can be specified multiple times.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -541,7 +541,7 @@
         "20": {
             "varname": "disk_usage_windows_warning",
             "caption": "Disk Usage: Warning",
-            "description": "Warning threshold, of the form \"<number>[unit][method]\", where unit is one of `%|K|M|G|T|P` and method is one of `USED|FREE`. If \"unit\" is omitted, `%` is assumed. `K` means `kibibyte` etc. If \"method\" is omitted, `USED` is assumed. `USED` means \"number ore more\", `FREE` means \"number or less\". Examples: `95` = alert at 95% usage. `9.5M` = alert when 9.5 MiB is used. Other self-explanatory examples are `95%USED`, `5%FREE`, `9.5GFREE`, `1400GUSED`.",
+            "description": "WARN threshold in the form `<number>[unit][method]`. Unit is one of `%|K|M|G|T|P` (default: `%`). `K` means kibibyte etc. Method is one of `USED|FREE` (default: `USED`). `USED` means \"number or more\", `FREE` means \"number or less\". Examples: `95` = 95% used. `9.5M` = 9.5 MiB used. `5%FREE`. `1400GUSED`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

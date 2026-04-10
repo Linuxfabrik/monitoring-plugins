@@ -104,7 +104,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "This check prints cpu and memory statistics for all running Podman containers, using the \"podman stats\" command. Container CPU usage is divided by the available number of CPU cores (\"normalized\"). For Docker, use the docker-stats check instead.",
+            "notes": "Reports CPU and memory usage for all running Podman containers. CPU usage is normalized by dividing by the number of available host CPU cores. CPU alerts only trigger after the threshold has been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes. Memory alerts trigger immediately. Uses a local SQLite database for CPU trend tracking across runs. For Docker, use the docker-stats check instead. Requires root or sudo.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/podman-stats",
             "object_name": "tpl-service-podman-stats",
             "object_type": "template",
@@ -141,7 +141,7 @@
         "2": {
             "varname": "podman_stats_count",
             "caption": "Podman Stats: Count",
-            "description": "Number of times the value must exceed specified thresholds before alerting.",
+            "description": "Number of consecutive checks the threshold must be exceeded before alerting.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -152,7 +152,7 @@
         "3": {
             "varname": "podman_stats_critical_cpu",
             "caption": "Podman Stats: Critical CPU",
-            "description": "Set the critical threshold CPU Usage Percentage.",
+            "description": "CRIT threshold for CPU usage, in percent.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -163,7 +163,7 @@
         "4": {
             "varname": "podman_stats_critical_mem",
             "caption": "Podman Stats: Critical Memory",
-            "description": "Set the critical threshold Memory Usage Percentage.",
+            "description": "CRIT threshold for memory usage, in percent.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -174,7 +174,7 @@
         "5": {
             "varname": "podman_stats_full_name",
             "caption": "Podman Stats: Full Name?",
-            "description": "Use full container name, for example `traefik_traefik.2.1idw12p2yqp`. If ommitted, the name will be shortened after the replica number (default behaviour).",
+            "description": "Use the full container name instead of shortening it after the replica number. Example: `traefik_traefik.2.1idw12p2yqp`",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -183,7 +183,7 @@
         "6": {
             "varname": "podman_stats_warning_cpu",
             "caption": "Podman Stats: Warning CPU",
-            "description": "Set the warning threshold CPU Usage Percentage.",
+            "description": "WARN threshold for CPU usage, in percent.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -194,7 +194,7 @@
         "7": {
             "varname": "podman_stats_warning_mem",
             "caption": "Podman Stats: Warning Memory",
-            "description": "Set the warning threshold Memory Usage Percentage.",
+            "description": "WARN threshold for memory usage, in percent.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

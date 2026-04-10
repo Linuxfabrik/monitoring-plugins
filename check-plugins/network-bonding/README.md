@@ -20,15 +20,18 @@ Reports the state of all channel bonding interfaces. Channel bonding enables two
 ```text
 usage: network-bonding [-h] [-V] [--always-ok] [--test TEST]
 
-Reports the state of a channel bonding interface. Channel bonding enables two
-or more network interfaces to act as one, simultaneously increasing the
-bandwidth and providing redundancy.
+Reports the state of network bonding (channel bonding) interfaces. Checks that
+all slave interfaces are active and that the bonding mode and link status are
+healthy. Channel bonding allows two or more network interfaces to act as one,
+increasing bandwidth and providing redundancy. Alerts when any slave interface
+is down or the bond is degraded. Requires root or sudo.
 
 options:
   -h, --help     show this help message and exit
   -V, --version  show program's version number and exit
   --always-ok    Always returns OK.
-  --test TEST    For unit tests. Needs "path-to-bonding-file".
+  --test TEST    For unit tests. Needs "path-to-bonding-file". Example:
+                 `--test /tmp/bond0`.
 ```
 
 

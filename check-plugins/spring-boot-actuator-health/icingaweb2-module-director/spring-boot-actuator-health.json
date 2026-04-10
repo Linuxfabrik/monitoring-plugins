@@ -114,7 +114,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": " This is a monitoring plugin for the Spring Boot Actuator `/health` endpoint (e.g. http://localhost:port/actuator/health/db). It supports fine-grained overrides to adjust alerting behaviour and applying Nagios-style threshold ranges to detailed numeric metrics. ",
+            "notes": "Monitors a Spring Boot application via its Actuator /health endpoint. Checks overall health status and individual component states (database, disk, mail, etc.). Supports fine-grained severity overrides per component and sub-component. Alerts when the application or any component reports an unhealthy state.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/spring-boot-actuator-health",
             "object_name": "tpl-service-spring-boot-actuator-health",
             "object_type": "template",
@@ -152,7 +152,7 @@
         "2": {
             "varname": "spring_boot_actuator_health_component_severity",
             "caption": "Spring Boot Actuator Health: Component Severity",
-            "description": "Set the API status for a specific component like `UP`, `DEGRADED` and `DOWN` to a Nagios state, where Nagios state is one of `ok`, `warn`, `crit` or `unknown` (repeating). Format: `component-name,api-status,nagios-state`. Example: `hikariConnectionPool,DEGRADED,crit`",
+            "description": "Map an API status (`UP`, `DEGRADED`, `DOWN`) for a specific component to a Nagios state (`ok`, `warn`, `crit`, `unknown`). Can be specified multiple times. Format: `component-name,api-status,nagios-state`. Example: `--component-severity hikariConnectionPool,DEGRADED,crit`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -163,7 +163,7 @@
         "3": {
             "varname": "spring_boot_actuator_health_detail_severity",
             "caption": "Spring Boot Actuator Health: Detail Severity",
-            "description": "Set a threshold for a *numeric* component detail value (repeating). Supports Nagios ranges. Format: `component-name,detail-name,warn,crit`. Example: `hikariConnectionPool,activeConnections,@10:20,@0:9`",
+            "description": "Threshold for a numeric component detail value. Supports Nagios ranges. Can be specified multiple times. Format: `component-name,detail-name,warn,crit`. Example: `--detail-severity hikariConnectionPool,activeConnections,@10:20,@0:9`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -174,7 +174,7 @@
         "4": {
             "varname": "spring_boot_actuator_health_insecure",
             "caption": "Spring Boot Actuator Health: Insecure?",
-            "description": "This option explicitly allows to perform \"insecure\" SSL connections.",
+            "description": "This option explicitly allows insecure SSL connections.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -203,7 +203,7 @@
         "7": {
             "varname": "spring_boot_actuator_health_url",
             "caption": "Spring Boot Actuator Health: URL",
-            "description": "Spring Boot Actuator Health Endpoint, for example http://server:80/health/diskSpace.",
+            "description": "Spring Boot Actuator health endpoint URL. Example: `--url http://server:80/health/diskSpace`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -214,7 +214,7 @@
         "8": {
             "varname": "spring_boot_actuator_health_verbose",
             "caption": "Spring Boot Actuator Health: Verbose?",
-            "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what's going on under the hood.",
+            "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
