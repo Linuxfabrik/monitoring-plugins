@@ -32,8 +32,8 @@ options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  CRIT threshold for fan speed, in RPM. Default: 20000.
-  -w, --warning WARN   WARN threshold for fan speed, in RPM. Default: 10000.
+  -c, --critical CRIT  CRIT threshold for fan speed, in RPM. Default: 20000
+  -w, --warning WARN   WARN threshold for fan speed, in RPM. Default: 10000
 ```
 
 

@@ -42,7 +42,7 @@ options:
   --always-ok           Always returns OK.
   --maxportsallowed MAXPORTSALLOWED
                         Maximum number of open ports allowed on this host. 0
-                        disables the check. Default: 0.
+                        disables the check. Default: 0
 ```
 
 

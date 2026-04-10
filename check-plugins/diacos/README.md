@@ -44,14 +44,14 @@ options:
   --always-ok           Always returns OK.
   -c, --critical CRITICAL
                         CRIT threshold for the total duration of login,
-                        search, and logout, in milliseconds. Default: 6000.
+                        search, and logout, in milliseconds. Default: 6000
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --login-computer COMPUTER
                         COMPUTER argument for the user.Login API call.
-                        Default: Brower_APP.
+                        Default: Brower_APP
   --login-ip IP         IP argument for the user.Login API call. Default:
-                        127.0.0.1.
+                        127.0.0.1
   --login-licence LICENCE
                         LICENCE argument for the user.Login API call
                         (required).
@@ -60,30 +60,28 @@ options:
   --search-concept-filter CONCEPT_FILTER
                         CONCEPT_FILTER argument for the
                         classification.SearchDiagnoses API call. Default:
-                        %25R239%3BC%3BD99.99.
+                        %25R239%3BC%3BD99.99
   --search-country COUNTRY
                         COUNTRY argument for the
-                        classification.SearchDiagnoses API call. Default: CH.
+                        classification.SearchDiagnoses API call. Default: CH
   --search-format FORMAT
                         FORMAT argument for the classification.SearchDiagnoses
-                        API call. Default: %25T0%25C%3F%25I%25R.
+                        API call. Default: %25T0%25C%3F%25I%25R
   --search-searchtext SEARCHTEXT
                         SEARCHTEXT argument for the
-                        classification.SearchDiagnoses API call. Default:
-                        Haut.
+                        classification.SearchDiagnoses API call. Default: Haut
   --search-sort-mode SORT_MODE
                         SORT_MODE argument for the
-                        classification.SearchDiagnoses API call. Default:
-                        %25T.
+                        classification.SearchDiagnoses API call. Default: %25T
   --search-year YEAR    YEAR argument for the classification.SearchDiagnoses
-                        API call. Default: 2020.
+                        API call. Default: 2020
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 7 (seconds)
-  --url URL             ID DIACOS base URL. Default: http://localhost:9999.
+  --url URL             ID DIACOS base URL. Default: http://localhost:9999
   -w, --warning WARNING
                         WARN threshold for the total duration of login,
-                        search, and logout, in milliseconds. Default: 3000.
+                        search, and logout, in milliseconds. Default: 3000
 ```
 
 

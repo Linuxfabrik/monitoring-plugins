@@ -65,7 +65,7 @@ options:
   --disable-pseudo-terminal
                         SSH: Disable pseudo-terminal allocation.
   -H, --hostname HOSTNAME
-                        SSH: Hostname
+                        SSH: Hostname.
   --identity IDENTITY   SSH: Selects a file from which the identity (private
                         key) for public key authentication is read. You can
                         also specify a public key file to use the
@@ -108,10 +108,10 @@ options:
                         Severity on connection problems. Default: unknown
   --skip-stderr SKIP_STDERR
                         Ignore all (0) or first n lines on STDERR. Default: -1
-                        (no ignore)
+                        (no ignore).
   --skip-stdout SKIP_STDOUT
                         Ignore all (0) or first n lines on STDOUT. Default: -1
-                        (no ignore)
+                        (no ignore).
   --ssh-option SSH_OPTION
                         SSH: Can be used to give options in the format used in
                         the configuration file. This is useful for specifying
@@ -119,11 +119,10 @@ options:
                         flag. For full details of the options, and their
                         possible values, see ssh_config(5). Can be specified
                         multiple times.
-  --shell               If specified, allows you to expand environment
-                        variables and file globs according to the shell's
-                        usual mechanism, which can be a security hazard.
-                        Default: You just can run simple shell command without
-                        globs, pipes etc.
+  --shell               Enable shell expansion for environment variables and
+                        file globs. Can be a security hazard. Without this
+                        option, only simple commands without globs or pipes
+                        are supported.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   -u, --username USERNAME

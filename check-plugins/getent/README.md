@@ -34,7 +34,7 @@ options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --database DATABASE  NSS database to query. May be any database supported by
-                       "getent". Example: `--database passwd`. Default: group.
+                       "getent". Example: `--database passwd`. Default: group
   --key KEY            Lookup key to search for in the database. If not
                        specified, all entries are fetched (unless the database
                        does not support enumeration). Can be specified

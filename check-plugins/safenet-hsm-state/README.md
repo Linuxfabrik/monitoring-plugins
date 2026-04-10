@@ -50,7 +50,7 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --username {admin,pseoperator}
                         SafeNet HSM username. Example: `--username admin`.
-                        Default: pseoperator.
+                        Default: pseoperator
   -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
                         Default: >= 80
 ```

@@ -46,18 +46,18 @@ options:
   --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
-                        cache expires, in minutes. Default: 1.
+                        cache expires, in minutes. Default: 1
   --critical CRIT       CRIT threshold in percent. Supports Nagios ranges.
-                        Default: >= 90.
+                        Default: >= 90
   -H, --hostname HOSTNAME
                         Starface PBX hostname or IP address. Default:
-                        localhost.
-  --port PORT           Starface PBX monitoring port. Default: 6556.
+                        localhost
+  --port PORT           Starface PBX monitoring port. Default: 6556
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
-  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds).
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --warning WARN        WARN threshold in percent. Supports Nagios ranges.
-                        Default: >= 80.
+                        Default: >= 80
   --ipv6                Use IPv6.
 ```
 

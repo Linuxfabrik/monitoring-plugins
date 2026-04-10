@@ -51,7 +51,7 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold for backup repository usage as a
-                        percentage. Default: >= 90.
+                        percentage. Default: >= 90
   --failed-job-runs FAILED_JOB_RUNS
                         Veeam threshold for `FailedJobRuns`. Default: > 0.
   --failed-vm-lastest-states FAILED_VM_LASTEST_STATES
@@ -71,10 +71,10 @@ options:
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  --url URL             Veeam REST API URL. Default: https://localhost:9398.
-  --username USERNAME   Veeam REST API username. Default: Administrator.
+  --url URL             Veeam REST API URL. Default: https://localhost:9398
+  --username USERNAME   Veeam REST API username. Default: Administrator
   -w, --warning WARN    WARN threshold for backup repository usage as a
-                        percentage. Default: >= 80.
+                        percentage. Default: >= 80
   --warnings-job-runs WARNINGS_JOB_RUNS
                         Veeam threshold for `WarningsJobRuns`. Default: > 0.
   --warning-vm-lastest-states WARNING_VM_LASTEST_STATES

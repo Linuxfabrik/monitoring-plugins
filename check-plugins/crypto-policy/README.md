@@ -31,7 +31,7 @@ options:
   --always-ok           Always returns OK.
   --policy CRYPTO_POLICY
                         Expected crypto policy name. Case-insensitive.
-                        Example: `FUTURE`. Default: DEFAULT.
+                        Example: `FUTURE`. Default: DEFAULT
 ```
 
 

@@ -66,13 +66,13 @@ options:
                    before alerting. Default: 5
   --critical CRIT  CRIT threshold for network I/O rx/tx rate over the entire
                    period as a percentage of the maximum network I/O rate.
-                   Default: >= 90.
+                   Default: >= 90
   --ignore IGNORE  Ignore network interfaces starting with this string. Can be
                    specified multiple times. Example: `--ignore tun`. Default:
-                   ['lo'].
+                   ['lo']
   --warning WARN   WARN threshold for network I/O rx/tx rate over the entire
                    period as a percentage of the maximum network I/O rate.
-                   Default: >= 80.
+                   Default: >= 80
 ```
 
 

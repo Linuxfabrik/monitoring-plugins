@@ -48,9 +48,9 @@ options:
   --always-ok      Always returns OK.
   --full           Also warn on assumptions (stated as "notice" in
                    GSmartControl), not just on actual SMART issues. Default:
-                   False.
+                   False
   --ignore IGNORE  Comma-separated list of disk names to ignore. Example:
-                   `sda,sdb`. Default: [].
+                   `sda,sdb`. Default: []
   --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
                    file,expected-retc".
 ```

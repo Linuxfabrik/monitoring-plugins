@@ -65,7 +65,7 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --url URL             Spring Boot Actuator health endpoint URL. Example:
                         `--url http://server:80/health/diskSpace`. Default:
-                        http://localhost:80/health.
+                        http://localhost:80/health
   --verbose             Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
                         hood. Default: False

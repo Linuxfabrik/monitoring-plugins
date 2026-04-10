@@ -33,7 +33,7 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --count COUNT         Expected number of HA cluster members. Alerts if the
-                        actual count differs. Default: 2.
+                        actual count differs. Default: 2
   -H, --hostname HOSTNAME
                         FortiOS-based appliance address, optionally including
                         port. Example: `--hostname 192.168.1.1:443`.

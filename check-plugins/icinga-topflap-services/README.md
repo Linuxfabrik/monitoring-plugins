@@ -49,17 +49,17 @@ options:
   --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for the number of state changes per
                        service within the lookback period. Supports Nagios
-                       ranges. Default: 19.
+                       ranges. Default: 19
   --insecure           This option explicitly allows insecure SSL connections.
   --lookback LOOKBACK  Time window in seconds to consider for state change
-                       counting. Default: 14400.
+                       counting. Default: 14400
   --no-proxy           Do not use a proxy.
   --password PASSWORD  IcingaWeb password. Takes precedence over the value in
                        `--pwfile`.
   --pwfile PWFILE      Path to a password file containing "url", "user" and
                        "password" for IcingaWeb. Example: `--pwfile
                        /var/spool/icinga2/.icingaweb`. Default:
-                       /var/spool/icinga2/.icingaweb.
+                       /var/spool/icinga2/.icingaweb
   --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
   --url URL            IcingaDB event history URL including filter parameters.
                        Takes precedence over the value in `--pwfile`. Example:
@@ -69,7 +69,7 @@ options:
                        `--pwfile`.
   -w, --warning WARN   WARN threshold for the number of state changes per
                        service within the lookback period. Supports Nagios
-                       ranges. Default: 7.
+                       ranges. Default: 7
 ```
 
 

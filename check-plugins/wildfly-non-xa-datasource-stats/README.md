@@ -51,6 +51,7 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --critical CRIT       CRIT threshold in percent. Supports Nagios ranges.
+                        Default: >= 90
   --datasource DATASOURCE
                         Non-XA datasource name to check. Can be specified
                         multiple times. If not specified, all non-XA
@@ -60,17 +61,18 @@ options:
   --instance INSTANCE   WildFly instance (server-config) to check when running
                         in domain mode.
   --mode {standalone,domain}
-                        WildFly server mode. Default: standalone.
+                        WildFly server mode. Default: standalone
   --no-proxy            Do not use a proxy.
   --node NODE           WildFly node (host) when running in domain mode.
   -p, --password PASSWORD
                         WildFly management API password.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --url URL             WildFly management API URL. Default:
-                        http://localhost:9990.
+                        http://localhost:9990
   --username USERNAME   WildFly management API username. Default: wildfly-
-                        monitoring.
+                        monitoring
   --warning WARN        WARN threshold in percent. Supports Nagios ranges.
+                        Default: >= 80
 ```
 
 

@@ -44,7 +44,7 @@ options:
                         exceeded before alerting. Default: 5
   -c, --critical CRIT   CRIT threshold for link bandwidth saturation in bits
                         per second. Applied over the last `--count`
-                        measurements. Default: 900000000.
+                        measurements. Default: 900000000
   -H, --hostname HOSTNAME
                         FortiOS-based appliance address, optionally including
                         port. Example: `--hostname 192.168.1.1:443`.
@@ -55,7 +55,7 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -w, --warning WARN    WARN threshold for link bandwidth saturation in bits
                         per second. Applied over the last `--count`
-                        measurements. Default: 800000000.
+                        measurements. Default: 800000000
 ```
 
 

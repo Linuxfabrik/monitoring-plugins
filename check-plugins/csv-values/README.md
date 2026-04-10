@@ -121,7 +121,7 @@ options:
                         one column, the number of rows is checked against
                         `--critical`, otherwise the single value is used.
   --delimiter DELIMITER
-                        CSV delimiter. Default: `","`
+                        CSV delimiter. Default: `","`.
   --filename FILENAME   Path to CSV file. This is mutually exclusive with -u /
                         --url.
   --insecure            This option explicitly allows insecure SSL
@@ -139,7 +139,7 @@ options:
   --no-proxy            Do not use a proxy.
   --password PASSWORD   SMB or HTTP Basic Auth Password.
   --quotechar QUOTECHAR
-                        CSV quotechar. Default: `"`
+                        CSV quotechar. Default: `"`.
   --skip-header         Treat the first row as header names, and skip this
                         row. Default: False
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)

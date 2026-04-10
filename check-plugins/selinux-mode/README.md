@@ -32,7 +32,7 @@ options:
   --mode {enforcing,permissive,disabled}
                         Expected SELinux mode, one of "enforcing",
                         "permissive" or "disabled" (case-insensitive).
-                        Default: enforcing.
+                        Default: enforcing
 ```
 
 

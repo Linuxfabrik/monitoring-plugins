@@ -47,16 +47,16 @@ options:
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 1
   -c, --critical CRIT   CRIT threshold for the age of the last backup, in
-                        hours. Default: None.
+                        hours. Default: None
   -H, --hostname HOSTNAME
                         Starface PBX hostname or IP address. Default:
-                        localhost.
-  --port PORT           Starface PBX monitoring port. Default: 6556.
+                        localhost
+  --port PORT           Starface PBX monitoring port. Default: 6556
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   -w, --warning WARN    WARN threshold for the age of the last backup, in
-                        hours. Default: 24.
+                        hours. Default: 24
   --ipv6                Use IPv6.
 ```
 

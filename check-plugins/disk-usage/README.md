@@ -55,7 +55,7 @@ options:
                         kibibyte etc. Method is one of `USED|FREE` (default:
                         `USED`). `USED` means "number or more", `FREE` means
                         "number or less". Examples: `95` = 95% used. `9.5M` =
-                        9.5 MiB used. `5%FREE`. `1400GUSED`. Default: 95%USED.
+                        9.5 MiB used. `5%FREE`. `1400GUSED`. Default: 95%USED
   --exclude-pattern EXCLUDE_PATTERN
                         Exclude any mountpoint containing this substring
                         (case-insensitive). Example: `boot` excludes `/boot`
@@ -94,7 +94,7 @@ options:
                         kibibyte etc. Method is one of `USED|FREE` (default:
                         `USED`). `USED` means "number or more", `FREE` means
                         "number or less". Examples: `95` = 95% used. `9.5M` =
-                        9.5 MiB used. `5%FREE`. `1400GUSED`. Default: 90%USED.
+                        9.5 MiB used. `5%FREE`. `1400GUSED`. Default: 90%USED
 ```
 
 

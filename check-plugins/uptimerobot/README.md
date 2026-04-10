@@ -32,9 +32,9 @@ options:
   --no-proxy         Do not use a proxy.
   --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
                      stderr-file,expected-retc".
-  --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds).
+  --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
   --url URL          UptimeRobot status page URL. Default:
-                     https://status.linuxfabrik.io.
+                     https://status.linuxfabrik.io
 ```
 
 

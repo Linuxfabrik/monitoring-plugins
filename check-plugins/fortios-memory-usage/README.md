@@ -39,7 +39,7 @@ options:
   -c, --critical CRIT   CRIT threshold for memory usage in percent. The plugin
                         first checks against the globally configured `memory-
                         use-threshold-red` on the appliance; this value is
-                        only used if no global threshold exists. Default: 88.
+                        only used if no global threshold exists. Default: 88
   -H, --hostname HOSTNAME
                         FortiOS-based appliance address, optionally including
                         port. Example: `--hostname 192.168.1.1:443`.
@@ -51,7 +51,7 @@ options:
   -w, --warning WARN    WARN threshold for memory usage in percent. The plugin
                         first checks against the globally configured `memory-
                         use-threshold-green` on the appliance; this value is
-                        only used if no global threshold exists. Default: 82.
+                        only used if no global threshold exists. Default: 82
 ```
 
 

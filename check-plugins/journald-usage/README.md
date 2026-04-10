@@ -54,7 +54,7 @@ options:
   --always-ok         Always returns OK.
   --test TEST         For unit tests. Needs "path-to-stdout-file,path-to-
                       stderr-file,expected-retc".
-  -w, --warning WARN  WARN threshold in GiB. Default: >= 6.
+  -w, --warning WARN  WARN threshold in GiB. Default: >= 6
 ```
 
 

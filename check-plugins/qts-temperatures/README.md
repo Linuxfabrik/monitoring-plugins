@@ -39,7 +39,7 @@ options:
   --password PASSWORD  QTS API password.
   --timeout TIMEOUT    Network timeout in seconds. Default: 6 (seconds)
   --url URL            QTS-based appliance URL. Example:
-                       `--url=https://192.168.1.1:8080`
+                       `--url=https://192.168.1.1:8080`.
   --username USERNAME  QTS API username. Default: admin
 ```
 

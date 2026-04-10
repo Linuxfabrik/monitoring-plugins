@@ -35,7 +35,7 @@ options:
   --always-ok           Always returns OK.
   -V, --version         show program's version number and exit
   --datacenter {us,us2,eu,eu2,cn,pscc}
-                        SAP Concur datacenter to query. Default: eu.
+                        SAP Concur datacenter to query. Default: eu
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --no-proxy            Do not use a proxy.
@@ -44,12 +44,12 @@ options:
                         "Expense", "Imaging", "Invoice", "Mobile", "Request",
                         "Travel", or simply "All". Check
                         https://open.concur.com to see which service is
-                        available for which datacenter. Default: All.
+                        available for which datacenter. Default: All
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --utc-offset UTC_OFFSET
-                        UTC offset for timestamp display. Default: +0200.
+                        UTC offset for timestamp display. Default: +0200
 ```
 
 

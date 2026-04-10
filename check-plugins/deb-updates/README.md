@@ -52,10 +52,10 @@ options:
                       a REGEXP statement. If specified, a list of matching
                       updates is printed. Have a look at the README for a list
                       of available columns. Example: `--query='package like
-                      "bind9-%"'`. Default: 1.
+                      "bind9-%"'`. Default: 1
   --timeout TIMEOUT   Network timeout in seconds. Default: 60 (seconds)
   -w, --warning WARN  Minimum number of pending packages to trigger a WARNING.
-                      Default: 1.
+                      Default: 1
 ```
 
 

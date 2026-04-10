@@ -60,19 +60,19 @@ options:
   --icinga-username ICINGA_USERNAME
                         Username for the Icinga API.
   --icinga-callback     Query Icinga for the service acknowledgement state and
-                        auto-clear alerts on ack. Default: False.
+                        auto-clear alerts on ack. Default: False
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --latest              Return the newest feed item, even if its timestamp is
                         in the future.
   --no-proxy            Do not use a proxy.
   --no-summary          Suppress the feed item summary in the output. Default:
-                        False.
-  --timeout TIMEOUT     Network timeout in seconds. Default: 5.
+                        False
+  --timeout TIMEOUT     Network timeout in seconds. Default: 5
   --url FEED_URL        RSS or Atom feed URL. Default:
-                        https://www.heise.de/security/rss/alert-news-atom.xml.
+                        https://www.heise.de/security/rss/alert-news-atom.xml
   -w, --warning WARN    Time window in minutes during which new feed entries
-                        trigger a warning. Default: 4320.
+                        trigger a warning. Default: 4320
 ```
 
 

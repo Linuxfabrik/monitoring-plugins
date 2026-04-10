@@ -46,7 +46,7 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold for the number of services in the
-                        expected status. Accepts Nagios ranges. Default: None.
+                        expected status. Accepts Nagios ranges. Default: None
   --service SERVICE     Name of the Windows service(s) to check. Supports
                         Python regular expressions (regex).
   --starttype {automatic,disabled,manual}
@@ -58,7 +58,7 @@ options:
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   -w, --warning WARN    WARN threshold for the number of services in the
-                        expected status. Accepts Nagios ranges. Default: 1:.
+                        expected status. Accepts Nagios ranges. Default: 1:
 ```
 
 

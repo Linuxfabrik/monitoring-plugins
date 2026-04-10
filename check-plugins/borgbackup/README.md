@@ -43,9 +43,9 @@ options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   -c, --critical CRIT  CRIT threshold for the time since the last backup
-                       started, in hours. Default: None.
+                       started, in hours. Default: None
   -w, --warning WARN   WARN threshold for the time since the last backup
-                       started, in hours. Default: 24.
+                       started, in hours. Default: 24
 ```
 
 

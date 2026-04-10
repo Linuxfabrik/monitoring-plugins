@@ -28,9 +28,8 @@ options:
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
   -c, --critical CRIT  Threshold for the number of pending updates. Default:
-                       50.
-  -w, --warning WARN   Threshold for the number of pending updates. Default:
-                       2.
+                       50
+  -w, --warning WARN   Threshold for the number of pending updates. Default: 2
 ```
 
 

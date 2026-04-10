@@ -40,14 +40,14 @@ options:
                        "tty,pts". On Windows, you can additionally specify a
                        threshold for disconnected users in the format
                        "tty,pts,disc". Example: `--critical 3,10`. Default:
-                       [None, None, None].
+                       [None, None, None]
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".
   -w, --warning WARN   Threshold for logged-in tty/pts users, in the format
                        "tty,pts". On Windows, you can additionally specify a
                        threshold for disconnected users in the format
                        "tty,pts,disc". Example: `--warning 1,5`. Default: [1,
-                       20, 1].
+                       20, 1]
 ```
 
 

@@ -38,7 +38,7 @@ options:
   --always-ok      Always returns OK.
   --lengthy        Extended reporting.
   --socket SOCKET  Path to the Versatile IKE Control Interface (VICI) socket.
-                   Default: /run/strongswan/charon.vici.
+                   Default: /run/strongswan/charon.vici
   --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
                    file,expected-retc".
 ```

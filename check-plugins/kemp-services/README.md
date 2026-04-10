@@ -42,10 +42,10 @@ options:
                         KEMP LoadMaster appliance address, can be a hostname
                         or IP address.
   --insecure            This option explicitly allows insecure SSL
-                        connections. Default: False.
+                        connections. Default: False
   --no-proxy            Do not use a proxy.
   --password PASSWORD   KEMP REST API password.
-  --port PORT           KEMP LoadMaster appliance port. Default: 443.
+  --port PORT           KEMP LoadMaster appliance port. Default: 443
   --severity {warn,crit}
                         Severity for alerting. Default: warn
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-

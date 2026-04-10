@@ -50,7 +50,7 @@ options:
                         connections.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Huawei OceanStor Dorado API password.
-  --scope SCOPE         Huawei OceanStor Dorado API scope. Default: 0.
+  --scope SCOPE         Huawei OceanStor Dorado API scope. Default: 0
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)

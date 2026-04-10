@@ -50,11 +50,11 @@ options:
   --password PASSWORD   Password for SMB authentication.
   --pattern PATTERN     SMB search pattern to match directory or file names.
                         Use `*` for multiple characters and `?` for a single
-                        character. Does not support regex. Default: *.
+                        character. Does not support regex. Default: *
   --perfdata-mode {mean,median,None}
                         Aggregation mode for performance data across matched
-                        files. Default: None.
-  --timeout TIMEOUT     Network timeout in seconds. Default: 3.
+                        files. Default: None
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3
   -u, --url URL         SMB URL of the file or directory to check, starting
                         with `smb://`. Mutually exclusive with --filename.
   --username USERNAME   Username for SMB authentication.

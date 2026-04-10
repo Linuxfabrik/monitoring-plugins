@@ -30,11 +30,11 @@ options:
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for the number of banned IPs per jail.
-                       Default: 10000.
+                       Default: 10000
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".
   -w, --warning WARN   WARN threshold for the number of banned IPs per jail.
-                       Default: 2500.
+                       Default: 2500
 ```
 
 

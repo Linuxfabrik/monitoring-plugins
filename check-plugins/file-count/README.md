@@ -45,8 +45,8 @@ options:
   --password PASSWORD   Password for SMB authentication.
   --pattern PATTERN     SMB search pattern to match directory or file names.
                         Use `*` for multiple characters and `?` for a single
-                        character. Does not support regex. Default: *.
-  --timeout TIMEOUT     Network timeout in seconds. Default: 3.
+                        character. Does not support regex. Default: *
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3
   --timerange TIMERANGE
                         Only count files modified within this time range in
                         seconds. Supports Nagios ranges.

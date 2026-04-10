@@ -34,9 +34,9 @@ options:
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for battery power left, in percent.
-                       Default: 5.
+                       Default: 5
   -w, --warning WARN   WARN threshold for battery power left, in percent.
-                       Default: 20.
+                       Default: 20
 ```
 
 

@@ -32,11 +32,11 @@ options:
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for file descriptor usage in percent.
-                       Default: 95.
+                       Default: 95
   --top TOP            Number of top processes to list by open file
-                       descriptors. Default: 5.
+                       descriptors. Default: 5
   -w, --warning WARN   WARN threshold for file descriptor usage in percent.
-                       Default: 90.
+                       Default: 90
 ```
 
 

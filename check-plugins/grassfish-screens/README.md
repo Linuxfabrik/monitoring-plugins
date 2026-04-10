@@ -46,16 +46,16 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --api-version API_VERSION
-                        Grassfish API version. Default: 1.12.
+                        Grassfish API version. Default: 1.12
   --box-id BOX_ID       Filter by box ID. Supports Python regular expressions
                         (case-insensitive). Example: `--box-id
                         "^player-0[1-3]$"`.
   --box-state {activated,deleted,new,reserved,undefined}
                         Filter by box state. Can be specified multiple times.
-                        Default: None.
+                        Default: None
   --cache-expire CACHE_EXPIRE
                         Time after which cached screen data expires, in hours.
-                        Default: 8.
+                        Default: 8
   --custom-id CUSTOM_ID
                         Filter by custom ID. Supports Python regular
                         expressions (case-insensitive). Example: `--custom-id
@@ -72,7 +72,7 @@ options:
                         specified multiple times.
   --lengthy             Extended reporting.
   --no-proxy            Do not use a proxy.
-  --port PORT           Grassfish port number. Default: 443.
+  --port PORT           Grassfish port number. Default: 443
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
@@ -82,7 +82,7 @@ options:
                         multiple times.
   -w, --warning WARN    WARN threshold for last screen update in hours (screen
                         considered off above this value). Default: > 8 h.
-  -u, --url URL         Grassfish API URL. Default: /gv2/webservices/API.
+  -u, --url URL         Grassfish API URL. Default: /gv2/webservices/API
 ```
 
 

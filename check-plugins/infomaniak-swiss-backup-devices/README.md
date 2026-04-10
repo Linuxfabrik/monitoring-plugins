@@ -76,8 +76,7 @@ options:
                         will be ignored. Can be specified multiple times.
                         Example: `--ignore-user "(?i)testuser"`.
   --severity {warn,crit}
-                        Severity for alerting on locked devices. Default:
-                        warn.
+                        Severity for alerting on locked devices. Default: warn
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --token TOKEN         Infomaniak API token.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-

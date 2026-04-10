@@ -66,7 +66,7 @@ options:
   -V, --version         show program's version number and exit
   --severity {warn,crit}
                         Severity for alerts when rootkit indicators are found.
-                        One of "warn" or "crit". Default: crit.
+                        One of "warn" or "crit". Default: crit
 ```
 
 

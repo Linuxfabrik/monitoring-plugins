@@ -40,22 +40,22 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --bind-address BIND_ADDRESS
-                        Local address to bind the socket to. Default: 0.0.0.0.
+                        Local address to bind the socket to. Default: 0.0.0.0
   -H, --hostname HOSTNAME
                         DHCP server address, hostname or IP address. If
                         omitted, the request is sent as broadcast. Default:
-                        None.
+                        None
   --mac MAC             Network MAC address to use in the DHCP request. Does
                         not have to be an existing MAC address. Use
                         `--mac=random` for a random MAC address. If omitted,
                         the local hardware address is used.
   --subnet-mask SUBNET_MASK
                         Subnet mask for the DHCP request. Example:
-                        `255.255.255.248`. Default: None.
+                        `255.255.255.248`. Default: None
   --subnet-selection SUBNET_SELECTION
                         Override the DHCP server subnet selection for address
                         allocation (RFC 3011). Example: `192.168.122.0`.
-                        Default: None.
+                        Default: None
   --timeout TIMEOUT     Network timeout in seconds. Default: 7 (seconds)
 ```
 

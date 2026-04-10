@@ -29,11 +29,11 @@ options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   -c, --critical CRIT  CRIT threshold for time since last package manager
-                       activity, in days. Default: 365.
+                       activity, in days. Default: 365
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".
   -w, --warning WARN   WARN threshold for time since last package manager
-                       activity, in days. Default: 90.
+                       activity, in days. Default: 90
 ```
 
 

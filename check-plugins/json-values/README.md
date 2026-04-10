@@ -37,18 +37,18 @@ options:
   --filename FILENAME   Path to a local JSON file. Mutually exclusive with -u
                         / --url.
   --insecure            This option explicitly allows insecure SSL
-                        connections. Default: False.
+                        connections. Default: False
   --message-key MESSAGE_KEY
                         Name of the JSON array key containing the output
-                        message. Default: message.
+                        message. Default: message
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Password for SMB authentication.
   --perfdata-key PERFDATA_KEY
                         Name of the JSON array key containing the perfdata.
-                        Default: perfdata.
+                        Default: perfdata
   --state-key STATE_KEY
                         Name of the JSON array key containing the state.
-                        Default: state.
+                        Default: state
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         URL of the JSON file, starting with "http://",
                         "https://", or "smb://". Mutually exclusive with

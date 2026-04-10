@@ -32,7 +32,7 @@ options:
   --ignore IGNORE  Unit name to exclude from the check. Can be specified
                    multiple times. Supports glob patterns according to
                    https://docs.python.org/3/library/fnmatch.html. Example:
-                   `--ignore "dhcpd.service"`. Default: [].
+                   `--ignore "dhcpd.service"`. Default: []
   --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
                    file,expected-retc".
 ```

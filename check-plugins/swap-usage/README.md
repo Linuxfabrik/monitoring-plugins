@@ -29,10 +29,10 @@ options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  Threshold for swap usage, in percent. Default: 90.
+  -c, --critical CRIT  Threshold for swap usage, in percent. Default: 90
   --top TOP            Number of top processes consuming the most swap space
-                       to list (not available on Windows). Default: 5.
-  -w, --warning WARN   Threshold for swap usage, in percent. Default: 70.
+                       to list (not available on Windows). Default: 5
+  -w, --warning WARN   Threshold for swap usage, in percent. Default: 70
 ```
 
 

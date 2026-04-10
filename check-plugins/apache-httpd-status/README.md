@@ -98,16 +98,16 @@ options:
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for the percentage of workers processing
-                       requests. Default: >= 95.
+                       requests. Default: >= 95
   --insecure           This option explicitly allows insecure SSL connections.
   --no-proxy           Do not use a proxy.
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".
   --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
   -u, --url URL        Apache Server Status URL. Default:
-                       http://localhost/server-status.
+                       http://localhost/server-status
   -w, --warning WARN   WARN threshold for the percentage of workers processing
-                       requests. Default: >= 80.
+                       requests. Default: >= 80
 ```
 
 

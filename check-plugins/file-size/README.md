@@ -38,7 +38,7 @@ options:
                        format (base is always 1024; valid qualifiers are b,
                        k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios
                        ranges. Example: `:1G` alerts if size is greater than 1
-                       GiB. Default: 1G.
+                       GiB. Default: 1G
   --filename FILENAME  Path of the file to check. Supports glob patterns
                        according to
                        https://docs.python.org/3/library/glob.html. Recursive
@@ -47,7 +47,7 @@ options:
   --pattern PATTERN    Search string to match against SMB directory or file
                        names. Use `*` as a wildcard for multiple characters
                        and `?` for a single character. Does not support regex
-                       patterns. Default: *.
+                       patterns. Default: *
   --password PASSWORD  Password for SMB authentication.
   --timeout TIMEOUT    Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL        URL of the file to check, starting with `smb://`.
@@ -58,7 +58,7 @@ options:
                        format (base is always 1024; valid qualifiers are b,
                        k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios
                        ranges. Example: `:1G` alerts if size is greater than 1
-                       GiB. Default: 25M.
+                       GiB. Default: 25M
 ```
 
 

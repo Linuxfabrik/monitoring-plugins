@@ -35,7 +35,7 @@ options:
   -V, --version         show program's version number and exit
   --cache-expire CACHE_EXPIRE
                         Time after which the credential cache expires, in
-                        hours. Default: 335.
+                        hours. Default: 335
   -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
                         Default: >= 90
   --insecure            This option explicitly allows insecure SSL
@@ -45,9 +45,9 @@ options:
                         Password for authenticating against the Metabase API.
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             Base URL of the Metabase instance. Default:
-                        http://localhost:3000.
+                        http://localhost:3000
   --username USERNAME   Username for authenticating against the Metabase API.
-                        Default: metabase-admin.
+                        Default: metabase-admin
   -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
                         Default: >= 80
 ```

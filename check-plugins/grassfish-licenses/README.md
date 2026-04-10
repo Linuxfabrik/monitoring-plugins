@@ -36,18 +36,18 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --api-version API_VERSION
-                        Grassfish API version. Default: 1.12.
+                        Grassfish API version. Default: 1.12
   -H, --hostname HOSTNAME
                         Grassfish hostname.
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --no-proxy            Do not use a proxy.
-  --port PORT           Grassfish port number. Default: 443.
+  --port PORT           Grassfish port number. Default: 443
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --token TOKEN         Grassfish API token.
-  -u, --url URL         Grassfish API URL. Default: /gv2/webservices/API.
+  -u, --url URL         Grassfish API URL. Default: /gv2/webservices/API
 ```
 
 

@@ -42,14 +42,14 @@ options:
   -V, --version         show program's version number and exit
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
-                        cache expires, in minutes. Default: 1.
+                        cache expires, in minutes. Default: 1
   -H, --hostname HOSTNAME
                         Starface PBX hostname or IP address. Default:
-                        localhost.
-  --port PORT           Starface PBX monitoring port. Default: 6556.
+                        localhost
+  --port PORT           Starface PBX monitoring port. Default: 6556
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
-  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds).
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --ipv6                Use IPv6.
 ```
 

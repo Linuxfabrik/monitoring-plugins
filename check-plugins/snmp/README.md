@@ -50,16 +50,16 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --community COMMUNITY
-                        SNMP v1/v2c community string. Default: public.
+                        SNMP v1/v2c community string. Default: public
   --device DEVICE       Name of a CSV file containing the SNMP OIDs, located
                         under `./device-oids`. The recommended naming
                         convention is `class-vendor-model.csv`. `any-any-
                         any.csv` is a good starting point showing some
                         features. Example: `--device switch-fs-s3900.csv`.
-                        Default: any-any-any.csv.
+                        Default: any-any-any.csv
   --hide-ok             Suppress OIDs with OK state from output. Default:
-                        False.
-  --hide-table          Suppress the table from output. Default: False.
+                        False
+  --hide-table          Suppress the table from output. Default: False
   -H, --hostname HOSTNAME
                         SNMP appliance hostname or IP address.
   --mib MIB             MIB(s) to load, behaves like the `-m` option of
@@ -67,13 +67,13 @@ options:
                         MIB:BROTHER-MIB"`.
   --mib-dir MIB_DIR     Colon-separated list of directories to search for
                         MIBs, behaves like the `-M` option of `snmpget`.
-                        Default: $HOME/.snmp/mibs:/usr/share/snmp/mibs.
+                        Default: $HOME/.snmp/mibs:/usr/share/snmp/mibs
   --snmp-version {1,2c,3}
-                        SNMP version to use. Default: 2c.
+                        SNMP version to use. Default: 2c
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   -t, --timeout TIMEOUT
-                        Network timeout in seconds. Default: 7 (seconds).
+                        Network timeout in seconds. Default: 7 (seconds)
   --v3-auth-prot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}
                         SNMPv3 authentication protocol.
   --v3-auth-prot-password V3_AUTH_PROT_PASSWORD

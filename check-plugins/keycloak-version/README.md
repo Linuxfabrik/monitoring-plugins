@@ -55,7 +55,7 @@ options:
                         Example: running v26.2.7 (not yet EOL) and v26.2.8 is
                         available.
   --client-id CLIENT_ID
-                        Keycloak API Client-ID. Default: admin-cli.
+                        Keycloak API Client-ID. Default: admin-cli
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --no-proxy            Do not use a proxy.
@@ -63,13 +63,13 @@ options:
                         Alert n days before ("-30") or after an EOL date ("30"
                         or "+30"). Default: -30 days
   -p, --password PASSWORD
-                        Keycloak API password. Default: admin.
+                        Keycloak API password. Default: admin
   --path PATH           Local path to your Keycloak installation. Default:
-                        /opt/keycloak.
-  --realm REALM         Keycloak API realm. Default: master.
+                        /opt/keycloak
+  --realm REALM         Keycloak API realm. Default: master
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  --url URL             Keycloak API URL. Default: http://127.0.0.1:8080.
-  --username USERNAME   Keycloak API username. Default: admin.
+  --url URL             Keycloak API URL. Default: http://127.0.0.1:8080
+  --username USERNAME   Keycloak API username. Default: admin
 ```
 
 

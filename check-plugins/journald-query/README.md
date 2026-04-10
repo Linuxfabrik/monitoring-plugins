@@ -48,10 +48,10 @@ options:
   --always-ok           Always returns OK.
   --facility FACILITY   Filter output by syslog facility (passed to
                         journalctl). Takes a comma-separated list of numbers
-                        or facility names. Default: None.
+                        or facility names. Default: None
   --identifier IDENTIFIER
                         Show messages for the specified syslog identifier
-                        (passed to journalctl). Default: None.
+                        (passed to journalctl). Default: None
   --ignore-pattern IGNORE_PATTERN
                         Any line containing this case-sensitive string in the
                         MESSAGE field will be ignored. Can be specified
@@ -62,21 +62,21 @@ options:
                         field will be ignored. Can be specified multiple
                         times. Example: `--ignore-regex='(?i)linuxfabrik'`.
   --priority PRIORITY   Filter output by message priorities or priority ranges
-                        (passed to journalctl). Default: emerg..err.
+                        (passed to journalctl). Default: emerg..err
   --severity {warn,crit}
                         Severity for alerts when journalctl returns results.
-                        Default: warn.
+                        Default: warn
   --since SINCE         Show entries on or newer than the specified date
-                        (passed to journalctl). Default: -8h.
+                        (passed to journalctl). Default: -8h
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --unit UNIT           Show messages for the specified systemd unit
                         UNIT|PATTERN (passed to journalctl). Can be specified
-                        multiple times. Default: None.
+                        multiple times. Default: None
   --user-unit USER_UNIT
                         Show messages for the specified user session unit
                         (passed to journalctl). Can be specified multiple
-                        times. Default: None.
+                        times. Default: None
 ```
 
 

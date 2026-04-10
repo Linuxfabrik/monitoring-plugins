@@ -44,13 +44,13 @@ options:
                         host and password from (instead of specifying them on
                         the command line). Example:
                         `/var/spool/icinga2/.my.cnf`. Default:
-                        /var/spool/icinga2/.my.cnf.
+                        /var/spool/icinga2/.my.cnf
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
   --severity {warn,crit}
                         Severity for alerts that do not depend on thresholds.
-                        One of "warn" or "crit". Default: warn.
+                        One of "warn" or "crit". Default: warn
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 

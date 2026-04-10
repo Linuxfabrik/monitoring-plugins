@@ -31,10 +31,10 @@ options:
   -V, --version         show program's version number and exit
   --severity {warn,crit}
                         Severity when the task is not in the expected status.
-                        Default: warn.
+                        Default: warn
   --status {Disabled,Queued,Ready,Running,Unknown}
                         Expected task status. Can be specified multiple times.
-                        Default: ['Ready', 'Running'].
+                        Default: ['Ready', 'Running']
   --task TASK           Name of the Windows scheduled task to check.
 ```
 

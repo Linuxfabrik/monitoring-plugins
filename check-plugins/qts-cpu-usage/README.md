@@ -48,7 +48,7 @@ options:
   --password PASSWORD  QTS API password.
   --timeout TIMEOUT    Network timeout in seconds. Default: 6 (seconds)
   --url URL            QTS-based appliance URL. Example:
-                       `https://192.0.2.10:8080`
+                       `https://192.0.2.10:8080`.
   --username USERNAME  QTS API username. Default: admin
   -w, --warning WARN   WARN threshold in percent. Supports Nagios ranges.
                        Default: >= 80

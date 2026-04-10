@@ -49,7 +49,7 @@ options:
                         Infomaniak Account-ID.
   --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold for the expiration date, in days.
-                        Default: 3.
+                        Default: 3
   --ignore-customer IGNORE_CUSTOMER
                         Any product whose customer name matches this Python
                         regex will be ignored. Can be specified multiple
@@ -63,13 +63,13 @@ options:
   --no-proxy            Do not use a proxy.
   --severity {warn,crit}
                         Severity for alerting on locked, maintenance, or busy
-                        products. Default: warn.
+                        products. Default: warn
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --token TOKEN         Infomaniak API token.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   -w, --warning WARN    WARN threshold for the expiration date, in days.
-                        Default: 5.
+                        Default: 5
 ```
 
 

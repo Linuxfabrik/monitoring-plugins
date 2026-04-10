@@ -77,7 +77,7 @@ options:
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  --url URL             WHMCS API URL. Default: http://127.0.0.1:8080.
+  --url URL             WHMCS API URL. Default: http://127.0.0.1:8080
   --username USERNAME   HTTP Basic Auth username.
 ```
 

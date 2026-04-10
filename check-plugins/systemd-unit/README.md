@@ -47,7 +47,7 @@ Traceback (most recent call last):
   File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/systemd-unit/systemd-unit", line 215, in main
     args = parse_args()
   File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/systemd-unit/systemd-unit", line 102, in parse_args
-    help=lib.args.help('--severity') + ' Default: %(default)s.',
+    help=lib.args.help('--severity') + ' Default: %(default)s',
          ^^^^^^^^
 AttributeError: module 'lib' has no attribute 'args'
 ```

@@ -33,15 +33,15 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold for DNS lookup time in milliseconds.
-                        Default: None.
+                        Default: None
   -H, --hostname HOSTNAME
-                        Hostname or IP address to resolve. Default: localhost.
-  -p, --port PORT       Port number to query. Default: 53.
+                        Hostname or IP address to resolve. Default: localhost
+  -p, --port PORT       Port number to query. Default: 53
   --type {udp,udp6,tcp,tcp6}
                         Connection type to narrow the list of returned
                         addresses.
   -w, --warning WARN    WARN threshold for DNS lookup time in milliseconds.
-                        Default: None.
+                        Default: None
 ```
 
 

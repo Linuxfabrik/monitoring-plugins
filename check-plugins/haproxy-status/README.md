@@ -71,9 +71,9 @@ options:
   -u, --url URL         HAProxy stats URI. Accepts
                         `unix:///path/to/haproxy.sock` or an HTTP(S) URL.
                         Example: `--url https://webserver:8443/server-status`.
-                        Default: unix:///run/haproxy.sock.
+                        Default: unix:///run/haproxy.sock
   --username USERNAME   HAProxy stats auth username. Not needed for socket
-                        access. Default: haproxy-stats.
+                        access. Default: haproxy-stats
   -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
                         Default: >= 80
 ```

@@ -41,11 +41,11 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --cacert CACERT       CA certificate file for TLS verification. Requires
-                        `--tls`. Default: /etc/pki/tls/certs/rootCA.pem.
+                        `--tls`. Default: /etc/pki/tls/certs/rootCA.pem
   -c, --critical CRIT   CRIT threshold for memory usage in percent. Default:
-                        >= None.
+                        >= None
   -H, --hostname HOSTNAME
-                        Valkey server hostname. Default: 127.0.0.1.
+                        Valkey server hostname. Default: 127.0.0.1
   --ignore-maxmemory0   Suppress warning when Valkey maxmemory is set to 0
                         (unlimited).
   --ignore-overcommit   Suppress warning when vm.overcommit_memory is not set
@@ -61,7 +61,7 @@ options:
                         set to "always".
   -p, --password PASSWORD
                         Password for Valkey server authentication.
-  --port PORT           Valkey server port. Default: 6379.
+  --port PORT           Valkey server port. Default: 6379
   --socket SOCKET       Valkey server Unix socket path. Overrides hostname and
                         port.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
@@ -73,7 +73,7 @@ options:
                         for debugging and seeing what is going on under the
                         hood.
   -w, --warning WARN    WARN threshold for memory usage in percent. Default:
-                        >= 90.
+                        >= 90
 ```
 
 

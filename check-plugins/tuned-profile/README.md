@@ -31,7 +31,7 @@ options:
   --profile TUNED_PROFILE
                         Expected tuned profile name (case-insensitive).
                         Example: `--profile virtual-guest`. Default: virtual-
-                        guest.
+                        guest
 ```
 
 

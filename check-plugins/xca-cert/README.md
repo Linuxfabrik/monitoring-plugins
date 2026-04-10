@@ -38,19 +38,19 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   -c, --critical CRIT   CRIT threshold for certificate expiration in days.
-                        Default: 5.
+                        Default: 5
   --defaults-file DEFAULTS_FILE
                         Specifies a cnf file to read parameters like user,
                         host and password from (for MySQL/MariaDB cnf-style
                         files). Example: `/var/spool/icinga2/.my.cnf`.
-                        Default: /var/spool/icinga2/.my.cnf.
+                        Default: /var/spool/icinga2/.my.cnf
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
-                        client.
+                        client
   --prefix PREFIX       Table name prefix used in the XCA database.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -w, --warning WARN    WARN threshold for certificate expiration in days.
-                        Default: 14.
+                        Default: 14
 ```
 
 

@@ -34,16 +34,16 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --client-id CLIENT_ID
-                        Keycloak API Client-ID. Default: admin-cli.
+                        Keycloak API Client-ID. Default: admin-cli
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
-                        Keycloak API password. Default: admin.
-  --realm REALM         Keycloak API realm. Default: master.
+                        Keycloak API password. Default: admin
+  --realm REALM         Keycloak API realm. Default: master
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  --url URL             Keycloak API URL. Default: http://127.0.0.1:8080.
-  --username USERNAME   Keycloak API username. Default: admin.
+  --url URL             Keycloak API URL. Default: http://127.0.0.1:8080
+  --username USERNAME   Keycloak API username. Default: admin
 ```
 
 
