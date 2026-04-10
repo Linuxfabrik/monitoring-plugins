@@ -8,11 +8,10 @@ ID DIACOS is a coding software for accurate and fast invoicing in hospitals, all
 
 **Important Notes:**
 
-* Any platform with network access to the ID DIACOS REST API
+* Runs on any platform with network access to the ID DIACOS REST API
 * Plugin execution may take more than 10 seconds depending on network latency and server load
 * `--login-name` and `--login-licence` are required parameters
 * The session ID is validated for minimum expected length before proceeding with the search
-
 
 **Data Collection:**
 

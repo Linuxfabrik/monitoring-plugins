@@ -4,15 +4,16 @@
 
 Sends host notifications via email for Icinga/Nagios. Generates an HTML-formatted email with color-coded notification types and host states, including an embedded Icinga logo. Includes host display name, state, output, IP address, event time, perfdata, and an optional link to Icinga Web 2.
 
+**Important Notes:**
+
+* Use the `--short` parameter to create a short message without a subject, for example for sending to a SMS relay service.
+
+
 **Data Collection:**
 
 * All notification data is passed via command-line parameters from the Icinga/Nagios notification system
 * Sends the email via SMTP (`--mail-server`, default: localhost, port 25)
 * Supports SMTP authentication via `--mail-user` and `--mail-password`
-
-**Important Notes:**
-
-* Use the `--short` parameter to create a short message without a subject, for example for sending to a SMS relay service.
 
 
 ## Fact Sheet
