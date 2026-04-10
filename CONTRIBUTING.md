@@ -431,7 +431,7 @@ Use `cache` if you need a simple key-value store, for example as used in `nextcl
 
 ### Error Handling
 
-* Catch exceptions using `try`/`except`, especially in functions.
+* Catch exceptions using `try`/`except`, especially in functions. Never use bare `except:` without specifying the exception type. Use `except Exception:` as the broadest acceptable catch-all.
 * In functions, if you have to catch exceptions, on such an exception always return `(False, errormessage)`. Otherwise return `(True, result)` if the function succeeds in any way. For example, returning `(True, False)` means that the function has not raised an exception and its result is simply `False`.
 * A function calling a function with such an extended error handling has to return a `(retc, result)` tuple itself.
 * In `main()` you can use `lib.base.coe()` to simplify error handling.
@@ -611,26 +611,26 @@ Every plugin must define a `DESCRIPTION` variable that is passed to `argparse.Ar
 We document our [Libraries](https://git.linuxfabrik.ch/linuxfabrik/lib) using [numpydoc docstrings](https://numpydoc.readthedocs.io/en/latest/format.html#docstring-standard), so that calling `pydoc lib/base.py` works, for example.
 
 
-### PyLint
+### Ruff
 
-To further improve code quality, we use [PyLint](https://www.pylint.org/) like so:
-
-* Libs: `pylint mylib.py`
-* Monitoring Plugins: `pylint plugin-name`
-
-Have a look at [PyLint's message codes](http://pylint-messages.wikidot.com/all-codes).
-
-
-### isort
-
-To help sort the `import`-statements we use `isort`:
+We use [ruff](https://docs.astral.sh/ruff/) as the primary linter and formatter. It covers PEP 8 enforcement, import sorting (replaces isort), and common bug patterns. Configuration is in `pyproject.toml`. Both `ruff-check` and `ruff-format` run automatically as pre-commit hooks.
 
 ```bash
-# to sort all imports
-isort --recursive .
+# check a single plugin
+ruff check check-plugins/my-check/my-check
 
-# sort in a single plugin
-isort plugin-name
+# format a single plugin
+ruff format check-plugins/my-check/my-check
+```
+
+
+### PyLint
+
+PyLint runs as a second linter after ruff in the pre-commit hooks. It catches additional issues that ruff does not cover (e.g. undefined variables across module boundaries).
+
+```bash
+# lint a single plugin
+pylint check-plugins/my-check/my-check
 ```
 
 
