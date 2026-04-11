@@ -31,10 +31,10 @@ Checks whether a TCP network port is reachable by attempting to establish a conn
 
 ```text
 Traceback (most recent call last):
-  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/network-port-tcp/network-port-tcp", line 141, in 'module'
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/network-port-tcp/network-port-tcp", line 140, in 'module'
     main()
     ~~~~^^
-  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/network-port-tcp/network-port-tcp", line 105, in main
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/network-port-tcp/network-port-tcp", line 104, in main
     args = parse_args()
   File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/network-port-tcp/network-port-tcp", line 72, in parse_args
     help=lib.args.help('--severity') + ' Default: %(default)s',
