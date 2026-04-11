@@ -179,6 +179,8 @@ def main():
 
     if args.SERVICE == 'All':
         state = STATE_OK
+
+        # init some vars
         msg = ''
         for service in services:
             try:
@@ -189,6 +191,8 @@ def main():
             if status != 'normal':
                 local_state = get_state(status)
                 state = lib.base.get_worst(state, local_state)
+
+                # build the message
                 msg += f'{service}: {status}{lib.base.state2str(local_state, prefix=" ")}, '
         if msg == '':
             msg = 'Everything is ok.'

@@ -1024,6 +1024,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     if args.TEST is None:
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(CMD_LIST_DISKS))
         if stderr:
@@ -1041,7 +1042,7 @@ def main():
     # sdg  disk
     # sdh  disk
 
-    # calculating the final check state and generate the output message
+    # init some vars
     msg_body = ''
     smart_msg = ''
     state = STATE_OK
@@ -1053,6 +1054,7 @@ def main():
         if not disk or disk in args.IGNORE:
             continue
 
+        # fetch data
         if args.TEST is None:
             cmd_smartctl = f'{CMD_SMARTCTL} {disk}'
             stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd_smartctl))
@@ -1132,6 +1134,7 @@ def main():
         msg_body += disk_msg
         state = lib.base.get_worst(disk_state, state)
 
+    # build the message
     if disk_count:
         msg_header = f'Checked {disk_count} {lib.txt.pluralize("disk", disk_count)}.'
         if state == STATE_CRIT:
