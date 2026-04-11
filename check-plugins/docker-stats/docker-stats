@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040803'
+__version__ = '2026041002'
 
 DESCRIPTION = """Reports CPU and memory usage for all running Docker containers. CPU usage is
 normalized by dividing by the number of available host CPU cores. CPU alerts only
@@ -170,8 +170,10 @@ def main():
             lib.shell.shell_exec('docker info'),
         )
         if retc != 0:
+            lib.db_sqlite.close(conn)
             lib.base.oao(f'{stderr}\n{stdout}', STATE_CRIT)
         if 'server version:' not in stdout.lower():
+            lib.db_sqlite.close(conn)
             lib.base.cu(
                 'Unable to parse docker info output.'
                 ' If you are using Podman, use the podman-stats check instead.'
@@ -185,6 +187,7 @@ def main():
             lib.shell.shell_exec('docker stats --no-stream'),
         )
         if retc != 0:
+            lib.db_sqlite.close(conn)
             lib.base.oao(stderr, STATE_CRIT)
     else:
         # do not call the command, put in test data

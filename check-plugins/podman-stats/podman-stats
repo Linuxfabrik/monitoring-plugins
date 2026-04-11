@@ -22,7 +22,7 @@ import lib.shell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040802'
+__version__ = '2026041002'
 
 DESCRIPTION = """Reports CPU and memory usage for all running Podman containers. CPU usage is
 normalized by dividing by the number of available host CPU cores. CPU alerts only
@@ -170,6 +170,7 @@ def main():
             lib.shell.shell_exec('podman info --format json'),
         )
         if retc != 0:
+            lib.db_sqlite.close(conn)
             lib.base.oao(f'{stderr}\n{stdout}', STATE_CRIT)
         try:
             podman_info = json.loads(stdout)
@@ -177,6 +178,7 @@ def main():
             host_images = podman_info['store']['imageStore']['number']
             host_ram = podman_info['host']['memTotal']
         except Exception:
+            lib.db_sqlite.close(conn)
             lib.base.cu('Unable to parse podman info output as JSON.')
 
         # get the container statistics for all running containers
@@ -184,6 +186,7 @@ def main():
             lib.shell.shell_exec("podman stats --no-stream --format '{{json .}}'"),
         )
         if retc != 0:
+            lib.db_sqlite.close(conn)
             lib.base.oao(stderr, STATE_CRIT)
     else:
         # do not call the command, put in test data

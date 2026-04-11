@@ -23,7 +23,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041002'
 
 DESCRIPTION = """Monitors network I/O and link states on all interfaces of FortiGate appliances running FortiOS via the REST API. Alerts only if bandwidth thresholds have been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes. Reports per-interface traffic counters, error rates, and link status."""
 
@@ -278,6 +278,7 @@ def main():
         )
     )
     if not loads:
+        lib.db_sqlite.close(conn)
         lib.base.oao('Waiting for more data.', STATE_OK)
 
     msg_saturation = ''
@@ -381,6 +382,8 @@ def main():
             f'tx{args.COUNT}bps',
         ],
     )
+
+    lib.db_sqlite.close(conn)
 
     # over and out
     if not msg_link and not msg_saturation:
