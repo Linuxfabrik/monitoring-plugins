@@ -13,6 +13,7 @@
 import argparse
 import sys
 
+import lib.args
 import lib.base
 import lib.shell
 import lib.version
@@ -46,9 +47,11 @@ def parse_args():
 
     parser.add_argument(
         '--activestate',
-        help='Expected systemd ActiveState (high-level unit activation state, i.e. generalization of SUB). '
+        help='Expected systemd ActiveState (high-level unit activation '
+        'state, i.e. generalization of SUB). '
         'Can be specified multiple times. '
-        'If omitted or set to "None", the unit\'s active state will not be checked.',
+        'If omitted or set to "None", the unit\'s active state '
+        'will not be checked.',
         dest='ACTIVESTATE',
         default=None,
         action='append',
@@ -64,9 +67,10 @@ def parse_args():
 
     parser.add_argument(
         '--loadstate',
-        help='Expected systemd LoadState, reflecting whether the unit definition was properly loaded. '
-        'If omitted or set to "None", the unit\'s load state will not be checked. '
-        'Default: %(default)s',
+        help='Expected systemd LoadState, reflecting whether the unit '
+        'definition was properly loaded. '
+        'If omitted or set to "None", the unit\'s load state '
+        'will not be checked. Default: %(default)s',
         dest='LOADSTATE',
         default=DEFAULT_LOADSTATE,
         choices=[
@@ -107,9 +111,11 @@ def parse_args():
 
     parser.add_argument(
         '--substate',
-        help='Expected systemd SubState (low-level unit activation state; values depend on unit type). '
+        help='Expected systemd SubState (low-level unit activation '
+        'state; values depend on unit type). '
         'Can be specified multiple times. '
-        'If omitted or set to "None", the unit\'s substate will not be checked.',
+        'If omitted or set to "None", the unit\'s substate '
+        'will not be checked.',
         dest='SUBSTATE',
         default=None,
         action='append',
@@ -197,7 +203,8 @@ def parse_args():
 
     parser.add_argument(
         '--user',
-        help='Talk to the service manager of the calling user rather than the service manager of the system.',
+        help='Talk to the service manager of the calling user rather '
+        'than the service manager of the system.',
         dest='USER',
         action='store_true',
         default=False,
@@ -243,7 +250,11 @@ def main():
         options.append('--user')
     options = ' '.join(options)
 
-    command = f'systemctl {options} show -p LoadState,ActiveState,SubState,UnitFileState {args.UNIT}'
+    command = (
+        f'systemctl {options} show '
+        f'-p LoadState,ActiveState,SubState,UnitFileState '
+        f'{args.UNIT}'
+    )
 
     stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(command))
     if stderr or retc != 0:
@@ -279,8 +290,10 @@ def main():
     if args.LOADSTATE is not None and loadstate == 'not-found':
         problem = True
         problem_msg += (
-            f'Unit {args.UNIT} not found, so check with `systemctl cat {args.UNIT}` if service '
-            f'file is missing, and/or try re-installing the {args.UNIT} application; '
+            f'Unit {args.UNIT} not found, so check with '
+            f'`systemctl cat {args.UNIT}` if service file is '
+            f'missing, and/or try re-installing the '
+            f'{args.UNIT} application; '
         )
     else:
         if args.LOADSTATE is not None and args.LOADSTATE != loadstate:
@@ -291,7 +304,10 @@ def main():
         if args.ACTIVESTATE and activestate not in args.ACTIVESTATE:
             # ACTIVESTATE is not None and not empty
             problem = True
-            problem_msg += f'ActiveState is "{activestate}", but supposed to be "{args.ACTIVESTATE}"; '
+            problem_msg += (
+                f'ActiveState is "{activestate}", but supposed '
+                f'to be "{args.ACTIVESTATE}"; '
+            )
         if args.SUBSTATE and substate not in args.SUBSTATE:
             # SUBSTATE is not None and not empty
             problem = True
@@ -302,7 +318,10 @@ def main():
             unitfilestate = 'empty'
         if args.UNITFILESTATE is not None and args.UNITFILESTATE != unitfilestate:
             problem = True
-            problem_msg += f'UnitFileState is "{unitfilestate}", but supposed to be "{args.UNITFILESTATE}"; '
+            problem_msg += (
+                f'UnitFileState is "{unitfilestate}", but supposed '
+                f'to be "{args.UNITFILESTATE}"; '
+            )
 
     if problem:
         msg = f'{args.UNIT} - {problem_msg[:-2]}'

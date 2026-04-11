@@ -52,9 +52,9 @@ def parse_args():
 
     parser.add_argument(
         '--defaults-file',
-        help='MySQL/MariaDB cnf file to read user, host and password from (instead of specifying them on the command line). '
-        'Example: `/var/spool/icinga2/.my.cnf`. '
-        'Default: %(default)s',
+        help='MySQL/MariaDB cnf file to read user, host and password '
+        'from (instead of specifying them on the command line). '
+        'Example: `/var/spool/icinga2/.my.cnf`. Default: %(default)s',
         dest='DEFAULTS_FILE',
         default=DEFAULT_DEFAULTS_FILE,
     )
@@ -121,7 +121,6 @@ def main():
     }
 
     for schema in dblist:
-        tmp_msg = ''
         sql = f'''
             select TABLE_SCHEMA,
                 sum(TABLE_ROWS) as sum_rows,
@@ -199,15 +198,32 @@ def main():
     if results['index']:
         msg += f'* Index size is larger than data size: {results["index"][:-2]}\n'
     if results['storengine']:
-        msg += f'* Multi storage engines (use one storage engine for all tables): {results["storengine"][:-2]}\n'
+        msg += (
+            f'* Multi storage engines (use one storage engine for '
+            f'all tables): {results["storengine"][:-2]}\n'
+        )
     if results['collation']:
-        msg += f'* Multi collations (use one collation for all tables): {results["collation"][:-2]}\n'
+        msg += (
+            f'* Multi collations (use one collation for all '
+            f'tables): {results["collation"][:-2]}\n'
+        )
     if results['tblengine']:
-        msg += f'* Multi table engines (use one engine for all tables): {results["tblengine"][:-2]}\n'
+        msg += (
+            f'* Multi table engines (use one engine for all '
+            f'tables): {results["tblengine"][:-2]}\n'
+        )
     if results['colcharset']:
-        msg += f'* Multi charsets for text-like cols (use one charset for all cols if possible): {results["colcharset"][:-2]}\n'
+        msg += (
+            f'* Multi charsets for text-like cols (use one charset '
+            f'for all cols if possible): '
+            f'{results["colcharset"][:-2]}\n'
+        )
     if results['colcollation']:
-        msg += f'* Multi collations for text-like cols (use one charset for all cols if possible): {results["colcollation"][:-2]}\n'
+        msg += (
+            f'* Multi collations for text-like cols (use one '
+            f'charset for all cols if possible): '
+            f'{results["colcollation"][:-2]}\n'
+        )
 
     if msg:
         state = STATE_WARN

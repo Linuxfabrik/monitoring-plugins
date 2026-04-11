@@ -25,10 +25,7 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
-DESCRIPTION = """Monitors network I/O and link states on all interfaces of FortiGate appliances running
-FortiOS via the REST API. Alerts only if bandwidth thresholds have been exceeded for
-a configurable number of consecutive check runs (default: 5), suppressing short
-spikes. Reports per-interface traffic counters, error rates, and link status."""
+DESCRIPTION = """Monitors network I/O and link states on all interfaces of FortiGate appliances running FortiOS via the REST API. Alerts only if bandwidth thresholds have been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes. Reports per-interface traffic counters, error rates, and link status."""
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
@@ -134,6 +131,7 @@ def parse_args():
 
 
 def get_interface_states_from_db(conn, table, interface):
+    """Fetch inventorized link state for an interface from SQLite."""
     table = lib.db_sqlite.__filter_str(table)
     return lib.db_sqlite.select(
         conn,
@@ -158,7 +156,11 @@ def main():
 
     # fetch data
     # Resource to get interface data from
-    url = f'https://{args.HOSTNAME}/api/v2/monitor/system/interface/select?access_token={urllib.parse.quote(args.PASSWORD)}'
+    token = urllib.parse.quote(args.PASSWORD)
+    url = (
+        f'https://{args.HOSTNAME}/api/v2/monitor/system/'
+        f'interface/select?access_token={token}'
+    )
     result = lib.base.coe(
         lib.url.fetch_json(
             url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT
@@ -226,22 +228,36 @@ def main():
         )
 
         if first:  # if inventorized
-            # we got something from DB, so there is inventorized data, so compare against current values
+            # we got something from DB, so there is inventorized
+            # data, so compare against current values
             # we want to be informed if
             # * link state changes from true to false
             # * speed rate changes from higher to lower value
             # * duplex mode changes from higher to lower value
             if data['link'] != first['link']:
-                msg_link += f'Link state for {data["interface"]} changed from {first["link"]} to {data["link"]} (WARN). '
+                msg_link += (
+                    f'Link state for {data["interface"]} changed '
+                    f'from {first["link"]} to {data["link"]} '
+                    f'(WARN). '
+                )
                 state = lib.base.get_worst(state, STATE_WARN)
             if data['speed'] != first['speed']:
-                msg_link += f'Speed rate for {data["interface"]} changed from {first["speed"]} to {data["speed"]} (WARN). '
+                msg_link += (
+                    f'Speed rate for {data["interface"]} changed '
+                    f'from {first["speed"]} to {data["speed"]} '
+                    f'(WARN). '
+                )
                 state = lib.base.get_worst(state, STATE_WARN)
             if data['duplex'] != first['duplex']:
-                msg_link += f'Duplex mode for {data["interface"]} changed from {first["duplex"]} to {data["duplex"]} (WARN). '
+                msg_link += (
+                    f'Duplex mode for {data["interface"]} changed '
+                    f'from {first["duplex"]} to {data["duplex"]} '
+                    f'(WARN). '
+                )
                 state = lib.base.get_worst(state, STATE_WARN)
         else:
-            # network states are not saved at all (first time), so we got `False` (an error) in `inventorized`
+            # network states are not saved at all (first time),
+            # so we got `False` in `inventorized`
             # save the states one time (only if not exist)
             _, _ = lib.db_sqlite.insert(conn, data, table=f'state_{args.HOSTNAME}')
 
@@ -288,7 +304,8 @@ def main():
 
         # we want to be informed if
         # * link saturation is above a certain threshold
-        #   (on duplex lines and 1 gbps alert if saturation is >= 80/90% on each rx/tx compared to loadn)
+        #   (on duplex lines and 1 gbps alert if saturation
+        #   is >= 80/90% on each rx/tx compared to loadn)
         sensor_state = lib.base.get_state(rxnbps, args.WARN, args.CRIT, _operator='ge')
         sensor_state = lib.base.get_worst(
             sensor_state,
@@ -340,7 +357,10 @@ def main():
 
         table_data.append(
             {
-                'interface': f'{interface["interface"]}{lib.base.state2str(sensor_state, prefix=" (", suffix=")")}',
+                'interface': (
+                    f'{interface["interface"]}'
+                    f'{lib.base.state2str(sensor_state, prefix=" (", suffix=")")}'
+                ),
                 'rx1': lib.human.bits2human(rx1bps),
                 'tx1': lib.human.bits2human(tx1bps),
                 f'rx{args.COUNT}': lib.human.bits2human(rxnbps),

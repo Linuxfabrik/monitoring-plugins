@@ -17,15 +17,12 @@ import lib.args
 import lib.base
 import lib.lftest
 import lib.txt
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
-DESCRIPTION = """Lists all clients currently connected to an OpenVPN server by parsing the status log
-file. Reports client name, remote address, bytes received and sent, and connection
-time.
-Requires root or sudo."""
+DESCRIPTION = """Lists all clients currently connected to an OpenVPN server by parsing the status log file. Reports client name, remote address, bytes received and sent, and connection time.\nRequires root or sudo."""
 
 DEFAULT_FILENAME = '/var/log/openvpn-status.log'
 
@@ -112,7 +109,7 @@ def main():
             lib.base.cu(f'Failed to read file {args.FILENAME}.')
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.lftest.test(args.TEST)
+        _, _, _ = lib.lftest.test(args.TEST)
         lib.base.oao('TODO')
 
     state = lib.base.get_state(counter, args.WARN, args.CRIT)

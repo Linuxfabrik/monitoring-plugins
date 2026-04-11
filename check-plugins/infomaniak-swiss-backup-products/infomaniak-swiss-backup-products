@@ -182,7 +182,7 @@ def main():
         )
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.lftest.test(args.TEST)
+        stdout, _, _ = lib.lftest.test(args.TEST)
         result = json.loads(stdout)
 
     # init some vars
@@ -278,17 +278,31 @@ def main():
             _min=0,
         )
 
+        busy_val = product.get('has_operation_in_progress', False)
+        locked_val = product.get('is_locked', False)
+        maint_val = product.get('has_maintenance', False)
+        reserved = lib.human.bytes2human(
+            product.get('storage_reserved'),
+        )
+        size = lib.human.bytes2human(product.get('size'))
         table_data.append(
             {
-                'busy': f'{product.get("has_operation_in_progress", False)}{lib.base.state2str(busy_state, prefix=" ")}',
+                'busy': (f'{busy_val}{lib.base.state2str(busy_state, prefix=" ")}'),
                 'customer_name': product.get('customer_name'),
-                'expires_in': f'{lib.human.seconds2human(expired_at)}{lib.base.state2str(expired_at_state, prefix=" ")}',
+                'expires_in': (
+                    f'{lib.human.seconds2human(expired_at)}'
+                    f'{lib.base.state2str(expired_at_state, prefix=" ")}'
+                ),
                 'id': product.get('id'),
-                'locked': f'{product.get("is_locked", False)}{lib.base.state2str(locked_state, prefix=" ")}',
-                'maintenance': f'{product.get("has_maintenance", False)}{lib.base.state2str(maintenance_state, prefix=" ")}',
+                'locked': (
+                    f'{locked_val}{lib.base.state2str(locked_state, prefix=" ")}'
+                ),
+                'maintenance': (
+                    f'{maint_val}{lib.base.state2str(maintenance_state, prefix=" ")}'
+                ),
                 'max_slots': product.get('max_slots'),
                 'nb_slots': product.get('nb_slots'),
-                'size': f'{lib.human.bytes2human(product.get("storage_reserved"))} / {lib.human.bytes2human(product.get("size"))}',
+                'size': f'{reserved} / {size}',
                 'tags': ', '.join([i['name'] for i in product.get('tags')]),
             }
         )

@@ -18,14 +18,12 @@ import time
 import lib.args
 import lib.base
 import lib.net
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
-DESCRIPTION = """Performs a DNS lookup and resolves a hostname to one or more IP addresses. Queries the
-name servers configured on the local machine (e.g. those listed in /etc/resolv.conf).
-Measures and alerts on the lookup response time. Works with both IPv4 and IPv6."""
+DESCRIPTION = """Performs a DNS lookup and resolves a hostname to one or more IP addresses. Queries the name servers configured on the local machine (e.g. those listed in /etc/resolv.conf). Measures and alerts on the lookup response time. Works with both IPv4 and IPv6."""
 
 DEFAULT_HOSTNAME = 'localhost'
 DEFAULT_PORT = 53
@@ -53,8 +51,7 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for DNS lookup time in milliseconds. '
-        'Default: %(default)s',
+        help='CRIT threshold for DNS lookup time in milliseconds. Default: %(default)s',
         dest='CRIT',
         type=float,
         default=None,
@@ -87,8 +84,7 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for DNS lookup time in milliseconds. '
-        'Default: %(default)s',
+        help='WARN threshold for DNS lookup time in milliseconds. Default: %(default)s',
         dest='WARN',
         type=float,
         default=None,
@@ -116,8 +112,10 @@ def main():
     # sockaddr is a tuple describing a socket address
     #   (address, port) 2-tuple for AF_INET
     #   (address, port, flow info, scope id) for AF_INET6
-    # [(10, 1, 6, '', ('2606:2800:220:1:248:1893:25c8:1946', 53, 0, 0)), (10, 2, 17, '', ('2606:2800:220:1:248:1893:25c8:1946', 53, 0, 0)), (10, 3, 0, '', ('2606:2800:220:1:248:1893:25c8:1946', 53, 0, 0)), (2, 1, 6, '', ('93.184.216.34', 53)), (2, 2, 17, '', ('93.184.216.34', 53)), (2, 3, 0, '', ('93.184.216.34', 53))]
-    # [(2, 1, 6, '', ('172.217.168.67', 53)), (2, 2, 17, '', ('172.217.168.67', 53)), (2, 3, 0, '', ('172.217.168.67', 53)), (10, 1, 6, '', ('2a00:1450:400a:803::2003', 53, 0, 0)), (10, 2, 17, '', ('2a00:1450:400a:803::2003', 53, 0, 0)), (10, 3, 0, '', ('2a00:1450:400a:803::2003', 53, 0, 0))]
+    # Example results:
+    # [(10, 1, 6, '', ('2606:2800:220:1:248:1893:25c8:1946',
+    #   53, 0, 0)), ...]
+    # [(2, 1, 6, '', ('172.217.168.67', 53)), ...]
 
     start_time = time.time()
     try:
@@ -174,7 +172,7 @@ def main():
 
     msg = f'Lookup for {args.HOSTNAME} returns '
     for res in result:
-        af, socktype, proto, canonname, sa = res
+        af, _, proto, _, sa = res
         msg += f'{sa[0]} ({lib.net.PROTOSTR[proto]}{lib.net.FAMILIYSTR[af]}:{sa[1]}), '
 
     state = lib.base.get_state(runtime, args.WARN, args.CRIT, _operator='ge')

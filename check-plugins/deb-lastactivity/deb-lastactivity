@@ -20,15 +20,12 @@ import lib.shell
 import lib.lftest
 import lib.time
 import lib.txt
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
-DESCRIPTION = """Checks how long ago the last APT package manager activity occurred (install, update,
-or remove). Alerts if no package management activity has happened within the configured
-thresholds (default: WARN after 90 days, CRIT after 365 days). Useful for detecting
-servers that have not been patched in a long time."""
+DESCRIPTION = """Checks how long ago the last APT package manager activity occurred (install, update, or remove). Alerts if no package management activity has happened within the configured thresholds (default: WARN after 90 days, CRIT after 365 days). Useful for detecting servers that have not been patched in a long time."""
 
 DEFAULT_WARN = 90  # days
 DEFAULT_CRIT = 365  # days
@@ -88,7 +85,7 @@ def main():
     # fetch data
     if args.TEST is None:
         # execute the shell command and return its result and exit code
-        stdout, stderr, retc = lib.base.coe(
+        stdout, stderr, _ = lib.base.coe(
             lib.shell.shell_exec(
                 "dpkg-query --show --showformat='${db-fsys:Last-Modified} ${Package}\n'"
             )
@@ -97,7 +94,7 @@ def main():
             lib.base.cu(stderr)
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.lftest.test(args.TEST)
+        stdout, _, _ = lib.lftest.test(args.TEST)
 
     # stdout: 1680072089 adduser\n1680072121 apparmor\n1680072091 apt\n
     try:
@@ -105,7 +102,12 @@ def main():
         last_activity = int(last_activity[-1][0])
     except ValueError:
         lib.base.oao(
-            'Missing "Last-Modified" timestamp for one or more packages. Check the output of `dpkg-query --show --showformat=\'${db-fsys:Last-Modified} ${Package}\\n\'`. It is likely that some files have been deleted. The best thing to do is to reinstall these packages.',
+            'Missing "Last-Modified" timestamp for one or more '
+            'packages. Check the output of `dpkg-query --show '
+            "--showformat='${db-fsys:Last-Modified} "
+            "${Package}\\n'`. It is likely that some files have "
+            'been deleted. The best thing to do is to reinstall '
+            'these packages.',
             STATE_WARN,
         )
     except Exception:

@@ -17,15 +17,12 @@ import urllib.parse
 import lib.args
 import lib.base
 import lib.url
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
-DESCRIPTION = """Monitors memory utilization on FortiGate appliances running FortiOS via the REST API.
-First checks against the globally configured memory-use-threshold on the appliance,
-then falls back to command-line thresholds if no global configuration exists.
-Alerts when memory usage exceeds the configured thresholds."""
+DESCRIPTION = """Monitors memory utilization on FortiGate appliances running FortiOS via the REST API. First checks against the globally configured memory-use-threshold on the appliance, then falls back to command-line thresholds if no global configuration exists. Alerts when memory usage exceeds the configured thresholds."""
 
 DEFAULT_WARN = 82  # %
 DEFAULT_CRIT = 88  # %
@@ -134,7 +131,11 @@ def main():
 
     # fetch data
     # Resource to get usage data for [cpu|memory|disk|sessions|lograte].
-    url = f'https://{args.HOSTNAME}/api/v2/monitor/system/resource/usage?resource=mem&interval=1-min&access_token={urllib.parse.quote(args.PASSWORD)}'
+    token = urllib.parse.quote(args.PASSWORD)
+    url = (
+        f'https://{args.HOSTNAME}/api/v2/monitor/system/resource/usage'
+        f'?resource=mem&interval=1-min&access_token={token}'
+    )
     result = lib.base.coe(
         lib.url.fetch_json(
             url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT
@@ -146,7 +147,7 @@ def main():
 
     # try to get the global configured memory warning thresholds from Forti OS
     # if success, use them, otherwise our from args.WARN etc.
-    url = f'https://{args.HOSTNAME}/api/v2/cmdb/system/global?access_token={urllib.parse.quote(args.PASSWORD)}'
+    url = f'https://{args.HOSTNAME}/api/v2/cmdb/system/global?access_token={token}'
     thresholds = lib.base.coe(
         lib.url.fetch_json(
             url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT

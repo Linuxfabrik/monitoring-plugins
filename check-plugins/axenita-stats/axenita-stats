@@ -18,7 +18,7 @@ import lib.args
 import lib.base
 import lib.lftest
 import lib.url
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -35,6 +35,7 @@ DEFAULT_URL = 'http://localhost:10000/achilles/ar'
 
 
 def parse_args():
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
@@ -145,7 +146,7 @@ def main():
         )
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.lftest.test(args.TEST)
+        stdout, _, _ = lib.lftest.test(args.TEST)
 
         try:
             stdout = json.loads(stdout)
@@ -170,7 +171,11 @@ def main():
     if achilles_maintenance:
         if achilles_maintenance['state'].upper() != 'SUCCESS':
             state = lib.base.get_worst(STATE_WARN, state)
-            msg = f'{args.URL}/api/login/maintenance-state-active, state: {achilles_maintenance["state"]}{lib.base.state2str(state)}'
+            msg = (
+                f'{args.URL}/api/login/maintenance-state-active, '
+                f'state: {achilles_maintenance["state"]}'
+                f'{lib.base.state2str(state)}'
+            )
             lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
         if achilles_maintenance['data'] is not False:
             state = lib.base.get_worst(STATE_WARN, state)
@@ -194,11 +199,20 @@ def main():
     if achilles_readmodel:
         if achilles_readmodel['state'].upper() != 'SUCCESS':
             state = lib.base.get_worst(STATE_WARN, state)
-            msg = f'{args.URL}/api/admin/readmodel/state, state: {achilles_readmodel["state"]}{lib.base.state2str(state)}'
+            msg = (
+                f'{args.URL}/api/admin/readmodel/state, '
+                f'state: {achilles_readmodel["state"]}'
+                f'{lib.base.state2str(state)}'
+            )
             lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
         if achilles_readmodel['data']['readModelState'].upper() != 'DONE':
             state = lib.base.get_worst(STATE_WARN, state)
-            msg = f'{args.URL}/api/admin/readmodel/state, data.readModelState: {achilles_readmodel["data"]["readModelState"]}{lib.base.state2str(state)}'
+            rm_state = achilles_readmodel['data']['readModelState']
+            msg = (
+                f'{args.URL}/api/admin/readmodel/state, '
+                f'data.readModelState: {rm_state}'
+                f'{lib.base.state2str(state)}'
+            )
             lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
         msg += f'ReadModel: {achilles_readmodel["data"]["message"]}, '
         perfdata += lib.base.get_perfdata(
@@ -220,9 +234,16 @@ def main():
     if achilles_userinfo:
         if achilles_userinfo['state'].upper() != 'SUCCESS':
             state = lib.base.get_worst(STATE_WARN, state)
-            msg = f'{args.URL}/api/admin/user-info/number-of-current-sessions, state: {achilles_userinfo["state"]}{lib.base.state2str(state)}'
+            msg = (
+                f'{args.URL}/api/admin/user-info/'
+                f'number-of-current-sessions, '
+                f'state: {achilles_userinfo["state"]}'
+                f'{lib.base.state2str(state)}'
+            )
             lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
-        msg += f'{achilles_userinfo["data"]["loggedInUsers"]} users logged in, {achilles_userinfo["data"]["currentActiveSessions"]} active sessions, '
+        logged_in = achilles_userinfo['data']['loggedInUsers']
+        sessions = achilles_userinfo['data']['currentActiveSessions']
+        msg += f'{logged_in} users logged in, {sessions} active sessions, '
         perfdata += lib.base.get_perfdata(
             'loggedInUsers',
             achilles_userinfo['data']['loggedInUsers'],
@@ -237,7 +258,11 @@ def main():
     if achilles_buildinfo:
         if achilles_buildinfo['state'].upper() != 'SUCCESS':
             state = lib.base.get_worst(STATE_WARN, state)
-            msg = f'{args.URL}/api/build-info, state: {achilles_buildinfo["state"]}{lib.base.state2str(state)}'
+            msg = (
+                f'{args.URL}/api/build-info, '
+                f'state: {achilles_buildinfo["state"]}'
+                f'{lib.base.state2str(state)}'
+            )
             lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
         axenita_ver = achilles_buildinfo['data']['version']
         msg += f'{axenita_ver} (timestamp {achilles_buildinfo["data"]["timestamp"]}), '

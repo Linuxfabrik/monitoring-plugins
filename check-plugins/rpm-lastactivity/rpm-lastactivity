@@ -18,15 +18,12 @@ import lib.human
 import lib.shell
 import lib.time
 import lib.txt
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
-DESCRIPTION = """Checks how long ago the last RPM package manager activity occurred (install, update,
-or remove via yum/dnf). Alerts if no package management activity has happened within
-the configured thresholds. Useful for detecting servers that have not been patched in
-a long time."""
+DESCRIPTION = """Checks how long ago the last RPM package manager activity occurred (install, update, or remove via yum/dnf). Alerts if no package management activity has happened within the configured thresholds. Useful for detecting servers that have not been patched in a long time."""
 
 DEFAULT_WARN = 90  # days
 DEFAULT_CRIT = 365  # days
@@ -77,7 +74,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base.coe(
+    stdout, stderr, _ = lib.base.coe(
         lib.shell.shell_exec(
             'rpm --query --all --queryformat "%{INSTALLTIME} %{NAME}\n"'
         )
