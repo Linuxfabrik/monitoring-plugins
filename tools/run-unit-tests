@@ -21,6 +21,11 @@ import os
 import subprocess
 import sys
 
+# Plugins whose unit tests exist only as a template and are not meant to
+# be executed by the runner. The `example` plugin is the reference skeleton
+# for new plugins, its unit test is a copy-paste starting point.
+SKIP_PLUGINS = {'example'}
+
 
 def main():
     """Find and run unit tests, report results."""
@@ -34,6 +39,10 @@ def main():
     plugins = []
     for plugin in sorted(os.listdir(check_plugins)):
         if requested and plugin not in requested:
+            continue
+        # when a plugin is explicitly requested on the command line, run it
+        # even if it is normally skipped; otherwise honor the skip set
+        if plugin in SKIP_PLUGINS and not requested:
             continue
         unit_test_dir = os.path.join(check_plugins, plugin, 'unit-test')
         run_file = os.path.join(unit_test_dir, 'run')
