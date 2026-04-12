@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * Fix `--require-hashes` pip install in pre-commit autoupdate workflow by using pinned version instead
+* tox.ini: disable the sdist build (`no_package = true`) so `tox` no longer trips over the flat top-level layout with "Multiple top-level packages discovered". The repo is a collection of plugin scripts, not a Python package
 * deb-updates: add missing `lib.txt` import so the "N update(s) available" summary no longer crashes with `AttributeError` at runtime
 * mysql-memory: fix `get_other_process_memory()` fallback path for psutil older than 5.3.0 (referenced an undefined `cmdline` variable and the wrong attribute on the process dict) and drop an unreachable `break` after `return` in `get_pfs_memory()`
 * mysql-storage-engines: drop a dead `SELECT ... FROM information_schema.engines` query whose result was never used
