@@ -8,85 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-* `.github/workflows/docs.yml`: pin all GitHub Actions by commit SHA (with the version as a trailing comment) instead of by tag, clearing the four OpenSSF Scorecard `PinnedDependenciesID` alerts. Dependabot is already configured for `github-actions` and updates hash-pinned actions natively
-* axenita-stats: fix the version-number extraction slice `[8 : 8 + find('-') - 1]` that only worked for exactly 6-character versions like `14.0.8` and silently truncated any longer patch number. Use `split('-')[1]` instead, which handles `14.0.12`, `1.2.3`, and 2-digit majors correctly ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* cpu-usage: relax the unit test regex from `\d+\.\d+% -.* user:` to `(?s)\d+\.\d+%.*user:`. The old pattern assumed `user:` was always on the first output line, but when multiple CPU counters read `0.0%` the plugin's by-value sort is non-deterministic and `user:` can land on the second line. The new pattern accepts either layout ([#1071](https://github.com/Linuxfabrik/monitoring-plugins/issues/1071))
-* deb-updates: add missing `lib.txt` import so the "N update(s) available" summary no longer crashes with `AttributeError` at runtime
-* Fix `--require-hashes` pip install in pre-commit autoupdate workflow by using pinned version instead
-* fortios-network-io: make the "no warnings vs warnings present" branches structurally exclusive via an explicit `else:`. The old code relied on `lib.base.oao()` exiting to skip the follow-up call, which works but is fragile to read ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* hin-status: when incidents are found, set `cnt_incidents = len(incidents)` instead of the hardcoded `1`, so the perfdata counter matches the actual number of incidents listed in the message ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* keycloak-version: replace the fragile regex `r'n (.*)'` (which relied on the "n " in the word "Version" of `/opt/keycloak/version.txt`) with an explicit `r'[Vv]ersion\s+(\d+(?:\.\d+)*)'` pattern. Also fall through to the API fallback when the file is present but the regex does not match, instead of aborting with "Keycloak not found" ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* mysql-memory: fix `get_other_process_memory()` fallback path for psutil older than 5.3.0 (referenced an undefined `cmdline` variable and the wrong attribute on the process dict) and drop an unreachable `break` after `return` in `get_pfs_memory()`
-* mysql-storage-engines: drop a dead `SELECT ... FROM information_schema.engines` query whose result was never used
-* mysql-table-locks: the "X immediate / Y locks" message denominator used `Table_locks_immediate` twice instead of `Table_locks_immediate + Table_locks_waited` as the total, so the output lied about the total lock count. The ratio displayed as a percentage was already correct ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* network-connections: the final `lib.base.oao()` call passed a hardcoded `STATE_OK` instead of the accumulated `state`, discarding all WARN/CRIT decisions from the loop. The plugin now exits with the correct accumulated state ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* nextcloud-security-scan: compute scan age as `(today - scan_date).days` instead of `abs(scan_date - today).days`, so a scan with a clock-skewed future timestamp no longer triggers a rescan. Only past scans older than `--trigger` days trigger a rescan ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* ntp-ntpd: collapse four sequential `if`-then-`oao()` early-exit guards into a single `if/elif` chain so the intent (try each failure mode in turn and exit on the first one that matches) is explicit ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* ntp-w32tm: when the "Time since Last Good Sync Time" check yields a non-OK state, the appended state label is now the actual `local_state` (WARN or CRIT) instead of a hardcoded `STATE_WARN`, so a CRIT state no longer shows up as "WARNING" in the message ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* openstack-swift-stat: the "bytes used" block gated on `'x-account-meta-quota-bytes' in headers` (a quota header) when it should have gated on `'x-account-bytes-used' in headers`. The "used" line now shows up for any account with non-zero bytes, regardless of whether a quota is set ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* openvpn-version: replace the fragile regex `r'N (\d+\.\d+\.\d+)'` (which relied on the "N" at the end of "OpenVPN") with an explicit `r'OpenVPN\s+(\d+\.\d+\.\d+)'` pattern anchored on the command name ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* php-status: the "missing config" builder appended `'{key} = {value}, '` as a plain string instead of an f-string, so the output contained literal `{key}` / `{value}` placeholders. Mark it as an f-string so the real key/value is rendered ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* ping: drop dead initialization of `rtt_min / rtt_avg / rtt_max / rtt_mdev` that was never read
-* qts-temperatures: the `systemp` and `cputemp` perfdata entries had their `warn` / `crit` thresholds swapped (system perfdata used the CPU threshold fields and vice versa). The message text was already correct ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* redis-status, valkey-status: the `key_count` perfdata value used the loop variable `keys` (the last database's per-DB key count) instead of the accumulated `key_count` (total across all databases). The "with X keys" message text was already using `key_count` ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* rocketchat-stats: add missing `lib.txt` import so the user-count pluralization no longer crashes with `AttributeError` at runtime
-* rpm-updates: add a `--test` argument that replaces the three underlying `yum` calls with stdout fixtures (`<base>-upgrades`, `<base>-installed`, `<base>-updateinfo`). The unit test is now fixture-based, covers ok-no-updates / warn-pending / ok-pending-with-high-warn, and runs in ~0.2s instead of ~2 minutes. No longer depends on the RHEL8 test container's upstream-mirror state ([#1072](https://github.com/Linuxfabrik/monitoring-plugins/issues/1072))
-* sap-open-concur-com: `choices=services.append('All')` was effectively `choices=None` because `list.append()` returns `None`. The `--service` argument therefore accepted any value without validation. Use `choices=services + ['All']` to build a proper choices list ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* starface-java-memory-usage: the heap and non-heap state checks used `state += lib.base.get_worst(used_state, state)` which adds state integers together and corrupts the accumulated state (e.g. WARN+WARN=2 reads as CRIT, WARN+CRIT=3 is outside the valid range). Replaced with `state = lib.base.get_worst(state, used_state)` so the accumulated state remains a valid STATE_OK / STATE_WARN / STATE_CRIT value ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* tools/run-unit-tests: add `--no-container` and `--only-container` flags so container-backed unit tests (podman-driven integration suites that take minutes per plugin) can be filtered out of the fast default run. `tools/run-container-tests` is a thin wrapper around `--only-container` for the full integration sweep. `tox` now invokes `tools/run-unit-tests --no-container` so the multi-Python matrix actually completes instead of hanging / OOM-killing on the first container stage
-* tools/run-unit-tests: classify a plugin as container-based by inspecting its `run` file for `podman` / `testcontainers` references instead of just checking for a `containerfiles/` subdirectory. This lets a plugin keep its legacy containerfiles around for a future testcontainers migration while its active `run` file is already fixture-based and fast
-* tools/run-unit-tests: skip the `example` plugin in default runs. Its unit test is a template meant to be copy-pasted into new plugins and does not correspond to a real check. Explicit `python tools/run-unit-tests example` still runs it
-* tox.ini: disable the sdist build (`no_package = true`) so `tox` no longer trips over the flat top-level layout with "Multiple top-level packages discovered". The repo is a collection of plugin scripts, not a Python package
-* tuned-profile, crypto-policy: make the "expected vs actual" branches structurally exclusive via an explicit `else:`. The old code relied on `lib.base.oao()` exiting to skip the follow-up WARN call, which works but is fragile to read ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* updates: fix pending-updates message so it no longer relies on a backslash escape inside an f-string, which is a `SyntaxError` on Python 3.9 (the runtime this project targets)
-* wildfly-memory-usage: same `state += get_worst(...)` accumulation bug in both the heap and non-heap branches. Replaced with the new variadic `lib.base.get_worst(state, used_state, committed_state)` so the heap/non-heap used/committed states can be combined in a single call ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* wildfly-non-xa-datasource-stats, wildfly-xa-datasource-stats: the "max used" threshold check passed `active_pct` to `lib.base.get_state(...)` instead of `max_used_pct`, so the plugin alerted on the wrong metric. The output text already showed `max_used_pct` correctly ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* xml: actually use the captured `result = r[0].text` in the string-search branch. Before, `result` was assigned but unused and the branch re-evaluated `r[0].text` three more times ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-
-### Security
-
-* Annotate all remaining bandit low/medium findings with `# nosec BXXX` comments and a short justification, covering admin-provided SQL `WHERE` clauses (deb-updates, kubectl-get-pods, rpm-updates), SQL identifiers sanitized via `lib.db_sqlite.__filter_str()` (fortios-network-io, mysql-*, xca-cert), `shell=True` pipelines with hardcoded commands (about-me, by-ssh, pip-updates, snmp), admin-configured XML parsing (kemp-services), admin-provided `eval()` formulas (snmp), DHCP-required binding to `0.0.0.0` (dhcp-relayed), and a handful of default-value "password" strings that are install defaults rather than secrets (keycloak, matomo, openstack-nova-list). Bandit now runs clean at `--severity-level=low --confidence-level=low` over the whole repo
-
-### Changed
-
-* Add bandit (security) and vulture (dead code) to pre-commit hooks with the standard `--severity-level=low --confidence-level=low` thresholds; known intentional patterns (`B110`/`B112` graceful degradation, `B311` non-cryptographic `random`) are skipped globally via `[tool.bandit]` in `pyproject.toml`
-* Add ruff linter and formatter to pre-commit hooks, enforce single-quote style
-* All plugins: improve and expand DESCRIPTION to clearly explain what each plugin does for the admin deploying it
-* All plugins: rewrite all READMEs to follow consistent structure (Overview, Fact Sheet, Help, Usage Examples, States, Perfdata, Troubleshooting, Credits)
-* All plugins: rewrite README links that point to plugin group index pages (`PLUGINS-KEYCLOAK`, `PLUGINS-MYSQL`, `PLUGINS-ROCKETCHAT`, `PLUGINS-WILDFLY`) and the `#threshold-and-ranges` anchor to use <https://linuxfabrik.github.io/monitoring-plugins/> instead of raw GitHub `blob/main` URLs, so they resolve to the published docs site. Plugin source-file links (including each plugin's Fact Sheet "Check Plugin Download" row), issue-tracker links and the releases Atom feed intentionally stay on GitHub
-* Apply `ruff check --select F,B --fix` across the whole repo to sweep up ~110 unused imports and unused exception variables that had accumulated in plugins never touched by pre-commit (pre-commit only runs on staged files)
-* Apply ruff format to all plugins, unit tests, and tools (consistent quoting and formatting)
-* check2basket: emit `notes_url` pointing to the published docs site (<https://linuxfabrik.github.io/monitoring-plugins/check-plugins/NAME/>) instead of the GitHub tree URL, so the Icinga Director "Notes URL" link in the Service Template now opens the rendered plugin page instead of the raw source listing
-* CONTRIBUTING: add "no continuous counters" policy with rationale and link to example plugin ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
-* CONTRIBUTING: add early reference to example plugin as skeleton for new plugins
-* CONTRIBUTING: add Grafana migration note for grafanactl ([#1062](https://github.com/Linuxfabrik/monitoring-plugins/issues/1062))
-* CONTRIBUTING: add PEP 8 string quoting convention (single quotes, `"""` for triple-quoted)
-* CONTRIBUTING: add README structure guidelines with fixed section order, Fact Sheet template, and Nagios/Icinga check name for SEO
-* CONTRIBUTING: remove inline `pylint: disable` comments from code examples
-* CONTRIBUTING: require Nagios range support (`type=str`, `_operator='range'`) for threshold parameters in new plugins ([#1067](https://github.com/Linuxfabrik/monitoring-plugins/issues/1067))
-* CONTRIBUTING: document the fast-vs-container unit test split, the new `--no-container` / `--only-container` flags on `tools/run-unit-tests`, the `tools/run-container-tests` wrapper, and the `pythonX.Y-devel` system packages needed locally for `tox` to build `netifaces` from source under each matrix interpreter
-* CONTRIBUTING: rewrite unit test fixture naming convention - fixtures in `stdout/` are named by scenario (e.g. `cpu-80-percent`), the expected state is encoded in the testcase `id` instead, so a single fixture can be reused by multiple testcases that vary plugin parameters to reach different states
-* CONTRIBUTING: rewrite unit-test section with declarative test pattern, naming conventions, and tox usage
-* CONTRIBUTING: run pylint without `--disable` flags
-* example: default `--warning` and `--critical` are now Nagios range strings (`'80'`, `'90'`) to match the `type=str` parser contract
-* example: parse the threshold value from the fetched data (humidity sensor reading from the Linux hwmon interface) so unit tests can drive OK/WARN/CRIT transitions via fixtures; skip SQLite delta calculation in `--test` mode to avoid persistent state between runs
-* example: rename unit test fixture `stdout/ok-basic` to `stdout/humidity-42-percent` (scenario-based) and expand tests to demonstrate fixture reuse across threshold combinations
-* example: rewrite as comprehensive skeleton covering all standard patterns (argparse, SQLite delta calculations, regex filtering, `--lengthy` table output, human-readable formatting, get_state/get_worst, Grafana-compatible perfdata)
-* example: rewrite README as skeleton template with Overview, Fact Sheet, States, Perfdata, and Troubleshooting sections
-* Normalize all `from lib.globals import` to single-line format
-* Per-file ignore `F821`/`B006` for `check-plugins/metabase-stats/metabase-stats` until the rewrite tracked in [#1069](https://github.com/Linuxfabrik/monitoring-plugins/issues/1069) lands
-* Refactor all `get_perfdata()` calls to use keyword arguments instead of positional (consistent with example plugin)
-* Refactor all standard parameter help texts to use `lib.args.help()` for consistency across plugins
-* Remove all inline `pylint: disable` comments from plugins, unit tests, and tools
-* Remove false "Supports Nagios ranges" claims from plugins that do not implement range parsing
-* Replace all bare `except:` with `except Exception:` across all plugins and tools
-* Replace stiff "Set the ..." formulations in parameter help texts with concise wording
-* Rewrite all parameter help texts for consistency: purpose first, format, repeating, example, default as separate sentences
-* Unify CONTRIBUTING and enhance it with the official Monitoring Plugins and Nagios Plugin Development Guidelines
-* Update and extend pre-commit hooks (add `check-added-large-files`, `check-merge-conflict`, `check-yaml`; update all hook versions)
-
 ### Breaking Changes
 
 Build, CI/CD:
@@ -102,12 +23,9 @@ Monitoring Plugins:
 
 Build, CI/CD:
 
-* Add `tools/run-static-checks` runner that discovers every plugin script and tool in the repo (including shebang-prefixed files without a `.py` extension) and sweeps them with ruff, pylint, bandit and vulture in a single command, so long-standing issues cannot hide in files that pre-commit never sees
-* Add `tools/run-unit-tests` runner for discovering and executing all plugin unit tests from the repo root
-* Add `tox.ini` for multi-version testing (Python 3.9 through 3.14)
-* Add MkDocs-based documentation site, deployed automatically to GitHub Pages via `tools/build-docs` and a GitHub Actions workflow
-* Add support for sle15 packages
-* Add support for sle16 packages
+* Add MkDocs-based documentation site, served at <https://linuxfabrik.github.io/monitoring-plugins/> and kept in sync with the repo automatically on every merge to `main`
+* Add support for SLE 15 packages
+* Add support for SLE 16 packages
 
 
 Monitoring Plugins:
@@ -152,10 +70,19 @@ Grafana:
 * All panels: do not connect across nulls
 
 
+Icinga Director:
+
+* Service Templates: the "Notes URL" field now opens the rendered plugin page on <https://linuxfabrik.github.io/monitoring-plugins/> instead of the raw source listing on GitHub; regenerate your basket with `tools/check2basket --auto` to pick up the new URL
+
+
 Monitoring Plugins:
 
 * all plugins: convert `.format()` string formatting to f-strings
 * all plugins: ignore unknown arguments instead of generating an error (this helps with updating Icinga and Nagios service definitions considerably)
+* all plugins: improve and expand the `DESCRIPTION` shown in `--help`, so the plugin's purpose (and any gotchas) is clear before deploying it
+* all plugins: rewrite all READMEs to follow a consistent structure (Overview, Fact Sheet, Help, Usage Examples, States, Perfdata, Troubleshooting, Credits) and normalize the parameter help text shown in `--help`
+* all plugins: remove false "Supports Nagios ranges" mentions from the `--help` output of plugins that do not actually implement range parsing
+* all plugins: plugin-group READMEs (Keycloak, MySQL, Rocket.Chat, WildFly) now link to the published docs site at <https://linuxfabrik.github.io/monitoring-plugins/> instead of raw GitHub URLs
 * by-ssh, by-winrm, disk-usage, example, file-ownership, fs-ro, infomaniak-events, journald-query, logfile, matomo-reporting, mysql-logfile, php-status, pip-updates, systemd-unit: fix `append` parameters so that user-specified values replace defaults instead of being appended to them ([#540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
 * cpu-usage: remove `--top` parameter (the top N processes by CPU time are now reported by the procs check via `--top`)
 * disk-io: also monitor normalized iowait on Linux (100% = one fully I/O-saturated core)
@@ -206,18 +133,45 @@ Monitoring Plugins:
 
 * about-me: error in perfdata if using `--dmidecode` and there is no HW information
 * about-me: fix various errors with `sys_dimensions` on some machines ([#1006](https://github.com/Linuxfabrik/monitoring-plugins/issues/1006))
+* axenita-stats: fix the version string shown in the output for versions with multi-digit patch numbers like `14.0.12` (the plugin previously truncated the trailing digit and showed a garbled version) ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * by-ssh: add missing `--verbose` parameter
 * cpu-usage: fix false 100% readings on Windows with 64+ cores caused by all-zero CPU time samples from psutil ([#626](https://github.com/Linuxfabrik/monitoring-plugins/issues/626))
+* deb-updates: fix crash (`AttributeError`) when reporting the number of available updates
 * docker-stats: fix memory perfdata using CPU thresholds instead of memory thresholds
 * docker-stats: replace per-container perfdata with aggregate metrics (containers, cpu)
-* podman-stats: use `podman stats --format '{{json .}}'` for precise numeric values; aggregate perfdata includes block I/O and network I/O totals
 * file-age: handle `FileNotFoundError` race condition when files disappear on busy file systems
 * fs-ro: ignore `/run/credentials` (https://systemd.io/CREDENTIALS/)
+* hin-status: the incident count in perfdata now matches the actual number of incidents listed in the message (previously it was stuck at `1` regardless of how many incidents the status page listed) ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * keycloak-stats: fix incorrect symlink for lib
+* keycloak-version: detect the Keycloak version reliably even if the format of `/opt/keycloak/version.txt` changes, and fall back to the API when the file cannot be parsed ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * logfile: fix `OverflowError` when inode exceeds SQLite INTEGER range on Windows/NTFS ([#1035](https://github.com/Linuxfabrik/monitoring-plugins/issues/1035))
-* users: fix incorrect TTY count when SSH clients connect via IPv6 ([#989](https://github.com/Linuxfabrik/monitoring-plugins/issues/989))
+* mysql-memory: fix a crash in the "other process memory" calculation on hosts running psutil older than 5.3.0 ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* mysql-table-locks: fix the "X immediate / Y locks" summary - the "Y" value now correctly shows the total lock count (immediate + waited) instead of the immediate count twice ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* network-connections: the plugin now exits with the correct WARN/CRIT state when any threshold is violated; previously it always reported OK regardless of the loop's accumulated state ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* nextcloud-security-scan: only trigger a rescan for scans that are actually in the past; future-dated scans caused by clock skew no longer trigger an unnecessary rescan ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * ntp-\*: prevent `TypeError: ''=' not supported between instances of 'int' and 'str'`
+* ntp-w32tm: show the correct state label (WARNING or CRITICAL) in the "Time since Last Good Sync Time" line; it was hardcoded to WARNING even when the actual state was CRITICAL ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* openstack-swift-stat: "bytes used" is now shown for any account with non-zero usage, regardless of whether a quota is set ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* openvpn-version: detect the OpenVPN version reliably across upstream output format changes ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* php-status: the "missing config" output lines now show the real key and value instead of the literal `{key} = {value}` placeholder text ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* podman-stats: use `podman stats --format '{{json .}}'` for precise numeric values; aggregate perfdata includes block I/O and network I/O totals
+* qts-temperatures: fix the perfdata WARN/CRIT thresholds for system and CPU temperatures; they were swapped between the two sensors, so perfdata alerted on the wrong thresholds even though the message text was correct ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* redis-status, valkey-status: the `key_count` perfdata now reports the total key count across all databases instead of just the last database's key count ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* rocketchat-stats: fix crash (`AttributeError`) when reporting the user count
+* sap-open-concur-com: `--service` now validates the service name against the allowed list; previously any value was silently accepted ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* starface-java-memory-usage: fix corrupted overall state in the heap and non-heap memory checks (could previously report CRIT when only WARN thresholds were exceeded, or produce an out-of-range state integer) ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* updates: fix crash on Python 3.9 when pending updates are reported
+* users: fix incorrect TTY count when SSH clients connect via IPv6 ([#989](https://github.com/Linuxfabrik/monitoring-plugins/issues/989))
 * valkey-status: fix TLS connection [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954), thanks to [Claudio Kuenzler](https://github.com/Napsty)
+* wildfly-memory-usage: fix corrupted overall state in the heap and non-heap memory checks (same root cause as starface-java-memory-usage) ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* wildfly-non-xa-datasource-stats, wildfly-xa-datasource-stats: the "max used" threshold now checks the max-used percentage instead of the active-count percentage; the message text was already correct ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+
+
+### Security
+
+Monitoring Plugins:
+
+* Security audit over all plugins: reviewed every remaining `shell=True`, dynamic SQL query and admin-supplied `eval()` expression, confirmed each is driven by trusted check configuration rather than end-user input, and annotated them accordingly. No admin-facing behavior change.
 
 
 
