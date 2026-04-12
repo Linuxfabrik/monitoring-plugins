@@ -19,7 +19,7 @@ import lib.wildfly
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041201'
 
 DESCRIPTION = """Monitors XA datasource connection pool metrics on a WildFly/JBoss AS server via its
 HTTP management API. Reports active, available, and idle connections. Alerts when pool
@@ -221,7 +221,7 @@ def check_xa_datasource(args):
         msg += f'{active_pct}% active used ({active}/{available}){lib.base.state2str(local_state, prefix=" ")}, '
         state = lib.base.get_worst(local_state, state)
 
-        local_state = lib.base.get_state(active_pct, args.WARN, args.CRIT)
+        local_state = lib.base.get_state(max_used_pct, args.WARN, args.CRIT)
         msg += f'{max_used_pct}% max used ({max_used}/{available}){lib.base.state2str(local_state, prefix=" ")}, '
         state = lib.base.get_worst(local_state, state)
 
