@@ -7,7 +7,7 @@ Reports MySQL/MariaDB traffic statistics including uptime, queries per second, c
 
 **Important Notes:**
 
-* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
+* See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * This plugin always returns OK and is purely informational
 
 **Data Collection:**

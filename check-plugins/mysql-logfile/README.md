@@ -7,7 +7,7 @@ Scans the MySQL/MariaDB error log for warnings, errors, startup, and shutdown ev
 
 **Important Notes:**
 
-* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
+* See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * Must be running locally on the MySQL/MariaDB server to read the log file. Requires root or sudo.
 * Depending on your site's policy, you could ignore lines matching patterns like "aborted connection" (happens frequently) or "access denied for user" (could be handled by Fail2ban)
 

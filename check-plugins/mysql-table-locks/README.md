@@ -7,7 +7,7 @@ Checks the rate of table locks that had to wait in MySQL/MariaDB. A high wait ra
 
 **Important Notes:**
 
-* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
+* See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 
 **Data Collection:**
 

@@ -9,7 +9,7 @@ Checks the expiration dates of certificates and CRLs stored in a XCA-managed MyS
 
 * This check works with MySQL/MariaDB backend only, although XCA also supports PostgreSQL.
 * We recommend to run this check directly on the database host.
-* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
+* See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 
 **Data Collection:**
 

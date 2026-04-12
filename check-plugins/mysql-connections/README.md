@@ -7,7 +7,7 @@ Checks the connection usage rate, the rate of aborted connections, and whether n
 
 **Important Notes:**
 
-* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
+* See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * A reverse name resolution is made for each new connection when `skip_name_resolve` is OFF, which can reduce performance. Configure your accounts with IP addresses or subnets only and set `skip-name-resolve=ON` to avoid this.
 
 **Data Collection:**

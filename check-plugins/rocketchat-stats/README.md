@@ -8,7 +8,7 @@ Monitors Rocket.Chat server statistics via the API, including total users, activ
 **Important Notes:**
 
 * Requires a Rocket.Chat user with a strong password and the `view-statistics` permission (only)
-* See [Creating an API user account to monitor Rocket.Chat](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-ROCKETCHAT.md)
+* See [Creating an API user account to monitor Rocket.Chat](https://linuxfabrik.github.io/monitoring-plugins/plugins-rocketchat/)
 
 **Data Collection:**
 

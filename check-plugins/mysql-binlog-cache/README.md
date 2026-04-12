@@ -7,7 +7,7 @@ Checks whether transactions in MySQL/MariaDB had to use a temporary disk cache b
 
 **Important Notes:**
 
-* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
+* See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * If `log_bin` is set to `OFF`, the check exits with UNKNOWN because binary logging is disabled and this check makes no sense
 * Returns UNKNOWN if binary logging is disabled
 

@@ -7,9 +7,9 @@ Connects to a MySQL/MariaDB database and runs configurable SQL queries for warni
 
 **Important Notes:**
 
-* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
+* See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * At least one of `--warning-query` or `--critical-query` must be provided
-* Thresholds use [Nagios range expressions](https://github.com/Linuxfabrik/monitoring-plugins#threshold-and-ranges)
+* Thresholds use [Nagios range expressions](https://linuxfabrik.github.io/monitoring-plugins/contributing/#threshold-and-ranges)
 
 **Data Collection:**
 

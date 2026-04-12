@@ -52,7 +52,7 @@ where WaitingUpdates >= 5
 
 In this case, `csv-values` checks the returned value `4` with the specified threshold.
 
-The full command line call describing the columns, retrieving the data and applying the thresholds (which are [ranges](https://github.com/Linuxfabrik/monitoring-plugins#threshold-and-ranges)) is:
+The full command line call describing the columns, retrieving the data and applying the thresholds (which are [ranges](https://linuxfabrik.github.io/monitoring-plugins/contributing/#threshold-and-ranges)) is:
 
 ```bash
 csv-values \

@@ -7,7 +7,7 @@ Checks the installed Keycloak version against the endoflife.date API and alerts 
 
 **Important Notes:**
 
-* See [Creating an API user account to monitor Keycloak](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-KEYCLOAK.md) for setting up the required API credentials (only needed if `version.txt` is not available).
+* See [Creating an API user account to monitor Keycloak](https://linuxfabrik.github.io/monitoring-plugins/plugins-keycloak/) for setting up the required API credentials (only needed if `version.txt` is not available).
 
 **Data Collection:**
 

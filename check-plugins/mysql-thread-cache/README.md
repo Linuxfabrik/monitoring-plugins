@@ -7,7 +7,7 @@ Checks how effectively MySQL/MariaDB caches threads for re-use. A low cache hit 
 
 **Important Notes:**
 
-* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
+* See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * When the thread pool is enabled (Percona or MariaDB), the value of `thread_cache_size` is ignored and `Threads_cached` shows 0
 
 **Data Collection:**
