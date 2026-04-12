@@ -17,13 +17,45 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 import lib.lftest
 
 
+# Fixture files in stdout/ are named after the scenario (the shape of the
+# data), not after the expected plugin state. The expected state lives in
+# the testcase `id` and depends on the combination of fixture content and
+# plugin parameters. The same fixture can therefore drive multiple
+# testcases that vary --warning/--critical (or any other parameter) to
+# reach different states. See CONTRIBUTING.md for the full convention.
+#
+# The humidity-42-percent fixture contains the raw reading from the
+# Linux hwmon humidity sensor. The skeleton parses the first integer
+# from stdout as its value. The four testcases below reuse that one
+# fixture and only differ in thresholds and switches.
 TESTS = [
     {
-        'id': 'ok-basic',
-        'test': 'stdout/ok-basic,,0',
-        'params': '--token=dummy',
+        'id': 'ok-below-warn',
+        'test': 'stdout/humidity-42-percent,,0',
+        'params': '--token=dummy --warning 80 --critical 90',
         'assert-retc': STATE_OK,
-        'assert-in': ['Waiting for more data.'],
+        'assert-in': ['42%'],
+    },
+    {
+        'id': 'warn-above-warn',
+        'test': 'stdout/humidity-42-percent,,0',
+        'params': '--token=dummy --warning 40 --critical 90',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'42%.*\[WARNING\]',
+    },
+    {
+        'id': 'crit-above-crit',
+        'test': 'stdout/humidity-42-percent,,0',
+        'params': '--token=dummy --warning 30 --critical 40',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'42%.*\[CRITICAL\]',
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'test': 'stdout/humidity-42-percent,,0',
+        'params': '--token=dummy --warning 30 --critical 40 --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'42%.*\[CRITICAL\]',
     },
 ]
 

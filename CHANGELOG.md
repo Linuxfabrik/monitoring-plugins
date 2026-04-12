@@ -31,10 +31,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * CONTRIBUTING: add PEP 8 string quoting convention (single quotes, `"""` for triple-quoted)
 * CONTRIBUTING: add README structure guidelines with fixed section order, Fact Sheet template, and Nagios/Icinga check name for SEO
 * CONTRIBUTING: rewrite unit-test section with declarative test pattern, naming conventions, and tox usage
+* CONTRIBUTING: rewrite unit test fixture naming convention - fixtures in `stdout/` are named by scenario (e.g. `cpu-80-percent`), the expected state is encoded in the testcase `id` instead, so a single fixture can be reused by multiple testcases that vary plugin parameters to reach different states
 * CONTRIBUTING: run pylint without `--disable` flags
 * CONTRIBUTING: remove inline `pylint: disable` comments from code examples
 * All plugins: improve and expand DESCRIPTION to clearly explain what each plugin does for the admin deploying it
 * All plugins: rewrite all READMEs to follow consistent structure (Overview, Fact Sheet, Help, Usage Examples, States, Perfdata, Troubleshooting, Credits)
+* example: default `--warning` and `--critical` are now Nagios range strings (`'80'`, `'90'`) to match the `type=str` parser contract
+* example: parse the threshold value from the fetched data (humidity sensor reading from the Linux hwmon interface) so unit tests can drive OK/WARN/CRIT transitions via fixtures; skip SQLite delta calculation in `--test` mode to avoid persistent state between runs
+* example: rename unit test fixture `stdout/ok-basic` to `stdout/humidity-42-percent` (scenario-based) and expand tests to demonstrate fixture reuse across threshold combinations
 * example: rewrite as comprehensive skeleton covering all standard patterns (argparse, SQLite delta calculations, regex filtering, `--lengthy` table output, human-readable formatting, get_state/get_worst, Grafana-compatible perfdata)
 * example: rewrite README as skeleton template with Overview, Fact Sheet, States, Perfdata, and Troubleshooting sections
 * Update and extend pre-commit hooks (add `check-added-large-files`, `check-merge-conflict`, `check-yaml`; update all hook versions)

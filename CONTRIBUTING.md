@@ -699,10 +699,10 @@ Unit tests are implemented using the `unittest` framework (<https://docs.python.
 ```text
 check-plugins/my-check/unit-test/
 ├── run                     # the test file
-└── stdout/                 # test data files
-    ├── ok-basic            # descriptive names, not EXAMPLE01
-    ├── warn-threshold
-    └── crit-service-down
+└── stdout/                 # test data files (fixtures)
+    ├── empty-response      # scenario-based names, not EXAMPLE01
+    ├── three-nodes-healthy
+    └── three-nodes-one-down
 ```
 
 Only create `stderr/` if a test actually needs to inject stderr data. Do not create empty `retc/` or `stderr/` directories.
@@ -710,17 +710,22 @@ Only create `stderr/` if a test actually needs to inject stderr data. Do not cre
 
 #### Test data file naming
 
-Use descriptive, lowercase, hyphenated names that indicate the expected state and scenario:
+Fixture files in `stdout/` are named after the **scenario** they represent, not after an expected plugin state. The expected state depends on the combination of fixture content and plugin parameters (thresholds, filters, switches) and therefore cannot be encoded in the fixture filename alone.
 
-* `ok-basic`, `ok-empty-result`, `ok-all-healthy`
-* `warn-threshold-exceeded`, `warn-high-load`
-* `crit-service-down`, `crit-disk-full`
-* `unknown-missing-dependency`
+Use descriptive, lowercase, hyphenated names that describe the shape of the data:
+
+* `empty-response`, `single-node`, `three-nodes-healthy`
+* `cpu-80-percent`, `disk-nearly-full`, `memory-400mb-used`
+* `three-nodes-one-down`, `malformed-json`, `service-unreachable`
+
+The same fixture may (and should) be reused by multiple testcases that vary the plugin parameters to reach different states. For example, a single `cpu-80-percent` fixture can drive an `ok-below-warn` test with `--warning 90 --critical 95`, a `warn-above-warn` test with `--warning 70 --critical 95`, and a `crit-above-crit` test with `--warning 50 --critical 75`.
+
+The expected state is encoded in the testcase `id` instead (see below).
 
 
 #### Writing tests
 
-Define a `TESTS` list and use `lib.lftest.run()` to execute each testcase:
+Define a `TESTS` list and use `lib.lftest.run()` to execute each testcase. The testcase `id` should lead with the expected state (`ok-`, `warn-`, `crit-`, `unknown-`), followed by a short description of what is being verified. This is what appears in the subtest output and documents the intent of each case.
 
 ```python
 #!/usr/bin/env python3
@@ -734,19 +739,34 @@ import lib.lftest
 
 
 TESTS = [
+    # Same fixture, three different threshold combinations.
     {
-        'id': 'ok-basic',
-        'test': 'stdout/ok-basic,,0',
-        'params': '--warning 80 --critical 90',
+        'id': 'ok-below-warn',
+        'test': 'stdout/cpu-80-percent,,0',
+        'params': '--warning 90 --critical 95',
         'assert-retc': STATE_OK,
-        'assert-in': ['Everything is ok.'],
+        'assert-in': ['80%'],
     },
     {
-        'id': 'crit-threshold-exceeded',
-        'test': 'stdout/crit-threshold-exceeded,,0',
-        'params': '--critical 50',
+        'id': 'warn-above-warn',
+        'test': 'stdout/cpu-80-percent,,0',
+        'params': '--warning 70 --critical 95',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'80%.*\[WARNING\]',
+    },
+    {
+        'id': 'crit-above-crit',
+        'test': 'stdout/cpu-80-percent,,0',
+        'params': '--warning 50 --critical 75',
         'assert-retc': STATE_CRIT,
-        'assert-regex': r'95.0%.*\[CRITICAL\]',
+        'assert-regex': r'80%.*\[CRITICAL\]',
+    },
+    # Different fixture, different scenario.
+    {
+        'id': 'unknown-malformed-json',
+        'test': 'stdout/malformed-json,,0',
+        'params': '--warning 80 --critical 90',
+        'assert-retc': STATE_UNKNOWN,
     },
 ]
 
@@ -764,6 +784,12 @@ class TestCheck(unittest.TestCase):
 if __name__ == '__main__':
     unittest.main()
 ```
+
+Naming rules for the testcase `id`:
+
+* Lead with the expected state: `ok-`, `warn-`, `crit-`, `unknown-`.
+* Follow with a short description of what the test verifies (not the fixture name): `ok-below-warn`, `warn-above-warn`, `crit-disk-full`, `unknown-missing-dependency`.
+* `id` must be unique within the `TESTS` list.
 
 Available assertion keys in each testcase dict:
 

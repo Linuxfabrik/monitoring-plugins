@@ -31,7 +31,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040903'
+__version__ = '2026041202'
 
 DESCRIPTION = """Skeleton plugin demonstrating all standard patterns and library functions:
 argparse with append/deprecated/suppress parameters, (success, result) error handling,
@@ -39,11 +39,11 @@ SQLite delta calculations (no continuous counters), regex filtering, --lengthy t
 human-readable formatting (bytes, seconds, numbers), perfdata, get_state/get_worst, and
 Grafana-compatible panel design."""
 
-DEFAULT_CRIT = 90
+DEFAULT_CRIT = '90'
 DEFAULT_LENGTHY = False
 DEFAULT_MODULE = ['calendar', 'Core', 'ctype', 'date']
 DEFAULT_TIMEOUT = 8
-DEFAULT_WARN = 80
+DEFAULT_WARN = '80'
 
 
 def parse_args():
@@ -228,23 +228,9 @@ def main():
         args.MODULE = DEFAULT_MODULE
     # args.NAME is not set here          # case 3: None means "check all"
 
-    # create the SQLite database and table for delta calculations
-    conn = lib.base.coe(
-        lib.db_sqlite.connect(
-            filename='linuxfabrik-monitoring-plugins-example.db',
-        ),
-    )
-    definition = """
-        name        TEXT NOT NULL,
-        rx_bytes    INT NOT NULL,
-        timestamp   INT NOT NULL
-    """
-    lib.base.coe(lib.db_sqlite.create_table(conn, definition, drop_table_first=False))
-    lib.base.coe(lib.db_sqlite.create_index(conn, 'name'))
-
     # fetch data
     if args.TEST is None:
-        cmd = 'cat /etc/os-release'
+        cmd = 'cat /sys/class/hwmon/hwmon0/humidity1_input'
         stdout = lib.base.coe(get_data(cmd, timeout=args.TIMEOUT))
     else:
         # do not call the command, put in test data
@@ -263,14 +249,20 @@ def main():
         lib.base.cu('Unable to compile regex.')
 
     # analyze data
-    title = 'Lorem ipsum'
+    title = 'humidity1'
     if args.NAME is not None:
         # case 3: user specified --name, so filter
         if title not in args.NAME:
             pass  # in loops: continue
     if any(item.search(title) for item in compiled_ignore_regex):
         pass  # in loops: continue
-    value = str(lib.time.now())[-2:]
+    # Parse the value to evaluate from the fetched data. Real plugins parse
+    # their own data formats (JSON, regex, SNMP walks, etc.). This skeleton
+    # reads a humidity sensor from the Linux `hwmon` interface and picks
+    # the first integer from stdout, so unit tests can drive the state
+    # machine via fixtures.
+    match = re.search(r'(\d+)', stdout)
+    value = match.group(1) if match else '0'
     uptime = 123456
     rx_bytes = 1073741824
     # multiline f-string: use parentheses for implicit concatenation
@@ -282,61 +274,80 @@ def main():
     item_state = lib.base.get_state(value, args.WARN, args.CRIT, _operator='range')
     state = lib.base.get_worst(state, item_state)
 
-    # store current measurement and calculate delta from previous run
-    now = lib.time.now()
-    lib.base.coe(
-        lib.db_sqlite.insert(
-            conn,
-            {'name': title, 'rx_bytes': rx_bytes, 'timestamp': now},
+    # calculate delta from the previous run using a local SQLite database.
+    # In test mode (--test), skip persistent state entirely and use a
+    # fixed stand-in so unit tests can exercise the full state machine
+    # without depending on run order or leftover temp files.
+    if args.TEST is None:
+        conn = lib.base.coe(
+            lib.db_sqlite.connect(
+                filename='linuxfabrik-monitoring-plugins-example.db',
+            ),
         )
-    )
-    lib.base.coe(lib.db_sqlite.cut(conn, _max=2))
-    lib.base.coe(lib.db_sqlite.commit(conn))
+        definition = """
+            name        TEXT NOT NULL,
+            rx_bytes    INT NOT NULL,
+            timestamp   INT NOT NULL
+        """
+        lib.base.coe(lib.db_sqlite.create_table(conn, definition, drop_table_first=False))
+        lib.base.coe(lib.db_sqlite.create_index(conn, 'name'))
 
-    rows = lib.base.coe(
-        lib.db_sqlite.select(
-            conn,
-            """
-        SELECT *
-        FROM perfdata
-        WHERE name = :name
-        ORDER BY timestamp DESC
-        """,
-            {'name': title},
+        now = lib.time.now()
+        lib.base.coe(
+            lib.db_sqlite.insert(
+                conn,
+                {'name': title, 'rx_bytes': rx_bytes, 'timestamp': now},
+            )
         )
-    )
-    if len(rows) < 2:
-        lib.db_sqlite.close(conn)
-        lib.base.oao('Waiting for more data.', STATE_OK)
+        lib.base.coe(lib.db_sqlite.cut(conn, _max=2))
+        lib.base.coe(lib.db_sqlite.commit(conn))
 
-    timestamp_diff = rows[0]['timestamp'] - rows[1]['timestamp']
-    if timestamp_diff == 0:
-        timestamp_diff = 1
-    rx_bytes_per_second = int(
-        float(rows[0]['rx_bytes'] - rows[1]['rx_bytes']) / timestamp_diff,
-    )
-    if any(
-        [
-            timestamp_diff < 0,
-            rx_bytes_per_second < 0,
-        ]
-    ):
-        # happens after a reboot
-        lib.db_sqlite.close(conn)
-        lib.base.oao('Waiting for more data.', STATE_OK)
+        rows = lib.base.coe(
+            lib.db_sqlite.select(
+                conn,
+                """
+            SELECT *
+            FROM perfdata
+            WHERE name = :name
+            ORDER BY timestamp DESC
+            """,
+                {'name': title},
+            )
+        )
+        if len(rows) < 2:
+            lib.db_sqlite.close(conn)
+            lib.base.oao('Waiting for more data.', STATE_OK)
 
-    lib.db_sqlite.close(conn)
+        timestamp_diff = rows[0]['timestamp'] - rows[1]['timestamp']
+        if timestamp_diff == 0:
+            timestamp_diff = 1
+        rx_bytes_per_second = int(
+            float(rows[0]['rx_bytes'] - rows[1]['rx_bytes']) / timestamp_diff,
+        )
+        if any(
+            [
+                timestamp_diff < 0,
+                rx_bytes_per_second < 0,
+            ]
+        ):
+            # happens after a reboot
+            lib.db_sqlite.close(conn)
+            lib.base.oao('Waiting for more data.', STATE_OK)
+
+        lib.db_sqlite.close(conn)
+    else:
+        rx_bytes_per_second = 1234567
 
     # build the message
     msg += (
-        f'{value}% used{lib.base.state2str(item_state, prefix=" ")}'
+        f'{value}% humidity{lib.base.state2str(item_state, prefix=" ")}'
         f', up {lib.human.seconds2human(uptime)}'
         f' since {lib.time.epoch2iso(lib.time.now() - uptime)}'
         f', {lib.human.bytes2human(rx_bytes_per_second)}/s'
         f', {lib.human.number2human(42000)} items'
     )
     perfdata += lib.base.get_perfdata(
-        'cpu-usage',
+        'humidity',
         value,
         uom='%',
         warn=args.WARN,
