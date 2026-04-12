@@ -21,7 +21,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041201'
 
 DESCRIPTION = """Monitors the health and performance of an Axenita/Achilles installation by querying
 four API endpoints: ReadModel state, active user sessions, build information, and
@@ -268,7 +268,16 @@ def main():
             lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
         axenita_ver = achilles_buildinfo['data']['version']
         msg += f'{axenita_ver} (timestamp {achilles_buildinfo["data"]["timestamp"]}), '
-        axenita_ver = axenita_ver[8 : 8 + axenita_ver.find('-') - 1].replace('.', '')
+        # the version field looks like "release-14.0.8-20210312134147-cf77b213090";
+        # take the second hyphen-separated segment (the dotted version) and collapse
+        # the dots to get a numeric perfdata value. the previous slice
+        # `[8 : 8 + find('-') - 1]` happened to work only for exactly-6-char
+        # versions like "14.0.8" and silently truncated multi-digit patches.
+        version_parts = axenita_ver.split('-')
+        if len(version_parts) >= 2:
+            axenita_ver = version_parts[1].replace('.', '')
+        else:
+            axenita_ver = ''
         perfdata += lib.base.get_perfdata(
             'axenita-version',
             axenita_ver,

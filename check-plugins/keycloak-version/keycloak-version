@@ -22,7 +22,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041201'
 
 DESCRIPTION = """Checks the installed Keycloak version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -169,8 +169,14 @@ def get_installed_version(args):
     """Fetch the Keycloak version. First, try to access the file system,
     then try to fetch the API.
     """
-    success, version = lib.disk.grep_file(args.PATH + '/version.txt', r'n (.*)')
-    if success:
+    # /opt/keycloak/version.txt contains a line like "Keycloak - Version 25.0.4".
+    # The old regex `r'n (.*)'` happened to match the "n " in "Version" and
+    # capture the rest of the line, but would silently break on any format
+    # change. Match the version number explicitly instead.
+    success, version = lib.disk.grep_file(
+        args.PATH + '/version.txt', r'[Vv]ersion\s+(\d+(?:\.\d+)*)'
+    )
+    if success and version:
         return version
 
     # Discover the OIDC endpoints for the realm (no authentication needed),
