@@ -802,6 +802,13 @@ Available assertion keys in each testcase dict:
 
 #### Running tests
 
+Unit tests come in two flavors:
+
+* **Fast tests** use `--test` to inject fixture data and run in a fraction of a second. They are safe for CI and for the multi-Python-version `tox` matrix.
+* **Container tests** build a podman image per target OS, inject the plugin and `lib/`, and exercise the check against a live service. They need podman on the host and take minutes per plugin. A plugin counts as a container test when its `unit-test/` directory has a `containerfiles/` subdirectory.
+
+Everyday commands:
+
 ```bash
 # single plugin (from its unit-test directory)
 cd check-plugins/my-check/unit-test
@@ -810,12 +817,39 @@ cd check-plugins/my-check/unit-test
 # single plugin (from the repo root)
 python tools/run-unit-tests my-check
 
-# all plugins
+# all plugins (fast + container)
 python tools/run-unit-tests
 
-# all plugins across multiple Python versions (via tox)
-tox
+# only the fast tests (used by tox)
+python tools/run-unit-tests --no-container
+
+# only the container tests (also available as a thin wrapper)
+python tools/run-unit-tests --only-container
+python tools/run-container-tests
 ```
+
+Multi-Python coverage via `tox`:
+
+```bash
+tox                      # all supported Python versions, fast tests only
+tox -e py39              # single environment
+```
+
+`tox` invokes `tools/run-unit-tests --no-container` so the multi-Python matrix skips the container suite. Run `tools/run-container-tests` separately before a release for full integration coverage.
+
+`tox` builds each Python environment from sdist, and `linuxfabrik-lib` pulls in `netifaces` which has no binary wheels on PyPI. For every Python version in the `tox` matrix you want to run locally, the matching development headers must be installed on the host, otherwise pip falls back to building `netifaces` from source and aborts with `fatal error: Python.h: No such file or directory`:
+
+```bash
+# Fedora
+sudo dnf install python3.9-devel python3.10-devel python3.11-devel \
+                 python3.12-devel python3.13-devel python3.14-devel
+
+# Debian / Ubuntu
+sudo apt install python3.9-dev python3.10-dev python3.11-dev \
+                 python3.12-dev python3.13-dev python3.14-dev
+```
+
+`skip_missing_interpreters = true` already skips environments for Python versions that are not installed at all.
 
 
 #### Container-based tests
@@ -825,6 +859,7 @@ If you want to implement unit tests based on containers, the following rules app
 * Each container file does everything necessary to set up a running environment for the check plugin (e.g. install Python if you want to run the plugin inside the container).
 * The `./run` unit test simply calls podman and, for each containerfile found, builds the container, injects the libs and the check plugin, and runs the tests - but does not modify the container in any other way.
 * See the `keycloak-version` plugin for how to do this.
+* `tools/run-unit-tests` auto-detects container tests by looking for a `containerfiles/` subdirectory, so `--no-container` / `--only-container` filter correctly without any per-plugin annotation.
 
 
 ### sudoers File

@@ -63,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * CONTRIBUTING: add README structure guidelines with fixed section order, Fact Sheet template, and Nagios/Icinga check name for SEO
 * CONTRIBUTING: remove inline `pylint: disable` comments from code examples
 * CONTRIBUTING: require Nagios range support (`type=str`, `_operator='range'`) for threshold parameters in new plugins ([#1067](https://github.com/Linuxfabrik/monitoring-plugins/issues/1067))
+* CONTRIBUTING: document the fast-vs-container unit test split, the new `--no-container` / `--only-container` flags on `tools/run-unit-tests`, the `tools/run-container-tests` wrapper, and the `pythonX.Y-devel` system packages needed locally for `tox` to build `netifaces` from source under each matrix interpreter
 * CONTRIBUTING: rewrite unit test fixture naming convention - fixtures in `stdout/` are named by scenario (e.g. `cpu-80-percent`), the expected state is encoded in the testcase `id` instead, so a single fixture can be reused by multiple testcases that vary plugin parameters to reach different states
 * CONTRIBUTING: rewrite unit-test section with declarative test pattern, naming conventions, and tox usage
 * CONTRIBUTING: run pylint without `--disable` flags
