@@ -22,7 +22,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041201'
 
 DESCRIPTION = """Checks the security of a private Nextcloud server using the Nextcloud security scanner.
 Reports the assigned security rating and alerts on known vulnerabilities in the
@@ -191,11 +191,14 @@ def main():
     elif result['rating'] == 2 or result['rating'] == 3:
         state = STATE_WARN
 
-    # warn if last check is more than 30 days ago, and trigger a rescan
+    # warn if last check is more than TRIGGER days ago, and trigger a rescan.
+    # `today - scan_date` yields a positive .days for scans in the past; a scan
+    # dated in the future (clock skew) should not trigger a rescan, so drop the
+    # abs() that the old code relied on.
     scan_date = datetime.datetime.strptime(result['scannedAt']['date'][:10], '%Y-%m-%d')
     today = lib.time.now(as_type='datetime')
-    delta = scan_date - today
-    if abs(delta.days) > args.TRIGGER:
+    age_days = (today - scan_date).days
+    if age_days > args.TRIGGER:
         lib.base.coe(trigger_rescan_nextcloud_com(args.URL, args))
 
 
