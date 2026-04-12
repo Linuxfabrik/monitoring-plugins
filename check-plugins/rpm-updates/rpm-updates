@@ -24,7 +24,7 @@ from lib.globals import STATE_OK, STATE_UNKNOWN
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026041201'
 
 DESCRIPTION = """Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 systems. Reports the number and type of available advisories (bugfix, enhancement,
@@ -73,6 +73,13 @@ def parse_args():
         'Default: %(default)s',
         dest='QUERY',
         default=DEFAULT_QUERY,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
     )
 
     parser.add_argument(
@@ -138,9 +145,14 @@ def get_updates(args):
     - Intended for use within a script or plugin’s `main()` function.
     """
     # get the list of updates (--assumeyes so command can import GPG keys)
-    yum_upgrades, stderr, retc = lib.base.coe(
-        lib.shell.shell_exec('yum list --assumeyes --upgrades', timeout=args.TIMEOUT),
-    )
+    if args.TEST is None:
+        yum_upgrades, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec('yum list --assumeyes --upgrades', timeout=args.TIMEOUT),
+        )
+    else:
+        yum_upgrades, stderr, retc = lib.lftest.test(
+            [args.TEST[0] + '-upgrades', args.TEST[1], args.TEST[2]],
+        )
     if retc:
         lib.base.cu(f'`yum list --upgrades` returned with error {retc}: {stderr}')
     if not yum_upgrades:
@@ -148,9 +160,14 @@ def get_updates(args):
         lib.base.oao('No updates available.')
 
     # get the list of installed software
-    yum_installed, stderr, retc = lib.base.coe(
-        lib.shell.shell_exec('yum list --installed', timeout=args.TIMEOUT),
-    )
+    if args.TEST is None:
+        yum_installed, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec('yum list --installed', timeout=args.TIMEOUT),
+        )
+    else:
+        yum_installed, stderr, retc = lib.lftest.test(
+            [args.TEST[0] + '-installed', args.TEST[1], args.TEST[2]],
+        )
     if retc or stderr:
         lib.base.cu(f'`yum list --installed` returned with error {retc}: {stderr}')
 
@@ -204,9 +221,14 @@ def get_updateinfo(args):
     #   Name               Type     Severity Package                             Issued
     #   FEDORA-2025-09f40d bugfix   Low      python3-boto3-1.38.23-1.fc42.noarch 2025-05-30 01:14:13
     #   FEDORA-2025-34e9b9 security Critical firefox-139.0-1.fc42.x86_64         2025-05-30 02:21:33
-    yum_info, stderr, retc = lib.base.coe(
-        lib.shell.shell_exec('yum updateinfo list --available', timeout=args.TIMEOUT),
-    )
+    if args.TEST is None:
+        yum_info, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec('yum updateinfo list --available', timeout=args.TIMEOUT),
+        )
+    else:
+        yum_info, stderr, retc = lib.lftest.test(
+            [args.TEST[0] + '-updateinfo', args.TEST[1], args.TEST[2]],
+        )
     if retc:
         lib.base.cu(
             f'`yum updateinfo list --available` returned with error {retc}: {stderr}'

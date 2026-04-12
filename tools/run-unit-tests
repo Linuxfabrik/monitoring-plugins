@@ -48,10 +48,21 @@ SKIP_PLUGINS = {'example'}
 
 
 def is_container_test(check_plugins, plugin):
-    """Return True if the plugin's unit test builds/runs containers."""
-    return os.path.isdir(
-        os.path.join(check_plugins, plugin, 'unit-test', 'containerfiles')
-    )
+    """Return True if the plugin's unit test actually drives a container runtime.
+
+    We look at the `run` file's content rather than the presence of a
+    `containerfiles/` subdirectory: a plugin may keep containerfiles around
+    for a future testcontainers migration while its `run` file is already
+    fixture-based and fast. The run file counts as a container test when
+    it references `podman` as a subprocess target or imports `testcontainers`.
+    """
+    run_file = os.path.join(check_plugins, plugin, 'unit-test', 'run')
+    try:
+        with open(run_file, encoding='utf-8') as f:
+            content = f.read()
+    except OSError:
+        return False
+    return 'podman' in content or 'testcontainers' in content
 
 
 def main():
