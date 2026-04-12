@@ -20,7 +20,7 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041201'
 
 DESCRIPTION = """Checks the rate of table locks that had to wait in MySQL/MariaDB. A high wait rate
 indicates contention between concurrent queries.
@@ -137,12 +137,13 @@ def main():
         mycalc['pct_table_locks_immediate'] = 0
 
     # Table locks
+    total_locks = int(mystat['Table_locks_immediate']) + int(mystat['Table_locks_waited'])
     msg = (
         f'{mycalc["pct_table_locks_immediate"]}% table locks'
         f' acquired immediately'
         f' ({lib.human.number2human(mystat["Table_locks_immediate"])}'
         f' immediate /'
-        f' {lib.human.number2human(mystat["Table_locks_immediate"])}'
+        f' {lib.human.number2human(total_locks)}'
         f' locks)'
     )
     if mycalc['pct_table_locks_immediate'] < 95:
