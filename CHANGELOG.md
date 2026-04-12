@@ -147,6 +147,7 @@ Monitoring Plugins:
 * logfile: fix `OverflowError` when inode exceeds SQLite INTEGER range on Windows/NTFS ([#1035](https://github.com/Linuxfabrik/monitoring-plugins/issues/1035))
 * mysql-memory: fix a crash in the "other process memory" calculation on hosts running psutil older than 5.3.0 ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * mysql-table-locks: fix the "X immediate / Y locks" summary - the "Y" value now correctly shows the total lock count (immediate + waited) instead of the immediate count twice ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* needs-restarting: show the "Running Kernel X != Installed Kernel Y" line on Debian-based systems when `needrestart` reports a pending kernel upgrade. The kernel-version comparison variables were reset inside the parse loop, so the running-vs-installed kernel mismatch was never printed
 * network-connections: the plugin now exits with the correct WARN/CRIT state when any threshold is violated; previously it always reported OK regardless of the loop's accumulated state ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * nextcloud-security-scan: only trigger a rescan for scans that are actually in the past; future-dated scans caused by clock skew no longer trigger an unnecessary rescan ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * ntp-\*: prevent `TypeError: ''=' not supported between instances of 'int' and 'str'`
