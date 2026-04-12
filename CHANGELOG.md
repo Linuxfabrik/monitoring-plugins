@@ -10,26 +10,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-* Fix `--require-hashes` pip install in pre-commit autoupdate workflow by using pinned version instead
 * `.github/workflows/docs.yml`: pin all GitHub Actions by commit SHA (with the version as a trailing comment) instead of by tag, clearing the four OpenSSF Scorecard `PinnedDependenciesID` alerts. Dependabot is already configured for `github-actions` and updates hash-pinned actions natively
-* tox.ini: disable the sdist build (`no_package = true`) so `tox` no longer trips over the flat top-level layout with "Multiple top-level packages discovered". The repo is a collection of plugin scripts, not a Python package
-* tools/run-unit-tests: skip the `example` plugin in default runs. Its unit test is a template meant to be copy-pasted into new plugins and does not correspond to a real check. Explicit `python tools/run-unit-tests example` still runs it
-* network-connections: the final `lib.base.oao()` call passed a hardcoded `STATE_OK` instead of the accumulated `state`, discarding all WARN/CRIT decisions from the loop. The plugin now exits with the correct accumulated state ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* axenita-stats: fix the version-number extraction slice `[8 : 8 + find('-') - 1]` that only worked for exactly 6-character versions like `14.0.8` and silently truncated any longer patch number. Use `split('-')[1]` instead, which handles `14.0.12`, `1.2.3`, and 2-digit majors correctly ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * deb-updates: add missing `lib.txt` import so the "N update(s) available" summary no longer crashes with `AttributeError` at runtime
+* Fix `--require-hashes` pip install in pre-commit autoupdate workflow by using pinned version instead
+* keycloak-version: replace the fragile regex `r'n (.*)'` (which relied on the "n " in the word "Version" of `/opt/keycloak/version.txt`) with an explicit `r'[Vv]ersion\s+(\d+(?:\.\d+)*)'` pattern. Also fall through to the API fallback when the file is present but the regex does not match, instead of aborting with "Keycloak not found" ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * mysql-memory: fix `get_other_process_memory()` fallback path for psutil older than 5.3.0 (referenced an undefined `cmdline` variable and the wrong attribute on the process dict) and drop an unreachable `break` after `return` in `get_pfs_memory()`
 * mysql-storage-engines: drop a dead `SELECT ... FROM information_schema.engines` query whose result was never used
+* network-connections: the final `lib.base.oao()` call passed a hardcoded `STATE_OK` instead of the accumulated `state`, discarding all WARN/CRIT decisions from the loop. The plugin now exits with the correct accumulated state ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * ntp-ntpd: collapse four sequential `if`-then-`oao()` early-exit guards into a single `if/elif` chain so the intent (try each failure mode in turn and exit on the first one that matches) is explicit ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* openvpn-version: replace the fragile regex `r'N (\d+\.\d+\.\d+)'` (which relied on the "N" at the end of "OpenVPN") with an explicit `r'OpenVPN\s+(\d+\.\d+\.\d+)'` pattern anchored on the command name ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * ping: drop dead initialization of `rtt_min / rtt_avg / rtt_max / rtt_mdev` that was never read
 * rocketchat-stats: add missing `lib.txt` import so the user-count pluralization no longer crashes with `AttributeError` at runtime
 * starface-java-memory-usage: the heap and non-heap state checks used `state += lib.base.get_worst(used_state, state)` which adds state integers together and corrupts the accumulated state (e.g. WARN+WARN=2 reads as CRIT, WARN+CRIT=3 is outside the valid range). Replaced with `state = lib.base.get_worst(state, used_state)` so the accumulated state remains a valid STATE_OK / STATE_WARN / STATE_CRIT value ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* tools/run-unit-tests: skip the `example` plugin in default runs. Its unit test is a template meant to be copy-pasted into new plugins and does not correspond to a real check. Explicit `python tools/run-unit-tests example` still runs it
+* tox.ini: disable the sdist build (`no_package = true`) so `tox` no longer trips over the flat top-level layout with "Multiple top-level packages discovered". The repo is a collection of plugin scripts, not a Python package
 * tuned-profile, crypto-policy: make the "expected vs actual" branches structurally exclusive via an explicit `else:`. The old code relied on `lib.base.oao()` exiting to skip the follow-up WARN call, which works but is fragile to read ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * updates: fix pending-updates message so it no longer relies on a backslash escape inside an f-string, which is a `SyntaxError` on Python 3.9 (the runtime this project targets)
 * wildfly-memory-usage: same `state += get_worst(...)` accumulation bug in both the heap and non-heap branches. Replaced with the new variadic `lib.base.get_worst(state, used_state, committed_state)` so the heap/non-heap used/committed states can be combined in a single call ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * wildfly-non-xa-datasource-stats, wildfly-xa-datasource-stats: the "max used" threshold check passed `active_pct` to `lib.base.get_state(...)` instead of `max_used_pct`, so the plugin alerted on the wrong metric. The output text already showed `max_used_pct` correctly ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * xml: actually use the captured `result = r[0].text` in the string-search branch. Before, `result` was assigned but unused and the branch re-evaluated `r[0].text` three more times ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* axenita-stats: fix the version-number extraction slice `[8 : 8 + find('-') - 1]` that only worked for exactly 6-character versions like `14.0.8` and silently truncated any longer patch number. Use `split('-')[1]` instead, which handles `14.0.12`, `1.2.3`, and 2-digit majors correctly ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* keycloak-version: replace the fragile regex `r'n (.*)'` (which relied on the "n " in the word "Version" of `/opt/keycloak/version.txt`) with an explicit `r'[Vv]ersion\s+(\d+(?:\.\d+)*)'` pattern. Also fall through to the API fallback when the file is present but the regex does not match, instead of aborting with "Keycloak not found" ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* openvpn-version: replace the fragile regex `r'N (\d+\.\d+\.\d+)'` (which relied on the "N" at the end of "OpenVPN") with an explicit `r'OpenVPN\s+(\d+\.\d+\.\d+)'` pattern anchored on the command name ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 
 ### Security
 
@@ -39,38 +39,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Add bandit (security) and vulture (dead code) to pre-commit hooks with the standard `--severity-level=low --confidence-level=low` thresholds; known intentional patterns (`B110`/`B112` graceful degradation, `B311` non-cryptographic `random`) are skipped globally via `[tool.bandit]` in `pyproject.toml`
 * Add ruff linter and formatter to pre-commit hooks, enforce single-quote style
+* All plugins: improve and expand DESCRIPTION to clearly explain what each plugin does for the admin deploying it
+* All plugins: rewrite all READMEs to follow consistent structure (Overview, Fact Sheet, Help, Usage Examples, States, Perfdata, Troubleshooting, Credits)
+* All plugins: rewrite README links that point to plugin group index pages (`PLUGINS-KEYCLOAK`, `PLUGINS-MYSQL`, `PLUGINS-ROCKETCHAT`, `PLUGINS-WILDFLY`) and the `#threshold-and-ranges` anchor to use <https://linuxfabrik.github.io/monitoring-plugins/> instead of raw GitHub `blob/main` URLs, so they resolve to the published docs site. Plugin source-file links (including each plugin's Fact Sheet "Check Plugin Download" row), issue-tracker links and the releases Atom feed intentionally stay on GitHub
 * Apply `ruff check --select F,B --fix` across the whole repo to sweep up ~110 unused imports and unused exception variables that had accumulated in plugins never touched by pre-commit (pre-commit only runs on staged files)
-* Per-file ignore `F821`/`B006` for `check-plugins/metabase-stats/metabase-stats` until the rewrite tracked in [#1069](https://github.com/Linuxfabrik/monitoring-plugins/issues/1069) lands
 * Apply ruff format to all plugins, unit tests, and tools (consistent quoting and formatting)
-* Normalize all `from lib.globals import` to single-line format
-* Refactor all `get_perfdata()` calls to use keyword arguments instead of positional (consistent with example plugin)
-* Refactor all standard parameter help texts to use `lib.args.help()` for consistency across plugins
-* Rewrite all parameter help texts for consistency: purpose first, format, repeating, example, default as separate sentences
-* Replace stiff "Set the ..." formulations in parameter help texts with concise wording
-* Remove all inline `pylint: disable` comments from plugins, unit tests, and tools
-* Remove false "Supports Nagios ranges" claims from plugins that do not implement range parsing
-* Replace all bare `except:` with `except Exception:` across all plugins and tools
-* CONTRIBUTING: require Nagios range support (`type=str`, `_operator='range'`) for threshold parameters in new plugins ([#1067](https://github.com/Linuxfabrik/monitoring-plugins/issues/1067))
+* check2basket: emit `notes_url` pointing to the published docs site (<https://linuxfabrik.github.io/monitoring-plugins/check-plugins/NAME/>) instead of the GitHub tree URL, so the Icinga Director "Notes URL" link in the Service Template now opens the rendered plugin page instead of the raw source listing
 * CONTRIBUTING: add "no continuous counters" policy with rationale and link to example plugin ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 * CONTRIBUTING: add early reference to example plugin as skeleton for new plugins
 * CONTRIBUTING: add Grafana migration note for grafanactl ([#1062](https://github.com/Linuxfabrik/monitoring-plugins/issues/1062))
 * CONTRIBUTING: add PEP 8 string quoting convention (single quotes, `"""` for triple-quoted)
 * CONTRIBUTING: add README structure guidelines with fixed section order, Fact Sheet template, and Nagios/Icinga check name for SEO
-* CONTRIBUTING: rewrite unit-test section with declarative test pattern, naming conventions, and tox usage
-* CONTRIBUTING: rewrite unit test fixture naming convention - fixtures in `stdout/` are named by scenario (e.g. `cpu-80-percent`), the expected state is encoded in the testcase `id` instead, so a single fixture can be reused by multiple testcases that vary plugin parameters to reach different states
-* CONTRIBUTING: run pylint without `--disable` flags
 * CONTRIBUTING: remove inline `pylint: disable` comments from code examples
-* All plugins: improve and expand DESCRIPTION to clearly explain what each plugin does for the admin deploying it
-* All plugins: rewrite all READMEs to follow consistent structure (Overview, Fact Sheet, Help, Usage Examples, States, Perfdata, Troubleshooting, Credits)
-* All plugins: rewrite README links that point to plugin group index pages (`PLUGINS-KEYCLOAK`, `PLUGINS-MYSQL`, `PLUGINS-ROCKETCHAT`, `PLUGINS-WILDFLY`) and the `#threshold-and-ranges` anchor to use <https://linuxfabrik.github.io/monitoring-plugins/> instead of raw GitHub `blob/main` URLs, so they resolve to the published docs site. Plugin source-file links (including each plugin's Fact Sheet "Check Plugin Download" row), issue-tracker links and the releases Atom feed intentionally stay on GitHub
-* check2basket: emit `notes_url` pointing to the published docs site (<https://linuxfabrik.github.io/monitoring-plugins/check-plugins/NAME/>) instead of the GitHub tree URL, so the Icinga Director "Notes URL" link in the Service Template now opens the rendered plugin page instead of the raw source listing
+* CONTRIBUTING: require Nagios range support (`type=str`, `_operator='range'`) for threshold parameters in new plugins ([#1067](https://github.com/Linuxfabrik/monitoring-plugins/issues/1067))
+* CONTRIBUTING: rewrite unit test fixture naming convention - fixtures in `stdout/` are named by scenario (e.g. `cpu-80-percent`), the expected state is encoded in the testcase `id` instead, so a single fixture can be reused by multiple testcases that vary plugin parameters to reach different states
+* CONTRIBUTING: rewrite unit-test section with declarative test pattern, naming conventions, and tox usage
+* CONTRIBUTING: run pylint without `--disable` flags
 * example: default `--warning` and `--critical` are now Nagios range strings (`'80'`, `'90'`) to match the `type=str` parser contract
 * example: parse the threshold value from the fetched data (humidity sensor reading from the Linux hwmon interface) so unit tests can drive OK/WARN/CRIT transitions via fixtures; skip SQLite delta calculation in `--test` mode to avoid persistent state between runs
 * example: rename unit test fixture `stdout/ok-basic` to `stdout/humidity-42-percent` (scenario-based) and expand tests to demonstrate fixture reuse across threshold combinations
 * example: rewrite as comprehensive skeleton covering all standard patterns (argparse, SQLite delta calculations, regex filtering, `--lengthy` table output, human-readable formatting, get_state/get_worst, Grafana-compatible perfdata)
 * example: rewrite README as skeleton template with Overview, Fact Sheet, States, Perfdata, and Troubleshooting sections
-* Update and extend pre-commit hooks (add `check-added-large-files`, `check-merge-conflict`, `check-yaml`; update all hook versions)
+* Normalize all `from lib.globals import` to single-line format
+* Per-file ignore `F821`/`B006` for `check-plugins/metabase-stats/metabase-stats` until the rewrite tracked in [#1069](https://github.com/Linuxfabrik/monitoring-plugins/issues/1069) lands
+* Refactor all `get_perfdata()` calls to use keyword arguments instead of positional (consistent with example plugin)
+* Refactor all standard parameter help texts to use `lib.args.help()` for consistency across plugins
+* Remove all inline `pylint: disable` comments from plugins, unit tests, and tools
+* Remove false "Supports Nagios ranges" claims from plugins that do not implement range parsing
+* Replace all bare `except:` with `except Exception:` across all plugins and tools
+* Replace stiff "Set the ..." formulations in parameter help texts with concise wording
+* Rewrite all parameter help texts for consistency: purpose first, format, repeating, example, default as separate sentences
 * Unify CONTRIBUTING and enhance it with the official Monitoring Plugins and Nagios Plugin Development Guidelines
+* Update and extend pre-commit hooks (add `check-added-large-files`, `check-merge-conflict`, `check-yaml`; update all hook versions)
 
 ### Breaking Changes
 
@@ -102,7 +102,6 @@ Monitoring Plugins:
 * infomaniak-swiss-backup-devices: add `--ignore-customer`, `--ignore-name`, `--ignore-tag`, `--ignore-user` parameters to skip devices by regex
 * infomaniak-swiss-backup-products: add `--ignore-customer`, `--ignore-tag` parameters to skip products by regex
 * ipmi-sel: add `--ignore` parameter to filter out SEL entries by regex, e.g. auto-generated "Log area reset/cleared" entries after `ipmitool sel clear` ([#982](https://github.com/Linuxfabrik/monitoring-plugins/issues/982))
-* sensors-temperatures: add `--ignore` parameter to filter out sensors by regex ([#965](https://github.com/Linuxfabrik/monitoring-plugins/issues/965))
 * librenms-alerts: add device-type `management`
 * librenms-health: add device-type `management`
 * nextcloud-enterprise: provides information about an installed Nextcloud Enterprise subscription
@@ -111,6 +110,7 @@ Monitoring Plugins:
 * procs: add `--lengthy` parameter for extended `--top` table output with all platform-specific memory fields
 * procs: add `--top` parameter to list the top N processes by CPU time and memory usage
 * procs: add `--warning-cpu-percent` / `--critical-cpu-percent` thresholds for aggregated CPU usage of filtered processes (requires SQLite for delta calculation between runs)
+* sensors-temperatures: add `--ignore` parameter to filter out sensors by regex ([#965](https://github.com/Linuxfabrik/monitoring-plugins/issues/965))
 * statuspal: also detect 'emergency-maintenance' state
 * valkey-status: support user and password credentials [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954), thanks to [Claudio Kuenzler](https://github.com/Napsty)
 
