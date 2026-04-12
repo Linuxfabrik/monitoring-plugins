@@ -20,7 +20,7 @@ import lib.wildfly
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041201'
 
 DESCRIPTION = """Checks Java heap and non-heap memory usage on a WildFly/JBoss AS server via its HTTP
 management API. Alerts when memory usage exceeds the configured thresholds."""
@@ -186,7 +186,7 @@ def main():
         f'{lib.base.state2str(committed_state, prefix=" ")}'
         f', '
     )
-    state += lib.base.get_worst(used_state, committed_state)
+    state = lib.base.get_worst(state, used_state, committed_state)
     perfdata += lib.base.get_perfdata(
         'heap-used-percent',
         used_percent,
@@ -247,7 +247,7 @@ def main():
         f'{lib.base.state2str(committed_state, prefix=" ")}'
         f', '
     )
-    state += lib.base.get_worst(used_state, committed_state)
+    state = lib.base.get_worst(state, used_state, committed_state)
     perfdata += lib.base.get_perfdata(
         'non-heap-used-percent',
         used_percent,

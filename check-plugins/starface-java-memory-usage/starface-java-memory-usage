@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041201'
 
 DESCRIPTION = """Monitors Java heap and non-heap memory usage of a Starface PBX via its monitoring
 module on port 6556. Alerts when memory usage exceeds the configured thresholds.
@@ -194,7 +194,7 @@ def main():
                     f'of {lib.human.bytes2human(mem_max)})'
                     f'{lib.base.state2str(used_state, prefix=" ")}, '
                 )
-                state += lib.base.get_worst(used_state, state)
+                state = lib.base.get_worst(state, used_state)
                 perfdata += lib.base.get_perfdata(
                     'heap-used-percent',
                     used_percent,
@@ -243,7 +243,7 @@ def main():
                     f'of {lib.human.bytes2human(mem_max)})'
                     f'{lib.base.state2str(used_state, prefix=" ")}, '
                 )
-                state += lib.base.get_worst(used_state, state)
+                state = lib.base.get_worst(state, used_state)
                 perfdata += lib.base.get_perfdata(
                     'non-heap-used-percent',
                     used_percent,
