@@ -32,7 +32,7 @@ with both local and relayed DHCP servers, and can target a specific subnet.
 Alerts if the server does not respond or the response is invalid.
 Requires root or sudo."""
 
-DEFAULT_BIND_ADDRESS = '0.0.0.0'
+DEFAULT_BIND_ADDRESS = '0.0.0.0'  # nosec B104 - DHCP must listen on all interfaces
 DEFAULT_TIMEOUT = 7  # seconds
 
 
@@ -114,7 +114,7 @@ def parse_args():
 def get_transaction_id():
     """Get a random 4-byte transaction ID."""
     xid = b''
-    for i in range(4):
+    for _ in range(4):
         xid += struct.pack('!B', randint(0, 255))
     return xid
 
@@ -122,7 +122,7 @@ def get_transaction_id():
 def randmac():
     """Return random MAC address (6 bytes)."""
     macb = b''
-    for i in range(6):
+    for _ in range(6):
         macb += struct.pack('!B', randint(0, 255))
     return macb
 
@@ -354,7 +354,7 @@ def main():
                 subnet_mask, bc_addr = decode_dhcp_options(dhcp_offer)
                 break  # jump out of the loop, otherwise we'll get a "timed out" message
         dhcps.close()
-    except socket.timeout as e:
+    except socket.timeout:
         lib.base.oao(
             'Socket timeout. Possibly DHCP pool is exhausted, does not exist, or similar.',
             STATE_WARN,
@@ -362,7 +362,7 @@ def main():
 
     # analyze data
     state = STATE_OK
-    if yiaddr == '0.0.0.0':
+    if yiaddr == '0.0.0.0':  # nosec B104 - string comparison, not a bind
         state = STATE_WARN
 
     # build the message

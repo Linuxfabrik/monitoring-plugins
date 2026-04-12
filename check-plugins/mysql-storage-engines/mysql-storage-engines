@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041201'
 
 DESCRIPTION = """Checks storage engine configuration in MySQL/MariaDB, including fragmented tables
 that may benefit from optimization and tables using non-default or deprecated storage
@@ -163,21 +163,22 @@ def main():
         msg += "* MYISAM is enabled but isn't being used. Add skip-isam to MySQL configuration to disable ISAM (MySQL 4.1.0+)\n"
 
     # Fragmented tables
+    # not_innodb is a hardcoded SQL fragment chosen from two constants, not user input
     not_innodb = ''
     if not myvar.get('innodb_file_per_table', ''):
         not_innodb = 'and not ENGINE="InnoDB"'
     elif myvar['innodb_file_per_table'] == 'OFF':
         not_innodb = 'and not ENGINE="InnoDB"'
-    sql = f"""
-        select concat(concat(TABLE_SCHEMA, '.'),TABLE_NAME) as full_table_name,
-            cast(DATA_FREE as signed) as data_free
-        from information_schema.tables
-        where TABLE_SCHEMA not in ('information_schema', 'performance_schema', 'mysql')
-            and DATA_LENGTH/1024/1024 > 100
-            and cast(DATA_FREE as signed)*100/(DATA_LENGTH+INDEX_LENGTH+cast(DATA_FREE as signed)) > 10
-            and not ENGINE='MEMORY'
-            {not_innodb}
-    """
+    sql = (
+        "select concat(concat(TABLE_SCHEMA, '.'),TABLE_NAME) as full_table_name, "  # nosec B608
+        'cast(DATA_FREE as signed) as data_free '
+        'from information_schema.tables '
+        "where TABLE_SCHEMA not in ('information_schema', 'performance_schema', 'mysql') "
+        'and DATA_LENGTH/1024/1024 > 100 '
+        'and cast(DATA_FREE as signed)*100/(DATA_LENGTH+INDEX_LENGTH+cast(DATA_FREE as signed)) > 10 '
+        "and not ENGINE='MEMORY' "
+        f'{not_innodb}'
+    )
     fragtables = lib.base.coe(lib.db_mysql.select(conn, sql))
     if len(fragtables) > 0:
         msg += f'* {len(fragtables)} fragmented {lib.txt.pluralize("table", len(fragtables))}\n'
@@ -196,13 +197,6 @@ def main():
             f'* Total freed space after all OPTIMIZE TABLEs:'
             f' {lib.human.bytes2human(total_free)}\n'
         )
-
-    sql = """
-        select ENGINE as engine, SUPPORT as support
-        from information_schema.engines
-        order by ENGINE asc;
-    """
-    engineresults = lib.base.coe(lib.db_mysql.select(conn, sql))
 
     # Auto increments
     tblist = {}

@@ -205,12 +205,12 @@ def main():
             user_domain_name=env.get('OS_USER_DOMAIN_NAME', 'default'),
             username=env.get('OS_USERNAME', None),
         )
-    except Exception as e:
+    except Exception:
         lib.base.cu('An error occurred while connecting to Nova')
     try:
         # https://docs.openstack.org/python-novaclient/latest/reference/api/novaclient.v2.servers.html#novaclient.v2.servers.ServerManager.list
         servers = nova.servers.list()
-    except Exception as e:
+    except Exception:
         lib.base.cu('An error occurred while getting the server list from Nova')
 
     # init some vars
@@ -225,7 +225,7 @@ def main():
         'ERROR': 0,
         'HARD_REBOOT': 0,
         'MIGRATING': 0,
-        'PASSWORD': 0,
+        'PASSWORD': 0,  # nosec B105 - OpenStack VM state name, not a secret
         'PAUSED': 0,
         'REBOOT': 0,
         'REBUILD': 0,
@@ -253,7 +253,7 @@ def main():
                 'status': server.status,
                 'updated': server.updated.replace('T', ' ').replace('Z', ''),
             }
-        except Exception as e:
+        except Exception:
             lib.base.cu('Error occured while fetching server attributes.')
         item['created'] = (
             f'{item["created"]}'

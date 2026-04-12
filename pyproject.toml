@@ -22,7 +22,17 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # example plugin: unused imports/vars are intentional (skeleton demonstrating patterns)
 'check-plugins/example/example' = ['F401', 'F841', 'RUF059', 'SIM102']
+# metabase-stats: known broken, tracked in issue #1069 (rewrite needed)
+'check-plugins/metabase-stats/metabase-stats' = ['F821', 'B006']
 
 [tool.ruff.format]
 quote-style = 'single'
 docstring-code-format = true
+
+[tool.bandit]
+# B110 (try/except/pass) and B112 (try/except/continue): intentional patterns in
+# monitoring plugins for graceful degradation - cleanup errors must not crash a
+# check, and loops must continue past one broken item.
+# B311 (pseudo-random): monitoring plugins use `random` for non-cryptographic
+# purposes only (transaction IDs, random MACs for DHCP tests, test data).
+skips = ['B110', 'B112', 'B311']

@@ -19,7 +19,7 @@ import lib.db_mysql
 import lib.shell
 import lib.time
 import lib.txt
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
@@ -101,10 +101,11 @@ def parse_args():
 
 def check_crts(conn, args, state):
     """Check certificates for expiration."""
+    # PREFIX is a trusted admin-controlled SQL identifier (Icinga check config), not user input
     result = lib.base.coe(
         lib.db_mysql.select(
             conn,
-            f'select name, cert, ca, {args.PREFIX}certs_serial '
+            f'select name, cert, ca, {args.PREFIX}certs_serial '  # nosec B608
             f'from xca.{args.PREFIX}view_certs '
             f'where invaldate is null',
         )
@@ -158,10 +159,11 @@ def check_crts(conn, args, state):
 
 def check_crls(conn, args, state):
     """Check CRLs for their next update."""
+    # PREFIX is a trusted admin-controlled SQL identifier (Icinga check config), not user input
     result = lib.base.coe(
         lib.db_mysql.select(
             conn,
-            f'select name,crl from xca.{args.PREFIX}view_crls order by date desc limit 1',
+            f'select name,crl from xca.{args.PREFIX}view_crls order by date desc limit 1',  # nosec B608
         )
     )
 

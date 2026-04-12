@@ -218,12 +218,13 @@ def main():
     lib.base.coe(lib.db_sqlite.commit(conn))
 
     # fetch desired objects only, and set sqlite3 to be case insensitive when string comparing
+    # QUERY is by design an admin-provided SQL WHERE clause (documented feature)
     sql = f"""
         SELECT *
         FROM kubectl_get_pods
         WHERE {args.QUERY}
         COLLATE NOCASE
-    """
+    """  # nosec B608
     result = lib.base.coe(lib.db_sqlite.select(conn, sql))
     lib.db_sqlite.close(conn)
 
@@ -237,7 +238,7 @@ def main():
         'Unknown': 0,
     }
     severity = lib.base.str2state(args.SEVERITY)
-    for i, item in enumerate(result):
+    for item in result:
         pod_states[item['status']] += 1
         if item['status'] in ['Pending', 'Failed']:
             state = lib.base.get_worst(state, severity)

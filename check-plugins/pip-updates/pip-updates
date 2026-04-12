@@ -205,8 +205,10 @@ def main():
 
         if args.VIRTUALENV:
             # `source` does not work on every environment, so use `.`
+            # shell=True needed for the `. venv && pip` composition; VIRTUALENV
+            # is an admin-provided path from the Icinga check config
             cmd = f'. {args.VIRTUALENV} && {cmd}'
-            stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd, shell=True))
+            stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd, shell=True))  # nosec B604
         else:
             stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
     else:

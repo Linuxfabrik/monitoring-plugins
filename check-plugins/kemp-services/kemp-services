@@ -13,7 +13,7 @@
 import argparse
 import base64
 import sys
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ET  # nosec B405 - XML comes from admin-configured Kemp LB API
 
 import lib.args
 import lib.base
@@ -173,7 +173,9 @@ def main():
     table = []
 
     # analyze data
-    for service in ET.fromstring(result).findall('.Success/Data/VS'):
+    # response comes from the admin-configured Kemp LB API, not from untrusted
+    # end-user input; defusedxml would require an additional dependency
+    for service in ET.fromstring(result).findall('.Success/Data/VS'):  # nosec B314
         name = service.find('NickName').text
         if not args.FILTER or args.FILTER in name:
             count += 1

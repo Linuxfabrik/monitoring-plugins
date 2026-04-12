@@ -120,6 +120,7 @@ def main():
         'colcollation': '',
     }
 
+    # schema names come from MySQL itself (SHOW DATABASES), not from user input
     for schema in dblist:
         sql = f'''
             select TABLE_SCHEMA,
@@ -135,7 +136,7 @@ def main():
             where TABLE_SCHEMA="{schema['SCHEMA_NAME']}"
             group by TABLE_SCHEMA
             order by TABLE_SCHEMA;
-        '''
+        '''  # nosec B608
         dbinfo = lib.base.coe(lib.db_mysql.select(conn, sql, fetchone=True))
         if dbinfo is None:
             continue
@@ -173,7 +174,7 @@ def main():
             from information_schema.COLUMNS
             where CHARACTER_SET_NAME is not null
                 and TABLE_SCHEMA = "{schema['SCHEMA_NAME']}";
-        '''
+        '''  # nosec B608
         distinct_column_charset = lib.base.coe(lib.db_mysql.select(conn, sql))
         if len(distinct_column_charset) > 1:
             results['colcharset'] += (
@@ -185,7 +186,7 @@ def main():
             from information_schema.COLUMNS
             where COLLATION_NAME is not null
                 and TABLE_SCHEMA = "{schema['SCHEMA_NAME']}";
-        '''
+        '''  # nosec B608
         distinct_column_collation = lib.base.coe(lib.db_mysql.select(conn, sql))
         if len(distinct_column_collation) > 1:
             results['colcollation'] += (

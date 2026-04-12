@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+"""Run static analysis (ruff, pylint, bandit, vulture) over the whole repo.
+
+Pre-commit hooks only run on staged files. This script sweeps every plugin
+script, every tool, and every file under lib/ so that long-standing issues
+cannot hide simply because nobody has touched the file in a while.
+
+Plugin scripts use a shebang instead of a `.py` extension, so the script
+discovers them by `#!/usr/bin/env python` header and passes them explicitly
+to each analyzer.
+
+Usage:
+    tools/run-static-checks                 # run all analyzers
+    tools/run-static-checks --only=ruff     # run only ruff
+    tools/run-static-checks --only=ruff,bandit
+"""
+
+import argparse
+import os
+import subprocess
+import sys
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+
+def discover_python_files():
+    """Discover every Python file in the repo.
+
+    Includes shebang-prefixed plugin scripts under check-plugins/ and tools/
+    as well as *.py files under tools/. The shared `lib` library lives in
+    a separate repository and is not scanned here.
+    """
+    python_files = []
+    for walk_root in ('check-plugins', 'tools'):
+        full_walk_root = os.path.join(REPO_ROOT, walk_root)
+        for dirpath, dirnames, filenames in os.walk(full_walk_root):
+            dirnames[:] = [d for d in dirnames if d not in ('__pycache__', '.git')]
+            for filename in filenames:
+                path = os.path.join(dirpath, filename)
+                if filename.endswith('.py'):
+                    python_files.append(path)
+                    continue
+                if not os.access(path, os.X_OK):
+                    continue
+                try:
+                    with open(path, encoding='utf-8', errors='ignore') as f:
+                        first_line = f.readline()
+                except OSError:
+                    continue
+                if first_line.startswith('#!') and 'python' in first_line:
+                    python_files.append(path)
+    return sorted(python_files)
+
+
+def run(analyzer, argv):
+    print(f'\n=== {analyzer} ===', flush=True)
+    try:
+        result = subprocess.run(argv, cwd=REPO_ROOT, check=False)
+    except FileNotFoundError:
+        print(f'{analyzer}: not installed, skipping')
+        return 0
+    return result.returncode
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '--only',
+        help='Comma-separated list of analyzers to run (ruff, pylint, bandit, vulture)',
+        default='',
+    )
+    args = parser.parse_args()
+
+    selected = set(args.only.split(',')) if args.only else None
+
+    python_files = discover_python_files()
+    if not python_files:
+        print('No Python files found.')
+        return 1
+    print(f'Found {len(python_files)} Python files.')
+
+    exit_code = 0
+
+    if selected is None or 'ruff' in selected:
+        exit_code |= run('ruff', ['ruff', 'check', '--no-fix', *python_files])
+
+    if selected is None or 'pylint' in selected:
+        exit_code |= run('pylint', ['pylint', *python_files])
+
+    if selected is None or 'bandit' in selected:
+        exit_code |= run(
+            'bandit',
+            [
+                'bandit',
+                '-q',
+                '--severity-level=high',
+                '--confidence-level=high',
+                *python_files,
+            ],
+        )
+
+    if selected is None or 'vulture' in selected:
+        exit_code |= run('vulture', ['vulture', '--min-confidence=80', *python_files])
+
+    return 0 if exit_code == 0 else 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

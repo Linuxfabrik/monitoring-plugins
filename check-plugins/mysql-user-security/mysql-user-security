@@ -156,6 +156,7 @@ def main():
     success, users = lib.db_mysql.select(conn, sql)
     if not success:
         # all other versions:
+        # pass_column_name is from a hardcoded list of MySQL-version-specific column names
         for pass_column_name in pass_column_names:
             sql = f"""
                 select concat(quote(user), "@", quote(host)) as user
@@ -166,7 +167,7 @@ def main():
                     and user != "mysql.sys"
                     /*!50501 and plugin not in ("auth_socket", "unix_socket", "win_socket", "auth_pam_compat") */
                     /*!80000 and account_locked = "N" and password_expired = "N" */;
-            """
+            """  # nosec B608
             success, users = lib.db_mysql.select(conn, sql)
             if success:
                 break
@@ -190,6 +191,7 @@ def main():
 
     # Looking for users with user / uppercase / capitalise user as password
     # does not work on MySQL 8
+    # pass_column_name is from a hardcoded list of MySQL-version-specific column names
     for pass_column_name in pass_column_names:
         sql = f"""
             select concat(quote(user), "@", quote(host)) as user
@@ -202,7 +204,7 @@ def main():
                     or cast({pass_column_name} as binary) = password(upper(user))
                     or cast({pass_column_name} as binary) = password(concat(upper(left(user, 1)), substring(user, 2, length(user))))
                 );
-        """
+        """  # nosec B608
         success, users = lib.db_mysql.select(conn, sql)
         if success:
             break

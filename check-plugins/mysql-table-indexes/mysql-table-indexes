@@ -112,6 +112,7 @@ def main():
     """
     user_dbs = lib.base.coe(lib.db_mysql.select(conn, sql))
 
+    # schema and table names come from MySQL itself, not from user input
     for schema in user_dbs:
         sql = f'''
             select TABLE_NAME
@@ -119,7 +120,7 @@ def main():
             where TABLE_SCHEMA="{schema['TABLE_SCHEMA']}"
                 and table_type="BASE TABLE"
             order by TABLE_NAME;
-        '''
+        '''  # nosec B608
         user_tables = lib.base.coe(lib.db_mysql.select(conn, sql))
 
         for table in user_tables:
@@ -131,7 +132,7 @@ def main():
                 where index_schema="{schema['TABLE_SCHEMA']}"
                     and TABLE_NAME="{table['TABLE_NAME']}"
                 group by idxname, type;
-            '''
+            '''  # nosec B608
             user_indexes = lib.base.coe(lib.db_mysql.select(conn, sql))
             if len(user_indexes) == 0:
                 tables.append(f'{schema["TABLE_SCHEMA"]}.{table["TABLE_NAME"]}')

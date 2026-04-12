@@ -315,9 +315,12 @@ def main():
     # fetch data
     if args.TEST is None:
         cmd = build_snmpget_call(args)
+        # cmd is built from admin-controlled SNMP parameters (Icinga check config),
+        # not from end-user input; shell=True is required so snmpget accepts the
+        # escaped OID list as a single argument
         for oid in oids:
             tmp, stderr, retc = lib.base.coe(
-                lib.shell.shell_exec(cmd.replace('_OIDS_', oid), shell=True)
+                lib.shell.shell_exec(cmd.replace('_OIDS_', oid), shell=True)  # nosec B604
             )
             if stderr or retc != 0:
                 lib.base.cu(stderr)
@@ -428,8 +431,11 @@ def main():
 
         if recalc:
             # we got a formula
+            # eval() is the documented snmp plugin feature: admins provide
+            # arithmetic recalculation formulas (e.g. 'value * 8') in the check
+            # config; ast.literal_eval cannot evaluate arithmetic
             try:
-                value = eval(recalc, {}, {'value': value, 'values': values})
+                value = eval(recalc, {}, {'value': value, 'values': values})  # nosec B307
             except Exception as e:
                 table_values.append(
                     {
@@ -443,17 +449,19 @@ def main():
         values[name] = value
 
         # check the state
+        # eval() is the documented snmp plugin feature: admins provide
+        # boolean threshold expressions (e.g. 'value > 80') in the check config
         check_state = True
         value_state = STATE_OK
         if check_state and crit:
-            if eval(crit, {}, {'value': value, 'values': values}):
+            if eval(crit, {}, {'value': value, 'values': values}):  # nosec B307
                 value_state = STATE_CRIT
                 msg_header += (
                     f'{name}: {value}{unit} {lib.base.state2str(STATE_CRIT)}, '
                 )
                 check_state = False  # no more checks for this value necessary
         if check_state and warn:
-            if eval(warn, {}, {'value': value, 'values': values}):
+            if eval(warn, {}, {'value': value, 'values': values}):  # nosec B307
                 value_state = STATE_WARN
                 msg_header += (
                     f'{name}: {value}{unit} {lib.base.state2str(STATE_WARN)}, '
@@ -567,7 +575,9 @@ def main():
         w, c = None, None
         try:
             # performance thresholds should return a tuple
-            w, c = eval(perf_thresholds, {})
+            # eval() is the documented feature: admins provide perf thresholds
+            # as Python tuple expressions in the check config
+            w, c = eval(perf_thresholds, {})  # nosec B307
         except Exception:
             pass
         if not ignore_perfdata and isinstance(value_type, (int, float)):

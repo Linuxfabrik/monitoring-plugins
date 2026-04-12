@@ -341,7 +341,9 @@ def main():
         # add sshpass in front of it
         cmd = f'sshpass -p {args.PASSWORD} {cmd}'
     timer_start = lib.time.now('float')
-    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd, shell=args.SHELL))
+    # shell=True is opt-in via --shell for the admin; the plugin's purpose is
+    # to execute admin-provided remote commands over SSH
+    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd, shell=args.SHELL))  # nosec B604
     if args.PASSWORD and not stderr and retc in range(1, 8):
         # we got a specific sshpass return code (this also means stderr = ""), and not just
         # something like stderr = "Permission denied" with retc 127 or 255

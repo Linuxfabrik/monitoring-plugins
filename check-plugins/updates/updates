@@ -21,7 +21,7 @@ from lib.globals import STATE_OK, STATE_UNKNOWN
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025103001'
+__version__ = '2026041201'
 
 DESCRIPTION = """Checks the number of pending Windows updates. Alerts when the update count exceeds the
 configured thresholds."""
@@ -116,11 +116,12 @@ def main():
 
     if count:
         state = lib.base.get_state(count, args.WARN, args.CRIT)
+        bullet_list = result.replace('\n', '\n* ')
         lib.base.oao(
             (
                 f'There {lib.txt.pluralize("", count, "is,are")} {count} pending '
                 f'{lib.txt.pluralize("update", count)}:\n\n'
-                f'* {result.replace("\n", "\n* ")}'
+                f'* {bullet_list}'
             ),
             state,
             perfdata,

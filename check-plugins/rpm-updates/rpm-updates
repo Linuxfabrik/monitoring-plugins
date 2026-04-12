@@ -640,13 +640,14 @@ def main():
     # analyze data
 
     # fetch desired objects only, and set sqlite3 to be case insensitive when string comparing
+    # QUERY is by design an admin-provided SQL WHERE clause (documented feature)
     sql = f"""
         SELECT *
         FROM list
         WHERE {args.QUERY}
         ORDER BY package
         COLLATE NOCASE
-    """
+    """  # nosec B608
     update_data = lib.base.coe(lib.db_sqlite.select(conn, sql))
 
     sql = f"""
@@ -655,7 +656,7 @@ def main():
         WHERE {args.QUERY}
         ORDER BY package
         COLLATE NOCASE
-    """
+    """  # nosec B608
     info_data = lib.base.coe(lib.db_sqlite.select(conn, sql))
     if not info_data:
         # happens when we search for security updates, but first query returns standard updates only

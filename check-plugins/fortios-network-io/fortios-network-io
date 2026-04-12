@@ -132,6 +132,7 @@ def parse_args():
 
 def get_interface_states_from_db(conn, table, interface):
     """Fetch inventorized link state for an interface from SQLite."""
+    # table is sanitized to a safe SQL identifier by __filter_str()
     table = lib.db_sqlite.__filter_str(table)
     return lib.db_sqlite.select(
         conn,
@@ -139,7 +140,7 @@ def get_interface_states_from_db(conn, table, interface):
         SELECT *
         FROM {table}
         WHERE interface = :interface
-        """,
+        """,  # nosec B608
         {'interface': interface},
         fetchone=True,
     )

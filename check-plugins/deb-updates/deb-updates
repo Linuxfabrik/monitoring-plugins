@@ -17,13 +17,14 @@ import sys
 import lib.args
 import lib.base
 import lib.db_sqlite
-import lib.shell
 import lib.lftest
+import lib.shell
+import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026041201'
 
 DESCRIPTION = """Checks for available APT package updates on Debian, Ubuntu, and compatible systems.
 Reports the number of pending updates and upgrades, and alerts when updates are
@@ -162,12 +163,13 @@ def main():
     lib.base.coe(lib.db_sqlite.commit(conn))
 
     # fetch desired objects only, and set sqlite3 to be case insensitive when string comparing
+    # QUERY is by design an admin-provided SQL WHERE clause (documented feature)
     sql = f"""
         SELECT *
         FROM deb_updates
         WHERE {args.QUERY}
         COLLATE NOCASE
-    """
+    """  # nosec B608
     result = lib.base.coe(lib.db_sqlite.select(conn, sql))
     lib.db_sqlite.close(conn)
 

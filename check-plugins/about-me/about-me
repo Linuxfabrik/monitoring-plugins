@@ -136,9 +136,10 @@ def get_birthday():
         birthday = os.stat('/var/lib/cloud/data/instance-id')
         return f'born {lib.time.epoch2iso(birthday.st_ctime)}. '
     # no way to do this in python - getting the birthday of a folder
+    # hardcoded shell pipeline (no user input); shell=True needed for pipes
     success, result = lib.shell.shell_exec(
         'stat / | grep "Birth" | sed "s/Birth: //g" | cut -b 2-11',
-        shell=True,
+        shell=True,  # nosec B604
     )
     birthday, _, _ = result
     birthday = birthday.strip()
@@ -593,17 +594,18 @@ def get_lftags(distro):
         {
             'sw': 'mod_qos',
             'package': ['mod_qos'],
+            # hardcoded shell pipelines (no user input); shell=True needed for pipes
             'expr': [
                 os.path.isfile('/usr/lib64/httpd/modules/mod_qos.so'),
                 os.path.isdir('/var/lib/mod_security'),
                 run_cmd(
                     'httpd -t -D DUMP_MODULES | grep mod_qos',
-                    shell=True,
+                    shell=True,  # nosec B604
                     ignore_output=True,
                 ),
                 run_cmd(
                     'apache2 -t -D DUMP_MODULES | grep mod_qos',
-                    shell=True,
+                    shell=True,  # nosec B604
                     ignore_output=True,
                 ),
             ],
@@ -1274,7 +1276,8 @@ def run_cmd(cmd, shell=False, ignore_output=False):
     env = os.environ.copy()
     env['LC_ALL'] = 'C'
     env['PATH'] += ':/usr/local/bin:/usr/local/sbin'
-    success, result = lib.shell.shell_exec(cmd, shell=shell, env=env)
+    # shell is opt-in per call site and all call sites pass hardcoded commands
+    success, result = lib.shell.shell_exec(cmd, shell=shell, env=env)  # nosec B604
     if not success:
         return False
     stdout, stderr, retc = result

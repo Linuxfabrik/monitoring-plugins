@@ -11,10 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * Fix `--require-hashes` pip install in pre-commit autoupdate workflow by using pinned version instead
+* deb-updates: add missing `lib.txt` import so the "N update(s) available" summary no longer crashes with `AttributeError` at runtime
+* mysql-memory: fix `get_other_process_memory()` fallback path for psutil older than 5.3.0 (referenced an undefined `cmdline` variable and the wrong attribute on the process dict) and drop an unreachable `break` after `return` in `get_pfs_memory()`
+* mysql-storage-engines: drop a dead `SELECT ... FROM information_schema.engines` query whose result was never used
+* ping: drop dead initialization of `rtt_min / rtt_avg / rtt_max / rtt_mdev` that was never read
+* rocketchat-stats: add missing `lib.txt` import so the user-count pluralization no longer crashes with `AttributeError` at runtime
+* updates: fix pending-updates message so it no longer relies on a backslash escape inside an f-string, which is a `SyntaxError` on Python 3.9 (the runtime this project targets)
+
+### Security
+
+* Annotate all remaining bandit low/medium findings with `# nosec BXXX` comments and a short justification, covering admin-provided SQL `WHERE` clauses (deb-updates, kubectl-get-pods, rpm-updates), SQL identifiers sanitized via `lib.db_sqlite.__filter_str()` (fortios-network-io, mysql-*, xca-cert), `shell=True` pipelines with hardcoded commands (about-me, by-ssh, pip-updates, snmp), admin-configured XML parsing (kemp-services), admin-provided `eval()` formulas (snmp), DHCP-required binding to `0.0.0.0` (dhcp-relayed), and a handful of default-value "password" strings that are install defaults rather than secrets (keycloak, matomo, openstack-nova-list). Bandit now runs clean at `--severity-level=low --confidence-level=low` over the whole repo
 
 ### Changed
 
+* Add bandit (security) and vulture (dead code) to pre-commit hooks with the standard `--severity-level=low --confidence-level=low` thresholds; known intentional patterns (`B110`/`B112` graceful degradation, `B311` non-cryptographic `random`) are skipped globally via `[tool.bandit]` in `pyproject.toml`
 * Add ruff linter and formatter to pre-commit hooks, enforce single-quote style
+* Apply `ruff check --select F,B --fix` across the whole repo to sweep up ~110 unused imports and unused exception variables that had accumulated in plugins never touched by pre-commit (pre-commit only runs on staged files)
+* Per-file ignore `F821`/`B006` for `check-plugins/metabase-stats/metabase-stats` until the rewrite tracked in [#1069](https://github.com/Linuxfabrik/monitoring-plugins/issues/1069) lands
 * Apply ruff format to all plugins, unit tests, and tools (consistent quoting and formatting)
 * Normalize all `from lib.globals import` to single-line format
 * Refactor all `get_perfdata()` calls to use keyword arguments instead of positional (consistent with example plugin)
@@ -36,6 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * CONTRIBUTING: remove inline `pylint: disable` comments from code examples
 * All plugins: improve and expand DESCRIPTION to clearly explain what each plugin does for the admin deploying it
 * All plugins: rewrite all READMEs to follow consistent structure (Overview, Fact Sheet, Help, Usage Examples, States, Perfdata, Troubleshooting, Credits)
+* All plugins: rewrite README links that point to plugin group index pages (`PLUGINS-KEYCLOAK`, `PLUGINS-MYSQL`, `PLUGINS-ROCKETCHAT`, `PLUGINS-WILDFLY`) and the `#threshold-and-ranges` anchor to use <https://linuxfabrik.github.io/monitoring-plugins/> instead of raw GitHub `blob/main` URLs, so they resolve to the published docs site. Plugin source-file links (including each plugin's Fact Sheet "Check Plugin Download" row), issue-tracker links and the releases Atom feed intentionally stay on GitHub
+* check2basket: emit `notes_url` pointing to the published docs site (<https://linuxfabrik.github.io/monitoring-plugins/check-plugins/NAME/>) instead of the GitHub tree URL, so the Icinga Director "Notes URL" link in the Service Template now opens the rendered plugin page instead of the raw source listing
 * example: default `--warning` and `--critical` are now Nagios range strings (`'80'`, `'90'`) to match the `type=str` parser contract
 * example: parse the threshold value from the fetched data (humidity sensor reading from the Linux hwmon interface) so unit tests can drive OK/WARN/CRIT transitions via fixtures; skip SQLite delta calculation in `--test` mode to avoid persistent state between runs
 * example: rename unit test fixture `stdout/ok-basic` to `stdout/humidity-42-percent` (scenario-based) and expand tests to demonstrate fixture reuse across threshold combinations
@@ -59,6 +74,7 @@ Monitoring Plugins:
 
 Build, CI/CD:
 
+* Add `tools/run-static-checks` runner that discovers every plugin script and tool in the repo (including shebang-prefixed files without a `.py` extension) and sweeps them with ruff, pylint, bandit and vulture in a single command, so long-standing issues cannot hide in files that pre-commit never sees
 * Add `tools/run-unit-tests` runner for discovering and executing all plugin unit tests from the repo root
 * Add `tox.ini` for multi-version testing (Python 3.9 through 3.14)
 * Add MkDocs-based documentation site, deployed automatically to GitHub Pages via `tools/build-docs` and a GitHub Actions workflow

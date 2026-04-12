@@ -30,7 +30,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041201'
 
 DESCRIPTION = """Checks memory allocation and usage metrics for MySQL/MariaDB, including global buffers,
 per-thread buffers, and total potential memory consumption. Alerts if the server's
@@ -142,7 +142,6 @@ def get_pf_memory(conn, myvar):
     for item in infoPFSMemory:
         if item['Type'] == 'performance_schema' and item['Name'].startswith('memory'):
             return int(item['Status'])
-            break
     return 0
 
 
@@ -179,6 +178,9 @@ def get_other_process_memory():
                 x.as_dict(attrs=['name', 'cmdline', 'memory_info'])
                 for x in psutil.process_iter()
             ]:
+                if not p.get('cmdline'):
+                    continue
+                cmdline = ' '.join(p['cmdline'])
                 if not cmdline.strip():
                     continue
                 if 'PID' in cmdline:
@@ -193,7 +195,7 @@ def get_other_process_memory():
                     continue
                 if cmdline.startswith(' '):
                     continue
-                totalMemOther += p.info['memory_info'].rss
+                totalMemOther += p['memory_info'].rss
         except psutil.NoSuchProcess:
             pass
     return totalMemOther
