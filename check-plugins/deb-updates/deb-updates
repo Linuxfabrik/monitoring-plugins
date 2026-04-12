@@ -24,7 +24,7 @@ from lib.globals import STATE_OK, STATE_UNKNOWN
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041201'
+__version__ = '2026041202'
 
 DESCRIPTION = """Checks for available APT package updates on Debian, Ubuntu, and compatible systems.
 Reports the number of pending updates and upgrades, and alerts when updates are
@@ -76,6 +76,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -112,22 +119,30 @@ def main():
     perfdata = ''
 
     # fetch data
-    # try to update the package cache first
-    stdout, stderr, retc = lib.base.coe(
-        lib.shell.shell_exec('sudo apt-get update --quiet 2', timeout=args.TIMEOUT),
-    )
-    if retc or stderr:
-        # Not printing stderr as it is quite verbose
-        msg += '`apt-get update` returned with an error. '
-        lib.base.cu(msg)
+    if args.TEST is None:
+        # try to update the package cache first
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec('sudo apt-get update --quiet 2', timeout=args.TIMEOUT),
+        )
+        if retc or stderr:
+            # Not printing stderr as it is quite verbose
+            msg += '`apt-get update` returned with an error. '
+            lib.base.cu(msg)
 
-    stdout, _, retc = lib.base.coe(
-        lib.shell.shell_exec('apt list --upgradable', timeout=args.TIMEOUT),
-    )
-    if retc:
-        # Not printing stderr as it is quite verbose
-        msg += '`apt list --upgradable` returned with an error. '
-        lib.base.cu(msg)
+        stdout, _, retc = lib.base.coe(
+            lib.shell.shell_exec('apt list --upgradable', timeout=args.TIMEOUT),
+        )
+        if retc:
+            # Not printing stderr as it is quite verbose
+            msg += '`apt list --upgradable` returned with an error. '
+            lib.base.cu(msg)
+    else:
+        # skip the apt-get update refresh in test mode and read the
+        # `apt list --upgradable` output from a fixture file
+        stdout, _, retc = lib.lftest.test(args.TEST)
+        if retc:
+            msg += '`apt list --upgradable` returned with an error. '
+            lib.base.cu(msg)
 
     # strip first line "Listing... Done." (if any)
     first, _, rest = stdout.partition('\n')

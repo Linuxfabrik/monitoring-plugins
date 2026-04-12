@@ -13,14 +13,17 @@
 import argparse
 import sys
 
+import lib.args
 import lib.base
 import lib.disk
 import lib.distro
+import lib.lftest
 import lib.shell
+import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041202'
 
 DESCRIPTION = """Checks for processes that were started before they or one of their dependencies were
 updated. Returns WARN if a full system reboot is required or if individual services
@@ -40,6 +43,22 @@ def parse_args():
         version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    # hidden test hook: force the OS family detection instead of reading
+    # /etc/os-release, so a single host can exercise both the RedHat and
+    # Debian code paths via fixtures
+    parser.add_argument(
+        '--test-os-family',
+        help=argparse.SUPPRESS,
+        dest='TEST_OS_FAMILY',
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -48,28 +67,39 @@ def main():
     """The main function. This is where the magic happens."""
 
     # parse the command line, exit with UNKNOWN if it fails
-    # the plugin has no runtime parameters, but parse_args() must run to
-    # support --help and --version via argparse
     try:
-        parse_args()
+        args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
     # init some vars
-    distro = lib.distro.get_distribution_facts()
+    if args.TEST_OS_FAMILY:
+        distro = {'os_family': args.TEST_OS_FAMILY}
+    else:
+        distro = lib.distro.get_distribution_facts()
 
     # build the message
     if distro['os_family'] == 'RedHat':
         # 1. full reboot necessary? check the return code (<> 0: needs reboot):
         # needs-restarting --reboothint
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('needs-restarting --reboothint')
-        )
+        if args.TEST is None:
+            stdout, stderr, retc = lib.base.coe(
+                lib.shell.shell_exec('needs-restarting --reboothint')
+            )
+        else:
+            stdout, stderr, retc = lib.lftest.test(
+                [args.TEST[0] + '-reboothint', args.TEST[1], args.TEST[2]],
+            )
         if int(retc) == 1:
             lib.base.oao('A system reboot may be required.', STATE_WARN)
 
         # 2. long list of all updated services (process list): needs-restarting
-        stdout, _, retc = lib.base.coe(lib.shell.shell_exec('needs-restarting'))
+        if args.TEST is None:
+            stdout, _, retc = lib.base.coe(lib.shell.shell_exec('needs-restarting'))
+        else:
+            stdout, _, retc = lib.lftest.test(
+                [args.TEST[0] + '-services', args.TEST[1], args.TEST[2]],
+            )
         service_restart_needed = stdout.strip()
         if service_restart_needed:
             #  support for backslash characters within the brace substitution is still disallowed
@@ -88,7 +118,13 @@ def main():
 
     if distro['os_family'] == 'Debian':
         # 1. check if needrestart is available - if yes, use it
-        success, result = lib.shell.shell_exec('needrestart -b')
+        if args.TEST is None:
+            success, result = lib.shell.shell_exec('needrestart -b')
+        else:
+            success = True
+            result = lib.lftest.test(
+                [args.TEST[0] + '-needrestart', args.TEST[1], args.TEST[2]],
+            )
         if success:
             stdout, stderr, retc = result
             # NEEDRESTART-VER: 3.5
