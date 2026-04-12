@@ -11,12 +11,32 @@
 Each unit test is executed from its own directory (check-plugins/<name>/unit-test/)
 because the test files use relative paths for test data and plugin references.
 
+Unit tests come in two shapes:
+
+- **fast tests**: pure-Python tests that use `--test` fixtures and run in
+  well under a second. These are safe to run in the multi-Python-version
+  tox matrix.
+- **container tests**: tests that build a podman container per target OS,
+  inject the plugin plus `lib/`, and exercise the check against a live
+  service. They take minutes per plugin and need podman. They are not
+  safe for the tox matrix, and get their own runner
+  (`tools/run-container-tests`). A unit test counts as a container test
+  if the plugin's `unit-test/` directory has a `containerfiles/`
+  subdirectory.
+
 Usage:
-    python tools/run-unit-tests                 # run all
+    python tools/run-unit-tests                 # run everything
+    python tools/run-unit-tests --no-container  # skip container tests
+    python tools/run-unit-tests --only-container  # run only container tests
     python tools/run-unit-tests disk-smart      # run one plugin
     python tools/run-unit-tests disk-smart xml  # run specific plugins
+    python tools/run-unit-tests --no-container procs  # flags + plugins mix
+
+When specific plugins are requested on the command line, filters like
+`--no-container` still apply.
 """
 
+import argparse
 import os
 import subprocess
 import sys
@@ -27,27 +47,57 @@ import sys
 SKIP_PLUGINS = {'example'}
 
 
+def is_container_test(check_plugins, plugin):
+    """Return True if the plugin's unit test builds/runs containers."""
+    return os.path.isdir(
+        os.path.join(check_plugins, plugin, 'unit-test', 'containerfiles')
+    )
+
+
 def main():
     """Find and run unit tests, report results."""
+    parser = argparse.ArgumentParser(description=__doc__.strip().split('\n\n')[0])
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        '--no-container',
+        action='store_true',
+        help='Skip container-based unit tests (anything with a containerfiles/ dir).',
+    )
+    group.add_argument(
+        '--only-container',
+        action='store_true',
+        help='Run only container-based unit tests. Useful for tools/run-container-tests.',
+    )
+    parser.add_argument(
+        'plugins',
+        nargs='*',
+        help='Optional list of plugin names to restrict the run to.',
+    )
+    args = parser.parse_args()
+
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     check_plugins = os.path.join(root, 'check-plugins')
 
-    # filter to specific plugins if given as arguments
-    requested = sys.argv[1:] if len(sys.argv) > 1 else None
+    requested = set(args.plugins) if args.plugins else None
 
     # discover tests
     plugins = []
     for plugin in sorted(os.listdir(check_plugins)):
-        if requested and plugin not in requested:
+        if requested is not None and plugin not in requested:
             continue
         # when a plugin is explicitly requested on the command line, run it
         # even if it is normally skipped; otherwise honor the skip set
-        if plugin in SKIP_PLUGINS and not requested:
+        if plugin in SKIP_PLUGINS and requested is None:
             continue
-        unit_test_dir = os.path.join(check_plugins, plugin, 'unit-test')
-        run_file = os.path.join(unit_test_dir, 'run')
-        if os.path.isfile(run_file):
-            plugins.append(plugin)
+        run_file = os.path.join(check_plugins, plugin, 'unit-test', 'run')
+        if not os.path.isfile(run_file):
+            continue
+        container = is_container_test(check_plugins, plugin)
+        if args.no_container and container:
+            continue
+        if args.only_container and not container:
+            continue
+        plugins.append(plugin)
 
     if not plugins:
         print('No unit tests found.')

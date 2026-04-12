@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+"""Discover and run all container-based plugin unit tests.
+
+A plugin's unit test counts as container-based when its `unit-test/`
+directory has a `containerfiles/` subdirectory. These tests build a
+podman image per target OS, inject the plugin plus `lib/`, and exercise
+the check against a live service. They take minutes per plugin and
+need podman on the host.
+
+This runner is a thin wrapper around `tools/run-unit-tests
+--only-container` so the two entry points (fast tests and container
+tests) are clearly separated. `tox` runs `tools/run-unit-tests
+--no-container` for multi-Python-version coverage; use this runner for
+a full integration sweep before a release.
+
+Usage:
+    python tools/run-container-tests                 # run all container tests
+    python tools/run-container-tests keycloak-version  # run one
+"""
+
+import os
+import subprocess
+import sys
+
+
+def main():
+    here = os.path.dirname(os.path.abspath(__file__))
+    runner = os.path.join(here, 'run-unit-tests')
+    argv = [sys.executable, runner, '--only-container', *sys.argv[1:]]
+    result = subprocess.run(argv, check=False)
+    sys.exit(result.returncode)
+
+
+if __name__ == '__main__':
+    main()
