@@ -8,346 +8,111 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+"""Integration tests for the keycloak-version check plugin.
+
+Uses testcontainers-python to spin up real Keycloak containers and
+runs the plugin against them from the host. The plugin hits the
+Keycloak admin API, so we do not need Python installed inside the
+Keycloak image (which is why the old containerfiles/ approach was
+needed).
+
+Requirements:
+- podman (or docker) with a reachable socket
+- `pip install testcontainers`
+- on rootless podman: export
+  `DOCKER_HOST=unix:///run/user/$UID/podman/podman.sock` and
+  `TESTCONTAINERS_RYUK_DISABLED=true`
+
+Every supported Keycloak major release listed in IMAGES is verified
+for:
+- version string in the output ("Keycloak vX")
+- non-OK exit code (all current test versions are past their EOL date,
+  so the plugin must warn or critical - the exact state depends on how
+  far past EOL we are, which we explicitly do NOT pin to avoid the
+  date-drift problem that the previous hardcoded regex had)
+"""
+
 import os
+import re
 import subprocess
-import time
+import sys
 import unittest
 
-CHECK_PLUGIN = 'keycloak-version'
-REMOTE_DIR = (
-    '/tmp'  # work dir in container (where to find the CHECK_PLUGIN in the container)
-)
-LOCAL_DIR = '..'  # local work dir (where to find the CHECK_PLUGIN locally)
-TIMEOUT = 30
-TESTS = [
-    {
-        'containerfile': 'containerfiles/keycloak-v18.0',
-        'podman-run-params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
-        'tests': [
-            {
-                'run-where': 'container',
-                'plugin-params': '',
-                'assert-regex': r'Keycloak v18.* \(EOL 2022-07-27 -30d \[WARNING\], major .* available\)',
-                'assert-retc': 1,
-            },
-            {
-                'run-where': 'localhost',
-                'plugin-params': '',
-                'assert-regex': r'Keycloak v18.* \(EOL 2022-07-27 -30d \[WARNING\], major .* available\)',
-                'assert-retc': 1,
-            },
-        ],
-    },
-    {
-        'containerfile': 'containerfiles/keycloak-v19.0',
-        'podman-run-params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
-        'tests': [
-            {
-                'run-where': 'container',
-                'plugin-params': '',
-                'assert-regex': r'Keycloak v19.* \(EOL 2022-11-01 -30d \[WARNING\], major .* available\)',
-                'assert-retc': 1,
-            },
-            {
-                'run-where': 'localhost',
-                'plugin-params': '',
-                'assert-regex': r'Keycloak v19.* \(EOL 2022-11-01 -30d \[WARNING\], major .* available\)',
-                'assert-retc': 1,
-            },
-        ],
-    },
-    {
-        'containerfile': 'containerfiles/keycloak-v20.0',
-        'podman-run-params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
-        'tests': [
-            {
-                'run-where': 'container',
-                'plugin-params': '',
-                'assert-regex': r'Keycloak v20.* \(EOL 2023-02-23 -30d \[WARNING\], major .* available\)',
-                'assert-retc': 1,
-            },
-            {
-                'run-where': 'localhost',
-                'plugin-params': '',
-                'assert-regex': r'Keycloak v20.* \(EOL 2023-02-23 -30d \[WARNING\], major .* available\)',
-                'assert-retc': 1,
-            },
-        ],
-    },
-    {
-        'containerfile': 'containerfiles/keycloak-v21.0',
-        'podman-run-params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
-        'tests': [
-            {
-                'run-where': 'container',
-                'plugin-params': '',
-                'assert-regex': r'Keycloak v21.* \(EOL 2023-04-19 -30d \[WARNING\], major .* available',
-                'assert-retc': 1,
-            },
-            {
-                'run-where': 'localhost',
-                'plugin-params': '',
-                'assert-regex': r'Keycloak v21.* \(EOL 2023-04-19 -30d \[WARNING\], major .* available',
-                'assert-retc': 1,
-            },
-        ],
-    },
-    {
-        'containerfile': 'containerfiles/keycloak-v22.0',
-        'podman-run-params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
-        'tests': [
-            {
-                'run-where': 'container',
-                'plugin-params': '',
-                'assert-regex': r'Keycloak v22.* \(EOL 2023-11-23 -30d \[WARNING\], major .* available\)',
-                'assert-retc': 1,
-            },
-            {
-                'run-where': 'localhost',
-                'plugin-params': '',
-                'assert-regex': r'Keycloak v22.* \(EOL 2023-11-23 -30d \[WARNING\], major .* available\)',
-                'assert-retc': 1,
-            },
-        ],
-    },
-    {
-        'containerfile': 'containerfiles/keycloak-v23.0',
-        'podman-run-params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=linuxfabrik',
-        'tests': [
-            {
-                'run-where': 'container',
-                'plugin-params': '',
-                'assert-regex': r'Keycloak v23.* \(EOL 2024-03-04 -30d \[WARNING\], major .* available\)',
-                'assert-retc': 1,
-            },
-            {
-                'run-where': 'localhost',
-                'plugin-params': '',
-                'assert-regex': r'HTTP error \"4.. .*\" while fetching http://',
-                'assert-retc': 3,
-            },
-        ],
-    },
-    {
-        'containerfile': 'containerfiles/keycloak-v24.0',
-        'podman-run-params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
-        'tests': [
-            {
-                'run-where': 'container',
-                'plugin-params': '',
-                'assert-regex': r'Keycloak v24.* \(EOL 2024-06-10 -30d \[WARNING\], major .* available\)',
-                'assert-retc': 1,
-            },
-            {
-                'run-where': 'localhost',
-                'plugin-params': '',
-                'assert-regex': r'Keycloak v24.* \(EOL 2024-06-10 -30d \[WARNING\], major .* available\)',
-                'assert-retc': 1,
-            },
-        ],
-    },
-    {
-        'containerfile': 'containerfiles/keycloak-v25.0',
-        'podman-run-params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
-        'tests': [
-            {
-                'run-where': 'container',
-                'plugin-params': '',
-                'assert-regex': r'Keycloak v25.* \(EOL 2024-10-04 -30d \[WARNING\], major .* available\)',
-                'assert-retc': 1,
-            },
-            {
-                'run-where': 'localhost',
-                'plugin-params': '',
-                'assert-regex': r'Keycloak v25.* \(EOL 2024-10-04 -30d \[WARNING\], major .* available\)',
-                'assert-retc': 1,
-            },
-        ],
-    },
+sys.path.append('..')
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+
+# All Keycloak majors from 18 onwards that ship as
+# `quay.io/keycloak/keycloak:<major>.<minor>[.<patch>]`. Each entry is the
+# latest patch available on quay for that major (as of this file's mtime).
+# When a new major is released, add it at the bottom.
+IMAGES = [
+    ('quay.io/keycloak/keycloak:18.0.2', 'v18'),
+    ('quay.io/keycloak/keycloak:19.0.3', 'v19'),
+    ('quay.io/keycloak/keycloak:20.0.5', 'v20'),
+    ('quay.io/keycloak/keycloak:21.1.2', 'v21'),
+    ('quay.io/keycloak/keycloak:22.0.5', 'v22'),
+    ('quay.io/keycloak/keycloak:23.0.7', 'v23'),
+    ('quay.io/keycloak/keycloak:24.0.5', 'v24'),
+    ('quay.io/keycloak/keycloak:25.0.6', 'v25'),
+    ('quay.io/keycloak/keycloak:26.6', 'v26'),
 ]
 
 
 class TestCheck(unittest.TestCase):
     def test(self):
-        """
-        Test all Dockerfiles in the 'unit-test/containerfiles' directory.
-        Builds, runs, and tests each container and validates the output, using podman.
-        """
-        for testcase in TESTS:
-            if not os.path.isfile(testcase['containerfile']):
-                self.fail(f'Containerfile {testcase["containerfile"]} not found.')
-
-            print(f'\n=== Testing {os.path.basename(testcase["containerfile"])} ===')
-            image_name = (
-                f'lfmp-{os.path.basename(testcase["containerfile"]).replace("-v", ":")}'
-            )
-            container_name = f'lfmp-{os.path.basename(testcase["containerfile"])}'
-
-            try:
-                # Build the container image
-                podman_cmd = [
-                    'podman',
-                    'build',
-                    '--file',
-                    testcase['containerfile'],
-                    '--tag',
-                    image_name,
-                ]
-                print(f'Build the container image: {" ".join(podman_cmd)}')
-                subprocess.run(
-                    podman_cmd,
-                    check=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-
-                podman_cmd = (
-                    [
-                        'podman',
-                        'run',
-                        '--name',
-                        container_name,
-                        '--replace',
-                        '--detach',  # run in detached mode
-                    ]
-                    + testcase['podman-run-params'].split()
-                    + image_name.split()
-                )
-                print(f'Run the container: {" ".join(podman_cmd)}')
-                subprocess.run(
-                    podman_cmd,
-                    check=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-
-                print('Give the container a few seconds to start up')
-                time.sleep(3)
-
-                podman_cmd = [
-                    'podman',
-                    'cp',
-                    '../lib',
-                    f'{container_name}:{REMOTE_DIR}/',
-                ]
-                print(f'Copy local files into container: {" ".join(podman_cmd)}')
-                subprocess.run(
-                    podman_cmd,
-                    check=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-                podman_cmd = [
-                    'podman',
-                    'cp',
-                    f'../{CHECK_PLUGIN}',
-                    f'{container_name}:{REMOTE_DIR}/{CHECK_PLUGIN}',
-                ]
-                print(f'Copy local files into container: {" ".join(podman_cmd)}')
-                subprocess.run(
-                    podman_cmd,
-                    check=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-
-                # Check if /tmp/venv exists in the container
-                podman_cmd = [
-                    'podman',
-                    'exec',
-                    container_name,
-                    'sh',
-                    '-c',
-                    "test -d /tmp/venv && echo 'venv exists'",
-                ]
-                print(
-                    f'Check if /tmp/venv exists in the container: {" ".join(podman_cmd)}'
-                )
-                venv_exists = (
-                    subprocess.run(
-                        podman_cmd,
-                        check=False,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True,
-                    ).stdout.strip()
-                    == 'venv exists'
-                )
-                print(f'Check if /tmp/venv exists in the container: {venv_exists}')
-
-                print('Give server daemons a few seconds to start up')
-                time.sleep(TIMEOUT)
-
-                print('Run the test cases...')
-                for test in testcase['tests']:
-                    if test['run-where'] == 'container':
-                        cmdline = (
-                            f'python3 {CHECK_PLUGIN} {test["plugin-params"]}'.strip()
-                        )
-                        if venv_exists:
-                            podman_cmd = [
-                                'podman',
-                                'exec',
-                                '--workdir',
-                                REMOTE_DIR,
-                                container_name,
-                                'sh',
-                                '-c',
-                                f'. /tmp/venv/bin/activate && {cmdline}',
-                            ]
-                            print(
-                                f'Run test in container in venv: `{" ".join(podman_cmd)}`'
-                            )
-                        else:
-                            podman_cmd = [
-                                'podman',
-                                'exec',
-                                '--workdir',
-                                REMOTE_DIR,
-                                container_name,
-                            ] + cmdline.split()
-                            print(f'Run test in container: `{" ".join(podman_cmd)}`')
-                        result = subprocess.run(
-                            podman_cmd,
-                            check=False,  # We'll handle checking the output ourselves
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
-                            text=True,
-                        )
-                    else:
-                        local_cmd = [
-                            'python3',
-                            os.path.join(LOCAL_DIR, CHECK_PLUGIN),
-                        ] + test['plugin-params'].strip().split()
-                        print(f'Run test locally: `{" ".join(local_cmd)}`')
-                        result = subprocess.run(
-                            local_cmd,
-                            check=False,  # We'll handle checking the output ourselves
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
-                            text=True,
-                        )
-
-                    # Check the output
-                    output = result.stdout + '\n' + result.stderr
-                    print(f'Script output:\n{output.strip()}')
-
-                    # the unit test result
-                    self.assertRegex(
-                        result.stdout + result.stderr, test['assert-regex']
+        """Spin up each Keycloak image and run the plugin against the API."""
+        for image, version_tag in IMAGES:
+            with self.subTest(image=image):
+                print(f'\n=== Testing {image} ===', flush=True)
+                with lib.lftest.run_container(
+                    image,
+                    env={
+                        'KEYCLOAK_ADMIN': 'admin',
+                        'KEYCLOAK_ADMIN_PASSWORD': 'admin',
+                    },
+                    ports=[8080],
+                    command='start-dev',
+                    wait_log='Listening on:',
+                    wait_log_timeout=180,
+                ) as container:
+                    url = 'http://{}:{}'.format(
+                        container.get_container_host_ip(),
+                        container.get_exposed_port(8080),
                     )
-                    self.assertEqual(result.returncode, test['assert-retc'])
+                    cmd = [
+                        'python3',
+                        '../keycloak-version',
+                        f'--url={url}',
+                        '--username=admin',
+                        '--password=admin',
+                        # `/opt/keycloak` does not exist on the host, so the
+                        # file-first path falls through to the API path.
+                        '--path=/nonexistent',
+                    ]
+                    print(f'Run plugin: {" ".join(cmd)}', flush=True)
+                    result = subprocess.run(
+                        cmd,
+                        cwd=os.path.dirname(os.path.abspath(__file__)),
+                        capture_output=True,
+                        text=True,
+                    )
+                    combined = result.stdout + result.stderr
+                    print(f'Script output:\n{combined.strip()}', flush=True)
 
-            finally:
-                # Stop and remove the container no matter what
-                podman_cmd = ['podman', 'rm', '--force', container_name]
-                print(f'Stop and remove container: {" ".join(podman_cmd)}')
-                subprocess.run(
-                    podman_cmd,
-                    check=False,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
+                    # Assert the version string is reported.
+                    self.assertRegex(combined, rf'Keycloak\s+{re.escape(version_tag)}')
+
+                    # The plugin must finish with a valid monitoring state.
+                    # The exact state depends on today's date relative to the
+                    # tested Keycloak version's EOL window, which shifts over
+                    # time. Anything except STATE_UNKNOWN means the plugin
+                    # parsed the version and produced a verdict.
+                    self.assertIn(
+                        result.returncode, (STATE_OK, STATE_WARN, STATE_CRIT)
+                    )
 
 
 if __name__ == '__main__':

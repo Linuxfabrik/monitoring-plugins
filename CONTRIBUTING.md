@@ -854,12 +854,65 @@ sudo apt install python3.9-dev python3.10-dev python3.11-dev \
 
 #### Container-based tests
 
-If you want to implement unit tests based on containers, the following rules apply:
+For checks that must run against a real service (Keycloak, Redis, a database, a web API), use the `lib.lftest.run_container()` helper from the `linuxfabrik-lib` package. It wraps [testcontainers-python](https://testcontainers-python.readthedocs.io/) so that container lifecycle, port exposure, environment variables and log-based readiness waits are declarative rather than hand-rolled podman orchestration.
 
-* Each container file does everything necessary to set up a running environment for the check plugin (e.g. install Python if you want to run the plugin inside the container).
-* The `./run` unit test simply calls podman and, for each containerfile found, builds the container, injects the libs and the check plugin, and runs the tests - but does not modify the container in any other way.
-* See the `keycloak-version` plugin for how to do this.
-* `tools/run-unit-tests` auto-detects container tests by looking for a `containerfiles/` subdirectory, so `--no-container` / `--only-container` filter correctly without any per-plugin annotation.
+Minimal example (see `check-plugins/keycloak-version/unit-test/run` for the full reference):
+
+```python
+import subprocess
+import sys
+import unittest
+
+sys.path.append('..')
+
+import lib.lftest
+from lib.globals import STATE_OK, STATE_WARN, STATE_CRIT
+
+IMAGES = [
+    ('quay.io/keycloak/keycloak:25.0.6', 'v25'),
+    ('quay.io/keycloak/keycloak:26.6', 'v26'),
+]
+
+
+class TestCheck(unittest.TestCase):
+    def test(self):
+        for image, version_tag in IMAGES:
+            with self.subTest(image=image):
+                with lib.lftest.run_container(
+                    image,
+                    env={
+                        'KEYCLOAK_ADMIN': 'admin',
+                        'KEYCLOAK_ADMIN_PASSWORD': 'admin',
+                    },
+                    ports=[8080],
+                    command='start-dev',
+                    wait_log='Listening on:',
+                ) as container:
+                    url = f'http://{container.get_container_host_ip()}:{container.get_exposed_port(8080)}'
+                    result = subprocess.run(
+                        ['python3', '../keycloak-version',
+                         f'--url={url}', '--username=admin', '--password=admin',
+                         '--path=/nonexistent'],
+                        capture_output=True, text=True,
+                    )
+                    self.assertRegex(
+                        result.stdout + result.stderr,
+                        rf'Keycloak\s+{version_tag}',
+                    )
+                    self.assertIn(
+                        result.returncode, (STATE_OK, STATE_WARN, STATE_CRIT),
+                    )
+```
+
+Rules and tips:
+
+* **Pull upstream images whenever possible.** You do not need a custom `Containerfile` that injects Python into the service image, because the plugin runs from the host and connects to the container via the exposed port. That is the common case for API-driven checks.
+* **Wait on a log marker, not a sleep.** The `wait_log` argument takes a substring that the service writes to stdout/stderr when it is ready (e.g. `Listening on:` for Keycloak, `ready for connections.` for MariaDB). Use `wait_log_timeout` for services that take longer than 2 minutes to start.
+* **Do not hardcode state-shifting assertions.** If the plugin reports something that depends on today's date (EOL windows, "last seen N days ago", "expires in X days"), assert only that the plugin returned a valid state (any of `STATE_OK`, `STATE_WARN`, `STATE_CRIT`) and that the output contains the expected version / service identifier. Locking in a specific state will break the test every time the calendar moves past a boundary.
+* **Multi-version matrix** goes in an `IMAGES` list at the top of the test file, iterated via `self.subTest(image=...)`. Add a new major release at the bottom of the list when it becomes available upstream.
+* **Rootless podman**: testcontainers-python works, but the Ryuk cleanup container needs to be disabled. Set `TESTCONTAINERS_RYUK_DISABLED=true` and `DOCKER_HOST=unix:///run/user/$UID/podman/podman.sock` before running the tests. A lightweight wrapper can live in `tools/run-container-tests` to set these for you.
+* **Do not run container tests via `tox`.** They are integration tests and belong in `tools/run-container-tests`, not in the multi-Python matrix. `tools/run-unit-tests` detects them automatically by inspecting the `run` file for `podman` or `testcontainers` references.
+* **Keep hand-rolled podman orchestration out of new tests.** If you find a plugin that still builds containers via `subprocess.run(['podman', 'build', ...])`, migrate it to `lib.lftest.run_container()`; the old pattern is being retired.
 
 
 ### sudoers File
