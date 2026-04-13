@@ -79,6 +79,29 @@ def is_container_test(check_plugins, plugin):
     return any(sig in content for sig in CONTAINER_TEST_SIGNATURES)
 
 
+def ensure_podman_env():
+    """Pre-flight environment setup for testcontainers under rootless podman.
+
+    Sets `DOCKER_HOST` to the rootless podman socket and disables the
+    Ryuk reaper container, but only when those variables are not already
+    set by the caller. Without this the testcontainers-python library
+    either falls back to the docker socket (which doesn't exist on a
+    podman-only host) or hangs trying to start a Reaper container that
+    rootless podman cannot reach.
+    """
+    if 'DOCKER_HOST' not in os.environ:
+        sock = f'unix:///run/user/{os.getuid()}/podman/podman.sock'
+        os.environ['DOCKER_HOST'] = sock
+        print(f'note: DOCKER_HOST not set, defaulting to {sock}', file=sys.stderr)
+    if 'TESTCONTAINERS_RYUK_DISABLED' not in os.environ:
+        os.environ['TESTCONTAINERS_RYUK_DISABLED'] = 'true'
+        print(
+            'note: TESTCONTAINERS_RYUK_DISABLED not set, defaulting to true '
+            '(Ryuk reaper is incompatible with rootless podman)',
+            file=sys.stderr,
+        )
+
+
 def main():
     """Find and run unit tests, report results."""
     parser = argparse.ArgumentParser(description=__doc__.strip().split('\n\n')[0])
@@ -127,6 +150,12 @@ def main():
     if not plugins:
         print('No unit tests found.')
         sys.exit(0)
+
+    # If any of the discovered tests will spin up a container, set the
+    # rootless-podman env vars so the user does not have to remember
+    # them. Already-set values are preserved.
+    if any(is_container_test(check_plugins, p) for p in plugins):
+        ensure_podman_env()
 
     passed = []
     failed = []
