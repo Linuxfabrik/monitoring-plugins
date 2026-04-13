@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Integration tests for the mysql-innodb-buffer-pool-size check plugin.
+
+The plugin opens a real `pymysql` connection and reads
+`innodb_buffer_pool_size` / `innodb_log_file_size` from
+`SHOW VARIABLES`, plus InnoDB data length from
+`information_schema.engine_status`. A static fixture cannot drive
+it - we spin up an actual MariaDB server, boot it with a pinned
+`innodb_buffer_pool_size=32M` so the assertion can target a
+deterministic size, and let the plugin talk to it over TCP.
+
+Container source: `quay.io/sclorg/mariadb-1011-c10s` - the Red Hat /
+CentOS Stream 10 sclorg packaging of MariaDB 10.11 LTS.
+
+Per CONTRIBUTING's "Combine container tests with fixtures" rule,
+this file holds only the happy-path integration test. A freshly
+booted MariaDB with 32 MiB buffer pool and no user data is far
+below the `buffer_pool_size <= data size` warning threshold, so the
+plugin returns STATE_OK.
+
+Requirements:
+- podman (or docker) with a reachable socket
+- `pip install testcontainers`
+- `tools/run-unit-tests` auto-sets `CONTAINER_HOST` and
+  `TESTCONTAINERS_RYUK_DISABLED`
+"""
+
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+from lib.globals import STATE_OK
+
+
+IMAGES = [
+    ('quay.io/sclorg/mariadb-1011-c10s', 'MariaDB 10.11'),
+]
+
+
+class TestCheck(unittest.TestCase):
+    pass
+
+
+def _check_image(test, image_pair):
+    image, label = image_pair
+    print(f'\n=== Testing {label} ({image}) ===', flush=True)
+    with lib.lftest.run_container(
+        image,
+        env={
+            'MYSQL_ROOT_PASSWORD': 'test',
+            'MYSQL_USER': 'test',
+            'MYSQL_PASSWORD': 'test',
+            'MYSQL_DATABASE': 'test',
+        },
+        ports=[3306],
+        # Pin innodb_buffer_pool_size to exactly 32 MiB so the plugin
+        # reports a deterministic value we can assert on.
+        command=(
+            'run-mysqld --port=3306 '
+            '--innodb-buffer-pool-size=33554432'
+        ),
+        wait_log='port: 3306',
+        wait_log_timeout=180,
+    ) as container:
+        host = container.get_container_host_ip()
+        port = container.get_exposed_port(3306)
+
+        with tempfile.NamedTemporaryFile(
+            mode='w',
+            suffix='.cnf',
+            delete=False,
+        ) as cnf:
+            cnf.write(
+                f'[client]\n'
+                f'host={host}\n'
+                f'port={port}\n'
+                f'user=test\n'
+                f'password=test\n'
+                f'database=test\n'
+            )
+            defaults_file = cnf.name
+
+        try:
+            cmd = [
+                'python3', '../mysql-innodb-buffer-pool-size',
+                f'--defaults-file={defaults_file}',
+            ]
+            print(f'Run plugin: {" ".join(cmd)}', flush=True)
+            result = subprocess.run(
+                cmd,
+                cwd=os.path.dirname(os.path.abspath(__file__)),
+                capture_output=True,
+                text=True,
+            )
+        finally:
+            os.unlink(defaults_file)
+
+        combined = result.stdout + result.stderr
+        print(f'Script output:\n{combined.strip()}', flush=True)
+
+        # The plugin reports "Data size: <x>, innodb_buffer_pool_size: <y>"
+        # followed by a ratio line against innodb_log_file_size.
+        test.assertEqual(result.returncode, STATE_OK)
+        test.assertRegex(combined, r'innodb_buffer_pool_size:\s+32\.0+\s*MiB')
+
+
+lib.lftest.attach_each(TestCheck, IMAGES, _check_image, id_func=lambda it: it[1])
+
+
+if __name__ == '__main__':
+    unittest.main()
