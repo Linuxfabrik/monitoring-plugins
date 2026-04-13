@@ -73,16 +73,14 @@ def run(analyzer, argv):
     except FileNotFoundError:
         print(f'{analyzer}: not installed, skipping')
         return 0
-    # Normalize the end-of-run signal so every analyzer prints a clear
-    # pass/fail summary line. ruff prints "All checks passed!" itself,
-    # bandit and vulture stay silent on a clean run - which is confusing.
+    # Normalize the end-of-run signal so every analyzer prints the
+    # same pass/fail line. ruff is run with `--quiet` (see below) so
+    # its own "All checks passed!" message does not fire and we avoid
+    # a duplicate line. bandit and vulture stay silent on a clean run.
     if result.returncode == 0:
-        print(f'{analyzer}: all checks passed', flush=True)
+        print('All checks passed!', flush=True)
     else:
-        print(
-            f'{analyzer}: issues found (exit {result.returncode})',
-            flush=True,
-        )
+        print(f'Issues found (exit {result.returncode}).', flush=True)
     return result.returncode
 
 
@@ -106,7 +104,10 @@ def main():
     exit_code = 0
 
     if selected is None or 'ruff' in selected:
-        exit_code |= run('ruff', ['ruff', 'check', '--no-fix', *python_files])
+        exit_code |= run(
+            'ruff',
+            ['ruff', 'check', '--no-fix', '--quiet', *python_files],
+        )
 
     if selected is None or 'bandit' in selected:
         exit_code |= run(
