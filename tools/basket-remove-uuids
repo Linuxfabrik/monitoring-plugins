@@ -8,16 +8,31 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+"""Strip the `uuid` fields from an Icinga Director basket JSON.
+
+Linuxfabrik runs a forked Icinga Director that keeps uuids in its
+exported baskets. The upstream Director rejects imports that
+contain them, so users who install against upstream need a version
+of the basket without uuids. This tool reads a basket, walks every
+top-level object (and the embedded `services` inside service
+sets), drops every `uuid` key it finds and writes the result back
+to a new file.
+
+Run as the second step of the "build a basket for upstream
+Director" pipeline, after `tools/basket-join` has produced the
+combined basket:
+
+    tools/basket-join
+    tools/basket-remove-uuids \\
+        --input-file icingaweb2-module-director-basket.json \\
+        --output-file icingaweb2-module-director-basket-no-uuids.json
+"""
+
 import argparse
-import json
 import sys
+from pathlib import Path
 
-try:
-    import colorama
-
-    colorama.init(autoreset=True)
-except ImportError:
-    colorama = False
+import _basket
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026041301'
@@ -27,13 +42,8 @@ imported into a Director that uses the upstream schema. Linuxfabrik uses a forke
 that keeps uuids; the upstream version does not, and rejects imports that contain them."""
 
 
-skip_plugins = [
-    'example',
-    'dummy',
-]
-
-
 def parse_args():
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
@@ -45,107 +55,48 @@ def parse_args():
 
     parser.add_argument(
         '--input-file',
-        help='Path to the input JSON file.',
+        help='Path to the input Icinga Director basket JSON file.',
         dest='INPUT_FILE',
-        type=str,
+        type=Path,
         required=True,
     )
 
     parser.add_argument(
         '--output-file',
-        help='Path to the output JSON file.',
+        help='Path to the output JSON file. Overwritten if it exists.',
         dest='OUTPUT_FILE',
-        type=str,
+        type=Path,
         required=True,
     )
 
     return parser.parse_args()
 
 
-def warn_print(msg, **kwargs):
-    msg = msg.strip()
-    if colorama:
-        print(colorama.Fore.YELLOW + f'Warning: {msg}', **kwargs)
-    else:
-        print(msg, **kwargs)
+def remove_uuids(basket):
+    """Drop every `uuid` key from the basket in place.
 
-
-def err_print(msg, **kwargs):
-    msg = msg.strip()
-    if colorama:
-        print(colorama.Fore.RED + f'Error: {msg}', **kwargs)
-    else:
-        print(msg, **kwargs)
-
-
-class DuplicateKeyError(ValueError):
-    pass
-
-
-def raise_on_duplicate_keys(ordered_pairs):
-    """Raise DuplicateKeyError if a duplicate key exists in provided ordered list of pairs, otherwise return a dict."""
-    dict_out = {}
-    for key, val in ordered_pairs:
-        if key in dict_out:
-            raise DuplicateKeyError(f'Duplicate key: {key}')
-        dict_out[key] = val
-    return dict_out
-
-
-class BasketUUIDRemover:
-    def __init__(self):
-        self.data = None
-
-    def load_basket(self, filename):
-        with open(filename, 'rb') as file:
-            try:
-                self.data = json.load(file, object_pairs_hook=raise_on_duplicate_keys)
-            except json.decoder.JSONDecodeError:
-                err_print('Could not parse basket file.')
-                return False
-            except DuplicateKeyError as e:
-                err_print(str(e))
-                return False
-        return True
-
-    def save_json_to_file(self, filename):
-        try:
-            with open(filename, 'w') as file:
-                json.dump(
-                    self.data, file, sort_keys=False, indent=4, separators=(',', ': ')
-                )
-                file.write('\n')
-        except FileNotFoundError as e:
-            err_print(f'{e}.')
-            return False
-        return True
-
-    def remove_uuids(self):
-        if self.data:
-            for parent_key, parent_value in self.data.items():
-                for key, value in parent_value.items():
-                    if 'uuid' in value:
-                        del self.data[parent_key][key]['uuid']
-
-                    # descent into services of Service Sets
-                    if value.get('services'):
-                        for service_key, service_value in value['services'].items():
-                            if 'uuid' in service_value:
-                                del self.data[parent_key][key]['services'][service_key][
-                                    'uuid'
-                                ]
+    Walks the two-level structure Director uses - a top-level
+    object type (`Datafield`, `HostTemplate`, ...) mapping to a
+    dict of entries - and additionally descends one level into
+    `services` entries carried by Service Sets.
+    """
+    for parent_value in basket.values():
+        for value in parent_value.values():
+            value.pop('uuid', None)
+            # descent into services of Service Sets
+            services = value.get('services')
+            if services:
+                for service_value in services.values():
+                    service_value.pop('uuid', None)
 
 
 def main():
+    """Load the basket, strip uuids, save to the output file."""
     args = parse_args()
-
-    basket_uuid_remover = BasketUUIDRemover()
-    basket_uuid_remover.load_basket(args.INPUT_FILE)
-    basket_uuid_remover.remove_uuids()
-
-    if basket_uuid_remover.save_json_to_file(args.OUTPUT_FILE) is False:
-        sys.exit(3)
+    basket = _basket.load_basket(args.INPUT_FILE)
+    remove_uuids(basket)
+    _basket.save_basket(args.OUTPUT_FILE, basket)
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

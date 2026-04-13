@@ -34,10 +34,14 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 CHECK_PLUGINS_DIR = REPO_ROOT / 'check-plugins'
 TOOLS_DIR = REPO_ROOT / 'tools'
 
-# The `example` plugin is a code skeleton that new plugins are based
-# on; it is not meant to be discovered, tested or shipped. Tools that
-# walk the check-plugins tree should skip it by default.
-SKIP_PLUGINS = frozenset({'example'})
+# Plugins that exist only as code skeletons and must not be included
+# when tools iterate over `check-plugins/` (or its sibling directories
+# for notification/event plugins): `example` is the reference plugin
+# we copy-paste new plugins from, `dummy` is a minimal variant that
+# exercises argparse and the output library without talking to any
+# real data source. Tools that need to sweep the entire tree anyway
+# can pass `skip=frozenset()` to `iter_plugin_dirs()`.
+SKIP_PLUGINS = frozenset({'dummy', 'example'})
 
 
 def err(msg):
@@ -61,21 +65,36 @@ def die(msg, code=1):
     sys.exit(code)
 
 
-def iter_check_plugins(skip=SKIP_PLUGINS):
-    """Yield every `check-plugins/<name>` directory in sorted order.
+def iter_plugin_dirs(subdir, skip=SKIP_PLUGINS):
+    """Yield every `<subdir>/<name>` directory in sorted order.
 
-    Skips any plugin whose name is in `skip` (default: the `example`
-    skeleton). Tools that need a different skip set - for example, to
-    rerun a single plugin that is normally skipped - can pass
-    `skip=frozenset()` to walk the entire tree.
+    `subdir` is relative to the repo root and names one of the
+    plugin families the repo ships - typically `check-plugins`,
+    `notification-plugins` or `event-plugins`. Missing subdirs
+    yield nothing (tools can iterate over all three without
+    having to check for existence first).
 
-    Yields `pathlib.Path` objects, so callers can chain the usual
-    `.name`, `.is_dir()`, `/ "sub"` operations without dragging `os`
-    and `os.path` imports into the caller.
+    Yields `pathlib.Path` objects so callers can chain the usual
+    `.name`, `.is_dir()`, `/ "sub"` operations without dragging
+    `os` and `os.path` imports into the caller.
     """
-    for entry in sorted(CHECK_PLUGINS_DIR.iterdir()):
+    target = REPO_ROOT / subdir
+    if not target.is_dir():
+        return
+    for entry in sorted(target.iterdir()):
         if not entry.is_dir():
             continue
         if entry.name in skip:
             continue
         yield entry
+
+
+def iter_check_plugins(skip=SKIP_PLUGINS):
+    """Yield every `check-plugins/<name>` directory in sorted order.
+
+    Thin wrapper around `iter_plugin_dirs('check-plugins', ...)`
+    that documents the common-case entry point. Skips the
+    `example` / `dummy` skeletons by default; pass
+    `skip=frozenset()` to walk the entire check-plugins tree.
+    """
+    yield from iter_plugin_dirs('check-plugins', skip=skip)
