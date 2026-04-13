@@ -20,7 +20,7 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041301'
+__version__ = '2026041302'
 
 DESCRIPTION = """Reports MySQL/MariaDB traffic statistics including uptime, queries per second,
 connection rates, and bytes sent and received."""
@@ -120,7 +120,11 @@ def main():
 
     # calculations
     mycalc = {}
-    qps = round(float(mystat['Questions']) / float(mystat.get('Uptime', 1)), 1)
+    # Clamp Uptime to a minimum of 1 second so qps is well-defined on
+    # a freshly booted server where `SHOW GLOBAL STATUS LIKE 'Uptime'`
+    # can legitimately return 0 in the first second after startup.
+    uptime = max(int(mystat.get('Uptime') or 0), 1)
+    qps = round(float(mystat['Questions']) / uptime, 1)
     mycalc['total_reads'] = int(mystat['Com_select'])
     mycalc['total_writes'] = (
         int(mystat['Com_delete'])

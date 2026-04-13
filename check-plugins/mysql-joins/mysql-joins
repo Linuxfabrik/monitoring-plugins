@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041301'
 
 DESCRIPTION = """Checks the rate of joins executed without indexes in MySQL/MariaDB. A high rate of
 full joins indicates missing indexes and can severely impact query performance.
@@ -137,8 +137,13 @@ def main():
     mycalc['joins_without_indexes'] = int(mystat['Select_range_check']) + int(
         mystat['Select_full_join']
     )
+    # Clamp Uptime to a minimum of 1 second so the per-day rate is
+    # well-defined on a freshly booted server where
+    # `SHOW GLOBAL STATUS LIKE 'Uptime'` can legitimately return 0 in
+    # the first second after startup.
+    uptime = max(int(mystat.get('Uptime') or 0), 1)
     mycalc['joins_without_indexes_per_day'] = round(
-        mycalc['joins_without_indexes'] / (int(mystat['Uptime']) / 86400), 1
+        mycalc['joins_without_indexes'] / (uptime / 86400), 1
     )
 
     # Joins

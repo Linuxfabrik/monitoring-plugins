@@ -150,8 +150,10 @@ Monitoring Plugins:
 * keycloak-stats: fix incorrect symlink for lib
 * keycloak-version: detect the Keycloak version reliably even if the format of `/opt/keycloak/version.txt` changes, and fall back to the API when the file cannot be parsed ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * logfile: fix `OverflowError` when inode exceeds SQLite INTEGER range on Windows/NTFS ([#1035](https://github.com/Linuxfabrik/monitoring-plugins/issues/1035))
+* mysql-joins: fix `ZeroDivisionError` crash on a freshly booted server where `SHOW GLOBAL STATUS LIKE 'Uptime'` can return 0 in the first second after startup
 * mysql-memory: fix a crash in the "other process memory" calculation on hosts running psutil older than 5.3.0 ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * mysql-table-locks: fix the "X immediate / Y locks" summary - the "Y" value now correctly shows the total lock count (immediate + waited) instead of the immediate count twice ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* mysql-traffic: fix `AttributeError` crash caused by a missing `lib.args` import, and fix `ZeroDivisionError` crash on a freshly booted server where `SHOW GLOBAL STATUS LIKE 'Uptime'` can return 0 in the first second after startup
 * needs-restarting: the "Running Kernel X != Installed Kernel Y" line now shows up on Debian-based systems when `needrestart` reports a pending kernel upgrade
 * network-connections: the plugin now exits with the correct WARN/CRIT state when any threshold is violated; previously it always reported OK regardless of the loop's accumulated state ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * nextcloud-security-scan: only trigger a rescan for scans that are actually in the past; future-dated scans caused by clock skew no longer trigger an unnecessary rescan ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
