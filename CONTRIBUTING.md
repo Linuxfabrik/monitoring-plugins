@@ -119,7 +119,7 @@ Checklist:
 * Optional: `unit-test/run` - the unittest file (see [Unit Tests](#unit-tests))
 * Optional: `requirements.txt`
 * If providing performance data: Grafana dashboard (see [GRAFANA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/GRAFANA.md)) and `.ini` file for the Icinga Web 2 Grafana Module
-* Icinga Director Basket Config for the check plugin (`check2basket`)
+* Icinga Director Basket Config for the check plugin (`build-basket`)
 * Icinga Service Set in `all-the-rest.json`
 * Optional: sudoers file (see [sudoers File](#sudoers-file))
 * Optional: A screenshot of the plugins' output from within Icinga, resized to 423x106, using background-color `#f5f9fa`, hosted on [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/), and listed alphabetically in the projects [README](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/README.md).
@@ -979,7 +979,7 @@ If the plugin requires `sudo`-permissions to run, please add the plugin to the `
 
 Each plugin should provide its required Director config in form of a Director basket. The basket usually contains at least one Command, one Service Template and some associated Datafields. The rest of the Icinga Director configuration (Host Templates, Service Sets, Notification Templates, Tag Lists, etc) can be placed in the `assets/icingaweb2-module-director/all-the-rest.json` file.
 
-The Icinga Director Basket for one or all plugins can be created using the `check2basket` tool.
+The Icinga Director Basket for one or all plugins can be created using the `build-basket` tool.
 
 > **Always review the basket before committing.**
 
@@ -989,7 +989,7 @@ The Icinga Director Basket for one or all plugins can be created using the `chec
 After writing a new check called `new-check`, generate a basket file using:
 
 ```bash
-./tools/check2basket --plugin-file check-plugins/new-check/new-check
+./tools/build-basket --plugin-file check-plugins/new-check/new-check
 ```
 
 The basket will be saved as `check-plugins/new-check/icingaweb2-module-director/new-check.json`. Inspect the basket, paying special attention to:
@@ -1004,7 +1004,7 @@ The basket will be saved as `check-plugins/new-check/icingaweb2-module-director/
 
 #### Fine-tune a Basket File
 
-**Never directly edit a basket JSON file.** If adjustments must be made to the basket, create a YML/YAML config file for `check2basket`.
+**Never directly edit a basket JSON file.** If adjustments must be made to the basket, create a YML/YAML config file for `build-basket`.
 
 For example, to set the timeout to 30s, to enable notifications and some other options, the config in `check-plugins/new-check/icingaweb2-module-director/new-check.yml` should look as follows:
 
@@ -1026,18 +1026,18 @@ overwrites:
   '["ServiceTemplate"]["tpl-service-new-check"]["vars"]["criticality"]': 'C'
 ```
 
-Then, re-run `check2basket` to apply the overwrites:
+Then, re-run `build-basket` to apply the overwrites:
 
 ```bash
-./tools/check2basket --plugin-file check-plugins/new-check/new-check
+./tools/build-basket --plugin-file check-plugins/new-check/new-check
 ```
 
-If a parameter was added, changed or deleted in the plugin, simply re-run the `check2basket` to update the basket file.
+If a parameter was added, changed or deleted in the plugin, simply re-run the `build-basket` to update the basket file.
 
 
 #### Basket File for different OS
 
-The `check2basket` tool also offers to generate so-called `variants` of the checks (different flavours of the check command call to run on different operating systems):
+The `build-basket` tool also offers to generate so-called `variants` of the checks (different flavours of the check command call to run on different operating systems):
 
 * `linux`: This is the default, and will be used if no other variant is defined. It generates a `cmd-check-...`, `tpl-service-...` and the associated datafields.
 * `windows`: Generates a `cmd-check-...-windows`, `cmd-check-...-windows-python`, `tpl-service-...-windows` and the associated datafields.
@@ -1058,10 +1058,10 @@ variants:
 
 #### Create Basket Files for all Check Plugins
 
-To run `check2basket` against all checks, for example due to a change in the `check2basket` script itself, use:
+To run `build-basket` against all checks, for example due to a change in the `build-basket` script itself, use:
 
 ```bash
-./tools/check2basket --auto
+./tools/build-basket --auto
 ```
 
 

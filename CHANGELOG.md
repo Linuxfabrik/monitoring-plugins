@@ -76,7 +76,7 @@ Grafana:
 
 Icinga Director:
 
-* Service Templates: the "Notes URL" field now opens the rendered plugin page on <https://linuxfabrik.github.io/monitoring-plugins/> instead of the raw source listing on GitHub; regenerate your basket with `tools/check2basket --auto` to pick up the new URL
+* Service Templates: the "Notes URL" field now opens the rendered plugin page on <https://linuxfabrik.github.io/monitoring-plugins/> instead of the raw source listing on GitHub; regenerate your basket with `tools/build-basket --auto` to pick up the new URL
 
 
 Monitoring Plugins:
@@ -104,6 +104,11 @@ Monitoring Plugins:
 * updates: adapt to updated powershell.py library
 
 
+Tools:
+
+* rename `tools/check2basket` to `tools/build-basket` (one basket is built per run, so the singular name matches what the tool does) and `tools/remove-uuids` to `tools/basket-remove-uuids` (prefix-group consistency with `basket-compare` / `basket-join`). Update any scripts, wrappers or documentation that invoked the old names.
+
+
 ### Removed
 
 Monitoring Plugins:
@@ -126,9 +131,9 @@ Build, CI/CD:
 
 Tools:
 
-* check2basket: fix missing `importlib.machinery` and `importlib.util` imports
-* check2basket: strip argparse `%%` escaping in Icinga Director basket descriptions
-* check2basket: write `[]` as default value for `append` parameters with `default=None` in the Icinga Director basket
+* build-basket (formerly `check2basket`): fix missing `importlib.machinery` and `importlib.util` imports
+* build-basket (formerly `check2basket`): strip argparse `%%` escaping in Icinga Director basket descriptions
+* build-basket (formerly `check2basket`): write `[]` as default value for `append` parameters with `default=None` in the Icinga Director basket
 
 
 Grafana:

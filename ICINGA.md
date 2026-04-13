@@ -60,7 +60,7 @@ Create the Icinga Director Basket JSON file:
 
 ```bash
 ./tools/basket-join
-./tools/remove-uuids \
+./tools/basket-remove-uuids \
     --input-file icingaweb2-module-director-basket.json \
     --output-file icingaweb2-module-director-basket-no-uuids.json
 ```
