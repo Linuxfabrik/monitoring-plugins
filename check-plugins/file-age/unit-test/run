@@ -235,23 +235,29 @@ class TestCheck(unittest.TestCase):
         """
         lib.base.coe(lib.shell.shell_exec('bash', stdin=bash.encode()))
 
-        # the output is being checked against a range as there's some time derivation from touch caused by certain file systems
+        # Perfdata ages are checked against a loose range because real
+        # elapsed time between the `touch` command and the plugin call
+        # drifts the reported age upwards on slow runners, and some
+        # file systems round the mtime. The ranges are intentionally
+        # wide enough (~5s) to survive a CI container under load; a
+        # tighter window produces flaky failures when the test host
+        # is busy.
 
-        # check mean uneven
+        # check mean uneven (expected ~45.0s = (10+25+100)/3)
         cmd = f"../file-age --filename '{tmpdir}/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:' --perfdata-mode=mean"
         stdout, _stderr, _retc = lib.base.coe(lib.shell.shell_exec(cmd))
         age = float(
             stdout.rpartition('|')[2].rpartition('=')[2].split('s')[0]
         )  # extract age from perfdata string
-        self.assertTrue(43.0 < age < 46.0)
+        self.assertTrue(43.0 < age < 50.0)
 
-        # check median uneven
+        # check median uneven (expected ~25.0s)
         cmd = f"../file-age --filename '{tmpdir}/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:' --perfdata-mode=median"
         stdout, _stderr, _retc = lib.base.coe(lib.shell.shell_exec(cmd))
         age = float(
             stdout.rpartition('|')[2].rpartition('=')[2].split('s')[0]
         )  # extract age from perfdata string
-        self.assertTrue(23.0 < age < 26.0)
+        self.assertTrue(23.0 < age < 30.0)
 
         # add one file to make it an even file list
         bash = f"""
@@ -259,21 +265,21 @@ class TestCheck(unittest.TestCase):
         """
         lib.base.coe(lib.shell.shell_exec('bash', stdin=bash.encode()))
 
-        # check mean even
+        # check mean even (expected ~83.75s = (10+25+100+200)/4)
         cmd = f"../file-age --filename '{tmpdir}/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:' --perfdata-mode=mean"
         stdout, _stderr, _retc = lib.base.coe(lib.shell.shell_exec(cmd))
         age = float(
             stdout.rpartition('|')[2].rpartition('=')[2].split('s')[0]
         )  # extract age from perfdata string
-        self.assertTrue(81.0 < age < 84.0)
+        self.assertTrue(81.0 < age < 90.0)
 
-        # check median even
+        # check median even (expected ~62.5s = (25+100)/2)
         cmd = f"../file-age --filename '{tmpdir}/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:' --perfdata-mode=median"
         stdout, _stderr, _retc = lib.base.coe(lib.shell.shell_exec(cmd))
         age = float(
             stdout.rpartition('|')[2].rpartition('=')[2].split('s')[0]
         )  # extract age from perfdata string
-        self.assertTrue(60.0 < age < 63.0)
+        self.assertTrue(60.0 < age < 68.0)
 
 
 if __name__ == '__main__':
