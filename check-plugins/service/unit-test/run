@@ -9,58 +9,58 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'unknown-invalid-regex',
+        'test': 'stdout/windows-services-mixed,,',
+        'params': "--service '*'",
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid regex "*": nothing to repeat at position 0'],
+    },
+    {
+        'id': 'ok-bfe-running',
+        'test': 'stdout/windows-services-mixed,,0',
+        'params': "--service='^bfe' --status=running --warning=1:1",
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "Everything is ok. 1 service named r`^bfe` and start type ['automatic'] "
+            "found, 1 in status ['running'] (thresholds 1:1/None).",
+        ],
+    },
+    {
+        'id': 'warn-win-services-stopped',
+        'test': 'stdout/windows-services-mixed,,0',
+        'params': (
+            "--service='Win.*' --starttype=automatic --status=continue_pending "
+            '--status=pause_pending --status=paused --status=start_pending '
+            '--status=stop_pending --status=stopped --warning 0'
+        ),
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            "3 services named r`Win.*` and start type ['automatic'] found, "
+            "1 in status ['continue_pending', 'pause_pending', 'paused', "
+            "'start_pending', 'stop_pending', 'stopped'] (thresholds 0/None) [WARNING].",
+        ],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../service'
 
-    def test_if_check_runs_EXAMPLE01_00(self):
-        # invalid regex
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check + " --test=stdout/EXAMPLE01,, --service '*'"
-            )
-        )
-        self.assertIn('Invalid regex "*": nothing to repeat at position 0', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_UNKNOWN)
-
-    def test_if_check_runs_EXAMPLE01_01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + " --test stdout/EXAMPLE01,,0 --service='^bfe' --status=running --warning=1:1"
-            )
-        )
-        self.assertIn(
-            "Everything is ok. 1 service named r`^bfe` and start type ['automatic'] found, 1 in status ['running'] (thresholds 1:1/None).",
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE01_02(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + " --test stdout/EXAMPLE01,,0 --service='Win.*' --starttype=automatic --status=continue_pending --status=pause_pending --status=paused --status=start_pending --status=stop_pending --status=stopped --warning 0"
-            )
-        )
-        self.assertIn(
-            "3 services named r`Win.*` and start type ['automatic'] found, 1 in status ['continue_pending', 'pause_pending', 'paused', 'start_pending', 'stop_pending', 'stopped'] (thresholds 0/None) [WARNING].",
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

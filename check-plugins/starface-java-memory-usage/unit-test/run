@@ -9,33 +9,35 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_OK
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'ok-heap-5-percent-used',
+        'test': 'stdout/heap-5-percent-used,,',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Heap used: 4.8% (254.0MiB of 5.2GiB), '
+            'Non-Heap used: 290.5MiB (unlimited memory usage allowed)',
+        ],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../starface-java-memory-usage'
 
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,')
-        )
-        # self.assertEqual
-        # self.assertIn
-        # self.assertRegexpMatches
-        self.assertIn(
-            'Heap used: 4.8% (254.0MiB of 5.2GiB), Non-Heap used: 290.5MiB (unlimited memory usage allowed)',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

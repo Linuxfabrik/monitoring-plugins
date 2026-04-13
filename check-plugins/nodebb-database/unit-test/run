@@ -9,37 +9,36 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_OK
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'ok-mongodb-11-percent-used',
+        'test': 'stdout/mongodb-11-percent-used,,0',
+        'params': '--token=253ff1ec-a5b8-4248-be1d-b898d298d8fc',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'MongoDB "nodebb": 11.2% Disk Usage (22.2GiB/197.4GiB), '
+            '5 collections, 11 indexes, 175.8K objects',
+        ],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../nodebb-database'
 
-    # self.assertEqual(retc, STATE_CRIT)
-    # self.assertIn('Waiting for more data (1).', stdout)
-    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
-
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --token=253ff1ec-a5b8-4248-be1d-b898d298d8fc --test=stdout/EXAMPLE01,,0'
-            )
-        )
-        self.assertIn(
-            'MongoDB "nodebb": 11.2% Disk Usage (22.2GiB/197.4GiB), 5 collections, 11 indexes, 175.8K objects',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

@@ -9,46 +9,41 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_WARN
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'warn-psu-running-warning',
+        'test': 'stdout/psu-running-warning,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'There are warnings.',
+            'UUID       ! Location   ! Produced   ! ControllerID ! #Charged ! Remain '
+            '! Volt ! Health ! Running  ',
+            '-----------+------------+------------+--------------+----------+--------'
+            '+------+--------+----------',
+            '210:0.0A.0 ! CTE0.PSU 0 ! 2014-3-25  ! 0A           ! 7        ! 5Y 4M  '
+            '! 16.1 ! [OK]   ! [WARNING]',
+        ],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../huawei-dorado-backup-power'
 
-    # self.assertEqual(retc, STATE_CRIT)
-    # self.assertIn('Waiting for more data (1).', stdout)
-    # self.assertRegexpMatches(stdout, r'1 error in Kernel Ring Buffer.')
-
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --device-id=1 --password=pass --url=https://localhost --username=admin --test=stdout/EXAMPLE01,,0'
-            )
-        )
-        self.assertIn('There are warnings.', stdout)
-        self.assertIn(
-            'UUID       ! Location   ! Produced   ! ControllerID ! #Charged ! Remain ! Volt ! Health ! Running  ',
-            stdout,
-        )
-        self.assertIn(
-            '-----------+------------+------------+--------------+----------+--------+------+--------+----------',
-            stdout,
-        )
-        self.assertIn(
-            '210:0.0A.0 ! CTE0.PSU 0 ! 2014-3-25  ! 0A           ! 7        ! 5Y 4M  ! 16.1 ! [OK]   ! [WARNING]',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

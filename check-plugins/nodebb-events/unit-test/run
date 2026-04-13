@@ -9,40 +9,37 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_OK
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'ok-events-latest-770',
+        'test': 'stdout/events-latest-770,,0',
+        'params': '--token=253ff1ec-a5b8-4248-be1d-b898d298d8fc',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Latest event: #770 uid=2 username settings-change 1.2.3.4 (',
+            'eid ! uid ! displayname ! type            ! timestamp',
+            '770 ! 2   ! displayname ! settings-change ! 2021-09-03 14:59:48',
+        ],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../nodebb-events'
 
-    # self.assertEqual(retc, STATE_CRIT)
-    # self.assertIn('Waiting for more data (1).', stdout)
-    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
-
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --token=253ff1ec-a5b8-4248-be1d-b898d298d8fc --test=stdout/EXAMPLE01,,0'
-            )
-        )
-        self.assertIn(
-            'Latest event: #770 uid=2 username settings-change 1.2.3.4 (', stdout
-        )
-        self.assertIn('eid ! uid ! displayname ! type            ! timestamp', stdout)
-        self.assertIn(
-            '770 ! 2   ! displayname ! settings-change ! 2021-09-03 14:59:48', stdout
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

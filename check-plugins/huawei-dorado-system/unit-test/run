@@ -9,37 +9,37 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_CRIT
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'crit-system-faulty-powering-off',
+        'test': 'stdout/system-faulty-powering-off,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'OceanStor Dorado 8000 V6 6.1.0.SPH12, UUID: 201:4711, Name: myname, '
+            'Location: Zurich, Health Status: Faulty (2) [CRITICAL], '
+            'Running Status: Powering off (47) [WARNING]',
+        ],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../huawei-dorado-system'
 
-    # self.assertEqual(retc, STATE_CRIT)
-    # self.assertIn('Waiting for more data (1).', stdout)
-    # self.assertRegexpMatches(stdout, r'1 error in Kernel Ring Buffer.')
-
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --device-id=1 --password=pass --url=https://localhost --username=admin --test=stdout/EXAMPLE01,,0'
-            )
-        )
-        self.assertIn(
-            'OceanStor Dorado 8000 V6 6.1.0.SPH12, UUID: 201:4711, Name: myname, Location: Zurich, Health Status: Faulty (2) [CRITICAL], Running Status: Powering off (47) [WARNING]',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

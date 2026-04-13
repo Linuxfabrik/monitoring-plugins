@@ -9,57 +9,63 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import *
-import lib.base
-import lib.shell
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.lftest
+
+
+# fail2ban's `--test` argument takes a base path and the plugin looks up
+# `<base>-ping`, `<base>-status`, and `<base>-status-<jail>` next to each
+# other in stdout/.
+TESTS = [
+    {
+        'id': 'unknown-fail2ban-client-ping-failed',
+        'test': 'stdout/sshd-over-threshold,,1',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Problem while testing if the fail2ban server is alive.'],
+    },
+    {
+        'id': 'warn-sshd-jail-over-threshold',
+        'test': 'stdout/sshd-over-threshold,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '5434 IPs banned',
+            '* 2 in jail "apache-dos"',
+            '* 0 in jail "portscan"',
+            '* 5432 in jail "sshd" [WARNING]',
+        ],
+    },
+    {
+        'id': 'ok-all-jails-empty',
+        'test': 'stdout/all-jails-empty,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '0 IPs banned',
+            '* 0 in jail "apache-dos"',
+            '* 0 in jail "portscan"',
+            '* 0 in jail "sshd"',
+        ],
+    },
+    {
+        'id': 'unknown-no-jails-configured',
+        'test': 'stdout/no-jails-configured,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['No jails found.'],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../fail2ban'
 
-    def test_if_check_runs_EXAMPLE01_ping_nok(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,1')
-        )
-        self.assertIn('Problem while testing if the fail2ban server is alive.', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_UNKNOWN)
-
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0')
-        )
-        self.assertIn('5434 IPs banned', stdout)
-        self.assertIn('* 2 in jail "apache-dos"', stdout)
-        self.assertIn('* 0 in jail "portscan"', stdout)
-        self.assertIn('* 5432 in jail "sshd" [WARNING]', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0')
-        )
-        self.assertIn('0 IPs banned', stdout)
-        self.assertIn('* 0 in jail "apache-dos"', stdout)
-        self.assertIn('* 0 in jail "portscan"', stdout)
-        self.assertIn('* 0 in jail "sshd"', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE99(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE99,,0')
-        )
-        self.assertIn('No jails found.', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_UNKNOWN)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

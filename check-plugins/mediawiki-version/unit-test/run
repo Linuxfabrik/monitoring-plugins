@@ -9,28 +9,24 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_WARN
 import lib.version
 
 
-# Attention: NOT testing the check (as usual), but testing the library function directly
-# Here, we have MAJOR.MINOR.PATCH (or sometimes MAJOR.MINOR.PATCH.MICRO) releases.
+# This plugin has no --test hook. It reads a local Defines.php file and then
+# queries the endoflife.date API for the current MediaWiki EOL data. That API
+# call is not deterministic, so unit tests exercise the `lib.version.check_eol`
+# helper directly instead of the plugin binary. The `stdout/defines-php-1-39-3`
+# fixture documents the expected Defines.php shape for reference.
 
 
 class TestCheck(unittest.TestCase):
-    # self.assertEqual(retc, STATE_CRIT)
-    # self.assertIn('Waiting for more data (1).', stdout)
-    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
 
-    def test_if_check_runs_mediawiki01(self):
+    def test_check_eol_1_38_2_warn(self):
         retc, msg = lib.version.check_eol(
             'https://endoflife.date/api/mediawiki.json',
             '1.38.2',
@@ -39,7 +35,10 @@ class TestCheck(unittest.TestCase):
             check_minor=False,
             check_patch=False,
         )
-        self.assertRegex(msg, r'EOL 2023-06-30 -30d \[WARNING\], minor 1\..* available')
+        self.assertRegex(
+            msg,
+            r'EOL 2023-06-30 -30d \[WARNING\], minor 1\..* available',
+        )
         self.assertEqual(retc, STATE_WARN)
 
 

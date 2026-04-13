@@ -9,59 +9,46 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_OK
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'ok-pairs-in-sync',
+        'test': 'stdout/pairs-in-sync,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            'UUID                                   ! Link ! Last Sync                       '
+            '! Duration ! Progr (%) ! LocalJob  ! DataState ! Access ! RemoteJob ! DataState '
+            '! Access ! Health ! Running',
+            '---------------------------------------+------+---------------------------------'
+            '+----------+-----------+-----------+-----------+--------+-----------+-----------'
+            '+--------+--------+--------',
+            '15361:2100f4b78d046ec60000000000000000 ! [OK] ! 2021-08-18 10:39:47',
+            '15361:2100f4b78d046ec60000000000000001 ! [OK] ! 2021-08-18 10:39:50',
+            '15361:2100f4b78d046ec60000000000000002 ! [OK] ! 2021-08-18 10:38:29',
+            '15361:2100f4b78d046ec60000000000000003 ! [OK] ! 2021-08-18 10:39:03',
+            '15361:2100f4b78d046ec',
+        ],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../huawei-dorado-hypermetropair'
 
-    # self.assertEqual(retc, STATE_CRIT)
-    # self.assertIn('Waiting for more data (1).', stdout)
-    # self.assertRegexpMatches(stdout, r'1 error in Kernel Ring Buffer.')
-
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --device-id=1 --password=pass --url=https://localhost --username=admin --test=stdout/EXAMPLE01,,0'
-            )
-        )
-        self.assertIn('Everything is ok.', stdout)
-        self.assertIn(
-            'UUID                                   ! Link ! Last Sync                       ! Duration ! Progr (%) ! LocalJob  ! DataState ! Access ! RemoteJob ! DataState ! Access ! Health ! Running',
-            stdout,
-        )
-        self.assertIn(
-            '---------------------------------------+------+---------------------------------+----------+-----------+-----------+-----------+--------+-----------+-----------+--------+--------+--------',
-            stdout,
-        )
-        self.assertIn(
-            '15361:2100f4b78d046ec60000000000000000 ! [OK] ! 2021-08-18 10:39:47',
-            stdout,
-        )
-        self.assertIn(
-            '15361:2100f4b78d046ec60000000000000001 ! [OK] ! 2021-08-18 10:39:50',
-            stdout,
-        )
-        self.assertIn(
-            '15361:2100f4b78d046ec60000000000000002 ! [OK] ! 2021-08-18 10:38:29',
-            stdout,
-        )
-        self.assertIn(
-            '15361:2100f4b78d046ec60000000000000003 ! [OK] ! 2021-08-18 10:39:03',
-            stdout,
-        )
-        self.assertIn('15361:2100f4b78d046ec', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

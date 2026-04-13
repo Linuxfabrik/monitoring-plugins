@@ -9,172 +9,145 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
+import lib.lftest
+
+
+FAILED_MSG = (
+    'Failed Pods: At least one container in the pod has terminated in failure. '
+    'A container is considered to have failed if it exited with a non-zero status.'
+)
+PENDING_MSG = (
+    'Pending Pods: Have been accepted by the Kubernetes system, but one or more '
+    'of the container images have not been created. This could be because the '
+    'system is pulling the image from a remote registry, there is insufficient '
+    'capacity in the cluster, or some other scheduling issue.'
+)
+UNKNOWN_MSG = (
+    'State of a pod could not be obtained, usually due to an error in '
+    'communicating with the host where the pod is supposed to be running.'
+)
+
+
+TESTS = [
+    {
+        'id': 'crit-all-namespaces',
+        'test': 'stdout/pods-mixed-states,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            FAILED_MSG,
+            PENDING_MSG,
+            'NAMESPACE       ! NAME        ! RDY ! RSTRT ! ',
+            '----------------+-------------+-----+-------+-',
+            'linuxfabrik-ns1 ! lf-ace543d7 ! 2/2 ! 0     ! ',
+            'linuxfabrik-ns1 ! lf-b39dea01 ! 0/1 ! 0     ! ',
+            'linuxfabrik-ns1 ! lf-60eccae7 ! 1/1 ! 0     ! ',
+            'linuxfabrik-ns1 ! lf-fd905755 ! 1/1 ! 0     ! ',
+            'linuxfabrik-ns2 ! lf-c9058a64 ! 1/1 ! 0     ! ',
+        ],
+    },
+    {
+        'id': 'crit-ns1-query',
+        'test': 'stdout/pods-mixed-states,,0',
+        'params': '--query="namespace like \'%-ns1\'"',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            FAILED_MSG,
+            PENDING_MSG,
+            'NAMESPACE       ! NAME        ! RDY ! RSTRT ! ',
+            '----------------+-------------+-----+-------+-',
+            'linuxfabrik-ns1 ! lf-ace543d7 ! 2/2 ! 0     ! ',
+            'linuxfabrik-ns1 ! lf-b39dea01 ! 0/1 ! 0     ! ',
+            'linuxfabrik-ns1 ! lf-60eccae7 ! 1/1 ! 0     ! ',
+        ],
+    },
+    {
+        'id': 'unknown-ns2-query',
+        'test': 'stdout/pods-mixed-states,,0',
+        'params': '--query="namespace like \'%-ns2\'"',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            UNKNOWN_MSG,
+            'NAMESPACE       ! NAME        ! RDY ! RSTRT ! ',
+            '----------------+-------------+-----+-------+-',
+            'linuxfabrik-ns2 ! lf-c9058a64 ! 1/1 ! 0     ! ',
+        ],
+    },
+    {
+        'id': 'crit-failed-pod-by-name',
+        'test': 'stdout/pods-mixed-states,,0',
+        'params': '--query="name = \'lf-ace543d7\'"',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            FAILED_MSG,
+            'NAMESPACE       ! NAME        ! RDY ! RSTRT ! ',
+            '----------------+-------------+-----+-------+-',
+            'linuxfabrik-ns1 ! lf-ace543d7 ! 2/2 ! 0     ! ',
+        ],
+    },
+    {
+        'id': 'crit-pending-pod-by-name',
+        'test': 'stdout/pods-mixed-states,,0',
+        'params': '--query="name = \'lf-b39dea01\'"',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            PENDING_MSG,
+            'NAMESPACE       ! NAME        ! RDY ! RSTRT ! ',
+            '----------------+-------------+-----+-------+-',
+            'linuxfabrik-ns1 ! lf-b39dea01 ! 0/1 ! 0     ! ',
+        ],
+    },
+    {
+        'id': 'ok-running-pod-by-name',
+        'test': 'stdout/pods-mixed-states,,0',
+        'params': '--query="name = \'lf-60eccae7\'"',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok',
+            'NAMESPACE       ! NAME        ! RDY ! RSTRT ! ',
+            '----------------+-------------+-----+-------+-',
+            'linuxfabrik-ns1 ! lf-60eccae7 ! 1/1 ! 0     ! ',
+        ],
+    },
+    {
+        'id': 'ok-succeeded-pod-by-name',
+        'test': 'stdout/pods-mixed-states,,0',
+        'params': '--query="name = \'lf-fd905755\'"',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok',
+            'NAMESPACE       ! NAME        ! RDY ! RSTRT ! ',
+            '----------------+-------------+-----+-------+-',
+            'linuxfabrik-ns1 ! lf-fd905755 ! 1/1 ! 0     ! ',
+        ],
+    },
+    {
+        'id': 'unknown-pod-by-name',
+        'test': 'stdout/pods-mixed-states,,0',
+        'params': '--query="name = \'lf-c9058a64\'"',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            UNKNOWN_MSG,
+            'NAMESPACE       ! NAME        ! RDY ! RSTRT ! ',
+            '----------------+-------------+-----+-------+-',
+            'linuxfabrik-ns2 ! lf-c9058a64 ! 1/1 ! 0     ! ',
+        ],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../kubectl-get-pods'
 
-    # self.assertEqual(retc, STATE_CRIT)
-    # self.assertIn('Waiting for more data (1).', stdout)
-    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
-
-    def test_if_check_runs_01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0')
-        )
-        self.assertIn(
-            'Failed Pods: At least one container in the pod has terminated in failure. A container is considered to have failed if it exited with a non-zero status.',
-            stdout,
-        )
-        self.assertIn(
-            'Pending Pods: Have been accepted by the Kubernetes system, but one or more of the container images have not been created. This could be because the system is pulling the image from a remote registry, there is insufficient capacity in the cluster, or some other scheduling issue.',
-            stdout,
-        )
-        self.assertIn('', stdout)
-        self.assertIn('NAMESPACE       ! NAME        ! RDY ! RSTRT ! ', stdout)
-        self.assertIn('----------------+-------------+-----+-------+-', stdout)
-        self.assertIn('linuxfabrik-ns1 ! lf-ace543d7 ! 2/2 ! 0     ! ', stdout)
-        self.assertIn('linuxfabrik-ns1 ! lf-b39dea01 ! 0/1 ! 0     ! ', stdout)
-        self.assertIn('linuxfabrik-ns1 ! lf-60eccae7 ! 1/1 ! 0     ! ', stdout)
-        self.assertIn('linuxfabrik-ns1 ! lf-fd905755 ! 1/1 ! 0     ! ', stdout)
-        self.assertIn('linuxfabrik-ns2 ! lf-c9058a64 ! 1/1 ! 0     ! ', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    def test_if_check_runs_02(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --test=stdout/EXAMPLE01,,0 --query="namespace like \'%-ns1\'"'
-            )
-        )
-        self.assertIn(
-            'Failed Pods: At least one container in the pod has terminated in failure. A container is considered to have failed if it exited with a non-zero status.',
-            stdout,
-        )
-        self.assertIn(
-            'Pending Pods: Have been accepted by the Kubernetes system, but one or more of the container images have not been created. This could be because the system is pulling the image from a remote registry, there is insufficient capacity in the cluster, or some other scheduling issue.',
-            stdout,
-        )
-        self.assertIn('', stdout)
-        self.assertIn('NAMESPACE       ! NAME        ! RDY ! RSTRT ! ', stdout)
-        self.assertIn('----------------+-------------+-----+-------+-', stdout)
-        self.assertIn('linuxfabrik-ns1 ! lf-ace543d7 ! 2/2 ! 0     ! ', stdout)
-        self.assertIn('linuxfabrik-ns1 ! lf-b39dea01 ! 0/1 ! 0     ! ', stdout)
-        self.assertIn('linuxfabrik-ns1 ! lf-60eccae7 ! 1/1 ! 0     ! ', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    def test_if_check_runs_03(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --test=stdout/EXAMPLE01,,0 --query="namespace like \'%-ns2\'"'
-            )
-        )
-        self.assertIn(
-            'State of a pod could not be obtained, usually due to an error in communicating with the host where the pod is supposed to be running.',
-            stdout,
-        )
-        self.assertIn('', stdout)
-        self.assertIn('NAMESPACE       ! NAME        ! RDY ! RSTRT ! ', stdout)
-        self.assertIn('----------------+-------------+-----+-------+-', stdout)
-        self.assertIn('linuxfabrik-ns2 ! lf-c9058a64 ! 1/1 ! 0     ! ', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_UNKNOWN)
-
-    def test_if_check_runs_04(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --test=stdout/EXAMPLE01,,0 --query="name = \'lf-ace543d7\'"'
-            )
-        )
-        self.assertIn(
-            'Failed Pods: At least one container in the pod has terminated in failure. A container is considered to have failed if it exited with a non-zero status.',
-            stdout,
-        )
-        self.assertIn('', stdout)
-        self.assertIn('NAMESPACE       ! NAME        ! RDY ! RSTRT ! ', stdout)
-        self.assertIn('----------------+-------------+-----+-------+-', stdout)
-        self.assertIn('linuxfabrik-ns1 ! lf-ace543d7 ! 2/2 ! 0     ! ', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    def test_if_check_runs_05(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --test=stdout/EXAMPLE01,,0 --query="name = \'lf-b39dea01\'"'
-            )
-        )
-        self.assertIn(
-            'Pending Pods: Have been accepted by the Kubernetes system, but one or more of the container images have not been created. This could be because the system is pulling the image from a remote registry, there is insufficient capacity in the cluster, or some other scheduling issue.',
-            stdout,
-        )
-        self.assertIn('', stdout)
-        self.assertIn('NAMESPACE       ! NAME        ! RDY ! RSTRT ! ', stdout)
-        self.assertIn('----------------+-------------+-----+-------+-', stdout)
-        self.assertIn('linuxfabrik-ns1 ! lf-b39dea01 ! 0/1 ! 0     ! ', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    def test_if_check_runs_06(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --test=stdout/EXAMPLE01,,0 --query="name = \'lf-60eccae7\'"'
-            )
-        )
-        self.assertIn('Everything is ok', stdout)
-        self.assertIn('', stdout)
-        self.assertIn('NAMESPACE       ! NAME        ! RDY ! RSTRT ! ', stdout)
-        self.assertIn('----------------+-------------+-----+-------+-', stdout)
-        self.assertIn('linuxfabrik-ns1 ! lf-60eccae7 ! 1/1 ! 0     ! ', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_07(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --test=stdout/EXAMPLE01,,0 --query="name = \'lf-fd905755\'"'
-            )
-        )
-        self.assertIn('Everything is ok', stdout)
-        self.assertIn('', stdout)
-        self.assertIn('NAMESPACE       ! NAME        ! RDY ! RSTRT ! ', stdout)
-        self.assertIn('----------------+-------------+-----+-------+-', stdout)
-        self.assertIn('linuxfabrik-ns1 ! lf-fd905755 ! 1/1 ! 0     ! ', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_08(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --test=stdout/EXAMPLE01,,0 --query="name = \'lf-c9058a64\'"'
-            )
-        )
-        self.assertIn(
-            'State of a pod could not be obtained, usually due to an error in communicating with the host where the pod is supposed to be running.',
-            stdout,
-        )
-        self.assertIn('', stdout)
-        self.assertIn('NAMESPACE       ! NAME        ! RDY ! RSTRT ! ', stdout)
-        self.assertIn('----------------+-------------+-----+-------+-', stdout)
-        self.assertIn('linuxfabrik-ns2 ! lf-c9058a64 ! 1/1 ! 0     ! ', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_UNKNOWN)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

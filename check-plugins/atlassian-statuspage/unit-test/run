@@ -9,75 +9,77 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+import lib.lftest
+
+
+# Fixtures were captured from real Atlassian-Statuspage-powered pages:
+#
+#   all-operational                      - status.atlassian.com
+#                                           indicator: "none"
+#   minor-partially-degraded             - exact.statuspage.io
+#                                           indicator: "minor"
+#   minor-outage                         - status.cloudflarestatus.com
+#                                           indicator: "minor"
+#   minor-partial-degradation-no-timezone - status.hashicorp.com
+#                                           indicator: "minor", no `time_zone`
+#                                           field (tests the fallback branch)
+#   critical-outage                      - synthetic, indicator: "critical"
+#                                           (no real public capture was
+#                                           available at the time)
+TESTS = [
+    {
+        'id': 'ok-all-operational',
+        'test': 'stdout/all-operational,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok'],
+    },
+    {
+        'id': 'warn-minor-partially-degraded',
+        'test': 'stdout/minor-partially-degraded,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Partially Degraded Service', 'last update at'],
+    },
+    {
+        'id': 'warn-minor-outage',
+        'test': 'stdout/minor-outage,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Minor Service Outage', 'last update at'],
+    },
+    {
+        'id': 'warn-minor-partial-degradation-no-timezone',
+        'test': 'stdout/minor-partial-degradation-no-timezone,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Partial System Degradation', 'last update at'],
+    },
+    {
+        'id': 'crit-critical-outage',
+        'test': 'stdout/critical-outage,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Full Service Outage', 'last update at'],
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'test': 'stdout/critical-outage,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Full Service Outage'],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../atlassian-statuspage'
 
-    # self.assertEqual(retc, STATE_CRIT)
-    # self.assertIn('Waiting for more data (1).', stdout)
-    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
-
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0')
-        )
-        self.assertIn(
-            'Partially Degraded Service @ https://exact.statuspage.io, last update at 2025-05-28T11:04:36 Europe/London',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0')
-        )
-        self.assertIn('Everything is ok @ https://status.atlassian.com', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE04(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04,,0')
-        )
-        self.assertIn(
-            'Minor Service Outage @ https://www.cloudflarestatus.com, last update at 2025-05-28T11:40:49 Etc/UTC ',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE05(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE05,,0')
-        )
-        self.assertIn(
-            'Partial System Degradation @ https://status.hashicorp.com/, last update at 2025-05-28T03:42:30 ',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE06(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE06,,0')
-        )
-        self.assertIn(
-            'Partially Degraded Service @ https://status.twilio.com, last update at 2025-05-28T04:22:59 America/Los_Angeles',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

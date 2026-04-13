@@ -9,32 +9,32 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_OK
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'ok-3-of-4-channels-in-use',
+        'test': 'stdout/3-of-4-channels-in-use,,',
+        'assert-retc': STATE_OK,
+        'assert-in': ['75.0% call usage (3/4). Current channels: 2x DAHDI, 1x SIP'],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../starface-channel-status'
 
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,')
-        )
-        # self.assertEqual
-        # self.assertIn
-        # self.assertRegexpMatches
-        self.assertIn(
-            '75.0% call usage (3/4). Current channels: 2x DAHDI, 1x SIP', stdout
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

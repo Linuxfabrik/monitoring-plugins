@@ -9,467 +9,102 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+import lib.lftest
+
+
+# All fixtures in this directory are captured from `smartctl --all` (or
+# `smartctl -a`) on a real disk using smartctl v6 or earlier, which
+# produces plain-text output (no --json mode). The prefix
+# `smartctl-v6-text-` makes room for future `smartctl-v7-json-*`
+# fixtures once the plugin grows JSON parsing.
+#
+# Each disk produces two subtests: one with the plugin's default
+# behaviour (only looks at `SMART overall-health`) and one with
+# `--full`, which additionally inspects per-attribute thresholds and
+# may promote a PASSED disk to WARN.
+_DEFAULT_PASS_REGEX = r'All are healthy\.'
+_FULL_WARN_REGEX = r'There are warnings\.'
+_CRIT_REGEX = r'There are critical errors\.'
+
+
+def _pair(slug, default_state, full_state):
+    """Build both the default and `--full` testcases for one fixture."""
+    fixture = f'stdout/smartctl-v6-text-{slug},,0'
+    regex_for = {
+        STATE_OK: _DEFAULT_PASS_REGEX,
+        STATE_WARN: _FULL_WARN_REGEX,
+        STATE_CRIT: _CRIT_REGEX,
+    }
+    return [
+        {
+            'id': f'{_state_name(default_state)}-{slug}-default',
+            'test': fixture,
+            'assert-retc': default_state,
+            'assert-regex': regex_for[default_state],
+        },
+        {
+            'id': f'{_state_name(full_state)}-{slug}-full',
+            'test': fixture,
+            'params': '--full',
+            'assert-retc': full_state,
+            'assert-regex': regex_for[full_state],
+        },
+    ]
+
+
+def _state_name(state):
+    return {STATE_OK: 'ok', STATE_WARN: 'warn', STATE_CRIT: 'crit'}[state]
+
+
+# (slug, default state, --full state) per fixture
+FIXTURES = [
+    ('st32000542as-health-failed', STATE_CRIT, STATE_CRIT),
+    ('sk-hynix-sc311-512gb', STATE_OK, STATE_WARN),
+    ('st12000vn0007-health-failed', STATE_CRIT, STATE_CRIT),
+    ('wd40efrx-crit-attrs', STATE_CRIT, STATE_CRIT),
+    ('hds721010cla332-warn-attrs', STATE_WARN, STATE_WARN),
+    ('st12000vn0007-v1', STATE_OK, STATE_WARN),
+    ('hds721010cla332-v1', STATE_OK, STATE_WARN),
+    ('hds721010cla332-v2', STATE_OK, STATE_WARN),
+    ('wd1003fbyz', STATE_OK, STATE_WARN),
+    ('samsung-sm841-256gb', STATE_OK, STATE_OK),
+    ('nvme-3l2qexf7', STATE_OK, STATE_OK),
+    ('micron-mtfddak256mam', STATE_OK, STATE_OK),
+    ('wd40efrx-v1', STATE_OK, STATE_OK),
+    ('st12000vn0007-v2', STATE_OK, STATE_WARN),
+    ('st14000ne0008-ironwolf', STATE_OK, STATE_OK),
+    ('crucial-mx500-ct500', STATE_OK, STATE_OK),
+    ('empty-output-v1', STATE_OK, STATE_OK),
+    ('nvme-2b2qexe7', STATE_OK, STATE_OK),
+    ('wd101kryz-v1', STATE_OK, STATE_WARN),
+    ('wd101kryz-v2', STATE_OK, STATE_WARN),
+    ('wd20earx-wdred', STATE_OK, STATE_WARN),
+    ('st2000dm006-v1', STATE_OK, STATE_OK),
+    ('st2000dm006-v2', STATE_OK, STATE_OK),
+    ('toshiba-dt01aca100', STATE_OK, STATE_WARN),
+    ('unknown-10604106', STATE_OK, STATE_OK),
+    ('sandisk-ssda240g', STATE_OK, STATE_OK),
+    ('empty-output-v2', STATE_OK, STATE_WARN),
+    ('empty-output-v3', STATE_OK, STATE_WARN),
+]
+
+
+TESTS = [tc for fx in FIXTURES for tc in _pair(*fx)]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../disk-smart'
 
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0')
-        )
-        self.assertRegex(stdout, r'There are critical errors.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    def test_if_check_runs_EXAMPLE01_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE01,,0')
-        )
-        self.assertRegex(stdout, r'There are critical errors.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE02_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE02,,0')
-        )
-        self.assertRegex(stdout, r'There are warnings.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0')
-        )
-        self.assertRegex(stdout, r'There are critical errors.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    def test_if_check_runs_EXAMPLE03_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE03,,0')
-        )
-        self.assertRegex(stdout, r'There are critical errors.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    def test_if_check_runs_EXAMPLE04(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04,,0')
-        )
-        self.assertRegex(stdout, r'There are critical errors.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    def test_if_check_runs_EXAMPLE04_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE04,,0')
-        )
-        self.assertRegex(stdout, r'There are critical errors.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    def test_if_check_runs_EXAMPLE05(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE05,,0')
-        )
-        self.assertRegex(stdout, r'There are warnings.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE05_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE05,,0')
-        )
-        self.assertRegex(stdout, r'There are warnings.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE06(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE06,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE06_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE06,,0')
-        )
-        self.assertRegex(stdout, r'There are warnings.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE07(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE07,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE07_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE07,,0')
-        )
-        self.assertRegex(stdout, r'There are warnings.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE08(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE08,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE08_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE08,,0')
-        )
-        self.assertRegex(stdout, r'There are warnings.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE09(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE09,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE09_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE09,,0')
-        )
-        self.assertRegex(stdout, r'There are warnings.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE10(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE10,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE10_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE10,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE11(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE11,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE11_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE11,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE12(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE12,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE12_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE12,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE13(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE13,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE13_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE13,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE14(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE14,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE14_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE14,,0')
-        )
-        self.assertRegex(stdout, r'There are warnings.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE15(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE15,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE15_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE15,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE16(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE16,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE16_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE16,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE17(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE17,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE17_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE17,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE18(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE18,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE18_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE18,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE19(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE19,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE19_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE19,,0')
-        )
-        self.assertRegex(stdout, r'There are warnings.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE20(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE20,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE20_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE20,,0')
-        )
-        self.assertRegex(stdout, r'There are warnings.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE21(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE21,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE21_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE21,,0')
-        )
-        self.assertRegex(stdout, r'There are warnings.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE22(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE22,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE22_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE22,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE23(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE23,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE23_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE23,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE24(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE24,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE24_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE24,,0')
-        )
-        self.assertRegex(stdout, r'There are warnings.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE25(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE25,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE25_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE25,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE26(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE26,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE26_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE26,,0')
-        )
-        self.assertRegex(stdout, r'All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE27(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE27,,0')
-        )
-        self.assertRegex(stdout, r'Checked 1 disk. All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE27_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE27,,0')
-        )
-        self.assertRegex(stdout, r'Checked 1 disk. There are warnings.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE28(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE28,,0')
-        )
-        self.assertRegex(stdout, r'Checked 1 disk. All are healthy.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE28_full(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --full --test=stdout/EXAMPLE28,,0')
-        )
-        self.assertRegex(stdout, r'Checked 1 disk. There are warnings.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':
