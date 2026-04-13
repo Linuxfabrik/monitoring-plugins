@@ -45,7 +45,7 @@ Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 
 ```text
 usage: rpm-updates [-h] [-V] [--always-ok] [--only-critical] [--query QUERY]
-                   [--timeout TIMEOUT] [-w WARN]
+                   [--test TEST] [--timeout TIMEOUT] [-w WARN]
 
 Checks for available RPM package updates on RHEL, CentOS, Fedora, and
 compatible systems. Reports the number and type of available advisories
@@ -63,6 +63,8 @@ options:
                       columns. If specified, a list of matching updates is
                       printed. Example: `--query='package like "bind9-%"'`.
                       Default: 1
+  --test TEST         For unit tests. Needs "path-to-stdout-file,path-to-
+                      stderr-file,expected-retc".
   --timeout TIMEOUT   Network timeout in seconds. Default: 120 (seconds)
   -w, --warning WARN  Minimum number of available updates to return WARNING.
                       Default: 1

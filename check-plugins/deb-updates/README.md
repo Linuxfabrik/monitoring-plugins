@@ -45,7 +45,7 @@ bind9-dnsutils/stable,stable-security 1:9.18.33-1~deb12u2 amd64 [upgradable from
 
 ```text
 usage: deb-updates [-h] [-V] [--always-ok] [--only-critical] [--query QUERY]
-                   [--timeout TIMEOUT] [-w WARN]
+                   [--test TEST] [--timeout TIMEOUT] [-w WARN]
 
 Checks for available APT package updates on Debian, Ubuntu, and compatible
 systems. Reports the number of pending updates and upgrades, and alerts when
@@ -63,6 +63,8 @@ options:
                       updates is printed. Have a look at the README for a list
                       of available columns. Example: `--query='package like
                       "bind9-%"'`. Default: 1
+  --test TEST         For unit tests. Needs "path-to-stdout-file,path-to-
+                      stderr-file,expected-retc".
   --timeout TIMEOUT   Network timeout in seconds. Default: 60 (seconds)
   -w, --warning WARN  Minimum number of pending packages to trigger a WARNING.
                       Default: 1

@@ -32,6 +32,7 @@ Reports hardware temperature sensor readings (CPU, disk, chipset, etc.) in Celsi
 
 ```text
 usage: sensors-temperatures [-h] [-V] [--always-ok] [--ignore IGNORE]
+                            [--test TEST]
 
 Reports hardware temperature sensor readings (CPU, disk, chipset, etc.) in
 Celsius. Automatically checks against hardware-defined thresholds. Sensors can
@@ -45,6 +46,8 @@ options:
   --ignore IGNORE  Ignore sensors matching this Python regular expression on
                    the sensor name or label. Can be specified multiple times.
                    Example: `--ignore="iwlwifi_1"` or `--ignore="^acpitz"`.
+  --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
+                   file,expected-retc".
 ```
 
 

@@ -34,16 +34,25 @@ Reports MySQL/MariaDB traffic statistics including uptime, queries per second, c
 ## Help
 
 ```text
-Traceback (most recent call last):
-  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/mysql-traffic/mysql-traffic", line 241, in 'module'
-    main()
-    ~~~~^^
-  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/mysql-traffic/mysql-traffic", line 100, in main
-    args = parse_args()
-  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/mysql-traffic/mysql-traffic", line 54, in parse_args
-    help=lib.args.help('--defaults-group') + ' Default: %(default)s',
-         ^^^^^^^^
-AttributeError: module 'lib' has no attribute 'args'
+usage: mysql-traffic [-h] [-V] [--defaults-file DEFAULTS_FILE]
+                     [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
+
+Reports MySQL/MariaDB traffic statistics including uptime, queries per second,
+connection rates, and bytes sent and received.
+
+options:
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  --defaults-file DEFAULTS_FILE
+                        MySQL/MariaDB cnf file to read parameters like user,
+                        host and password from (instead of specifying them on
+                        the command line). Example:
+                        `/var/spool/icinga2/.my.cnf`. Default:
+                        /var/spool/icinga2/.my.cnf
+  --defaults-group DEFAULTS_GROUP
+                        Group/section to read from in the cnf file. Default:
+                        client
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 
 

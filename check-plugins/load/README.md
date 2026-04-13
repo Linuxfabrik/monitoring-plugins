@@ -27,7 +27,7 @@ Reports the average system load per CPU over the last 1, 5, and 15 minutes. Load
 ## Help
 
 ```text
-usage: load [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
+usage: load [-h] [-V] [--always-ok] [-c CRIT] [--test TEST] [-w WARN]
 
 Reports the average system load per CPU over the last 1, 5, and 15 minutes.
 Load represents the average number of processes waiting in the run queue plus
@@ -39,6 +39,8 @@ options:
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for load15 per CPU. Default: 5.0
+  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
+                       stderr-file,expected-retc".
   -w, --warning WARN   WARN threshold for load15 per CPU. Default: 1.15
 ```
 

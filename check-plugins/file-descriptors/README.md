@@ -29,7 +29,7 @@ Checks the system-wide file descriptor usage as a percentage of the kernel maxim
 
 ```text
 usage: file-descriptors [-h] [-V] [--always-ok] [-c CRIT] [--top TOP]
-                        [-w WARN]
+                        [--test TEST] [-w WARN]
 
 Checks the system-wide file descriptor usage as a percentage of the kernel
 maximum. Also lists the top processes consuming the most file descriptors to
@@ -44,6 +44,8 @@ options:
                        Default: 95
   --top TOP            Number of top processes to list by open file
                        descriptors. Default: 5
+  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
+                       stderr-file,expected-retc".
   -w, --warning WARN   WARN threshold for file descriptor usage in percent.
                        Default: 90
 ```

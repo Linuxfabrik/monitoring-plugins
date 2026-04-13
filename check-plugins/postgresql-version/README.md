@@ -35,7 +35,8 @@ Checks the installed PostgreSQL version against the endoflife.date API and alert
 usage: postgresql-version [-h] [-V] [--always-ok] [--check-major]
                           [--check-minor] [--check-patch] [--insecure]
                           [--no-proxy] [--offset-eol OFFSET_EOL]
-                          [--timeout TIMEOUT] [--username USERNAME]
+                          [--timeout TIMEOUT] [--test TEST]
+                          [--username USERNAME]
 
 Checks the installed PostgreSQL version against the endoflife.date API and
 alerts if the version is end-of-life or if newer major, minor, or patch
@@ -63,6 +64,8 @@ options:
                         Alert n days before ("-30") or after an EOL date ("30"
                         or "+30"). Default: -30 days
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                        stderr-file,expected-retc".
   --username USERNAME   PostgreSQL username for running `psql`. Default:
                         postgres
 ```

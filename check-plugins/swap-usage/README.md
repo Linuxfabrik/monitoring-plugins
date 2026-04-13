@@ -28,7 +28,8 @@ Monitors swap space usage as a percentage of total swap. On Linux, optionally li
 ## Help
 
 ```text
-usage: swap-usage [-h] [-V] [--always-ok] [-c CRIT] [--top TOP] [-w WARN]
+usage: swap-usage [-h] [-V] [--always-ok] [-c CRIT] [--top TOP] [--test TEST]
+                  [-w WARN]
 
 Monitors swap space usage as a percentage of total swap. Optionally lists the
 top processes consuming the most swap to help identify the source of high
@@ -41,6 +42,8 @@ options:
   -c, --critical CRIT  Threshold for swap usage, in percent. Default: 90
   --top TOP            Number of top processes consuming the most swap space
                        to list (not available on Windows). Default: 5
+  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
+                       stderr-file,expected-retc".
   -w, --warning WARN   Threshold for swap usage, in percent. Default: 70
 ```
 

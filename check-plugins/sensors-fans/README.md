@@ -30,7 +30,7 @@ Reports hardware fan speeds in RPM (rounds per minute). Returns OK if no fans ar
 ## Help
 
 ```text
-usage: sensors-fans [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
+usage: sensors-fans [-h] [-V] [--always-ok] [-c CRIT] [--test TEST] [-w WARN]
 
 Reports hardware fan speeds in RPM (rounds per minute). Alerts when fan speeds
 fall outside the thresholds reported by the hardware sensors.
@@ -40,6 +40,8 @@ options:
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for fan speed, in RPM. Default: 20000
+  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
+                       stderr-file,expected-retc".
   -w, --warning WARN   WARN threshold for fan speed, in RPM. Default: 10000
 ```
 

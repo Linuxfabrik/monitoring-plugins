@@ -34,7 +34,7 @@ Checks the installed OpenVPN version against the endoflife.date API and alerts i
 ```text
 usage: openvpn-version [-h] [-V] [--always-ok] [--check-major] [--check-minor]
                        [--check-patch] [--insecure] [--no-proxy]
-                       [--offset-eol OFFSET_EOL] [--path PATH]
+                       [--offset-eol OFFSET_EOL] [--path PATH] [--test TEST]
                        [--timeout TIMEOUT]
 
 Checks the installed OpenVPN version against the endoflife.date API and alerts
@@ -64,6 +64,8 @@ options:
                         or "+30"). Default: -30 days
   --path PATH           Local path to your OpenVPN binary. Default:
                         /usr/sbin/openvpn
+  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
 ```
 

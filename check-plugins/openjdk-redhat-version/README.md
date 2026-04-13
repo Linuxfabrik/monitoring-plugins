@@ -35,7 +35,7 @@ Checks the installed Red Hat OpenJDK version against the endoflife.date API and 
 usage: openjdk-redhat-version [-h] [-V] [--always-ok] [--check-major]
                               [--check-minor] [--check-patch] [--insecure]
                               [--no-proxy] [--offset-eol OFFSET_EOL]
-                              [--path PATH] [--timeout TIMEOUT]
+                              [--path PATH] [--test TEST] [--timeout TIMEOUT]
 
 Checks the installed Red Hat OpenJDK version against the endoflife.date API
 and alerts if the version is end-of-life or if newer major, minor, or patch
@@ -63,6 +63,8 @@ options:
                         Alert n days before ("-30") or after an EOL date ("30"
                         or "+30"). Default: -30 days
   --path PATH           Local path to your Java binary. Default: /usr/bin/java
+  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
 ```
 

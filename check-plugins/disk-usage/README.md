@@ -41,7 +41,7 @@ usage: disk-usage [-h] [-V] [--always-ok] [-c CRIT]
                   [--exclude-regex EXCLUDE_REGEX] [--fstype FSTYPE]
                   [--include-pattern INCLUDE_PATTERN]
                   [--include-regex INCLUDE_REGEX] [--list-fstypes]
-                  [--perfdata-regex PERFDATA_REGEX] [-w WARN]
+                  [--perfdata-regex PERFDATA_REGEX] [--test TEST] [-w WARN]
 
 Checks used or free disk space for each mounted partition. By default, only
 physical devices are checked (hard disks, USB drives), ignoring pseudo and
@@ -94,6 +94,8 @@ options:
                         Only emit perfdata keys matching this Python regex.
                         For a list of perfdata keys, see the README or run
                         this plugin. Can be specified multiple times.
+  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                        stderr-file,expected-retc".
   -w, --warning WARN    WARN threshold in the form `<number>[unit][method]`.
                         Unit is one of `%|K|M|G|T|P` (default: `%`). `K` means
                         kibibyte etc. Method is one of `USED|FREE` (default:

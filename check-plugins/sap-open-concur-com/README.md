@@ -34,8 +34,10 @@ Monitors the SAP Concur Open status page (<https://open.concur.com>) for active 
 ```text
 usage: sap-open-concur-com [-h] [--always-ok] [-V]
                            --datacenter {us,us2,eu,eu2,cn,pscc} [--insecure]
-                           [--no-proxy] [--service SERVICE] [--test TEST]
-                           [--timeout TIMEOUT] [--utc-offset UTC_OFFSET]
+                           [--no-proxy]
+                           [--service {Analysis/Intelligence,Compleat (TMC Services),Expense,Imaging,Invoice,Mobile,Request,Travel,All}]
+                           [--test TEST] [--timeout TIMEOUT]
+                           [--utc-offset UTC_OFFSET]
 
 Monitors the SAP Concur Open status page (open.concur.com) for active service
 incidents. Alerts when unresolved incidents are reported on the dashboard.
@@ -49,7 +51,8 @@ options:
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --no-proxy            Do not use a proxy.
-  --service SERVICE     SAP Concur service to check. One of
+  --service {Analysis/Intelligence,Compleat (TMC Services),Expense,Imaging,Invoice,Mobile,Request,Travel,All}
+                        SAP Concur service to check. One of
                         "Analysis/Intelligence", "Compleat (TMC Services)",
                         "Expense", "Imaging", "Invoice", "Mobile", "Request",
                         "Travel", or simply "All". Check

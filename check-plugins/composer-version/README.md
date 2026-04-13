@@ -36,7 +36,7 @@ Checks the installed Composer version against the endoflife.date API and alerts 
 usage: composer-version [-h] [-V] [--always-ok] [--check-major]
                         [--check-minor] [--check-patch] [--insecure]
                         [--no-proxy] [--offset-eol OFFSET_EOL] [--path PATH]
-                        [--timeout TIMEOUT]
+                        [--test TEST] [--timeout TIMEOUT]
 
 Checks the installed Composer version against the endoflife.date API and
 alerts if the version is end-of-life or if newer major, minor, or patch
@@ -65,6 +65,8 @@ options:
                         or "+30"). Default: -30 days
   --path PATH           Local path to your composer binary. Default:
                         /usr/bin/composer
+  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
 ```
 

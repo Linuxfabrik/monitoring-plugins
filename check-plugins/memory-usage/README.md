@@ -35,7 +35,8 @@ Monitors system memory usage and alerts when the overall usage percentage exceed
 ## Help
 
 ```text
-usage: memory-usage [-h] [-V] [--always-ok] [-c CRIT] [--top TOP] [-w WARN]
+usage: memory-usage [-h] [-V] [--always-ok] [-c CRIT] [--top TOP]
+                    [--test TEST] [-w WARN]
 
 Monitors system memory usage and alerts when the overall usage percentage
 exceeds the configured thresholds. Reports total, used, available, and free
@@ -50,6 +51,8 @@ options:
   -c, --critical CRIT  CRIT threshold for memory usage in percent. Default: 95
   --top TOP            Number of top memory-consuming processes to list. Use
                        `--top=0` to disable. Default: 5
+  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
+                       stderr-file,expected-retc".
   -w, --warning WARN   WARN threshold for memory usage in percent. Default: 90
 ```
 
