@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+sys.path.insert(0, '..')
+
+import unittest
+
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+import lib.lftest
+
+
+# The disk-usage plugin normally calls `psutil.disk_partitions()` to
+# enumerate mountpoints and then `psutil.disk_usage(mountpoint)` for
+# each one. Its `--test` hook replaces both calls with a JSON
+# fixture:
+#
+#     {
+#       "partitions": [
+#         {"device": "...", "mountpoint": "...", "fstype": "...", "opts": "..."},
+#         ...
+#       ],
+#       "usage": {
+#         "<mountpoint>": {"total": <bytes>, "used": <bytes>,
+#                          "free": <bytes>, "percent": <0..100>},
+#         ...
+#       }
+#     }
+TESTS = [
+    {
+        'id': 'ok-single-root-nominal',
+        'test': 'stdout/single-root-nominal,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['/ 30.0%'],
+    },
+    {
+        'id': 'ok-two-mounts-root-and-boot',
+        'test': 'stdout/two-mounts-root-and-boot,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            '/',
+            '/boot',
+        ],
+    },
+    {
+        'id': 'warn-single-root-above-warn',
+        'test': 'stdout/single-root-warn,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['91.0%', '[WARNING]'],
+    },
+    {
+        'id': 'crit-single-root-above-crit',
+        'test': 'stdout/single-root-crit,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['98.0%', '[CRITICAL]'],
+    },
+    {
+        'id': 'ok-always-ok-masks-critical',
+        'test': 'stdout/single-root-crit,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['98.0%'],
+    },
+    {
+        'id': 'ok-exclude-boot-leaves-only-root',
+        'test': 'stdout/two-mounts-root-and-boot,,0',
+        'params': '--exclude-pattern=boot',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['/boot'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../disk-usage'
+
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
+
+
+if __name__ == '__main__':
+    unittest.main()

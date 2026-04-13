@@ -11,11 +11,13 @@
 """See the check's README for more details."""
 
 import argparse
+import json
 import sys
 
 import lib.args
 import lib.base
 import lib.human
+import lib.lftest
 import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
@@ -27,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026041301'
 
 DESCRIPTION = """Monitors system memory usage and alerts when the overall usage percentage exceeds the
 configured thresholds. Reports total, used, available, and free memory plus shared,
@@ -78,6 +80,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '-w',
         '--warning',
         help='WARN threshold for memory usage in percent. Default: %(default)s',
@@ -88,6 +97,41 @@ def parse_args():
 
     args, _ = parser.parse_known_args()
     return args
+
+
+def _load_memory_fixture(raw_json):
+    """Convert a test fixture into the shape the plugin expects from
+    `psutil.virtual_memory()`. The plugin uses `getattr(virt, field, 0)`
+    so an object with plain attributes is enough. Any fields not
+    present in the fixture default to 0.
+
+    Fixture shape:
+
+        {"total": <bytes>, "used": <bytes>, "available": <bytes>,
+         "free": <bytes>, "percent": <0..100>, ...}
+    """
+
+    class _Virt:
+        pass
+
+    data = json.loads(raw_json)
+    virt = _Virt()
+    defaults = {
+        'total': 0,
+        'available': 0,
+        'percent': 0,
+        'used': 0,
+        'free': 0,
+        'active': 0,
+        'inactive': 0,
+        'buffers': 0,
+        'cached': 0,
+        'shared': 0,
+        'slab': 0,
+    }
+    for key, default in defaults.items():
+        setattr(virt, key, data.get(key, default))
+    return virt
 
 
 def top(count):
@@ -170,7 +214,13 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    virt = psutil.virtual_memory()
+    if args.TEST is None:
+        virt = psutil.virtual_memory()
+    else:
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        virt = _load_memory_fixture(stdout)
+        # force --top=0 under --test so we don't walk real processes
+        args.TOP = 0
 
     # init some vars
     state = STATE_OK

@@ -11,12 +11,14 @@
 """See the check's README for more details."""
 
 import argparse
+import json
 import sys
 
 import lib.args
 import lib.base
 import lib.cache
 import lib.human
+import lib.lftest
 import lib.time
 from lib.globals import STATE_UNKNOWN
 
@@ -28,7 +30,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041301'
 
 DESCRIPTION = """Reports how long the system has been running since the last boot. Optionally displays
 the timestamp and duration of the last downtime - the more frequently the check runs,
@@ -72,6 +74,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '-w',
         '--warning',
         help='Threshold for the uptime in a human-readable format '
@@ -85,6 +94,18 @@ def parse_args():
 
     args, _ = parser.parse_known_args()
     return args
+
+
+def _load_uptime_fixture(raw_json):
+    """Convert a test fixture into the values the plugin needs.
+    Returns a tuple of `(now, boot_time)` as floats. The fixture shape:
+
+        {"now": <epoch seconds>, "boot_time": <epoch seconds>}
+
+    Both values are plain floats; no namedtuples are involved.
+    """
+    data = json.loads(raw_json)
+    return float(data['now']), float(data['boot_time'])
 
 
 def main():
@@ -102,44 +123,57 @@ def main():
     WARN = lib.human.humanrange2seconds(args.WARN)
 
     # fetch data
-    now = lib.time.now()
+    if args.TEST is None:
+        now = lib.time.now()
+        boot_time = psutil.boot_time()
+    else:
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        now, boot_time = _load_uptime_fixture(stdout)
 
     # analyze data
-    uptime = lib.time.now() - psutil.boot_time()
+    uptime = now - boot_time
 
-    last_ts = lib.cache.get(
-        'last_ts', filename='linuxfabrik-monitoring-plugins-uptime.db'
-    )
-    if not last_ts:
-        last_ts = now
-    if psutil.boot_time() > float(last_ts):
-        # there was a reboot
-        downtime = psutil.boot_time() - float(last_ts)
-        down_ts = last_ts
-        lib.cache.set(
-            'last_downtime',
-            downtime,
-            filename='linuxfabrik-monitoring-plugins-uptime.db',
+    if args.TEST is None:
+        last_ts = lib.cache.get(
+            'last_ts', filename='linuxfabrik-monitoring-plugins-uptime.db'
         )
+        if not last_ts:
+            last_ts = now
+        if boot_time > float(last_ts):
+            # there was a reboot
+            downtime = boot_time - float(last_ts)
+            down_ts = last_ts
+            lib.cache.set(
+                'last_downtime',
+                downtime,
+                filename='linuxfabrik-monitoring-plugins-uptime.db',
+            )
+            lib.cache.set(
+                'last_down_ts',
+                down_ts,
+                filename='linuxfabrik-monitoring-plugins-uptime.db',
+            )
+        else:
+            downtime = lib.cache.get(
+                'last_downtime', filename='linuxfabrik-monitoring-plugins-uptime.db'
+            )
+            down_ts = lib.cache.get(
+                'last_down_ts', filename='linuxfabrik-monitoring-plugins-uptime.db'
+            )
+            if not downtime:
+                downtime, down_ts = 0, 0
         lib.cache.set(
-            'last_down_ts', down_ts, filename='linuxfabrik-monitoring-plugins-uptime.db'
+            'last_ts', now, filename='linuxfabrik-monitoring-plugins-uptime.db'
         )
     else:
-        downtime = lib.cache.get(
-            'last_downtime', filename='linuxfabrik-monitoring-plugins-uptime.db'
-        )
-        down_ts = lib.cache.get(
-            'last_down_ts', filename='linuxfabrik-monitoring-plugins-uptime.db'
-        )
-        if not downtime:
-            downtime, down_ts = 0, 0
-    lib.cache.set('last_ts', now, filename='linuxfabrik-monitoring-plugins-uptime.db')
+        # bypass the cache entirely for deterministic unit tests
+        downtime, down_ts = 0, 0
 
     # build the message
     state = lib.base.get_state(uptime, WARN, CRIT, _operator='range')
     msg = (
         f'Up {lib.human.seconds2human(uptime)} '
-        f'since {lib.time.epoch2iso(psutil.boot_time())} '
+        f'since {lib.time.epoch2iso(boot_time)} '
         f'(thresholds {args.WARN}/{args.CRIT})'
         f'{lib.base.state2str(state, prefix=" ")}'
     )

@@ -11,9 +11,14 @@
 """See the check's README for more details."""
 
 import argparse
+import json
+import socket
 import sys
+from collections import namedtuple
 
+import lib.args
 import lib.base
+import lib.lftest
 import lib.net
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
@@ -23,9 +28,23 @@ except ImportError:
     print('Python module "psutil" is not installed.')
     sys.exit(STATE_UNKNOWN)
 
+# psutil 5.x exposes sconn under psutil._common, psutil 6+ under
+# psutil._ntuples. Fall back to a plain namedtuple with the fields
+# we touch (status, family, type) if neither is available.
+try:
+    from psutil._ntuples import sconn
+except ImportError:
+    try:
+        from psutil._common import sconn
+    except ImportError:
+        sconn = namedtuple(
+            'sconn',
+            ['fd', 'family', 'type', 'laddr', 'raddr', 'status', 'pid'],
+        )
+
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041201'
+__version__ = '2026041301'
 
 DESCRIPTION = """Counts system-wide socket connections by type (TCP, TCP6, UDP, UDP6) and state.
 Alerts when the total number of connections in a specific state exceeds the configured
@@ -98,6 +117,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '-w',
         '--warning',
         help='WARN threshold for the number of connections. Default: %(default)s',
@@ -107,6 +133,52 @@ def parse_args():
 
     args, _ = parser.parse_known_args()
     return args
+
+
+# Protocol string -> (family, type) pairs used to decode fixtures.
+# We prefer a string form in the JSON fixtures because the raw
+# numeric socket family values (AF_INET=2, AF_INET6=10) and the
+# socket type values (SOCK_STREAM=1, SOCK_DGRAM=2) are unfriendly.
+_PROTO_TO_FAMILY_TYPE = {
+    'tcp': (socket.AF_INET, socket.SOCK_STREAM),
+    'udp': (socket.AF_INET, socket.SOCK_DGRAM),
+    'tcp6': (getattr(socket, 'AF_INET6', 10), socket.SOCK_STREAM),
+    'udp6': (getattr(socket, 'AF_INET6', 10), socket.SOCK_DGRAM),
+}
+
+
+def _load_network_connections_fixture(raw_json):
+    """Convert a test fixture into the list of `sconn` namedtuples
+    that `psutil.net_connections(kind='inet')` would return. The
+    plugin only reads the `status`, `family`, and `type` fields, so
+    the fixture just needs those (laddr/raddr/pid/fd default to
+    blank values).
+
+    Fixture shape:
+
+        [
+          {"proto": "tcp",  "status": "ESTABLISHED"},
+          {"proto": "tcp6", "status": "LISTEN"},
+          {"proto": "udp",  "status": "NONE"},
+          ...
+        ]
+    """
+    data = json.loads(raw_json)
+    result = []
+    for entry in data:
+        family, stype = _PROTO_TO_FAMILY_TYPE[entry['proto']]
+        result.append(
+            sconn(
+                fd=-1,
+                family=family,
+                type=stype,
+                laddr=(),
+                raddr=(),
+                status=entry['status'],
+                pid=None,
+            )
+        )
+    return result
 
 
 def main():
@@ -125,8 +197,14 @@ def main():
         args.CONN_TYPE = DEFAULT_CONN_TYPE
 
     # fetch data
+    if args.TEST is None:
+        connections = psutil.net_connections(kind='inet')
+    else:
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        connections = _load_network_connections_fixture(stdout)
+
     stats = {}
-    for c in psutil.net_connections(kind='inet'):
+    for c in connections:
         if 'all' not in args.CONN_STATUS and c.status.lower() not in args.CONN_STATUS:
             continue
         if (
