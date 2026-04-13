@@ -123,46 +123,58 @@ def parse_args():
     return args
 
 
+# Output formats this parser handles:
+#
+#   mysqld  Ver 8.0.45 for Linux on x86_64 (Source distribution)
+#   mysqld  Ver 10.11.15-MariaDB for Linux on x86_64 (MariaDB Server)
+#   mysql  Ver 14.14 Distrib 5.7.44, for Linux (x86_64) using EditLine wrapper
+#   mariadb  Ver 15.1 Distrib 10.5.x-MariaDB, for Linux on x86_64
+#   mariadb from 11.4.10-MariaDB, client 15.2 for debian-linux-gnu (x86_64) using EditLine wrapper
+#
+# MariaDB 11.4 dropped the `mysqld` symlink and renamed the client
+# version banner from "Distrib X.Y.Z" to "from X.Y.Z", so the parser
+# also tries `mariadbd` and accepts both prefixes.
+_VERSION_REGEXES = (
+    # `mysqld  Ver X.Y.Z[-MariaDB] for ...` (the package suffix that
+    # some distros append, e.g. `-1~trusty`, is stripped)
+    r'Ver (\d+\.\d+\.\d+(?:-MariaDB)?)',
+    # `mysql  Ver 14.14 Distrib X.Y.Z[-MariaDB], for ...`
+    # `mariadb  Ver 15.1 Distrib 10.5.x-MariaDB, for ...`
+    r'Distrib (\S+?),',
+    # `mariadb from X.Y.Z[-MariaDB], client ...`  (MariaDB 11.4+)
+    r'from (\d+\.\d+\.\d+(?:-MariaDB)?),',
+)
+
+
+def _parse_version(stdout):
+    """Try every known version-string regex against `stdout` and
+    return the first match, or `''` if none of them apply.
+    """
+    for regex in _VERSION_REGEXES:
+        m = re.search(regex, stdout)
+        if m:
+            return m.group(1).strip()
+    return ''
+
+
 def get_installed_version(test_arg=None):
-    # In test mode, read the fixture once and try both regexes
-    # against it. The mysqld output matches the first one; the
-    # mariadb / mysql client outputs match the second.
     if test_arg is not None:
         stdout, _, _ = lib.lftest.test(test_arg)
-        stdout = stdout.strip()
-        m = re.search(r'Ver (.*?) ', stdout)
-        if m:
-            return m.group(1).strip()
-        m = re.search(r'(?i)b (.*?),', stdout)
-        if m:
-            return m.group(1).strip()
-        return ''
+        return _parse_version(stdout.strip())
 
-    success, result = lib.shell.shell_exec('mysqld --version')
-    if success:
-        stdout = result[0].strip()
-        # where to find the version number in output?
-        version_regex = r'Ver (.*?) '
-        try:
-            stdout = re.search(version_regex, stdout)
-            return stdout.group(1).strip()
-        except Exception:
-            pass
-
-    success, result = lib.shell.shell_exec('mariadb --version')
-    if not success:
-        success, result = lib.shell.shell_exec('mysql --version')
-    if not success:
-        return ''
-
-    stdout = result[0].strip()
-    # where to find the version number in output?
-    version_regex = r'(?i)b (.*?),'
-    try:
-        stdout = re.search(version_regex, stdout)
-        return stdout.group(1).strip()
-    except Exception:
-        return ''
+    # Try the server binary first under both its old name (`mysqld`)
+    # and its current MariaDB name (`mariadbd`), then fall back to the
+    # client binary under both its current name (`mariadb`) and its
+    # legacy name (`mysql`).
+    for command in ('mysqld --version', 'mariadbd --version',
+                    'mariadb --version', 'mysql --version'):
+        success, result = lib.shell.shell_exec(command)
+        if not success:
+            continue
+        version = _parse_version(result[0].strip())
+        if version:
+            return version
+    return ''
 
 
 def main():

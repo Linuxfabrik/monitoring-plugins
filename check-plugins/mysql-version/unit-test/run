@@ -11,20 +11,21 @@
 """Unit tests for the mysql-version check plugin.
 
 The plugin probes for either MySQL Community Server or MariaDB by
-running `mysqld --version` first and falling back to
-`mariadb --version` / `mysql --version` if the server binary is not
-available. Two regexes parse the two output formats:
+running `mysqld`, `mariadbd`, `mariadb` or `mysql` with `--version`
+and parses the result. Three regexes cover three output formats:
 
-  - mysqld output:   `mysqld  Ver 10.11.15-MariaDB for Linux ...`
-                     `/usr/libexec/mysqld  Ver 8.0.45 for Linux ...`
-  - client output:   `mysql  Ver 15.1 Distrib 10.11.x-MariaDB, for ...`
+  - `mysqld  Ver X.Y.Z[-MariaDB] for ...`         (mysqld and mariadbd)
+  - `mysql  Ver 14.14 Distrib X.Y.Z, for ...`     (legacy mysql client)
+  - `mariadb from X.Y.Z-MariaDB, client ...`      (MariaDB 11.4+ client)
 
-The fixtures in `stdout/` are the real `mysqld --version` strings
-captured from the Red Hat / CentOS Stream sclorg containers
-(`quay.io/sclorg/mariadb-105-c8s`, `mariadb-105-c9s`,
-`mariadb-1011-c10s`, `mysql-80-c8s`, `mysql-80-c9s`,
-`mysql-84-c10s`). Both the MariaDB-suffixed format and the
-upstream-MySQL format are covered.
+Fixtures in `stdout/` come from a mix of sources:
+
+  - `quay.io/sclorg/mysql-{80,84}-c{8,9,10}s` and
+    `quay.io/sclorg/mariadb-{105,1011}-c{8,9,10}s` for the Red Hat /
+    CentOS Stream packaging
+  - `docker.io/library/mariadb:<tag>` for the older 5.5 and 10.4
+    cycles plus the upstream-only 10.6, 11.4, 11.8, 12.0, 12.1 and
+    12.2 MariaDB releases (no Red Hat container ships those yet)
 
 Each testcase pins the expected Nagios state to whatever
 `lib.version.check_eol()` returned when these fixtures were saved
@@ -43,8 +44,20 @@ import lib.lftest
 
 
 TESTS = [
+    # ---- MariaDB --------------------------------------------------
     {
-        # MariaDB 10.5 reached EOL 2025-06-24.
+        'id': 'warn-mariadb-5-5-eol',
+        'test': 'stdout/mysqld-version-mariadb-5.5,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['MariaDB v5.5.64', 'EOL 2020-04-11', '[WARNING]'],
+    },
+    {
+        'id': 'warn-mariadb-10-4-eol',
+        'test': 'stdout/mysqld-version-mariadb-10.4,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['MariaDB v10.4.34', 'EOL 2024-06-18', '[WARNING]'],
+    },
+    {
         'id': 'warn-mariadb-10-5-c8s-eol',
         'test': 'stdout/mysqld-version-mariadb-10.5-c8s,,0',
         'assert-retc': STATE_WARN,
@@ -57,12 +70,52 @@ TESTS = [
         'assert-in': ['MariaDB v10.5.29', 'EOL 2025-06-24', '[WARNING]'],
     },
     {
+        # MariaDB 10.6 LTS, EOL 2026-07-06.
+        'id': 'ok-mariadb-10-6-supported',
+        'test': 'stdout/mysqld-version-mariadb-10.6,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['MariaDB v10.6.25', 'EOL 2026-07-06'],
+    },
+    {
         # MariaDB 10.11 LTS, EOL 2028-02-16.
         'id': 'ok-mariadb-10-11-c10s-supported',
         'test': 'stdout/mysqld-version-mariadb-10.11-c10s,,0',
         'assert-retc': STATE_OK,
         'assert-in': ['MariaDB v10.11.15', 'EOL 2028-02-16'],
     },
+    {
+        # MariaDB 11.4 LTS via the new `mariadb --version` client
+        # banner. Exercises the third parser regex (`from X.Y.Z,`).
+        'id': 'ok-mariadb-11-4-client-banner-supported',
+        'test': 'stdout/mariadb-version-client-11.4,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['MariaDB v11.4.10', 'EOL 2029-05-29'],
+    },
+    {
+        'id': 'ok-mariadb-11-8-client-banner-supported',
+        'test': 'stdout/mariadb-version-client-11.8,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['MariaDB v11.8.6', 'EOL 2028-06-04'],
+    },
+    {
+        'id': 'warn-mariadb-12-0-near-eol',
+        'test': 'stdout/mariadb-version-client-12.0,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['MariaDB v12.0.2', 'EOL 2025-11-18', '[WARNING]'],
+    },
+    {
+        'id': 'warn-mariadb-12-1-near-eol',
+        'test': 'stdout/mariadb-version-client-12.1,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['MariaDB v12.1.2', 'EOL 2026-02-13', '[WARNING]'],
+    },
+    {
+        'id': 'warn-mariadb-12-2-near-eol',
+        'test': 'stdout/mariadb-version-client-12.2,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['MariaDB v12.2.2', 'EOL 2026-05-13', '[WARNING]'],
+    },
+    # ---- MySQL ----------------------------------------------------
     {
         # MySQL 8.0 - full support already ended, hard EOL 2026-04-30.
         'id': 'warn-mysql-8-0-c8s-near-eol',
@@ -88,8 +141,8 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ['MySQL v8.4.8', 'EOL 2032-04-30'],
     },
+    # ---- Edge case ------------------------------------------------
     {
-        # Parser edge case: command not found.
         'id': 'unknown-garbage-output',
         'test': 'stdout/garbage-output,,0',
         'assert-retc': STATE_UNKNOWN,
