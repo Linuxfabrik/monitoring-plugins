@@ -179,26 +179,17 @@ def main():
 
     for i, plugin in enumerate(plugins, 1):
         unit_test_dir = os.path.join(check_plugins, plugin, 'unit-test')
-        print(f'[{i}/{total}] {plugin} ... ', end='', flush=True)
+        print(f'[{i}/{total}] {plugin}', flush=True)
 
         result = subprocess.run(
             [sys.executable, 'run'],
             cwd=unit_test_dir,
-            capture_output=True,
-            text=True,
+            stderr=subprocess.STDOUT,
         )
         if result.returncode == 0:
             passed.append(plugin)
-            print('ok')
         else:
             failed.append(plugin)
-            print('FAIL')
-            if result.stdout:
-                for line in result.stdout.strip().splitlines():
-                    print(f'  {line}')
-            if result.stderr:
-                for line in result.stderr.strip().splitlines():
-                    print(f'  {line}')
 
     # summary
     print(f'\n{len(passed)} passed, {len(failed)} failed out of {total}')
