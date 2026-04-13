@@ -31,10 +31,51 @@ Usage:
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+# bandit emits two classes of stderr WARNING messages that come from its
+# internal `# nosec` bookkeeping and do not correspond to any actual
+# security finding. Both look alarming in the wrapper's output but cannot
+# be fixed at the source level without rewriting otherwise-correct code:
+#
+#   1. `nosec encountered (BXXX), but no failed test` - bandit runs each
+#      test against every AST node on a given line, not just the node
+#      that would actually produce the finding. When several sub-nodes
+#      share a line and only one of them triggers the test, bandit sees
+#      the `# nosec BXXX` comment from the context of the other sub-nodes
+#      too and warns that the nosec "was never used", even though it was
+#      used by the one sub-node that mattered.
+#
+#   2. `Test in comment: X is not a test name or id, ignoring` - bandit
+#      tokenizes every word after `# nosec` and tries to match each one
+#      against its test id catalog. Free-text explanations on the same
+#      line (e.g. `# nosec B105 - Keycloak install default, ...`) trip
+#      this. We keep source-level comments free of prose after `# nosec`
+#      by convention, but upstream libs occasionally slip through.
+#
+# Both warnings are logged at WARNING level on stderr and do not affect
+# bandit's exit code. We filter them here so the linter sweep stays
+# readable; real security issues still surface because bandit is run at
+# `--severity-level=high --confidence-level=high` and would exit non-zero
+# on any actual finding.
+BANDIT_NOISE_PATTERNS = (
+    re.compile(
+        r'^\[tester\]\s+WARNING\s+nosec encountered \(B\d+\), '
+        r'but no failed test on file'
+    ),
+    re.compile(
+        r'^\[manager\]\s+WARNING\s+Test in comment: .* '
+        r'is not a test name or id, ignoring'
+    ),
+)
+
+
+def _bandit_line_is_noise(line):
+    return any(pattern.search(line) for pattern in BANDIT_NOISE_PATTERNS)
 
 
 def discover_python_files():
@@ -66,10 +107,23 @@ def discover_python_files():
     return sorted(python_files)
 
 
-def run(analyzer, argv):
+def run(analyzer, argv, stderr_filter=None):
     print(f'\n=== {analyzer} ===', flush=True)
     try:
-        result = subprocess.run(argv, cwd=REPO_ROOT, check=False)
+        if stderr_filter is not None:
+            result = subprocess.run(
+                argv,
+                cwd=REPO_ROOT,
+                check=False,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            for line in result.stderr.splitlines():
+                if not stderr_filter(line):
+                    sys.stderr.write(line + '\n')
+            sys.stderr.flush()
+        else:
+            result = subprocess.run(argv, cwd=REPO_ROOT, check=False)
     except FileNotFoundError:
         print(f'{analyzer}: not installed, skipping')
         return 0
@@ -119,6 +173,7 @@ def main():
                 '--confidence-level=high',
                 *python_files,
             ],
+            stderr_filter=_bandit_line_is_noise,
         )
 
     if selected is None or 'vulture' in selected:
