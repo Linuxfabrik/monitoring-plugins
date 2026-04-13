@@ -65,6 +65,7 @@ Assets:
 
 Build, CI/CD:
 
+* Bump pinned `linuxfabrik-lib` dependency from 3.0.0 to 3.1.0, picking up the new `run_mariadb()` / `MARIADB_LTS_IMAGES` container-test helpers, the `attach_each()` / `attach_tests()` unit-test helpers and the `disk.dir_exists()` directory check
 * Windows MSI still installs all plugins to ProgramFiles64Folder/ICINGA2/sbin/linuxfabrik, but does not depend on an Icinga2 agent any longer
 
 
