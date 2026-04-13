@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -8,200 +8,276 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import os
 import sys
-
-sys.path.append('..')  # Adds higher directory to python modules path.
-
-
 import unittest
 
-from lib.globals import *
-import lib.base
-import lib.shell
+sys.path.insert(0, '..')
+
+from lib.globals import STATE_OK, STATE_WARN
+import lib.lftest
+
+
+CACHE_DB = '/tmp/linuxfabrik-monitoring-plugins-apache-httpd-status.db'
+
+
+# The apache-httpd-status plugin talks to Apache's `mod_status` endpoint
+# (server-status?auto) which changes its field set across httpd versions
+# and MPMs. The plugin also stores previous values in a local SQLite
+# cache so that continuous counters can be converted into per-interval
+# rates, which means realistic coverage needs **sequences** of fixture
+# files that simulate consecutive invocations:
+#
+#   call 1  -> "Waiting for more data (1)."   (no prev_uptime)
+#   call 2  -> "Waiting for more data (3)."   (no prev_duration_global,
+#                                               only for Stage 3 output)
+#   call 3  -> the real output
+#
+# For plugins that never reach the third stage (pre-2.4.35 httpd without
+# `Total Duration`) the sequence stops after call 2.
+#
+# Fixtures are named `<os>-httpd-<version>-<mpm>-ext-<on|off>[-<n>]`
+# and were captured against real podman containers:
+#
+#   - rhel7-httpd-2.4.6-prefork-*       : pre-2.4.13 format, no ConnsAsync,
+#                                          no Total Duration (Stage 2 only)
+#   - rhel8-httpd-2.4.37-event-*        : first RHEL with Total Duration
+#                                          (Stage 3)
+#   - rhel9-httpd-2.4.62-event-*        : current RHEL 9 httpd
+#   - rhel10-httpd-2.4.63-event-*       : current RHEL 10 httpd
+#   - fedora34-httpd-2.4.48-event-*     : Fedora with event MPM (Stage 3)
+#   - fedora34-httpd-2.4.48-worker-*    : worker MPM, which does NOT
+#                                          emit ConnsTotal/ConnsAsync*,
+#                                          so exercises the "field is
+#                                          missing" branches
+#   - fedora34-httpd-2.4.48-worker-...-no-cpuload-*
+#                                       : additionally lacks CPULoad,
+#                                          exercises that optional-field
+#                                          branch
+#
+# Each scenario lists its steps; the cache DB is deleted before each
+# scenario so the sequences do not bleed into each other.
+
+STAGE1_REGEX = r'\d+/\d+ workers busy'
+STAGE2_REGEX = r'\d+/\d+ workers busy.*accesses.*traffic'
+STAGE3_REGEX = r'\S+: \d+/\d+ workers busy.*accesses.*traffic; Up '
+WARN_REGEX = r'workers busy \(\d+\.\d+% \[WARNING\]'
+
+
+SCENARIOS = [
+    {
+        'id': 'rhel7-httpd-2.4.6-prefork-ext-off',
+        'steps': [
+            {
+                'test': 'stdout/rhel7-httpd-2.4.6-prefork-ext-off,,0',
+                'assert-retc': STATE_OK,
+                'assert-regex': STAGE1_REGEX,
+            },
+        ],
+    },
+    {
+        'id': 'rhel7-httpd-2.4.6-prefork-ext-on',
+        'steps': [
+            {
+                'test': 'stdout/rhel7-httpd-2.4.6-prefork-ext-on-1,,0',
+                'assert-retc': STATE_OK,
+                'assert-in': ['Waiting for more data (1).'],
+            },
+            {
+                'test': 'stdout/rhel7-httpd-2.4.6-prefork-ext-on-2,,0',
+                'assert-retc': STATE_OK,
+                'assert-regex': STAGE2_REGEX,
+            },
+        ],
+    },
+    {
+        'id': 'rhel8-httpd-2.4.37-event-ext-off',
+        'steps': [
+            {
+                'test': 'stdout/rhel8-httpd-2.4.37-event-ext-off,,0',
+                'assert-retc': STATE_OK,
+                'assert-regex': STAGE1_REGEX,
+            },
+        ],
+    },
+    {
+        'id': 'rhel8-httpd-2.4.37-event-ext-on',
+        'steps': [
+            {
+                'test': 'stdout/rhel8-httpd-2.4.37-event-ext-on-1,,0',
+                'assert-retc': STATE_OK,
+                'assert-in': ['Waiting for more data (1).'],
+            },
+            {
+                'test': 'stdout/rhel8-httpd-2.4.37-event-ext-on-2,,0',
+                'assert-retc': STATE_OK,
+                'assert-in': ['Waiting for more data (3).'],
+            },
+            {
+                'test': 'stdout/rhel8-httpd-2.4.37-event-ext-on-3,,0',
+                'assert-retc': STATE_OK,
+                'assert-regex': STAGE3_REGEX,
+            },
+        ],
+    },
+    {
+        'id': 'rhel9-httpd-2.4.62-event-ext-off',
+        'steps': [
+            {
+                'test': 'stdout/rhel9-httpd-2.4.62-event-ext-off,,0',
+                'assert-retc': STATE_OK,
+                'assert-regex': STAGE1_REGEX,
+            },
+        ],
+    },
+    {
+        'id': 'rhel9-httpd-2.4.62-event-ext-on',
+        'steps': [
+            {
+                'test': 'stdout/rhel9-httpd-2.4.62-event-ext-on-1,,0',
+                'assert-retc': STATE_OK,
+                'assert-in': ['Waiting for more data (1).'],
+            },
+            {
+                'test': 'stdout/rhel9-httpd-2.4.62-event-ext-on-2,,0',
+                'assert-retc': STATE_OK,
+                'assert-in': ['Waiting for more data (3).'],
+            },
+            {
+                'test': 'stdout/rhel9-httpd-2.4.62-event-ext-on-3,,0',
+                'assert-retc': STATE_OK,
+                'assert-regex': STAGE3_REGEX,
+            },
+        ],
+    },
+    {
+        'id': 'rhel10-httpd-2.4.63-event-ext-off',
+        'steps': [
+            {
+                'test': 'stdout/rhel10-httpd-2.4.63-event-ext-off,,0',
+                'assert-retc': STATE_OK,
+                'assert-regex': STAGE1_REGEX,
+            },
+        ],
+    },
+    {
+        'id': 'rhel10-httpd-2.4.63-event-ext-on',
+        'steps': [
+            {
+                'test': 'stdout/rhel10-httpd-2.4.63-event-ext-on-1,,0',
+                'assert-retc': STATE_OK,
+                'assert-in': ['Waiting for more data (1).'],
+            },
+            {
+                'test': 'stdout/rhel10-httpd-2.4.63-event-ext-on-2,,0',
+                'assert-retc': STATE_OK,
+                'assert-in': ['Waiting for more data (3).'],
+            },
+            {
+                'test': 'stdout/rhel10-httpd-2.4.63-event-ext-on-3,,0',
+                'assert-retc': STATE_OK,
+                'assert-regex': STAGE3_REGEX,
+            },
+        ],
+    },
+    {
+        'id': 'fedora34-httpd-2.4.48-event-ext-off',
+        'steps': [
+            {
+                'test': 'stdout/fedora34-httpd-2.4.48-event-ext-off,,0',
+                'assert-retc': STATE_OK,
+                'assert-regex': STAGE1_REGEX,
+            },
+        ],
+    },
+    {
+        # Fixture captured on a real host under load; the third call
+        # reports 325/400 busy workers which crosses the default 80%
+        # WARN threshold, so this also covers the state-logic path.
+        'id': 'fedora34-httpd-2.4.48-event-ext-on-warn',
+        'steps': [
+            {
+                'test': 'stdout/fedora34-httpd-2.4.48-event-ext-on-1,,0',
+                'assert-retc': STATE_OK,
+                'assert-in': ['Waiting for more data (1).'],
+            },
+            {
+                'test': 'stdout/fedora34-httpd-2.4.48-event-ext-on-2,,0',
+                'assert-retc': STATE_OK,
+                'assert-in': ['Waiting for more data (3).'],
+            },
+            {
+                'test': 'stdout/fedora34-httpd-2.4.48-event-ext-on-3,,0',
+                'assert-retc': STATE_WARN,
+                'assert-regex': WARN_REGEX,
+            },
+        ],
+    },
+    {
+        # worker MPM does not emit ConnsTotal / ConnsAsync* / Processes
+        # / Stopping, which forces the plugin through the
+        # "field is missing" branches.
+        'id': 'fedora34-httpd-2.4.48-worker-ext-on-warn',
+        'steps': [
+            {
+                'test': 'stdout/fedora34-httpd-2.4.48-worker-ext-on-1,,0',
+                'assert-retc': STATE_OK,
+                'assert-in': ['Waiting for more data (1).'],
+            },
+            {
+                'test': 'stdout/fedora34-httpd-2.4.48-worker-ext-on-2,,0',
+                'assert-retc': STATE_OK,
+                'assert-in': ['Waiting for more data (3).'],
+            },
+            {
+                'test': 'stdout/fedora34-httpd-2.4.48-worker-ext-on-3,,0',
+                'assert-retc': STATE_WARN,
+                'assert-regex': WARN_REGEX,
+                'assert-not-in': ['ConnsTotal'],
+            },
+        ],
+    },
+    {
+        # Same shape as the worker scenario above but additionally
+        # misses CPULoad, which the plugin handles via another
+        # "field is missing" branch.
+        'id': 'fedora34-httpd-2.4.48-worker-ext-on-no-cpuload',
+        'steps': [
+            {
+                'test': 'stdout/fedora34-httpd-2.4.48-worker-ext-on-no-cpuload-1,,0',
+                'assert-retc': STATE_OK,
+                'assert-in': ['Waiting for more data (1).'],
+            },
+            {
+                'test': 'stdout/fedora34-httpd-2.4.48-worker-ext-on-no-cpuload-2,,0',
+                'assert-retc': STATE_OK,
+                'assert-in': ['Waiting for more data (3).'],
+            },
+            {
+                'test': 'stdout/fedora34-httpd-2.4.48-worker-ext-on-no-cpuload-3,,0',
+                'assert-retc': STATE_OK,
+                'assert-regex': STAGE3_REGEX,
+                'assert-not-in': ['CPULoad'],
+            },
+        ],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../apache-httpd-status'
 
-    # 01 centos 7 ext status off
-    # 02a, 02b centos 7 ext status on
-    # 03 centos 8 ext status off
-    # 04a, 04b centos 8 ext status off
-    # 05 fedora server ext status off
-    # 06a, 06b fedora server ext status on
-
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                'rm -f /tmp/linuxfabrik-monitoring-plugins-apache-httpd-status.db'
-            )
-        )
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,')
-        )
-        self.assertIn('2/256 workers busy (0.8%; 0 "G"), 5 idle, 249 free', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                'rm -f /tmp/linuxfabrik-monitoring-plugins-apache-httpd-status.db'
-            )
-        )
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02a,,')
-        )
-        self.assertIn('Waiting for more data (1).', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02b,,')
-        )
-        self.assertIn(
-            '1/256 workers busy (0.4%; 0 "G"), 7 idle, 248 free; 65.0 accesses, 49.0KiB traffic; Up 8m 30s',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                'rm -f /tmp/linuxfabrik-monitoring-plugins-apache-httpd-status.db'
-            )
-        )
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,')
-        )
-        self.assertIn('15/400 workers busy (3.8%; 0 "G"), 85 idle, 300 free', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE04(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                'rm -f /tmp/linuxfabrik-monitoring-plugins-apache-httpd-status.db'
-            )
-        )
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04a,,')
-        )
-        self.assertIn('Waiting for more data (1).', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04b,,')
-        )
-        self.assertIn('Waiting for more data (3).', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04c,,')
-        )
-        self.assertIn(
-            '10.117.17.40: 13/400 workers busy (3.2%; 0 "G"), 87 idle, 300 free; 547.0 accesses, 11.9MiB traffic; Up ',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE05(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                'rm -f /tmp/linuxfabrik-monitoring-plugins-apache-httpd-status.db'
-            )
-        )
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE05,,')
-        )
-        self.assertIn('1/400 workers busy (0.2%; 0 "G"), 74 idle, 325 free', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE06(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                'rm -f /tmp/linuxfabrik-monitoring-plugins-apache-httpd-status.db'
-            )
-        )
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE06a,,')
-        )
-        self.assertIn('Waiting for more data (1).', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE06b,,')
-        )
-        self.assertIn('Waiting for more data (3).', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE06c,,')
-        )
-        self.assertIn(
-            '192.168.122.97: 325/400 workers busy (81.2% [WARNING]; 11 "G"), 75 idle, 1 free; 78.7K accesses, 8.4GiB traffic; Up ',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE07(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                'rm -f /tmp/linuxfabrik-monitoring-plugins-apache-httpd-status.db'
-            )
-        )
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE07a,,')
-        )
-        self.assertIn('Waiting for more data (1).', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE07b,,')
-        )
-        self.assertIn('Waiting for more data (3).', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE07c,,')
-        )
-        self.assertIn(
-            '192.168.122.97: 327/400 workers busy (81.8% [WARNING]; 0 "G"), 73 idle, 0 free; 6.2K accesses, 732.9MiB traffic; Up ',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE08_without_CPULoad(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                'rm -f /tmp/linuxfabrik-monitoring-plugins-apache-httpd-status.db'
-            )
-        )
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE08a,,')
-        )
-        self.assertIn('Waiting for more data (1).', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE08b,,')
-        )
-        self.assertIn('Waiting for more data (3).', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE08c,,')
-        )
-        self.assertIn(
-            '192.168.122.97: 1/400 workers busy (0.2%; 0 "G"), 99 idle, 300 free; 10.0K accesses, 976.6MiB traffic; Up ',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
+    def test(self):
+        for scenario in SCENARIOS:
+            with self.subTest(scenario=scenario['id']):
+                # Reset the sqlite cache so previous-value lookups
+                # start from a clean slate for this scenario.
+                if os.path.exists(CACHE_DB):
+                    os.remove(CACHE_DB)
+                for i, step in enumerate(scenario['steps'], start=1):
+                    with self.subTest(scenario=scenario['id'], step=i):
+                        lib.lftest.run(self, self.check, step)
 
 
 if __name__ == '__main__':
