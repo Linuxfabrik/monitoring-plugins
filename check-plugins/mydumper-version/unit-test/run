@@ -1,0 +1,80 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the mydumper-version check plugin.
+
+This plugin does not query endoflife.date - it queries the GitHub
+releases API for `mydumper/mydumper` and compares the installed
+version to the upstream "latest" tag. To keep the unit tests
+hermetic the test mode pins both halves of the comparison via the
+two payload slots of `lib.lftest.test()`:
+
+  * the first slot (the "stdout" slot) carries the raw
+    `mydumper --version` output the regex parser consumes
+  * the second slot (the "stderr" slot) carries the upstream
+    "latest" tag string the plugin would otherwise fetch from
+    GitHub
+
+The `mydumper --version` fixtures were captured from the
+`docker.io/library/{debian:11,ubuntu:22.04,ubuntu:24.04}` images
+after a fresh `apt-get install mydumper`. There is no Red Hat
+family container that ships mydumper in the default repos, so the
+upstream Debian / Ubuntu packages are the right source. The
+"latest" fixture pins the upstream tag the plugin sees on the day
+the fixtures were saved; it will need to be re-pinned when a new
+mydumper release happens.
+"""
+
+import sys
+sys.path.insert(0, '..')
+
+import unittest
+
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'warn-mydumper-0-10-0-outdated',
+        'test': 'stdout/mydumper-version-0.10.0,stderr/mydumper-latest-0.16.5,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'mydumper/myloader 0.10.0 installed',
+            'mydumper/myloader 0.16.5 available',
+        ],
+    },
+    {
+        'id': 'ok-mydumper-0-16-5-up-to-date',
+        'test': 'stdout/mydumper-version-0.16.5,stderr/mydumper-latest-0.16.5,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['mydumper/myloader 0.16.5 is up to date'],
+    },
+    {
+        'id': 'unknown-garbage-output',
+        'test': 'stdout/garbage-output,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['mydumper/myloader not found.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../mydumper-version'
+
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
+
+
+if __name__ == '__main__':
+    unittest.main()

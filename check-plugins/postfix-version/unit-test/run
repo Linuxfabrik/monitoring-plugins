@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the postfix-version check plugin.
+
+The fixtures in `stdout/` are the raw `postconf -d mail_version`
+outputs captured from official Red Hat family base images
+(`registry.access.redhat.com/ubi{8,9,10}` and
+`registry.fedoraproject.org/fedora:43`) after a fresh
+`dnf install postfix`. The plugin runs its `r'= ([\\d\\.]+)'`
+regex against each one.
+
+Each testcase pins the expected Nagios state to whatever
+`lib.version.check_eol()` returned when these fixtures were saved
+against the live https://endoflife.date/api/postfix.json data. The
+EOL table drifts over time (releases hit EOL, new majors appear),
+so the `assert-retc` and `assert-in` strings will need to be
+re-pinned every few months.
+"""
+
+import sys
+sys.path.insert(0, '..')
+
+import unittest
+
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'warn-rhel8-postfix-3-5-8-eol',
+        'test': 'stdout/postconf-mail-version-rhel8,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Postfix v3.5.8', 'EOL 2024-03-06', '[WARNING]'],
+    },
+    {
+        'id': 'warn-rhel9-postfix-3-5-25-eol',
+        'test': 'stdout/postconf-mail-version-rhel9,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Postfix v3.5.25', 'EOL 2024-03-06', '[WARNING]'],
+    },
+    {
+        'id': 'ok-rhel10-postfix-3-8-5',
+        'test': 'stdout/postconf-mail-version-rhel10,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Postfix v3.8.5', 'EOL unknown'],
+    },
+    {
+        'id': 'ok-fedora43-postfix-3-10-3',
+        'test': 'stdout/postconf-mail-version-fedora43,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Postfix v3.10.3', 'EOL unknown'],
+    },
+    {
+        'id': 'unknown-garbage-output',
+        'test': 'stdout/garbage-output,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Postfix not found.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../postfix-version'
+
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
+
+
+if __name__ == '__main__':
+    unittest.main()

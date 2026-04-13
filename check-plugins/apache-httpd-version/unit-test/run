@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the apache-httpd-version check plugin.
+
+The fixtures in `stdout/` are the raw `httpd -v` / `apache2 -v`
+outputs captured from official Red Hat family httpd images
+(`registry.access.redhat.com/ubi{8,9,10}` plus
+`registry.fedoraproject.org/fedora:43`) and one Debian image
+(`docker.io/library/debian:13`) for the apache2 binary path. The
+plugin runs its `r'/(\\d+\\.\\d+\\.\\d+)'` regex against each one.
+
+The endoflife.date `apache.json` feed currently lists 2.4 as the
+only non-EOL cycle, so all real captures resolve to STATE_OK with
+"EOL unknown" or a "patch ... available" hint. The
+`assert-retc` and `assert-in` strings will need to be re-pinned
+the day Apache 2.4 hits EOL or a 2.6 cycle appears.
+"""
+
+import sys
+sys.path.insert(0, '..')
+
+import unittest
+
+from lib.globals import STATE_OK, STATE_UNKNOWN
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'ok-rhel8-httpd-2-4-37',
+        'test': 'stdout/httpd-v-rhel8,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Apache httpd v2.4.37', 'EOL unknown'],
+    },
+    {
+        'id': 'ok-rhel9-httpd-2-4-62',
+        'test': 'stdout/httpd-v-rhel9,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Apache httpd v2.4.62', 'EOL unknown'],
+    },
+    {
+        'id': 'ok-rhel10-httpd-2-4-63',
+        'test': 'stdout/httpd-v-rhel10,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Apache httpd v2.4.63', 'EOL unknown'],
+    },
+    {
+        'id': 'ok-fedora43-httpd-2-4-66',
+        'test': 'stdout/httpd-v-fedora43,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Apache httpd v2.4.66', 'EOL unknown'],
+    },
+    {
+        'id': 'ok-debian13-apache2-2-4-66',
+        'test': 'stdout/apache2-v-debian13,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Apache httpd v2.4.66', 'EOL unknown'],
+    },
+    {
+        'id': 'unknown-garbage-output',
+        'test': 'stdout/garbage-output,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Apache httpd not found.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../apache-httpd-version'
+
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -16,12 +16,13 @@ import sys
 
 import lib.args
 import lib.base
+import lib.lftest
 import lib.shell
 import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041301'
 
 DESCRIPTION = """Checks the installed Apache Solr version against the endoflife.date API and alerts
 if the version is end-of-life or if newer major, minor, or patch releases are available.
@@ -112,6 +113,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -123,11 +131,15 @@ def parse_args():
     return args
 
 
-def get_installed_version(path):
-    success, result = lib.shell.shell_exec(f'{path} version')
-    if not success:
-        return ''
-    stdout = result[0].strip()
+def get_installed_version(path, test_arg=None):
+    if test_arg is None:
+        success, result = lib.shell.shell_exec(f'{path} version')
+        if not success:
+            return ''
+        stdout = result[0].strip()
+    else:
+        stdout, _, _ = lib.lftest.test(test_arg)
+        stdout = stdout.strip()
     # where to find the version number in output?
     # Solr version is: 9.4.0
     # 9.3.0
@@ -149,7 +161,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    installed_version = get_installed_version(args.PATH)
+    installed_version = get_installed_version(args.PATH, args.TEST)
     if not installed_version:
         lib.base.cu(f'Apache Solr `{args.PATH}` not found.')
     state, msg = lib.version.check_eol(

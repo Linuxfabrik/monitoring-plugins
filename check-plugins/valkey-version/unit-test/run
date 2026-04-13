@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the valkey-version check plugin.
+
+The fixtures in `stdout/` are the raw `valkey-server --version`
+outputs captured from the official `docker.io/valkey/valkey:<tag>`
+images on Docker Hub. There is no Red Hat family Valkey container
+yet, so we fall back to the upstream image. The plugin runs its
+`r' v=(.*?) '` regex against each one. Note that the 7.2 line
+starts with "Server v=" while 8.x and 9.x start with
+"Valkey server v=" - both shapes are covered.
+
+Each testcase pins the expected Nagios state to whatever
+`lib.version.check_eol()` returned when these fixtures were saved
+against the live https://endoflife.date/api/valkey.json data. The
+EOL table drifts over time (releases hit EOL, new majors appear),
+so the `assert-retc` and `assert-in` strings will need to be
+re-pinned every few months.
+"""
+
+import sys
+sys.path.insert(0, '..')
+
+import unittest
+
+from lib.globals import STATE_OK, STATE_UNKNOWN
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'ok-valkey-7-2',
+        'test': 'stdout/valkey-server-v7.2,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Valkey v7.2.12', 'EOL 2029-04-16'],
+    },
+    {
+        'id': 'ok-valkey-8-0',
+        'test': 'stdout/valkey-server-v8.0,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Valkey v8.0.7', 'EOL 2027-09-15'],
+    },
+    {
+        'id': 'ok-valkey-8-1',
+        'test': 'stdout/valkey-server-v8.1,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Valkey v8.1.6', 'EOL 2030-03-31'],
+    },
+    {
+        'id': 'ok-valkey-9-0',
+        'test': 'stdout/valkey-server-v9.0,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Valkey v9.0.3', 'EOL 2028-10-21'],
+    },
+    {
+        'id': 'unknown-garbage-output',
+        'test': 'stdout/garbage-output,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Valkey not found.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../valkey-version'
+
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
+
+
+if __name__ == '__main__':
+    unittest.main()

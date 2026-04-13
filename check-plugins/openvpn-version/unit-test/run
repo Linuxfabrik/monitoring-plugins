@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the openvpn-version check plugin.
+
+The fixtures in `stdout/` are the raw `openvpn --version` outputs
+captured from the official Rocky Linux and Fedora container images
+(`quay.io/rockylinux/rockylinux:{8,9,10}` plus
+`registry.fedoraproject.org/fedora:43`) after a fresh
+`dnf install openvpn` (with EPEL enabled where required). The
+plugin runs its `r'OpenVPN\\s+(\\d+\\.\\d+\\.\\d+)'` regex against
+each one.
+
+Each testcase pins the expected Nagios state to whatever
+`lib.version.check_eol()` returned when these fixtures were saved
+against the live https://endoflife.date/api/openvpn.json data. The
+EOL table drifts over time (releases hit EOL, new majors appear),
+so the `assert-retc` and `assert-in` strings will need to be
+re-pinned every few months.
+"""
+
+import sys
+sys.path.insert(0, '..')
+
+import unittest
+
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'warn-rocky8-openvpn-2-4-12-eol',
+        'test': 'stdout/openvpn-version-rocky8,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['OpenVPN v2.4.12', 'EOL 2023-03-31', '[WARNING]'],
+    },
+    {
+        'id': 'warn-rocky9-openvpn-2-5-11-eol',
+        'test': 'stdout/openvpn-version-rocky9,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['OpenVPN v2.5.11', 'EOL 2025-07-31', '[WARNING]'],
+    },
+    {
+        'id': 'ok-fedora43-openvpn-2-6-19',
+        'test': 'stdout/openvpn-version-fedora43,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['OpenVPN v2.6.19', 'EOL 2028-08-31'],
+    },
+    {
+        'id': 'ok-rocky10-openvpn-2-7-1',
+        'test': 'stdout/openvpn-version-rocky10,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['OpenVPN v2.7.1', 'EOL unknown'],
+    },
+    {
+        'id': 'unknown-garbage-output',
+        'test': 'stdout/garbage-output,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['OpenVPN', 'not found.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../openvpn-version'
+
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
+
+
+if __name__ == '__main__':
+    unittest.main()

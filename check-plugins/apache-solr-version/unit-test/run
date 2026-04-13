@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the apache-solr-version check plugin.
+
+The fixtures in `stdout/` are the raw `/opt/solr/bin/solr version`
+outputs captured from the official `docker.io/library/solr:<tag>`
+images on Docker Hub. There is no Red Hat family Solr container,
+so the upstream image is the right source. We deliberately
+include the EOL 7.x and 8.x cycles because production customers
+still run them. The plugin runs its `r'(\\d+\\.\\d+\\.\\d+)'`
+regex against each one. Note that 7.x and 8.x emit just the bare
+version string, while 9.x emits "Solr version is: X.Y.Z"
+preceded by a deprecation banner from 9.8 onwards.
+
+Each testcase pins the expected Nagios state to whatever
+`lib.version.check_eol()` returned when these fixtures were saved
+against the live https://endoflife.date/api/solr.json data. The
+EOL table drifts over time (releases hit EOL, new majors appear),
+so the `assert-retc` and `assert-in` strings will need to be
+re-pinned every few months.
+"""
+
+import sys
+sys.path.insert(0, '..')
+
+import unittest
+
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'warn-solr-7-7-eol',
+        'test': 'stdout/solr-version-7,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Apache Solr v7.7.3', 'EOL 2022-05-11', '[WARNING]'],
+    },
+    {
+        'id': 'warn-solr-8-11-eol',
+        'test': 'stdout/solr-version-8,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Apache Solr v8.11.4', 'EOL 2024-10-25', '[WARNING]'],
+    },
+    {
+        'id': 'ok-solr-9-4',
+        'test': 'stdout/solr-version-9.4,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Apache Solr v9.4.1', 'EOL unknown'],
+    },
+    {
+        'id': 'ok-solr-9-10',
+        'test': 'stdout/solr-version-9.10,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Apache Solr v9.10.1', 'EOL unknown'],
+    },
+    {
+        'id': 'unknown-garbage-output',
+        'test': 'stdout/garbage-output,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Apache Solr', 'not found.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../apache-solr-version'
+
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
+
+
+if __name__ == '__main__':
+    unittest.main()

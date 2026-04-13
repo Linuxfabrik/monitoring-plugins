@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the composer-version check plugin.
+
+The fixtures in `stdout/` are the raw `composer --version` outputs
+captured from the official `docker.io/library/composer:<tag>`
+images on Docker Hub. Composer is a single PHP file shipped under
+the `composer` upstream image; there is no Red Hat family
+container that carries an interesting matrix of versions, so the
+upstream image is the right source. The plugin runs its
+`r'n (\\d+\\.\\d+\\.?\\d*)'` regex against each one.
+
+Each testcase pins the expected Nagios state to whatever
+`lib.version.check_eol()` returned when these fixtures were saved
+against the live https://endoflife.date/api/composer.json data.
+The EOL table drifts over time (releases hit EOL, new majors
+appear), so the `assert-retc` and `assert-in` strings will need to
+be re-pinned every few months.
+"""
+
+import sys
+sys.path.insert(0, '..')
+
+import unittest
+
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'ok-composer-2-2-lts',
+        'test': 'stdout/composer-version-2.2,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['composer v2.2.26', 'EOL unknown'],
+    },
+    {
+        'id': 'warn-composer-2-7-eol',
+        'test': 'stdout/composer-version-2.7,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['composer v2.7.9', 'EOL 2024-10-02', '[WARNING]'],
+    },
+    {
+        'id': 'warn-composer-2-8-eol',
+        'test': 'stdout/composer-version-2.8,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['composer v2.8.12', 'EOL 2025-11-13', '[WARNING]'],
+    },
+    {
+        'id': 'ok-composer-2-9',
+        'test': 'stdout/composer-version-2.9,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['composer v2.9.5', 'EOL unknown'],
+    },
+    {
+        'id': 'unknown-garbage-output',
+        'test': 'stdout/garbage-output,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['composer', 'not found.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../composer-version'
+
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
+
+
+if __name__ == '__main__':
+    unittest.main()

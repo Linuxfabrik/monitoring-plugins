@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the icinga-version check plugin.
+
+The fixtures in `stdout/` are the raw `icinga2 --version` outputs
+captured from official Debian and Ubuntu container images
+(`docker.io/library/debian:{11,12,13}` and
+`docker.io/library/ubuntu:{22.04,24.04}`) after a fresh
+`apt-get install icinga2`. There is no Red Hat family image
+that ships icinga2 in the default repos, and the upstream
+`docker.io/icinga/icinga2` image emits "(version: v...)" via its
+DockerEntrypoint wrapper which the plugin's
+`r'\\(version: r(\\d+\\.\\d+\\.\\d+)'` regex deliberately rejects
+(it expects the Debian `r<X>.<Y>.<Z>-1` shape).
+
+Each testcase pins the expected Nagios state to whatever
+`lib.version.check_eol()` returned when these fixtures were saved
+against the live https://endoflife.date/api/icinga.json data. The
+EOL table drifts over time (releases hit EOL, new majors appear),
+so the `assert-retc` and `assert-in` strings will need to be
+re-pinned every few months.
+"""
+
+import sys
+sys.path.insert(0, '..')
+
+import unittest
+
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'warn-debian11-icinga-2-12-3-eol',
+        'test': 'stdout/icinga2-version-debian11,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Icinga v2.12.3', 'EOL 2023-07-12', '[WARNING]'],
+    },
+    {
+        'id': 'warn-ubuntu22-icinga-2-13-2-eol',
+        'test': 'stdout/icinga2-version-ubuntu22,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Icinga v2.13.2', 'EOL 2025-06-17', '[WARNING]'],
+    },
+    {
+        'id': 'warn-debian12-icinga-2-13-6-eol',
+        'test': 'stdout/icinga2-version-debian12,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Icinga v2.13.6', 'EOL 2025-06-17', '[WARNING]'],
+    },
+    {
+        'id': 'ok-ubuntu24-icinga-2-14-2',
+        'test': 'stdout/icinga2-version-ubuntu24,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Icinga v2.14.2', 'EOL unknown'],
+    },
+    {
+        'id': 'ok-debian13-icinga-2-14-6',
+        'test': 'stdout/icinga2-version-debian13,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Icinga v2.14.6', 'EOL unknown'],
+    },
+    {
+        'id': 'unknown-garbage-output',
+        'test': 'stdout/garbage-output,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Icinga not found.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../icinga-version'
+
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
+
+
+if __name__ == '__main__':
+    unittest.main()

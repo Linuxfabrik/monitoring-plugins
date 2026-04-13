@@ -17,12 +17,13 @@ import sys
 import lib.args
 import lib.base
 import lib.distro
+import lib.lftest
 import lib.shell
 import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041001'
+__version__ = '2026041301'
 
 DESCRIPTION = """Checks the installed Graylog version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -105,6 +106,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -116,18 +124,22 @@ def parse_args():
     return args
 
 
-def get_installed_version():
-    distro = lib.distro.get_distribution_facts()
-    result = None
-    if distro['os_family'] == 'RedHat':
-        success, result = lib.shell.shell_exec('yum list installed graylog*')
-    elif distro['os_family'] == 'Debian':
-        success, result = lib.shell.shell_exec('dpkg --list')
+def get_installed_version(test_arg=None):
+    if test_arg is None:
+        distro = lib.distro.get_distribution_facts()
+        result = None
+        if distro['os_family'] == 'RedHat':
+            success, result = lib.shell.shell_exec('yum list installed graylog*')
+        elif distro['os_family'] == 'Debian':
+            success, result = lib.shell.shell_exec('dpkg --list')
+        else:
+            success = False
+        if not success:
+            return ''
+        stdout = result[0].strip()
     else:
-        success = False
-    if not success:
-        return ''
-    stdout = result[0].strip()
+        stdout, _, _ = lib.lftest.test(test_arg)
+        stdout = stdout.strip()
     version_regex = r'graylog-server.*\s+(\d+\.\d+\.\d+)'
     try:
         stdout = re.search(version_regex, stdout)
@@ -146,7 +158,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    installed_version = get_installed_version()
+    installed_version = get_installed_version(args.TEST)
     if not installed_version:
         lib.base.cu('Graylog not found, or check-plugin does not run on this platform.')
     state, msg = lib.version.check_eol(

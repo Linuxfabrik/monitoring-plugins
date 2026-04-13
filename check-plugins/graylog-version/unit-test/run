@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the graylog-version check plugin.
+
+The fixtures in `stdout/` are the raw `yum list installed
+graylog*` and `dpkg --list` outputs captured after a fresh install
+of the corresponding Graylog repository deb/rpm package on a Rocky
+Linux 9 (`quay.io/rockylinux/rockylinux:9`) and Debian 12
+(`docker.io/library/debian:12`) container. We cover both the
+RedHat and Debian package-listing shapes the plugin parses with
+`r'graylog-server.*\\s+(\\d+\\.\\d+\\.\\d+)'`.
+
+Each testcase pins the expected Nagios state to whatever
+`lib.version.check_eol()` returned when these fixtures were saved
+against the live https://endoflife.date/api/graylog.json data.
+The EOL table drifts over time (releases hit EOL, new majors
+appear), so the `assert-retc` and `assert-in` strings will need
+to be re-pinned every few months.
+"""
+
+import sys
+sys.path.insert(0, '..')
+
+import unittest
+
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'warn-debian-graylog-5-2-eol',
+        'test': 'stdout/dpkg-list-graylog-5.2,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Graylog v5.2.12', 'EOL 2024-11-01', '[WARNING]'],
+    },
+    {
+        'id': 'ok-debian-graylog-6-3',
+        'test': 'stdout/dpkg-list-graylog-6.3,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Graylog v6.3.11', 'EOL 2026-06-30'],
+    },
+    {
+        'id': 'ok-rocky9-graylog-6-3',
+        'test': 'stdout/yum-list-installed-graylog-6.3,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Graylog v6.3.11', 'EOL 2026-06-30'],
+    },
+    {
+        'id': 'ok-debian-graylog-7-0',
+        'test': 'stdout/dpkg-list-graylog-7.0,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Graylog v7.0.6', 'EOL 2026-11-03'],
+    },
+    {
+        'id': 'unknown-garbage-output',
+        'test': 'stdout/garbage-output,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Graylog not found'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../graylog-version'
+
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
+
+
+if __name__ == '__main__':
+    unittest.main()
