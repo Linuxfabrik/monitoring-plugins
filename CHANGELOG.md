@@ -26,6 +26,7 @@ Build, CI/CD:
 * Add MkDocs-based documentation site, served at <https://linuxfabrik.github.io/monitoring-plugins/> and kept in sync with the repo automatically on every merge to `main`
 * Add support for SLE 15 packages
 * Add support for SLE 16 packages
+* Add support for Ubuntu 26.04 packages, including an "OS - Ubuntu 26 Basic Service Set" template in the Icinga Director basket
 
 
 Monitoring Plugins:

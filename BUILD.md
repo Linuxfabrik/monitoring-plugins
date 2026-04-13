@@ -54,7 +54,7 @@ cat > env-file << 'EOF'
 export LFMP_ARCH=x86_64                                   # or "aarch64" if running on ARM64
 export LFMP_VERSION=1.4.0
 export LFMP_PACKAGE_ITERATION=7
-export LFMP_TARGET_DISTROS="debian13 rocky10"              # "debian11 debian12 debian13 rocky8 rocky9 rocky10 sle15 sle16 ubuntu2004 ubuntu2204 ubuntu2404"
+export LFMP_TARGET_DISTROS="debian13 rocky10"              # "debian11 debian12 debian13 rocky8 rocky9 rocky10 sle15 sle16 ubuntu2004 ubuntu2204 ubuntu2404 ubuntu2604"
 
 # ---
 # Constants
@@ -145,6 +145,7 @@ SLE 16        ! registry.suse.com/bci/bci-base:16.0
 Ubuntu 20.04  ! docker.io/library/ubuntu:20.04
 Ubuntu 22.04  ! docker.io/library/ubuntu:22.04
 Ubuntu 24.04  ! docker.io/library/ubuntu:24.04
+Ubuntu 26.04  ! docker.io/library/ubuntu:26.04
 ```
 
 > [!NOTE]
