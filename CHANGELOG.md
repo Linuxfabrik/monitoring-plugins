@@ -163,6 +163,7 @@ Monitoring Plugins:
 * needs-restarting: the "Running Kernel X != Installed Kernel Y" line now shows up on Debian-based systems when `needrestart` reports a pending kernel upgrade
 * network-connections: the plugin now exits with the correct WARN/CRIT state when any threshold is violated; previously it always reported OK regardless of the loop's accumulated state ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * nextcloud-security-scan: only trigger a rescan for scans that are actually in the past; future-dated scans caused by clock skew no longer trigger an unnecessary rescan ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* notify-host-mail, notify-service-mail: the Icinga logo now renders inline again in notification mails sent from hosts with long FQDNs. On such hosts the logo used to appear as a base64 attachment instead of the embedded banner image ([#790](https://github.com/Linuxfabrik/monitoring-plugins/issues/790))
 * ntp-\*: prevent `TypeError: ''=' not supported between instances of 'int' and 'str'`
 * ntp-w32tm: show the correct state label (WARNING or CRITICAL) in the "Time since Last Good Sync Time" line; it was hardcoded to WARNING even when the actual state was CRITICAL ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * openstack-swift-stat: "bytes used" is now shown for any account with non-zero usage, regardless of whether a quota is set ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))

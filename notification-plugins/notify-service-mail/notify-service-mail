@@ -43,7 +43,7 @@ import lib.url     # pylint: disable=C0413
 from lib.globals import STATE_UNKNOWN # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041301'
 
 DESCRIPTION = 'Sends notifications for services using mail.'
 
@@ -478,7 +478,13 @@ def main():
         mail_msg.set_content(plain)
 
     else: # no args.SHORT
-        logo_cid =  make_msgid()
+        # Pin the domain to the short hostname so make_msgid() does not
+        # fall back to socket.getfqdn(). On hosts with a long FQDN the
+        # resulting Content-ID header overflows 80 characters and gets
+        # wrapped by Python's quoted-printable encoder, which breaks the
+        # cid:<...> reference in the HTML body and turns the inline logo
+        # into an attachment (see python/cpython#100293 and issue #790).
+        logo_cid = make_msgid(domain=gethostname())
         plain, html = generate_mail_content(args, logo_cid)
 
         subject = f'Service "{args.SERVICE_DISPLAYNAME}" on "{args.HOST_DISPLAYNAME}" is {args.SERVICE_STATE}'
