@@ -82,17 +82,33 @@ def is_container_test(check_plugins, plugin):
 def ensure_podman_env():
     """Pre-flight environment setup for testcontainers under rootless podman.
 
-    Sets `DOCKER_HOST` to the rootless podman socket and disables the
-    Ryuk reaper container, but only when those variables are not already
-    set by the caller. Without this the testcontainers-python library
-    either falls back to the docker socket (which doesn't exist on a
-    podman-only host) or hangs trying to start a Reaper container that
-    rootless podman cannot reach.
+    Linuxfabrik runs podman, not docker, so the user-facing env var
+    is `CONTAINER_HOST` (matching the Linux container ecosystem
+    convention used by `podman --remote`, buildah, skopeo etc.).
+    testcontainers-python only knows about `DOCKER_HOST` internally,
+    so this helper accepts either variable as input and always
+    populates `DOCKER_HOST` for testcontainers to consume.
+
+    The defaults if neither variable is set:
+    - `unix:///run/user/$UID/podman/podman.sock` (rootless podman)
+    - `TESTCONTAINERS_RYUK_DISABLED=true` (the Ryuk reaper hangs on
+      rootless podman because its DinD container cannot reach back
+      to the parent socket)
+
+    Already-set values are preserved so callers running on a real
+    docker host or with a custom socket override are not affected.
     """
-    if 'DOCKER_HOST' not in os.environ:
-        sock = f'unix:///run/user/{os.getuid()}/podman/podman.sock'
-        os.environ['DOCKER_HOST'] = sock
-        print(f'note: DOCKER_HOST not set, defaulting to {sock}', file=sys.stderr)
+    container_host = os.environ.get('CONTAINER_HOST') or os.environ.get('DOCKER_HOST')
+    if container_host is None:
+        container_host = f'unix:///run/user/{os.getuid()}/podman/podman.sock'
+        print(
+            f'note: neither CONTAINER_HOST nor DOCKER_HOST is set, '
+            f'defaulting to {container_host}',
+            file=sys.stderr,
+        )
+    # testcontainers-python only reads DOCKER_HOST, so always populate it.
+    os.environ['DOCKER_HOST'] = container_host
+
     if 'TESTCONTAINERS_RYUK_DISABLED' not in os.environ:
         os.environ['TESTCONTAINERS_RYUK_DISABLED'] = 'true'
         print(
