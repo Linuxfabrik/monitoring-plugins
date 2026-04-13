@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Tests for the logfile check plugin.
+
+The plugin has no `--test` hook because it reads a real file given via
+`--filename`. The test scenarios pass the fixture paths directly as
+`--filename` values. The plugin also maintains a per-file SQLite cache
+under `/tmp/linuxfabrik-monitoring-plugins-logfile-<basename>.db` to
+track the last read offset, so each subtest deletes its own cache DB
+first to ensure a clean "first scan" state.
+"""
+
+import os
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, '..')
+
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+import lib.lftest
+
+
+def _db_path(fixture_basename):
+    return os.path.join(
+        tempfile.gettempdir(),
+        f'linuxfabrik-monitoring-plugins-logfile-{fixture_basename}.db',
+    )
+
+
+# The `test` field is a dummy (the plugin has no `--test` hook) but it
+# is required by lib.lftest.run. `params` carries the real CLI, built
+# from `--filename=stdout/<fixture>` plus whatever pattern/threshold
+# flags the scenario needs.
+TESTS = [
+    {
+        'id': 'ok-clean-log-no-matches',
+        'test': 'stdout/django-app-clean,,0',
+        'params': (
+            '--filename=stdout/django-app-clean '
+            '--warning-regex=" WARNING " '
+            '--critical-regex=" ERROR "'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': ['Scanned 5 lines'],
+    },
+    {
+        'id': 'warn-two-warnings',
+        'test': 'stdout/django-app-two-warnings,,0',
+        'params': (
+            '--filename=stdout/django-app-two-warnings '
+            '--warning-regex=" WARNING " '
+            '--critical-regex=" ERROR "'
+        ),
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Scanned 4 lines',
+            '2 warning matches',
+            'Not Found: /favicon.ico',
+            'Not Found: /robots.txt',
+        ],
+    },
+    {
+        'id': 'crit-one-warning-one-error',
+        'test': 'stdout/django-app-one-warning-one-error,,0',
+        'params': (
+            '--filename=stdout/django-app-one-warning-one-error '
+            '--warning-regex=" WARNING " '
+            '--critical-regex=" ERROR "'
+        ),
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Scanned 3 lines',
+            '1 warning match',
+            '1 critical match',
+            'MYPRODUCT salutation sync failed',
+        ],
+    },
+    {
+        'id': 'ok-one-warning-suppressed-via-ignore-pattern',
+        'test': 'stdout/django-app-two-warnings,,0',
+        'params': (
+            '--filename=stdout/django-app-two-warnings '
+            '--warning-regex=" WARNING " '
+            '--critical-regex=" ERROR " '
+            '--ignore-pattern=favicon.ico '
+            '--ignore-pattern=robots.txt'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': ['Scanned 4 lines'],
+        'assert-not-in': ['warning matches', 'critical matches'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../logfile'
+
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                # Delete the stateful cache DB for this fixture so the
+                # test is reproducible and always starts from offset 0.
+                fixture_basename = t['params'].split('--filename=stdout/', 1)[1].split(' ', 1)[0]
+                db_file = _db_path(fixture_basename)
+                if os.path.exists(db_file):
+                    os.remove(db_file)
+                lib.lftest.run(self, self.check, t)
+
+
+if __name__ == '__main__':
+    unittest.main()

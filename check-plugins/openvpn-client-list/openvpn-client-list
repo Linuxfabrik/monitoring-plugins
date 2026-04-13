@@ -20,7 +20,7 @@ import lib.txt
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041301'
 
 DESCRIPTION = """Lists all clients currently connected to an OpenVPN server by parsing the status log file. Reports client name, remote address, bytes received and sent, and connection time.\nRequires root or sudo."""
 
@@ -91,26 +91,27 @@ def main():
     if args.TEST is None:
         try:
             with open(args.FILENAME, 'r') as file:
-                counter = 0
-                table = []
-                for line in file:
-                    if line.startswith('CLIENT_LIST'):
-                        counter += 1
-                        line = line.split(',')
-                        table.append(
-                            {
-                                'name': line[1],
-                                'ext_ip': line[2].split(':')[0],
-                                'int_ip': line[3],
-                                'connection_time': line[7],
-                            }
-                        )
+                lines = file.readlines()
         except IOError:
             lib.base.cu(f'Failed to read file {args.FILENAME}.')
     else:
-        # do not call the command, put in test data
-        _, _, _ = lib.lftest.test(args.TEST)
-        lib.base.oao('TODO')
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        lines = stdout.splitlines(keepends=True)
+
+    counter = 0
+    table = []
+    for line in lines:
+        if line.startswith('CLIENT_LIST'):
+            counter += 1
+            line = line.split(',')
+            table.append(
+                {
+                    'name': line[1],
+                    'ext_ip': line[2].split(':')[0],
+                    'int_ip': line[3],
+                    'connection_time': line[7],
+                }
+            )
 
     state = lib.base.get_state(counter, args.WARN, args.CRIT)
     perfdata = lib.base.get_perfdata(
