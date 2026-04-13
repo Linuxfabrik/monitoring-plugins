@@ -101,21 +101,11 @@ def ensure_podman_env():
     container_host = os.environ.get('CONTAINER_HOST') or os.environ.get('DOCKER_HOST')
     if container_host is None:
         container_host = f'unix:///run/user/{os.getuid()}/podman/podman.sock'
-        print(
-            f'note: neither CONTAINER_HOST nor DOCKER_HOST is set, '
-            f'defaulting to {container_host}',
-            file=sys.stderr,
-        )
     # testcontainers-python only reads DOCKER_HOST, so always populate it.
     os.environ['DOCKER_HOST'] = container_host
 
     if 'TESTCONTAINERS_RYUK_DISABLED' not in os.environ:
         os.environ['TESTCONTAINERS_RYUK_DISABLED'] = 'true'
-        print(
-            'note: TESTCONTAINERS_RYUK_DISABLED not set, defaulting to true '
-            '(Ryuk reaper is incompatible with rootless podman)',
-            file=sys.stderr,
-        )
 
 
 def main():
