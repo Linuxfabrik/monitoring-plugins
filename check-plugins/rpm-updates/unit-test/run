@@ -17,36 +17,98 @@ from lib.globals import STATE_OK, STATE_WARN
 import lib.lftest
 
 
-# The rpm-updates plugin makes three separate yum calls (`list --upgrades`,
-# `list --installed`, `updateinfo list --available`). `--test` takes a
-# base fixture path and looks for `<base>-upgrades`, `<base>-installed`,
-# and `<base>-updateinfo` next to each other in `stdout/`.
+# The rpm-updates plugin makes three separate yum/dnf calls
+# (`list --upgrades`, `list --installed`, `updateinfo list --available`).
+# `--test` takes a base fixture path and looks for `<base>-upgrades`,
+# `<base>-installed`, and `<base>-updateinfo` next to each other in
+# `stdout/`.
 #
-# The `containerfiles/` directory next door still holds the legacy podman
-# orchestration for a cross-OS smoke sweep. Those will be migrated to
-# testcontainers-python in a separate commit - see
-# https://github.com/Linuxfabrik/monitoring-plugins/issues/1072
+# The TESTS below cover every RPM-family distro we support. The
+# fixtures were captured on real podman containers with
+# `dnf list --upgrades`, `dnf list --installed`, and
+# `dnf updateinfo list --available` at a single point in time, so the
+# assertions only check the parser's behaviour (does the plugin cope
+# with this distro's header layout, column widths, and repo names) -
+# they do NOT validate that a specific package is or is not listed.
+#
+# Whether a given fixture shows upgrades or not depends on when the
+# captures were taken. As of capture time, Fedora 40 and UBI 10 were
+# fully up to date (STATE_OK), every other distro had at least one
+# pending upgrade (STATE_WARN).
 TESTS = [
+    # Fedora
     {
-        'id': 'ok-no-updates',
-        'test': 'stdout/no-updates,,0',
+        'id': 'warn-fedora30',
+        'test': 'stdout/fedora30,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['update', 'available'],
+    },
+    {
+        'id': 'warn-fedora35',
+        'test': 'stdout/fedora35,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['update', 'available'],
+    },
+    {
+        'id': 'ok-fedora40',
+        'test': 'stdout/fedora40,,0',
         'params': '',
         'assert-retc': STATE_OK,
         'assert-in': ['No updates available'],
     },
     {
-        'id': 'warn-one-pending-upgrade',
-        'test': 'stdout/one-pending-upgrade,,0',
+        'id': 'warn-fedora41',
+        'test': 'stdout/fedora41,,0',
         'params': '',
         'assert-retc': STATE_WARN,
-        'assert-in': ['1 update available', 'vim-minimal'],
+        'assert-in': ['update', 'available'],
     },
     {
-        'id': 'ok-one-pending-upgrade-with-high-warn',
-        'test': 'stdout/one-pending-upgrade,,0',
-        'params': '--warning 5',
+        'id': 'warn-fedora42',
+        'test': 'stdout/fedora42,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['update', 'available'],
+    },
+    {
+        'id': 'warn-fedora43',
+        'test': 'stdout/fedora43,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['update', 'available'],
+    },
+    # Red Hat Universal Base Image
+    {
+        'id': 'warn-rhel8',
+        'test': 'stdout/rhel8,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['update', 'available'],
+    },
+    {
+        'id': 'warn-rhel9',
+        'test': 'stdout/rhel9,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['update', 'available'],
+    },
+    {
+        'id': 'ok-rhel10',
+        'test': 'stdout/rhel10,,0',
+        'params': '',
         'assert-retc': STATE_OK,
-        'assert-in': ['1 update available'],
+        'assert-in': ['No updates available'],
+    },
+    # High --warning threshold keeps the plugin at STATE_OK even with
+    # pending upgrades (sanity-check the state logic on a distro with
+    # many pending upgrades).
+    {
+        'id': 'ok-rhel8-with-high-warn',
+        'test': 'stdout/rhel8,,0',
+        'params': '--warning 99999',
+        'assert-retc': STATE_OK,
     },
 ]
 
