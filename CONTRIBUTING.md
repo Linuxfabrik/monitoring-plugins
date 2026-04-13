@@ -870,7 +870,14 @@ sudo apt install python3.9-dev python3.10-dev python3.11-dev \
 
 #### Container-based tests
 
-For checks that must run against a real service (Keycloak, Redis, a database, a web API), use the `lib.lftest.run_container()` helper from the `linuxfabrik-lib` package. It wraps [testcontainers-python](https://testcontainers-python.readthedocs.io/) so that container lifecycle, port exposure, environment variables and log-based readiness waits are declarative rather than hand-rolled podman orchestration.
+Container-based tests come in two shapes:
+
+* **Plugin runs from the host, service runs in the container.** Used when the plugin talks to a real service over the network (Keycloak, Redis, a database, a web API). Pull an upstream service image, expose its port, point the plugin at the container from outside. This is the common case.
+* **Plugin runs inside the container.** Used when the plugin reads host-local resources (`/proc`, `/sys`, distro-shipped binaries, distro-specific Python/psutil field availability) and there is no meaningful way to fixture the input. The plugin is bind-mounted into the container and executed via `container.exec()`. See `check-plugins/cpu-usage/unit-test/run` for the reference implementation.
+
+##### Plugin runs from the host, service runs in the container
+
+Use the `lib.lftest.run_container()` helper from the `linuxfabrik-lib` package. It wraps [testcontainers-python](https://testcontainers-python.readthedocs.io/) so that container lifecycle, port exposure, environment variables and log-based readiness waits are declarative rather than hand-rolled podman orchestration.
 
 Minimal example (see `check-plugins/keycloak-version/unit-test/run` for the full reference):
 
@@ -934,6 +941,31 @@ Rules and tips:
 * **Rootless podman**: testcontainers-python works, but the Ryuk cleanup container needs to be disabled. Set `TESTCONTAINERS_RYUK_DISABLED=true` and `CONTAINER_HOST=unix:///run/user/$UID/podman/podman.sock` before running the tests. `tools/run-unit-tests` sets both automatically when it detects a container-based test.
 * **Do not run container tests via `tox`.** They are integration tests and belong in `tools/run-container-tests`, not in the multi-Python matrix. `tools/run-unit-tests` detects them automatically by inspecting the `run` file for `podman` or `testcontainers` references.
 * **Keep hand-rolled podman orchestration out of new tests.** If you find a plugin that still builds containers via `subprocess.run(['podman', 'build', ...])`, migrate it to `lib.lftest.run_container()`; the old pattern is being retired.
+
+
+##### Plugin runs inside the container
+
+Some plugins can only be tested meaningfully when they run inside a distribution they target, because the data source is host-local (`/proc`, `/sys`, a distro binary like `mariadb --version`, or a `psutil` field whose availability depends on kernel version + python version + distro packaging). There is no network endpoint we can redirect, and a static fixture would hide the thing we actually want to test: "does this plugin run cleanly on the distros our customers run".
+
+For that case, use a `Containerfile` per target distro under `unit-test/containerfiles/<distro>-v<version>` that installs python3, the plugin's requirements and keeps the container alive via `CMD ["sleep", "infinity"]`. Iterate over the file list via `lib.lftest.attach_each()` so every distro shows up as its own `test_<distro>` method. Bind-mount `lib/` and the plugin script into `/tmp` and run them via `container.exec()`.
+
+The canonical distro matrix is the cpu-usage `CONTAINERFILES` list. **Where possible, new "plugin runs inside the container" tests should target the same OS platforms** so the coverage stays consistent across plugins and adding a new distro is a single-line change everywhere:
+
+```text
+archlinux-vlatest
+debian-v11 / v12 / v13
+fedora-v35 / v40 / v41 / v42 / v43
+rhel-v8 / v9 / v10
+sles-v15 / v16
+ubuntu-v2004 / v2204 / v2404 / v2604
+```
+
+Rules and tips:
+
+* **Reuse cpu-usage's `containerfiles/`** as a starting point for a new plugin - the per-distro bootstrap (pacman / apt / dnf / zypper + venv + `pip install -r requirements.txt --require-hashes`) is identical, only the bind-mount path for the plugin script changes.
+* **`clean_up=False` on `DockerImage`**. Testcontainers' default cleans up the built image and prunes dangling parent layers on exit, which turns every run into a full rebuild. `clean_up=False` keeps the image around so subsequent runs hit podman's layer cache and finish in seconds.
+* **`,Z` on bind mounts**. On SELinux-enforcing hosts (RHEL, Fedora, Rocky) unrelabelled bind mounts are denied by the container runtime. `mode='ro,Z'` relabels the source so the container can read it; without the `Z` flag the plugin inside the container sees "Permission denied" on `import lib`.
+* **Rootless podman caveats** - same as for the service-container pattern: `TESTCONTAINERS_RYUK_DISABLED=true` must be set, `CONTAINER_HOST` / `DOCKER_HOST` must point at the rootless socket. `tools/run-unit-tests` does this automatically.
 
 
 ### sudoers File
