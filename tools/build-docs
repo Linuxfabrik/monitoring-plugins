@@ -50,9 +50,7 @@ def create_symlink(source, target):
     """Create a relative symlink from target to source."""
     target_dir = os.path.dirname(target)
     rel_source = os.path.relpath(source, target_dir)
-    if os.path.islink(target):
-        os.unlink(target)
-    elif os.path.exists(target):
+    if os.path.islink(target) or os.path.exists(target):
         os.unlink(target)
     os.symlink(rel_source, target)
 

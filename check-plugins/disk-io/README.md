@@ -54,7 +54,7 @@ usage: disk-io [-h] [-V] [--always-ok] [--count COUNT] [--critical CRIT]
 Checks disk I/O bandwidth over time and alerts on sustained saturation, not
 short spikes. The check records per-disk read/write counters and then derives
 current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the
-period’s total bandwidth against the maximum ever observed for that disk
+period's total bandwidth against the maximum ever observed for that disk
 (RWmax). WARN/CRIT trigger if the period average exceeds the configured
 percentage of RWmax for COUNT consecutive runs. On Linux, the check also
 monitors the system-wide iowait percentage (CPU time spent waiting for I/O).
@@ -66,7 +66,7 @@ iowait alerts require COUNT consecutive threshold violations. Perfdata is
 emitted for each disk (busy_time, read_bytes, read_time, write_bytes,
 write_time) and for iowait, so you can graph trends. On Linux the check
 automatically focuses on "real" block devices with mountpoints; on Windows it
-uses psutil’s disk counters. Optionally, `--top` lists the processes that
+uses psutil's disk counters. Optionally, `--top` lists the processes that
 generated the most I/O traffic (read/write totals) to help identify offenders.
 This check is cross-platform and works on Linux, Windows, and all psutil-
 supported systems. The check stores its short trend state locally in an SQLite

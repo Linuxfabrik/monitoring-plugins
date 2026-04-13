@@ -20,7 +20,6 @@ import lib.lftest
 import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
-
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
@@ -134,10 +133,10 @@ def main():
         )
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.lftest.test(args.TEST)
+        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
         result = json.loads(stdout)
 
-    if 'status' in result and 'cache_check' in result and not 'error' in result:
+    if 'status' in result and 'cache_check' in result and 'error' not in result:
         for check in [
             'cache_check',
             'chat_check',
@@ -185,7 +184,7 @@ def main():
                 f'{", ".join(issues)}. '
                 f'Run `curl {args.URL}` for full results.'
             )
-    elif 'status' in result and 'message' in result and not 'error' in result:
+    elif 'status' in result and 'message' in result and 'error' not in result:
         msg = result['message']
         state = lib.base.str2state(args.SEVERITY)
     elif 'error' in result:

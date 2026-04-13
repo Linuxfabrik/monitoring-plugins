@@ -42,7 +42,7 @@ usage: cpu-usage [-h] [-V] [--always-ok] [--count COUNT] [-c CRIT] [-w WARN]
 
 Reports CPU utilization percentages for all available time categories (user,
 system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the
-overall cpu-usage (100 − idle − nice). Thresholds (WARN/CRIT) are checked
+overall cpu-usage (100 - idle - nice). Thresholds (WARN/CRIT) are checked
 against user, system, iowait, and cpu-usage. An alert is raised only if the
 threshold is exceeded for COUNT consecutive runs, suppressing short spikes and
 focusing on sustained load. Perfdata is emitted for every field to enable full

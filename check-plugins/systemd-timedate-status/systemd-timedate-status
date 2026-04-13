@@ -15,8 +15,8 @@ import sys
 
 import lib.args
 import lib.base
-import lib.shell
 import lib.lftest
+import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -72,12 +72,12 @@ def main():
         # systemd versions, as this is only available since 2018-05 (and therefore not on RHEL 7).
         # Use `timedatectl status` instead.
         cmd = 'timedatectl status'
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        stdout, stderr, _retc = lib.base.coe(lib.shell.shell_exec(cmd))
         if stderr:
             lib.base.oao(f'{stderr}', STATE_WARN)
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.lftest.test(args.TEST)
+        stdout, stderr, _retc = lib.lftest.test(args.TEST)
 
     # init some vars
     msg = ''

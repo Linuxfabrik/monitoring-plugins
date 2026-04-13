@@ -458,9 +458,7 @@ def main():
                 proc_states[psutil.STATUS_LOCKED] += 1
             elif st == psutil.STATUS_PARKED:
                 proc_states[psutil.STATUS_PARKED] += 1
-            elif st == psutil.STATUS_STOPPED:
-                proc_states[psutil.STATUS_STOPPED] += 1
-            elif st == psutil.STATUS_TRACING_STOP:
+            elif st == psutil.STATUS_STOPPED or st == psutil.STATUS_TRACING_STOP:
                 proc_states[psutil.STATUS_STOPPED] += 1
             elif st == psutil.STATUS_WAITING:
                 proc_states[psutil.STATUS_WAITING] += 1
@@ -500,10 +498,7 @@ def main():
     # analyze data, build the message
 
     # compute memory percent once (mathematically equals sum of per-proc percentages)
-    if total_ram:
-        procs_mem_percent = procs_mem / total_ram * 100.0
-    else:
-        procs_mem_percent = 0
+    procs_mem_percent = procs_mem / total_ram * 100.0 if total_ram else 0
 
     # compute CPU% via SQLite delta if thresholds are set
     if need_cpu_percent:

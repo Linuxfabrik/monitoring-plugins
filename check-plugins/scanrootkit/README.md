@@ -70,9 +70,10 @@ Signatures should be strong enough to avoid false positives on a clean system. P
 usage: scanrootkit [-h] [-V] [--severity {warn,crit}]
 
 Scans the system for approximately 160 known rootkits by checking for their
-characteristic files, directories, and kernel symbols. New rootkit definitions
-can be added by dropping YAML files into the assets folder. Alerts when
-rootkit indicators are found.
+characteristic files, directories, and kernel symbols. Each finding includes
+the year the rootkit was first publicly disclosed when known. New rootkit
+definitions can be added by dropping YAML files into the assets folder. Alerts
+when rootkit indicators are found.
 
 options:
   -h, --help            show this help message and exit

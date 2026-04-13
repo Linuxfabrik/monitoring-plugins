@@ -43,7 +43,6 @@ sys.path.insert(0, '..')
 import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 
-
 # All Keycloak majors from 18 onwards that ship as
 # `quay.io/keycloak/keycloak:<major>.<minor>[.<patch>]`. Each entry is the
 # latest patch available on quay for that major (as of this file's mtime).
@@ -80,10 +79,7 @@ def _check_image(test, image_pair):
         wait_log='Listening on:',
         wait_log_timeout=180,
     ) as container:
-        url = 'http://{}:{}'.format(
-            container.get_container_host_ip(),
-            container.get_exposed_port(8080),
-        )
+        url = f'http://{container.get_container_host_ip()}:{container.get_exposed_port(8080)}'
         cmd = [
             'python3',
             '../keycloak-version',

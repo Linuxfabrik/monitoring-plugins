@@ -14,15 +14,15 @@ The plugin opens a real `pymysql` connection and reads
 `innodb_buffer_pool_instances` from `SHOW VARIABLES`. The variable
 was removed in MariaDB 10.6.0, which is the short-circuit branch
 the plugin explicitly supports: "Everything is ok (although
-nothing checked).". sclorg MariaDB 10.11 exercises exactly that
-branch, so it is the canonical happy path on modern MariaDB.
+nothing checked).". All current LTS releases (10.6+) hit that
+branch and land on STATE_OK.
 
 A fixture-based test for the older branch (instance count from
 a 10.5-era server) belongs in a separate pass against an older
-MariaDB image once we add one to IMAGES.
+MariaDB image once we add one to the matrix.
 
-Container source: `quay.io/sclorg/mariadb-1011-c10s` - the Red Hat /
-CentOS Stream 10 sclorg packaging of MariaDB 10.11 LTS.
+Runs against the current MariaDB LTS releases
+(`lib.lftest.MARIADB_LTS_IMAGES`).
 
 Requirements:
 - podman (or docker) with a reachable socket
@@ -34,7 +34,6 @@ Requirements:
 import os
 import subprocess
 import sys
-import tempfile
 import unittest
 
 sys.path.insert(0, '..')
@@ -42,10 +41,7 @@ sys.path.insert(0, '..')
 import lib.lftest
 from lib.globals import STATE_OK
 
-
-IMAGES = [
-    ('quay.io/sclorg/mariadb-1011-c10s', 'MariaDB 10.11'),
-]
+IMAGES = lib.lftest.MARIADB_LTS_IMAGES
 
 
 class TestCheck(unittest.TestCase):
@@ -55,52 +51,18 @@ class TestCheck(unittest.TestCase):
 def _check_image(test, image_pair):
     image, label = image_pair
     print(f'\n=== Testing {label} ({image}) ===', flush=True)
-    with lib.lftest.run_container(
-        image,
-        env={
-            'MYSQL_ROOT_PASSWORD': 'test',
-            'MYSQL_USER': 'test',
-            'MYSQL_PASSWORD': 'test',
-            'MYSQL_DATABASE': 'test',
-        },
-        ports=[3306],
-        command='run-mysqld --port=3306',
-        wait_log='port: 3306',
-        wait_log_timeout=180,
-    ) as container:
-        host = container.get_container_host_ip()
-        port = container.get_exposed_port(3306)
-
-        with tempfile.NamedTemporaryFile(
-            mode='w',
-            suffix='.cnf',
-            delete=False,
-        ) as cnf:
-            cnf.write(
-                f'[client]\n'
-                f'host={host}\n'
-                f'port={port}\n'
-                f'user=test\n'
-                f'password=test\n'
-                f'database=test\n'
-            )
-            defaults_file = cnf.name
-
-        try:
-            cmd = [
-                'python3', '../mysql-innodb-buffer-pool-instances',
-                f'--defaults-file={defaults_file}',
-            ]
-            print(f'Run plugin: {" ".join(cmd)}', flush=True)
-            result = subprocess.run(
-                cmd,
-                cwd=os.path.dirname(os.path.abspath(__file__)),
-                capture_output=True,
-                text=True,
-            )
-        finally:
-            os.unlink(defaults_file)
-
+    with lib.lftest.run_mariadb(image) as (_container, defaults_file):
+        cmd = [
+            'python3', '../mysql-innodb-buffer-pool-instances',
+            f'--defaults-file={defaults_file}',
+        ]
+        print(f'Run plugin: {" ".join(cmd)}', flush=True)
+        result = subprocess.run(
+            cmd,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            capture_output=True,
+            text=True,
+        )
         combined = result.stdout + result.stderr
         print(f'Script output:\n{combined.strip()}', flush=True)
 

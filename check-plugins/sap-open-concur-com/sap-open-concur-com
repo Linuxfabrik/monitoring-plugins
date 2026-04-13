@@ -108,7 +108,7 @@ def parse_args():
         'Default: %(default)s',
         dest='SERVICE',
         default=DEFAULT_SERVICE,
-        choices=services + ['All'],
+        choices=[*services, 'All'],
     )
 
     parser.add_argument(
@@ -174,7 +174,7 @@ def main():
         )
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.lftest.test(args.TEST)
+        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
         result = json.loads(stdout)
 
     if args.SERVICE == 'All':
@@ -194,10 +194,7 @@ def main():
 
                 # build the message
                 msg += f'{service}: {status}{lib.base.state2str(local_state, prefix=" ")}, '
-        if msg == '':
-            msg = 'Everything is ok.'
-        else:
-            msg = msg[:-2]
+        msg = 'Everything is ok.' if msg == '' else msg[:-2]
     else:
         try:
             status = result['data'][args.SERVICE]['Current Status']['status']

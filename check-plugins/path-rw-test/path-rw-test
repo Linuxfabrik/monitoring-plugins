@@ -90,13 +90,11 @@ def main():
     # do the test
     for path in args.PATH:
         try:
-            fp = tempfile.TemporaryFile(dir=path)
-            # a bytes-like object is required, not 'str':
-            fp.write(b'Linuxfabrik GmbH, Zurich, Switzerland')
-            fp.seek(0)
-            fp.read()
-            # close the file, it will be removed
-            fp.close()
+            with tempfile.TemporaryFile(dir=path) as fp:
+                # a bytes-like object is required, not 'str':
+                fp.write(b'Linuxfabrik GmbH, Zurich, Switzerland')
+                fp.seek(0)
+                fp.read()
         except Exception as e:
             msg += f'`{path}` ({e}), '
             state = lib.base.str2state(args.SEVERITY)

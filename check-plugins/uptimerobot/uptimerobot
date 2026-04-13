@@ -163,12 +163,12 @@ def main():
         cnt_monitors = result['psp']['totalMonitors']
     else:
         cnt_monitors = cnt_up + cnt_down + cnt_paused
-    if 'monitor' in result:
-        # just one monitor
-        monitors = [result['monitor']]
-    else:
-        # a list of monitors (even if it is one)
-        monitors = result['psp']['monitors']
+    # uptimerobot returns either a single `monitor` dict (one monitor) or a
+    # `psp.monitors` list (even if it contains only one entry); normalise both
+    # cases to a list so the loop below is uniform
+    monitors = (
+        [result['monitor']] if 'monitor' in result else result['psp']['monitors']
+    )
     for item in monitors:
         item_state = uptimerobotstate2state(item['statusClass'])
         state = lib.base.get_worst(state, item_state)

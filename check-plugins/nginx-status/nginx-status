@@ -143,7 +143,7 @@ def main():
         )
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.lftest.test(args.TEST)
+        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
         result = stdout
 
     result = result.strip().split('\n')
@@ -159,14 +159,14 @@ def main():
     #    2 2 3
     #   Reading: 0 Writing: 1 Waiting: 1
     try:
-        tmp, active_connections = result[0].strip().split(': ')
+        _tmp, active_connections = result[0].strip().split(': ')
         total_connections_accepted, total_connections_handled, total_requests = (
             result[2].strip().split(' ')
         )
         requests_per_connection = round(
             float(total_requests) / float(total_connections_handled), 1
         )
-        tmp, connections_reading, tmp, connections_writing, tmp, connections_waiting = (
+        _tmp, connections_reading, _tmp, connections_writing, _tmp, connections_waiting = (
             result[3].strip().split(' ')
         )
     except Exception:

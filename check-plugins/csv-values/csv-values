@@ -18,6 +18,9 @@ import lib.args
 import lib.base
 import lib.db_sqlite
 import lib.disk
+import lib.txt
+import lib.url
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 missing_lib = None
 try:
@@ -27,9 +30,6 @@ try:
 except ModuleNotFoundError as e:
     HAVE_SMB = False
     missing_lib = e.name
-import lib.txt
-import lib.url
-from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026041001'
@@ -224,7 +224,7 @@ def get_state_and_value(conn, query, threshold, _type):
         if result:
             if len(result) == 1 and len(result[0]) == 1:
                 # one row, one column: could be a "select count(*) from ..." result
-                value = list(result[0].values())[0]
+                value = next(iter(result[0].values()))
             else:
                 # a bunch of rows (at least one) with multiple columns, so count them
                 value = len(result)

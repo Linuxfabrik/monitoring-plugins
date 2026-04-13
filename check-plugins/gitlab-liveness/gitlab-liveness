@@ -20,7 +20,6 @@ import lib.lftest
 import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
-
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026040801'
 
@@ -129,10 +128,10 @@ def main():
         )
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.lftest.test(args.TEST)
+        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
         result = json.loads(stdout)
 
-    if 'status' in result and not 'error' in result:
+    if 'status' in result and 'error' not in result:
         msg = 'The GitLab application server is running. No Rails Controllers are deadlocked.'
     else:
         if 'error' in result:

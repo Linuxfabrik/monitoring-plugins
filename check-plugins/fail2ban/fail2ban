@@ -15,8 +15,8 @@ import sys
 
 import lib.args
 import lib.base
-import lib.shell
 import lib.lftest
+import lib.shell
 import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
@@ -93,12 +93,12 @@ def main():
     # fetch data
     # fail2ban-client ping
     if args.TEST is None:
-        stdout, stderr, retc = lib.base.coe(
+        stdout, _stderr, retc = lib.base.coe(
             lib.shell.shell_exec('fail2ban-client ping')
         )
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.lftest.test(
+        stdout, _stderr, retc = lib.lftest.test(
             [args.TEST[0] + '-ping', args.TEST[1], args.TEST[2]]
         )
     if retc != 0:
@@ -106,12 +106,12 @@ def main():
 
     # fail2ban-client status
     if args.TEST is None:
-        stdout, stderr, retc = lib.base.coe(
+        stdout, _stderr, retc = lib.base.coe(
             lib.shell.shell_exec('fail2ban-client status')
         )
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.lftest.test(
+        stdout, _stderr, retc = lib.lftest.test(
             [args.TEST[0] + '-status', args.TEST[1], args.TEST[2]]
         )
     if retc != 0:
@@ -134,12 +134,12 @@ def main():
     #         get status of jail_name
     for jail in jail_list:
         if args.TEST is None:
-            stdout, stderr, retc = lib.base.coe(
+            stdout, _stderr, retc = lib.base.coe(
                 lib.shell.shell_exec(f'fail2ban-client status {jail}')
             )
         else:
             # do not call the command, put in test data
-            stdout, stderr, retc = lib.lftest.test(
+            stdout, _stderr, retc = lib.lftest.test(
                 [args.TEST[0] + f'-status-{jail}', args.TEST[1], args.TEST[2]],
             )
         if retc != 0:

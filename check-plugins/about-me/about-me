@@ -10,10 +10,6 @@
 
 """See the check's README for more details."""
 
-import warnings
-
-warnings.filterwarnings('ignore', category=UserWarning, module='pymysql')
-
 import argparse
 import os
 import re
@@ -137,7 +133,7 @@ def get_birthday():
         return f'born {lib.time.epoch2iso(birthday.st_ctime)}. '
     # no way to do this in python - getting the birthday of a folder
     # hardcoded shell pipeline (no user input); shell=True needed for pipes
-    success, result = lib.shell.shell_exec(
+    _success, result = lib.shell.shell_exec(
         'stat / | grep "Birth" | sed "s/Birth: //g" | cut -b 2-11',
         shell=True,  # nosec B604
     )
@@ -1346,10 +1342,7 @@ def main():
     if firmware_device_model:
         msg += f'{firmware_device_model}, '
 
-    if args.DMIDECODE:
-        dmi = lib.dmidecode.get_data()
-    else:
-        dmi = False
+    dmi = lib.dmidecode.get_data() if args.DMIDECODE else False
     sys_dimensions = get_sys_dimensions()
     if dmi and sys_dimensions:
         # combine the best from both worlds

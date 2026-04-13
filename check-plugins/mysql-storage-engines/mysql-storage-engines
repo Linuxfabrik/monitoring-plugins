@@ -142,7 +142,7 @@ def main():
 
     # If the storage engine isn't being used, recommend it to be disabled
     if (
-        enginestats.get('InnoDB', None) is None
+        enginestats.get('InnoDB') is None
         and engines.get('have_innodb', '')
         and engines['have_innodb'] == 'YES'
     ):
@@ -150,13 +150,13 @@ def main():
         # build the message
         msg += "* InnoDB is enabled but isn't being used. Add skip-innodb to MySQL configuration to disable InnoDB\n"
     if (
-        enginestats.get('BerkeleyDB', None) is None
+        enginestats.get('BerkeleyDB') is None
         and engines.get('have_bdb', '')
         and engines['have_bdb'] == 'YES'
     ):
         msg += "* BDB is enabled but isn't being used. Add skip-bdb to MySQL configuration to disable BDB\n"
     if (
-        enginestats.get('ISAM', None) is None
+        enginestats.get('ISAM') is None
         and engines.get('have_isam', '')
         and engines['have_isam'] == 'YES'
     ):
@@ -165,9 +165,7 @@ def main():
     # Fragmented tables
     # not_innodb is a hardcoded SQL fragment chosen from two constants, not user input
     not_innodb = ''
-    if not myvar.get('innodb_file_per_table', ''):
-        not_innodb = 'and not ENGINE="InnoDB"'
-    elif myvar['innodb_file_per_table'] == 'OFF':
+    if not myvar.get('innodb_file_per_table', '') or myvar['innodb_file_per_table'] == 'OFF':
         not_innodb = 'and not ENGINE="InnoDB"'
     sql = (
         "select concat(concat(TABLE_SCHEMA, '.'),TABLE_NAME) as full_table_name, "  # nosec B608

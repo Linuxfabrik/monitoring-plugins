@@ -17,8 +17,8 @@ import sys
 import lib.args
 import lib.base
 import lib.human
-import lib.shell
 import lib.lftest
+import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -123,12 +123,12 @@ def main():
         if args.TAG:
             cmd += ' --tag=' + ' --tag='.join(args.TAG)
         cmd += ' stats'
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        stdout, stderr, _retc = lib.base.coe(lib.shell.shell_exec(cmd))
         if stderr:
             lib.base.cu(stderr)
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.lftest.test(args.TEST)
+        stdout, stderr, _retc = lib.lftest.test(args.TEST)
 
     try:
         stats = json.loads(stdout)

@@ -24,7 +24,6 @@ sys.path.insert(0, '..')
 import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 
-
 IMAGES = [
     ('quay.io/keycloak/keycloak:18.0.2', 'v18'),
     ('quay.io/keycloak/keycloak:19.0.3', 'v19'),
@@ -44,7 +43,7 @@ class TestCheck(unittest.TestCase):
 
 def _check_image(test, image_pair):
     """Spin up one Keycloak image and run the plugin against the API."""
-    image, version_tag = image_pair
+    image, _version_tag = image_pair
     print(f'\n=== Testing {image} ===', flush=True)
     with lib.lftest.run_container(
         image,
@@ -57,10 +56,7 @@ def _check_image(test, image_pair):
         wait_log='Listening on:',
         wait_log_timeout=180,
     ) as container:
-        url = 'http://{}:{}'.format(
-            container.get_container_host_ip(),
-            container.get_exposed_port(8080),
-        )
+        url = f'http://{container.get_container_host_ip()}:{container.get_exposed_port(8080)}'
         cmd = [
             'python3',
             '../keycloak-memory-usage',
