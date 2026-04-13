@@ -11,10 +11,12 @@
 """See the check's README for more details."""
 
 import argparse
+import json
 import sys
 
 import lib.args
 import lib.base
+import lib.lftest
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 try:
@@ -23,9 +25,21 @@ except ImportError:
     print('Python module "psutil" is not installed.')
     sys.exit(STATE_UNKNOWN)
 
+# psutil 5.x exposes sfan under psutil._common, psutil 6+ under
+# psutil._ntuples. Fall back to a plain namedtuple if neither is
+# available.
+try:
+    from psutil._ntuples import sfan
+except ImportError:
+    try:
+        from psutil._common import sfan
+    except ImportError:
+        from collections import namedtuple
+        sfan = namedtuple('sfan', ['label', 'current'])
+
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041301'
 
 DESCRIPTION = """Reports hardware fan speeds in RPM (rounds per minute). Alerts when fan speeds fall
 outside the thresholds reported by the hardware sensors."""
@@ -63,6 +77,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '-w',
         '--warning',
         help='WARN threshold for fan speed, in RPM. Default: %(default)s',
@@ -75,6 +96,18 @@ def parse_args():
     return args
 
 
+def _load_fans_fixture(raw_json):
+    """Convert a test fixture into the shape that `psutil.sensors_fans()`
+    returns: a dict mapping the sensor group name to a list of
+    `sfan(label, current)` namedtuples.
+    """
+    data = json.loads(raw_json)
+    return {
+        name: [sfan(entry.get('label', ''), entry['current']) for entry in entries]
+        for name, entries in data.items()
+    }
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -84,11 +117,15 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    if not hasattr(psutil, 'sensors_fans'):
+    if args.TEST is None and not hasattr(psutil, 'sensors_fans'):
         lib.base.cu('Platform not supported.')
 
     # fetch data
-    fans = psutil.sensors_fans()
+    if args.TEST is None:
+        fans = psutil.sensors_fans()
+    else:
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        fans = _load_fans_fixture(stdout)
     if not fans:
         lib.base.oao('No fans detected.', STATE_OK, always_ok=args.ALWAYS_OK)
 

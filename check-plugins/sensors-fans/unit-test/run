@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+sys.path.insert(0, '..')
+
+import unittest
+
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+import lib.lftest
+
+
+# The sensors-fans plugin calls `psutil.sensors_fans()` directly, so
+# `--test` reads a JSON fixture that mirrors psutil's return shape:
+#
+#     {
+#       "<sensor group>": [
+#         {"label": "...", "current": <int RPM>}, ...
+#       ], ...
+#     }
+TESTS = [
+    {
+        'id': 'ok-two-fans-nominal',
+        'test': 'stdout/two-fans-nominal,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'dell_smm:',
+            'Processor Fan = 2800 RPM',
+            'Rear Chassis Fan = 2400 RPM',
+        ],
+    },
+    {
+        'id': 'warn-fan-over-warn-threshold',
+        'test': 'stdout/fan-over-warn,,0',
+        'params': '--warning 10000 --critical 20000',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'Processor Fan = 12500 RPM \(\[WARNING\]\)',
+    },
+    {
+        'id': 'crit-fan-over-crit-threshold',
+        'test': 'stdout/fan-over-warn,,0',
+        'params': '--warning 5000 --critical 10000',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'Processor Fan = 12500 RPM \(\[CRITICAL\]\)',
+    },
+    {
+        'id': 'ok-no-fans',
+        'test': 'stdout/no-fans,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No fans detected.'],
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'test': 'stdout/fan-over-warn,,0',
+        'params': '--warning 5000 --critical 10000 --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Processor Fan = 12500 RPM'],
+    },
+    {
+        # Real capture from a Dell XPS laptop. dell_ddv reports two
+        # labelled fans, and dell_smm re-exposes the same two under an
+        # unlabelled driver.
+        'id': 'ok-dell-laptop-real-capture',
+        'test': 'stdout/dell-laptop-real-capture,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'dell_ddv:',
+            'CPU Fan = 3257 RPM',
+            'Video Fan = 3110 RPM',
+            'dell_smm:',
+        ],
+    },
+    {
+        # Real capture from a fanless "Cooler Master" desktop:
+        # psutil.sensors_fans() returns an empty dict and the plugin
+        # falls through to the "No fans detected." branch.
+        'id': 'ok-coolermaster-real-capture',
+        'test': 'stdout/coolermaster-real-capture,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No fans detected.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../sensors-fans'
+
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
+
+
+if __name__ == '__main__':
+    unittest.main()

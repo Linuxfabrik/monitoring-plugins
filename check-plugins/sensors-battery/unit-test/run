@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+sys.path.insert(0, '..')
+
+import unittest
+
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+import lib.lftest
+
+
+# The sensors-battery plugin calls `psutil.sensors_battery()` directly.
+# `--test` reads a JSON fixture that mirrors psutil's return shape:
+#
+#     null                                      (no battery installed)
+#     {"percent": <float>, "secsleft": <int>,   (battery present; -2
+#      "power_plugged": <bool>}                 means POWER_TIME_UNLIMITED)
+TESTS = [
+    {
+        'id': 'ok-no-battery',
+        'test': 'stdout/no-battery,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No battery installed.'],
+    },
+    {
+        'id': 'ok-plugged-in-charging',
+        'test': 'stdout/plugged-in-charging,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['65.5%', 'plugged in and charging'],
+    },
+    {
+        'id': 'ok-plugged-in-full',
+        'test': 'stdout/plugged-in-full,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['100.0%', 'plugged in and fully charged'],
+    },
+    {
+        'id': 'warn-discharging-15-percent',
+        'test': 'stdout/discharging-15-percent,,0',
+        'params': '--warning 20 --critical 5',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['15.0%', 'not plugged in and discharging', '[WARNING]'],
+    },
+    {
+        'id': 'crit-discharging-3-percent',
+        'test': 'stdout/discharging-3-percent,,0',
+        'params': '--warning 20 --critical 5',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['3.0%', 'not plugged in and discharging', '[CRITICAL]'],
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'test': 'stdout/discharging-3-percent,,0',
+        'params': '--warning 20 --critical 5 --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['3.0%'],
+    },
+    {
+        # Real capture from a Dell XPS laptop plugged into AC, 79%.
+        'id': 'ok-dell-laptop-real-capture',
+        'test': 'stdout/dell-laptop-real-capture,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['79.27%', 'plugged in and charging'],
+    },
+    {
+        # Edge case from psutil's own tests: the AC/online file is
+        # missing and /BAT0/status returns an unparseable value, so
+        # power_plugged comes back as None. secsleft is also unknown
+        # (POWER_TIME_UNKNOWN == -1). The plugin currently reports
+        # the percent and falls through the "not plugged" branch.
+        'id': 'warn-power-plugged-undetermined',
+        'test': 'stdout/power-plugged-undetermined,,0',
+        'params': '--warning 50 --critical 20',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['42.0%', '[WARNING]'],
+    },
+    {
+        # Real capture from a "Cooler Master" desktop: psutil returns
+        # None for sensors_battery() and the plugin emits the
+        # "No battery installed." branch.
+        'id': 'ok-coolermaster-real-capture',
+        'test': 'stdout/coolermaster-real-capture,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No battery installed.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../sensors-battery'
+
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
+
+
+if __name__ == '__main__':
+    unittest.main()

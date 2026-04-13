@@ -14,11 +14,13 @@ import warnings
 
 warnings.filterwarnings('ignore')
 import argparse
+import json
 import re
 import sys
 
 import lib.args
 import lib.base
+import lib.lftest
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 try:
@@ -27,9 +29,21 @@ except ImportError:
     print('Python module "psutil" is not installed.')
     sys.exit(STATE_UNKNOWN)
 
+# psutil 5.x exposes shwtemp under psutil._common, psutil 6+ under
+# psutil._ntuples. Fall back to a plain namedtuple if neither is
+# available (e.g. on systems with a very old psutil).
+try:
+    from psutil._ntuples import shwtemp
+except ImportError:
+    try:
+        from psutil._common import shwtemp
+    except ImportError:
+        from collections import namedtuple
+        shwtemp = namedtuple('shwtemp', ['label', 'current', 'high', 'critical'])
+
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041302'
 
 DESCRIPTION = """Reports hardware temperature sensor readings (CPU, disk, chipset, etc.) in Celsius.
 Automatically checks against hardware-defined thresholds. Sensors can be filtered
@@ -66,8 +80,66 @@ def parse_args():
         default=None,
     )
 
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
     args, _ = parser.parse_known_args()
     return args
+
+
+def _load_temperatures_fixture(raw_json):
+    """Convert a test fixture into the shape that `psutil.sensors_temperatures()`
+    returns: a dict mapping the sensor group name to a list of
+    `shwtemp(label, current, high, critical)` namedtuples. Missing
+    `high` / `critical` fields are filled with `None`, matching psutil.
+    """
+    data = json.loads(raw_json)
+    return {
+        name: [
+            shwtemp(
+                entry.get('label', ''),
+                entry['current'],
+                entry.get('high'),
+                entry.get('critical'),
+            )
+            for entry in entries
+        ]
+        for name, entries in data.items()
+    }
+
+
+# Upper bound for a threshold value to be considered a real number.
+# No realistic semiconductor sensor has an operating limit above 200 C.
+# Above this we assume the kernel driver reported a sentinel value
+# meaning "no threshold configured" (e.g. the NVMe driver reports
+# kelvin - 273.15 = 65261.85 C when the SMART threshold field is
+# 0xFFFF, and some drivers report 2^31 ms / 1000).
+_MAX_PLAUSIBLE_TEMPERATURE = 200.0
+
+
+def _sanitize_threshold(value):
+    """Return `None` if `value` is a sentinel "no threshold" placeholder
+    (missing, 0, or above a plausibility bound), otherwise return it
+    unchanged.
+
+    Real drivers that ship no threshold vary in how they signal it:
+
+    - `None` (psutil already normalised the absence)
+    - `0.0` (Dell `dell_ddv` reports max = 0.0 meaning "unset")
+    - very large numbers (NVMe reports 65261.85 from kelvin overflow,
+      some thermal_zone drivers report 2^31 ms)
+    """
+    if value is None:
+        return None
+    if value <= 0:
+        return None
+    if value > _MAX_PLAUSIBLE_TEMPERATURE:
+        return None
+    return value
 
 
 def main():
@@ -88,11 +160,15 @@ def main():
     except re.error as e:
         lib.base.cu(f'Invalid regular expression: {e}')
 
-    if not hasattr(psutil, 'sensors_temperatures'):
+    if args.TEST is None and not hasattr(psutil, 'sensors_temperatures'):
         lib.base.cu('Platform not supported.')
 
     # fetch data
-    temps = psutil.sensors_temperatures()
+    if args.TEST is None:
+        temps = psutil.sensors_temperatures()
+    else:
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        temps = _load_temperatures_fixture(stdout)
     if not temps:
         lib.base.oao("Can't read any temperature.", STATE_OK, always_ok=args.ALWAYS_OK)
 
@@ -117,6 +193,11 @@ def main():
         # build the message
         msg += f'* {name}: '
         for entry in filtered_entries:
+            # Sanitize the per-entry thresholds. Some drivers (Dell
+            # dell_ddv, NVMe) report sentinel "no threshold" values
+            # like 0.0 or 65261.85 that must not drive the alert state.
+            high = _sanitize_threshold(entry.high)
+            critical = _sanitize_threshold(entry.critical)
             perfdata_label = (
                 f'{name}_{entry.label}'.replace(' ', '_').lower()
                 if entry.label
@@ -125,12 +206,12 @@ def main():
             perfdata += lib.base.get_perfdata(
                 perfdata_label,
                 entry.current,
-                warn=entry.high,
-                crit=entry.critical,
+                warn=high,
+                crit=critical,
                 _min=0,
             )
             sensor_state = lib.base.get_state(
-                entry.current, entry.high, entry.critical, 'ge'
+                entry.current, high, critical, 'ge'
             )
             msg += f'{entry.label or name} = {entry.current}°C '
             msg += lib.base.state2str(sensor_state)

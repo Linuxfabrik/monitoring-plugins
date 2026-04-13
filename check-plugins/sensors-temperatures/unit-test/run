@@ -1,0 +1,148 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+sys.path.insert(0, '..')
+
+import unittest
+
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+import lib.lftest
+
+
+# The sensors-temperatures plugin calls `psutil.sensors_temperatures()`
+# directly, not a shell command, so there is no natural stdout to
+# capture. Its `--test` hook instead reads a JSON fixture that mirrors
+# the shape of psutil's return value:
+#
+#     {
+#       "<sensor group>": [
+#         {"label": "...", "current": <float>, "high": <float|null>,
+#          "critical": <float|null>},
+#         ...
+#       ],
+#       ...
+#     }
+#
+# This mirrors how psutil itself tests the `/sys/class/hwmon` parser
+# (see psutil/tests/test_linux.py::TestSensorsTemperatures).
+TESTS = [
+    {
+        'id': 'ok-coretemp-and-acpitz-nominal',
+        'test': 'stdout/coretemp-and-acpitz-nominal,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '* coretemp:',
+            'Package id 0 = 52.0',
+            'Core 0 = 51.0',
+            '* acpitz: acpitz = 41.0',
+        ],
+    },
+    {
+        'id': 'warn-coretemp-package-over-high-threshold',
+        'test': 'stdout/coretemp-package-over-warn,,0',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'Package id 0 = 85\.0.*\[WARNING\]',
+    },
+    {
+        'id': 'crit-coretemp-package-over-critical-threshold',
+        'test': 'stdout/coretemp-package-over-crit,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'Package id 0 = 102\.0.*\[CRITICAL\]',
+    },
+    {
+        'id': 'ok-no-sensors',
+        'test': 'stdout/no-sensors,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ["Can't read any temperature."],
+    },
+    {
+        'id': 'ok-ignore-coretemp-leaves-only-acpitz',
+        'test': 'stdout/coretemp-and-acpitz-nominal,,0',
+        'params': '--ignore="^coretemp"',
+        'assert-retc': STATE_OK,
+        'assert-in': ['* acpitz: acpitz = 41.0'],
+        'assert-not-in': ['coretemp'],
+    },
+    {
+        'id': 'ok-ignore-iwlwifi-by-name',
+        'test': 'stdout/coretemp-and-acpitz-nominal,,0',
+        'params': '--ignore="iwlwifi_1"',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['iwlwifi_1'],
+    },
+    {
+        'id': 'ok-ignore-all-groups',
+        'test': 'stdout/coretemp-and-acpitz-nominal,,0',
+        'params': '--ignore=".*"',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok (all sensors ignored).'],
+    },
+    {
+        'id': 'ok-always-ok-masks-critical',
+        'test': 'stdout/coretemp-package-over-crit,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Package id 0 = 102.0'],
+    },
+    {
+        # Real capture from a Dell XPS laptop. Exercises several
+        # real-world quirks that hand-crafted fixtures would miss:
+        # nvme Sensor 1/2 report high/critical = 65261.85 (kelvin
+        # overflow = "no threshold"), dell_ddv reports high = 0.0 for
+        # the same reason, and dell_smm re-exposes dell_ddv sensors
+        # with empty labels. The threshold-sanitisation branch must
+        # treat both sentinels as `None` so the plugin stays STATE_OK.
+        'id': 'ok-dell-laptop-real-capture',
+        'test': 'stdout/dell-laptop-real-capture,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '* coretemp:',
+            'Package id 0 = 67.0',
+            '* nvme:',
+            'Composite = 46.85',
+            '* dell_ddv:',
+            'CPU = 64.0',
+        ],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        # Real capture from a fanless "Cooler Master" desktop. Two
+        # acpitz zones and a coretemp Package + 6 cores, all nominal.
+        # The first acpitz zone reports high=critical=18.8 as its trip
+        # point, which is an unusually low number but a legitimate
+        # ACPI value; the current of 16.8 is below it so the plugin
+        # stays OK.
+        'id': 'ok-coolermaster-real-capture',
+        'test': 'stdout/coolermaster-real-capture,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '* acpitz:',
+            'acpitz = 16.8',
+            '* coretemp:',
+            'Package id 0 = 37.0',
+        ],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../sensors-temperatures'
+
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
+
+
+if __name__ == '__main__':
+    unittest.main()
