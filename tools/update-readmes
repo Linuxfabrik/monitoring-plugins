@@ -8,21 +8,47 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+"""Refresh the `## Help` section of every check-plugin README.
+
+Each plugin's README carries a fenced code block between the
+`## Help` and `## Usage Examples` headings that contains the
+plugin's `--help` output verbatim. This tool runs every plugin
+with `--help`, captures the output and replaces that one code
+block; the rest of the README stays untouched.
+
+Run this after changing a plugin's `argparse` definition (or in
+bulk before a release) so the rendered docs at
+<https://linuxfabrik.github.io/monitoring-plugins/> stay in sync
+with the actual CLI.
+"""
+
 import argparse
 import concurrent.futures
 import re
 import subprocess
-import sys
+
+import _common
 
 import lib.base
 import lib.disk
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041001'
+__version__ = '2026041301'
 
-DESCRIPTION = """Updates the Help section in all monitoring plugin README files by running
-each plugin with --help and replacing the corresponding code block. Run this tool from the
-repository root directory."""
+DESCRIPTION = """Refresh the `## Help` section of every check-plugin README by running each plugin
+with --help and replacing the fenced code block between `## Help` and `## Usage Examples`."""
+
+HELP_TIMEOUT_SECONDS = 10
+MAX_PARALLEL_HELP_CALLS = 16
+
+# The substring search anchors on both the header above and the
+# header below the block, so we only replace the plugin's actual
+# --help output and never accidentally pick up a later `## Help`
+# heading in a different section.
+HELP_BLOCK_REGEX = re.compile(
+    r'## Help\s*```text\s*?(.*?)\s*```\s*## Usage Examples',
+    re.DOTALL,
+)
 
 
 def parse_args():
@@ -39,84 +65,87 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_help(plugin):
-    """Run plugin --help and return (plugin_name, help_text) or (plugin_name, None) on error."""
-    cmd = f'check-plugins/{plugin}/{plugin}'
+def get_help(plugin_dir):
+    """Run the plugin with --help and return `(name, help_text_or_None)`.
+
+    Errors (missing plugin script, non-zero exit, timeout) are
+    printed to stderr and the plugin is reported back with a
+    `None` help text so the caller can skip it.
+    """
+    plugin_name = plugin_dir.name
+    plugin_script = plugin_dir / plugin_name
     try:
         result = subprocess.run(
-            [cmd, '--help'],
+            [str(plugin_script), '--help'],
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=HELP_TIMEOUT_SECONDS,
+            check=False,
         )
-        return (plugin, result.stdout.strip())
-    except Exception as e:
-        return (plugin, None, str(e))
+    except Exception as exc:  # pylint: disable=broad-except
+        _common.err(f'{plugin_name}: failed to run --help ({exc})')
+        return plugin_name, None
+    return plugin_name, result.stdout.strip()
+
+
+def update_readme(plugin_dir, help_text):
+    """Replace the Help block in the plugin's README.
+
+    Returns `True` if the file was written, `False` if the file
+    already matched or if it does not carry the expected
+    `## Help` / `## Usage Examples` anchors.
+    """
+    readme_path = plugin_dir / 'README.md'
+    current = lib.base.coe(lib.disk.read_file(str(readme_path)))
+    replacement = f'## Help\n\n```text\n{help_text}\n```\n\n\n## Usage Examples'
+    updated = HELP_BLOCK_REGEX.sub(replacement, current)
+    if updated == current:
+        return False
+    lib.base.coe(lib.disk.write_file(str(readme_path), updated))
+    return True
 
 
 def main():
-    """The main function. This is where the magic happens."""
+    """Iterate check-plugins, refresh each README's Help block."""
+    parse_args()
 
-    try:
-        parse_args()
-    except SystemExit:
-        sys.exit(3)
+    plugin_dirs = [
+        p for p in _common.iter_check_plugins(skip=frozenset())
+        if (p / 'README.md').is_file() and (p / p.name).is_file()
+    ]
 
-    readmes = lib.disk.walk_directory(
-        './',
-        exclude_pattern=r'',
-        include_pattern=r'.*README.md',
-        relative=True,
-    )
-
-    # collect plugin names from README paths
-    plugins = []
-    for readme_path in sorted(readmes):
-        if 'check-plugins/' not in readme_path:
-            continue
-        if readme_path.startswith('docs/'):
-            continue
-        plugin = readme_path.replace('check-plugins/', '').replace('/README.md', '')
-        plugins.append(plugin)
-
-    # run all --help calls in parallel
     help_texts = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
-        futures = {executor.submit(get_help, p): p for p in plugins}
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=MAX_PARALLEL_HELP_CALLS,
+    ) as executor:
+        futures = {executor.submit(get_help, p): p for p in plugin_dirs}
         for future in concurrent.futures.as_completed(futures):
-            result = future.result()
-            plugin = result[0]
-            if len(result) == 3:
-                print(f'Error "{result[2]}" while calling command "check-plugins/{plugin}/{plugin} --help"')
-                continue
-            help_texts[plugin] = result[1]
+            plugin_name, help_text = future.result()
+            if help_text is not None:
+                help_texts[plugin_name] = help_text
 
-    # update READMEs
+    # build the message
     updated = 0
-    for plugin in sorted(plugins):
-        if plugin not in help_texts:
+    skipped = 0
+    for plugin_dir in plugin_dirs:
+        help_text = help_texts.get(plugin_dir.name)
+        if help_text is None:
+            skipped += 1
             continue
-        _help = help_texts[plugin]
-
-        readme_path = f'check-plugins/{plugin}/README.md'
-        readme = lib.base.coe(lib.disk.read_file(readme_path))
-        new_readme = re.sub(
-            r'## Help\s*```text\s*?(.*?)\s*```\s*## Usage Examples',
-            f'## Help\n\n```text\n{_help}\n```\n\n\n## Usage Examples',
-            readme,
-            flags=re.DOTALL,
-        )
-
-        if new_readme != readme:
-            lib.base.coe(lib.disk.write_file(readme_path, new_readme))
-            print(f'Updated {readme_path}')
+        if update_readme(plugin_dir, help_text):
+            print(f'Updated check-plugins/{plugin_dir.name}/README.md')
             updated += 1
 
-    print(f'\n{updated} READMEs updated, {len(plugins) - updated} unchanged.')
+    unchanged = len(plugin_dirs) - updated - skipped
+    print(
+        f'\n{updated} READMEs updated, '
+        f'{unchanged} unchanged, '
+        f'{skipped} skipped (help errors).',
+    )
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception:
-        lib.base.cu()
+    except Exception:  # pylint: disable=broad-except
+        _common.die('update-readmes: unexpected error, aborting')
