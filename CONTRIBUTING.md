@@ -142,6 +142,7 @@ Checklist:
 * Return UNKNOWN on missing dependencies or wrong parameters.
 * Mainly return WARN. Only return CRIT if the operators want to or have to wake up at night. CRIT means "react immediately".
 * EAFP: Easier to ask for forgiveness than permission. This common Python coding style assumes the existence of valid keys or attributes and catches exceptions if the assumption proves false. This clean and fast style is characterized by the presence of many try and except statements.
+* **Pick the right unit-test flavor.** If the plugin parses the output of a shell command or an on-disk file, write fixture-based tests driven by `lib.lftest.run()` and a `TESTS` list. They run in a fraction of a second and cover the full `tox` / Python matrix. Only reach for container-based tests (via `lib.lftest.run_container()` and testcontainers-python) when the check has to talk to a live service that cannot realistically be captured as a fixture - a Keycloak API, a Redis instance, a web server. A plugin like [apache-httpd-status](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/apache-httpd-status) is a good candidate for migration, because it currently fakes HTTP responses through fixtures while it could just as well be exercised against an `httpd:alpine` container with the status module enabled.
 
 
 ### Return Codes
