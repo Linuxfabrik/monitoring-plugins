@@ -1,0 +1,146 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Integration tests for the mysql-connections check plugin.
+
+This is the pilot for the mysql-* container-test family. The plugin
+opens a real `pymysql` connection and runs `SHOW GLOBAL STATUS` and
+`SHOW GLOBAL VARIABLES` queries, so it cannot be exercised with a
+static fixture - we have to spin up an actual MariaDB / MySQL server
+and let the plugin talk to it over TCP. testcontainers-python (via
+`lib.lftest.run_container()`) handles the container lifecycle and
+port mapping, then the plugin is invoked from the host with a
+`--defaults-file` pointing at a tiny temporary `.my.cnf` containing
+the container's host, port and credentials.
+
+Container source: `quay.io/sclorg/mariadb-1011-c10s` - the Red Hat /
+CentOS Stream 10 sclorg packaging of MariaDB 10.11 LTS. This is a
+real customer-ish environment, not just an upstream binary.
+
+Per CONTRIBUTING's "Combine container tests with fixtures" rule,
+this file holds only the happy-path integration test (a freshly
+booted, lightly-loaded MariaDB always reports a few percent of used
+connections, which is STATE_OK with the plugin's defaults). The
+interesting edge cases for mysql-connections (a runaway connection
+pool, exhausted max_connections, name resolution turned on by
+mistake, SQL errors) belong in a fixture-based pass that mocks the
+SHOW STATUS output - that is a separate follow-up.
+
+Requirements:
+- podman (or docker) with a reachable socket
+- `pip install testcontainers`
+- on rootless podman, `tools/run-unit-tests` auto-sets
+  `CONTAINER_HOST` (the user-facing variable) and
+  `TESTCONTAINERS_RYUK_DISABLED`. Internally the helper still
+  populates `DOCKER_HOST` from `CONTAINER_HOST` because
+  testcontainers-python only knows about the docker variable name.
+"""
+
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+from lib.globals import STATE_OK
+
+
+# Single Red Hat family MariaDB image for the pilot. After the pilot
+# is wired into the rest of the mysql-* family we can grow this list
+# to cover MariaDB 10.6 / 10.11 / 11.4 LTS plus MySQL 8.0 / 8.4.
+IMAGES = [
+    ('quay.io/sclorg/mariadb-1011-c10s', 'MariaDB 10.11'),
+]
+
+
+class TestCheck(unittest.TestCase):
+    def test(self):
+        for image, label in IMAGES:
+            with self.subTest(image=image):
+                print(f'\n=== Testing {label} ({image}) ===', flush=True)
+                with lib.lftest.run_container(
+                    image,
+                    env={
+                        'MYSQL_ROOT_PASSWORD': 'test',
+                        'MYSQL_USER': 'test',
+                        'MYSQL_PASSWORD': 'test',
+                        'MYSQL_DATABASE': 'test',
+                    },
+                    ports=[3306],
+                    # The sclorg image's run-mysqld entrypoint
+                    # disables the TCP listener by default and only
+                    # binds the unix socket, so the version banner
+                    # ends with `port: 0` and remote connections fail.
+                    # Force `--port=3306` to bring the TCP listener up.
+                    command='run-mysqld --port=3306',
+                    # Wait for the "port: 3306" segment of the version
+                    # banner that mariadbd writes once the TCP listener
+                    # is actually bound.
+                    wait_log='port: 3306',
+                    wait_log_timeout=180,
+                ) as container:
+                    host = container.get_container_host_ip()
+                    port = container.get_exposed_port(3306)
+
+                    with tempfile.NamedTemporaryFile(
+                        mode='w',
+                        suffix='.cnf',
+                        delete=False,
+                    ) as cnf:
+                        cnf.write(
+                            f'[client]\n'
+                            f'host={host}\n'
+                            f'port={port}\n'
+                            f'user=test\n'
+                            f'password=test\n'
+                            f'database=test\n'
+                        )
+                        defaults_file = cnf.name
+
+                    try:
+                        cmd = [
+                            'python3', '../mysql-connections',
+                            f'--defaults-file={defaults_file}',
+                        ]
+                        print(f'Run plugin: {" ".join(cmd)}', flush=True)
+                        result = subprocess.run(
+                            cmd,
+                            cwd=os.path.dirname(os.path.abspath(__file__)),
+                            capture_output=True,
+                            text=True,
+                        )
+                    finally:
+                        os.unlink(defaults_file)
+
+                    combined = result.stdout + result.stderr
+                    print(f'Script output:\n{combined.strip()}', flush=True)
+
+                    # A freshly booted, lightly-loaded server is
+                    # always STATE_OK with the plugin's defaults.
+                    self.assertEqual(result.returncode, STATE_OK)
+                    self.assertRegex(
+                        combined,
+                        r'\d+(\.\d+)?% aborted connections',
+                    )
+                    self.assertRegex(
+                        combined,
+                        r'current \d+(\.\d+)?% used',
+                    )
+                    self.assertRegex(
+                        combined,
+                        r'peak \d+(\.\d+)?% used',
+                    )
+
+
+if __name__ == '__main__':
+    unittest.main()
