@@ -8,6 +8,8 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import os
+import shutil
 import sys
 
 sys.path.insert(0, '..')  # Adds higher directory to python modules path.
@@ -15,51 +17,305 @@ sys.path.insert(0, '..')  # Adds higher directory to python modules path.
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 import lib.base
-import lib.disk
 import lib.shell
+
+
+# Tests that need to trigger the plugin write a tiny temporary YAML signature
+# into the assets/ directory and a matching trigger file (or directory, or rely
+# on a real /proc/kallsyms symbol) in /tmp. setUp/tearDown make sure these
+# artifacts are always removed, even if an assertion fails mid-test, so a
+# failed test never poisons the next one.
+
+ASSETS_DIR = '../assets'
+TMP_PREFIX = '/tmp/.scanrootkit-utest-'
 
 
 class TestCheck(unittest.TestCase):
     check = '../scanrootkit'
 
-    def test_if_check_runs_EXAMPLE01(self):
+    def setUp(self):
+        self._tmp_paths = []  # files / dirs to clean up under /tmp
+        self._tmp_signatures = []  # YAMLs we dropped into assets/
+
+    def tearDown(self):
+        for path in self._tmp_paths:
+            if os.path.isfile(path) or os.path.islink(path):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+            elif os.path.isdir(path):
+                try:
+                    shutil.rmtree(path)
+                except OSError:
+                    pass
+        for sig in self._tmp_signatures:
+            try:
+                os.remove(sig)
+            except OSError:
+                pass
+
+    def _add_signature(self, slug, content):
+        path = os.path.join(ASSETS_DIR, f'scanrootkit-utest-{slug}.yml')
+        with open(path, 'w', encoding='utf-8') as fh:
+            fh.write(content)
+        self._tmp_signatures.append(path)
+        return path
+
+    def _touch(self, path):
+        with open(path, 'w', encoding='utf-8') as fh:
+            fh.write('')
+        self._tmp_paths.append(path)
+        return path
+
+    def _mkdir(self, path):
+        os.makedirs(path, exist_ok=True)
+        self._tmp_paths.append(path)
+        return path
+
+    # --------------------------------------------------------------------
+    # Existing baseline tests (kept, just renamed)
+    # --------------------------------------------------------------------
+
+    def test_baseline_clean_system_is_ok(self):
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check))
         self.assertIn('Everything is ok. Scanned for ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
-    def test_if_check_runs_EXAMPLE02(self):
-        lib.disk.write_file('/tmp/.cinik', 'test02')
+    def test_real_cinik_signature_default_severity_is_crit(self):
+        # /tmp/.cinik matches both the CiNIK Worm and Slapper Worm rkhunter
+        # signatures shipped in assets/, so a single trigger file produces
+        # two rootkit findings.
+        self._touch('/tmp/.cinik')
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check))
         self.assertIn(
             'Found 2 rootkit items. 0 possible rootkit items found. [CRITICAL]',
             stdout,
         )
         self.assertIn('Rootkits:', stdout)
-        self.assertIn('* CiNIK Worm (Slapper.B variant): /tmp/.cinik (File)', stdout)
-        self.assertIn('* Slapper Worm: /tmp/.cinik (File)', stdout)
+        self.assertIn('CiNIK Worm (Slapper.B variant)', stdout)
+        self.assertIn('Slapper Worm', stdout)
+        self.assertIn('/tmp/.cinik (File)', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
-        lib.disk.rm_file('/tmp/.cinik')
 
-    def test_if_check_runs_EXAMPLE03(self):
-        lib.disk.write_file('/tmp/.cinik', 'test03')
+    def test_real_cinik_signature_with_warn_severity(self):
+        self._touch('/tmp/.cinik')
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(self.check + ' --severity=warn')
         )
-
         self.assertIn(
             'Found 2 rootkit items. 0 possible rootkit items found. [WARNING]',
             stdout,
         )
         self.assertIn('Rootkits:', stdout)
-        self.assertIn('* CiNIK Worm (Slapper.B variant): /tmp/.cinik (File)', stdout)
-        self.assertIn('* Slapper Worm: /tmp/.cinik (File)', stdout)
+        self.assertIn('CiNIK Worm (Slapper.B variant)', stdout)
+        self.assertIn('/tmp/.cinik (File)', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
-        lib.disk.rm_file('/tmp/.cinik')
+
+    # --------------------------------------------------------------------
+    # New tests covering features that were not exercised before
+    # --------------------------------------------------------------------
+
+    def test_directory_indicator_is_detected(self):
+        target_dir = TMP_PREFIX + 'dir'
+        self._mkdir(target_dir)
+        self._add_signature(
+            'dir',
+            (
+                "name: 'Test Directory Rootkit'\n"
+                "files: []\n"
+                f"dirs:\n  - '{target_dir}'\n"
+                "ksyms: []\n"
+                "cl: 100\n"
+            ),
+        )
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec(self.check))
+        self.assertIn('Test Directory Rootkit', stdout)
+        self.assertIn(f'{target_dir} (Dir)', stdout)
+        self.assertEqual(retc, STATE_CRIT)
+
+    def test_kernel_symbol_indicator_is_detected(self):
+        # Pick any real, exported symbol from /proc/kallsyms so the test does
+        # not depend on a particular kernel version naming convention. We try
+        # a few well-known candidates and fall back to the first symbol the
+        # parser finds.
+        if not os.path.isfile('/proc/kallsyms'):
+            self.skipTest('no /proc/kallsyms on this host')
+        candidates = {'_printk', 'printk', 'init_task', 'system_state', 'jiffies'}
+        real_sym = None
+        first_seen = None
+        with open('/proc/kallsyms', encoding='utf-8') as fh:
+            for line in fh:
+                parts = line.split()
+                if len(parts) < 3:
+                    continue
+                if first_seen is None:
+                    first_seen = parts[2]
+                if parts[2] in candidates:
+                    real_sym = parts[2]
+                    break
+        if real_sym is None:
+            real_sym = first_seen
+        if real_sym is None:
+            self.skipTest('no symbols exported in /proc/kallsyms')
+        self._add_signature(
+            'ksym',
+            (
+                "name: 'Test Kernel Symbol Rootkit'\n"
+                "files: []\n"
+                "dirs: []\n"
+                f"ksyms:\n  - '{real_sym}'\n"
+                "cl: 100\n"
+            ),
+        )
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec(self.check))
+        self.assertIn('Test Kernel Symbol Rootkit', stdout)
+        self.assertIn(f'{real_sym} (Kernel Symbol)', stdout)
+        self.assertEqual(retc, STATE_CRIT)
+
+    def test_kernel_symbol_match_is_exact_no_substring(self):
+        # The pre-fix plugin used `item in ksyms_file`, which would match `prin`
+        # against the full kallsyms text (because `printk` contains `prin`).
+        # The fixed plugin does exact set membership against parsed symbol
+        # names, so a substring of a real symbol must NOT trigger a finding.
+        self._add_signature(
+            'ksym-substr',
+            (
+                "name: 'Test Substring Should Not Match'\n"
+                "files: []\n"
+                "dirs: []\n"
+                "ksyms:\n  - 'prin'\n"
+                "cl: 100\n"
+            ),
+        )
+        stdout, _, _ = lib.base.coe(lib.shell.shell_exec(self.check))
+        self.assertNotIn('Test Substring Should Not Match', stdout)
+
+    def test_low_confidence_signature_reports_as_possible_warn(self):
+        target = TMP_PREFIX + 'possible'
+        self._touch(target)
+        self._add_signature(
+            'possible',
+            (
+                "name: 'Test Possible Rootkit'\n"
+                f"files:\n  - '{target}'\n"
+                "dirs: []\n"
+                "ksyms: []\n"
+                "cl: 50\n"
+            ),
+        )
+        # Even with --severity=crit (the default), a cl<100 hit is only WARN.
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec(self.check))
+        self.assertIn('Possible Rootkits:', stdout)
+        self.assertIn('Test Possible Rootkit', stdout)
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_discovered_field_renders_in_output(self):
+        target = TMP_PREFIX + 'discovered'
+        self._touch(target)
+        self._add_signature(
+            'discovered',
+            (
+                "name: 'Test Dated Rootkit'\n"
+                f"files:\n  - '{target}'\n"
+                "dirs: []\n"
+                "ksyms: []\n"
+                "discovered: '2099'\n"
+                "cl: 100\n"
+            ),
+        )
+        stdout, _, _ = lib.base.coe(lib.shell.shell_exec(self.check))
+        self.assertIn('Test Dated Rootkit (2099)', stdout)
+        self.assertIn(f'{target} (File)', stdout)
+
+    def test_signature_without_discovered_field_renders_plain_name(self):
+        target = TMP_PREFIX + 'undated'
+        self._touch(target)
+        self._add_signature(
+            'undated',
+            (
+                "name: 'Test Undated Rootkit'\n"
+                f"files:\n  - '{target}'\n"
+                "dirs: []\n"
+                "ksyms: []\n"
+                "cl: 100\n"
+            ),
+        )
+        stdout, _, _ = lib.base.coe(lib.shell.shell_exec(self.check))
+        # No parenthesized year suffix on the name.
+        self.assertIn('Test Undated Rootkit:', stdout)
+        self.assertNotIn('Test Undated Rootkit (', stdout)
+
+    def test_broken_yaml_signature_is_reported_and_check_continues(self):
+        # Drop a deliberately broken signature file into assets/. The plugin
+        # should report it under "Scanfile Errors" but still scan everything
+        # else and return a baseline OK on a clean system.
+        path = os.path.join(ASSETS_DIR, 'scanrootkit-utest-broken.yml')
+        with open(path, 'w', encoding='utf-8') as fh:
+            fh.write("name: [unterminated\n")
+        self._tmp_signatures.append(path)
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec(self.check))
+        self.assertIn('Scanfile Errors:', stdout)
+        self.assertIn('scanrootkit-utest-broken.yml', stdout)
+        # baseline check still completes
+        self.assertIn('Everything is ok. Scanned for ', stdout)
+        self.assertEqual(retc, STATE_OK)
+
+    def test_signature_missing_required_key_is_reported(self):
+        # A YAML without the mandatory `files` key must be reported as a
+        # KeyError scanfile error, but the rest of the scan must still run.
+        self._add_signature(
+            'missing-key',
+            (
+                "name: 'Test Missing Key'\n"
+                "dirs: []\n"
+                "ksyms: []\n"
+                "cl: 100\n"
+            ),
+        )
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec(self.check))
+        self.assertIn('Scanfile Errors:', stdout)
+        self.assertIn('scanrootkit-utest-missing-key.yml', stdout)
+        self.assertIn('Key Error', stdout)
+        self.assertEqual(retc, STATE_OK)
+
+    def test_confirmed_and_possible_in_one_run_is_crit(self):
+        confirmed_target = TMP_PREFIX + 'mix-confirmed'
+        possible_target = TMP_PREFIX + 'mix-possible'
+        self._touch(confirmed_target)
+        self._touch(possible_target)
+        self._add_signature(
+            'mix-confirmed',
+            (
+                "name: 'Test Mix Confirmed'\n"
+                f"files:\n  - '{confirmed_target}'\n"
+                "dirs: []\n"
+                "ksyms: []\n"
+                "cl: 100\n"
+            ),
+        )
+        self._add_signature(
+            'mix-possible',
+            (
+                "name: 'Test Mix Possible'\n"
+                f"files:\n  - '{possible_target}'\n"
+                "dirs: []\n"
+                "ksyms: []\n"
+                "cl: 50\n"
+            ),
+        )
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec(self.check))
+        self.assertIn('Found 1 rootkit item.', stdout)
+        self.assertIn('1 possible rootkit item found.', stdout)
+        self.assertIn('Rootkits:', stdout)
+        self.assertIn('Possible Rootkits:', stdout)
+        # Confirmed wins over possible: state must be CRIT, not WARN.
+        self.assertEqual(retc, STATE_CRIT)
 
 
 if __name__ == '__main__':

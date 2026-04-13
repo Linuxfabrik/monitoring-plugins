@@ -3,7 +3,7 @@
 
 ## Overview
 
-Scans the system for approximately 100 known rootkits by checking for their characteristic files, directories, and kernel symbols. New rootkit definitions can be added by dropping YAML files into the `assets` folder.
+Scans the system for approximately 160 known rootkits by checking for their characteristic files, directories, and kernel symbols. New rootkit definitions can be added by dropping YAML files into the `assets` folder.
 
 **Important Notes:**
 
@@ -69,8 +69,8 @@ Signatures should be strong enough to avoid false positives on a clean system. P
 ```text
 usage: scanrootkit [-h] [-V] [--severity {warn,crit}]
 
-Scans the system for approximately 100 known rootkits by checking for their
-characteristic files, directories, and kernel modules. New rootkit definitions
+Scans the system for approximately 160 known rootkits by checking for their
+characteristic files, directories, and kernel symbols. New rootkit definitions
 can be added by dropping YAML files into the assets folder. Alerts when
 rootkit indicators are found.
 
@@ -92,14 +92,20 @@ options:
 Output:
 
 ```text
-Found 1 rootkit item. 3 possible rootkit items found. [CRITICAL]
+Found 4 rootkit items. 2 possible rootkit items found. [CRITICAL]
+
 Rootkits:
-* ENYE LKM v1.1, v1.2: /etc/.enyelkmHIDE^IT.ko (File)
+* Diamorphine LKM (2013): diamorphine_init (Kernel Symbol)
+* KBeast Rootkit (2012): /usr/_h4x_ (Dir)
+* PUMAKIT LKM rootkit with Kitsune userland component (2024): /usr/share/zov_f/zov_latest (File)
+* Reptile LKM rootkit (2018): /lib/udev/reptile (File)
+
 Possible Rootkits:
 * Components for Backdoors: /usr/info/.clib (File)
-* Components for BillGates botnet: /etc/ksapd (File)
-* Components for BillGates botnet: /etc/kysapd (File)
+* Symbiote userland Linux rootkit (2022): /usr/include/certbot.h (File)
 ```
+
+Each finding lists the rootkit name followed by the year it was first publicly disclosed in parentheses (when known), the matched indicator, and the indicator type (`File`, `Dir`, or `Kernel Symbol`). Possible findings (signatures with `cl < 100`, e.g. broad component groups or modern rootkits whose paths could collide with legitimate software) are listed in a separate section and produce a WARN state instead of CRIT, regardless of `--severity`.
 
 
 ## States

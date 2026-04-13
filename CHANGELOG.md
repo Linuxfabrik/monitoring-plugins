@@ -44,6 +44,8 @@ Monitoring Plugins:
 * procs: add `--lengthy` parameter for extended `--top` table output with all platform-specific memory fields
 * procs: add `--top` parameter to list the top N processes by CPU time and memory usage
 * procs: add `--warning-cpu-percent` / `--critical-cpu-percent` thresholds for aggregated CPU usage of filtered processes (requires SQLite for delta calculation between runs)
+* scanrootkit: add 41 signatures for modern Linux rootkits, backdoors and implants, including BPFDoor, Drovorub, Ebury 1.7/1.8, FontOnLake, HiddenWasp, Kaiji, Kobalos, Lightning Framework, Medusa, Nuk3Gh0st, OrBit, perfctl, PUMAKIT, Pygmy Goat, Reptile, RotaJakiro, sedexp, Skidmap, SSHdoor, Symbiote, Syslogk, TripleCross, UNC3886, Winnti for Linux, Adore-NG, Azazel, BEURK, Father, Honey Pot Bears and Umbra. Sourced from public vendor and threat-research IoC reports (ESET, Sandfly, Intezer, Elastic, Mandiant, Sophos, NCSC UK, fkie-cad/linux-rootkit-iocs, etc.)
+* scanrootkit: each finding now shows the year the rootkit was first publicly disclosed when known, e.g. `* CiNIK Worm (2002): /tmp/.cinik (File)`. Old rkhunter-era signatures and the new 2019+ signatures have all been dated where a reliable public source exists; signatures without a confirmed year are shown without the suffix as before
 * sensors-temperatures: add `--ignore` parameter to filter out sensors by regex ([#965](https://github.com/Linuxfabrik/monitoring-plugins/issues/965))
 * statuspal: also detect 'emergency-maintenance' state
 * valkey-status: support user and password credentials [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954), thanks to [Claudio Kuenzler](https://github.com/Napsty)
@@ -164,6 +166,7 @@ Monitoring Plugins:
 * rocketchat-stats: fix crash (`AttributeError`) when reporting the user count
 * sap-open-concur-com: `--service` now validates the service name against the allowed list; previously any value was silently accepted ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * scanrootkit: a single signature file that fails any YAML parse stage (scanner, constructor, etc.) no longer crashes the whole check. Any `yaml.YAMLError` subclass is now caught and reported as a scan-file error, leaving the remaining signatures to scan normally.
+* scanrootkit: directory indicators (the `dirs:` field in a signature) are now actually evaluated. The plugin previously called `lib.disk.file_exists()` for both files and directories, but that helper returns `False` for directories, so directory-only rootkit signatures (e.g. KBeast `/usr/_h4x_`, Kaiji `/usr/bin/lib`) silently never matched. Directory checks now use `os.path.isdir()` directly.
 * starface-java-memory-usage: fix corrupted overall state in the heap and non-heap memory checks (could previously report CRIT when only WARN thresholds were exceeded, or produce an out-of-range state integer) ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * updates: fix crash on Python 3.9 when pending updates are reported
 * users: fix incorrect TTY count when SSH clients connect via IPv6 ([#989](https://github.com/Linuxfabrik/monitoring-plugins/issues/989))

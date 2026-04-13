@@ -12,6 +12,7 @@
 
 import argparse
 import os
+import os.path
 import sys
 
 import lib.args
@@ -28,11 +29,12 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041301'
+__version__ = '2026041303'
 
-DESCRIPTION = """Scans the system for approximately 100 known rootkits by checking for their
-characteristic files, directories, and kernel symbols. New rootkit definitions can
-be added by dropping YAML files into the assets folder.
+DESCRIPTION = """Scans the system for approximately 160 known rootkits by checking for their
+characteristic files, directories, and kernel symbols. Each finding includes the year
+the rootkit was first publicly disclosed when known. New rootkit definitions can be
+added by dropping YAML files into the assets folder.
 Alerts when rootkit indicators are found."""
 
 DEFAULT_SERVERITY = 'crit'
@@ -120,32 +122,36 @@ def main():
             rk = yaml.safe_load(lib.base.coe(lib.disk.read_file(rootkit)))
             rkscanned += 1
 
+            # build a name prefix that includes the disclosure date (year, year-month
+            # or year-month-day) when the signature provides it, so admins immediately
+            # see whether the indicator is from the 2003 rkhunter era or from a recent
+            # threat report
+            label = (
+                f'{rk["name"]} ({rk["discovered"]})'
+                if rk.get('discovered')
+                else rk['name']
+            )
+            confirmed = not ('cl' in rk and rk['cl'] < 100)
+            target = rkfound if confirmed else rkpossible
+
             # see if any of the known files exists
             for item in rk['files']:
                 if lib.disk.file_exists(item, allow_empty=True):
-                    # if confidence level is below 100%, it *could* be a rootkit
-                    if 'cl' in rk and rk['cl'] < 100:
-                        rkpossible.append(f'* {rk["name"]}: {item} (File)')
-                    else:
-                        rkfound.append(f'* {rk["name"]}: {item} (File)')
+                    target.append(f'* {label}: {item} (File)')
 
-            # see if any of the directories exist
+            # see if any of the directories exist. We use os.path.isdir directly
+            # because lib.disk.file_exists is os.path.isfile under the hood and
+            # would silently return False for every directory indicator.
             for item in rk['dirs']:
-                if lib.disk.file_exists(item, allow_empty=True):
-                    if 'cl' in rk and rk['cl'] < 100:
-                        rkpossible.append(f'* {rk["name"]}: {item} (Dir)')
-                    else:
-                        rkfound.append(f'* {rk["name"]}: {item} (Dir)')
+                if os.path.isdir(item):
+                    target.append(f'* {label}: {item} (Dir)')
 
             # scan kernel symbols for signs of rootkits or other malicious software
             if not ksyms:
                 continue
             for item in rk['ksyms']:
                 if item in ksyms:
-                    if 'cl' in rk and rk['cl'] < 100:
-                        rkpossible.append(f'* {rk["name"]}: {item} (Kernel Symbol)')
-                    else:
-                        rkfound.append(f'* {rk["name"]}: {item} (Kernel Symbol)')
+                    target.append(f'* {label}: {item} (Kernel Symbol)')
 
         except KeyError as e:
             # missing a yaml attribute like 'files' or 'dirs'
@@ -174,9 +180,9 @@ def main():
             f' {lib.txt.pluralize("item", len(rkpossible))}'
             f' found. {lib.base.state2str(state)}'
         )
-        msg += '\nRootkits:\n' + '\n'.join(rkfound) if rkfound else ''
-        msg += '\nPossible Rootkits:\n' + '\n'.join(rkpossible) if rkpossible else ''
-    msg += '\nScanfile Errors:\n' + '\n'.join(errors) if errors else ''
+        msg += '\n\nRootkits:\n' + '\n'.join(rkfound) if rkfound else ''
+        msg += '\n\nPossible Rootkits:\n' + '\n'.join(rkpossible) if rkpossible else ''
+    msg += '\n\nScanfile Errors:\n' + '\n'.join(errors) if errors else ''
 
     perfdata += lib.base.get_perfdata(
         'rootkit_items',
