@@ -727,12 +727,12 @@ The expected state is encoded in the testcase `id` instead (see below).
 
 #### Writing tests
 
-Define a `TESTS` list and use `lib.lftest.run()` to execute each testcase. The testcase `id` should lead with the expected state (`ok-`, `warn-`, `crit-`, `unknown-`), followed by a short description of what is being verified. This is what appears in the subtest output and documents the intent of each case.
+Define a `TESTS` list and use `lib.lftest.attach_tests()` to materialise one real `unittest` test method per testcase. The testcase `id` should lead with the expected state (`ok-`, `warn-`, `crit-`, `unknown-`), followed by a short description of what is being verified. The id becomes the test method name, so it shows up in `./run -v` output and in the unittest test count.
 
 ```python
 #!/usr/bin/env python3
 import sys
-sys.path.append('..')
+sys.path.insert(0, '..')
 
 import unittest
 
@@ -777,15 +777,15 @@ class TestCheck(unittest.TestCase):
 
     check = '../my-check'
 
-    def test(self):
-        for t in TESTS:
-            with self.subTest(id=t['id']):
-                lib.lftest.run(self, self.check, t)
+
+lib.lftest.attach_tests(TestCheck, TESTS)
 
 
 if __name__ == '__main__':
     unittest.main()
 ```
+
+The reason for `attach_tests()` over a plain `for` loop with `subTest()` is reporting accuracy. A plain `for ... subTest()` loop runs every testcase but unittest only counts the surrounding method, so `./run` reports `Ran 1 test in ...s` regardless of how many fixtures the file actually exercises. `attach_tests()` materialises one `test_<id>` method per entry in TESTS, so `./run` reports the real count and `./run -v` lists every scenario by name. Failures still surface in either pattern, but the count is misleading without the helper.
 
 Naming rules for the testcase `id`:
 
