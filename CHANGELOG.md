@@ -95,6 +95,7 @@ Monitoring Plugins:
 * php-status: always assume http://localhost/monitoring.php and, if not found, be tolerant
 * redis-status, valkey-status: modernize code and unify both plugins again after [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954)
 * rocketchat-stats: improve output
+* scanrootkit: kernel symbol matching is now exact per symbol instead of a substring search, so a signature like `is_invisible` no longer accidentally matches an unrelated legitimate symbol named `is_invisible_helper`. False positives on clean systems that previously had such symbol-name collisions will disappear.
 * statuspal: replace `flatdict` dependency with a recursive approach ([#1044](https://github.com/Linuxfabrik/monitoring-plugins/issues/1044))
 * systemd-units-failed: show failed unit names in the first output line for better dashboard and SMS alert readability ([#967](https://github.com/Linuxfabrik/monitoring-plugins/issues/967))
 * updates: adapt to updated powershell.py library
@@ -105,6 +106,7 @@ Monitoring Plugins:
 Monitoring Plugins:
 
 * cpu-usage: remove `--top` parameter (the top N processes by CPU time are now reported by the procs check via `--top`)
+* scanrootkit: remove the in-depth Suckit rootkit check and the `rootkit_extra` perfdata field. The Suckit check was dead code (it created a harmless test file and then re-read it from the same Python process, which cannot detect file-hiding rootkits that hook `getdents`), and the `rootkit_extra` perfdata is no longer produced. Update Grafana panels and alerting that rely on `rootkit_extra`.
 
 
 Tools:
@@ -161,6 +163,7 @@ Monitoring Plugins:
 * redis-status, valkey-status: the `key_count` perfdata now reports the total key count across all databases instead of just the last database's key count ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * rocketchat-stats: fix crash (`AttributeError`) when reporting the user count
 * sap-open-concur-com: `--service` now validates the service name against the allowed list; previously any value was silently accepted ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* scanrootkit: a single signature file that fails any YAML parse stage (scanner, constructor, etc.) no longer crashes the whole check. Any `yaml.YAMLError` subclass is now caught and reported as a scan-file error, leaving the remaining signatures to scan normally.
 * starface-java-memory-usage: fix corrupted overall state in the heap and non-heap memory checks (could previously report CRIT when only WARN thresholds were exceeded, or produce an out-of-range state integer) ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
 * updates: fix crash on Python 3.9 when pending updates are reported
 * users: fix incorrect TTY count when SSH clients connect via IPv6 ([#989](https://github.com/Linuxfabrik/monitoring-plugins/issues/989))

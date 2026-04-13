@@ -28,10 +28,10 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041301'
 
 DESCRIPTION = """Scans the system for approximately 100 known rootkits by checking for their
-characteristic files, directories, and kernel modules. New rootkit definitions can
+characteristic files, directories, and kernel symbols. New rootkit definitions can
 be added by dropping YAML files into the assets folder.
 Alerts when rootkit indicators are found."""
 
@@ -63,40 +63,24 @@ def parse_args():
     return args
 
 
-def extra_rootkit_checks():
-    """This function carries out some extra checks for rootkits.
-    Return '' if nothing is found, else a string indicating what has been found.
+def load_kernel_symbols():
+    """Read `/proc/kallsyms` (or legacy `/proc/ksyms`) and return the set of
+    exact kernel symbol names. Using a set gives us whole-symbol matching
+    instead of the substring matching a raw `str in file` would do, which
+    previously triggered on partial matches like `is_invisible_helper`
+    shadowing the `is_invisible` rootkit signature.
     """
-    result = []
-
-    # === Extra checks for Suckit rootkit
-
-    # Check the link count of the '/sbin/init' file.
-    #    1 is okay
-    #   >1 means that suckit may be installed
-    try:
-        stat_info = os.stat('/sbin/init')
-    except FileNotFoundError:
-        return result
-    except Exception:
-        return result
-    if stat_info.st_nlink > 1:
-        result.append('* More than one link in `/sbin/init`. Check for Suckit Rootkit.')
-
-    # Check to see if certain files are being hidden. These files have the '.xrk' or '.mem' suffix.
-    files = [
-        lib.disk.get_tmpdir() + '/linuxfabrik-monitoring-plugins-scanrootdir.mem',
-        lib.disk.get_tmpdir() + '/linuxfabrik-monitoring-plugins-scanrootdir.xrk',
-    ]
-    for file in files:
-        lib.base.coe(lib.disk.write_file(file, 'suckitexttest'))
-        if not lib.disk.file_exists(file):
-            result.append(
-                f'* `{file}` created and is now hidden. Check for Suckit Rootkit.'
-            )
-        _, _ = lib.disk.rm_file(file)
-
-    return result
+    content = ''
+    if lib.disk.file_exists('/proc/kallsyms', allow_empty=True):
+        content = lib.base.coe(lib.disk.read_file('/proc/kallsyms'))
+    elif lib.disk.file_exists('/proc/ksyms', allow_empty=True):
+        content = lib.base.coe(lib.disk.read_file('/proc/ksyms'))
+    ksyms = set()
+    for line in content.splitlines():
+        parts = line.split()
+        if len(parts) >= 3:
+            ksyms.add(parts[2])
+    return ksyms
 
 
 def main():
@@ -126,13 +110,8 @@ def main():
         relative=False,
     )
 
-    # get the kernel symbols file
-    if lib.disk.file_exists('/proc/kallsyms', allow_empty=True):
-        ksyms_file = lib.base.coe(lib.disk.read_file('/proc/kallsyms'))
-    elif lib.disk.file_exists('/proc/ksyms', allow_empty=True):
-        ksyms_file = lib.base.coe(lib.disk.read_file('/proc/ksyms'))
-    else:
-        ksyms_file = ''
+    # get the set of exact kernel symbol names
+    ksyms = load_kernel_symbols()
 
     # analyze system
     for rootkit in rootkits:
@@ -159,28 +138,26 @@ def main():
                         rkfound.append(f'* {rk["name"]}: {item} (Dir)')
 
             # scan kernel symbols for signs of rootkits or other malicious software
-            if not ksyms_file:
+            if not ksyms:
                 continue
             for item in rk['ksyms']:
-                if item in ksyms_file:
+                if item in ksyms:
                     if 'cl' in rk and rk['cl'] < 100:
                         rkpossible.append(f'* {rk["name"]}: {item} (Kernel Symbol)')
                     else:
                         rkfound.append(f'* {rk["name"]}: {item} (Kernel Symbol)')
 
         except KeyError as e:
-            # missing an yaml attribute like 'files' or 'dirs'
+            # missing a yaml attribute like 'files' or 'dirs'
             errors.append(f'* {os.path.basename(rootkit)}: Key Error {e}')
-        except yaml.parser.ParserError:
-            # got yaml file that is syntactically wrong
-            errors.append(f'* {os.path.basename(rootkit)}: YAML syntax error')
-
-    rkextra = extra_rootkit_checks()
+        except yaml.YAMLError as e:
+            # got a yaml file that is broken in any way
+            errors.append(f'* {os.path.basename(rootkit)}: YAML error: {e}')
 
     # build the message
     if rkscanned == 0:
         lib.base.cu(f'No rootkit definition files found in `{rkdef_path}`.')
-    if not rkfound and not rkpossible and not rkextra:
+    if not rkfound and not rkpossible:
         msg += (
             f'Everything is ok. Scanned for {rkscanned}'
             f' {lib.txt.pluralize("rootkit", rkscanned)}.'
@@ -188,30 +165,22 @@ def main():
     else:
         if rkpossible:
             state = lib.base.get_worst(state, STATE_WARN)
-        if rkfound or rkextra:
+        if rkfound:
             state = lib.base.get_worst(state, lib.base.str2state(args.SEVERITY))
         msg += (
             f'Found {len(rkfound)} rootkit'
-            f' {lib.txt.pluralize("item", len(rkfound))}'
-            f' and {len(rkextra)} extra'
-            f' {lib.txt.pluralize("item", len(rkextra))}.'
+            f' {lib.txt.pluralize("item", len(rkfound))}.'
             f' {len(rkpossible)} possible rootkit'
             f' {lib.txt.pluralize("item", len(rkpossible))}'
             f' found. {lib.base.state2str(state)}'
         )
         msg += '\nRootkits:\n' + '\n'.join(rkfound) if rkfound else ''
-        msg += '\nIn-depth scan:\n' + '\n'.join(rkextra) if rkextra else ''
         msg += '\nPossible Rootkits:\n' + '\n'.join(rkpossible) if rkpossible else ''
     msg += '\nScanfile Errors:\n' + '\n'.join(errors) if errors else ''
 
     perfdata += lib.base.get_perfdata(
         'rootkit_items',
         len(rkfound),
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'rootkit_extra',
-        len(rkextra),
         _min=0,
     )
     perfdata += lib.base.get_perfdata(
