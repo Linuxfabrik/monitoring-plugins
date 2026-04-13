@@ -32,7 +32,9 @@ with both local and relayed DHCP servers, and can target a specific subnet.
 Alerts if the server does not respond or the response is invalid.
 Requires root or sudo."""
 
-DEFAULT_BIND_ADDRESS = '0.0.0.0'  # nosec B104 - DHCP must listen on all interfaces
+# DHCP relay must listen on all interfaces to receive broadcast DISCOVER
+# packets from any client-facing subnet.
+DEFAULT_BIND_ADDRESS = '0.0.0.0'  # nosec B104
 DEFAULT_TIMEOUT = 7  # seconds
 
 
@@ -362,7 +364,9 @@ def main():
 
     # analyze data
     state = STATE_OK
-    if yiaddr == '0.0.0.0':  # nosec B104 - string comparison, not a bind
+    # String comparison against the DHCP wire-format "not assigned" sentinel,
+    # not a bind address.
+    if yiaddr == '0.0.0.0':  # nosec B104
         state = STATE_WARN
 
     # build the message
