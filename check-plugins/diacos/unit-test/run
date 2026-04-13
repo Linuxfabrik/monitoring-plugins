@@ -9,34 +9,37 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_CRIT
+import lib.lftest
+
+
+# The diacos plugin makes three sequential SOAP calls (login,
+# searchDiagnoses, logoff). `--test` takes a base path and the plugin
+# looks up `<base>-login`, `<base>-searchDiagnoses`, and `<base>-logoff`
+# next to each other in stdout/.
+TESTS = [
+    {
+        'id': 'crit-login-search-logout-over-threshold',
+        'test': 'stdout/login-search-logout-7s,,0',
+        'params': '--login-licence=0815 --login-name=linuxfabrik',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['7368ms for login, search and logout'],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../diacos'
 
-    # self.assertEqual(retc, STATE_CRIT)
-    # self.assertIn('Waiting for more data (1).', stdout)
-    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
-
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --test=stdout/EXAMPLE01,,0 --login-licence=0815 --login-name=linuxfabrik'
-            )
-        )
-        self.assertIn('7368ms for login, search and logout', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

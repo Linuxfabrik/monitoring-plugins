@@ -9,57 +9,54 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.lftest
+
+
+# strongswan-connections talks to swanctl via three sequential calls.
+# `--test` takes a base path and the plugin looks up
+# `<base>-possible_connection_keys`, `<base>-active_connection_keys`,
+# and `<base>-list_sas` next to each other in stdout/.
+TESTS = [
+    {
+        'id': 'unknown-no-connections-configured',
+        'test': 'stdout/no-connections-configured,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['No connections configured.'],
+    },
+    {
+        'id': 'warn-no-active-connections',
+        'test': 'stdout/no-active-connections,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['There are no active connections at all.'],
+    },
+    {
+        'id': 'warn-one-inactive-connection',
+        'test': 'stdout/one-inactive-connection,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['One or more connections are configured but not active [WARNING].'],
+    },
+    {
+        'id': 'ok-all-connections-active',
+        'test': 'stdout/all-connections-active,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../strongswan-connections'
 
-    # self.assertEqual(retc, STATE_CRIT)
-    # self.assertIn('Waiting for more data (1).', stdout)
-    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
-
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0')
-        )
-        self.assertIn('No connections configured.', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_UNKNOWN)
-
-    def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0')
-        )
-        self.assertIn('There are no active connections at all.', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0')
-        )
-        self.assertIn(
-            'One or more connections are configured but not active [WARNING].', stdout
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE04(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04,,0')
-        )
-        self.assertIn('Everything is ok.', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

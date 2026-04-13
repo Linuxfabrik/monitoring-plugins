@@ -9,74 +9,64 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+import lib.lftest
+
+
+BASE_PARAMS = '--hostname localhost --username user --password password'
+
+
+TESTS = [
+    {
+        'id': 'ok-five-services',
+        'test': 'stdout/five-services-ok,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_OK,
+        'assert-regex': r'5 services checked\.',
+    },
+    {
+        'id': 'ok-five-services-with-filter',
+        'test': 'stdout/five-services-ok,,0',
+        'params': f'{BASE_PARAMS} --filter PROD',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'3 services checked\.',
+    },
+    {
+        'id': 'warn-five-services-some-warn',
+        'test': 'stdout/five-services-some-warn,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'5 services checked\.',
+    },
+    {
+        'id': 'crit-five-services-some-warn-severity-crit',
+        'test': 'stdout/five-services-some-warn,,0',
+        'params': f'--severity crit {BASE_PARAMS}',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'5 services checked\.',
+    },
+    {
+        'id': 'warn-two-services-with-warn',
+        'test': 'stdout/two-services-with-warn,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'2 services checked\.',
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../kemp-services'
 
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --test=stdout/EXAMPLE01,,0 --hostname localhost --username user --password password'
-            )
-        )
-        self.assertRegex(stdout.splitlines()[0], r'5 services checked\.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE01_with_filter(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --test=stdout/EXAMPLE01,,0 --hostname localhost --username user --password password --filter PROD'
-            )
-        )
-        self.assertRegex(stdout.splitlines()[0], r'3 services checked\.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --test=stdout/EXAMPLE02,,0 --hostname localhost --username user --password password'
-            )
-        )
-        self.assertRegex(stdout.splitlines()[0], r'5 services checked\.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE02_with_severity(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --severity crit --test=stdout/EXAMPLE02,,0 --hostname localhost --username user --password password'
-            )
-        )
-        self.assertRegex(stdout.splitlines()[0], r'5 services checked\.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --test=stdout/EXAMPLE03,,0 --hostname localhost --username user --password password'
-            )
-        )
-        self.assertRegex(stdout.splitlines()[0], r'2 services checked\.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

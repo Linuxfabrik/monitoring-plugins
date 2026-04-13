@@ -9,62 +9,60 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_UNKNOWN, STATE_WARN
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'unknown-malformed-json',
+        'test': 'stdout/malformed-json,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Failed to parse JSON.'],
+    },
+    {
+        'id': 'warn-eighteen-outdated-packages',
+        'test': 'stdout/eighteen-outdated-packages,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Not running in a venv. 18 outdated packages [WARNING]. Executed command: `python3 -m pip list --outdated`',
+            'Package                  ! Version ! Latest  ! Type ',
+            '-------------------------+---------+---------+------',
+            'ansible                  ! 7.1.0   ! 7.2.0   ! wheel',
+            'ansible-core             ! 2.14.1  ! 2.14.2  ! wheel',
+            'apeye-core               ! 1.1.0   ! 1.1.1   ! wheel',
+            'autodocsumm              ! 0.2.9   ! 0.2.10  ! wheel',
+            'awscli                   ! 1.27.41 ! 1.27.78 ! wheel',
+            'colorama                 ! 0.4.4   ! 0.4.6   ! wheel',
+            'docutils                 ! 0.18.1  ! 0.19    ! wheel',
+            'domdf-python-tools       ! 3.5.1   ! 3.6.0   ! wheel',
+            'markdown-it-py           ! 2.1.0   ! 2.2.0   ! wheel',
+            'mdit-py-plugins          ! 0.3.3   ! 0.3.4   ! wheel',
+            'PyYAML                   ! 5.4.1   ! 6.0     ! wheel',
+            'resolvelib               ! 0.8.1   ! 0.9.0   ! wheel',
+            'rsa                      ! 4.7.2   ! 4.9     ! wheel',
+            'setuptools               ! 67.3.2  ! 67.4.0  ! wheel',
+            'Sphinx                   ! 5.3.0   ! 6.1.3   ! wheel',
+            'sphinx_autodoc_typehints ! 1.19.5  ! 1.22    ! wheel',
+            'sphinxcontrib-jquery     ! 2.0.0   ! 3.0.0   ! wheel',
+            'typing_extensions        ! 4.4.0   ! 4.5.0   ! wheel',
+        ],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../pip-updates'
 
-    # self.assertEqual(retc, STATE_CRIT)
-    # self.assertIn('Waiting for more data (1).', stdout)
-    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
-
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0')
-        )
-        self.assertIn('Failed to parse JSON.', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_UNKNOWN)
-
-    def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0')
-        )
-        self.assertIn(
-            'Not running in a venv. 18 outdated packages [WARNING]. Executed command: `python3 -m pip list --outdated`',
-            stdout,
-        )
-        self.assertIn('Package                  ! Version ! Latest  ! Type ', stdout)
-        self.assertIn('-------------------------+---------+---------+------', stdout)
-        self.assertIn('ansible                  ! 7.1.0   ! 7.2.0   ! wheel', stdout)
-        self.assertIn('ansible-core             ! 2.14.1  ! 2.14.2  ! wheel', stdout)
-        self.assertIn('apeye-core               ! 1.1.0   ! 1.1.1   ! wheel', stdout)
-        self.assertIn('autodocsumm              ! 0.2.9   ! 0.2.10  ! wheel', stdout)
-        self.assertIn('awscli                   ! 1.27.41 ! 1.27.78 ! wheel', stdout)
-        self.assertIn('colorama                 ! 0.4.4   ! 0.4.6   ! wheel', stdout)
-        self.assertIn('docutils                 ! 0.18.1  ! 0.19    ! wheel', stdout)
-        self.assertIn('domdf-python-tools       ! 3.5.1   ! 3.6.0   ! wheel', stdout)
-        self.assertIn('markdown-it-py           ! 2.1.0   ! 2.2.0   ! wheel', stdout)
-        self.assertIn('mdit-py-plugins          ! 0.3.3   ! 0.3.4   ! wheel', stdout)
-        self.assertIn('PyYAML                   ! 5.4.1   ! 6.0     ! wheel', stdout)
-        self.assertIn('resolvelib               ! 0.8.1   ! 0.9.0   ! wheel', stdout)
-        self.assertIn('rsa                      ! 4.7.2   ! 4.9     ! wheel', stdout)
-        self.assertIn('setuptools               ! 67.3.2  ! 67.4.0  ! wheel', stdout)
-        self.assertIn('Sphinx                   ! 5.3.0   ! 6.1.3   ! wheel', stdout)
-        self.assertIn('sphinx_autodoc_typehints ! 1.19.5  ! 1.22    ! wheel', stdout)
-        self.assertIn('sphinxcontrib-jquery     ! 2.0.0   ! 3.0.0   ! wheel', stdout)
-        self.assertIn('typing_extensions        ! 4.4.0   ! 4.5.0   ! wheel', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

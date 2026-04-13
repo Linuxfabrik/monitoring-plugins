@@ -9,35 +9,38 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import *
-import lib.base
-import lib.shell
+from lib.globals import STATE_OK, STATE_UNKNOWN
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'ok-healthy',
+        'test': 'stdout/healthy,,0',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\.',
+    },
+    {
+        'id': 'unknown-malformed',
+        'test': 'stdout/malformed,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-regex': r'Malformed mod_qos status info\.',
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../mod-qos-stats'
 
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0')
-        )
-        self.assertRegex(stdout, r'Everything is ok\.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0')
-        )
-        self.assertRegex(stdout, r'Malformed mod_qos status info\.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_UNKNOWN)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

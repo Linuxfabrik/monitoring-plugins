@@ -9,133 +9,77 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.lftest
+
+
+_HEALTHY_FIXTURES = [
+    'all-mounts-healthy-v1',
+    'all-mounts-healthy-v2',
+    'all-mounts-healthy-v3',
+    'all-mounts-healthy-v4',
+    'all-mounts-healthy-v5',
+    'all-mounts-healthy-v6',
+    'all-mounts-healthy-v7',
+    'all-mounts-healthy-v8',
+    'all-mounts-healthy-v9',
+]
+
+
+TESTS = [
+    {
+        'id': f'ok-{slug}',
+        'test': f'stdout/{slug},,0',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\.',
+    }
+    for slug in _HEALTHY_FIXTURES
+] + [
+    {
+        'id': 'ok-all-mounts-healthy-twenty-two-mounts',
+        'test': 'stdout/all-mounts-healthy-twenty-two-mounts,,0',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\. 22 mount points checked\.',
+    },
+    {
+        'id': 'warn-one-readonly-mount-v1',
+        'test': 'stdout/one-readonly-mount-v1,,0',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'1 read-only mount point found',
+    },
+    {
+        'id': 'warn-one-readonly-mount-v2',
+        'test': 'stdout/one-readonly-mount-v2,,0',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'1 read-only mount point found',
+    },
+    {
+        'id': 'warn-three-readonly-mounts',
+        'test': 'stdout/three-readonly-mounts,,0',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'3 read-only mount points found',
+    },
+    {
+        'id': 'unknown-malformed-proc-mounts',
+        'test': 'stdout/malformed-proc-mounts,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-regex': r'Unexpected format of /proc/mounts\.',
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../fs-ro'
 
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0')
-        )
-        self.assertRegex(stdout, r'Everything is ok.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0')
-        )
-        self.assertRegex(stdout, r'Everything is ok.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0')
-        )
-        self.assertRegex(stdout, r'Everything is ok.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE04(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04,,0')
-        )
-        self.assertRegex(stdout, r'Everything is ok.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE05(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE05,,0')
-        )
-        self.assertRegex(stdout, r'Everything is ok.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE06(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE06,,0')
-        )
-        self.assertRegex(stdout, r'1 read-only mount point found')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE07(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE07,,0')
-        )
-        self.assertRegex(stdout, r'Everything is ok.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE08(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE08,,0')
-        )
-        self.assertRegex(stdout, r'Everything is ok.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE09(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE09,,0')
-        )
-        self.assertRegex(stdout, r'Everything is ok.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    # empty/no data
-    def test_if_check_runs_EXAMPLE10(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE10,,0')
-        )
-        self.assertRegex(stdout, r'Everything is ok.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE11(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE11,,0')
-        )
-        self.assertRegex(stdout, r'1 read-only mount point found')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE12(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE12,,0')
-        )
-        self.assertRegex(stdout, r'Everything is ok. 22 mount points checked.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE13(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE13,,0')
-        )
-        self.assertRegex(stdout, r'3 read-only mount points found')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    # non-existent test file
-    def test_if_check_runs_EXAMPLE99(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE99,,0')
-        )
-        self.assertRegex(stdout, r'Unexpected format of /proc/mounts.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_UNKNOWN)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

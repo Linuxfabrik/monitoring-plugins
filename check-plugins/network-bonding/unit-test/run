@@ -9,154 +9,135 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_OK, STATE_WARN
+import lib.lftest
+
+
+# The network-bonding plugin reads a single /proc/net/bonding/<iface>
+# file and --test accepts a plain filename (no stdout/stderr/retc
+# triple). Fixtures are grouped per bonding mode (b0..b6) and split
+# into `.ok`/`.nok` captures. Mode 4 (LACP) additionally carries
+# `-lacp` / `-wo-lacp` variants to exercise the Partner Mac Address
+# detection.
+TESTS = [
+    {
+        'id': 'ok-b0-active-backup',
+        'test': 'stdout/b0.ok',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\.',
+    },
+    {
+        'id': 'warn-b0-active-backup-down',
+        'test': 'stdout/b0.nok',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'enp3s0f0 is down with 1 link failure',
+    },
+    {
+        'id': 'ok-b1-balance-rr',
+        'test': 'stdout/b1.ok',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\.',
+    },
+    {
+        'id': 'warn-b1-balance-rr-down',
+        'test': 'stdout/b1.nok',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'enp3s0f0 is down with 1 link failure',
+    },
+    {
+        'id': 'ok-b2-balance-xor',
+        'test': 'stdout/b2.ok',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\.',
+    },
+    {
+        'id': 'warn-b2-balance-xor-down',
+        'test': 'stdout/b2.nok',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'enp3s0f0 is down with 1 link failure',
+    },
+    {
+        'id': 'ok-b3-broadcast',
+        'test': 'stdout/b3.ok',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\.',
+    },
+    {
+        'id': 'warn-b3-broadcast-down',
+        'test': 'stdout/b3.nok',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'enp3s0f0 is down with 1 link failure',
+    },
+    {
+        'id': 'ok-b4-lacp',
+        'test': 'stdout/b4.ok-lacp',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\.',
+    },
+    {
+        'id': 'warn-b4-lacp-down',
+        'test': 'stdout/b4.nok-lacp',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'enp3s0f0 is down with 1 link failure',
+    },
+    {
+        'id': 'warn-b4-without-lacp',
+        'test': 'stdout/b4.ok-wo-lacp',
+        'assert-retc': STATE_WARN,
+        'assert-regex': (
+            r'Could not detect the MAC Address of the switch\. '
+            r'This could indicate that LACP is not configured properly\.'
+        ),
+    },
+    {
+        'id': 'warn-b4-without-lacp-down',
+        'test': 'stdout/b4.nok-wo-lacp',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Could not detect the MAC Address of the switch.',
+            'LACP is not configured properly',
+        ],
+        'assert-regex': r'enp3s0f1 is down with 0 link failure',
+    },
+    {
+        'id': 'ok-b5-balance-tlb',
+        'test': 'stdout/b5.ok',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\.',
+    },
+    {
+        'id': 'warn-b5-balance-tlb-down',
+        'test': 'stdout/b5.nok',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'enp3s0f0 is down with 1 link failure',
+    },
+    {
+        'id': 'ok-b6-balance-alb',
+        'test': 'stdout/b6.ok',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\.',
+    },
+    {
+        'id': 'warn-b6-balance-alb-down',
+        'test': 'stdout/b6.nok',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'enp3s0f0 is down with 2 link failure',
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../network-bonding'
 
-    def test_if_check_runs_EXAMPLE_b0_ok(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE-b0.ok')
-        )
-        self.assertRegex(stdout, r'Everything is ok\.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE_b0_nok(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE-b0.nok')
-        )
-        self.assertRegex(stdout, r'enp3s0f0 is down with 1 link failure')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE_b1_ok(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE-b1.ok')
-        )
-        self.assertRegex(stdout, r'Everything is ok\.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE_b1_nok(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE-b1.nok')
-        )
-        self.assertRegex(stdout, r'enp3s0f0 is down with 1 link failure')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE_b2_ok(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE-b2.ok')
-        )
-        self.assertRegex(stdout, r'Everything is ok\.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE_b2_nok(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE-b2.nok')
-        )
-        self.assertRegex(stdout, r'enp3s0f0 is down with 1 link failure')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE_b3_ok(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE-b3.ok')
-        )
-        self.assertRegex(stdout, r'Everything is ok\.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE_b3_nok(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE-b3.nok')
-        )
-        self.assertRegex(stdout, r'enp3s0f0 is down with 1 link failure')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE_b4_ok_lacp(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE-b4.ok-lacp')
-        )
-        self.assertRegex(stdout, r'Everything is ok\.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE_b4_nok_lacp(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE-b4.nok-lacp')
-        )
-        self.assertRegex(stdout, r'enp3s0f0 is down with 1 link failure')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE_b4_ok_wo_lacp(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE-b4.ok-wo-lacp')
-        )
-        self.assertRegex(
-            stdout,
-            r'Could not detect the MAC Address of the switch\. This could indicate that LACP is not configured properly\.',
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE_b4_nok_wo_lacp(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE-b4.nok-wo-lacp')
-        )
-        self.assertRegex(
-            stdout,
-            r'Could not detect the MAC Address of the switch\. This could indicate that LACP is not configured properly\.',
-        )
-        self.assertRegex(stdout, r'enp3s0f1 is down with 0 link failure')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE_b5_ok(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE-b5.ok')
-        )
-        self.assertRegex(stdout, r'Everything is ok\.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE_b5_nok(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE-b5.nok')
-        )
-        self.assertRegex(stdout, r'enp3s0f0 is down with 1 link failure')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE_b6_ok(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE-b6.ok')
-        )
-        self.assertRegex(stdout, r'Everything is ok\.')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE_b6_nok(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE-b6.nok')
-        )
-        self.assertRegex(stdout, r'enp3s0f0 is down with 2 link failure')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

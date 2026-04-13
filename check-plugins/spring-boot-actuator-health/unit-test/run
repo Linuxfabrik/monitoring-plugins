@@ -9,412 +9,233 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
+sys.path.insert(0, '..')
+
 import unittest
 
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+import lib.lftest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+
+TESTS = [
+    {
+        'id': 'ok-app-up-all-components-ok',
+        'test': 'stdout/app-up-all-components-ok,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Overall status of the application: UP, API Status Code: 200',
+            'Component            ! Status ! State',
+            '---------------------+--------+------',
+            'db                   ! UP     ! [OK] ',
+            'diskSpace            ! UP     ! [OK] ',
+            'hikariConnectionPool ! UP     ! [OK] ',
+            'indexStatus          ! GREEN  ! [OK] ',
+            'indexSynchronization ! GREEN  ! [OK] ',
+            'ping                 ! UP     ! [OK]',
+            'Component            ! Detail            ! value       ! State',
+            '---------------------+-------------------+-------------+------',
+            'db                   ! database          ! Oracle      ! [OK] ',
+            'db                   ! validationQuery   ! isValid()   ! [OK] ',
+            'diskSpace            ! exists            ! True        ! [OK] ',
+            'diskSpace            ! free              ! 34581540864 ! [OK] ',
+            'diskSpace            ! threshold         ! 10485760    ! [OK] ',
+            'diskSpace            ! total             ! 61041709056 ! [OK] ',
+            'hikariConnectionPool ! activeConnections ! 17          ! [OK] ',
+            'hikariConnectionPool ! maxPoolSize       ! 40          ! [OK] ',
+            'indexSynchronization ! erroredEntries    ! 0           ! [OK] ',
+            'indexSynchronization ! queuedEntries     ! 0           ! [OK]',
+        ],
+    },
+    {
+        'id': 'warn-app-up-detail-severity-hikari',
+        'test': 'stdout/app-up-all-components-ok,,0',
+        'params': '--detail-severity=hikariConnectionPool,activeConnections,@10:20,@0:9',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Overall status of the application: UP, API Status Code: 200 [WARNING]',
+            'Component            ! Status ! State',
+            '---------------------+--------+------',
+            'db                   ! UP     ! [OK] ',
+            'diskSpace            ! UP     ! [OK] ',
+            'hikariConnectionPool ! UP     ! [OK] ',
+            'indexStatus          ! GREEN  ! [OK] ',
+            'indexSynchronization ! GREEN  ! [OK] ',
+            'ping                 ! UP     ! [OK]',
+            'Component            ! Detail            ! value            ! State    ',
+            '---------------------+-------------------+------------------+----------',
+            'db                   ! database          ! Oracle           ! [OK]     ',
+            'db                   ! validationQuery   ! isValid()        ! [OK]     ',
+            'diskSpace            ! exists            ! True             ! [OK]     ',
+            'diskSpace            ! free              ! 34581540864      ! [OK]     ',
+            'diskSpace            ! threshold         ! 10485760         ! [OK]     ',
+            'diskSpace            ! total             ! 61041709056      ! [OK]     ',
+            "hikariConnectionPool ! activeConnections ! 17 ' @10:20,@0:9 ! [WARNING]",
+            'hikariConnectionPool ! maxPoolSize       ! 40               ! [OK]     ',
+            'indexSynchronization ! erroredEntries    ! 0                ! [OK]     ',
+            'indexSynchronization ! queuedEntries     ! 0                ! [OK]',
+        ],
+    },
+    {
+        'id': 'crit-app-up-component-and-detail-severity',
+        'test': 'stdout/app-up-all-components-ok,,0',
+        'params': (
+            '--component-severity=diskSpace,UP,warnings '
+            '--detail-severity=hikariConnectionPool,activeConnections,@10:20,@0:9 '
+            '--detail-severity=diskSpace,free,20000000,200000000'
+        ),
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Overall status of the application: UP, API Status Code: 200 [CRITICAL]',
+            'Component            ! Status        ! State    ',
+            '---------------------+---------------+----------',
+            'db                   ! UP            ! [OK]     ',
+            "diskSpace            ! UP ' warnings ! [WARNING]",
+            'hikariConnectionPool ! UP            ! [OK]     ',
+            'indexStatus          ! GREEN         ! [OK]     ',
+            'indexSynchronization ! GREEN         ! [OK]     ',
+            'ping                 ! UP            ! [OK]',
+            'Component            ! Detail            ! value                            ! State     ',
+            '---------------------+-------------------+----------------------------------+-----------',
+            'db                   ! database          ! Oracle                           ! [OK]      ',
+            'db                   ! validationQuery   ! isValid()                        ! [OK]      ',
+            'diskSpace            ! exists            ! True                             ! [OK]      ',
+            "diskSpace            ! free              ! 34581540864 ' 20000000,200000000 ! [CRITICAL]",
+            'diskSpace            ! threshold         ! 10485760                         ! [OK]      ',
+            'diskSpace            ! total             ! 61041709056                      ! [OK]      ',
+            "hikariConnectionPool ! activeConnections ! 17 ' @10:20,@0:9                 ! [WARNING] ",
+            'hikariConnectionPool ! maxPoolSize       ! 40                               ! [OK]      ',
+            'indexSynchronization ! erroredEntries    ! 0                                ! [OK]      ',
+            'indexSynchronization ! queuedEntries     ! 0                                ! [OK]',
+        ],
+    },
+    {
+        'id': 'crit-app-down-503',
+        'test': 'stdout/app-down-503,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Overall status of the application: DOWN, API Status Code: 503 [CRITICAL]',
+            'Component            ! Status ! State',
+            '---------------------+--------+------',
+            'db                   ! UP     ! [OK] ',
+            'diskSpace            ! UP     ! [OK] ',
+            'hikariConnectionPool ! UP     ! [OK] ',
+            'indexStatus          ! GREEN  ! [OK] ',
+            'indexSynchronization ! GREEN  ! [OK] ',
+            'ping                 ! UP     ! [OK]',
+            'Component            ! Detail            ! value       ! State',
+            '---------------------+-------------------+-------------+------',
+            'db                   ! database          ! Oracle      ! [OK] ',
+            'db                   ! validationQuery   ! isValid()   ! [OK] ',
+            'diskSpace            ! exists            ! True        ! [OK] ',
+            'diskSpace            ! free              ! 34581540864 ! [OK] ',
+            'diskSpace            ! threshold         ! 10485760    ! [OK] ',
+            'diskSpace            ! total             ! 61041709056 ! [OK] ',
+            'hikariConnectionPool ! activeConnections ! 0           ! [OK] ',
+            'hikariConnectionPool ! maxPoolSize       ! 40          ! [OK] ',
+            'indexSynchronization ! erroredEntries    ! 0           ! [OK] ',
+            'indexSynchronization ! queuedEntries     ! 0           ! [OK]',
+        ],
+    },
+    {
+        'id': 'warn-app-degraded-503',
+        'test': 'stdout/app-degraded-503,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Overall status of the application: DEGRADED, API Status Code: 503 [WARNING]',
+            'Component            ! Status ! State',
+            '---------------------+--------+------',
+            'db                   ! UP     ! [OK] ',
+            'diskSpace            ! UP     ! [OK] ',
+            'hikariConnectionPool ! UP     ! [OK] ',
+            'indexStatus          ! GREEN  ! [OK] ',
+            'indexSynchronization ! GREEN  ! [OK] ',
+            'ping                 ! UP     ! [OK]',
+            'Component            ! Detail            ! value       ! State',
+            '---------------------+-------------------+-------------+------',
+            'db                   ! database          ! Oracle      ! [OK] ',
+            'db                   ! validationQuery   ! isValid()   ! [OK] ',
+            'diskSpace            ! exists            ! True        ! [OK] ',
+            'diskSpace            ! free              ! 34581540864 ! [OK] ',
+            'diskSpace            ! threshold         ! 10485760    ! [OK] ',
+            'diskSpace            ! total             ! 61041709056 ! [OK] ',
+            'hikariConnectionPool ! activeConnections ! 0           ! [OK] ',
+            'hikariConnectionPool ! maxPoolSize       ! 40          ! [OK] ',
+            'indexSynchronization ! erroredEntries    ! 0           ! [OK] ',
+            'indexSynchronization ! queuedEntries     ! 0           ! [OK]',
+        ],
+    },
+    {
+        'id': 'warn-app-up-diskspace-degraded',
+        'test': 'stdout/app-up-diskspace-degraded,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Overall status of the application: UP, API Status Code: 503 [WARNING]',
+            'Component            ! Status   ! State    ',
+            '---------------------+----------+----------',
+            'db                   ! UP       ! [OK]     ',
+            'diskSpace            ! DEGRADED ! [WARNING]',
+            'hikariConnectionPool ! UP       ! [OK]     ',
+            'indexStatus          ! GREEN    ! [OK]     ',
+            'indexSynchronization ! GREEN    ! [OK]     ',
+            'ping                 ! UP       ! [OK]',
+            'Component            ! Detail            ! value       ! State',
+            '---------------------+-------------------+-------------+------',
+            'db                   ! database          ! Oracle      ! [OK] ',
+            'db                   ! validationQuery   ! isValid()   ! [OK] ',
+            'diskSpace            ! exists            ! True        ! [OK] ',
+            'diskSpace            ! free              ! 34581540864 ! [OK] ',
+            'diskSpace            ! threshold         ! 10485760    ! [OK] ',
+            'diskSpace            ! total             ! 61041709056 ! [OK] ',
+            'hikariConnectionPool ! activeConnections ! 0           ! [OK] ',
+            'hikariConnectionPool ! maxPoolSize       ! 40          ! [OK] ',
+            'indexSynchronization ! erroredEntries    ! 0           ! [OK] ',
+            'indexSynchronization ! queuedEntries     ! 0           ! [OK]',
+        ],
+    },
+    {
+        'id': 'ok-app-up-ssl-component',
+        'test': 'stdout/app-up-ssl-component,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Overall status of the application: UP, API Status Code: 200',
+            'Component ! Status ! State',
+            '----------+--------+------',
+            'db        ! UP     ! [OK] ',
+            'diskSpace ! UP     ! [OK] ',
+            'ping      ! UP     ! [OK] ',
+            'ssl       ! UP     ! [OK]',
+            'Component ! Detail          ! value         ! State',
+            '----------+-----------------+---------------+------',
+            'db        ! database        ! PostgreSQL    ! [OK] ',
+            'db        ! validationQuery ! isValid()     ! [OK] ',
+            'diskSpace ! total           ! 1998678130688 ! [OK] ',
+            'diskSpace ! free            ! 1086639144960 ! [OK] ',
+            'diskSpace ! threshold       ! 10485760      ! [OK] ',
+            'diskSpace ! path            ! /.            ! [OK] ',
+            'diskSpace ! exists          ! True          ! [OK] ',
+            'ssl       ! validChains     ! []            ! [OK] ',
+            'ssl       ! invalidChains   ! []            ! [OK]',
+        ],
+    },
+    {
+        'id': 'ok-app-up-207',
+        'test': 'stdout/app-up-207,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Overall status of the application: UP, API Status Code: 207',
+        ],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
-    check = '../spring-boot-actuator-health'  # path to your plugin
 
-    def test_if_check_runs_EXAMPLE01a(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0')
-        )
-        self.assertIn(
-            'Overall status of the application: UP, API Status Code: 200', stdout
-        )
-        self.assertIn('Component            ! Status ! State', stdout)
-        self.assertIn('---------------------+--------+------', stdout)
-        self.assertIn('db                   ! UP     ! [OK] ', stdout)
-        self.assertIn('diskSpace            ! UP     ! [OK] ', stdout)
-        self.assertIn('hikariConnectionPool ! UP     ! [OK] ', stdout)
-        self.assertIn('indexStatus          ! GREEN  ! [OK] ', stdout)
-        self.assertIn('indexSynchronization ! GREEN  ! [OK] ', stdout)
-        self.assertIn('ping                 ! UP     ! [OK]', stdout)
-        self.assertIn(
-            'Component            ! Detail            ! value       ! State', stdout
-        )
-        self.assertIn(
-            '---------------------+-------------------+-------------+------', stdout
-        )
-        self.assertIn(
-            'db                   ! database          ! Oracle      ! [OK] ', stdout
-        )
-        self.assertIn(
-            'db                   ! validationQuery   ! isValid()   ! [OK] ', stdout
-        )
-        self.assertIn(
-            'diskSpace            ! exists            ! True        ! [OK] ', stdout
-        )
-        self.assertIn(
-            'diskSpace            ! free              ! 34581540864 ! [OK] ', stdout
-        )
-        self.assertIn(
-            'diskSpace            ! threshold         ! 10485760    ! [OK] ', stdout
-        )
-        self.assertIn(
-            'diskSpace            ! total             ! 61041709056 ! [OK] ', stdout
-        )
-        self.assertIn(
-            'hikariConnectionPool ! activeConnections ! 17          ! [OK] ', stdout
-        )
-        self.assertIn(
-            'hikariConnectionPool ! maxPoolSize       ! 40          ! [OK] ', stdout
-        )
-        self.assertIn(
-            'indexSynchronization ! erroredEntries    ! 0           ! [OK] ', stdout
-        )
-        self.assertIn(
-            'indexSynchronization ! queuedEntries     ! 0           ! [OK]', stdout
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
+    check = '../spring-boot-actuator-health'
 
-    def test_if_check_runs_EXAMPLE01b(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --test=stdout/EXAMPLE01,,0 --detail-severity=hikariConnectionPool,activeConnections,@10:20,@0:9'
-            )
-        )
-        self.assertIn(
-            'Overall status of the application: UP, API Status Code: 200 [WARNING]',
-            stdout,
-        )
-        self.assertIn('Component            ! Status ! State', stdout)
-        self.assertIn('---------------------+--------+------', stdout)
-        self.assertIn('db                   ! UP     ! [OK] ', stdout)
-        self.assertIn('diskSpace            ! UP     ! [OK] ', stdout)
-        self.assertIn('hikariConnectionPool ! UP     ! [OK] ', stdout)
-        self.assertIn('indexStatus          ! GREEN  ! [OK] ', stdout)
-        self.assertIn('indexSynchronization ! GREEN  ! [OK] ', stdout)
-        self.assertIn('ping                 ! UP     ! [OK]', stdout)
-        self.assertIn(
-            'Component            ! Detail            ! value            ! State    ',
-            stdout,
-        )
-        self.assertIn(
-            '---------------------+-------------------+------------------+----------',
-            stdout,
-        )
-        self.assertIn(
-            'db                   ! database          ! Oracle           ! [OK]     ',
-            stdout,
-        )
-        self.assertIn(
-            'db                   ! validationQuery   ! isValid()        ! [OK]     ',
-            stdout,
-        )
-        self.assertIn(
-            'diskSpace            ! exists            ! True             ! [OK]     ',
-            stdout,
-        )
-        self.assertIn(
-            'diskSpace            ! free              ! 34581540864      ! [OK]     ',
-            stdout,
-        )
-        self.assertIn(
-            'diskSpace            ! threshold         ! 10485760         ! [OK]     ',
-            stdout,
-        )
-        self.assertIn(
-            'diskSpace            ! total             ! 61041709056      ! [OK]     ',
-            stdout,
-        )
-        self.assertIn(
-            "hikariConnectionPool ! activeConnections ! 17 ' @10:20,@0:9 ! [WARNING]",
-            stdout,
-        )
-        self.assertIn(
-            'hikariConnectionPool ! maxPoolSize       ! 40               ! [OK]     ',
-            stdout,
-        )
-        self.assertIn(
-            'indexSynchronization ! erroredEntries    ! 0                ! [OK]     ',
-            stdout,
-        )
-        self.assertIn(
-            'indexSynchronization ! queuedEntries     ! 0                ! [OK]', stdout
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE01c(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --test=stdout/EXAMPLE01,,0 --component-severity=diskSpace,UP,warnings --detail-severity=hikariConnectionPool,activeConnections,@10:20,@0:9 --detail-severity=diskSpace,free,20000000,200000000'
-            )
-        )
-        self.assertIn(
-            'Overall status of the application: UP, API Status Code: 200 [CRITICAL]',
-            stdout,
-        )
-        self.assertIn('Component            ! Status        ! State    ', stdout)
-        self.assertIn('---------------------+---------------+----------', stdout)
-        self.assertIn('db                   ! UP            ! [OK]     ', stdout)
-        self.assertIn("diskSpace            ! UP ' warnings ! [WARNING]", stdout)
-        self.assertIn('hikariConnectionPool ! UP            ! [OK]     ', stdout)
-        self.assertIn('indexStatus          ! GREEN         ! [OK]     ', stdout)
-        self.assertIn('indexSynchronization ! GREEN         ! [OK]     ', stdout)
-        self.assertIn('ping                 ! UP            ! [OK]', stdout)
-        self.assertIn(
-            'Component            ! Detail            ! value                            ! State     ',
-            stdout,
-        )
-        self.assertIn(
-            '---------------------+-------------------+----------------------------------+-----------',
-            stdout,
-        )
-        self.assertIn(
-            'db                   ! database          ! Oracle                           ! [OK]      ',
-            stdout,
-        )
-        self.assertIn(
-            'db                   ! validationQuery   ! isValid()                        ! [OK]      ',
-            stdout,
-        )
-        self.assertIn(
-            'diskSpace            ! exists            ! True                             ! [OK]      ',
-            stdout,
-        )
-        self.assertIn(
-            "diskSpace            ! free              ! 34581540864 ' 20000000,200000000 ! [CRITICAL]",
-            stdout,
-        )
-        self.assertIn(
-            'diskSpace            ! threshold         ! 10485760                         ! [OK]      ',
-            stdout,
-        )
-        self.assertIn(
-            'diskSpace            ! total             ! 61041709056                      ! [OK]      ',
-            stdout,
-        )
-        self.assertIn(
-            "hikariConnectionPool ! activeConnections ! 17 ' @10:20,@0:9                 ! [WARNING] ",
-            stdout,
-        )
-        self.assertIn(
-            'hikariConnectionPool ! maxPoolSize       ! 40                               ! [OK]      ',
-            stdout,
-        )
-        self.assertIn(
-            'indexSynchronization ! erroredEntries    ! 0                                ! [OK]      ',
-            stdout,
-        )
-        self.assertIn(
-            'indexSynchronization ! queuedEntries     ! 0                                ! [OK]',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0')
-        )
-        self.assertIn(
-            'Overall status of the application: DOWN, API Status Code: 503 [CRITICAL]',
-            stdout,
-        )
-        self.assertIn('Component            ! Status ! State', stdout)
-        self.assertIn('---------------------+--------+------', stdout)
-        self.assertIn('db                   ! UP     ! [OK] ', stdout)
-        self.assertIn('diskSpace            ! UP     ! [OK] ', stdout)
-        self.assertIn('hikariConnectionPool ! UP     ! [OK] ', stdout)
-        self.assertIn('indexStatus          ! GREEN  ! [OK] ', stdout)
-        self.assertIn('indexSynchronization ! GREEN  ! [OK] ', stdout)
-        self.assertIn('ping                 ! UP     ! [OK]', stdout)
-        self.assertIn(
-            'Component            ! Detail            ! value       ! State', stdout
-        )
-        self.assertIn(
-            '---------------------+-------------------+-------------+------', stdout
-        )
-        self.assertIn(
-            'db                   ! database          ! Oracle      ! [OK] ', stdout
-        )
-        self.assertIn(
-            'db                   ! validationQuery   ! isValid()   ! [OK] ', stdout
-        )
-        self.assertIn(
-            'diskSpace            ! exists            ! True        ! [OK] ', stdout
-        )
-        self.assertIn(
-            'diskSpace            ! free              ! 34581540864 ! [OK] ', stdout
-        )
-        self.assertIn(
-            'diskSpace            ! threshold         ! 10485760    ! [OK] ', stdout
-        )
-        self.assertIn(
-            'diskSpace            ! total             ! 61041709056 ! [OK] ', stdout
-        )
-        self.assertIn(
-            'hikariConnectionPool ! activeConnections ! 0           ! [OK] ', stdout
-        )
-        self.assertIn(
-            'hikariConnectionPool ! maxPoolSize       ! 40          ! [OK] ', stdout
-        )
-        self.assertIn(
-            'indexSynchronization ! erroredEntries    ! 0           ! [OK] ', stdout
-        )
-        self.assertIn(
-            'indexSynchronization ! queuedEntries     ! 0           ! [OK]', stdout
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0')
-        )
-        self.assertIn(
-            'Overall status of the application: DEGRADED, API Status Code: 503 [WARNING]',
-            stdout,
-        )
-        self.assertIn('Component            ! Status ! State', stdout)
-        self.assertIn('---------------------+--------+------', stdout)
-        self.assertIn('db                   ! UP     ! [OK] ', stdout)
-        self.assertIn('diskSpace            ! UP     ! [OK] ', stdout)
-        self.assertIn('hikariConnectionPool ! UP     ! [OK] ', stdout)
-        self.assertIn('indexStatus          ! GREEN  ! [OK] ', stdout)
-        self.assertIn('indexSynchronization ! GREEN  ! [OK] ', stdout)
-        self.assertIn('ping                 ! UP     ! [OK]', stdout)
-        self.assertIn(
-            'Component            ! Detail            ! value       ! State', stdout
-        )
-        self.assertIn(
-            '---------------------+-------------------+-------------+------', stdout
-        )
-        self.assertIn(
-            'db                   ! database          ! Oracle      ! [OK] ', stdout
-        )
-        self.assertIn(
-            'db                   ! validationQuery   ! isValid()   ! [OK] ', stdout
-        )
-        self.assertIn(
-            'diskSpace            ! exists            ! True        ! [OK] ', stdout
-        )
-        self.assertIn(
-            'diskSpace            ! free              ! 34581540864 ! [OK] ', stdout
-        )
-        self.assertIn(
-            'diskSpace            ! threshold         ! 10485760    ! [OK] ', stdout
-        )
-        self.assertIn(
-            'diskSpace            ! total             ! 61041709056 ! [OK] ', stdout
-        )
-        self.assertIn(
-            'hikariConnectionPool ! activeConnections ! 0           ! [OK] ', stdout
-        )
-        self.assertIn(
-            'hikariConnectionPool ! maxPoolSize       ! 40          ! [OK] ', stdout
-        )
-        self.assertIn(
-            'indexSynchronization ! erroredEntries    ! 0           ! [OK] ', stdout
-        )
-        self.assertIn(
-            'indexSynchronization ! queuedEntries     ! 0           ! [OK]', stdout
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE04(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04,,0')
-        )
-        self.assertIn(
-            'Overall status of the application: UP, API Status Code: 503 [WARNING]',
-            stdout,
-        )
-        self.assertIn('Component            ! Status   ! State    ', stdout)
-        self.assertIn('---------------------+----------+----------', stdout)
-        self.assertIn('db                   ! UP       ! [OK]     ', stdout)
-        self.assertIn('diskSpace            ! DEGRADED ! [WARNING]', stdout)
-        self.assertIn('hikariConnectionPool ! UP       ! [OK]     ', stdout)
-        self.assertIn('indexStatus          ! GREEN    ! [OK]     ', stdout)
-        self.assertIn('indexSynchronization ! GREEN    ! [OK]     ', stdout)
-        self.assertIn('ping                 ! UP       ! [OK]', stdout)
-        self.assertIn(
-            'Component            ! Detail            ! value       ! State', stdout
-        )
-        self.assertIn(
-            '---------------------+-------------------+-------------+------', stdout
-        )
-        self.assertIn(
-            'db                   ! database          ! Oracle      ! [OK] ', stdout
-        )
-        self.assertIn(
-            'db                   ! validationQuery   ! isValid()   ! [OK] ', stdout
-        )
-        self.assertIn(
-            'diskSpace            ! exists            ! True        ! [OK] ', stdout
-        )
-        self.assertIn(
-            'diskSpace            ! free              ! 34581540864 ! [OK] ', stdout
-        )
-        self.assertIn(
-            'diskSpace            ! threshold         ! 10485760    ! [OK] ', stdout
-        )
-        self.assertIn(
-            'diskSpace            ! total             ! 61041709056 ! [OK] ', stdout
-        )
-        self.assertIn(
-            'hikariConnectionPool ! activeConnections ! 0           ! [OK] ', stdout
-        )
-        self.assertIn(
-            'hikariConnectionPool ! maxPoolSize       ! 40          ! [OK] ', stdout
-        )
-        self.assertIn(
-            'indexSynchronization ! erroredEntries    ! 0           ! [OK] ', stdout
-        )
-        self.assertIn(
-            'indexSynchronization ! queuedEntries     ! 0           ! [OK]', stdout
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE05(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE05,,0')
-        )
-        self.assertIn(
-            'Overall status of the application: UP, API Status Code: 200', stdout
-        )
-        self.assertIn('Component ! Status ! State', stdout)
-        self.assertIn('----------+--------+------', stdout)
-        self.assertIn('db        ! UP     ! [OK] ', stdout)
-        self.assertIn('diskSpace ! UP     ! [OK] ', stdout)
-        self.assertIn('ping      ! UP     ! [OK] ', stdout)
-        self.assertIn('ssl       ! UP     ! [OK]', stdout)
-        self.assertIn('Component ! Detail          ! value         ! State', stdout)
-        self.assertIn('----------+-----------------+---------------+------', stdout)
-        self.assertIn('db        ! database        ! PostgreSQL    ! [OK] ', stdout)
-        self.assertIn('db        ! validationQuery ! isValid()     ! [OK] ', stdout)
-        self.assertIn('diskSpace ! total           ! 1998678130688 ! [OK] ', stdout)
-        self.assertIn('diskSpace ! free            ! 1086639144960 ! [OK] ', stdout)
-        self.assertIn('diskSpace ! threshold       ! 10485760      ! [OK] ', stdout)
-        self.assertIn('diskSpace ! path            ! /.            ! [OK] ', stdout)
-        self.assertIn('diskSpace ! exists          ! True          ! [OK] ', stdout)
-        self.assertIn('ssl       ! validChains     ! []            ! [OK] ', stdout)
-        self.assertIn('ssl       ! invalidChains   ! []            ! [OK]', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE06(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE06,,0')
-        )
-        self.assertIn(
-            'Overall status of the application: UP, API Status Code: 207', stdout
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

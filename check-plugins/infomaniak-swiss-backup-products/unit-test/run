@@ -9,129 +9,88 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_CRIT, STATE_OK
+import lib.lftest
+
+
+BASE_PARAMS = '--token=TOKEN --account-id=ACCOUNT-ID'
+
+
+TESTS = [
+    {
+        'id': 'crit-products-critical',
+        'test': 'stdout/products-critical,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'There are critical errors.',
+            'ID    ! Customer     ! Tag          ! Size (alloc/avail)  ! Dev ! Maint. ! Locked ! Busy  ! ',
+            '------+--------------+--------------+---------------------+-----+--------+--------+-------+-',
+            '34567 ! BK-200999-1  ! tag01, tag02 ! 9.1TiB / 9.1TiB     ! 1   ! False  ! False  ! False ! ',
+        ],
+    },
+    {
+        'id': 'ok-products-healthy',
+        'test': 'stdout/products-healthy,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            'ID    ! Customer     ! Tag          ! Size (alloc/avail)  ! Dev ! Maint. ! Locked ! Busy  ! ',
+            '------+--------------+--------------+---------------------+-----+--------+--------+-------+-',
+            '34567 ! BK-200999-1  ! tag01, tag02 ! 9.1TiB / 9.1TiB     ! 1   ! False  ! False  ! False ! ',
+        ],
+    },
+    {
+        'id': 'ok-no-products',
+        'test': 'stdout/no-products,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok'],
+    },
+    {
+        'id': 'crit-products-maintenance-severity-crit',
+        'test': 'stdout/products-maintenance,,0',
+        'params': f'{BASE_PARAMS} --severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'There are critical errors.',
+            'ID    ! Customer     ! Tag          ! Size (alloc/avail)  ! Dev ! Maint. ! Locked ! Busy  ! ',
+            '------+--------------+--------------+---------------------+-----+--------+--------+-------+-',
+            '34567 ! BK-200999-1  ! tag01, tag02 ! 9.1TiB / 9.1TiB     ! 1   ! False  ! False  ! False ! ',
+        ],
+    },
+    {
+        'id': 'ok-ignore-customer',
+        'test': 'stdout/products-healthy,,0',
+        'params': f"{BASE_PARAMS} --ignore-customer='BK-200999-1$'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', '26056'],
+        'assert-not-in': ['34567'],
+    },
+    {
+        'id': 'ok-ignore-tag',
+        'test': 'stdout/products-healthy,,0',
+        'params': f"{BASE_PARAMS} --ignore-tag='^tag01$'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', '26056'],
+        'assert-not-in': ['34567'],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../infomaniak-swiss-backup-products'
 
-    # self.assertEqual(retc, STATE_CRIT)
-    # self.assertIn('Waiting for more data (1).', stdout)
-    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
-
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --token=TOKEN --account-id=ACCOUNT-ID --test=stdout/EXAMPLE01,,0'
-            )
-        )
-        self.assertIn('There are critical errors.', stdout)
-        self.assertIn(
-            'ID    ! Customer     ! Tag          ! Size (alloc/avail)  ! Dev ! Maint. ! Locked ! Busy  ! ',
-            stdout,
-        )
-        self.assertIn(
-            '------+--------------+--------------+---------------------+-----+--------+--------+-------+-',
-            stdout,
-        )
-        self.assertIn(
-            '34567 ! BK-200999-1  ! tag01, tag02 ! 9.1TiB / 9.1TiB     ! 1   ! False  ! False  ! False ! ',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --token=TOKEN --account-id=ACCOUNT-ID --test=stdout/EXAMPLE02,,0'
-            )
-        )
-        self.assertIn('Everything is ok.', stdout)
-        self.assertIn(
-            'ID    ! Customer     ! Tag          ! Size (alloc/avail)  ! Dev ! Maint. ! Locked ! Busy  ! ',
-            stdout,
-        )
-        self.assertIn(
-            '------+--------------+--------------+---------------------+-----+--------+--------+-------+-',
-            stdout,
-        )
-        self.assertIn(
-            '34567 ! BK-200999-1  ! tag01, tag02 ! 9.1TiB / 9.1TiB     ! 1   ! False  ! False  ! False ! ',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --token=TOKEN --account-id=ACCOUNT-ID --test=stdout/EXAMPLE03,,0'
-            )
-        )
-        self.assertIn('Everything is ok', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE04_severity_crit(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --token=TOKEN --account-id=ACCOUNT-ID --severity=crit --test=stdout/EXAMPLE04,,0'
-            )
-        )
-        self.assertIn('There are critical errors.', stdout)
-        self.assertIn(
-            'ID    ! Customer     ! Tag          ! Size (alloc/avail)  ! Dev ! Maint. ! Locked ! Busy  ! ',
-            stdout,
-        )
-        self.assertIn(
-            '------+--------------+--------------+---------------------+-----+--------+--------+-------+-',
-            stdout,
-        )
-        self.assertIn(
-            '34567 ! BK-200999-1  ! tag01, tag02 ! 9.1TiB / 9.1TiB     ! 1   ! False  ! False  ! False ! ',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    def test_if_check_runs_EXAMPLE02_ignore_customer(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + " --token=TOKEN --account-id=ACCOUNT-ID --ignore-customer='BK-200999-1$' --test=stdout/EXAMPLE02,,0"
-            )
-        )
-        self.assertIn('Everything is ok.', stdout)
-        self.assertNotIn('34567', stdout)
-        self.assertIn('26056', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE02_ignore_tag(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + " --token=TOKEN --account-id=ACCOUNT-ID --ignore-tag='^tag01$' --test=stdout/EXAMPLE02,,0"
-            )
-        )
-        self.assertIn('Everything is ok.', stdout)
-        self.assertNotIn('34567', stdout)
-        self.assertIn('26056', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

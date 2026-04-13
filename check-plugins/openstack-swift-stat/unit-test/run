@@ -9,52 +9,45 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_WARN
+import lib.lftest
+
+
+# openstack-swift-stat calls `swift list` once for the account, `swift
+# stat` once for the account header, and `swift stat <container>` once
+# per container. `--test` takes a base path and the plugin looks up
+# `<base>-list_account_part`, `<base>-stat_account`, and
+# `<base>-stat_container-<name>` next to each other in stdout/.
+TESTS = [
+    {
+        'id': 'warn-container-02-over-warn-threshold',
+        'test': 'stdout/four-containers-one-over-threshold,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Account: 4 containers, 2.8M objects, 5.4TiB used, 90.9TiB quota',
+            'Container ! Items  ! Quota    ! Used           ! Free             ',
+            '----------+--------+----------+----------------+------------------',
+            '01        ! 2.4M   ! 0.0B     ! 2.2TiB         !                  ',
+            '02        ! 324.4K ! 3.1TiB   ! 3.1TiB (99.5%) ! 17.2GiB [WARNING]',
+            '03        ! 107.7K ! 0.0B     ! 111.8GiB       !                  ',
+            '04        ! 2.0    ! 204.9GiB ! 2.0GiB (1.0%)  ! 202.9GiB',
+        ],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../openstack-swift-stat'
 
-    # self.assertEqual(retc, STATE_CRIT)
-    # self.assertIn('Waiting for more data (1).', stdout)
-    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
-
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0')
-        )
-        self.assertIn(
-            'Account: 4 containers, 2.8M objects, 5.4TiB used, 90.9TiB quota', stdout
-        )
-        self.assertIn('', stdout)
-        self.assertIn(
-            'Container ! Items  ! Quota    ! Used           ! Free             ', stdout
-        )
-        self.assertIn(
-            '----------+--------+----------+----------------+------------------', stdout
-        )
-        self.assertIn(
-            '01        ! 2.4M   ! 0.0B     ! 2.2TiB         !                  ', stdout
-        )
-        self.assertIn(
-            '02        ! 324.4K ! 3.1TiB   ! 3.1TiB (99.5%) ! 17.2GiB [WARNING]', stdout
-        )
-        self.assertIn(
-            '03        ! 107.7K ! 0.0B     ! 111.8GiB       !                  ', stdout
-        )
-        self.assertIn(
-            '04        ! 2.0    ! 204.9GiB ! 2.0GiB (1.0%)  ! 202.9GiB', stdout
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

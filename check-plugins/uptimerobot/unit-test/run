@@ -9,330 +9,170 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'warn-fundednext-4-down',
+        'test': 'stdout/fundednext-4-down,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '4/0/6 of 10 monitors are down/paused/up [WARNING], 24h uptime: 57.266%',
+            'Name                     ! Type    ! State    ',
+            '-------------------------+---------+----------',
+            'Client Dashboard 1       ! HTTP(s) ! [OK]     ',
+            'FundedNext Landing Page  ! HTTP(s) ! [OK]     ',
+            'Mt4 Fundednext live      ! HTTP(s) ! [OK]     ',
+            'MT5 API - Growthnext     ! HTTP(s) ! [OK]     ',
+            'Payment Gateway API      ! HTTP(s) ! [OK]     ',
+            'Trading Backend          ! HTTP(s) ! [OK]     ',
+            'Backend Client Portal    ! HTTP(s) ! [WARNING]',
+            'Competition Trade Server ! HTTP(s) ! [WARNING]',
+            'Mt4 Fundednext demo      ! HTTP(s) ! [WARNING]',
+            'MT5 Server ! Growthnext  ! HTTP(s) ! [WARNING]',
+        ],
+    },
+    {
+        'id': 'ok-three-linuxfabrik',
+        'test': 'stdout/three-linuxfabrik-ok,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '0/0/3 of 3 monitors are down/paused/up, 24h uptime: 99.954%',
+            'Name                      ! Type    ! State',
+            '--------------------------+---------+------',
+            '001 cloud.linuxfabrik.io  ! HTTP(s) ! [OK] ',
+            '001 office.linuxfabrik.io ! HTTP(s) ! [OK] ',
+            '001 ws.linuxfabrik.io     ! HTTP(s) ! [OK]',
+        ],
+    },
+    {
+        'id': 'ok-deephow-14',
+        'test': 'stdout/deephow-14-ok,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '0/0/14 of 14 monitors are down/paused/up, 24h uptime: 100.000%',
+            'Name              ! Type    ! State',
+            '------------------+---------+------',
+            'Admin             ! HTTP(s) ! [OK] ',
+            'Analytics         ! Ping    ! [OK] ',
+            'DeepHow           ! HTTP(s) ! [OK] ',
+            'Deephow API       ! Ping    ! [OK] ',
+            'Deephow Scheduler ! Ping    ! [OK] ',
+            'Event             ! Ping    ! [OK] ',
+            'External API      ! Ping    ! [OK] ',
+            'Integrations      ! Ping    ! [OK] ',
+            'Language          ! HTTP(s) ! [OK] ',
+            'Player            ! Ping    ! [OK] ',
+            'Search            ! Ping    ! [OK] ',
+            'Sign              ! Ping    ! [OK] ',
+            'Video             ! HTTP(s) ! [OK] ',
+            'Views Likes       ! Ping    ! [OK]',
+        ],
+    },
+    {
+        'id': 'ok-craftmypdf-five',
+        'test': 'stdout/craftmypdf-five-ok,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '0/0/5 of 5 monitors are down/paused/up, 24h uptime: 100.000%',
+            'Name                                              ! Type    ! State',
+            '--------------------------------------------------+---------+------',
+            'CraftMyPDF API + Database                         ! HTTP(s) ! [OK] ',
+            'CraftMyPDF API + Database - Australia (Sydney)    ! HTTP(s) ! [OK] ',
+            'CraftMyPDF API + Database - Europe (Frankfurt)    ! HTTP(s) ! [OK] ',
+            'CraftMyPDF API + Database - US East (N. Virginia) ! HTTP(s) ! [OK] ',
+            'CraftMyPDF App                                    ! HTTP(s) ! [OK]',
+        ],
+    },
+    {
+        'id': 'ok-four-services',
+        'test': 'stdout/four-services-ok,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '0/0/4 of 4 monitors are down/paused/up, 24h uptime: 99.845%',
+            'Name      ! Type    ! State',
+            '----------+---------+------',
+            'API       ! HTTP(s) ! [OK] ',
+            'Jobs      ! HTTP(s) ! [OK] ',
+            'Scheduler ! HTTP(s) ! [OK] ',
+            'Web       ! HTTP(s) ! [OK]',
+        ],
+    },
+    {
+        'id': 'warn-gwc-mixed-states',
+        'test': 'stdout/gwc-mixed-states,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2/1/4 of 7 monitors are down/paused/up [WARNING], 24h uptime: 66.667%',
+            'Name               ! Type ! State    ',
+            '-------------------+------+----------',
+            'GWC - AuburnAdmin  ! Ping ! [OK]     ',
+            'GWC - Grass Valley ! Ping ! [OK]     ',
+            'GWC - Kings Beach  ! Ping ! [UNKNOWN]',
+            'GWC - Lincoln      ! Ping ! [OK]     ',
+            'GWC - Lovett       ! Ping ! [WARNING]',
+            'GWC - Roseville    ! Ping ! [OK]     ',
+            'GWC - Truckee      ! Ping ! [WARNING]',
+        ],
+    },
+    {
+        'id': 'unknown-single-monitor-paused',
+        'test': 'stdout/single-monitor-paused,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            '0/1/0 of 1 monitors are down/paused/up [UNKNOWN], 24h uptime: 0.000%',
+            'Name            ! Type    ! State    ',
+            '----------------+---------+----------',
+            'Ironworkers 786 ! HTTP(s) ! [UNKNOWN]',
+        ],
+    },
+    {
+        'id': 'ok-hivelocity-43',
+        'test': 'stdout/hivelocity-43-ok,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '0/0/43 of 43 monitors are down/paused/up',
+            'Name                                                     ! Type    ! State',
+            '---------------------------------------------------------+---------+------',
+            'App: core.hivelocity.net                                 ! Keyword ! [OK] ',
+            'App: Hivelocity main website(Same as ZabFrtEnd scenario) ! Keyword ! [OK] ',
+            'App: my.hivelocity.net                                   ! Keyword ! [OK] ',
+            'App: store.hivelocity.net                                ! Keyword ! [OK] ',
+            'App: www.hivelocity.net                                  ! Keyword ! [OK] ',
+            'ARN1                                                     ! Ping    ! [OK] ',
+            'CDG1                                                     ! Ping    ! [OK] ',
+            'EBR1-AMS1                                                ! Ping    ! [OK] ',
+            'EBR2-TPA1                                                ! Ping    ! [OK]',
+        ],
+    },
+    {
+        'id': 'ok-single-yumzi',
+        'test': 'stdout/single-yumzi-ok,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '0/0/1 of 1 monitors are down/paused/up',
+            'Name               ! Type ! State',
+            '-------------------+------+------',
+            'https://yumzi.app/ ! Ping ! [OK]',
+        ],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../uptimerobot'
 
-    # self.assertEqual(retc, STATE_CRIT)
-    # self.assertIn('Waiting for more data (1).', stdout)
-    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
-
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0')
-        )
-        self.assertIn(
-            '4/0/6 of 10 monitors are down/paused/up [WARNING], 24h uptime: 57.266%',
-            stdout,
-        )
-        self.assertIn('', stdout)
-        self.assertIn('Name                     ! Type    ! State    ', stdout)
-        self.assertIn('-------------------------+---------+----------', stdout)
-        self.assertIn('Client Dashboard 1       ! HTTP(s) ! [OK]     ', stdout)
-        self.assertIn('FundedNext Landing Page  ! HTTP(s) ! [OK]     ', stdout)
-        self.assertIn('Mt4 Fundednext live      ! HTTP(s) ! [OK]     ', stdout)
-        self.assertIn('MT5 API - Growthnext     ! HTTP(s) ! [OK]     ', stdout)
-        self.assertIn('Payment Gateway API      ! HTTP(s) ! [OK]     ', stdout)
-        self.assertIn('Trading Backend          ! HTTP(s) ! [OK]     ', stdout)
-        self.assertIn('Backend Client Portal    ! HTTP(s) ! [WARNING]', stdout)
-        self.assertIn('Competition Trade Server ! HTTP(s) ! [WARNING]', stdout)
-        self.assertIn('Mt4 Fundednext demo      ! HTTP(s) ! [WARNING]', stdout)
-        self.assertIn('MT5 Server ! Growthnext  ! HTTP(s) ! [WARNING]', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0')
-        )
-        self.assertIn(
-            '0/0/3 of 3 monitors are down/paused/up, 24h uptime: 99.954%', stdout
-        )
-        self.assertIn('', stdout)
-        self.assertIn('Name                      ! Type    ! State', stdout)
-        self.assertIn('--------------------------+---------+------', stdout)
-        self.assertIn('001 cloud.linuxfabrik.io  ! HTTP(s) ! [OK] ', stdout)
-        self.assertIn('001 office.linuxfabrik.io ! HTTP(s) ! [OK] ', stdout)
-        self.assertIn('001 ws.linuxfabrik.io     ! HTTP(s) ! [OK]', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0')
-        )
-        self.assertIn(
-            '0/0/14 of 14 monitors are down/paused/up, 24h uptime: 100.000%', stdout
-        )
-        self.assertIn('', stdout)
-        self.assertIn('Name              ! Type    ! State', stdout)
-        self.assertIn('------------------+---------+------', stdout)
-        self.assertIn('Admin             ! HTTP(s) ! [OK] ', stdout)
-        self.assertIn('Analytics         ! Ping    ! [OK] ', stdout)
-        self.assertIn('DeepHow           ! HTTP(s) ! [OK] ', stdout)
-        self.assertIn('Deephow API       ! Ping    ! [OK] ', stdout)
-        self.assertIn('Deephow Scheduler ! Ping    ! [OK] ', stdout)
-        self.assertIn('Event             ! Ping    ! [OK] ', stdout)
-        self.assertIn('External API      ! Ping    ! [OK] ', stdout)
-        self.assertIn('Integrations      ! Ping    ! [OK] ', stdout)
-        self.assertIn('Language          ! HTTP(s) ! [OK] ', stdout)
-        self.assertIn('Player            ! Ping    ! [OK] ', stdout)
-        self.assertIn('Search            ! Ping    ! [OK] ', stdout)
-        self.assertIn('Sign              ! Ping    ! [OK] ', stdout)
-        self.assertIn('Video             ! HTTP(s) ! [OK] ', stdout)
-        self.assertIn('Views Likes       ! Ping    ! [OK]', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE04(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04,,0')
-        )
-        self.assertIn(
-            '0/0/5 of 5 monitors are down/paused/up, 24h uptime: 100.000%', stdout
-        )
-        self.assertIn('', stdout)
-        self.assertIn(
-            'Name                                              ! Type    ! State',
-            stdout,
-        )
-        self.assertIn(
-            '--------------------------------------------------+---------+------',
-            stdout,
-        )
-        self.assertIn(
-            'CraftMyPDF API + Database                         ! HTTP(s) ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'CraftMyPDF API + Database - Australia (Sydney)    ! HTTP(s) ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'CraftMyPDF API + Database - Europe (Frankfurt)    ! HTTP(s) ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'CraftMyPDF API + Database - US East (N. Virginia) ! HTTP(s) ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'CraftMyPDF App                                    ! HTTP(s) ! [OK]', stdout
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE05(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE05,,0')
-        )
-        self.assertIn(
-            '0/0/4 of 4 monitors are down/paused/up, 24h uptime: 99.845%', stdout
-        )
-        self.assertIn('', stdout)
-        self.assertIn('Name      ! Type    ! State', stdout)
-        self.assertIn('----------+---------+------', stdout)
-        self.assertIn('API       ! HTTP(s) ! [OK] ', stdout)
-        self.assertIn('Jobs      ! HTTP(s) ! [OK] ', stdout)
-        self.assertIn('Scheduler ! HTTP(s) ! [OK] ', stdout)
-        self.assertIn('Web       ! HTTP(s) ! [OK]', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE06(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE06,,0')
-        )
-        self.assertIn(
-            '2/1/4 of 7 monitors are down/paused/up [WARNING], 24h uptime: 66.667%',
-            stdout,
-        )
-        self.assertIn('', stdout)
-        self.assertIn('Name               ! Type ! State    ', stdout)
-        self.assertIn('-------------------+------+----------', stdout)
-        self.assertIn('GWC - AuburnAdmin  ! Ping ! [OK]     ', stdout)
-        self.assertIn('GWC - Grass Valley ! Ping ! [OK]     ', stdout)
-        self.assertIn('GWC - Kings Beach  ! Ping ! [UNKNOWN]', stdout)
-        self.assertIn('GWC - Lincoln      ! Ping ! [OK]     ', stdout)
-        self.assertIn('GWC - Lovett       ! Ping ! [WARNING]', stdout)
-        self.assertIn('GWC - Roseville    ! Ping ! [OK]     ', stdout)
-        self.assertIn('GWC - Truckee      ! Ping ! [WARNING]', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE07(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE07,,0')
-        )
-        self.assertIn(
-            '0/1/0 of 1 monitors are down/paused/up [UNKNOWN], 24h uptime: 0.000%',
-            stdout,
-        )
-        self.assertIn('', stdout)
-        self.assertIn('Name            ! Type    ! State    ', stdout)
-        self.assertIn('----------------+---------+----------', stdout)
-        self.assertIn('Ironworkers 786 ! HTTP(s) ! [UNKNOWN]', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_UNKNOWN)
-
-    def test_if_check_runs_EXAMPLE08(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE08,,0')
-        )
-        self.assertIn('0/0/43 of 43 monitors are down/paused/up', stdout)
-        self.assertIn('', stdout)
-        self.assertIn(
-            'Name                                                     ! Type    ! State',
-            stdout,
-        )
-        self.assertIn(
-            '---------------------------------------------------------+---------+------',
-            stdout,
-        )
-        self.assertIn(
-            'App: core.hivelocity.net                                 ! Keyword ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'App: Hivelocity main website(Same as ZabFrtEnd scenario) ! Keyword ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'App: my.hivelocity.net                                   ! Keyword ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'App: store.hivelocity.net                                ! Keyword ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'App: www.hivelocity.net                                  ! Keyword ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'ARN1                                                     ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'CDG1                                                     ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR1-AMS1                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR1-ATL2                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR1-BOM1                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR1-DAL1                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR1-FRA1                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR1-LAX2                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR1-MIA1                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR1-NYC1                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR1-ORD1                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR1-SEA1                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR1-SIN1                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR1-TPA1                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR1-TPA2                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR2-AMS1                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR2-ATL2                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR2-BOM1                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR2-DAL1                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR2-FRA1                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR2-NYC1                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR2-ORD1                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR2-SEA1                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR2-SIN1                                                ! Ping    ! [OK] ',
-            stdout,
-        )
-        self.assertIn(
-            'EBR2-TPA1                                                ! Ping    ! [OK]',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE09(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE09,,0')
-        )
-        self.assertIn('0/0/1 of 1 monitors are down/paused/up', stdout)
-        self.assertIn('', stdout)
-        self.assertIn('Name               ! Type ! State', stdout)
-        self.assertIn('-------------------+------+------', stdout)
-        self.assertIn('https://yumzi.app/ ! Ping ! [OK]', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

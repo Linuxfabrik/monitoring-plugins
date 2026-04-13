@@ -9,194 +9,126 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_CRIT, STATE_WARN
+import lib.lftest
+
+
+# The snmp plugin normally queries a device via snmpget/snmpwalk. In
+# test mode `--test` replaces all SNMP calls with fixture data; the
+# `--device` argument still controls which device CSV is consulted
+# for OID -> label mappings, so the `generic-appliance-*` scenario
+# exercises the plugin against three progressively trimmed device CSVs.
+_BROTHER_KEYS = [
+    'Name                   ! BRW38B1DB3B30F4                                   ! [OK]',
+    'Location               ! Buero                                             ! [OK]',
+    'Contact                ! postmaster@linuxfabrik.ch                         ! [OK]',
+    'Description            ! Brother NC-350w, Firmware Ver.N  ,MID 8CA-U29-001 ! [OK]',
+    'Uptime                 ! 5M 2W                                             ! [WARNING]',
+    'Memory Size            ! 256.0MiB                                          ! [OK]',
+    'NIC.1 Speed            ! 72.0Mbps                                          ! [OK]',
+    'NIC.1 Status           ! up                                                ! [OK]',
+    'NIC.1 Traffic sent     ! 84.6MiB                                           ! [OK]',
+    'NIC.1 Traffic received ! 621.0MiB                                          ! [OK]',
+    'NIC.1 Traffic          ! 705.5MiB                                          ! [OK]',
+]
+
+_CISCO_KEYS = [
+    'Name                               ! switch.linuxfabrik.loc                                                                                                   ! [OK]',
+    'Location                           ! V.01.020!XZ                                                                                                              ! [OK]',
+    'Contact                            ! postmaster@linuxfabrik.ch                                                                                                ! [OK]',
+    'Description                        ! Cisco IOS Software [Gibraltar], Catalyst L3 Switch Software (CAT9K_LITE_IOSXE), Version 16.12.3a, RELEASE SOFTWARE (fc1) ! [OK]',
+    'Uptime                             ! 4M 3W                                                                                                                    ! [WARNING]',
+    'HOST-RESOURCES-MIB::hrMemorySize.0 ! No Such Object available on this agent at this OID                                                                       ! [UNKNOWN]',
+    'NIC.1 Speed                        ! 1.0Gbps                                                                                                                  ! [OK]',
+    'NIC.1 Status                       ! "down"                                                                                                                   ! [OK]',
+    'NIC.1 Traffic sent                 ! 1.3KiB                                                                                                                   ! [OK]',
+    'NIC.1 Traffic received             ! 4.6KiB                                                                                                                   ! [OK]',
+    'NIC.1 Traffic                      ! 5.9KiB                                                                                                                   ! [OK]',
+]
+
+
+TESTS = [
+    {
+        'id': 'warn-brother-printer-mfc-uptime',
+        'test': 'stdout/brother-printer-mfc,,0',
+        'params': '--hostname 127.0.0.1',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Key                    ! Value                                             ! State',
+            '-----------------------+---------------------------------------------------+------',
+            *_BROTHER_KEYS,
+        ],
+    },
+    {
+        'id': 'warn-cisco-catalyst-switch-uptime',
+        'test': 'stdout/cisco-catalyst-switch,,0',
+        'params': '--hostname 127.0.0.2',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Key                                ! Value                                                                                                                    ! State',
+            '-----------------------------------+--------------------------------------------------------------------------------------------------------------------------+------',
+            *_CISCO_KEYS,
+        ],
+    },
+    {
+        'id': 'crit-generic-appliance-over-threshold-device-v1',
+        'test': 'stdout/generic-appliance-over-threshold,,0',
+        'params': (
+            '--hostname 127.0.0.3 '
+            '--device=../unit-test/stdout/generic-appliance-over-threshold-v1'
+        ),
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Key                      ! Value        ! State',
+            '-------------------------+--------------+----------',
+            'System Name              ! My Appliance ! [OK]',
+            'System Location          ! My Location  ! [OK]',
+            'Supply Air Temperature   ! 27.0         ! [WARNING]',
+            'Rack Inlet Temperature 1 ! 36.0         ! [CRITICAL]',
+        ],
+    },
+    {
+        'id': 'crit-generic-appliance-over-threshold-device-v2',
+        'test': 'stdout/generic-appliance-over-threshold,,0',
+        'params': (
+            '--hostname 127.0.0.3 '
+            '--device=../unit-test/stdout/generic-appliance-over-threshold-v2'
+        ),
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'System Name              ! My Appliance ! [OK]',
+            'Supply Air Temperature   ! 27.0         ! [WARNING]',
+            'Rack Inlet Temperature 1 ! 36.0         ! [CRITICAL]',
+        ],
+    },
+    {
+        'id': 'crit-generic-appliance-over-threshold-device-v3',
+        'test': 'stdout/generic-appliance-over-threshold,,0',
+        'params': (
+            '--hostname 127.0.0.3 '
+            '--device=../unit-test/stdout/generic-appliance-over-threshold-v3'
+        ),
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'System Name              ! My Appliance ! [OK]',
+            'Rack Inlet Temperature 1 ! 36.0         ! [CRITICAL]',
+        ],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../snmp'
 
-    # against any-any-any.csv
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check + ' --hostname 127.0.0.1 --test=stdout/EXAMPLE01,,0'
-            )
-        )
-        self.assertIn(
-            'Key                    ! Value                                             ! State',
-            stdout,
-        )
-        self.assertIn(
-            '-----------------------+---------------------------------------------------+------',
-            stdout,
-        )
-        self.assertIn(
-            'Name                   ! BRW38B1DB3B30F4                                   ! [OK]',
-            stdout,
-        )
-        self.assertIn(
-            'Location               ! Buero                                             ! [OK]',
-            stdout,
-        )
-        self.assertIn(
-            'Contact                ! postmaster@linuxfabrik.ch                         ! [OK]',
-            stdout,
-        )
-        self.assertIn(
-            'Description            ! Brother NC-350w, Firmware Ver.N  ,MID 8CA-U29-001 ! [OK]',
-            stdout,
-        )
-        self.assertIn(
-            'Uptime                 ! 5M 2W                                             ! [WARNING]',
-            stdout,
-        )
-        self.assertIn(
-            'Memory Size            ! 256.0MiB                                          ! [OK]',
-            stdout,
-        )
-        self.assertIn(
-            'NIC.1 Speed            ! 72.0Mbps                                          ! [OK]',
-            stdout,
-        )
-        self.assertIn(
-            'NIC.1 Status           ! up                                                ! [OK]',
-            stdout,
-        )
-        self.assertIn(
-            'NIC.1 Traffic sent     ! 84.6MiB                                           ! [OK]',
-            stdout,
-        )
-        self.assertIn(
-            'NIC.1 Traffic received ! 621.0MiB                                          ! [OK]',
-            stdout,
-        )
-        self.assertIn(
-            'NIC.1 Traffic          ! 705.5MiB                                          ! [OK]',
-            stdout,
-        )
-
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    # against any-any-any.csv
-    def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check + ' --hostname 127.0.0.2 --test=stdout/EXAMPLE02,,0'
-            )
-        )
-        self.assertIn(
-            'Key                                ! Value                                                                                                                    ! State',
-            stdout,
-        )
-        self.assertIn(
-            '-----------------------------------+--------------------------------------------------------------------------------------------------------------------------+------',
-            stdout,
-        )
-        self.assertIn(
-            'Name                               ! switch.linuxfabrik.loc                                                                                                   ! [OK]',
-            stdout,
-        )
-        self.assertIn(
-            'Location                           ! V.01.020!XZ                                                                                                              ! [OK]',
-            stdout,
-        )
-        self.assertIn(
-            'Contact                            ! postmaster@linuxfabrik.ch                                                                                                ! [OK]',
-            stdout,
-        )
-        self.assertIn(
-            'Description                        ! Cisco IOS Software [Gibraltar], Catalyst L3 Switch Software (CAT9K_LITE_IOSXE), Version 16.12.3a, RELEASE SOFTWARE (fc1) ! [OK]',
-            stdout,
-        )
-        self.assertIn(
-            'Uptime                             ! 4M 3W                                                                                                                    ! [WARNING]',
-            stdout,
-        )
-        self.assertIn(
-            'HOST-RESOURCES-MIB::hrMemorySize.0 ! No Such Object available on this agent at this OID                                                                       ! [UNKNOWN]',
-            stdout,
-        )
-        self.assertIn(
-            'NIC.1 Speed                        ! 1.0Gbps                                                                                                                  ! [OK]',
-            stdout,
-        )
-        self.assertIn(
-            'NIC.1 Status                       ! "down"                                                                                                                   ! [OK]',
-            stdout,
-        )
-        self.assertIn(
-            'NIC.1 Traffic sent                 ! 1.3KiB                                                                                                                   ! [OK]',
-            stdout,
-        )
-        self.assertIn(
-            'NIC.1 Traffic received             ! 4.6KiB                                                                                                                   ! [OK]',
-            stdout,
-        )
-        self.assertIn(
-            'NIC.1 Traffic                      ! 5.9KiB                                                                                                                   ! [OK]',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    # against EXAMPLE03.csv v1
-    def test_if_check_runs_EXAMPLE03_v1(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --hostname 127.0.0.3 --test=stdout/EXAMPLE03,,0  --device=../unit-test/stdout/EXAMPLE03-v1.csv'
-            )
-        )
-        self.assertIn('Key                      ! Value        ! State', stdout)
-        self.assertIn('-------------------------+--------------+----------', stdout)
-        self.assertIn('System Name              ! My Appliance ! [OK]', stdout)
-        self.assertIn('System Location          ! My Location  ! [OK]', stdout)
-        self.assertIn('Supply Air Temperature   ! 27.0         ! [WARNING]', stdout)
-        self.assertIn('Rack Inlet Temperature 1 ! 36.0         ! [CRITICAL]', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    # against EXAMPLE03.csv v2
-    def test_if_check_runs_EXAMPLE03_v2(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --hostname 127.0.0.3 --test=stdout/EXAMPLE03,,0  --device=../unit-test/stdout/EXAMPLE03-v2.csv'
-            )
-        )
-        self.assertIn('Key                      ! Value        ! State', stdout)
-        self.assertIn('-------------------------+--------------+----------', stdout)
-        self.assertIn('System Name              ! My Appliance ! [OK]', stdout)
-        self.assertIn('System Location          ! My Location  ! [OK]', stdout)
-        self.assertIn('Supply Air Temperature   ! 27.0         ! [WARNING]', stdout)
-        self.assertIn('Rack Inlet Temperature 1 ! 36.0         ! [CRITICAL]', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    # against EXAMPLE03.csv v3
-    def test_if_check_runs_EXAMPLE03_v3(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --hostname 127.0.0.3 --test=stdout/EXAMPLE03,,0  --device=../unit-test/stdout/EXAMPLE03-v3.csv'
-            )
-        )
-        self.assertIn('Key                      ! Value        ! State', stdout)
-        self.assertIn('-------------------------+--------------+----------', stdout)
-        self.assertIn('System Name              ! My Appliance ! [OK]', stdout)
-        self.assertIn('System Location          ! My Location  ! [OK]', stdout)
-        self.assertIn('Rack Inlet Temperature 1 ! 36.0         ! [CRITICAL]', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

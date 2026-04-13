@@ -9,41 +9,43 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_WARN
+import lib.lftest
+
+
+BASE_PARAMS = '--warn=1 --repo=test --password-file=test'
+
+
+TESTS = [
+    {
+        'id': 'warn-snapshots-v1',
+        'test': 'stdout/snapshots-v1,,',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['There are warnings.\n\nLatest snapshot '],
+    },
+    {
+        'id': 'warn-snapshots-v2',
+        'test': 'stdout/snapshots-v2,,',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['There are warnings.\n\nLatest snapshot '],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../restic-snapshots'
 
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --warn=1 --repo=test --password-file=test --test=stdout/EXAMPLE01,,'
-            )
-        )
-        self.assertIn('There are warnings.\n\nLatest snapshot ', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --warn=1 --repo=test --password-file=test --test=stdout/EXAMPLE02,,'
-            )
-        )
-        self.assertIn('There are warnings.\n\nLatest snapshot ', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

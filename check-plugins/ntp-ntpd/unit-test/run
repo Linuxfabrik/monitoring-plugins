@@ -9,87 +9,66 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_OK, STATE_WARN
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'warn-no-server-used-v1',
+        'test': 'stdout/no-server-used-v1,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['No NTP server used.'],
+    },
+    {
+        'id': 'ok-stratum-2-synced-v1',
+        'test': 'stdout/stratum-2-synced-v1,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'NTP offset is -0.03ms, Stratum is 2',
+            'remote           refid      st t when poll reach   delay   offset  jitter',
+            '==============================================================================',
+            '*ns3.fiberteleco 192.168.10.1     2 u  233   64   30   44.555   -0.030   4.486',
+        ],
+    },
+    {
+        'id': 'warn-no-server-used-v2',
+        'test': 'stdout/no-server-used-v2,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['No NTP server used.'],
+    },
+    {
+        'id': 'warn-no-server-used-v3',
+        'test': 'stdout/no-server-used-v3,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['No NTP server used.'],
+    },
+    {
+        'id': 'ok-stratum-2-synced-v2',
+        'test': 'stdout/stratum-2-synced-v2,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'NTP offset is -0.182ms, Stratum is 2',
+            'remote           refid      st t when poll reach   delay   offset  jitter',
+            '==============================================================================',
+            '*185.232.69.65 ( 79.133.44.146    2 u  232  256  377    0.398   -0.182   0.170',
+        ],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../ntp-ntpd'
 
-    # self.assertEqual(retc, STATE_CRIT)
-    # self.assertIn('Waiting for more data (1).', stdout)
-    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
-
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0')
-        )
-        self.assertIn('No NTP server used.', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0')
-        )
-        self.assertIn('NTP offset is -0.03ms, Stratum is 2', stdout)
-        self.assertIn(
-            'remote           refid      st t when poll reach   delay   offset  jitter',
-            stdout,
-        )
-        self.assertIn(
-            '==============================================================================',
-            stdout,
-        )
-        self.assertIn(
-            '*ns3.fiberteleco 192.168.10.1     2 u  233   64   30   44.555   -0.030   4.486',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0')
-        )
-        self.assertIn('No NTP server used.', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE04(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04,,0')
-        )
-        self.assertIn('No NTP server used.', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE05(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE05,,0')
-        )
-        self.assertIn('NTP offset is -0.182ms, Stratum is 2', stdout)
-        self.assertIn(
-            'remote           refid      st t when poll reach   delay   offset  jitter',
-            stdout,
-        )
-        self.assertIn(
-            '==============================================================================',
-            stdout,
-        )
-        self.assertIn(
-            '*185.232.69.65 ( 79.133.44.146    2 u  232  256  377    0.398   -0.182   0.170',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

@@ -9,180 +9,116 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+import lib.lftest
+
+
+BASE_PARAMS = '--token=TOKEN --account-id=ACCOUNT-ID'
+
+
+TESTS = [
+    {
+        'id': 'warn-devices-with-warning',
+        'test': 'stdout/devices-with-warning,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'There are warnings.',
+            'ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Locked ! ',
+            '------+--------------+-------+--------------+--------+-------+--------+-',
+            '99904 ! BK-200999-1  ! tag01 ! SBI-AB123456 ! bucket ! swift ! False  ! ',
+        ],
+    },
+    {
+        'id': 'ok-devices-unlocked',
+        'test': 'stdout/devices-unlocked,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            'ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Locked ! ',
+            '------+--------------+-------+--------------+--------+-------+--------+-',
+            '99904 ! BK-200999-1  ! tag01 ! SBI-AB123456 ! bucket ! swift ! False  ! ',
+        ],
+    },
+    {
+        'id': 'ok-no-devices',
+        'test': 'stdout/no-devices,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok'],
+    },
+    {
+        'id': 'warn-devices-locked-severity-warn',
+        'test': 'stdout/devices-locked,,0',
+        'params': f'{BASE_PARAMS} --severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'There are warnings.',
+            'ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Locked         ! ',
+            '------+--------------+-------+--------------+--------+-------+----------------+-',
+            '99904 ! BK-200999-1  ! tag01 ! SBI-AB123456 ! bucket ! swift ! True [WARNING] ! ',
+        ],
+    },
+    {
+        'id': 'crit-devices-locked-severity-crit',
+        'test': 'stdout/devices-locked,,0',
+        'params': f'{BASE_PARAMS} --severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'There are critical errors.',
+            'ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Locked          ! ',
+            '------+--------------+-------+--------------+--------+-------+-----------------+-',
+            '99904 ! BK-200999-1  ! tag01 ! SBI-AB123456 ! bucket ! swift ! True [CRITICAL] ! ',
+        ],
+    },
+    {
+        'id': 'ok-ignore-customer',
+        'test': 'stdout/devices-unlocked,,0',
+        'params': f"{BASE_PARAMS} --ignore-customer='BK-200999-1$'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', '99924'],
+        'assert-not-in': ['99904'],
+    },
+    {
+        'id': 'ok-ignore-name',
+        'test': 'stdout/devices-unlocked,,0',
+        'params': f"{BASE_PARAMS} --ignore-name='^test$'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', '99924'],
+        'assert-not-in': ['99925', '99931', '99945'],
+    },
+    {
+        'id': 'ok-ignore-tag',
+        'test': 'stdout/devices-unlocked,,0',
+        'params': f"{BASE_PARAMS} --ignore-tag='^tag01$'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', '99924'],
+        'assert-not-in': ['99904'],
+    },
+    {
+        'id': 'ok-ignore-user',
+        'test': 'stdout/devices-unlocked,,0',
+        'params': f"{BASE_PARAMS} --ignore-user='SBI-AB123456'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+        'assert-not-in': ['99904', '99924'],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../infomaniak-swiss-backup-devices'
 
-    # self.assertEqual(retc, STATE_CRIT)
-    # self.assertIn('Waiting for more data (1).', stdout)
-    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
-
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --token=TOKEN --account-id=ACCOUNT-ID --test=stdout/EXAMPLE01,,0'
-            )
-        )
-        self.assertIn('There are warnings.', stdout)
-        self.assertIn(
-            'ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Locked ! ',
-            stdout,
-        )
-        self.assertIn(
-            '------+--------------+-------+--------------+--------+-------+--------+-',
-            stdout,
-        )
-        self.assertIn(
-            '99904 ! BK-200999-1  ! tag01 ! SBI-AB123456 ! bucket ! swift ! False  ! ',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --token=TOKEN --account-id=ACCOUNT-ID --test=stdout/EXAMPLE02,,0'
-            )
-        )
-        self.assertIn('Everything is ok.', stdout)
-        self.assertIn(
-            'ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Locked ! ',
-            stdout,
-        )
-        self.assertIn(
-            '------+--------------+-------+--------------+--------+-------+--------+-',
-            stdout,
-        )
-        self.assertIn(
-            '99904 ! BK-200999-1  ! tag01 ! SBI-AB123456 ! bucket ! swift ! False  ! ',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --token=TOKEN --account-id=ACCOUNT-ID --test=stdout/EXAMPLE03,,0'
-            )
-        )
-        self.assertIn('Everything is ok', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE04_severity_warn(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --token=TOKEN --account-id=ACCOUNT-ID --severity=warn --test=stdout/EXAMPLE04,,0'
-            )
-        )
-        self.assertIn('There are warnings.', stdout)
-        self.assertIn(
-            'ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Locked         ! ',
-            stdout,
-        )
-        self.assertIn(
-            '------+--------------+-------+--------------+--------+-------+----------------+-',
-            stdout,
-        )
-        self.assertIn(
-            '99904 ! BK-200999-1  ! tag01 ! SBI-AB123456 ! bucket ! swift ! True [WARNING] ! ',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE04_severity_crit(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --token=TOKEN --account-id=ACCOUNT-ID --severity=crit --test=stdout/EXAMPLE04,,0'
-            )
-        )
-        self.assertIn('There are critical errors.', stdout)
-        self.assertIn(
-            'ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Locked          ! ',
-            stdout,
-        )
-        self.assertIn(
-            '------+--------------+-------+--------------+--------+-------+-----------------+-',
-            stdout,
-        )
-        self.assertIn(
-            '99904 ! BK-200999-1  ! tag01 ! SBI-AB123456 ! bucket ! swift ! True [CRITICAL] ! ',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    def test_if_check_runs_EXAMPLE02_ignore_customer(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + " --token=TOKEN --account-id=ACCOUNT-ID --ignore-customer='BK-200999-1$' --test=stdout/EXAMPLE02,,0"
-            )
-        )
-        self.assertIn('Everything is ok.', stdout)
-        self.assertNotIn('99904', stdout)
-        self.assertIn('99924', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE02_ignore_name(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + " --token=TOKEN --account-id=ACCOUNT-ID --ignore-name='^test$' --test=stdout/EXAMPLE02,,0"
-            )
-        )
-        self.assertIn('Everything is ok.', stdout)
-        self.assertNotIn('99925', stdout)
-        self.assertNotIn('99931', stdout)
-        self.assertNotIn('99945', stdout)
-        self.assertIn('99924', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE02_ignore_tag(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + " --token=TOKEN --account-id=ACCOUNT-ID --ignore-tag='^tag01$' --test=stdout/EXAMPLE02,,0"
-            )
-        )
-        self.assertIn('Everything is ok.', stdout)
-        self.assertNotIn('99904', stdout)
-        self.assertIn('99924', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE02_ignore_user(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + " --token=TOKEN --account-id=ACCOUNT-ID --ignore-user='SBI-AB123456' --test=stdout/EXAMPLE02,,0"
-            )
-        )
-        self.assertIn('Everything is ok.', stdout)
-        self.assertNotIn('99904', stdout)
-        self.assertNotIn('99924', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':

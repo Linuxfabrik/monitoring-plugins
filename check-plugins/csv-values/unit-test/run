@@ -31,7 +31,7 @@ class TestCheck(unittest.TestCase):
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(
                 self.check
-                + ' --filename=stdout/EXAMPLE01 --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --skip-header'
+                + ' --filename=stdout/nonexistent-file --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --skip-header'
             )
         )
         self.assertIn('Nothing to check, no queries provided', stdout)
@@ -42,7 +42,7 @@ class TestCheck(unittest.TestCase):
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(
                 self.check
-                + ' --filename=stdout/EXAMPLE01.csv --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --skip-header'
+                + ' --filename=stdout/network-waiting-updates --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --skip-header'
             )
         )
         self.assertIn('Nothing to check, no queries provided', stdout)
@@ -53,11 +53,11 @@ class TestCheck(unittest.TestCase):
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(
                 self.check
-                + ' --filename=stdout/EXAMPLE01 --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="test" --skip-header'
+                + ' --filename=stdout/nonexistent-file --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="test" --skip-header'
             )
         )
         self.assertIn(
-            'I/O error "No such file or directory" while opening or reading stdout/EXAMPLE01',
+            'I/O error "No such file or directory" while opening or reading stdout/nonexistent-file',
             stdout,
         )
         self.assertEqual(stderr, '')
@@ -67,7 +67,7 @@ class TestCheck(unittest.TestCase):
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(
                 self.check
-                + ' --filename=stdout/EXAMPLE01.csv --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="test" --skip-header'
+                + ' --filename=stdout/network-waiting-updates --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="test" --skip-header'
             )
         )
         self.assertIn(
@@ -81,7 +81,7 @@ class TestCheck(unittest.TestCase):
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(
                 self.check
-                + ' --filename=stdout/EXAMPLE01.csv --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from data where 1" --skip-header'
+                + ' --filename=stdout/network-waiting-updates --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from data where 1" --skip-header'
             )
         )
         self.assertIn('24 results from warning query', stdout)
@@ -92,7 +92,7 @@ class TestCheck(unittest.TestCase):
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(
                 self.check
-                + ' --filename=stdout/EXAMPLE01.csv --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from x where 1" --skip-header'
+                + ' --filename=stdout/network-waiting-updates --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from x where 1" --skip-header'
             )
         )
         self.assertIn(
@@ -106,7 +106,7 @@ class TestCheck(unittest.TestCase):
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(
                 self.check
-                + ' --filename=stdout/EXAMPLE01.csv --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from data where network = \'A\' and WaitingUpdates > 3" --skip-header'
+                + ' --filename=stdout/network-waiting-updates --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from data where network = \'A\' and WaitingUpdates > 3" --skip-header'
             )
         )
         self.assertIn('7 results from warning query', stdout)
@@ -117,7 +117,7 @@ class TestCheck(unittest.TestCase):
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(
                 self.check
-                + ' --filename=stdout/EXAMPLE01.csv --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from data where network = \'A\' and WaitingUpdates > 3" --warning=7 --skip-header'
+                + ' --filename=stdout/network-waiting-updates --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from data where network = \'A\' and WaitingUpdates > 3" --warning=7 --skip-header'
             )
         )
         self.assertIn('7 results from warning query', stdout)
@@ -128,7 +128,7 @@ class TestCheck(unittest.TestCase):
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(
                 self.check
-                + ' --filename=stdout/EXAMPLE01.csv --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from data where network = \'A\' and WaitingUpdates > 3" --warning=6 --skip-header'
+                + ' --filename=stdout/network-waiting-updates --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from data where network = \'A\' and WaitingUpdates > 3" --warning=6 --skip-header'
             )
         )
         self.assertIn('7 results from warning query', stdout)
@@ -139,7 +139,7 @@ class TestCheck(unittest.TestCase):
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(
                 self.check
-                + ' --filename=stdout/EXAMPLE01.csv --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from data where network = \'A\' and WaitingUpdates > 3" --warning=6 --critical-query="select * from data where network <> \'A\' and WaitingUpdates > 4" --critical=4 --skip-header'
+                + ' --filename=stdout/network-waiting-updates --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from data where network = \'A\' and WaitingUpdates > 3" --warning=6 --critical-query="select * from data where network <> \'A\' and WaitingUpdates > 4" --critical=4 --skip-header'
             )
         )
         self.assertIn('7 results from warning query', stdout)
@@ -150,7 +150,7 @@ class TestCheck(unittest.TestCase):
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(
                 self.check
-                + ' --filename=stdout/EXAMPLE01.csv --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from data where network = \'A\' and WaitingUpdates > 3" --warning=6 --critical-query="select * from data where network <> \'A\' and WaitingUpdates > 4" --critical=2 --skip-header'
+                + ' --filename=stdout/network-waiting-updates --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from data where network = \'A\' and WaitingUpdates > 3" --warning=6 --critical-query="select * from data where network <> \'A\' and WaitingUpdates > 4" --critical=2 --skip-header'
             )
         )
         self.assertIn('7 results from warning query', stdout)
@@ -161,7 +161,7 @@ class TestCheck(unittest.TestCase):
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(
                 self.check
-                + ' --filename=stdout/EXAMPLE02.csv --chunksize 1000 --columns-query="username TEXT, failedlogin INTEGER" --critical 1 --critical-query "SELECT * FROM data WHERE failedlogin > 10;" --delimiter "," --skip-header --timeout 3 --warning 1 --warning-query "SELECT * FROM data WHERE failedlogin > 5 and failedlogin <= 10;"'
+                + ' --filename=stdout/failed-logins-by-user --chunksize 1000 --columns-query="username TEXT, failedlogin INTEGER" --critical 1 --critical-query "SELECT * FROM data WHERE failedlogin > 10;" --delimiter "," --skip-header --timeout 3 --warning 1 --warning-query "SELECT * FROM data WHERE failedlogin > 5 and failedlogin <= 10;"'
             )
         )
         self.assertIn('0 results from warning query', stdout)

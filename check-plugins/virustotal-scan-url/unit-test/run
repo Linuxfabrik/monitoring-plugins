@@ -9,169 +9,109 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import sys
-
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
-
+sys.path.insert(0, '..')
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
-import lib.shell
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.lftest
+
+
+BASE_PARAMS = '--token=1234 --url=www.example.com'
+
+
+TESTS = [
+    {
+        'id': 'warn-webroot-malicious',
+        'test': 'stdout/webroot-malicious,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1/97 security vendors flagged www.example.com as malicious.',
+            'Engine  ! Result    ! Method    ! Category           ',
+            '--------+-----------+-----------+--------------------',
+            'Webroot ! malicious ! blacklist ! malicious [WARNING]',
+        ],
+    },
+    {
+        'id': 'crit-webroot-malicious-severity-crit',
+        'test': 'stdout/webroot-malicious,,0',
+        'params': f'{BASE_PARAMS} --severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '1/97 security vendors flagged www.example.com as malicious.',
+            'Engine  ! Result    ! Method    ! Category           ',
+            '--------+-----------+-----------+--------------------',
+            'Webroot ! malicious ! blacklist ! malicious [CRITICAL]',
+        ],
+    },
+    {
+        'id': 'ok-eight-vendors-clean',
+        'test': 'stdout/eight-vendors-clean,,0',
+        'params': f'{BASE_PARAMS} --severity=crit',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. Checked www.example.com against 8 vendors.',
+        ],
+    },
+    {
+        'id': 'unknown-analysis-partial',
+        'test': 'stdout/analysis-partial,,0',
+        'params': f'{BASE_PARAMS} --severity=crit',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'www.example.com is being analysed, the analysis object has partial analysis results and stats',
+        ],
+    },
+    {
+        'id': 'crit-webroot-malicious-detailed',
+        'test': 'stdout/webroot-malicious-detailed,,0',
+        'params': f'{BASE_PARAMS} --severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '1/97 security vendors flagged www.example.com as malicious.',
+            'Engine              ! Result    ! Method    ! Category            ',
+            '--------------------+-----------+-----------+---------------------',
+            'ADMINUSLabs         ! clean     ! blacklist ! suspicious          ',
+            'AILabs (MONITORAPP) ! clean     ! blacklist ! type-unsupported    ',
+            'Acronis             ! clean     ! blacklist ! failure             ',
+            'Artists Against 419 ! clean     ! blacklist ! confirmed-timeout   ',
+            'Lionic              ! clean     ! blacklist ! timeout             ',
+            'Webroot             ! malicious ! blacklist ! malicious [CRITICAL]',
+        ],
+    },
+    {
+        'id': 'warn-eicar-nine-flags',
+        'test': 'stdout/eicar-nine-flags,,0',
+        'params': '--token=1234 --url=https://secure.eicar.org/eicar.com --severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '9/97 security vendors flagged https://secure.eicar.org/eicar.com as malicious.',
+            'Engine      ! Result     ! Method    ! Category           ',
+            '------------+------------+-----------+--------------------',
+            'Antiy-AVL   ! malicious  ! blacklist ! malicious [WARNING]',
+            'AutoShun    ! malicious  ! blacklist ! malicious [WARNING]',
+            'BitDefender ! malware    ! blacklist ! malicious [WARNING]',
+            'CRDF        ! malicious  ! blacklist ! malicious [WARNING]',
+            'Fortinet    ! malware    ! blacklist ! malicious [WARNING]',
+            'G-Data      ! malware    ! blacklist ! malicious [WARNING]',
+            'Lionic      ! malware    ! blacklist ! malicious [WARNING]',
+            'Sophos      ! malware    ! blacklist ! malicious [WARNING]',
+            'URLQuery    ! suspicious ! blacklist ! suspicious         ',
+            'VIPRE       ! malware    ! blacklist ! malicious [WARNING]',
+        ],
+    },
+]
 
 
 class TestCheck(unittest.TestCase):
+
     check = '../virustotal-scan-url'
 
-    # self.assertEqual(retc, STATE_CRIT)
-    # self.assertIn('Waiting for more data (1).', stdout)
-    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
-
-    def test_if_check_runs_EXAMPLE01_warn(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --token=1234 --url=www.example.com --test=stdout/EXAMPLE01,,0'
-            )
-        )
-        self.assertIn(
-            '1/97 security vendors flagged www.example.com as malicious.', stdout
-        )
-        self.assertIn('Engine  ! Result    ! Method    ! Category           ', stdout)
-        self.assertIn('--------+-----------+-----------+--------------------', stdout)
-        self.assertIn('Webroot ! malicious ! blacklist ! malicious [WARNING]', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_EXAMPLE01_crit(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --token=1234 --url=www.example.com --test=stdout/EXAMPLE01,,0 --severity=crit'
-            )
-        )
-        self.assertIn(
-            '1/97 security vendors flagged www.example.com as malicious.', stdout
-        )
-        self.assertIn('Engine  ! Result    ! Method    ! Category           ', stdout)
-        self.assertIn('--------+-----------+-----------+--------------------', stdout)
-        self.assertIn('Webroot ! malicious ! blacklist ! malicious [CRITICAL]', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --token=1234 --url=www.example.com --test=stdout/EXAMPLE02,,0 --severity=crit'
-            )
-        )
-        self.assertIn(
-            'Everything is ok. Checked www.example.com against 8 vendors.', stdout
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --token=1234 --url=www.example.com --test=stdout/EXAMPLE03,,0 --severity=crit'
-            )
-        )
-        self.assertIn(
-            'www.example.com is being analysed, the analysis object has partial analysis results and stats',
-            stdout,
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_UNKNOWN)
-
-    def test_if_check_runs_EXAMPLE04(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --token=1234 --url=www.example.com --test=stdout/EXAMPLE04,,0 --severity=crit'
-            )
-        )
-        self.assertIn(
-            '1/97 security vendors flagged www.example.com as malicious.', stdout
-        )
-        self.assertIn(
-            'Engine              ! Result    ! Method    ! Category            ', stdout
-        )
-        self.assertIn(
-            '--------------------+-----------+-----------+---------------------', stdout
-        )
-        self.assertIn(
-            'ADMINUSLabs         ! clean     ! blacklist ! suspicious          ', stdout
-        )
-        self.assertIn(
-            'AILabs (MONITORAPP) ! clean     ! blacklist ! type-unsupported    ', stdout
-        )
-        self.assertIn(
-            'Acronis             ! clean     ! blacklist ! failure             ', stdout
-        )
-        self.assertIn(
-            'Artists Against 419 ! clean     ! blacklist ! confirmed-timeout   ', stdout
-        )
-        self.assertIn(
-            'Lionic              ! clean     ! blacklist ! timeout             ', stdout
-        )
-        self.assertIn(
-            'Webroot             ! malicious ! blacklist ! malicious [CRITICAL]', stdout
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    def test_if_check_runs_EXAMPLE05(self):
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                self.check
-                + ' --token=1234 --url=https://secure.eicar.org/eicar.com --test=stdout/EXAMPLE05,,0 --severity=warn'
-            )
-        )
-        self.assertIn(
-            '9/97 security vendors flagged https://secure.eicar.org/eicar.com as malicious.',
-            stdout,
-        )
-        self.assertIn(
-            'Engine      ! Result     ! Method    ! Category           ', stdout
-        )
-        self.assertIn(
-            '------------+------------+-----------+--------------------', stdout
-        )
-        self.assertIn(
-            'Antiy-AVL   ! malicious  ! blacklist ! malicious [WARNING]', stdout
-        )
-        self.assertIn(
-            'AutoShun    ! malicious  ! blacklist ! malicious [WARNING]', stdout
-        )
-        self.assertIn(
-            'BitDefender ! malware    ! blacklist ! malicious [WARNING]', stdout
-        )
-        self.assertIn(
-            'CRDF        ! malicious  ! blacklist ! malicious [WARNING]', stdout
-        )
-        self.assertIn(
-            'Fortinet    ! malware    ! blacklist ! malicious [WARNING]', stdout
-        )
-        self.assertIn(
-            'G-Data      ! malware    ! blacklist ! malicious [WARNING]', stdout
-        )
-        self.assertIn(
-            'Lionic      ! malware    ! blacklist ! malicious [WARNING]', stdout
-        )
-        self.assertIn(
-            'Sophos      ! malware    ! blacklist ! malicious [WARNING]', stdout
-        )
-        self.assertIn(
-            'URLQuery    ! suspicious ! blacklist ! suspicious         ', stdout
-        )
-        self.assertIn(
-            'VIPRE       ! malware    ! blacklist ! malicious [WARNING]', stdout
-        )
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
 
 
 if __name__ == '__main__':
