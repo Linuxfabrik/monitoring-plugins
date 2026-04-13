@@ -85,10 +85,16 @@ class TestCheck(unittest.TestCase):
 def _check_containerfile(test, containerfile):
     print(f'\n=== Testing {containerfile} ===', flush=True)
     image_tag = f'lfmp-cpu-usage-{containerfile}'.lower()
+    # clean_up=False keeps the built image on the host so the next
+    # run reuses all cached layers instead of rebuilding from the
+    # base image. Testcontainers' default (clean_up=True) not only
+    # untags the image but also prunes dangling parent layers, which
+    # wipes the cache and makes every run a full rebuild.
     with DockerImage(
         path=HERE,
         dockerfile_path=f'containerfiles/{containerfile}',
         tag=image_tag,
+        clean_up=False,
     ) as image:
         # `,Z` relabels the mount for SELinux on podman/rhel hosts so
         # the container can actually read the bind-mounted files.

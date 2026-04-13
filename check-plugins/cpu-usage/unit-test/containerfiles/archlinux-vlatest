@@ -1,9 +1,19 @@
 # Base image: Official Arch Linux
 FROM archlinux:latest
 
-# Update and install Python 3, pip, and required build tools
-RUN pacman -Syu --noconfirm && \
-    pacman -S --noconfirm python python-pip gcc && \
+# Arch is rolling release, and the cached archlinux:latest base image
+# can be months out of date; its archlinux-keyring no longer trusts
+# the current packagers. Refresh the keyring from the shipped files
+# and pull in the latest archlinux-keyring package before -Syu so the
+# full upgrade can verify signatures.
+#
+# --disable-sandbox disables pacman 7.x's landlock/alpm download
+# sandbox, which cannot be applied inside rootless podman.
+RUN pacman-key --init && \
+    pacman-key --populate && \
+    pacman -Sy --noconfirm --disable-sandbox archlinux-keyring && \
+    pacman -Syu --noconfirm --disable-sandbox && \
+    pacman -S --noconfirm --disable-sandbox python python-pip gcc && \
     pacman -Scc --noconfirm
 
 # Set the working directory in the container
