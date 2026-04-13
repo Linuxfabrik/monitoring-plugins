@@ -6,13 +6,16 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
 """Discover and run all container-based plugin unit tests.
 
-A plugin's unit test counts as container-based when its `unit-test/`
-directory has a `containerfiles/` subdirectory. These tests build a
-podman image per target OS, inject the plugin plus `lib/`, and exercise
-the check against a live service. They take minutes per plugin and
-need podman on the host.
+A plugin's unit test counts as container-based when its `run` file
+imports testcontainers-python or uses one of the lib.lftest container
+helpers. These tests build a podman container (or pull an upstream
+image), inject the plugin plus `lib/`, and exercise the check against
+a live service. They take minutes per plugin and need podman on the
+host.
 
 This runner is a thin wrapper around `tools/run-unit-tests
 --only-container` so the two entry points (fast tests and container
@@ -21,22 +24,25 @@ tests) are clearly separated. `tox` runs `tools/run-unit-tests
 a full integration sweep before a release.
 
 Usage:
-    python tools/run-container-tests                 # run all container tests
-    python tools/run-container-tests keycloak-version  # run one
+    tools/run-container-tests                   # run all container tests
+    tools/run-container-tests keycloak-version  # run one plugin
 """
 
-import os
 import subprocess
 import sys
 
+import _common
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026041301'
+
 
 def main():
-    here = os.path.dirname(os.path.abspath(__file__))
-    runner = os.path.join(here, 'run-unit-tests')
-    argv = [sys.executable, runner, '--only-container', *sys.argv[1:]]
+    runner = _common.TOOLS_DIR / 'run-unit-tests'
+    argv = [sys.executable, str(runner), '--only-container', *sys.argv[1:]]
     result = subprocess.run(argv, check=False)
-    sys.exit(result.returncode)
+    return result.returncode
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

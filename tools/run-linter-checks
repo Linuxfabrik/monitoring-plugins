@@ -6,131 +6,141 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
 """Run lint and security checks (ruff, bandit, vulture) over the whole repo.
 
-Pre-commit hooks only run on staged files. This script sweeps every plugin
-script, every tool, and every file under lib/ so that long-standing issues
-cannot hide simply because nobody has touched the file in a while.
+Pre-commit hooks only run on staged files. This script sweeps every
+plugin script, every tool and every Python file under the repo so
+that long-standing issues cannot hide simply because nobody has
+touched the file in a while.
 
 pylint is intentionally NOT invoked here. Its metric-based checks
-(R0801 duplicate lines, R09xx complexity, etc.) produce thousands of
-false positives across a collection of check plugins that all share
-the same boilerplate, and suppressing the noise with a disable list
-would go against the house rule of running pylint without `--disable`.
-Run pylint by hand when you want to audit a single plugin.
+(R0801 duplicate lines, R09xx complexity, etc.) produce thousands
+of false positives across a collection of check plugins that all
+share the same boilerplate, and suppressing the noise with a
+disable list would go against the house rule of running pylint
+without `--disable`. Run pylint by hand when you want to audit a
+single plugin.
 
-Plugin scripts use a shebang instead of a `.py` extension, so the script
-discovers them by `#!/usr/bin/env python` header and passes them explicitly
-to each analyzer.
+Plugin scripts use a shebang instead of a `.py` extension, so the
+script discovers them by looking for a `#!/usr/bin/env python`
+header and passes them explicitly to each analyzer.
 
 Usage:
-    tools/run-linter-checks                 # run all analyzers
-    tools/run-linter-checks --only=ruff     # run only ruff
+    tools/run-linter-checks                    # run all analyzers
+    tools/run-linter-checks --only=ruff        # run only ruff
     tools/run-linter-checks --only=ruff,bandit
 """
 
 import argparse
-import os
 import re
 import subprocess
 import sys
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+import _common
 
-# bandit emits two classes of stderr WARNING messages that come from its
-# internal `# nosec` bookkeeping and do not correspond to any actual
-# security finding. Both look alarming in the wrapper's output but cannot
-# be fixed at the source level without rewriting otherwise-correct code:
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026041301'
+
+
+# bandit emits two classes of stderr WARNING messages that come
+# from its internal `# nosec` bookkeeping and do not correspond to
+# any actual security finding. Both look alarming in the wrapper's
+# output but cannot be fixed at the source level without rewriting
+# otherwise-correct code:
 #
-#   1. `nosec encountered (BXXX), but no failed test` - bandit runs each
-#      test against every AST node on a given line, not just the node
-#      that would actually produce the finding. When several sub-nodes
-#      share a line and only one of them triggers the test, bandit sees
-#      the `# nosec BXXX` comment from the context of the other sub-nodes
-#      too and warns that the nosec "was never used", even though it was
-#      used by the one sub-node that mattered.
+#   1. `nosec encountered (BXXX), but no failed test` - bandit
+#      runs each test against every AST node on a given line, not
+#      just the node that would actually produce the finding. When
+#      several sub-nodes share a line and only one of them
+#      triggers the test, bandit sees the `# nosec BXXX` comment
+#      from the context of the other sub-nodes too and warns that
+#      the nosec "was never used", even though it was used by the
+#      one sub-node that mattered.
 #
-#   2. `Test in comment: X is not a test name or id, ignoring` - bandit
-#      tokenizes every word after `# nosec` and tries to match each one
-#      against its test id catalog. Free-text explanations on the same
-#      line (e.g. `# nosec B105 - Keycloak install default, ...`) trip
-#      this. We keep source-level comments free of prose after `# nosec`
-#      by convention, but upstream libs occasionally slip through.
+#   2. `Test in comment: X is not a test name or id, ignoring` -
+#      bandit tokenizes every word after `# nosec` and tries to
+#      match each one against its test id catalog. Free-text
+#      explanations on the same line trip this. We keep source-
+#      level comments free of prose after `# nosec` by convention,
+#      but upstream libs occasionally slip through.
 #
-# Both warnings are logged at WARNING level on stderr and do not affect
-# bandit's exit code. We filter them here so the linter sweep stays
-# readable; real security issues still surface because bandit is run at
-# `--severity-level=high --confidence-level=high` and would exit non-zero
-# on any actual finding.
+# Both warnings are logged at WARNING level on stderr and do not
+# affect bandit's exit code. We filter them here so the linter
+# sweep stays readable; real security issues still surface because
+# bandit runs at `--severity-level=high --confidence-level=high`
+# and would exit non-zero on any actual finding.
 BANDIT_NOISE_PATTERNS = (
     re.compile(
         r'^\[tester\]\s+WARNING\s+nosec encountered \(B\d+\), '
-        r'but no failed test on file'
+        r'but no failed test on file',
     ),
     re.compile(
         r'^\[manager\]\s+WARNING\s+Test in comment: .* '
-        r'is not a test name or id, ignoring'
+        r'is not a test name or id, ignoring',
     ),
 )
 
 
-def _bandit_line_is_noise(line):
+def bandit_line_is_noise(line):
     return any(pattern.search(line) for pattern in BANDIT_NOISE_PATTERNS)
 
 
 def discover_python_files():
     """Discover every Python file in the repo.
 
-    Includes shebang-prefixed plugin scripts under check-plugins/ and tools/
-    as well as *.py files under tools/. The shared `lib` library lives in
-    a separate repository and is not scanned here.
+    Includes shebang-prefixed plugin scripts under `check-plugins/`
+    and `tools/` as well as `*.py` files under `tools/`. The shared
+    `lib` library lives in a separate repository and is not scanned
+    here.
     """
     python_files = []
-    for walk_root in ('check-plugins', 'tools'):
-        full_walk_root = os.path.join(REPO_ROOT, walk_root)
-        for dirpath, dirnames, filenames in os.walk(full_walk_root):
-            dirnames[:] = [d for d in dirnames if d not in ('__pycache__', '.git')]
-            for filename in filenames:
-                path = os.path.join(dirpath, filename)
-                if filename.endswith('.py'):
-                    python_files.append(path)
-                    continue
-                if not os.access(path, os.X_OK):
-                    continue
-                try:
-                    with open(path, encoding='utf-8', errors='ignore') as f:
-                        first_line = f.readline()
-                except OSError:
-                    continue
-                if first_line.startswith('#!') and 'python' in first_line:
-                    python_files.append(path)
+    for walk_root in (_common.CHECK_PLUGINS_DIR, _common.TOOLS_DIR):
+        for path in walk_root.rglob('*'):
+            if any(part in {'__pycache__', '.git'} for part in path.parts):
+                continue
+            if not path.is_file():
+                continue
+            if path.suffix == '.py':
+                python_files.append(path)
+                continue
+            if not path.stat().st_mode & 0o111:
+                continue
+            try:
+                first_line = path.open(encoding='utf-8', errors='ignore').readline()
+            except OSError:
+                continue
+            if first_line.startswith('#!') and 'python' in first_line:
+                python_files.append(path)
     return sorted(python_files)
 
 
-def run(analyzer, argv, stderr_filter=None):
-    print(f'\n=== {analyzer} ===', flush=True)
+def run_analyzer(name, argv, stderr_filter=None):
+    """Run a single analyzer, print a pass/fail line, return its exit code."""
+    print(f'\n=== {name} ===', flush=True)
     try:
         if stderr_filter is not None:
             result = subprocess.run(
                 argv,
-                cwd=REPO_ROOT,
+                cwd=_common.REPO_ROOT,
                 check=False,
                 stderr=subprocess.PIPE,
                 text=True,
             )
             for line in result.stderr.splitlines():
                 if not stderr_filter(line):
-                    sys.stderr.write(line + '\n')
-            sys.stderr.flush()
+                    _common.err(line)
         else:
-            result = subprocess.run(argv, cwd=REPO_ROOT, check=False)
+            result = subprocess.run(argv, cwd=_common.REPO_ROOT, check=False)
     except FileNotFoundError:
-        print(f'{analyzer}: not installed, skipping')
+        print(f'{name}: not installed, skipping')
         return 0
+
     # Normalize the end-of-run signal so every analyzer prints the
-    # same pass/fail line. ruff is run with `--quiet` (see below) so
-    # its own "All checks passed!" message does not fire and we avoid
-    # a duplicate line. bandit and vulture stay silent on a clean run.
+    # same pass/fail line. ruff is run with `--quiet` so its own
+    # "All checks passed!" message does not fire and we avoid a
+    # duplicate line. bandit and vulture stay silent on a clean run.
     if result.returncode == 0:
         print('All checks passed!', flush=True)
     else:
@@ -138,14 +148,32 @@ def run(analyzer, argv, stderr_filter=None):
     return result.returncode
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=__doc__.strip().split('\n\n')[0],
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
     parser.add_argument(
         '--only',
-        help='Comma-separated list of analyzers to run (ruff, bandit, vulture)',
+        help='Comma-separated list of analyzers to run '
+             '(ruff, bandit, vulture). Default: all three.',
         default='',
     )
-    args = parser.parse_args()
+
+    return parser.parse_args()
+
+
+def main():
+    """Discover Python files and run each analyzer over them."""
+    args = parse_args()
 
     selected = set(args.only.split(',')) if args.only else None
 
@@ -156,28 +184,32 @@ def main():
     print(f'Found {len(python_files)} Python files.')
 
     exit_code = 0
+    file_args = [str(p) for p in python_files]
 
     if selected is None or 'ruff' in selected:
-        exit_code |= run(
+        exit_code |= run_analyzer(
             'ruff',
-            ['ruff', 'check', '--no-fix', '--quiet', *python_files],
+            ['ruff', 'check', '--no-fix', '--quiet', *file_args],
         )
 
     if selected is None or 'bandit' in selected:
-        exit_code |= run(
+        exit_code |= run_analyzer(
             'bandit',
             [
                 'bandit',
                 '-q',
                 '--severity-level=high',
                 '--confidence-level=high',
-                *python_files,
+                *file_args,
             ],
-            stderr_filter=_bandit_line_is_noise,
+            stderr_filter=bandit_line_is_noise,
         )
 
     if selected is None or 'vulture' in selected:
-        exit_code |= run('vulture', ['vulture', '--min-confidence=80', *python_files])
+        exit_code |= run_analyzer(
+            'vulture',
+            ['vulture', '--min-confidence=80', *file_args],
+        )
 
     return 0 if exit_code == 0 else 1
 

@@ -6,34 +6,39 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
 """Discover and run all plugin unit tests.
 
-Each unit test is executed from its own directory (check-plugins/<name>/unit-test/)
-because the test files use relative paths for test data and plugin references.
+Each unit test is executed from its own directory
+(`check-plugins/<name>/unit-test/`) because the test files use
+relative paths for test data and plugin references.
 
 Unit tests come in two shapes:
 
-- **fast tests**: pure-Python tests that use `--test` fixtures and run in
-  well under a second. These are safe to run in the multi-Python-version
-  tox matrix.
-- **container tests**: tests that build a podman container per target OS,
-  inject the plugin plus `lib/`, and exercise the check against a live
-  service. They take minutes per plugin and need podman. They are not
-  safe for the tox matrix, and get their own runner
-  (`tools/run-container-tests`). A unit test counts as a container test
-  if the plugin's `unit-test/` directory has a `containerfiles/`
-  subdirectory.
+- **fast tests**: pure-Python tests that use `--test` fixtures and
+  run in well under a second. These are safe to run in the multi-
+  Python-version tox matrix.
+- **container tests**: tests that start a podman container (either
+  by building a per-distro image from `containerfiles/` or by
+  pulling an upstream service image), inject the plugin plus
+  `lib/`, and exercise the check against a live service. They take
+  minutes per plugin and need podman. They are not safe for the
+  tox matrix and get their own runner (`tools/run-container-tests`).
+  A unit test counts as a container test when its `run` file
+  references testcontainers-python or one of the lib.lftest
+  container helpers (see `CONTAINER_TEST_SIGNATURES` below).
 
 Usage:
-    python tools/run-unit-tests                 # run everything
-    python tools/run-unit-tests --no-container  # skip container tests
-    python tools/run-unit-tests --only-container  # run only container tests
-    python tools/run-unit-tests disk-smart      # run one plugin
-    python tools/run-unit-tests disk-smart xml  # run specific plugins
-    python tools/run-unit-tests --no-container procs  # flags + plugins mix
+    tools/run-unit-tests                 # run everything
+    tools/run-unit-tests --no-container  # skip container tests
+    tools/run-unit-tests --only-container  # run only container tests
+    tools/run-unit-tests disk-smart      # run one plugin
+    tools/run-unit-tests disk-smart xml  # run specific plugins
+    tools/run-unit-tests --no-container procs  # flags + plugins mix
 
-When specific plugins are requested on the command line, filters like
-`--no-container` still apply.
+When specific plugins are requested on the command line, filters
+like `--no-container` still apply.
 """
 
 import argparse
@@ -41,18 +46,18 @@ import os
 import subprocess
 import sys
 
-# Plugins whose unit tests exist only as a template and are not meant to
-# be executed by the runner. The `example` plugin is the reference skeleton
-# for new plugins, its unit test is a copy-paste starting point.
-SKIP_PLUGINS = {'example'}
+import _common
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026041301'
 
 
-# Signatures that identify a real container-driven unit test. These must
-# be precise substring matches: a plain keyword like `podman` would also
-# fire on comments, docstrings, or on plugins whose name happens to
-# contain `podman` (e.g. `podman-info`, `podman-stats`), which used to
-# cause fixture-based tests to be silently skipped by the multi-Python
-# matrix.
+# Signatures that identify a real container-driven unit test. These
+# must be precise substring matches: a plain keyword like `podman`
+# would also fire on comments, docstrings, or on plugins whose name
+# happens to contain `podman` (e.g. `podman-info`, `podman-stats`),
+# which used to cause fixture-based tests to be silently skipped by
+# the multi-Python matrix.
 CONTAINER_TEST_SIGNATURES = (
     'import testcontainers',
     'from testcontainers',
@@ -63,18 +68,17 @@ CONTAINER_TEST_SIGNATURES = (
 )
 
 
-def is_container_test(check_plugins, plugin):
-    """Return True if the plugin's unit test actually drives a container runtime.
+def is_container_test(plugin_dir):
+    """Return True if the plugin's unit test drives a container runtime.
 
-    We look at the `run` file's content rather than the presence of a
-    `containerfiles/` subdirectory: a plugin may keep containerfiles around
-    for a future testcontainers migration while its `run` file is already
-    fixture-based and fast.
+    We look at the `run` file's content rather than at the presence
+    of a `containerfiles/` subdirectory: a plugin may keep
+    containerfiles around for a future testcontainers migration
+    while its `run` file is already fixture-based and fast.
     """
-    run_file = os.path.join(check_plugins, plugin, 'unit-test', 'run')
+    run_file = plugin_dir / 'unit-test' / 'run'
     try:
-        with open(run_file, encoding='utf-8') as f:
-            content = f.read()
+        content = run_file.read_text(encoding='utf-8')
     except OSError:
         return False
     return any(sig in content for sig in CONTAINER_TEST_SIGNATURES)
@@ -109,85 +113,105 @@ def ensure_podman_env():
         os.environ['TESTCONTAINERS_RYUK_DISABLED'] = 'true'
 
 
-def main():
-    """Find and run unit tests, report results."""
-    parser = argparse.ArgumentParser(description=__doc__.strip().split('\n\n')[0])
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=__doc__.strip().split('\n\n')[0],
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
         '--no-container',
         action='store_true',
-        help='Skip container-based unit tests (anything with a containerfiles/ dir).',
+        help='Skip container-based unit tests.',
     )
     group.add_argument(
         '--only-container',
         action='store_true',
-        help='Run only container-based unit tests. Useful for tools/run-container-tests.',
+        help='Run only container-based unit tests. '
+             'Used by tools/run-container-tests.',
     )
+
     parser.add_argument(
         'plugins',
         nargs='*',
         help='Optional list of plugin names to restrict the run to.',
     )
-    args = parser.parse_args()
 
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    check_plugins = os.path.join(root, 'check-plugins')
+    return parser.parse_args()
 
+
+def discover_plugins(args):
+    """Return the list of plugin directories that should be executed."""
     requested = set(args.plugins) if args.plugins else None
 
-    # discover tests
     plugins = []
-    for plugin in sorted(os.listdir(check_plugins)):
-        if requested is not None and plugin not in requested:
+    # When a plugin is explicitly requested on the command line we run
+    # it even if it would normally be in the skip set (the `example`
+    # skeleton); otherwise we honour the default skip set.
+    skip = frozenset() if requested else _common.SKIP_PLUGINS
+    for plugin_dir in _common.iter_check_plugins(skip=skip):
+        if requested is not None and plugin_dir.name not in requested:
             continue
-        # when a plugin is explicitly requested on the command line, run it
-        # even if it is normally skipped; otherwise honor the skip set
-        if plugin in SKIP_PLUGINS and requested is None:
+        if not (plugin_dir / 'unit-test' / 'run').is_file():
             continue
-        run_file = os.path.join(check_plugins, plugin, 'unit-test', 'run')
-        if not os.path.isfile(run_file):
-            continue
-        container = is_container_test(check_plugins, plugin)
+        container = is_container_test(plugin_dir)
         if args.no_container and container:
             continue
         if args.only_container and not container:
             continue
-        plugins.append(plugin)
+        plugins.append(plugin_dir)
+    return plugins
 
+
+def main():
+    """Find and run unit tests, report results."""
+    args = parse_args()
+
+    plugins = discover_plugins(args)
     if not plugins:
         print('No unit tests found.')
-        sys.exit(0)
+        return 0
 
-    # If any of the discovered tests will spin up a container, set the
-    # rootless-podman env vars so the user does not have to remember
-    # them. Already-set values are preserved.
-    if any(is_container_test(check_plugins, p) for p in plugins):
+    # If any of the discovered tests will spin up a container, set
+    # the rootless-podman env vars so the user does not have to
+    # remember them. Already-set values are preserved.
+    if any(is_container_test(p) for p in plugins):
         ensure_podman_env()
 
     passed = []
     failed = []
     total = len(plugins)
 
-    for i, plugin in enumerate(plugins, 1):
-        unit_test_dir = os.path.join(check_plugins, plugin, 'unit-test')
-        print(f'[{i}/{total}] {plugin}', flush=True)
+    for i, plugin_dir in enumerate(plugins, 1):
+        unit_test_dir = plugin_dir / 'unit-test'
+        print(f'[{i}/{total}] {plugin_dir.name}', flush=True)
 
         result = subprocess.run(
             [sys.executable, 'run'],
             cwd=unit_test_dir,
             stderr=subprocess.STDOUT,
+            check=False,
         )
         if result.returncode == 0:
-            passed.append(plugin)
+            passed.append(plugin_dir.name)
         else:
-            failed.append(plugin)
+            failed.append(plugin_dir.name)
 
     # summary
     print(f'\n{len(passed)} passed, {len(failed)} failed out of {total}')
     if failed:
         print(f'Failed: {", ".join(failed)}')
-        sys.exit(1)
+        return 1
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

@@ -6,6 +6,8 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
 """Run unit tests across every supported Python version via tox.
 
 This is a thin wrapper around `tox` that lives in `tools/` so the
@@ -30,23 +32,27 @@ against the currently activated venv; use this wrapper when you
 want the multi-Python sweep that catches interpreter-specific bugs.
 """
 
-import os
 import subprocess
 import sys
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+import _common
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026041301'
 
 
 def main():
     try:
-        result = subprocess.run(['tox', *sys.argv[1:]], cwd=REPO_ROOT, check=False)
+        result = subprocess.run(
+            ['tox', *sys.argv[1:]],
+            cwd=_common.REPO_ROOT,
+            check=False,
+        )
     except FileNotFoundError:
-        print(
+        _common.die(
             'tox is not installed. Install it with `pip install tox` '
             '(or your distribution package).',
-            file=sys.stderr,
         )
-        return 1
     return result.returncode
 
 
