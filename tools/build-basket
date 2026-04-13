@@ -8,6 +8,31 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+"""Generate an Icinga Director basket JSON from a check plugin.
+
+Reads a plugin script, imports it without running its `main()`
+(argparse.ArgumentParser is monkey-patched so that `parse_args()`
+returns the parser object instead of parsing `sys.argv`), walks
+the resulting argparse definition and translates it into a
+Director basket: one `Datafield` per plugin option, one `Command`
+carrying those datafield IDs under its `arguments`, and one
+`ServiceTemplate` that references the command. Variants like
+`sudo`, `windows` and `no-agent` add derived command /
+service-template pairs on top of the `linux` default.
+
+Each plugin can carry a per-plugin YAML override file at
+`icingaweb2-module-director/<plugin>.yml`; when present it
+overrides individual basket fields after the main walk. Existing
+UUIDs from a previously committed basket are preserved when
+possible so `director basket restore` does not churn unrelated
+object IDs on every regeneration.
+
+Use `--plugin-file check-plugins/foo/foo` for a single plugin,
+or `--auto` to regenerate baskets for every check plugin in the
+repo. The `--auto` mode collects per-plugin failures and reports
+all of them at the end instead of stopping on the first error.
+"""
+
 import argparse
 import importlib
 import importlib.machinery
@@ -17,18 +42,14 @@ import os
 import re
 import sys
 import uuid
+from pathlib import Path
 
+import _basket
+import _common
 import yaml
 
-try:
-    import colorama
-
-    colorama.init(autoreset=True)
-except ImportError:
-    colorama = False
-
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041301'
+__version__ = '2026041302'
 
 DESCRIPTION = """Generate an Icinga Director basket JSON from a check plugin. Walks the
 plugin's argparse definition, turns each parameter into a Director datafield, emits a
@@ -36,18 +57,16 @@ command and service-template pair, and writes the result into the plugin's
 `icingaweb2-module-director/` subdirectory. Use `--auto` to regenerate baskets for every
 plugin in the repo."""
 
-DEFAULT_VARIANTS = [
-    'linux',
-]
+# Subdirectory under each plugin that holds the per-plugin basket
+# JSON and the optional YAML override file.
+DIRECTOR_DIR = 'icingaweb2-module-director'
 
+DEFAULT_VARIANTS = ['linux']
 
-skip_plugins = [
-    'example',
-    'dummy',
-]
-
-
-skip_params = ['--test']
+# argparse options that are never exposed as Director datafields
+# because they are developer-only or do not make sense in a
+# monitoring configuration.
+SKIP_PARAMS = frozenset({'--test'})
 
 
 # case does not matter, the regex uses the ignorecase option
@@ -122,6 +141,7 @@ regex_replace_words = {
 
 
 def parse_args():
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
@@ -131,31 +151,24 @@ def parse_args():
         version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument(
         '--plugin-file',
         help='Path to a single plugin file to generate its basket.',
         dest='PLUGIN_FILE',
-        type=str,
+        type=Path,
+        default=None,
     )
-
-    parser.add_argument(
+    mode.add_argument(
         '--auto',
-        help='Automatically generate baskets for all plugins.',
+        help='Automatically (re)generate baskets for every check plugin '
+             'in the repo.',
         dest='AUTO',
         action='store_true',
         default=False,
     )
 
     return parser.parse_args()
-
-
-def save_json_to_file(data, filename):
-    try:
-        with open(filename, 'w') as file:
-            json.dump(data, file, sort_keys=False, indent=4, separators=(',', ': '))
-            file.write('\n')
-    except FileNotFoundError as e:
-        err_print(f'{e}. Ignoring...')
 
 
 def find_long_param(params):
@@ -211,22 +224,6 @@ def _return_parser_as_tuple(self, *_args, **_kwargs):
     return self, []
 
 
-def warn_print(msg):
-    msg = msg.strip()
-    if colorama:
-        print(colorama.Fore.YELLOW + f'Warning: {msg}')
-    else:
-        print(msg)
-
-
-def err_print(msg):
-    msg = msg.strip()
-    if colorama:
-        print(colorama.Fore.RED + f'Error: {msg}')
-    else:
-        print(msg)
-
-
 def get_plugin_args(plugin_file):
     check = os.path.basename(plugin_file)
 
@@ -244,11 +241,11 @@ def get_plugin_args(plugin_file):
     sys.stdin.close = lambda _: None
     try:
         spec.loader.exec_module(plugin_module)
-    except Exception as e:
-        err_print(f'Exception during check execution: {e}')
+    except Exception as exc:  # pylint: disable=broad-except
+        _common.err(f'Exception during check execution: {exc}')
         return None
-    except SystemExit as e:
-        err_print(f'SystemExit during check execution: {e}')
+    except SystemExit as exc:
+        _common.err(f'SystemExit during check execution: {exc}')
         return None
     finally:
         sys.stdin.close = orig_sys_stdin_close
@@ -447,7 +444,7 @@ def offer_selection(options):
             except ValueError:
                 print('\nFailed to parse selection.')
     except KeyboardInterrupt:
-        sys.exit()
+        sys.exit(130)
 
 
 def manage_uuids(data, old_data=None):
@@ -518,9 +515,9 @@ def manage_uuids(data, old_data=None):
             )
             print('\n* '.join(reused_uuid_objects))
 
-        warn_print(
+        _common.err(
             '\n'
-            + r'Please make sure the generated uuid mappings are correct using `git diff --ignore-matching-lines \'\"[[:digit:]]+\": \{\' --ignore-matching-lines \'\"datafield_id\":\'`.'
+            + r'Please make sure the generated uuid mappings are correct using `git diff --ignore-matching-lines \'\"[[:digit:]]+\": \{\' --ignore-matching-lines \'\"datafield_id\":\'`.',
         )
 
     new_uuid_objects = []
@@ -539,10 +536,9 @@ def manage_uuids(data, old_data=None):
     if len(uuids) != len(unique_uuids):
         for uuid_ in unique_uuids:
             uuids.remove(uuid_)
-        err_print('There are duplicate uuids! Aborting...')
-        print('* ', end='')
-        print('\n* '.join(uuids))
-        sys.exit(3)
+        _common.die(
+            'There are duplicate uuids! Aborting...\n* ' + '\n* '.join(uuids),
+        )
 
     if new_uuid_objects:
         print(
@@ -557,10 +553,10 @@ def manage_uuids(data, old_data=None):
 def apply_overwrites(data, overwrites):
     for key, value in overwrites.items():
         try:
-            exec(f'data{key} = value', {}, {'value': value, 'data': data})
+            exec(f'data{key} = value', {}, {'value': value, 'data': data})  # nosec B102
         except KeyError:
-            err_print(
-                f'Could not apply overwrite "{key}", as the path was not found. Continuing...'
+            _common.err(
+                f'Could not apply overwrite "{key}", as the path was not found. Continuing...',
             )
 
     return data
@@ -603,9 +599,9 @@ def parse_plugin_args(
             print(f'Skipping the "{long_param}" parameter as it is suppressed')
             continue
         if not long_param:
-            warn_print(f'Could not find a long parameter for:\n{action}')
+            _common.err(f'Could not find a long parameter for:\n{action}')
             continue
-        if long_param in skip_params:
+        if long_param in SKIP_PARAMS:
             continue
         varname = get_varname(check_name + varname_suffix, long_param)
 
@@ -756,7 +752,7 @@ def parse_plugin_args(
             command_field_id += 1
             continue
 
-        warn_print(f'Unhandled action class: "{action.__class__.__name__}".')
+        _common.err(f'Unhandled action class: "{action.__class__.__name__}".')
     return data, command_field_id
 
 
@@ -936,115 +932,97 @@ def generate_basket(plugin_file, config=None, old_data=None):
     return manage_uuids(data, old_data)
 
 
+def _load_old_basket(path):
+    """Return the existing committed basket at path, or None.
+
+    Missing file is fine (first-ever generation); unparseable JSON
+    prints a warning and is treated as "no old basket" so `--auto`
+    keeps going instead of stopping on a single broken file.
+    """
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError) as exc:
+        _common.err(f'{path}: cannot parse existing basket, regenerating: {exc}')
+        return None
+
+
+def _load_config(path):
+    """Return the parsed per-plugin YAML override, or None.
+
+    Same contract as `_load_old_basket`: missing is fine, broken
+    prints a warning and falls back to "no override".
+    """
+    if not path.is_file():
+        return None
+    try:
+        return yaml.safe_load(path.read_text(encoding='utf-8'))
+    except (OSError, yaml.YAMLError) as exc:
+        _common.err(f'{path}: cannot parse config, ignoring: {exc}')
+        return None
+
+
+def build_basket_for_plugin(plugin_file):
+    """Generate (or regenerate) the basket for one plugin file.
+
+    Returns True on success, False on failure. Callers decide
+    whether a single failure stops the sweep or just gets
+    collected for an end-of-run summary.
+    """
+    plugin_file = Path(plugin_file)
+    if not plugin_file.is_file():
+        _common.err(f'{plugin_file}: plugin script not found')
+        return False
+    plugin_dir = plugin_file.parent
+    check_name = plugin_file.name
+
+    director_dir = plugin_dir / DIRECTOR_DIR
+    director_dir.mkdir(exist_ok=True)
+    output_file = director_dir / f'{check_name}.json'
+    config_file = director_dir / f'{check_name}.yml'
+
+    old_data = _load_old_basket(output_file)
+    if old_data is not None:
+        print(f'Found an existing basket at {output_file}, updating it.')
+    config = _load_config(config_file)
+    if config is not None:
+        print(f'Using config at {config_file}.')
+
+    plugin_data = generate_basket(str(plugin_file), config, old_data)
+    if plugin_data is None:
+        _common.err(f'No data for {check_name}.')
+        return False
+
+    _basket.save_basket(output_file, plugin_data)
+    return True
+
+
 def main():
+    """Build one basket (`--plugin-file`) or every basket (`--auto`)."""
     args = parse_args()
 
     if args.PLUGIN_FILE:
-        plugin_dir = os.path.dirname(args.PLUGIN_FILE)
-        check = os.path.basename(args.PLUGIN_FILE)
+        return 0 if build_basket_for_plugin(args.PLUGIN_FILE) else 1
 
-        output_file = os.path.join(
-            plugin_dir, 'icingaweb2-module-director', f'{check}.json'
-        )
-        old_data = None
-        if os.path.isfile(output_file):
-            with open(output_file, 'rb') as file:
-                print(f'Found an existing basket at {output_file}, updating it.')
-                try:
-                    old_data = json.load(file)
-                except json.decoder.JSONDecodeError:
-                    err_print('Could not parse existing basket file. Aborting...')
-                    sys.exit(3)
-        else:
-            try:
-                os.mkdir(os.path.join(plugin_dir, 'icingaweb2-module-director'))
-            except FileExistsError:
-                pass
+    # args.AUTO - walk every check plugin, collect failures, report
+    # them at the end instead of stopping on the first error.
+    failed = []
+    for plugin_dir in _common.iter_check_plugins():
+        plugin_file = plugin_dir / plugin_dir.name
+        if not plugin_file.is_file():
+            continue
+        print('\n' + '- ' * 40)
+        print(f'Check: {plugin_dir.name}')
+        print('- ' * 40)
+        if not build_basket_for_plugin(plugin_file):
+            failed.append(plugin_dir.name)
 
-        config_file = os.path.join(
-            plugin_dir, 'icingaweb2-module-director', f'{check}.yml'
-        )
-        config = None
-        if os.path.isfile(config_file):
-            with open(config_file, 'rb') as file:
-                print(f'Using config at {config_file}.')
-                try:
-                    config = yaml.safe_load(file)
-                except yaml.scanner.ScannerError:
-                    err_print('Could not parse config file. Aborting...')
-                    sys.exit(3)
-
-        save_json_to_file(
-            generate_basket(args.PLUGIN_FILE, config, old_data), output_file
-        )
-
-    elif args.AUTO:
-        directories = os.listdir('check-plugins')
-        for directory in directories:
-            if directory in skip_plugins:
-                continue
-
-            plugin_file = os.path.join('check-plugins', directory, directory)
-            if os.path.isfile(plugin_file):
-                print('\n' + '- ' * 40)
-                print(f'Check: {directory}')
-                print('- ' * 40)
-                old_data = None
-                output_file = os.path.join(
-                    'check-plugins',
-                    directory,
-                    'icingaweb2-module-director',
-                    f'{directory}.json',
-                )
-                if os.path.isfile(output_file):
-                    with open(output_file, 'rb') as file:
-                        print(
-                            f'Found an existing basket at {output_file}, updating it.'
-                        )
-                        try:
-                            old_data = json.load(file)
-                        except json.decoder.JSONDecodeError:
-                            err_print(
-                                'Could not parse existing basket file. Skipping check...'
-                            )
-                            continue
-                else:
-                    try:
-                        os.mkdir(
-                            os.path.join(
-                                'check-plugins', directory, 'icingaweb2-module-director'
-                            )
-                        )
-                    except FileExistsError:
-                        pass
-
-                config_file = os.path.join(
-                    'check-plugins',
-                    directory,
-                    'icingaweb2-module-director',
-                    f'{directory}.yml',
-                )
-                config = None
-                if os.path.isfile(config_file):
-                    with open(config_file, 'rb') as file:
-                        print(f'Using config at {config_file}.')
-                        try:
-                            config = yaml.safe_load(file)
-                        except yaml.scanner.ScannerError:
-                            err_print('Could not parse config file. Skipping check...')
-                            continue
-
-                plugin_data = generate_basket(plugin_file, config, old_data)
-                if plugin_data:
-                    save_json_to_file(plugin_data, output_file)
-                else:
-                    err_print(f'No data for {directory}.')
-                    sys.exit(3)
-
-    else:
-        err_print('Either --auto or --plugin-file is required.')
-        sys.exit(2)
+    if failed:
+        _common.err(f'\nFailed: {", ".join(failed)}')
+        return 1
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
