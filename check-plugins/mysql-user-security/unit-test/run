@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Integration tests for the mysql-user-security check plugin.
+
+The plugin opens a real `pymysql` connection and queries
+`mysql.user` / `mysql.global_priv` for anonymous accounts,
+passwordless accounts and hosts granted wildcard access. Reading
+the `mysql` system database requires elevated privileges, so the
+test grants the regular `test` user SELECT on `mysql.*` via
+`container.exec` as root before running the plugin.
+
+On a default-configured MariaDB image, the plugin legitimately
+flags two security issues: the `test` user has its username as
+its password ("user with username as password"), and both root
+and test are defined as `@'%'` ("accounts without hostname
+restriction"). Both are real findings worth monitoring; the test
+pins the WARN state so the plugin's detection logic stays in
+place and a future refactor cannot silently mask either signal.
+
+Runs against the current MariaDB LTS releases
+(`lib.lftest.MARIADB_LTS_IMAGES`).
+
+Requirements:
+- podman (or docker) with a reachable socket
+- `pip install testcontainers`
+- `tools/run-unit-tests` auto-sets `CONTAINER_HOST` and
+  `TESTCONTAINERS_RYUK_DISABLED`
+"""
+
+import os
+import subprocess
+import sys
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+from lib.globals import STATE_WARN
+
+
+IMAGES = lib.lftest.MARIADB_LTS_IMAGES
+
+
+class TestCheck(unittest.TestCase):
+    pass
+
+
+def _check_image(test, image_pair):
+    image, label = image_pair
+    print(f'\n=== Testing {label} ({image}) ===', flush=True)
+    with lib.lftest.run_mariadb(image) as (container, defaults_file):
+        # Grant the `test` user read access to the `mysql` system
+        # database so it can query `mysql.user` / `mysql.global_priv`.
+        # sclorg images accept root via socket auth (no password
+        # because the container runs as the mysql OS user); upstream
+        # images require the `-p` password. Try without password
+        # first, fall back to the password-auth variant.
+        container.exec([
+            'sh', '-c',
+            'if command -v mariadb >/dev/null 2>&1; then C=mariadb; '
+            'else C=mysql; fi; '
+            'GRANT_SQL="GRANT SELECT ON mysql.* TO '
+            "'test'@'%'"
+            '"; '
+            '"$C" -uroot -e "$GRANT_SQL" 2>/dev/null '
+            '|| "$C" -uroot -ptest -e "$GRANT_SQL"',
+        ])
+
+        cmd = [
+            'python3', '../mysql-user-security',
+            f'--defaults-file={defaults_file}',
+        ]
+        print(f'Run plugin: {" ".join(cmd)}', flush=True)
+        result = subprocess.run(
+            cmd,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            capture_output=True,
+            text=True,
+        )
+        combined = result.stdout + result.stderr
+        print(f'Script output:\n{combined.strip()}', flush=True)
+
+        test.assertEqual(result.returncode, STATE_WARN)
+        test.assertIn('without hostname restriction', combined)
+
+
+lib.lftest.attach_each(TestCheck, IMAGES, _check_image, id_func=lambda it: it[1])
+
+
+if __name__ == '__main__':
+    unittest.main()

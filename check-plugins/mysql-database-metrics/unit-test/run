@@ -1,0 +1,88 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Integration tests for the mysql-database-metrics check plugin.
+
+The plugin opens a real `pymysql` connection and queries
+`information_schema.schemata`, then for every user database it
+walks `information_schema.tables` / `COLUMNS` to collect table
+count, row count, data/index size and charset information. We
+spin up an actual MariaDB server, seed the default `test`
+database with a tiny table so the plugin has something to walk,
+and let it talk to the server over TCP.
+
+Per CONTRIBUTING's "Combine container tests with fixtures" rule,
+this file holds only the happy-path integration test.
+
+Runs against the current MariaDB LTS releases
+(`lib.lftest.MARIADB_LTS_IMAGES`).
+
+Requirements:
+- podman (or docker) with a reachable socket
+- `pip install testcontainers`
+- `tools/run-unit-tests` auto-sets `CONTAINER_HOST` and
+  `TESTCONTAINERS_RYUK_DISABLED`
+"""
+
+import os
+import subprocess
+import sys
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+from lib.globals import STATE_OK
+
+
+IMAGES = lib.lftest.MARIADB_LTS_IMAGES
+
+
+class TestCheck(unittest.TestCase):
+    pass
+
+
+def _check_image(test, image_pair):
+    image, label = image_pair
+    print(f'\n=== Testing {label} ({image}) ===', flush=True)
+    with lib.lftest.run_mariadb(
+        image,
+        seed=(
+            'CREATE TABLE countries ('
+            'code CHAR(3) PRIMARY KEY, '
+            'name VARCHAR(64) NOT NULL'
+            ') ENGINE=InnoDB; '
+            "INSERT INTO countries VALUES "
+            "('CHE', 'Switzerland'), ('DEU', 'Germany'), ('FRA', 'France')"
+        ),
+    ) as (_container, defaults_file):
+        cmd = [
+            'python3', '../mysql-database-metrics',
+            f'--defaults-file={defaults_file}',
+        ]
+        print(f'Run plugin: {" ".join(cmd)}', flush=True)
+        result = subprocess.run(
+            cmd,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            capture_output=True,
+            text=True,
+        )
+        combined = result.stdout + result.stderr
+        print(f'Script output:\n{combined.strip()}', flush=True)
+
+        test.assertEqual(result.returncode, STATE_OK)
+        test.assertIn('Everything is ok', combined)
+
+
+lib.lftest.attach_each(TestCheck, IMAGES, _check_image, id_func=lambda it: it[1])
+
+
+if __name__ == '__main__':
+    unittest.main()
