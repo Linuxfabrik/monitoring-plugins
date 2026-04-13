@@ -64,82 +64,77 @@ IMAGES = [
 
 
 class TestCheck(unittest.TestCase):
-    def test(self):
-        for image, label in IMAGES:
-            with self.subTest(image=image):
-                print(f'\n=== Testing {label} ({image}) ===', flush=True)
-                with lib.lftest.run_container(
-                    image,
-                    env={
-                        'MYSQL_ROOT_PASSWORD': 'test',
-                        'MYSQL_USER': 'test',
-                        'MYSQL_PASSWORD': 'test',
-                        'MYSQL_DATABASE': 'test',
-                    },
-                    ports=[3306],
-                    # The sclorg image's run-mysqld entrypoint
-                    # disables the TCP listener by default and only
-                    # binds the unix socket, so the version banner
-                    # ends with `port: 0` and remote connections fail.
-                    # Force `--port=3306` to bring the TCP listener up.
-                    command='run-mysqld --port=3306',
-                    # Wait for the "port: 3306" segment of the version
-                    # banner that mariadbd writes once the TCP listener
-                    # is actually bound.
-                    wait_log='port: 3306',
-                    wait_log_timeout=180,
-                ) as container:
-                    host = container.get_container_host_ip()
-                    port = container.get_exposed_port(3306)
+    pass
 
-                    with tempfile.NamedTemporaryFile(
-                        mode='w',
-                        suffix='.cnf',
-                        delete=False,
-                    ) as cnf:
-                        cnf.write(
-                            f'[client]\n'
-                            f'host={host}\n'
-                            f'port={port}\n'
-                            f'user=test\n'
-                            f'password=test\n'
-                            f'database=test\n'
-                        )
-                        defaults_file = cnf.name
 
-                    try:
-                        cmd = [
-                            'python3', '../mysql-connections',
-                            f'--defaults-file={defaults_file}',
-                        ]
-                        print(f'Run plugin: {" ".join(cmd)}', flush=True)
-                        result = subprocess.run(
-                            cmd,
-                            cwd=os.path.dirname(os.path.abspath(__file__)),
-                            capture_output=True,
-                            text=True,
-                        )
-                    finally:
-                        os.unlink(defaults_file)
+def _check_image(test, image_pair):
+    image, label = image_pair
+    print(f'\n=== Testing {label} ({image}) ===', flush=True)
+    with lib.lftest.run_container(
+        image,
+        env={
+            'MYSQL_ROOT_PASSWORD': 'test',
+            'MYSQL_USER': 'test',
+            'MYSQL_PASSWORD': 'test',
+            'MYSQL_DATABASE': 'test',
+        },
+        ports=[3306],
+        # The sclorg image's run-mysqld entrypoint disables the TCP
+        # listener by default and only binds the unix socket, so the
+        # version banner ends with `port: 0` and remote connections
+        # fail. Force `--port=3306` to bring the TCP listener up.
+        command='run-mysqld --port=3306',
+        # Wait for the "port: 3306" segment of the version banner
+        # that mariadbd writes once the TCP listener is actually
+        # bound.
+        wait_log='port: 3306',
+        wait_log_timeout=180,
+    ) as container:
+        host = container.get_container_host_ip()
+        port = container.get_exposed_port(3306)
 
-                    combined = result.stdout + result.stderr
-                    print(f'Script output:\n{combined.strip()}', flush=True)
+        with tempfile.NamedTemporaryFile(
+            mode='w',
+            suffix='.cnf',
+            delete=False,
+        ) as cnf:
+            cnf.write(
+                f'[client]\n'
+                f'host={host}\n'
+                f'port={port}\n'
+                f'user=test\n'
+                f'password=test\n'
+                f'database=test\n'
+            )
+            defaults_file = cnf.name
 
-                    # A freshly booted, lightly-loaded server is
-                    # always STATE_OK with the plugin's defaults.
-                    self.assertEqual(result.returncode, STATE_OK)
-                    self.assertRegex(
-                        combined,
-                        r'\d+(\.\d+)?% aborted connections',
-                    )
-                    self.assertRegex(
-                        combined,
-                        r'current \d+(\.\d+)?% used',
-                    )
-                    self.assertRegex(
-                        combined,
-                        r'peak \d+(\.\d+)?% used',
-                    )
+        try:
+            cmd = [
+                'python3', '../mysql-connections',
+                f'--defaults-file={defaults_file}',
+            ]
+            print(f'Run plugin: {" ".join(cmd)}', flush=True)
+            result = subprocess.run(
+                cmd,
+                cwd=os.path.dirname(os.path.abspath(__file__)),
+                capture_output=True,
+                text=True,
+            )
+        finally:
+            os.unlink(defaults_file)
+
+        combined = result.stdout + result.stderr
+        print(f'Script output:\n{combined.strip()}', flush=True)
+
+        # A freshly booted, lightly-loaded server is always STATE_OK
+        # with the plugin's defaults.
+        test.assertEqual(result.returncode, STATE_OK)
+        test.assertRegex(combined, r'\d+(\.\d+)?% aborted connections')
+        test.assertRegex(combined, r'current \d+(\.\d+)?% used')
+        test.assertRegex(combined, r'peak \d+(\.\d+)?% used')
+
+
+lib.lftest.attach_each(TestCheck, IMAGES, _check_image, id_func=lambda it: it[1])
 
 
 if __name__ == '__main__':

@@ -41,6 +41,7 @@ import unittest
 
 sys.path.insert(0, '..')
 
+import lib.lftest
 from lib.globals import STATE_OK
 
 try:
@@ -78,53 +79,56 @@ CONTAINERFILES = [
 
 
 class TestCheck(unittest.TestCase):
-    def test(self):
-        for containerfile in CONTAINERFILES:
-            with self.subTest(containerfile=containerfile):
-                print(f'\n=== Testing {containerfile} ===', flush=True)
-                image_tag = f'lfmp-cpu-usage-{containerfile}'.lower()
-                with DockerImage(
-                    path=HERE,
-                    dockerfile_path=f'containerfiles/{containerfile}',
-                    tag=image_tag,
-                ) as image:
-                    # `,Z` relabels the mount for SELinux on podman/rhel hosts
-                    # so the container can actually read the bind-mounted files.
-                    container = (
-                        DockerContainer(str(image.tag))
-                        .with_volume_mapping(LIB_DIR, '/tmp/lib', mode='ro,Z')
-                        .with_volume_mapping(PLUGIN, '/tmp/cpu-usage', mode='ro,Z')
-                    )
-                    with container:
-                        # Some containerfiles install dependencies into a venv
-                        # at /tmp/venv (debian, ubuntu, archlinux), others
-                        # install them system-wide (fedora, rhel). Detect and
-                        # use the right python invocation.
-                        probe = container.exec(
-                            ['sh', '-c', 'test -d /tmp/venv && echo venv || echo system']
-                        )
-                        use_venv = b'venv' in probe.output
-                        if use_venv:
-                            cmd = [
-                                'sh',
-                                '-c',
-                                '. /tmp/venv/bin/activate && cd /tmp && python3 ./cpu-usage',
-                            ]
-                        else:
-                            cmd = ['sh', '-c', 'cd /tmp && python3 ./cpu-usage']
-                        print(f'Run plugin: {" ".join(cmd)}', flush=True)
-                        result = container.exec(cmd)
-                        output = (result.output or b'').decode('utf-8', errors='replace')
-                        print(f'Script output:\n{output.strip()}', flush=True)
+    pass
 
-                        # Plugin must exit cleanly and produce its normal
-                        # "<percent>% - ..., user: X%, ..." line. Use a
-                        # multi-line-tolerant regex because the "user:"
-                        # segment can land on the first or the second line
-                        # depending on psutil's by-value sort when several
-                        # counters read 0%.
-                        self.assertEqual(result.exit_code, STATE_OK)
-                        self.assertRegex(output, r'(?s)\d+\.\d+%.*user:')
+
+def _check_containerfile(test, containerfile):
+    print(f'\n=== Testing {containerfile} ===', flush=True)
+    image_tag = f'lfmp-cpu-usage-{containerfile}'.lower()
+    with DockerImage(
+        path=HERE,
+        dockerfile_path=f'containerfiles/{containerfile}',
+        tag=image_tag,
+    ) as image:
+        # `,Z` relabels the mount for SELinux on podman/rhel hosts so
+        # the container can actually read the bind-mounted files.
+        container = (
+            DockerContainer(str(image.tag))
+            .with_volume_mapping(LIB_DIR, '/tmp/lib', mode='ro,Z')
+            .with_volume_mapping(PLUGIN, '/tmp/cpu-usage', mode='ro,Z')
+        )
+        with container:
+            # Some containerfiles install dependencies into a venv at
+            # /tmp/venv (debian, ubuntu, archlinux), others install
+            # them system-wide (fedora, rhel). Detect and use the
+            # right python invocation.
+            probe = container.exec(
+                ['sh', '-c', 'test -d /tmp/venv && echo venv || echo system']
+            )
+            use_venv = b'venv' in probe.output
+            if use_venv:
+                cmd = [
+                    'sh',
+                    '-c',
+                    '. /tmp/venv/bin/activate && cd /tmp && python3 ./cpu-usage',
+                ]
+            else:
+                cmd = ['sh', '-c', 'cd /tmp && python3 ./cpu-usage']
+            print(f'Run plugin: {" ".join(cmd)}', flush=True)
+            result = container.exec(cmd)
+            output = (result.output or b'').decode('utf-8', errors='replace')
+            print(f'Script output:\n{output.strip()}', flush=True)
+
+            # Plugin must exit cleanly and produce its normal
+            # "<percent>% - ..., user: X%, ..." line. Use a
+            # multi-line-tolerant regex because the "user:" segment
+            # can land on the first or the second line depending on
+            # psutil's by-value sort when several counters read 0%.
+            test.assertEqual(result.exit_code, STATE_OK)
+            test.assertRegex(output, r'(?s)\d+\.\d+%.*user:')
+
+
+lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_containerfile)
 
 
 if __name__ == '__main__':

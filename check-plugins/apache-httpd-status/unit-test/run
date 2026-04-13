@@ -415,19 +415,20 @@ SCENARIOS = [
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../apache-httpd-status'
 
-    def test(self):
-        for scenario in SCENARIOS:
-            with self.subTest(scenario=scenario['id']):
-                # Reset the sqlite cache so previous-value lookups
-                # start from a clean slate for this scenario.
-                if os.path.exists(CACHE_DB):
-                    os.remove(CACHE_DB)
-                for i, step in enumerate(scenario['steps'], start=1):
-                    with self.subTest(scenario=scenario['id'], step=i):
-                        lib.lftest.run(self, self.check, step)
+
+def _run_scenario(test, scenario):
+    # Reset the sqlite cache so previous-value lookups start from a
+    # clean slate for this scenario.
+    if os.path.exists(CACHE_DB):
+        os.remove(CACHE_DB)
+    for i, step in enumerate(scenario['steps'], start=1):
+        with test.subTest(step=i):
+            lib.lftest.run(test, test.check, step)
+
+
+lib.lftest.attach_each(TestCheck, SCENARIOS, _run_scenario, id_func=lambda s: s['id'])
 
 
 if __name__ == '__main__':

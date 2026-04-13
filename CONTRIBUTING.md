@@ -693,7 +693,7 @@ pylint check-plugins/my-check/my-check
 
 ### Unit Tests
 
-Unit tests are implemented using the `unittest` framework (<https://docs.python.org/3/library/unittest.html>) with a declarative, data-driven approach. Test definitions are a list of dicts, executed via `lib.lftest.run()` and `unittest.subTest()`. See the [example](check-plugins/example/unit-test/run) plugin for the reference implementation.
+Unit tests are implemented using the `unittest` framework (<https://docs.python.org/3/library/unittest.html>) with a declarative, data-driven approach. Test definitions are a list of dicts (or a list of platform/image items for container tests), materialised into one real `unittest` test method per item via `lib.lftest.attach_tests()` or `lib.lftest.attach_each()`. See the [example](check-plugins/example/unit-test/run) plugin for the reference implementation.
 
 
 #### Test directory structure
@@ -802,6 +802,20 @@ Available assertion keys in each testcase dict:
 * `assert-stderr` (`str`, optional): Expected stderr content. Default: `''`.
 
 
+#### Iterating over TESTS vs. platforms
+
+Two iteration shapes show up in the test files, and each has its own helper. Both materialise one real `unittest` test method per item so `./run` reports an accurate count and `./run -v` names every case.
+
+* **TESTS list** (the default): a list of testcase dicts executed by `lib.lftest.run()`. Use `lib.lftest.attach_tests(TestCheck, TESTS)`. This is the right shape for everything that injects fixture data via `--test=stdout/...`.
+* **Platform list** (container-based tests): a list of images, Containerfiles, or scenario dicts where each item needs its own setup (spin up a container, build an image, reset a cache DB). Use `lib.lftest.attach_each(TestCheck, ITEMS, action, id_func=...)` with an `action(test, item)` callable that does the per-item work. The `id_func` turns one item into the test method name. Examples in-tree:
+
+    * `check-plugins/mysql-connections/unit-test/run` iterates over an `IMAGES` list of `(image, label)` tuples, with `id_func=lambda it: it[1]`.
+    * `check-plugins/cpu-usage/unit-test/run` iterates over a `CONTAINERFILES` list of strings, with the default `id_func=str`.
+    * `check-plugins/apache-httpd-status/unit-test/run` iterates over a `SCENARIOS` list of dicts where the action resets a cache DB and then replays a multi-step sequence.
+
+Do not fall back to a plain `for ... subTest()` loop. It still executes every case and failures still surface, but unittest collapses the whole loop into a single method and reports `Ran 1 test`, which hides the real coverage count from `./run` and from the `tox` summary.
+
+
 #### Running tests
 
 Unit tests come in two flavors:
@@ -877,33 +891,38 @@ IMAGES = [
 
 
 class TestCheck(unittest.TestCase):
-    def test(self):
-        for image, version_tag in IMAGES:
-            with self.subTest(image=image):
-                with lib.lftest.run_container(
-                    image,
-                    env={
-                        'KEYCLOAK_ADMIN': 'admin',
-                        'KEYCLOAK_ADMIN_PASSWORD': 'admin',
-                    },
-                    ports=[8080],
-                    command='start-dev',
-                    wait_log='Listening on:',
-                ) as container:
-                    url = f'http://{container.get_container_host_ip()}:{container.get_exposed_port(8080)}'
-                    result = subprocess.run(
-                        ['python3', '../keycloak-version',
-                         f'--url={url}', '--username=admin', '--password=admin',
-                         '--path=/nonexistent'],
-                        capture_output=True, text=True,
-                    )
-                    self.assertRegex(
-                        result.stdout + result.stderr,
-                        rf'Keycloak\s+{version_tag}',
-                    )
-                    self.assertIn(
-                        result.returncode, (STATE_OK, STATE_WARN, STATE_CRIT),
-                    )
+    pass
+
+
+def _check_image(test, image_pair):
+    image, version_tag = image_pair
+    with lib.lftest.run_container(
+        image,
+        env={
+            'KEYCLOAK_ADMIN': 'admin',
+            'KEYCLOAK_ADMIN_PASSWORD': 'admin',
+        },
+        ports=[8080],
+        command='start-dev',
+        wait_log='Listening on:',
+    ) as container:
+        url = f'http://{container.get_container_host_ip()}:{container.get_exposed_port(8080)}'
+        result = subprocess.run(
+            ['python3', '../keycloak-version',
+             f'--url={url}', '--username=admin', '--password=admin',
+             '--path=/nonexistent'],
+            capture_output=True, text=True,
+        )
+        test.assertRegex(
+            result.stdout + result.stderr,
+            rf'Keycloak\s+{version_tag}',
+        )
+        test.assertIn(
+            result.returncode, (STATE_OK, STATE_WARN, STATE_CRIT),
+        )
+
+
+lib.lftest.attach_each(TestCheck, IMAGES, _check_image, id_func=lambda it: it[1])
 ```
 
 Rules and tips:
@@ -911,8 +930,8 @@ Rules and tips:
 * **Pull upstream images whenever possible.** You do not need a custom `Containerfile` that injects Python into the service image, because the plugin runs from the host and connects to the container via the exposed port. That is the common case for API-driven checks.
 * **Wait on a log marker, not a sleep.** The `wait_log` argument takes a substring that the service writes to stdout/stderr when it is ready (e.g. `Listening on:` for Keycloak, `ready for connections.` for MariaDB). Use `wait_log_timeout` for services that take longer than 2 minutes to start.
 * **Do not hardcode state-shifting assertions.** If the plugin reports something that depends on today's date (EOL windows, "last seen N days ago", "expires in X days"), assert only that the plugin returned a valid state (any of `STATE_OK`, `STATE_WARN`, `STATE_CRIT`) and that the output contains the expected version / service identifier. Locking in a specific state will break the test every time the calendar moves past a boundary.
-* **Multi-version matrix** goes in an `IMAGES` list at the top of the test file, iterated via `self.subTest(image=...)`. Add a new major release at the bottom of the list when it becomes available upstream.
-* **Rootless podman**: testcontainers-python works, but the Ryuk cleanup container needs to be disabled. Set `TESTCONTAINERS_RYUK_DISABLED=true` and `DOCKER_HOST=unix:///run/user/$UID/podman/podman.sock` before running the tests. A lightweight wrapper can live in `tools/run-container-tests` to set these for you.
+* **Multi-version matrix** goes in an `IMAGES` list (or `CONTAINERFILES`, `SCENARIOS`, ...) at the top of the test file, materialised into one real test method per item via `lib.lftest.attach_each()`. Add a new major release at the bottom of the list when it becomes available upstream. See the "Iterating over TESTS vs. platforms" subsection below for the rationale.
+* **Rootless podman**: testcontainers-python works, but the Ryuk cleanup container needs to be disabled. Set `TESTCONTAINERS_RYUK_DISABLED=true` and `CONTAINER_HOST=unix:///run/user/$UID/podman/podman.sock` before running the tests. `tools/run-unit-tests` sets both automatically when it detects a container-based test.
 * **Do not run container tests via `tox`.** They are integration tests and belong in `tools/run-container-tests`, not in the multi-Python matrix. `tools/run-unit-tests` detects them automatically by inspecting the `run` file for `podman` or `testcontainers` references.
 * **Keep hand-rolled podman orchestration out of new tests.** If you find a plugin that still builds containers via `subprocess.run(['podman', 'build', ...])`, migrate it to `lib.lftest.run_container()`; the old pattern is being retired.
 

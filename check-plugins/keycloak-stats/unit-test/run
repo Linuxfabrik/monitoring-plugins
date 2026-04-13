@@ -39,53 +39,53 @@ IMAGES = [
 
 
 class TestCheck(unittest.TestCase):
-    def test(self):
-        """Spin up each Keycloak image and run the plugin against the API."""
-        for image, version_tag in IMAGES:
-            with self.subTest(image=image):
-                print(f'\n=== Testing {image} ===', flush=True)
-                with lib.lftest.run_container(
-                    image,
-                    env={
-                        'KEYCLOAK_ADMIN': 'admin',
-                        'KEYCLOAK_ADMIN_PASSWORD': 'admin',
-                    },
-                    ports=[8080],
-                    command='start-dev',
-                    wait_log='Listening on:',
-                    wait_log_timeout=180,
-                ) as container:
-                    url = 'http://{}:{}'.format(
-                        container.get_container_host_ip(),
-                        container.get_exposed_port(8080),
-                    )
-                    cmd = [
-                        'python3',
-                        '../keycloak-stats',
-                        f'--url={url}',
-                        '--username=admin',
-                        '--password=admin',
-                    ]
-                    print(f'Run plugin: {" ".join(cmd)}', flush=True)
-                    result = subprocess.run(
-                        cmd,
-                        cwd=os.path.dirname(os.path.abspath(__file__)),
-                        capture_output=True,
-                        text=True,
-                    )
-                    combined = result.stdout + result.stderr
-                    print(f'Script output:\n{combined.strip()}', flush=True)
+    pass
 
-                    # The plugin reports uptime, user, java version etc. Just
-                    # check that it produced the "running under user `keycloak`;
-                    # Java v..." summary shape.
-                    self.assertRegex(
-                        combined,
-                        r'running under user `keycloak`;\s*Java v',
-                    )
-                    self.assertIn(
-                        result.returncode, (STATE_OK, STATE_WARN, STATE_CRIT)
-                    )
+
+def _check_image(test, image_pair):
+    """Spin up one Keycloak image and run the plugin against the API."""
+    image, version_tag = image_pair
+    print(f'\n=== Testing {image} ===', flush=True)
+    with lib.lftest.run_container(
+        image,
+        env={
+            'KEYCLOAK_ADMIN': 'admin',
+            'KEYCLOAK_ADMIN_PASSWORD': 'admin',
+        },
+        ports=[8080],
+        command='start-dev',
+        wait_log='Listening on:',
+        wait_log_timeout=180,
+    ) as container:
+        url = 'http://{}:{}'.format(
+            container.get_container_host_ip(),
+            container.get_exposed_port(8080),
+        )
+        cmd = [
+            'python3',
+            '../keycloak-stats',
+            f'--url={url}',
+            '--username=admin',
+            '--password=admin',
+        ]
+        print(f'Run plugin: {" ".join(cmd)}', flush=True)
+        result = subprocess.run(
+            cmd,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            capture_output=True,
+            text=True,
+        )
+        combined = result.stdout + result.stderr
+        print(f'Script output:\n{combined.strip()}', flush=True)
+
+        # The plugin reports uptime, user, java version etc. Just
+        # check that it produced the "running under user `keycloak`;
+        # Java v..." summary shape.
+        test.assertRegex(combined, r'running under user `keycloak`;\s*Java v')
+        test.assertIn(result.returncode, (STATE_OK, STATE_WARN, STATE_CRIT))
+
+
+lib.lftest.attach_each(TestCheck, IMAGES, _check_image, id_func=lambda it: it[1])
 
 
 if __name__ == '__main__':

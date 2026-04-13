@@ -62,57 +62,60 @@ IMAGES = [
 
 
 class TestCheck(unittest.TestCase):
-    def test(self):
-        """Spin up each Keycloak image and run the plugin against the API."""
-        for image, version_tag in IMAGES:
-            with self.subTest(image=image):
-                print(f'\n=== Testing {image} ===', flush=True)
-                with lib.lftest.run_container(
-                    image,
-                    env={
-                        'KEYCLOAK_ADMIN': 'admin',
-                        'KEYCLOAK_ADMIN_PASSWORD': 'admin',
-                    },
-                    ports=[8080],
-                    command='start-dev',
-                    wait_log='Listening on:',
-                    wait_log_timeout=180,
-                ) as container:
-                    url = 'http://{}:{}'.format(
-                        container.get_container_host_ip(),
-                        container.get_exposed_port(8080),
-                    )
-                    cmd = [
-                        'python3',
-                        '../keycloak-version',
-                        f'--url={url}',
-                        '--username=admin',
-                        '--password=admin',
-                        # `/opt/keycloak` does not exist on the host, so the
-                        # file-first path falls through to the API path.
-                        '--path=/nonexistent',
-                    ]
-                    print(f'Run plugin: {" ".join(cmd)}', flush=True)
-                    result = subprocess.run(
-                        cmd,
-                        cwd=os.path.dirname(os.path.abspath(__file__)),
-                        capture_output=True,
-                        text=True,
-                    )
-                    combined = result.stdout + result.stderr
-                    print(f'Script output:\n{combined.strip()}', flush=True)
+    pass
 
-                    # Assert the version string is reported.
-                    self.assertRegex(combined, rf'Keycloak\s+{re.escape(version_tag)}')
 
-                    # The plugin must finish with a valid monitoring state.
-                    # The exact state depends on today's date relative to the
-                    # tested Keycloak version's EOL window, which shifts over
-                    # time. Anything except STATE_UNKNOWN means the plugin
-                    # parsed the version and produced a verdict.
-                    self.assertIn(
-                        result.returncode, (STATE_OK, STATE_WARN, STATE_CRIT)
-                    )
+def _check_image(test, image_pair):
+    """Spin up one Keycloak image and run the plugin against the API."""
+    image, version_tag = image_pair
+    print(f'\n=== Testing {image} ===', flush=True)
+    with lib.lftest.run_container(
+        image,
+        env={
+            'KEYCLOAK_ADMIN': 'admin',
+            'KEYCLOAK_ADMIN_PASSWORD': 'admin',
+        },
+        ports=[8080],
+        command='start-dev',
+        wait_log='Listening on:',
+        wait_log_timeout=180,
+    ) as container:
+        url = 'http://{}:{}'.format(
+            container.get_container_host_ip(),
+            container.get_exposed_port(8080),
+        )
+        cmd = [
+            'python3',
+            '../keycloak-version',
+            f'--url={url}',
+            '--username=admin',
+            '--password=admin',
+            # `/opt/keycloak` does not exist on the host, so the
+            # file-first path falls through to the API path.
+            '--path=/nonexistent',
+        ]
+        print(f'Run plugin: {" ".join(cmd)}', flush=True)
+        result = subprocess.run(
+            cmd,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            capture_output=True,
+            text=True,
+        )
+        combined = result.stdout + result.stderr
+        print(f'Script output:\n{combined.strip()}', flush=True)
+
+        # Assert the version string is reported.
+        test.assertRegex(combined, rf'Keycloak\s+{re.escape(version_tag)}')
+
+        # The plugin must finish with a valid monitoring state.
+        # The exact state depends on today's date relative to the
+        # tested Keycloak version's EOL window, which shifts over
+        # time. Anything except STATE_UNKNOWN means the plugin
+        # parsed the version and produced a verdict.
+        test.assertIn(result.returncode, (STATE_OK, STATE_WARN, STATE_CRIT))
+
+
+lib.lftest.attach_each(TestCheck, IMAGES, _check_image, id_func=lambda it: it[1])
 
 
 if __name__ == '__main__':
