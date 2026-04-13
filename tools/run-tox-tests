@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+"""Run unit tests across every supported Python version via tox.
+
+This is a thin wrapper around `tox` that lives in `tools/` so the
+same `tools/run-*` naming convention used for unit, container and
+linter checks applies to the cross-Python-version test run as well.
+
+The actual Python matrix (py39 ... py314) and the list of plugins
+each env depends on live in the repo's `tox.ini`. Any command-line
+arguments to this script are passed straight through to tox. A few
+common invocations:
+
+    tools/run-tox-tests                  # run the full matrix
+    tools/run-tox-tests -e py39          # only python 3.9
+    tools/run-tox-tests -e py312 -- procs scanrootkit
+                                         # only python 3.12, only
+                                         # two plugins (forwarded
+                                         # to tools/run-unit-tests
+                                         # via {posargs})
+
+Use `tools/run-unit-tests` directly for the single-interpreter case
+against the currently activated venv; use this wrapper when you
+want the multi-Python sweep that catches interpreter-specific bugs.
+"""
+
+import os
+import subprocess
+import sys
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+
+def main():
+    try:
+        result = subprocess.run(['tox', *sys.argv[1:]], cwd=REPO_ROOT, check=False)
+    except FileNotFoundError:
+        print(
+            'tox is not installed. Install it with `pip install tox` '
+            '(or your distribution package).',
+            file=sys.stderr,
+        )
+        return 1
+    return result.returncode
+
+
+if __name__ == '__main__':
+    sys.exit(main())

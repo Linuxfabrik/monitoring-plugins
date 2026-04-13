@@ -6,20 +6,27 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-"""Run static analysis (ruff, pylint, bandit, vulture) over the whole repo.
+"""Run lint and security checks (ruff, bandit, vulture) over the whole repo.
 
 Pre-commit hooks only run on staged files. This script sweeps every plugin
 script, every tool, and every file under lib/ so that long-standing issues
 cannot hide simply because nobody has touched the file in a while.
+
+pylint is intentionally NOT invoked here. Its metric-based checks
+(R0801 duplicate lines, R09xx complexity, etc.) produce thousands of
+false positives across a collection of check plugins that all share
+the same boilerplate, and suppressing the noise with a disable list
+would go against the house rule of running pylint without `--disable`.
+Run pylint by hand when you want to audit a single plugin.
 
 Plugin scripts use a shebang instead of a `.py` extension, so the script
 discovers them by `#!/usr/bin/env python` header and passes them explicitly
 to each analyzer.
 
 Usage:
-    tools/run-static-checks                 # run all analyzers
-    tools/run-static-checks --only=ruff     # run only ruff
-    tools/run-static-checks --only=ruff,bandit
+    tools/run-linter-checks                 # run all analyzers
+    tools/run-linter-checks --only=ruff     # run only ruff
+    tools/run-linter-checks --only=ruff,bandit
 """
 
 import argparse
@@ -66,6 +73,16 @@ def run(analyzer, argv):
     except FileNotFoundError:
         print(f'{analyzer}: not installed, skipping')
         return 0
+    # Normalize the end-of-run signal so every analyzer prints a clear
+    # pass/fail summary line. ruff prints "All checks passed!" itself,
+    # bandit and vulture stay silent on a clean run - which is confusing.
+    if result.returncode == 0:
+        print(f'{analyzer}: all checks passed', flush=True)
+    else:
+        print(
+            f'{analyzer}: issues found (exit {result.returncode})',
+            flush=True,
+        )
     return result.returncode
 
 
@@ -73,7 +90,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '--only',
-        help='Comma-separated list of analyzers to run (ruff, pylint, bandit, vulture)',
+        help='Comma-separated list of analyzers to run (ruff, bandit, vulture)',
         default='',
     )
     args = parser.parse_args()
@@ -90,9 +107,6 @@ def main():
 
     if selected is None or 'ruff' in selected:
         exit_code |= run('ruff', ['ruff', 'check', '--no-fix', *python_files])
-
-    if selected is None or 'pylint' in selected:
-        exit_code |= run('pylint', ['pylint', *python_files])
 
     if selected is None or 'bandit' in selected:
         exit_code |= run(
