@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the redis-version check plugin.
+
+The fixtures in `stdout/` are the raw `redis-server --version` outputs
+captured from every Redis cycle that endoflife.date currently lists
+(5.0 through 8.6) using the official `redis:<tag>` images on Docker
+Hub. The plugin runs its regex parser against each one.
+
+Each testcase pins the expected Nagios state to whatever
+`lib.version.check_eol()` returned when these fixtures were saved
+against the live https://endoflife.date/api/redis.json data. The EOL
+table drifts over time (releases hit EOL, new majors appear), so the
+`assert-retc` and `assert-in` strings will need to be re-pinned every
+few months.
+"""
+
+import sys
+sys.path.insert(0, '..')
+
+import unittest
+
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.lftest
+
+
+TESTS = [
+    {
+        'id': 'warn-redis-5-0-eol',
+        'test': 'stdout/redis-server-v5.0,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Redis v5.0.14', 'EOL 2022-04-27', '[WARNING]'],
+    },
+    {
+        'id': 'warn-redis-6-0-eol',
+        'test': 'stdout/redis-server-v6.0,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Redis v6.0.20', 'EOL 2022-05-31', '[WARNING]'],
+    },
+    {
+        'id': 'ok-redis-6-2-full-support-ended',
+        'test': 'stdout/redis-server-v6.2,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Redis v6.2.21', 'full support ended on 2022-04-27'],
+    },
+    {
+        'id': 'warn-redis-7-0-eol',
+        'test': 'stdout/redis-server-v7.0,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Redis v7.0.15', 'EOL 2024-07-29', '[WARNING]'],
+    },
+    {
+        'id': 'ok-redis-7-2-full-support-ended',
+        'test': 'stdout/redis-server-v7.2,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Redis v7.2.13', 'full support ended on 2024-07-29'],
+    },
+    {
+        'id': 'ok-redis-7-4-full-support-ended',
+        'test': 'stdout/redis-server-v7.4,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Redis v7.4.8', 'full support ended on 2025-05-02'],
+    },
+    {
+        'id': 'warn-redis-8-0-eol',
+        'test': 'stdout/redis-server-v8.0,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Redis v8.0.6', 'EOL 2026-02-11', '[WARNING]'],
+    },
+    {
+        'id': 'ok-redis-8-2-full-support-ended',
+        'test': 'stdout/redis-server-v8.2,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Redis v8.2.5', 'full support ended on 2025-11-18'],
+    },
+    {
+        'id': 'ok-redis-8-4-full-support-ended',
+        'test': 'stdout/redis-server-v8.4,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Redis v8.4.2', 'full support ended on 2026-02-11'],
+    },
+    {
+        'id': 'ok-redis-8-6-supported',
+        'test': 'stdout/redis-server-v8.6,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Redis v8.6.2', 'EOL unknown'],
+    },
+    {
+        'id': 'unknown-garbage-output',
+        'test': 'stdout/garbage-output,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Redis not found.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../redis-version'
+
+    def test(self):
+        for t in TESTS:
+            with self.subTest(id=t['id']):
+                lib.lftest.run(self, self.check, t)
+
+
+if __name__ == '__main__':
+    unittest.main()
