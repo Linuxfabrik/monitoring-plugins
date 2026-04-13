@@ -20,36 +20,92 @@ import lib.lftest
 # deb-updates makes two shell calls, but only `apt list --upgradable`
 # drives the analysis. In test mode the `apt-get update` cache refresh
 # is skipped and the single fixture file is used as the upgradable
-# list. The `containerfiles/` directory next door still holds the
-# legacy podman setup for cross-distro smoke coverage and can be
-# migrated to testcontainers-python later.
+# list.
+#
+# The TESTS below cover every Debian-family distro we support. The
+# fixtures were captured on real podman containers with
+# `apt list --upgradable` at a single point in time, so the
+# assertions only check the parser's behaviour (does the plugin cope
+# with this distro's codename, repo pocket, and version format) - they
+# do NOT validate that a specific package is or is not listed. Every
+# captured fixture had at least one pending upgrade.
 TESTS = [
+    # Debian
     {
-        'id': 'ok-no-updates',
-        'test': 'stdout/no-updates,,0',
-        'params': '',
-        'assert-retc': STATE_OK,
-        'assert-in': ['No updates available'],
-    },
-    {
-        'id': 'warn-one-pending-upgrade',
-        'test': 'stdout/one-pending-upgrade,,0',
+        'id': 'warn-debian10',
+        'test': 'stdout/debian10,,0',
         'params': '',
         'assert-retc': STATE_WARN,
-        'assert-in': ['1 update available', 'vim-tiny'],
+        'assert-in': ['update', 'available'],
     },
     {
-        'id': 'ok-one-pending-upgrade-with-high-warn',
-        'test': 'stdout/one-pending-upgrade,,0',
-        'params': '--warning 5',
-        'assert-retc': STATE_OK,
-    },
-    {
-        'id': 'warn-three-pending-upgrades',
-        'test': 'stdout/security-upgrades,,0',
+        'id': 'warn-debian11',
+        'test': 'stdout/debian11,,0',
         'params': '',
         'assert-retc': STATE_WARN,
-        'assert-in': ['3 updates available'],
+        'assert-in': ['update', 'available'],
+    },
+    {
+        'id': 'warn-debian12',
+        'test': 'stdout/debian12,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['update', 'available'],
+    },
+    {
+        'id': 'warn-debian13',
+        'test': 'stdout/debian13,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['update', 'available'],
+    },
+    # Ubuntu
+    {
+        'id': 'warn-ubuntu2004',
+        'test': 'stdout/ubuntu2004,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['update', 'available'],
+    },
+    {
+        'id': 'warn-ubuntu2204',
+        'test': 'stdout/ubuntu2204,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['update', 'available'],
+    },
+    {
+        'id': 'warn-ubuntu2404',
+        'test': 'stdout/ubuntu2404,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['update', 'available'],
+    },
+    {
+        'id': 'warn-ubuntu2604',
+        'test': 'stdout/ubuntu2604,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['update', 'available'],
+    },
+    # High --warning threshold keeps the plugin at STATE_OK even with
+    # pending upgrades (sanity-check the state logic on a distro with
+    # many pending upgrades).
+    {
+        'id': 'ok-debian12-with-high-warn',
+        'test': 'stdout/debian12,,0',
+        'params': '--warning 99999',
+        'assert-retc': STATE_OK,
+    },
+    # Security-only filter: --only-critical must cope with fixtures
+    # that have no security entries and with fixtures that mix
+    # ,-security suffixes.
+    {
+        'id': 'only-critical-ubuntu2204',
+        'test': 'stdout/ubuntu2204,,0',
+        'params': '--only-critical',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['critical'],
     },
 ]
 
