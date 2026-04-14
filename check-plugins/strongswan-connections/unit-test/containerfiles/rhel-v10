@@ -1,0 +1,30 @@
+# Base image: Official RHEL 10
+FROM registry.access.redhat.com/ubi10
+
+# Install Python and build toolchain for pip-built dependencies.
+RUN dnf --assumeyes install --nodocs python python-pip python-devel gcc && \
+    dnf clean all
+
+# Install EPEL and the strongswan daemon. RHEL 10 does not have
+# its own EPEL 10 release yet, so the EPEL 9 repo is used — this is
+# the same approach as in the cpu-usage container tests. The VPN
+# functionality will not actually work inside an unprivileged
+# container (the kernel IPSec interfaces need CAP_NET_ADMIN), but
+# the VICI control socket is independent of the kernel backend and
+# opens regardless. That is exactly what this test verifies: the
+# plugin can reach the socket and parse the daemon's reply.
+RUN dnf --assumeyes install --nodocs https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
+    dnf --assumeyes install --nodocs strongswan && \
+    dnf clean all
+
+# Install the plugin's Python dependencies (including vici).
+WORKDIR /tmp
+ADD https://raw.githubusercontent.com/Linuxfabrik/monitoring-plugins/refs/heads/main/requirements.txt /tmp/requirements.txt
+RUN dnf --assumeyes remove python3-requests
+RUN python -m pip install --upgrade pip && \
+    python -m pip install --no-cache-dir --requirement requirements.txt --no-deps
+
+# Default command to keep the container running. The test harness
+# starts charon on demand via `container.exec()` once the container
+# is up.
+CMD ["sleep", "infinity"]

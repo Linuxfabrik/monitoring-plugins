@@ -8,7 +8,17 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import os
 import sys
+import time
+
+# testcontainers-python normally starts a Ryuk side-car that cleans
+# up dangling containers on test exit. Ryuk needs a long-running TCP
+# socket that rootless podman does not reliably provide, and the
+# tests then hang waiting for it to become "ready". Disable it here
+# before any testcontainers code runs; cleanup is still handled by
+# the `with DockerContainer(...)` context manager.
+os.environ.setdefault('TESTCONTAINERS_RYUK_DISABLED', 'true')
 
 sys.path.insert(0, '..')
 
@@ -17,10 +27,18 @@ import unittest
 import lib.lftest
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
-# strongswan-connections talks to swanctl via three sequential calls.
-# `--test` takes a base path and the plugin looks up
-# `<base>-possible_connection_keys`, `<base>-active_connection_keys`,
-# and `<base>-list_sas` next to each other in stdout/.
+try:
+    from testcontainers.core.container import DockerContainer
+    from testcontainers.core.image import DockerImage
+except ImportError:
+    DockerContainer = None
+    DockerImage = None
+
+
+# Fast, fixture-driven tests. `--test` takes a single JSON file path
+# (single-file convention, one object per scenario with `list_conns`
+# and `list_sas` keys), and the plugin derives all the key lists
+# from it the same way the production path does.
 TESTS = [
     {
         'id': 'unknown-no-connections-configured',
@@ -114,6 +132,115 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+# Container-based smoke tests for RHEL 8, 9 and 10. Each Containerfile
+# installs strongSwan from EPEL and keeps the container alive via
+# `sleep infinity`. The test harness starts charon inside the
+# container on demand, waits for the VICI control socket to appear,
+# bind-mounts the plugin script + the local lib/ tree into /tmp, and
+# runs the plugin against the live socket. The point is to verify
+# that the plugin can open the Unix socket, speak the VICI protocol
+# and parse charon's reply across all three target distros.
+#
+# charon logs a long list of CAP_NET_ADMIN / IPSec-kernel warnings
+# because no real VPN machinery is available in an unprivileged
+# container, but the VICI plugin is independent of those and opens
+# the socket either way. The `NET_ADMIN` capability is added because
+# the `charon` critical plugin has a dependency on `kernel-ipsec`;
+# without it charon aborts on startup before the socket is usable.
+# Adding NET_ADMIN is enough for charon to complete initialization
+# even if the underlying netlink / PF_KEY operations still fail.
+#
+# Requires podman (or docker) with a reachable socket. For rootless
+# podman, export `DOCKER_HOST=unix:///run/user/$UID/podman/podman.sock`
+# and `TESTCONTAINERS_RYUK_DISABLED=true`. The whole block is a no-op
+# when the testcontainers Python module is not installed, so tests
+# still run on hosts without podman.
+HERE = os.path.dirname(os.path.abspath(__file__))
+LIB_DIR = os.path.realpath(os.path.join(HERE, '..', 'lib'))
+PLUGIN = os.path.realpath(os.path.join(HERE, '..', 'strongswan-connections'))
+
+CONTAINERFILES = [
+    'rhel-v8',
+    'rhel-v9',
+    'rhel-v10',
+]
+
+
+def _check_containerfile(test, containerfile):
+    if DockerContainer is None:
+        test.skipTest('testcontainers is not installed')
+
+    print(f'\n=== Testing {containerfile} ===', flush=True)
+    image_tag = f'lfmp-strongswan-connections-{containerfile}'.lower()
+    # clean_up=False keeps the built image on the host so the next
+    # run reuses all cached layers; testcontainers' default
+    # clean_up=True prunes the dangling parent layers and turns every
+    # run into a full rebuild.
+    with DockerImage(
+        path=HERE,
+        dockerfile_path=f'containerfiles/{containerfile}',
+        tag=image_tag,
+        clean_up=False,
+    ) as image:
+        # `,Z` relabels the mount for SELinux on podman/rhel hosts so
+        # the container can actually read the bind-mounted files.
+        container = (
+            DockerContainer(str(image.tag))
+            .with_volume_mapping(LIB_DIR, '/tmp/lib', mode='ro,Z')
+            .with_volume_mapping(PLUGIN, '/tmp/strongswan-connections', mode='ro,Z')
+            .with_kwargs(cap_add=['NET_ADMIN'])
+        )
+        with container:
+            # Start charon in the background and give it a moment to
+            # open the VICI socket. charon does not fork itself;
+            # redirect stdio and wrap in `sh -c ... &` so the exec
+            # call returns immediately.
+            container.exec([
+                'sh',
+                '-c',
+                '/usr/libexec/strongswan/charon > /tmp/charon.log 2>&1 &',
+            ])
+
+            # Poll for the VICI socket (up to 10s). RHEL EPEL
+            # strongswan writes it to /run/strongswan/charon.vici
+            # which is also the plugin's DEFAULT_SOCKET value.
+            socket_path = '/run/strongswan/charon.vici'
+            deadline = time.time() + 10
+            socket_ready = False
+            while time.time() < deadline:
+                probe = container.exec(
+                    ['sh', '-c', f'test -S {socket_path} && echo ready || echo waiting'],
+                )
+                if b'ready' in (probe.output or b''):
+                    socket_ready = True
+                    break
+                time.sleep(0.5)
+            if not socket_ready:
+                log = container.exec(['sh', '-c', 'cat /tmp/charon.log 2>&1']).output
+                print(
+                    f'VICI socket did not appear at {socket_path}.\n'
+                    f'charon log:\n{(log or b"").decode("utf-8", errors="replace")}',
+                    flush=True,
+                )
+                test.fail(f'VICI socket {socket_path} did not appear within 10s')
+
+            # Run the plugin. No connections are configured, so the
+            # plugin exits UNKNOWN with "No connections configured."
+            # That IS the successful smoke test: plugin opened the
+            # Unix socket, spoke VICI, got a reply, rendered output.
+            result = container.exec(
+                ['sh', '-c', 'cd /tmp && python3 ./strongswan-connections'],
+            )
+            output = (result.output or b'').decode('utf-8', errors='replace')
+            print(f'Script output:\n{output.strip()}', flush=True)
+
+            test.assertEqual(result.exit_code, STATE_UNKNOWN)
+            test.assertIn('No connections configured.', output)
+
+
+lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_containerfile)
 
 
 if __name__ == '__main__':
