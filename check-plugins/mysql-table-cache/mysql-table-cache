@@ -20,7 +20,7 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041401'
 
 DESCRIPTION = """Checks the hit rate for open table cache lookups in MySQL/MariaDB. A low hit rate
 indicates that table_open_cache may need to be increased.
@@ -109,8 +109,13 @@ def get_status(conn):
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:mysql_stats(), section # Table cache, v1.9.8
-    # including variable names
+    # logic taken from mysqltuner.pl:mysql_stats(), section # Table cache,
+    # verified in sync with MySQLTuner v2.8.38 (the hit-rate formula, the
+    # `Opened_tables > 0` calc guard, the `Open_tables > 0` check guard,
+    # the `< 20%` warn threshold and the "Increase table_open_cache
+    # gradually" / "open_files_limit must be greater than
+    # table_open_cache" recommendation are unchanged upstream since the
+    # original port).
 
     # parse the command line, exit with UNKNOWN if it fails
     try:

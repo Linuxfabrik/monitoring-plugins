@@ -95,6 +95,7 @@ Monitoring Plugins:
 * file-ownership: `--filename` now merges with the default file list instead of replacing it; use `--no-default-files` to check only user-supplied files
 * file-ownership: extend default file list with CIS benchmark-relevant files (login.defs, sudoers, sysctl, systemd, PAM, etc.)
 * file-ownership: use `os.stat()` instead of shelling out to `stat`, improving performance and robustness
+* mysql-table-cache: document in the plugin README why `Table_open_cache_overflows` is intentionally not tracked (it is routine cache housekeeping, not a pass/fail signal) and link to the MariaDB KB for tuning guidance; the check logic itself is unchanged and remains in sync with MySQLTuner v2.8.38 ([#968](https://github.com/Linuxfabrik/monitoring-plugins/issues/968))
 * nextcloud-version: modernize code
 * php-status: always assume http://localhost/monitoring.php and, if not found, be tolerant
 * redis-status, valkey-status: modernize code and unify both plugins again after [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954)

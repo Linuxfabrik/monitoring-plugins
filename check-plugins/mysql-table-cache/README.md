@@ -3,12 +3,13 @@
 
 ## Overview
 
-Checks the hit rate for open table cache lookups in MySQL/MariaDB. A low hit rate indicates that `table_open_cache` may need to be increased. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
+Checks the hit rate for open table cache lookups in MySQL/MariaDB. A low hit rate indicates that `table_open_cache` may need to be increased. Logic is taken from [MySQLTuner](https://github.com/jmrenouard/MySQLTuner-perl):mysql_stats() and has been verified in sync with MySQLTuner v2.8.38.
 
 **Important Notes:**
 
 * Requires MySQL/MariaDB v5.1+
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
+* `Table_open_cache_overflows` is intentionally not tracked. The MySQL reference manual describes it as "the number of times, after a table is opened or closed, a cache instance has an unused entry and the size of the instance is larger than `table_open_cache / table_open_cache_instances`" ([MySQL Server Status Variables](https://docs.oracle.com/cd/E17952_01/mysql-5.7-en/server-status-variables.html)). In other words, it is a routine cache-housekeeping counter that increments whenever MySQL temporarily extends a per-instance cache bucket above its allocated share, so a non-zero value is not by itself a problem. A [MySQL 5.6 benchmark by Dimitri Kravtchuk](https://planet.mysql.com/entry/?id=34237) shows healthy servers running with non-zero overflows for hours. The existing `table_cache_hit_rate < 20%` warn threshold already covers the "table_open_cache is too small" signal and matches the same heuristic MySQLTuner v2.8.38 still uses. See [MariaDB KB: Optimizing table_open_cache](https://mariadb.com/kb/en/library/optimizing-table_open_cache/) for further tuning guidance.
 
 **Data Collection:**
 
@@ -98,4 +99,4 @@ Output:
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).
 * Credits:
 
-    * heavily inspired by MySQLTuner (<https://github.com/major/MySQLTuner-perl>)
+    * heavily inspired by MySQLTuner (<https://github.com/jmrenouard/MySQLTuner-perl>)
