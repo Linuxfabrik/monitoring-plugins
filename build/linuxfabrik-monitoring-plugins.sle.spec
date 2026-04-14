@@ -11,12 +11,15 @@ Packager:       info@linuxfabrik.ch
 # the main package. RPM installs one such symlink for every shared
 # object in the bundled venv, and the build-id hash is computed from
 # the .so content, so two independent RPMs that happen to ship the
-# same upstream binary (e.g. a bundled libpython) end up fighting over
-# the same symlink path and `dnf install` aborts with a file
-# conflict. Setting `_build_id_links` to `none` keeps the debuginfo
-# extraction running in general but tells rpmbuild to skip this
-# specific symlink creation. See issue #979 and the same workaround
-# in the azure-cli project at Azure/azure-cli#23798.
+# same upstream binary (e.g. one also carrying a copy of libpython or
+# of a compiled Python extension like charset_normalizer) end up
+# fighting over the same symlink path and `dnf install` aborts with
+# a file conflict. Setting `_build_id_links` to `none` tells rpmbuild
+# to skip the symlink creation while leaving the rest of the package
+# build untouched. See issue #979 for the conflict against azure-cli
+# and Microsoft VS Code microsoft/vscode#116105 for the same
+# workaround (merged 2021) against the same class of problem between
+# `code` and `code-insiders`.
 %define _build_id_links none
 
 Source0:        https://github.com/Linuxfabrik/monitoring-plugins/archive/refs/tags/v%{version}.tar.gz
