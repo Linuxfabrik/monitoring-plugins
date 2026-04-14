@@ -72,6 +72,14 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # Pad args.TEST to 3 elements so the per-command fixture
+    # loads below that splice `args.TEST[1]` and `args.TEST[2]`
+    # into custom lib.lftest.test() calls do not go out of range
+    # when the user passes `--test=path` without trailing commas.
+    if args.TEST is not None:
+        while len(args.TEST) < 3:
+            args.TEST.append('')
+
     # init some vars
     if args.TEST_OS_FAMILY:
         distro = {'os_family': args.TEST_OS_FAMILY}
