@@ -98,6 +98,7 @@ Monitoring Plugins:
 * file-ownership: extend default file list with CIS benchmark-relevant files (login.defs, sudoers, sysctl, systemd, PAM, etc.)
 * file-ownership: use `os.stat()` instead of shelling out to `stat`, improving performance and robustness
 * mysql-table-cache: document in the plugin README why `Table_open_cache_overflows` is intentionally not tracked (it is routine cache housekeeping, not a pass/fail signal) and link to the MariaDB KB for tuning guidance; the check logic itself is unchanged and remains in sync with MySQLTuner v2.8.38 ([#968](https://github.com/Linuxfabrik/monitoring-plugins/issues/968))
+* nextcloud-enterprise, nextcloud-version: no longer require the Nextcloud `occ` script to be marked executable. The plugins now locate `php` on the system and invoke `php occ <cmd>` under the numeric UID that owns `config/config.php`, which also works on installations where `occ` lacks the execute bit or its shebang does not resolve to a working PHP interpreter
 * nextcloud-version: modernize code
 * php-status: always assume http://localhost/monitoring.php and, if not found, be tolerant
 * redis-status, valkey-status: modernize code and unify both plugins again after [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954)
