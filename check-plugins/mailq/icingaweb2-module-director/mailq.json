@@ -8,6 +8,9 @@
                 "--critical": {
                     "value": "$mailq_critical$"
                 },
+                "--mta": {
+                    "value": "$mailq_mta$"
+                },
                 "--warning": {
                     "value": "$mailq_warning$"
                 }
@@ -27,6 +30,11 @@
                 },
                 {
                     "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -72,7 +80,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the number of messages in the mail queue using the \"mailq\" command. Alerts when the queue length exceeds the configured thresholds.",
+            "notes": "Checks how long the oldest mail in the local mail queue has been waiting and alerts when it exceeds the configured duration thresholds. On hosts with Postfix, reads the queue via `postqueue -j` (JSON, with `arrival_time` as Unix epoch) for maximum accuracy. On Exim hosts, reads `mailq` (which is aliased to `exim -bp` by exim) and parses the age literal that exim prints next to each queued message. On other hosts, falls back to running `mailq` and parsing `Date:` lines from the output. A non-empty queue with 100 mails that are all a few minutes old is still OK, while a single mail stuck for more than an hour triggers a WARN, which matches how most admins actually want to be alerted on a mail queue.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mailq/",
             "object_name": "tpl-service-mailq",
             "object_type": "template",
@@ -84,12 +92,46 @@
             "vars": {
                 "criticality": "C",
                 "mailq_always_ok": false,
-                "mailq_critical": 250,
-                "mailq_warning": 2
+                "mailq_critical": "3D",
+                "mailq_mta": "auto",
+                "mailq_warning": "1h"
             },
             "volatile": null,
             "zone": null,
             "uuid": "ed0b2520-5428-494b-9a7c-54860bd1cecc"
+        }
+    },
+    "DataList": {
+        "mailq_mta_list": {
+            "list_name": "mailq_mta_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "auto",
+                    "entry_value": "Auto",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "postfix",
+                    "entry_value": "Postfix",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "exim",
+                    "entry_value": "Exim",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "sendmail",
+                    "entry_value": "Sendmail",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "08085327-d955-406b-8745-c804ca15220a"
         }
     },
     "Datafield": {
@@ -105,7 +147,7 @@
         "2": {
             "varname": "mailq_critical",
             "caption": "Mailq: Critical",
-            "description": "CRIT threshold for the number of mails in the queue.",
+            "description": "CRIT threshold for the age of the oldest mail in the queue. Accepts a duration with a unit suffix (`Ns`, `Nm`, `Nh`, `ND`, `NW`, `NM`, `NY`, case-sensitive units). Example: `--critical=3D` to alert when the oldest mail has been in the queue for 3 days or more.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -114,9 +156,22 @@
             "uuid": "08ba1716-c276-4591-a718-3c6ab9b052e2"
         },
         "3": {
+            "varname": "mailq_mta",
+            "caption": "Mailq: Mta",
+            "description": "Which mail transfer agent to query. The default `auto` probes for `postqueue` (Postfix), then `exim`/`exim4` (Exim), and falls back to `mailq` (Sendmail-style) otherwise. Override this if the detection picks the wrong MTA.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "mailq_mta_list"
+            },
+            "uuid": "834e8c2c-2356-4207-ab7d-86ffdbc35696"
+        },
+        "4": {
             "varname": "mailq_warning",
             "caption": "Mailq: Warning",
-            "description": "WARN threshold for the number of mails in the queue.",
+            "description": "WARN threshold for the age of the oldest mail in the queue. Accepts a duration with a unit suffix (`Ns`, `Nm`, `Nh`, `ND`, `NW`, `NM`, `NY`, case-sensitive units). Example: `--warning=1h` to alert when the oldest mail has been in the queue for an hour or more.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
