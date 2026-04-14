@@ -49,7 +49,7 @@ import _common
 import yaml
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041302'
+__version__ = '2026041401'
 
 DESCRIPTION = """Generate an Icinga Director basket JSON from a check plugin. Walks the
 plugin's argparse definition, turns each parameter into a Director datafield, emits a
@@ -162,7 +162,9 @@ def parse_args():
     mode.add_argument(
         '--auto',
         help='Automatically (re)generate baskets for every check plugin '
-             'in the repo.',
+        'in the repo. Never prompts: unknown datafields or objects get '
+        'a fresh uuid instead of asking which old object they '
+        'correspond to.',
         dest='AUTO',
         action='store_true',
         default=False,
@@ -447,7 +449,7 @@ def offer_selection(options):
         sys.exit(130)
 
 
-def manage_uuids(data, old_data=None):
+def manage_uuids(data, old_data=None, auto=False):
     if old_data:
         reused_uuid_objects = []
         for parent_key, parent_value in data.items():
@@ -471,6 +473,10 @@ def manage_uuids(data, old_data=None):
                                 # could not find the uuid in the existing basket, therefore skipping so a new one is generated further down
                                 continue
                             old_uuid = None
+                    elif auto:
+                        # `--auto` never prompts: treat unknown varnames as new
+                        # objects so a fresh uuid is generated further down.
+                        continue
                     else:
                         print(
                             f'\nCould not find the corresponding object for "[{parent_key}][{value["varname"]}]". Which uuid should I use?'
@@ -497,6 +503,10 @@ def manage_uuids(data, old_data=None):
                     if old_uuid is not None:
                         data[parent_key][key]['uuid'] = old_uuid
                         reused_uuid_objects.append(f'[{parent_key}][{key}]')
+                    elif auto:
+                        # `--auto` never prompts: treat unknown keys as new
+                        # objects so a fresh uuid is generated further down.
+                        continue
                     else:
                         print(
                             f'\nCould not find the corresponding object for "[{parent_key}][{key}]".'
@@ -756,7 +766,7 @@ def parse_plugin_args(
     return data, command_field_id
 
 
-def generate_basket(plugin_file, config=None, old_data=None):
+def generate_basket(plugin_file, config=None, old_data=None, auto=False):
     if config is None:
         config = {}
     if 'variants' not in config:
@@ -929,7 +939,7 @@ def generate_basket(plugin_file, config=None, old_data=None):
         if not data[key]:
             del data[key]
 
-    return manage_uuids(data, old_data)
+    return manage_uuids(data, old_data, auto=auto)
 
 
 def _load_old_basket(path):
@@ -963,12 +973,14 @@ def _load_config(path):
         return None
 
 
-def build_basket_for_plugin(plugin_file):
+def build_basket_for_plugin(plugin_file, auto=False):
     """Generate (or regenerate) the basket for one plugin file.
 
     Returns True on success, False on failure. Callers decide
     whether a single failure stops the sweep or just gets
-    collected for an end-of-run summary.
+    collected for an end-of-run summary. With ``auto=True`` no
+    interactive prompts are shown: unknown objects get fresh
+    uuids instead of asking which old object they correspond to.
     """
     plugin_file = Path(plugin_file)
     if not plugin_file.is_file():
@@ -989,7 +1001,7 @@ def build_basket_for_plugin(plugin_file):
     if config is not None:
         print(f'Using config at {config_file}.')
 
-    plugin_data = generate_basket(str(plugin_file), config, old_data)
+    plugin_data = generate_basket(str(plugin_file), config, old_data, auto=auto)
     if plugin_data is None:
         _common.err(f'No data for {check_name}.')
         return False
@@ -1015,7 +1027,7 @@ def main():
         print('\n' + '- ' * 40)
         print(f'Check: {plugin_dir.name}')
         print('- ' * 40)
-        if not build_basket_for_plugin(plugin_file):
+        if not build_basket_for_plugin(plugin_file, auto=True):
             failed.append(plugin_dir.name)
 
     if failed:

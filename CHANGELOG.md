@@ -112,6 +112,7 @@ Monitoring Plugins:
 
 Tools:
 
+* build-basket: `--auto` is now truly non-interactive. Previously it kept its promise only when every datafield already existed in the committed basket; the moment a plugin introduced a new datafield, the tool fell through to an `input()` prompt and crashed with `EOFError` when run from CI or a non-interactive shell. `--auto` now treats unknown datafields and objects as new and generates fresh uuids for them instead of asking
 * rename `tools/check2basket` to `tools/build-basket` (one basket is built per run, so the singular name matches what the tool does) and `tools/remove-uuids` to `tools/basket-remove-uuids` (prefix-group consistency with `basket-compare` / `basket-join`). Update any scripts, wrappers or documentation that invoked the old names.
 
 
