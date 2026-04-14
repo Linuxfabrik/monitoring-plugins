@@ -28,11 +28,11 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041402'
 
-DESCRIPTION = """Checks the state of one or more Windows services. Accepts the case-insensitive service
-name (not the display name) and supports regular expressions to match multiple services.
-Alerts on services that are not in the expected state."""
+DESCRIPTION = """Checks the state of one or more Windows services. Accepts the case-insensitive
+service name (not the display name) and supports regular expressions to match multiple
+services. Alerts on services that are not in the expected state."""
 
 DEFAULT_CRIT = None
 DEFAULT_SEVERITY = 'warn'
@@ -132,6 +132,49 @@ def parse_args():
     return args
 
 
+def collect_matches(compiled_regex, test_arg):
+    """Return every Windows service whose name matches `compiled_regex`.
+
+    Walks `psutil.win_service_iter()` in production and the
+    `--test` fixture (CSV lines of `name, display_name, status,
+    start_type`) in unit-test mode. Each match is a flat dict, so
+    the caller can apply the start-type and status filters without
+    having to re-wrap anything. A `psutil.NoSuchProcess` raised
+    mid-iteration (race condition: a service disappears between
+    enumeration and inspection) is swallowed so the caller still
+    gets whatever was already collected.
+    """
+    matches = []
+    try:
+        if test_arg is None:
+            for s in psutil.win_service_iter():
+                if re.search(compiled_regex, s.name()):
+                    matches.append(
+                        {
+                            'name': s.name(),
+                            'display_name': s.display_name(),
+                            'status': s.status(),
+                            'start_type': s.start_type(),
+                        }
+                    )
+            return matches
+        stdout, _, _ = lib.lftest.test(test_arg)
+        for line in stdout.splitlines():
+            name, display_name, status, start_type = line.split(', ')
+            if re.search(compiled_regex, name):
+                matches.append(
+                    {
+                        'name': name,
+                        'display_name': display_name,
+                        'status': status,
+                        'start_type': start_type,
+                    }
+                )
+    except psutil.NoSuchProcess:
+        pass
+    return matches
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -165,51 +208,51 @@ def main():
     }
     svcstate_cnt = 0  # this is the overall count of matching service states
 
-    # fetch and analyze data
+    # regex-match first, start_type-filter second: otherwise a service
+    # that would match the user's regex but happens to have a
+    # non-matching start_type is silently dropped before the regex even
+    # runs, and the user sees a "does not match any service name" error
+    # for a service that very much exists. By splitting the two phases
+    # we can give an actionable error when the regex found candidates
+    # but the start_type filter removed all of them ([#921]).
     try:
         compiled_service_regex = re.compile(args.SERVICE, re.IGNORECASE)
-
-        # fetch data
-        if args.TEST is None:
-            for s in psutil.win_service_iter():
-                # print(f'{s.name()}, {s.display_name()}, {s.status()}, {s.start_type()}')
-                if s.start_type() not in args.STARTTYPE:
-                    continue
-                matches = re.search(compiled_service_regex, s.name())
-                if matches:
-                    # count the service states of interest
-                    if s.status() in args.STATUS:
-                        svcstates[s.status()] += 1
-                        svcstate_cnt += 1
-                    table_data.append(s.as_dict())
-        else:
-            # do not call the command, put in test data
-            stdout, _, _ = lib.lftest.test(args.TEST)
-            for s in stdout.splitlines():
-                name, display_name, status, start_type = s.split(', ')
-                if start_type not in args.STARTTYPE:
-                    continue
-                matches = re.search(compiled_service_regex, name)
-                if matches:
-                    # count the service states of interest
-                    if status in args.STATUS:
-                        svcstates[status] += 1
-                        svcstate_cnt += 1
-                    table_data.append(
-                        {
-                            'name': name,
-                            'display_name': display_name,
-                            'status': status,
-                            'start_type': start_type,
-                        }
-                    )
     except re.error as rerr:
         lib.base.cu(f'Invalid regex "{args.SERVICE}": {rerr}')
-    except psutil.NoSuchProcess:
+
+    # fetch data
+    regex_matches = collect_matches(compiled_service_regex, args.TEST)
+
+    # no regex match at all — the name truly does not exist
+    if not regex_matches:
         lib.base.cu(f'r`{args.SERVICE}` does not match any service name.')
 
+    # regex matched, now apply the start_type filter
+    for match in regex_matches:
+        if match['start_type'] not in args.STARTTYPE:
+            continue
+        if match['status'] in args.STATUS:
+            svcstates[match['status']] += 1
+            svcstate_cnt += 1
+        table_data.append(match)
+
+    # regex found candidates but all were rejected by --starttype: tell
+    # the user exactly which start_types we saw so they can fix the
+    # filter instead of chasing a phantom "does not match" error.
     if not table_data:
-        lib.base.cu(f'r`{args.SERVICE}` does not match any service name.')
+        seen_types = sorted({m['start_type'] for m in regex_matches})
+        sample = ', '.join(
+            f'{m["name"]} ({m["start_type"]})' for m in regex_matches[:5]
+        )
+        if len(regex_matches) > 5:
+            sample += ', ...'
+        lib.base.cu(
+            f'r`{args.SERVICE}` matched {len(regex_matches)} '
+            f'{lib.txt.pluralize("service", len(regex_matches))}, but none '
+            f'have a start_type in {sorted(args.STARTTYPE)}. Matched '
+            f'start_types: {seen_types}. Matched services: {sample}. '
+            f'Adjust --starttype to include them.'
+        )
     svc_cnt = len(table_data)
 
     # build the message

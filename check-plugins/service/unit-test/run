@@ -50,6 +50,58 @@ TESTS = [
             "'start_pending', 'stop_pending', 'stopped'] (thresholds 0/None) [WARNING].",
         ],
     },
+
+    # regression tests for issue #921: service names that contain a
+    # space (e.g. "RAS Telegraf") must match just like any other name.
+    # The fixture has the service with start_type=manual, so a default
+    # call (--starttype=automatic implicit) must now give an
+    # actionable error instead of the misleading "does not match any
+    # service name".
+    {
+        'id': 'ok-ras-telegraf-manual',
+        'test': 'stdout/windows-services-mixed,,0',
+        'params': (
+            "--service='^RAS Telegraf$' "
+            '--starttype=manual --status=running --warning=1:1'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "Everything is ok. 1 service named r`^RAS Telegraf$` and start "
+            "type ['manual'] found, 1 in status ['running'] "
+            '(thresholds 1:1/None).',
+            'RAS Telegraf',
+        ],
+    },
+    {
+        'id': 'unknown-ras-telegraf-default-starttype-filter',
+        'test': 'stdout/windows-services-mixed,,0',
+        # The user runs the plugin without thinking about --starttype;
+        # the default filter [automatic] hides the RAS Telegraf service
+        # (which is manual), but we now report that the regex did find
+        # a candidate and tell them exactly how to include it.
+        'params': "--service='^RAS Telegraf$'",
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'r`^RAS Telegraf$` matched 1 service',
+            "start_type in ['automatic']",
+            "Matched start_types: ['manual']",
+            'RAS Telegraf (manual)',
+            'Adjust --starttype',
+        ],
+    },
+    {
+        'id': 'unknown-regex-does-not-match-any-service',
+        'test': 'stdout/windows-services-mixed,,0',
+        # The regex really does not match any service in the fixture.
+        # The old "does not match any service name" wording is kept for
+        # this case so existing monitoring setups that grep on the
+        # error text still work.
+        'params': "--service='^doesnotexist$'",
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'r`^doesnotexist$` does not match any service name.',
+        ],
+    },
 ]
 
 

@@ -101,6 +101,7 @@ Monitoring Plugins:
 * redis-status, valkey-status: modernize code and unify both plugins again after [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954)
 * rocketchat-stats: improve output
 * scanrootkit: kernel symbol matching is now exact per symbol instead of a substring search, so a signature like `is_invisible` no longer accidentally matches an unrelated legitimate symbol named `is_invisible_helper`. False positives on clean systems that previously had such symbol-name collisions will disappear.
+* service: Windows services whose technical name contains a space (e.g. `"RAS Telegraf"`) are now correctly matched by `--service`. The plugin also produces a much more helpful error when the regex matches a service but it is filtered out by `--starttype` (previously it reported "does not match any service name", which was misleading because the service existed but had a different start type) ([#921](https://github.com/Linuxfabrik/monitoring-plugins/issues/921))
 * statuspal: replace `flatdict` dependency with a recursive approach ([#1044](https://github.com/Linuxfabrik/monitoring-plugins/issues/1044))
 * systemd-units-failed: show failed unit names in the first output line for better dashboard and SMS alert readability ([#967](https://github.com/Linuxfabrik/monitoring-plugins/issues/967))
 * updates: adapt to updated powershell.py library
