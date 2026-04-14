@@ -31,21 +31,44 @@ Checks the number of messages in the mail queue using the `mailq` command. Alert
 ## Help
 
 ```text
-usage: mailq [-h] [-V] [--always-ok] [-c CRIT] [--test TEST] [-w WARN]
+usage: mailq [-h] [-V] [--always-ok] [-c CRIT]
+             [--mta {auto,postfix,exim,sendmail}] [--test TEST] [-w WARN]
 
-Checks the number of messages in the mail queue using the "mailq" command.
-Alerts when the queue length exceeds the configured thresholds.
+Checks how long the oldest mail in the local mail queue has been waiting and
+alerts when it exceeds the configured duration thresholds. On hosts with
+Postfix, reads the queue via `postqueue -j` (JSON, with `arrival_time` as Unix
+epoch) for maximum accuracy. On Exim hosts, reads `mailq` (which is aliased to
+`exim -bp` by exim) and parses the age literal that exim prints next to each
+queued message. On other hosts, falls back to running `mailq` and parsing
+`Date:` lines from the output. A non-empty queue with 100 mails that are all a
+few minutes old is still OK, while a single mail stuck for more than an hour
+triggers a WARN, which matches how most admins actually want to be alerted on
+a mail queue.
 
 options:
-  -h, --help           show this help message and exit
-  -V, --version        show program's version number and exit
-  --always-ok          Always returns OK.
-  -c, --critical CRIT  CRIT threshold for the number of mails in the queue.
-                       Default: 250
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
-  -w, --warning WARN   WARN threshold for the number of mails in the queue.
-                       Default: 2
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
+  -c, --critical CRIT   CRIT threshold for the age of the oldest mail in the
+                        queue. Accepts a duration with a unit suffix (`Ns`,
+                        `Nm`, `Nh`, `ND`, `NW`, `NM`, `NY`, case-sensitive
+                        units). Example: `--critical=3D` to alert when the
+                        oldest mail has been in the queue for 3 days or more.
+                        Default: 3D
+  --mta {auto,postfix,exim,sendmail}
+                        Which mail transfer agent to query. The default `auto`
+                        probes for `postqueue` (Postfix), then `exim`/`exim4`
+                        (Exim), and falls back to `mailq` (Sendmail-style)
+                        otherwise. Override this if the detection picks the
+                        wrong MTA. Default: auto
+  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                        stderr-file,expected-retc".
+  -w, --warning WARN    WARN threshold for the age of the oldest mail in the
+                        queue. Accepts a duration with a unit suffix (`Ns`,
+                        `Nm`, `Nh`, `ND`, `NW`, `NM`, `NY`, case-sensitive
+                        units). Example: `--warning=1h` to alert when the
+                        oldest mail has been in the queue for an hour or more.
+                        Default: 1h
 ```
 
 

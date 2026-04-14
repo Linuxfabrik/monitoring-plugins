@@ -8,73 +8,160 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-import sys
+# Pin the test process to UTC so that `datetime.fromisoformat()`
+# and `email.utils.parsedate_to_datetime()` give reproducible
+# results regardless of the host timezone. The mailq plugin
+# interprets its hidden `--now` hook as UTC, and this env var
+# makes sure any indirect local-time conversion along the way
+# lands in UTC too. This has to happen before any `import` that
+# may read the timezone at import time, so the imports below are
+# intentionally not at the top of the file.
+import os
+import time
+
+os.environ['TZ'] = 'UTC'
+time.tzset()
+
+import sys  # noqa: E402
 
 sys.path.insert(0, '..')
 
-import unittest
+import unittest  # noqa: E402
 
-import lib.lftest
-from lib.globals import STATE_OK, STATE_WARN
+import lib.lftest  # noqa: E402
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN  # noqa: E402
+
+# All tests pin the plugin's "current time" to 2020-02-06 10:00:00 UTC
+# so the ages computed from the fixture timestamps are deterministic.
+# The fixtures are named after the shape of the data they carry
+# (what the plugin sees from postqueue/mailq), not after the expected
+# plugin state. The expected state lives in the testcase `id` and
+# depends on the combination of fixture content and the thresholds
+# the testcase passes in.
+_NOW = '--now=2020-02-06T10:00:00'
 
 TESTS = [
+    # postfix: postqueue -j, JSON-per-line, arrival_time as Unix epoch
     {
-        'id': 'ok-postfix-one-mail',
-        'test': 'stdout/postfix-one-mail,,0',
+        'id': 'ok-postfix-empty-queue',
+        'test': 'stdout/postfix-empty-queue,,0',
+        'params': f'--mta=postfix {_NOW}',
         'assert-retc': STATE_OK,
-        'assert-regex': r'1 mail to deliver\.',
+        'assert-in': ['Mail queue is empty.'],
     },
     {
-        'id': 'warn-postfix-two-mails',
-        'test': 'stdout/postfix-two-mails,,0',
+        'id': 'ok-postfix-one-mail-fresh',
+        'test': 'stdout/postfix-one-mail-fresh,,0',
+        # arrival 09:55:00, now 10:00:00 → age = 5 min, below 1h warn
+        'params': f'--mta=postfix {_NOW}',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Oldest mail has been in the queue for 5m', '1 mail'],
+    },
+    {
+        'id': 'warn-postfix-two-mails-oldest-is-four-days-lifted-crit',
+        'test': 'stdout/postfix-two-mails-two-hours-and-four-days,,0',
+        # oldest = 4 days. default warn=1h, default crit=3D would
+        # trigger CRIT, so lift crit to 7D to isolate the WARN
+        # transition in this testcase.
+        'params': f'--mta=postfix {_NOW} --critical=7D',
         'assert-retc': STATE_WARN,
-        'assert-regex': r'2 mails to deliver\.',
+        'assert-in': ['[WARNING]', '2 mails'],
     },
     {
-        'id': 'ok-postfix-empty',
-        'test': 'stdout/postfix-empty,,0',
+        'id': 'crit-postfix-two-mails-oldest-is-four-days-default',
+        'test': 'stdout/postfix-two-mails-two-hours-and-four-days,,0',
+        # oldest = 4 days >= 3D default crit → CRIT
+        'params': f'--mta=postfix {_NOW}',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['[CRITICAL]', '2 mails'],
+    },
+
+    # exim: mailq (= exim -bp), age literal at the start of each entry
+    {
+        'id': 'ok-exim-empty-queue',
+        'test': 'stdout/exim-empty-queue,,0',
+        'params': f'--mta=exim {_NOW}',
         'assert-retc': STATE_OK,
-        'assert-regex': r'Mail queue is empty\.',
+        'assert-in': ['Mail queue is empty.'],
     },
     {
-        'id': 'warn-postfix-two-mails-alt',
-        'test': 'stdout/postfix-two-mails-alt,,0',
+        'id': 'ok-exim-one-mail-zero-minutes',
+        'test': 'stdout/exim-one-mail-zero-minutes,,0',
+        'params': f'--mta=exim {_NOW}',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 mail'],
+    },
+    {
+        'id': 'warn-exim-three-mails-17m-above-custom-warn',
+        'test': 'stdout/exim-three-mails-17-minutes-oldest,,0',
+        'params': f'--mta=exim {_NOW} --warning=10m',
         'assert-retc': STATE_WARN,
-        'assert-regex': r'2 mails to deliver\.',
+        'assert-in': ['[WARNING]', '3 mails'],
     },
     {
-        'id': 'ok-sendmail-one-mail',
-        'test': 'stdout/sendmail-one-mail,,0',
+        'id': 'crit-exim-one-mail-three-days-default',
+        'test': 'stdout/exim-one-mail-three-days,,0',
+        # 3d == default crit 3D → CRIT
+        'params': f'--mta=exim {_NOW}',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['[CRITICAL]', '1 mail'],
+    },
+
+    # sendmail / esmtp: mailq, RFC2822 `Date:` lines
+    {
+        'id': 'ok-sendmail-empty-queue',
+        'test': 'stdout/sendmail-empty-queue,,0',
+        'params': f'--mta=sendmail {_NOW}',
         'assert-retc': STATE_OK,
-        'assert-regex': r'1 mail to deliver\.',
+        'assert-in': ['Mail queue is empty.'],
     },
-    # Same stdout fixture, but stderr carries a warning from the postqueue binary.
     {
-        'id': 'warn-postfix-empty-with-stderr',
-        'test': 'stdout/postfix-empty,stderr/postfix-empty,0',
+        'id': 'crit-sendmail-two-mails-oldest-is-four-days-default',
+        'test': 'stdout/sendmail-two-mails-one-day-and-four-days,,0',
+        # oldest = 4 days >= 3D default crit → CRIT
+        'params': f'--mta=sendmail {_NOW}',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['[CRITICAL]', '2 mails'],
+    },
+
+    # stderr: postqueue prints warnings to stderr; the plugin escalates
+    # to at least WARN and prepends the stderr message.
+    {
+        'id': 'warn-postfix-empty-queue-with-stderr',
+        'test': 'stdout/postfix-empty-queue,stderr/postfix-warning-mail-system-down,0',
+        'params': f'--mta=postfix {_NOW}',
         'assert-retc': STATE_WARN,
-        'assert-regex': (
-            r'postqueue: warning: Mail system is down -- accessing queue directly\. '
-            r'Mail queue is empty\.'
-        ),
+        'assert-in': [
+            'Mail system is down',
+            'Mail queue is empty.',
+        ],
     },
+
+    # --always-ok masks a CRIT but the rendered message still carries
+    # the [CRITICAL] marker so admins can see what the plugin would
+    # have reported.
     {
-        'id': 'ok-exim-one-mail',
-        'test': 'stdout/exim-one-mail,,0',
+        'id': 'ok-always-ok-masks-crit',
+        'test': 'stdout/postfix-two-mails-two-hours-and-four-days,,0',
+        'params': f'--mta=postfix {_NOW} --always-ok',
         'assert-retc': STATE_OK,
-        'assert-regex': r'1 mail to deliver\.',
+        'assert-in': ['[CRITICAL]'],
+    },
+
+    # invalid duration strings exit UNKNOWN with a clear message
+    {
+        'id': 'unknown-invalid-warning-duration',
+        'test': 'stdout/postfix-empty-queue,,0',
+        'params': f'--mta=postfix {_NOW} --warning=foo',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid --warning duration'],
     },
     {
-        'id': 'warn-exim-three-mails',
-        'test': 'stdout/exim-three-mails,,0',
-        'assert-retc': STATE_WARN,
-        'assert-regex': r'3 mails to deliver\.',
-    },
-    {
-        'id': 'ok-exim-empty',
-        'test': 'stdout/exim-empty,,0',
-        'assert-retc': STATE_OK,
-        'assert-regex': r'Mail queue is empty\.',
+        'id': 'unknown-invalid-critical-duration',
+        'test': 'stdout/postfix-empty-queue,,0',
+        'params': f'--mta=postfix {_NOW} --critical=bar',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid --critical duration'],
     },
 ]
 

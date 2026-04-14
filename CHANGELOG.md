@@ -16,6 +16,7 @@ Build, CI/CD:
 
 Monitoring Plugins:
 
+* mailq: the alerting semantic has flipped from "number of mails in the queue" to "age of the oldest mail in the queue". `--warning` and `--critical` now take a duration string with a unit suffix (`1h`, `3D`, `30m`, `72h`, ...) and the defaults are `1h` / `3D` (down from `2` / `250` mails). The rationale is that a queue with 100 fresh mails is still OK when they are delivered within minutes, while a single mail stuck for more than an hour is always interesting and is exactly when an admin wants to look. The mail count stays in perfdata (`mailq`) so Grafana trending keeps working, and the new `oldest_mail_age` perfdata metric carries the age in seconds. Existing Icinga services that set `mailq_warning=10` and `mailq_critical=500` need to be migrated to duration strings (e.g. `mailq_warning=1h`, `mailq_critical=3D`). Also adds `--mta=auto|postfix|exim|sendmail` to override MTA autodetection: Postfix is now read via `postqueue -j` (JSON with `arrival_time` as Unix epoch) for a rock-solid timestamp, Exim still uses `mailq` (= `exim -bp`) and its built-in age literals, and everything else falls back to `mailq` with `Date:` line parsing ([#781](https://github.com/Linuxfabrik/monitoring-plugins/issues/781))
 * procs: `--argument`, `--command` and `--username` now use regular expressions instead of substring/startswith matching. Existing filters like `--command=httpd` still work but now match anywhere in the name. Use `--command='^httpd'` for the previous startswith behavior, or `--username='^apache$'` for exact matches.
 
 
@@ -70,7 +71,7 @@ Assets:
 
 Build, CI/CD:
 
-* Bump pinned `linuxfabrik-lib` dependency from 3.0.0 to 3.1.0, picking up the new `run_mariadb()` / `MARIADB_LTS_IMAGES` container-test helpers, the `attach_each()` / `attach_tests()` unit-test helpers and the `disk.dir_exists()` directory check
+* Bump pinned `linuxfabrik-lib` dependency from 3.0.0 to 3.1.1, picking up the new `run_mariadb()` / `MARIADB_LTS_IMAGES` container-test helpers, the `attach_each()` / `attach_tests()` unit-test helpers, the `disk.dir_exists()` directory check, and `human2seconds()` / `humanduration2seconds()` accepting the lowercase `d` / `w` day/week markers (which the mailq plugin needs to parse exim age literals)
 * Windows MSI still installs all plugins to ProgramFiles64Folder/ICINGA2/sbin/linuxfabrik, but does not depend on an Icinga2 agent any longer
 
 

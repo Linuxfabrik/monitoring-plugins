@@ -11,24 +11,38 @@
 """See the check's README for more details."""
 
 import argparse
+import json
 import re
+import shutil
 import sys
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
 import lib.args
 import lib.base
+import lib.human
 import lib.lftest
 import lib.shell
+import lib.time
 import lib.txt
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041406'
 
-DESCRIPTION = """Checks the number of messages in the mail queue using the "mailq" command. Alerts
-when the queue length exceeds the configured thresholds."""
+DESCRIPTION = """Checks how long the oldest mail in the local mail queue has been waiting and
+alerts when it exceeds the configured duration thresholds. On hosts with Postfix, reads
+the queue via `postqueue -j` (JSON, with `arrival_time` as Unix epoch) for maximum
+accuracy. On Exim hosts, reads `mailq` (which is aliased to `exim -bp` by exim) and
+parses the age literal that exim prints next to each queued message. On other hosts,
+falls back to running `mailq` and parsing `Date:` lines from the output. A non-empty
+queue with 100 mails that are all a few minutes old is still OK, while a single mail
+stuck for more than an hour triggers a WARN, which matches how most admins actually
+want to be alerted on a mail queue."""
 
-DEFAULT_WARN = 2  # mails
-DEFAULT_CRIT = 250  # mails
+DEFAULT_CRIT = '3D'  # 3 days
+DEFAULT_MTA = 'auto'
+DEFAULT_WARN = '1h'  # 1 hour
 
 
 def parse_args():
@@ -53,11 +67,35 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for the number of mails in the queue. '
+        help='CRIT threshold for the age of the oldest mail in the queue. '
+        'Accepts a duration with a unit suffix (`Ns`, `Nm`, `Nh`, `ND`, `NW`, '
+        '`NM`, `NY`, case-sensitive units). '
+        'Example: `--critical=3D` to alert when the oldest mail has been in the '
+        'queue for 3 days or more. '
         'Default: %(default)s',
         dest='CRIT',
-        type=int,
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--mta',
+        help='Which mail transfer agent to query. The default `auto` probes for '
+        '`postqueue` (Postfix), then `exim`/`exim4` (Exim), and falls back to '
+        '`mailq` (Sendmail-style) otherwise. Override this if the detection '
+        'picks the wrong MTA. '
+        'Default: %(default)s',
+        dest='MTA',
+        choices=['auto', 'postfix', 'exim', 'sendmail'],
+        default=DEFAULT_MTA,
+    )
+
+    # Hidden test hook: fixes the "current time" so unit tests can
+    # assert deterministic ages against the fixture dates.
+    parser.add_argument(
+        '--now',
+        help=argparse.SUPPRESS,
+        dest='NOW',
+        default=None,
     )
 
     parser.add_argument(
@@ -70,15 +108,192 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for the number of mails in the queue. '
+        help='WARN threshold for the age of the oldest mail in the queue. '
+        'Accepts a duration with a unit suffix (`Ns`, `Nm`, `Nh`, `ND`, `NW`, '
+        '`NM`, `NY`, case-sensitive units). '
+        'Example: `--warning=1h` to alert when the oldest mail has been in the '
+        'queue for an hour or more. '
         'Default: %(default)s',
         dest='WARN',
-        type=int,
         default=DEFAULT_WARN,
     )
 
     args, _ = parser.parse_known_args()
     return args
+
+
+def detect_mta():
+    """Probe for installed MTA binaries in order and return a short tag
+    (`postfix`, `exim`, `sendmail`). Postfix is preferred because
+    `postqueue -j` gives us a machine-readable JSON stream with an
+    exact `arrival_time` epoch. Exim is next because its `mailq`
+    output embeds the age directly. Everything else falls back to
+    running `mailq` and parsing `Date:` lines like Sendmail does.
+    Returns `None` if no known binary is available.
+    """
+    if shutil.which('postqueue'):
+        return 'postfix'
+    if shutil.which('exim') or shutil.which('exim4'):
+        return 'exim'
+    if shutil.which('mailq'):
+        return 'sendmail'
+    return None
+
+
+def now_epoch(args):
+    """Return the "current time" as a UTC Unix epoch (int). Uses the
+    hidden `--now` test hook when set; otherwise defaults to the
+    real wallclock via `lib.time.now()`. `--now` accepts an ISO
+    datetime string (`2026-04-14 12:00:00`) which is interpreted as
+    UTC so tests stay deterministic regardless of the host
+    timezone.
+    """
+    if args.NOW is None:
+        return int(lib.time.now())
+    try:
+        dt = datetime.fromisoformat(args.NOW).replace(tzinfo=timezone.utc)
+        return int(dt.timestamp())
+    except ValueError:
+        lib.base.cu(f'Invalid --now value "{args.NOW}": expected ISO datetime.')
+        return 0
+
+
+def fetch_postfix():
+    """Run `postqueue -j` and return (stdout, stderr, retc). Postfix
+    3.1+ always supports this; older Postfix versions do not, in
+    which case the caller falls back to plain `mailq` output.
+    """
+    return lib.base.coe(lib.shell.shell_exec('postqueue -j'))
+
+
+def fetch_mailq():
+    """Run `mailq` and return (stdout, stderr, retc). Used for Exim
+    and Sendmail/compat, because exim installs `mailq` as an alias
+    for `exim -bp` and sendmail-style MTAs install it natively.
+    """
+    return lib.base.coe(lib.shell.shell_exec('mailq'))
+
+
+def parse_postfix_json(stdout, now):
+    """Parse the `postqueue -j` JSON stream. Each non-empty line is
+    one JSON object per queued message, with `arrival_time` as a
+    Unix epoch integer. Returns `(count, max_age_seconds)`. An
+    empty queue (no lines) returns `(0, 0)`.
+    """
+    count = 0
+    max_age = 0
+    for line in stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        count += 1
+        arrival = entry.get('arrival_time')
+        if isinstance(arrival, int):
+            max_age = max(max_age, now - arrival)
+    return count, max_age
+
+
+# Matches a single exim queue entry header line, with the age literal
+# (one or more `\d+[wdhms]` tokens, e.g. `17m`, `2h`, `1d12h`) as the
+# first non-whitespace token, followed by the size and the queue id.
+_EXIM_LINE_RE = re.compile(
+    r'^\s*((?:\d+[wdhms])+)\s+\S+\s+\S+\s+',
+)
+
+
+def _exim_age_to_seconds(age_str):
+    """Convert an exim age literal like `17m`, `2h`, `1d12h` into
+    seconds. Delegates to `lib.human.humanduration2seconds()`,
+    which accepts both the Linuxfabrik canonical uppercase `D`/`W`
+    day/week markers and the Unix-style lowercase `d`/`w` aliases
+    that exim uses.
+    """
+    return lib.human.humanduration2seconds(age_str)
+
+
+def parse_exim_mailq(stdout):
+    """Parse `mailq` output from Exim. Each queued message begins
+    with a header line `<age> <size> <id> <sender>` and is followed
+    by zero or more recipient continuation lines. Returns
+    `(count, max_age_seconds)`. An empty queue returns `(0, 0)`.
+    """
+    count = 0
+    max_age = 0
+    for line in stdout.splitlines():
+        match = _EXIM_LINE_RE.match(line)
+        if not match:
+            continue
+        count += 1
+        max_age = max(max_age, _exim_age_to_seconds(match.group(1)))
+    return count, max_age
+
+
+_SENDMAIL_DATE_RE = re.compile(r'Date:\s*([^\t\n\r]+)')
+
+
+def parse_sendmail_mailq(stdout, now):
+    """Parse `mailq` output from Sendmail / esmtp / compat. Each
+    queued message has a line containing a tab-separated
+    `Date: <rfc2822>` field which we parse via
+    `email.utils.parsedate_to_datetime()`. Returns
+    `(count, max_age_seconds)`. An empty queue returns `(0, 0)`.
+    """
+    count = 0
+    max_age = 0
+    for line in stdout.splitlines():
+        match = _SENDMAIL_DATE_RE.search(line)
+        if not match:
+            continue
+        try:
+            arrival_dt = parsedate_to_datetime(match.group(1).strip())
+        except (TypeError, ValueError):
+            continue
+        if arrival_dt is None:
+            continue
+        count += 1
+        if arrival_dt.tzinfo is None:
+            arrival_dt = arrival_dt.replace(tzinfo=timezone.utc)
+        max_age = max(max_age, int(now - arrival_dt.timestamp()))
+    return count, max_age
+
+
+def resolve_thresholds(args):
+    """Parse `--warning` and `--critical` as durations via
+    `lib.human.human2seconds()` and exit UNKNOWN with a clear
+    message if either value cannot be decoded. `human2seconds`
+    returns 0 for both valid `'0'` input and invalid garbage, so
+    we check the raw string against `'0'` to distinguish the two.
+    """
+    warn = lib.human.human2seconds(args.WARN)
+    if warn == 0 and args.WARN != '0':
+        lib.base.cu(
+            f'Invalid --warning duration "{args.WARN}": expected `Ns`, '
+            f'`Nm`, `Nh`, `ND`, `NW`, `NM` or `NY`.'
+        )
+    crit = lib.human.human2seconds(args.CRIT)
+    if crit == 0 and args.CRIT != '0':
+        lib.base.cu(
+            f'Invalid --critical duration "{args.CRIT}": expected `Ns`, '
+            f'`Nm`, `Nh`, `ND`, `NW`, `NM` or `NY`.'
+        )
+    return warn, crit
+
+
+def dispatch_parse(stdout, mta, now_ts):
+    """Route `stdout` to the parser that matches the detected MTA.
+    Postfix goes through `postqueue -j` JSON, exim has its own age
+    literal format, everything else falls back to Sendmail-style
+    `Date:` line parsing.
+    """
+    if mta == 'postfix':
+        return parse_postfix_json(stdout, now_ts)
+    if mta == 'exim':
+        return parse_exim_mailq(stdout)
+    return parse_sendmail_mailq(stdout, now_ts)
 
 
 def main():
@@ -90,60 +305,71 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # fetch data
-    if args.TEST is None:
-        # for `exim`, `mailq` is an alias for `exim -bq`
-        stdout, stderr, _retc = lib.base.coe(lib.shell.shell_exec('mailq'))
-    else:
-        # do not call the command, put in test data
-        stdout, stderr, _retc = lib.lftest.test(args.TEST)
+    # resolve duration thresholds (accept `1h`, `3D`, `30m`, ...)
+    warn_sec, crit_sec = resolve_thresholds(args)
 
+    # resolve the MTA: `--mta` overrides, `auto` probes for binaries
+    mta = args.MTA
+    if mta == 'auto':
+        mta = detect_mta()
+        if mta is None and args.TEST is None:
+            lib.base.cu(
+                'No known MTA binary found (probed `postqueue`, `exim`, '
+                '`exim4`, `mailq`). Use --mta= to force a specific '
+                'parser or install one of those MTAs.'
+            )
+
+    # fetch data
     mailq_err_msg = None
+    if args.TEST is None:
+        if mta == 'postfix':
+            stdout, stderr, _retc = fetch_postfix()
+        else:
+            stdout, stderr, _retc = fetch_mailq()
+    else:
+        # test mode: force the parser via --mta, since we cannot
+        # probe for binaries in a unit-test sandbox.
+        if args.MTA == 'auto':
+            lib.base.cu('--test requires an explicit --mta= value.')
+        stdout, stderr, _retc = lib.lftest.test(args.TEST)
     if stderr:
-        # does mailq report something unusual?
         mailq_err_msg = stderr.strip()
 
-    # count the mails in the queue
-    mailq_count = 0
-    stdout = stdout.strip()
-    if stdout and stdout != 'Mail queue is empty' and stdout != '0 mails to deliver':
-        # "-- 2 Kbytes in 3 Requests."
-        mailq_count = re.search(r' in (.*) Requests?\.', stdout)
-        if mailq_count:
-            mailq_count = int(mailq_count.group(1).strip())
-        else:
-            # other mailq version? "17 mails to deliver"
-            mailq_count = re.search(r'(.*) mails to deliver', stdout)
-            if mailq_count:
-                mailq_count = int(mailq_count.group(1).strip())
-            else:
-                # exim? for now, just count the lines (could be done better in the future)
-                mailq_count = stdout.count('\n')
+    # analyze data
+    now_ts = now_epoch(args)
+    count, max_age = dispatch_parse(stdout, mta, now_ts)
 
     # init some vars
-    msg = ''
-    perfdata = ''
+    state = lib.base.get_state(max_age, warn_sec, crit_sec, _operator='ge')
 
-    if mailq_err_msg:
-
-        # build the message
-        msg += f'{mailq_err_msg}. '
-    if mailq_count:
-        msg += f'{mailq_count} {lib.txt.pluralize("mail", mailq_count)} to deliver.'
+    # build the message
+    if count == 0:
+        msg = 'Mail queue is empty.'
     else:
-        msg += 'Mail queue is empty.'
+        oldest_human = lib.human.seconds2human(max_age)
+        msg = (
+            f'Oldest mail has been in the queue for {oldest_human}'
+            f'{lib.base.state2str(state, prefix=" ")}, '
+            f'{count} {lib.txt.pluralize("mail", count)} queued in total.'
+        )
+    if mailq_err_msg:
+        msg = f'{mailq_err_msg}. {msg}'
+        state = lib.base.get_worst(state, STATE_WARN)
 
+    perfdata = ''
     perfdata += lib.base.get_perfdata(
         'mailq',
-        mailq_count,
-        warn=args.WARN,
-        crit=args.CRIT,
+        count,
         _min=0,
     )
-
-    state = lib.base.get_state(mailq_count, args.WARN, args.CRIT, _operator='ge')
-    if mailq_err_msg:
-        state = lib.base.get_worst(state, STATE_WARN)
+    perfdata += lib.base.get_perfdata(
+        'oldest_mail_age',
+        max_age,
+        uom='s',
+        warn=warn_sec,
+        crit=crit_sec,
+        _min=0,
+    )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
