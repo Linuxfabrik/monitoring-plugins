@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$dhcp_scope_usage_always_ok$"
                 },
+                "--brief": {
+                    "set_if": "$dhcp_scope_usage_brief$"
+                },
                 "--critical": {
                     "value": "$dhcp_scope_usage_critical$"
                 },
@@ -60,7 +63,7 @@
                 },
                 {
                     "datafield_id": 6,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -70,11 +73,16 @@
                 },
                 {
                     "datafield_id": 8,
-                    "is_required": "n",
+                    "is_required": "y",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -93,6 +101,9 @@
             "arguments": {
                 "--always-ok": {
                     "set_if": "$dhcp_scope_usage_windows_always_ok$"
+                },
+                "--brief": {
+                    "set_if": "$dhcp_scope_usage_windows_brief$"
                 },
                 "--critical": {
                     "value": "$dhcp_scope_usage_windows_critical$"
@@ -123,11 +134,6 @@
             "disabled": false,
             "fields": [
                 {
-                    "datafield_id": 10,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
                     "datafield_id": 11,
                     "is_required": "n",
                     "var_filter": null
@@ -149,21 +155,31 @@
                 },
                 {
                     "datafield_id": 15,
-                    "is_required": "y",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 16,
-                    "is_required": "y",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 17,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
+                    "datafield_id": 16,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
                     "datafield_id": 18,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 19,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 20,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -226,7 +242,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and queries scope statistics using PowerShell. Alerts when the address pool usage of any scope exceeds the configured thresholds (default: WARN at 80%, CRIT at 90%).",
+            "notes": "Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and queries scope statistics using PowerShell. On servers with thousands of scopes, --brief hides rows within the thresholds so the output only lists scopes in WARN/CRIT state. Alerts when the address pool usage of any scope exceeds the configured thresholds (default: WARN at 80%, CRIT at 90%).",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dhcp-scope-usage/",
             "object_name": "tpl-service-dhcp-scope-usage",
             "object_type": "template",
@@ -238,6 +254,7 @@
             "vars": {
                 "criticality": "C",
                 "dhcp_scope_usage_always_ok": false,
+                "dhcp_scope_usage_brief": false,
                 "dhcp_scope_usage_critical": 90,
                 "dhcp_scope_usage_hostname": "localhost",
                 "dhcp_scope_usage_warning": 80,
@@ -277,7 +294,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and queries scope statistics using PowerShell. Alerts when the address pool usage of any scope exceeds the configured thresholds (default: WARN at 80%, CRIT at 90%).",
+            "notes": "Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and queries scope statistics using PowerShell. On servers with thousands of scopes, --brief hides rows within the thresholds so the output only lists scopes in WARN/CRIT state. Alerts when the address pool usage of any scope exceeds the configured thresholds (default: WARN at 80%, CRIT at 90%).",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dhcp-scope-usage/",
             "object_name": "tpl-service-dhcp-scope-usage-windows",
             "object_type": "template",
@@ -289,6 +306,7 @@
             "vars": {
                 "criticality": "C",
                 "dhcp_scope_usage_windows_always_ok": false,
+                "dhcp_scope_usage_windows_brief": false,
                 "dhcp_scope_usage_windows_critical": 90,
                 "dhcp_scope_usage_windows_hostname": "localhost",
                 "dhcp_scope_usage_windows_warning": 80,
@@ -387,6 +405,15 @@
             "uuid": "f1015823-b9be-432b-a52c-cb0c2a6442d5"
         },
         "2": {
+            "varname": "dhcp_scope_usage_brief",
+            "caption": "Dhcp Scope Usage: Brief?",
+            "description": "Hide scopes within the thresholds and show only those in WARN/CRIT state. Inverse of `--lengthy` (which adds columns); `--brief` filters rows. The two are orthogonal and can be combined. Perfdata and alerting are unaffected: all scopes still emit perfdata and still drive the overall check state.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "24074ff2-83d9-4ef8-ba91-bf5466e77fea"
+        },
+        "3": {
             "varname": "dhcp_scope_usage_critical",
             "caption": "Dhcp Scope Usage: Critical",
             "description": "CRIT threshold in percent.",
@@ -397,7 +424,7 @@
             },
             "uuid": "88f790c0-80dc-47aa-a064-90b393b97b04"
         },
-        "3": {
+        "4": {
             "varname": "dhcp_scope_usage_hostname",
             "caption": "Dhcp Scope Usage: Hostname",
             "description": "DNS name, IPv4, or IPv6 address of the DHCP server.",
@@ -408,7 +435,7 @@
             },
             "uuid": "6c16ac70-9102-42e6-9089-c12377fc2013"
         },
-        "4": {
+        "5": {
             "varname": "dhcp_scope_usage_warning",
             "caption": "Dhcp Scope Usage: Warning",
             "description": "WARN threshold in percent.",
@@ -419,7 +446,7 @@
             },
             "uuid": "ef031364-dfe6-4cfb-9c00-ecdb0a43d98a"
         },
-        "5": {
+        "6": {
             "varname": "dhcp_scope_usage_winrm_domain",
             "caption": "Dhcp Scope Usage: Winrm Domain",
             "description": "WinRM Domain Name.",
@@ -430,7 +457,7 @@
             },
             "uuid": "4baadbf3-00c5-4cbc-b9ef-883a9d26ac77"
         },
-        "6": {
+        "7": {
             "varname": "dhcp_scope_usage_winrm_hostname",
             "caption": "Dhcp Scope Usage: Winrm Hostname",
             "description": "Target Windows computer on which the command will be executed.",
@@ -441,7 +468,7 @@
             },
             "uuid": "200aa7d7-1d77-458f-96a0-de76a3eb54e1"
         },
-        "7": {
+        "8": {
             "varname": "dhcp_scope_usage_winrm_password",
             "caption": "Dhcp Scope Usage: Winrm Password",
             "description": "WinRM account password.",
@@ -452,7 +479,7 @@
             },
             "uuid": "a3bfabad-e5e9-4e1e-8ef8-adb89483c3cc"
         },
-        "8": {
+        "9": {
             "varname": "dhcp_scope_usage_winrm_transport",
             "caption": "Dhcp Scope Usage: Winrm Transport",
             "description": "WinRM transport type.",
@@ -465,7 +492,7 @@
             },
             "uuid": "e83dccba-b538-4ced-8827-1b66187643bf"
         },
-        "9": {
+        "10": {
             "varname": "dhcp_scope_usage_winrm_username",
             "caption": "Dhcp Scope Usage: Winrm Username",
             "description": "WinRM account name.",
@@ -476,7 +503,7 @@
             },
             "uuid": "be0f1183-cbf5-44e7-b888-9db9faa5df11"
         },
-        "10": {
+        "11": {
             "varname": "dhcp_scope_usage_windows_always_ok",
             "caption": "Dhcp Scope Usage: Always OK?",
             "description": "Always returns OK.",
@@ -485,7 +512,16 @@
             "settings": {},
             "uuid": "44fcdd83-77f7-499f-8308-5a616bb747f2"
         },
-        "11": {
+        "12": {
+            "varname": "dhcp_scope_usage_windows_brief",
+            "caption": "Dhcp Scope Usage: Brief?",
+            "description": "Hide scopes within the thresholds and show only those in WARN/CRIT state. Inverse of `--lengthy` (which adds columns); `--brief` filters rows. The two are orthogonal and can be combined. Perfdata and alerting are unaffected: all scopes still emit perfdata and still drive the overall check state.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "8f05773f-4671-4391-be88-336cdd40ae71"
+        },
+        "13": {
             "varname": "dhcp_scope_usage_windows_critical",
             "caption": "Dhcp Scope Usage: Critical",
             "description": "CRIT threshold in percent.",
@@ -496,7 +532,7 @@
             },
             "uuid": "45e2ee2f-239e-4d54-9ee5-40238ddc6c7f"
         },
-        "12": {
+        "14": {
             "varname": "dhcp_scope_usage_windows_hostname",
             "caption": "Dhcp Scope Usage: Hostname",
             "description": "DNS name, IPv4, or IPv6 address of the DHCP server.",
@@ -507,7 +543,7 @@
             },
             "uuid": "28e109e0-f90f-4c32-9c21-672236ec2536"
         },
-        "13": {
+        "15": {
             "varname": "dhcp_scope_usage_windows_warning",
             "caption": "Dhcp Scope Usage: Warning",
             "description": "WARN threshold in percent.",
@@ -518,7 +554,7 @@
             },
             "uuid": "e1aed9dd-dbca-4fd9-aa9d-3d8997968edb"
         },
-        "14": {
+        "16": {
             "varname": "dhcp_scope_usage_windows_winrm_domain",
             "caption": "Dhcp Scope Usage: Winrm Domain",
             "description": "WinRM Domain Name.",
@@ -529,7 +565,7 @@
             },
             "uuid": "8beb4b32-d0e8-48b0-b981-fb3fea4e9a18"
         },
-        "15": {
+        "17": {
             "varname": "dhcp_scope_usage_windows_winrm_hostname",
             "caption": "Dhcp Scope Usage: Winrm Hostname",
             "description": "Target Windows computer on which the command will be executed.",
@@ -540,7 +576,7 @@
             },
             "uuid": "6b495cd6-17f3-4b12-b078-d029ad54aee1"
         },
-        "16": {
+        "18": {
             "varname": "dhcp_scope_usage_windows_winrm_password",
             "caption": "Dhcp Scope Usage: Winrm Password",
             "description": "WinRM account password.",
@@ -551,7 +587,7 @@
             },
             "uuid": "2ff33e08-8ff3-4f7f-a70f-8d2082bfcdbe"
         },
-        "17": {
+        "19": {
             "varname": "dhcp_scope_usage_windows_winrm_transport",
             "caption": "Dhcp Scope Usage: Winrm Transport",
             "description": "WinRM transport type.",
@@ -564,7 +600,7 @@
             },
             "uuid": "7aaef76f-105a-4ee5-b03d-ba7a05e43303"
         },
-        "18": {
+        "20": {
             "varname": "dhcp_scope_usage_windows_winrm_username",
             "caption": "Dhcp Scope Usage: Winrm Username",
             "description": "WinRM account name.",

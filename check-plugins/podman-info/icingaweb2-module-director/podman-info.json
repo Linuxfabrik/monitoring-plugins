@@ -65,7 +65,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Displays system-wide Podman information including container counts, image count, storage driver, runtime version, available CPUs, and total memory. For Docker, use the docker-info check instead. Requires root or sudo.",
+            "notes": "Displays system-wide Podman information including container counts, image count, storage driver, runtime version, available CPUs, and total memory. Also monitors the Podman daemon stderr for warnings and errors. Individual stderr lines can be filtered out with --ignore (e.g. benign cgroup warnings on rootless hosts). For Docker, use the docker-info check instead. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/podman-info/",
             "object_name": "tpl-service-podman-info",
             "object_type": "template",
@@ -97,7 +97,7 @@
         "2": {
             "varname": "podman_info_ignore",
             "caption": "Podman Info: Ignore",
-            "description": "Ignore stderr lines matching this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
+            "description": "Ignore stderr lines matching this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Example: `--ignore=\"cgroup v1\"` to suppress a benign cgroup-version warning on hosts that have not yet migrated to cgroup v2. Example: `--ignore=\"(?i)rootless\"` (case-insensitive) to suppress any rootless-related informational warning.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {

@@ -137,7 +137,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Monitors HAProxy performance and health via the stats endpoint. Reports frontend and backend session usage, request rates, response times, error rates, and server states. Alerts when session usage exceeds the configured thresholds. Supports extended reporting via --lengthy.",
+            "notes": "Monitors HAProxy performance and health via the stats endpoint. Reports frontend and backend session usage, request rates, response times, error rates, and server states. Alerts when session usage exceeds the configured thresholds. Proxies, frontends, backends or individual servers can be filtered out with --ignore (e.g. an on-demand certbot backend that is only UP during cert renewal). Supports extended reporting via --lengthy.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/haproxy-status/",
             "object_name": "tpl-service-haproxy-status",
             "object_type": "template",
@@ -186,6 +186,17 @@
             "uuid": "8c4ad522-e035-4458-beed-8e827b583abe"
         },
         "3": {
+            "varname": "haproxy_status_ignore",
+            "caption": "HAProxy Status: Ignore",
+            "description": "Ignore proxies, frontends, backends or servers matching this Python regular expression on the combined `<proxy>/<svname>` identifier (where `svname` is `FRONTEND`, `BACKEND` or an individual server name). Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Example: `--ignore=\"^certbot/\"` to ignore everything under the certbot proxy. Example: `--ignore=\"(?i)^certbot/\"` for a case-insensitive match.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2392ebdf-b033-47a1-9dcc-ae94f72db5a4"
+        },
+        "4": {
             "varname": "haproxy_status_insecure",
             "caption": "HAProxy Status: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -194,7 +205,7 @@
             "settings": {},
             "uuid": "db6ceb25-6208-42af-9d51-099355b51004"
         },
-        "4": {
+        "5": {
             "varname": "haproxy_status_lengthy",
             "caption": "HAProxy Status: Lengthy?",
             "description": "Extended reporting.",
@@ -203,7 +214,7 @@
             "settings": {},
             "uuid": "cfea339b-5640-4c02-b181-e32e3ee57a19"
         },
-        "5": {
+        "6": {
             "varname": "haproxy_status_no_proxy",
             "caption": "HAProxy Status: No Proxy?",
             "description": "Do not use a proxy.",
@@ -212,7 +223,7 @@
             "settings": {},
             "uuid": "a309e05c-4de7-443e-9c0e-a5ffb0f7c017"
         },
-        "6": {
+        "7": {
             "varname": "haproxy_status_password",
             "caption": "HAProxy Status: Password",
             "description": "HAProxy stats auth password. Not needed for socket access.",
@@ -223,7 +234,7 @@
             },
             "uuid": "faf92ec9-694a-49e8-bbab-2c926539dfd6"
         },
-        "7": {
+        "8": {
             "varname": "haproxy_status_timeout",
             "caption": "HAProxy Status: Timeout",
             "description": "Network timeout in seconds.",
@@ -234,7 +245,7 @@
             },
             "uuid": "803a48ca-c842-48b7-8c06-ab626230eadb"
         },
-        "8": {
+        "9": {
             "varname": "haproxy_status_url",
             "caption": "HAProxy Status: URL",
             "description": "HAProxy stats URI. Accepts `unix:///path/to/haproxy.sock` or an HTTP(S) URL. Example: `--url https://webserver:8443/server-status`.",
@@ -245,7 +256,7 @@
             },
             "uuid": "9a5bdff2-0b2c-4a02-a478-9723f60ea9cd"
         },
-        "9": {
+        "10": {
             "varname": "haproxy_status_username",
             "caption": "HAProxy Status: Username",
             "description": "HAProxy stats auth username. Not needed for socket access.",
@@ -256,7 +267,7 @@
             },
             "uuid": "e1afab75-bc8a-4c88-915b-fe423c9fd19d"
         },
-        "10": {
+        "11": {
             "varname": "haproxy_status_warning",
             "caption": "HAProxy Status: Warning",
             "description": "WARN threshold in percent.",
@@ -266,17 +277,6 @@
                 "visibility": "visible"
             },
             "uuid": "56b69da6-81a7-43cc-b0bb-43670f84f4dd"
-        },
-        "11": {
-            "varname": "haproxy_status_ignore",
-            "caption": "HAProxy Status: Ignore",
-            "description": "Ignore proxies, frontends, backends or servers matching this Python regular expression (case-insensitive) on the combined `<proxy>/<svname>` identifier. Can be specified multiple times.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
-            "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "uuid": "2392ebdf-b033-47a1-9dcc-ae94f72db5a4"
         }
     }
 }

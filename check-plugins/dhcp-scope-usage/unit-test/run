@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 
 COMMON = '--winrm-hostname=dummy --winrm-password=dummy'
 
@@ -46,6 +46,53 @@ TESTS = [
         'params': COMMON,
         'assert-retc': STATE_OK,
         'assert-in': ['Everything is ok.'],
+    },
+
+    # #788: --brief hides scopes within the thresholds and only
+    # renders rows in WARN/CRIT state. --brief is the row-level
+    # counterpart of the column-level --lengthy switch: they are
+    # orthogonal and can be combined. Alerting and perfdata are
+    # unaffected: all scopes still drive the overall state and still
+    # emit perfdata.
+    {
+        'id': 'crit-three-scopes-brief-hides-ok-row',
+        'test': 'stdout/three-scopes-two-high-usage,,0',
+        'params': f'{COMMON} --brief',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'There are one or more criticals.',
+            '* 192.0.2.121: 83% used [WARNING]',
+            '* 192.0.2.122: 91% used [CRITICAL]',
+        ],
+        # the OK-state scope must not appear in the human-readable
+        # body. 192.0.2.120 still shows up in perfdata, but perfdata
+        # uses the `scope_192.0.2.120=` syntax, not `* 192.0.2.120: `.
+        'assert-not-in': ['* 192.0.2.120: '],
+    },
+    {
+        'id': 'ok-eight-scopes-all-healthy-brief-header-only',
+        'test': 'stdout/eight-scopes-all-healthy,,0',
+        'params': f'{COMMON} --brief',
+        # with --brief and zero WARN/CRIT rows, the plugin shows only
+        # the "Everything is ok." header (no scope list).
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+        'assert-not-in': ['* 192.168.'],
+    },
+    {
+        'id': 'warn-three-scopes-brief-lifted-crit-threshold',
+        'test': 'stdout/three-scopes-two-high-usage,,0',
+        # Lift the crit threshold so the 91%-scope drops from CRIT to
+        # WARN. --brief continues to hide the 0%-scope but keeps the
+        # two non-OK rows.
+        'params': f'{COMMON} --brief --warning=80 --critical=99',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'There are one or more warnings.',
+            '* 192.0.2.121: 83% used [WARNING]',
+            '* 192.0.2.122: 91% used [WARNING]',
+        ],
+        'assert-not-in': ['* 192.0.2.120: '],
     },
 ]
 

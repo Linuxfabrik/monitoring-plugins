@@ -138,7 +138,7 @@ Checklist:
 
 ### Rules of Thumb
 
-* Be brief by default. Report what needs to be reported to fix a problem. If there is more information that might help the admin, support a `--lengthy` parameter.
+* Be brief by default. Report what needs to be reported to fix a problem. If there is more information that might help the admin, support a `--lengthy` parameter. If the default output still grows unbounded on large systems (thousands of disk mounts, DHCP scopes, backends, services), also support a `--brief` parameter that hides rows within the thresholds. See "Verbosity parameter convention" below.
 * The plugin should be "self configuring" and/or using best practise defaults, so that it runs without parameters wherever possible.
 * Develop with a minimal Linux in mind.
 * Develop with Icinga2 in mind.
@@ -232,6 +232,7 @@ For all other options, use long parameters only. Separate words using a `-`. We 
 --always-ok
 --argument
 --authtype
+--brief
 --cache-expire
 --command
 --community
@@ -262,8 +263,6 @@ For all other options, use long parameters only. Separate words using a `-`. We 
 --icinga-username
 --idsite
 --ignore
---ignore-pattern
---ignore-regex
 --input
 --insecure
 --instance
@@ -598,6 +597,27 @@ If a plugin supports `-v`/`--verbose`, it should implement up to three verbosity
 | 3 (`-v -v -v`) | Extensive diagnostic detail for troubleshooting |
 
 Note: Most of our plugins use `--lengthy` instead of `-v` for extended output. The verbosity levels above apply if the plugin explicitly supports `--verbose`.
+
+
+### Verbosity parameter convention: `--lengthy` and `--brief`
+
+`--lengthy` and `--brief` are the two verbosity knobs admins use to tune what a plugin prints. They are **orthogonal** (not mutually exclusive) and control different axes of the output:
+
+| Parameter | Axis | Effect |
+|-----------|------|--------|
+| default | rows × columns | Show all checked items with the core columns. |
+| `--lengthy` | columns | **Add** extra columns to every row (e.g. full details, debug info). |
+| `--brief` | rows | **Hide** rows that are within the thresholds. Show only items in WARN/CRIT state. |
+| `--lengthy --brief` | rows × columns | Hide OK rows, show extra columns on the rows that remain. |
+
+Rules:
+
+* **Perfdata is always complete.** `--brief` and `--lengthy` only reshape the human-readable message. Every checked item still emits perfdata so Grafana can trend everything.
+* **Alerting is unaffected.** All items (including the ones `--brief` hides) still drive the overall check state. `--brief` is a display filter, not a threshold.
+* **When `--brief` hides everything**, the plugin prints only the summary header ("Everything is ok. (thresholds)"), not an empty table. Admins on a quiet system see one line.
+* **`--lengthy` and `--brief` are always combinable.** Do not mark them mutually exclusive in `argparse`.
+* **When to support `--brief`**: add it whenever the default output can grow unbounded on large systems (hundreds of disk mounts, thousands of DHCP scopes, hundreds of HAProxy backends, etc.). Reference implementations: `check-plugins/disk-usage` and `check-plugins/dhcp-scope-usage`.
+* **Help text** for `--brief` should describe the filter semantic and explicitly state that perfdata and alerting are unaffected, so the admin understands that `--brief` is safe to use on production without losing trending data.
 
 
 ### Plugin Performance Data, Perfdata

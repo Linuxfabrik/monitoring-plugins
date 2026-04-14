@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$disk_usage_always_ok$"
                 },
+                "--brief": {
+                    "set_if": "$disk_usage_brief$"
+                },
                 "--critical": {
                     "value": "$disk_usage_critical$"
                 },
@@ -91,6 +94,11 @@
                     "datafield_id": 10,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -107,6 +115,9 @@
             "arguments": {
                 "--always-ok": {
                     "set_if": "$disk_usage_windows_always_ok$"
+                },
+                "--brief": {
+                    "set_if": "$disk_usage_windows_brief$"
                 },
                 "--critical": {
                     "value": "$disk_usage_windows_critical$"
@@ -145,11 +156,6 @@
             "command": "C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\disk-usage.exe",
             "disabled": false,
             "fields": [
-                {
-                    "datafield_id": 11,
-                    "is_required": "n",
-                    "var_filter": null
-                },
                 {
                     "datafield_id": 12,
                     "is_required": "n",
@@ -192,6 +198,16 @@
                 },
                 {
                     "datafield_id": 20,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 21,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 22,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -254,7 +270,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks used or free disk space for each mounted partition. By default, only physical devices are checked (hard disks, USB drives), ignoring pseudo and memory filesystems. Supports filtering by mountpoint pattern or filesystem type. Thresholds can be set as percentages or absolute values, and can target either used or free space. Note that on Unix systems, 5% of disk space is typically reserved for root and not reflected in the available space shown to regular users. Alerts when usage exceeds the configured thresholds.",
+            "notes": "Checks used or free disk space for each mounted partition. By default, only physical devices are checked (hard disks, USB drives), ignoring pseudo and memory filesystems. Supports filtering by mountpoint pattern or filesystem type. Thresholds can be set as percentages or absolute values, and can target either used or free space. On systems with many filesystems (hundreds of mounts), --brief hides rows that are within the thresholds so the table only shows the filesystems in WARN/CRIT state. Note that on Unix systems, 5% of disk space is typically reserved for root and not reflected in the available space shown to regular users. Alerts when usage exceeds the configured thresholds.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/",
             "object_name": "tpl-service-disk-usage",
             "object_type": "template",
@@ -266,6 +282,7 @@
             "vars": {
                 "criticality": "C",
                 "disk_usage_always_ok": false,
+                "disk_usage_brief": false,
                 "disk_usage_critical": "95%USED",
                 "disk_usage_exclude_pattern": [],
                 "disk_usage_exclude_regex": [],
@@ -309,7 +326,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks used or free disk space for each mounted partition. By default, only physical devices are checked (hard disks, USB drives), ignoring pseudo and memory filesystems. Supports filtering by mountpoint pattern or filesystem type. Thresholds can be set as percentages or absolute values, and can target either used or free space. Note that on Unix systems, 5% of disk space is typically reserved for root and not reflected in the available space shown to regular users. Alerts when usage exceeds the configured thresholds.",
+            "notes": "Checks used or free disk space for each mounted partition. By default, only physical devices are checked (hard disks, USB drives), ignoring pseudo and memory filesystems. Supports filtering by mountpoint pattern or filesystem type. Thresholds can be set as percentages or absolute values, and can target either used or free space. On systems with many filesystems (hundreds of mounts), --brief hides rows that are within the thresholds so the table only shows the filesystems in WARN/CRIT state. Note that on Unix systems, 5% of disk space is typically reserved for root and not reflected in the available space shown to regular users. Alerts when usage exceeds the configured thresholds.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/",
             "object_name": "tpl-service-disk-usage-windows",
             "object_type": "template",
@@ -321,6 +338,7 @@
             "vars": {
                 "criticality": "C",
                 "disk_usage_windows_always_ok": false,
+                "disk_usage_windows_brief": false,
                 "disk_usage_windows_critical": "95%USED",
                 "disk_usage_windows_exclude_pattern": [],
                 "disk_usage_windows_exclude_regex": [],
@@ -347,6 +365,15 @@
             "uuid": "0ef8a81d-abee-489a-ab37-1bdb28d69ff4"
         },
         "2": {
+            "varname": "disk_usage_brief",
+            "caption": "Disk Usage: Brief?",
+            "description": "Hide table rows for filesystems within the thresholds and show only those in WARN/CRIT state. Inverse of `--lengthy` (which adds columns); `--brief` filters rows. The two are orthogonal and can be combined. Perfdata and alerting are unaffected: all filesystems still emit perfdata and still drive the overall check state.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "d042bf80-74d7-4855-942a-10ae41c8a194"
+        },
+        "3": {
             "varname": "disk_usage_critical",
             "caption": "Disk Usage: Critical",
             "description": "CRIT threshold in the form `<number>[unit][method]`. Unit is one of `%|K|M|G|T|P` (default: `%`). `K` means kibibyte etc. Method is one of `USED|FREE` (default: `USED`). `USED` means \"number or more\", `FREE` means \"number or less\". Examples: `95` = 95% used. `9.5M` = 9.5 MiB used. `5%FREE`. `1400GUSED`.",
@@ -357,7 +384,7 @@
             },
             "uuid": "f0468cc4-7e08-49f6-8258-18bde965cbc0"
         },
-        "3": {
+        "4": {
             "varname": "disk_usage_exclude_pattern",
             "caption": "Disk Usage: Exclude Pattern",
             "description": "Exclude any mountpoint containing this substring (case-insensitive). Example: `boot` excludes `/boot` and `/boot/efi`. Can be specified multiple times. On Windows, use drive letters without backslash (`Y:` or `Y`). Includes are matched before excludes.",
@@ -368,7 +395,7 @@
             },
             "uuid": "32e8f0a9-8dd4-4d2f-950e-94a23ba72df5"
         },
-        "4": {
+        "5": {
             "varname": "disk_usage_exclude_regex",
             "caption": "Disk Usage: Exclude Regex",
             "description": "Exclude any mountpoint matching this Python regex (case-insensitive). Can be specified multiple times. On Windows, use drive letters without backslash (`Y:` or `Y`). Includes are matched before excludes.",
@@ -379,7 +406,7 @@
             },
             "uuid": "e5483599-ab4b-4748-8c81-272cebf42dc9"
         },
-        "5": {
+        "6": {
             "varname": "disk_usage_fstype",
             "caption": "Disk Usage: Fstype",
             "description": "Override the default behaviour (check physical devices only) and check these file system types instead. Can be specified multiple times. Run `disk-usage --list-fstypes` first to see available types (they are machine dependent).",
@@ -390,7 +417,7 @@
             },
             "uuid": "86fcf815-b556-47ff-8477-9a2fb8ff29b8"
         },
-        "6": {
+        "7": {
             "varname": "disk_usage_include_pattern",
             "caption": "Disk Usage: Include Pattern",
             "description": "Only include mountpoints containing this substring (case-insensitive). Example: `boot` includes `/boot` and `/boot/efi`. Can be specified multiple times. On Windows, use drive letters without backslash (`Y:` or `Y`). Includes are matched before excludes.",
@@ -401,7 +428,7 @@
             },
             "uuid": "ce94251a-aab0-41c3-9187-ede6be9fa9a9"
         },
-        "7": {
+        "8": {
             "varname": "disk_usage_include_regex",
             "caption": "Disk Usage: Include Regex",
             "description": "Only include mountpoints matching this Python regex (case-insensitive). Can be specified multiple times. On Windows, use drive letters without backslash (`Y:` or `Y`). Includes are matched before excludes.",
@@ -412,7 +439,7 @@
             },
             "uuid": "6d462170-1bee-45b1-b294-282d6e2617ba"
         },
-        "8": {
+        "9": {
             "varname": "disk_usage_list_fstypes",
             "caption": "Disk Usage: List Fstypes?",
             "description": "Print available file system types and which ones are checked by default, then exit.",
@@ -421,7 +448,7 @@
             "settings": {},
             "uuid": "5c45373f-09cd-4dc4-95de-69b992363eca"
         },
-        "9": {
+        "10": {
             "varname": "disk_usage_perfdata_regex",
             "caption": "Disk Usage: Perfdata Regex",
             "description": "Only emit perfdata keys matching this Python regex. For a list of perfdata keys, see the README or run this plugin. Can be specified multiple times.",
@@ -432,7 +459,7 @@
             },
             "uuid": "ea299f9c-cfd2-4daa-b103-f0c221c34a27"
         },
-        "10": {
+        "11": {
             "varname": "disk_usage_warning",
             "caption": "Disk Usage: Warning",
             "description": "WARN threshold in the form `<number>[unit][method]`. Unit is one of `%|K|M|G|T|P` (default: `%`). `K` means kibibyte etc. Method is one of `USED|FREE` (default: `USED`). `USED` means \"number or more\", `FREE` means \"number or less\". Examples: `95` = 95% used. `9.5M` = 9.5 MiB used. `5%FREE`. `1400GUSED`.",
@@ -443,7 +470,7 @@
             },
             "uuid": "a4fbfd70-535b-493b-8da5-f357b57c6a70"
         },
-        "11": {
+        "12": {
             "varname": "disk_usage_windows_always_ok",
             "caption": "Disk Usage: Always OK?",
             "description": "Always returns OK.",
@@ -452,7 +479,16 @@
             "settings": {},
             "uuid": "62a785e4-c106-411d-adb3-95a102e3e63e"
         },
-        "12": {
+        "13": {
+            "varname": "disk_usage_windows_brief",
+            "caption": "Disk Usage: Brief?",
+            "description": "Hide table rows for filesystems within the thresholds and show only those in WARN/CRIT state. Inverse of `--lengthy` (which adds columns); `--brief` filters rows. The two are orthogonal and can be combined. Perfdata and alerting are unaffected: all filesystems still emit perfdata and still drive the overall check state.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "b2fbc356-a441-4845-b157-bd5a030f80ad"
+        },
+        "14": {
             "varname": "disk_usage_windows_critical",
             "caption": "Disk Usage: Critical",
             "description": "CRIT threshold in the form `<number>[unit][method]`. Unit is one of `%|K|M|G|T|P` (default: `%`). `K` means kibibyte etc. Method is one of `USED|FREE` (default: `USED`). `USED` means \"number or more\", `FREE` means \"number or less\". Examples: `95` = 95% used. `9.5M` = 9.5 MiB used. `5%FREE`. `1400GUSED`.",
@@ -463,7 +499,7 @@
             },
             "uuid": "e0f6e0b2-ebd1-4fd6-97ef-e52de0cb816f"
         },
-        "13": {
+        "15": {
             "varname": "disk_usage_windows_exclude_pattern",
             "caption": "Disk Usage: Exclude Pattern",
             "description": "Exclude any mountpoint containing this substring (case-insensitive). Example: `boot` excludes `/boot` and `/boot/efi`. Can be specified multiple times. On Windows, use drive letters without backslash (`Y:` or `Y`). Includes are matched before excludes.",
@@ -474,7 +510,7 @@
             },
             "uuid": "219af27c-dcf9-4821-b2c5-e0ca9061a5b9"
         },
-        "14": {
+        "16": {
             "varname": "disk_usage_windows_exclude_regex",
             "caption": "Disk Usage: Exclude Regex",
             "description": "Exclude any mountpoint matching this Python regex (case-insensitive). Can be specified multiple times. On Windows, use drive letters without backslash (`Y:` or `Y`). Includes are matched before excludes.",
@@ -485,7 +521,7 @@
             },
             "uuid": "5ccd4d1c-1045-4f2b-93d9-22765f3d8add"
         },
-        "15": {
+        "17": {
             "varname": "disk_usage_windows_fstype",
             "caption": "Disk Usage: Fstype",
             "description": "Override the default behaviour (check physical devices only) and check these file system types instead. Can be specified multiple times. Run `disk-usage --list-fstypes` first to see available types (they are machine dependent).",
@@ -496,7 +532,7 @@
             },
             "uuid": "2e456a7a-535c-48c6-9b2f-ea01ad5d9405"
         },
-        "16": {
+        "18": {
             "varname": "disk_usage_windows_include_pattern",
             "caption": "Disk Usage: Include Pattern",
             "description": "Only include mountpoints containing this substring (case-insensitive). Example: `boot` includes `/boot` and `/boot/efi`. Can be specified multiple times. On Windows, use drive letters without backslash (`Y:` or `Y`). Includes are matched before excludes.",
@@ -507,7 +543,7 @@
             },
             "uuid": "1bbdfc3b-08a2-49f4-af54-43b0a7c1bd11"
         },
-        "17": {
+        "19": {
             "varname": "disk_usage_windows_include_regex",
             "caption": "Disk Usage: Include Regex",
             "description": "Only include mountpoints matching this Python regex (case-insensitive). Can be specified multiple times. On Windows, use drive letters without backslash (`Y:` or `Y`). Includes are matched before excludes.",
@@ -518,7 +554,7 @@
             },
             "uuid": "21a3f20b-cb9e-4a83-bb62-18728266cc17"
         },
-        "18": {
+        "20": {
             "varname": "disk_usage_windows_list_fstypes",
             "caption": "Disk Usage: List Fstypes?",
             "description": "Print available file system types and which ones are checked by default, then exit.",
@@ -527,7 +563,7 @@
             "settings": {},
             "uuid": "66e01b35-4c54-4920-8d32-dde8e9f4f91a"
         },
-        "19": {
+        "21": {
             "varname": "disk_usage_windows_perfdata_regex",
             "caption": "Disk Usage: Perfdata Regex",
             "description": "Only emit perfdata keys matching this Python regex. For a list of perfdata keys, see the README or run this plugin. Can be specified multiple times.",
@@ -538,7 +574,7 @@
             },
             "uuid": "f29dde16-8c84-4066-ade9-e75e74c8ca7f"
         },
-        "20": {
+        "22": {
             "varname": "disk_usage_windows_warning",
             "caption": "Disk Usage: Warning",
             "description": "WARN threshold in the form `<number>[unit][method]`. Unit is one of `%|K|M|G|T|P` (default: `%`). `K` means kibibyte etc. Method is one of `USED|FREE` (default: `USED`). `USED` means \"number or more\", `FREE` means \"number or less\". Examples: `95` = 95% used. `9.5M` = 9.5 MiB used. `5%FREE`. `1400GUSED`.",

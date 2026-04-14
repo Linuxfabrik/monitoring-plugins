@@ -46,12 +46,14 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041301'
+__version__ = '2026041405'
 
 DESCRIPTION = """Checks used or free disk space for each mounted partition. By default, only physical
 devices are checked (hard disks, USB drives), ignoring pseudo and memory filesystems.
 Supports filtering by mountpoint pattern or filesystem type. Thresholds can be set as
-percentages or absolute values, and can target either used or free space. Note that on
+percentages or absolute values, and can target either used or free space. On systems
+with many filesystems (hundreds of mounts), --brief hides rows that are within the
+thresholds so the table only shows the filesystems in WARN/CRIT state. Note that on
 Unix systems, 5% of disk space is typically reserved for root and not reflected in the
 available space shown to regular users.
 Alerts when usage exceeds the configured thresholds."""
@@ -75,6 +77,19 @@ def parse_args():
         '--always-ok',
         help=lib.args.help('--always-ok'),
         dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help='Hide table rows for filesystems within the thresholds and show only '
+        'those in WARN/CRIT state. Inverse of `--lengthy` (which adds columns); '
+        '`--brief` filters rows. The two are orthogonal and can be combined. '
+        'Perfdata and alerting are unaffected: all filesystems still emit perfdata '
+        'and still drive the overall check state. '
+        'Default: %(default)s',
+        dest='BRIEF',
         action='store_true',
         default=False,
     )
@@ -522,36 +537,57 @@ def main():
                 'avail': lib.human.bytes2human(usage.free),
                 'size': lib.human.bytes2human(usage.total),
                 'percent': f'{usage.percent}%{lib.base.state2str(disk_state, prefix=" ")}',
+                # internal per-row state for the --brief filter below;
+                # not rendered because get_table() uses an explicit
+                # column whitelist.
+                '_state': disk_state,
             }
         )
 
+    # Filter table rows for --brief display. --brief is the inverse of
+    # --lengthy: --lengthy adds columns, --brief filters rows. They
+    # are orthogonal and both can be set at the same time. Perfdata
+    # and alerting stay untouched above this point; --brief only
+    # reshapes the human-readable output.
+    if args.BRIEF:
+        display_rows = [
+            row for row in table_data if row.get('_state', STATE_OK) != STATE_OK
+        ]
+    else:
+        display_rows = table_data
+
     # build the message
+    thresholds = f'warn={"".join(args.WARN)} crit={"".join(args.CRIT)}'
     if not table_data:
         msg = 'Nothing checked.'
-    elif len(table_data) == 1:
+    elif args.BRIEF and not display_rows:
+        # --brief and nothing worth showing: one-line summary only.
+        msg = f'Everything is ok. ({thresholds})'
+    elif len(table_data) == 1 and not args.BRIEF:
+        # single-partition system (no --brief): full single-line
+        # summary with the values inline.
         msg = (
             f'{table_data[0]["mountpoint"]}'
             f' {table_data[0]["percent"]}'
             f' - total: {table_data[0]["size"]}'
             f', free: {table_data[0]["avail"]}'
             f', used: {table_data[0]["used"]}'
-            f' (warn={"".join(args.WARN)}'
-            f' crit={"".join(args.CRIT)})'
+            f' ({thresholds})'
         )
     else:
         if state == STATE_CRIT:
-            msg = 'There are critical errors.'
+            header = 'There are critical errors.'
         elif state == STATE_WARN:
-            msg = 'There are warnings.'
+            header = 'There are warnings.'
         else:
-            msg = 'Everything is ok.'
+            header = 'Everything is ok.'
         table = lib.base.get_table(
-            table_data,
+            display_rows,
             ['mountpoint', 'type', 'size', 'used', 'avail', 'percent'],
             ['Mountpoint', 'Type', 'Size', 'Used', 'Avail', 'Use%'],
             'percent',
         )
-        msg = f'{msg} (warn={"".join(args.WARN)} crit={"".join(args.CRIT)})\n\n{table}'
+        msg = f'{header} ({thresholds})\n\n{table}'
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

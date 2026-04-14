@@ -22,11 +22,13 @@ import lib.winrm
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041405'
 
 DESCRIPTION = """Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and
-queries scope statistics using PowerShell. Alerts when the address pool usage of any
-scope exceeds the configured thresholds (default: WARN at 80%, CRIT at 90%)."""
+queries scope statistics using PowerShell. On servers with thousands of scopes, --brief
+hides rows within the thresholds so the output only lists scopes in WARN/CRIT state.
+Alerts when the address pool usage of any scope exceeds the configured thresholds
+(default: WARN at 80%, CRIT at 90%)."""
 
 DEFAULT_CRIT = 90
 DEFAULT_HOSTNAME = 'localhost'
@@ -51,6 +53,18 @@ def parse_args():
         '--always-ok',
         help=lib.args.help('--always-ok'),
         dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help='Hide scopes within the thresholds and show only those in WARN/CRIT state. '
+        'Inverse of `--lengthy` (which adds columns); `--brief` filters rows. The two '
+        'are orthogonal and can be combined. Perfdata and alerting are unaffected: all '
+        'scopes still emit perfdata and still drive the overall check state. '
+        'Default: %(default)s',
+        dest='BRIEF',
         action='store_true',
         default=False,
     )
@@ -158,15 +172,15 @@ def main():
         lib.base.oao(stderr, STATE_WARN)
 
     # init some vars
-    msg = ''
     state = STATE_OK
     perfdata = ''
+    rows = []
 
     # ScopeId          Free            InUse           PercentageInUse  Reserved        Pending         SuperscopeName
     # -------          ----            -----           ---------------  --------        -------         --------------
     # 192.0.2.120      3               0               0                0               0
 
-    # get state and build the message
+    # get state and collect per-scope rows
     data_section = False
     for line in stdout.splitlines():
         # ignore all header lines including "----"
@@ -187,8 +201,8 @@ def main():
         scope_state = lib.base.get_state(scope_used, args.WARN, args.CRIT)
         state = lib.base.get_worst(scope_state, state)
 
-        # build the message
-        msg += f'* {scope_id}: {scope_used}% used{lib.base.state2str(scope_state, prefix=" ")}\n'
+        # Perfdata is emitted for every scope regardless of --brief so
+        # Grafana sees the full picture and trend lines stay continuous.
         perfdata += lib.base.get_perfdata(
             f'scope_{scope_id}',
             scope_used,
@@ -198,14 +212,32 @@ def main():
             _min=0,
             _max=100,
         )
+        rows.append((scope_id, scope_used, scope_state))
+
+    # Filter rows for --brief display. --brief is the inverse of
+    # --lengthy: --lengthy adds columns, --brief filters rows. They
+    # are orthogonal and both can be set at the same time. Perfdata
+    # and alerting stay untouched above this point; --brief only
+    # reshapes the human-readable output.
+    display_rows = (
+        [row for row in rows if row[2] != STATE_OK] if args.BRIEF else rows
+    )
+
+    # build the message
+    headers = {
+        STATE_CRIT: 'There are one or more criticals.',
+        STATE_WARN: 'There are one or more warnings.',
+        STATE_OK: 'Everything is ok.',
+    }
+    header = headers.get(state, headers[STATE_OK])
+    body = ''.join(
+        f'* {scope_id}: {scope_used}% used'
+        f'{lib.base.state2str(scope_state, prefix=" ")}\n'
+        for scope_id, scope_used, scope_state in display_rows
+    )
+    msg = f'{header}\n\n{body}' if body else header
 
     # over and out
-    if state == STATE_CRIT:
-        msg = 'There are one or more criticals.\n\n' + msg
-    elif state == STATE_WARN:
-        msg = 'There are one or more warnings.\n\n' + msg
-    else:
-        msg = 'Everything is ok.\n\n' + msg
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 

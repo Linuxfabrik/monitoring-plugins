@@ -36,7 +36,7 @@ Checks used or free disk space for each mounted partition. By default, only phys
 ## Help
 
 ```text
-usage: disk-usage [-h] [-V] [--always-ok] [-c CRIT]
+usage: disk-usage [-h] [-V] [--always-ok] [--brief] [-c CRIT]
                   [--exclude-pattern EXCLUDE_PATTERN]
                   [--exclude-regex EXCLUDE_REGEX] [--fstype FSTYPE]
                   [--include-pattern INCLUDE_PATTERN]
@@ -47,14 +47,24 @@ Checks used or free disk space for each mounted partition. By default, only
 physical devices are checked (hard disks, USB drives), ignoring pseudo and
 memory filesystems. Supports filtering by mountpoint pattern or filesystem
 type. Thresholds can be set as percentages or absolute values, and can target
-either used or free space. Note that on Unix systems, 5% of disk space is
-typically reserved for root and not reflected in the available space shown to
-regular users. Alerts when usage exceeds the configured thresholds.
+either used or free space. On systems with many filesystems (hundreds of
+mounts), --brief hides rows that are within the thresholds so the table only
+shows the filesystems in WARN/CRIT state. Note that on Unix systems, 5% of
+disk space is typically reserved for root and not reflected in the available
+space shown to regular users. Alerts when usage exceeds the configured
+thresholds.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --brief               Hide table rows for filesystems within the thresholds
+                        and show only those in WARN/CRIT state. Inverse of
+                        `--lengthy` (which adds columns); `--brief` filters
+                        rows. The two are orthogonal and can be combined.
+                        Perfdata and alerting are unaffected: all filesystems
+                        still emit perfdata and still drive the overall check
+                        state. Default: False
   -c, --critical CRIT   CRIT threshold in the form `<number>[unit][method]`.
                         Unit is one of `%|K|M|G|T|P` (default: `%`). `K` means
                         kibibyte etc. Method is one of `USED|FREE` (default:

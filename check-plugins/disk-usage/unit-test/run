@@ -76,6 +76,53 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-not-in': ['/boot'],
     },
+
+    # #782: --brief hides filesystems within the thresholds and only
+    # renders rows in WARN/CRIT state. --brief is the row-level
+    # counterpart of the column-level --lengthy switch (both are
+    # orthogonal and can be combined). Alerting and perfdata are
+    # unaffected: all filesystems still drive the overall state.
+    #
+    # The three-mounts-mixed-state fixture has:
+    #   /      30% (OK)
+    #   /var   91% (WARN at --warning=90%USED)
+    #   /home  98% (CRIT at --critical=95%USED)
+    {
+        'id': 'crit-three-mounts-full-table',
+        'test': 'stdout/three-mounts-mixed-state,,0',
+        # default (no --brief): all three mounts are in the table;
+        # assert on the human-readable used size of each row (`37.3GiB`
+        # is unique to /, `91.3GiB` to /var, `97.8GiB` to /home). These
+        # strings only appear in the rendered table, not in the raw-
+        # bytes perfdata section.
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['37.3GiB', '91.3GiB', '97.8GiB'],
+    },
+    {
+        'id': 'crit-three-mounts-brief-hides-ok-row',
+        'test': 'stdout/three-mounts-mixed-state,,0',
+        'params': '--brief',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['91.3GiB', '97.8GiB'],
+        # the OK-state root filesystem must not appear in the table;
+        # 37.3GiB is its human-readable used size and is unique to
+        # the / row (the raw-bytes perfdata uses 40000000000 instead).
+        'assert-not-in': ['37.3GiB'],
+    },
+    {
+        'id': 'ok-two-mounts-brief-all-ok-renders-single-line',
+        'test': 'stdout/two-mounts-root-and-boot,,0',
+        'params': '--brief',
+        # with --brief and zero WARN/CRIT rows, the plugin collapses
+        # to a single-line "Everything is ok. (thresholds)" summary
+        # without a table header row.
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+        'assert-not-in': [
+            'Mountpoint',  # no table header
+            '300.0MiB',    # /boot human-readable used size, table-only
+        ],
+    },
 ]
 
 

@@ -34,22 +34,30 @@ Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and 
 ## Help
 
 ```text
-usage: dhcp-scope-usage [-h] [-V] [--always-ok] [-c CRIT] [-H HOSTNAME]
-                        [--test TEST] [-w WARN] [--winrm-domain WINRM_DOMAIN]
+usage: dhcp-scope-usage [-h] [-V] [--always-ok] [--brief] [-c CRIT]
+                        [-H HOSTNAME] [--test TEST] [-w WARN]
+                        [--winrm-domain WINRM_DOMAIN]
                         --winrm-hostname WINRM_HOSTNAME
                         --winrm-password WINRM_PASSWORD
                         [--winrm-transport {basic,ntlm,kerberos,credssp,plaintext}]
                         [--winrm-username WINRM_USERNAME]
 
 Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM
-and queries scope statistics using PowerShell. Alerts when the address pool
-usage of any scope exceeds the configured thresholds (default: WARN at 80%,
-CRIT at 90%).
+and queries scope statistics using PowerShell. On servers with thousands of
+scopes, --brief hides rows within the thresholds so the output only lists
+scopes in WARN/CRIT state. Alerts when the address pool usage of any scope
+exceeds the configured thresholds (default: WARN at 80%, CRIT at 90%).
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --brief               Hide scopes within the thresholds and show only those
+                        in WARN/CRIT state. Inverse of `--lengthy` (which adds
+                        columns); `--brief` filters rows. The two are
+                        orthogonal and can be combined. Perfdata and alerting
+                        are unaffected: all scopes still emit perfdata and
+                        still drive the overall check state. Default: False
   -c, --critical CRIT   CRIT threshold in percent. Default: >= 90
   -H, --hostname HOSTNAME
                         DNS name, IPv4, or IPv6 address of the DHCP server.
