@@ -12,6 +12,7 @@
 
 import argparse
 import json
+import os
 import re
 import socket
 import sys
@@ -312,8 +313,27 @@ def main():
         # derived from `list_sas` below via the same `_collect_keys`
         # helper the production path uses, so the test and the
         # production paths cannot drift.
+        fixture_path = args.TEST[0] if args.TEST else ''
+        if not fixture_path or not os.path.isfile(fixture_path):
+            hint = ''
+            for legacy in (
+                '-possible_connection_keys',
+                '-active_connection_keys',
+                '-list_sas',
+            ):
+                if fixture_path.endswith(legacy):
+                    hint = (
+                        f' (the three-file convention was removed; drop the '
+                        f'`{legacy}` suffix and pass '
+                        f'`{fixture_path[: -len(legacy)]}` instead)'
+                    )
+                    break
+            lib.base.cu(f'Test fixture not found: {fixture_path}{hint}')
         stdout, _stderr, _retc = lib.lftest.test(args.TEST)
-        fixture = json.loads(stdout)
+        try:
+            fixture = json.loads(stdout)
+        except json.JSONDecodeError as e:
+            lib.base.cu(f'Malformed JSON in test fixture {fixture_path}: {e}')
         list_conns = fixture.get('list_conns', [])
         list_sas = fixture.get('list_sas', [])
     possible_connection_keys = _collect_keys(list_conns)
