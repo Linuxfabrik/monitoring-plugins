@@ -192,6 +192,11 @@ Monitoring Plugins:
 
 ### Security
 
+Build, CI/CD:
+
+* Harden the CI supply chain: the `pre-commit` install in the pre-commit-autoupdate workflow is now hash-pinned via `.github/pre-commit/requirements.txt` (generated with `pip-compile --generate-hashes --strip-extras`), and `dependabot/fetch-metadata` is pinned to a commit SHA so all GitHub Actions used in `.github/workflows/` are now pinned by hash. The policy is documented in CONTRIBUTING.md under "CI Supply Chain". No admin-facing behavior change.
+
+
 Monitoring Plugins:
 
 * Security audit over all plugins: reviewed every remaining `shell=True`, dynamic SQL query and admin-supplied `eval()` expression, confirmed each is driven by trusted check configuration rather than end-user input, and annotated them accordingly. No admin-facing behavior change.

@@ -61,6 +61,16 @@ Document all changes in `CHANGELOG.md` following [Keep a Changelog](https://keep
 Code, comments, commit messages, and documentation must be written in English.
 
 
+### CI Supply Chain
+
+GitHub Actions in `.github/workflows/` are pinned by commit SHA, not by tag. Dependabot's `github-actions` ecosystem keeps these pins up to date.
+
+Python packages installed via `pip` inside workflows follow a two-tier policy:
+
+- `pre-commit` is installed from a hash-pinned requirements file at `.github/pre-commit/requirements.txt`, generated with `pip-compile --generate-hashes --strip-extras` from `.github/pre-commit/requirements.in`. Dependabot's `pip` ecosystem watches that directory and maintains both files.
+- One-shot installs such as `ansible-builder`, `build`, `mkdocs`, `pdoc`, and `ruff` in release, docs, or test workflows are version-pinned only (`package==X.Y.Z`) and kept fresh by Dependabot. Scorecard's `pipCommand not pinned by hash` findings for these are considered acceptable risk and may be dismissed.
+
+
 ### Coding Conventions
 
 - Sort variables, parameters, lists, and similar items alphabetically where possible.
