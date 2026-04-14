@@ -15,12 +15,22 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
+# docker-info and podman-info share the same stderr-parsing code path
+# and the same --ignore handling (#834, #1068). The two test suites are
+# kept structurally identical: same test ids, same scenarios, same
+# assertions. Only the stdout fixture and the `check` attribute differ.
+# The stderr/two-warnings-two-errors fixture exists under both plugin
+# trees with the same name and the same 2W+2E shape, so the state
+# transitions and the --ignore variants map 1:1 between the two suites.
+# The exact warning/error strings are daemon-specific (bridge-nf-call
+# for docker, cgroup v1 for podman) because they reflect real stderr
+# output admins would see in production.
 TESTS = [
     {
-        'id': 'ok-empty-podman',
-        'test': 'stdout/empty-podman,,0',
+        'id': 'ok-no-stderr',
+        'test': 'stdout/zero-containers,,0',
         'assert-retc': STATE_OK,
         'assert-in': [
             '0 Containers',
@@ -29,6 +39,65 @@ TESTS = [
             'Podman v3.0.1',
             '8 CPUs',
         ],
+    },
+    {
+        'id': 'crit-stderr-warnings-and-errors',
+        'test': 'stdout/zero-containers,stderr/two-warnings-two-errors,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'ERROR: invalid storage configuration',
+            'ERROR: unable to connect to the Podman socket',
+            'WARNING: cgroup v1 is deprecated',
+            'WARNING: running rootless',
+            '0 Containers',
+        ],
+    },
+    {
+        'id': 'crit-ignore-warnings-only',
+        'test': 'stdout/zero-containers,stderr/two-warnings-two-errors,0',
+        # Filter out both WARNINGs; the two ERRORs remain and still
+        # drive the overall state to CRIT.
+        'params': "--ignore='^WARNING:'",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['ERROR: invalid storage configuration'],
+        'assert-not-in': ['WARNING:'],
+    },
+    {
+        'id': 'ok-ignore-all-stderr',
+        'test': 'stdout/zero-containers,stderr/two-warnings-two-errors,0',
+        'params': "--ignore='^WARNING:' --ignore='^ERROR:'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['0 Containers'],
+        'assert-not-in': ['WARNING:', 'ERROR:'],
+    },
+    {
+        'id': 'crit-ignore-case-sensitive-default',
+        'test': 'stdout/zero-containers,stderr/two-warnings-two-errors,0',
+        # Uppercase pattern must NOT match a mixed-case stderr line:
+        # the regex default is case-sensitive, so the ignore is a
+        # no-op and the check stays CRIT.
+        'params': "--ignore='CGROUP V1'",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['WARNING: cgroup v1 is deprecated'],
+    },
+    {
+        'id': 'warn-ignore-errors-case-insensitive-opt-in',
+        'test': 'stdout/zero-containers,stderr/two-warnings-two-errors,0',
+        # Opt into case-insensitive matching with `(?i)`: matches
+        # `ERROR:` even though the pattern is lowercased. After
+        # hiding the errors only the warnings remain, so the state
+        # drops from CRIT to WARN.
+        'params': "--ignore='(?i)^error:'",
+        'assert-retc': STATE_WARN,
+        'assert-in': ['WARNING: cgroup v1 is deprecated'],
+        'assert-not-in': ['ERROR:'],
+    },
+    {
+        'id': 'unknown-ignore-invalid-regex',
+        'test': 'stdout/zero-containers,stderr/two-warnings-two-errors,0',
+        'params': "--ignore='('",
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid regular expression'],
     },
 ]
 

@@ -26,20 +26,30 @@ Displays system-wide Docker information including container counts (running, pau
 ## Help
 
 ```text
-usage: docker-info [-h] [-V] [--always-ok] [--test TEST]
+usage: docker-info [-h] [-V] [--always-ok] [--ignore IGNORE] [--test TEST]
 
 Displays system-wide Docker information including container counts (running,
 paused, stopped), image count, storage and logging driver, Docker version,
-available CPUs, and total memory. Also monitors the Docker daemon for warnings
-or errors. For Podman, use the podman-info check instead. Requires root or
-sudo.
+available CPUs, and total memory. Also monitors the Docker daemon stderr for
+warnings and errors. Individual stderr lines can be filtered out with --ignore
+(e.g. the "WARNING: No swap limit support" message on hosts where the kernel
+does not expose swap accounting). For Podman, use the podman-info check
+instead. Requires root or sudo.
 
 options:
-  -h, --help     show this help message and exit
-  -V, --version  show program's version number and exit
-  --always-ok    Always returns OK.
-  --test TEST    For unit tests. Needs "path-to-stdout-file,path-to-stderr-
-                 file,expected-retc".
+  -h, --help       show this help message and exit
+  -V, --version    show program's version number and exit
+  --always-ok      Always returns OK.
+  --ignore IGNORE  Ignore stderr lines matching this Python regular
+                   expression. Case-sensitive by default; use `(?i)` for case-
+                   insensitive matching. Can be specified multiple times.
+                   Example: `--ignore="No swap limit support"` to suppress the
+                   Docker warning on kernels without swap accounting. Example:
+                   `--ignore="(?i)bridge-nf-call"` (case-insensitive) to
+                   suppress both `bridge-nf-call-iptables` and `bridge-nf-
+                   call-ip6tables` warnings on Debian hosts. Default: None
+  --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
+                   file,expected-retc".
 ```
 
 

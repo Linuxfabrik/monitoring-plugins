@@ -11,6 +11,7 @@
 """See the check's README for more details."""
 
 import argparse
+import re
 import sys
 
 import lib.args
@@ -21,12 +22,14 @@ import lib.shell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040802'
+__version__ = '2026041404'
 
-DESCRIPTION = """Displays system-wide Docker information including container counts (running, paused,
-stopped), image count, storage and logging driver, Docker version, available CPUs,
-and total memory. Also monitors the Docker daemon for warnings or errors. For Podman,
-use the podman-info check instead.
+DESCRIPTION = """Displays system-wide Docker information including container counts (running,
+paused, stopped), image count, storage and logging driver, Docker version, available
+CPUs, and total memory. Also monitors the Docker daemon stderr for warnings and errors.
+Individual stderr lines can be filtered out with --ignore (e.g. the "WARNING: No swap
+limit support" message on hosts where the kernel does not expose swap accounting). For
+Podman, use the podman-info check instead.
 Requires root or sudo."""
 
 
@@ -50,6 +53,22 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore',
+        help='Ignore stderr lines matching this Python regular expression. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. '
+        'Example: `--ignore="No swap limit support"` to suppress the Docker '
+        'warning on kernels without swap accounting. '
+        'Example: `--ignore="(?i)bridge-nf-call"` (case-insensitive) to '
+        'suppress both `bridge-nf-call-iptables` and `bridge-nf-call-ip6tables` '
+        'warnings on Debian hosts. '
+        'Default: %(default)s',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
         '--test',
         help=lib.args.help('--test'),
         dest='TEST',
@@ -68,6 +87,17 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    if args.IGNORE is None:
+        args.IGNORE = []
+
+    # compile ignore patterns (case-sensitive by default, matching the
+    # lib.args convention for --match / --ignore-regex; the user can
+    # opt into case-insensitive matching with the inline `(?i)` flag).
+    try:
+        ignore_patterns = [re.compile(p) for p in args.IGNORE]
+    except re.error as e:
+        lib.base.cu(f'Invalid regular expression: {e}')
 
     # fetch data
     if args.TEST is None:
@@ -120,8 +150,13 @@ def main():
         if ' server version: ' in lcrow:
             ver = lcrow.replace('server version: ', '').strip()
 
-    # check stderr for warnings and errors
+    # check stderr for warnings and errors, skipping lines matched by
+    # --ignore (#834: let admins suppress boilerplate docker warnings
+    # like "WARNING: No swap limit support" that cannot be silenced in
+    # the daemon config).
     for row in stderr.strip().split('\n'):
+        if any(pattern.search(row) for pattern in ignore_patterns):
+            continue
         lcrow = row.lower()
         if 'warning: ' in lcrow:
             warn += f'{row}, '

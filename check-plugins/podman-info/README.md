@@ -30,18 +30,29 @@ Displays system-wide Podman information including container counts, image count,
 ## Help
 
 ```text
-usage: podman-info [-h] [-V] [--always-ok] [--test TEST]
+usage: podman-info [-h] [-V] [--always-ok] [--ignore IGNORE] [--test TEST]
 
 Displays system-wide Podman information including container counts, image
-count, storage driver, runtime version, available CPUs, and total memory. For
-Docker, use the docker-info check instead. Requires root or sudo.
+count, storage driver, runtime version, available CPUs, and total memory. Also
+monitors the Podman daemon stderr for warnings and errors. Individual stderr
+lines can be filtered out with --ignore (e.g. benign cgroup warnings on
+rootless hosts). For Docker, use the docker-info check instead. Requires root
+or sudo.
 
 options:
-  -h, --help     show this help message and exit
-  -V, --version  show program's version number and exit
-  --always-ok    Always returns OK.
-  --test TEST    For unit tests. Needs "path-to-stdout-file,path-to-stderr-
-                 file,expected-retc".
+  -h, --help       show this help message and exit
+  -V, --version    show program's version number and exit
+  --always-ok      Always returns OK.
+  --ignore IGNORE  Ignore stderr lines matching this Python regular
+                   expression. Case-sensitive by default; use `(?i)` for case-
+                   insensitive matching. Can be specified multiple times.
+                   Example: `--ignore="cgroup v1"` to suppress a benign
+                   cgroup-version warning on hosts that have not yet migrated
+                   to cgroup v2. Example: `--ignore="(?i)rootless"` (case-
+                   insensitive) to suppress any rootless-related informational
+                   warning. Default: None
+  --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
+                   file,expected-retc".
 ```
 
 

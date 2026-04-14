@@ -15,20 +15,87 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
+# docker-info and podman-info share the same stderr-parsing code path
+# and the same --ignore handling (#834, #1068). The two test suites are
+# kept structurally identical: same test ids, same scenarios, same
+# assertions. Only the stdout fixture and the `check` attribute differ.
+# The stderr/two-warnings-two-errors fixture exists under both plugin
+# trees with the same name and the same 2W+2E shape, so the state
+# transitions and the --ignore variants map 1:1 between the two suites.
+# The exact warning/error strings are daemon-specific (bridge-nf-call
+# for docker, cgroup v1 for podman) because they reflect real stderr
+# output admins would see in production.
 TESTS = [
     {
-        'id': 'crit-server-with-errors',
-        'test': 'stdout/server-with-errors,stderr/STDERR01,0',
+        'id': 'ok-no-stderr',
+        'test': 'stdout/seven-containers-mixed-state,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '7 Containers (2 running, 0 paused, 5 stopped)',
+            '5 Images',
+            'Storage Driver: overlay2',
+        ],
+    },
+    {
+        'id': 'crit-stderr-warnings-and-errors',
+        'test': 'stdout/seven-containers-mixed-state,stderr/two-warnings-two-errors,0',
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            'ERROR: an error happened, ERROR: invalid empty security option, '
-            'WARNING: bridge-nf-call-iptables is disabled, '
-            'WARNING: bridge-nf-call-ip6tables is disabled',
-            '7 Containers (2 running, 0 paused, 5 stopped), '
-            '5 Images, Storage Driver: overlay2',
+            'ERROR: an error happened',
+            'ERROR: invalid empty security option',
+            'WARNING: bridge-nf-call-iptables',
+            'WARNING: bridge-nf-call-ip6tables',
+            '7 Containers (2 running, 0 paused, 5 stopped)',
         ],
+    },
+    {
+        'id': 'crit-ignore-warnings-only',
+        'test': 'stdout/seven-containers-mixed-state,stderr/two-warnings-two-errors,0',
+        # Filter out both WARNINGs; the two ERRORs remain and still
+        # drive the overall state to CRIT.
+        'params': "--ignore='^WARNING:'",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['ERROR: an error happened'],
+        'assert-not-in': ['WARNING:'],
+    },
+    {
+        'id': 'ok-ignore-all-stderr',
+        'test': 'stdout/seven-containers-mixed-state,stderr/two-warnings-two-errors,0',
+        'params': "--ignore='^WARNING:' --ignore='^ERROR:'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['7 Containers'],
+        'assert-not-in': ['WARNING:', 'ERROR:'],
+    },
+    {
+        'id': 'crit-ignore-case-sensitive-default',
+        'test': 'stdout/seven-containers-mixed-state,stderr/two-warnings-two-errors,0',
+        # Uppercase pattern must NOT match a mixed-case stderr line:
+        # the regex default is case-sensitive, so the ignore is a
+        # no-op and the check stays CRIT.
+        'params': "--ignore='BRIDGE-NF-CALL'",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['WARNING: bridge-nf-call-iptables'],
+    },
+    {
+        'id': 'warn-ignore-errors-case-insensitive-opt-in',
+        'test': 'stdout/seven-containers-mixed-state,stderr/two-warnings-two-errors,0',
+        # Opt into case-insensitive matching with `(?i)`: matches
+        # `ERROR:` even though the pattern is lowercased. After
+        # hiding the errors only the warnings remain, so the state
+        # drops from CRIT to WARN.
+        'params': "--ignore='(?i)^error:'",
+        'assert-retc': STATE_WARN,
+        'assert-in': ['WARNING: bridge-nf-call-iptables'],
+        'assert-not-in': ['ERROR:'],
+    },
+    {
+        'id': 'unknown-ignore-invalid-regex',
+        'test': 'stdout/seven-containers-mixed-state,stderr/two-warnings-two-errors,0',
+        'params': "--ignore='('",
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid regular expression'],
     },
 ]
 

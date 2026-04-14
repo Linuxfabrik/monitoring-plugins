@@ -12,6 +12,7 @@
 
 import argparse
 import json
+import re
 import sys
 
 import lib.args
@@ -23,11 +24,13 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041404'
 
 DESCRIPTION = """Displays system-wide Podman information including container counts, image count,
-storage driver, runtime version, available CPUs, and total memory. For Docker, use
-the docker-info check instead.
+storage driver, runtime version, available CPUs, and total memory. Also monitors the
+Podman daemon stderr for warnings and errors. Individual stderr lines can be filtered
+out with --ignore (e.g. benign cgroup warnings on rootless hosts). For Docker, use the
+docker-info check instead.
 Requires root or sudo."""
 
 
@@ -51,6 +54,21 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore',
+        help='Ignore stderr lines matching this Python regular expression. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. '
+        'Example: `--ignore="cgroup v1"` to suppress a benign cgroup-version '
+        'warning on hosts that have not yet migrated to cgroup v2. '
+        'Example: `--ignore="(?i)rootless"` (case-insensitive) to suppress '
+        'any rootless-related informational warning. '
+        'Default: %(default)s',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
         '--test',
         help=lib.args.help('--test'),
         dest='TEST',
@@ -69,6 +87,17 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    if args.IGNORE is None:
+        args.IGNORE = []
+
+    # compile ignore patterns (case-sensitive by default, matching the
+    # lib.args convention for --match / --ignore-regex; the user can
+    # opt into case-insensitive matching with the inline `(?i)` flag).
+    try:
+        ignore_patterns = [re.compile(p) for p in args.IGNORE]
+    except re.error as e:
+        lib.base.cu(f'Invalid regular expression: {e}')
 
     # fetch data
     if args.TEST is None:
@@ -114,8 +143,13 @@ def main():
     storage_driver = result['store']['graphDriverName']
     ver = result['version']['Version']
 
-    # check stderr for warnings and errors
+    # check stderr for warnings and errors, skipping lines matched by
+    # --ignore (#834: same treatment as docker-info so admins can
+    # suppress boilerplate stderr warnings that cannot be silenced in
+    # the daemon config).
     for row in stderr.strip().split('\n'):
+        if any(pattern.search(row) for pattern in ignore_patterns):
+            continue
         lcrow = row.lower()
         if 'warning: ' in lcrow:
             warn += f'{row}, '
