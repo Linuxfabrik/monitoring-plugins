@@ -126,23 +126,15 @@ def _collect_keys(entries):
     """Return the sorted list of dict keys from a sequence of
     single-key dicts. VICI's `list_conns()` and `list_sas()` both
     yield one-key-per-dict entries, which makes them interchangeable
-    for a simple key collection.
+    for a simple key collection. The production path passes the
+    VICI generator directly; the test path passes a pre-loaded
+    list from the JSON fixture.
     """
     keys = []
     for entry in entries:
         keys.extend(entry.keys())
     keys.sort()
     return keys
-
-
-def get_possible_connection_keys(session):
-    """Return the sorted list of configured VICI connection names."""
-    return _collect_keys(session.list_conns())
-
-
-def get_active_connection_keys(session):
-    """Return the sorted list of currently active VICI SA names."""
-    return _collect_keys(session.list_sas())
 
 
 def keep_connection(name, match_patterns, ignore_patterns):
@@ -306,8 +298,7 @@ def main():
             lib.base.cu(f'Failed to connect to the VICI socket at {args.SOCKET}: {e}')
         try:
             session = vici.Session(s)
-            possible_connection_keys = get_possible_connection_keys(session)
-            active_connection_keys = get_active_connection_keys(session)
+            list_conns = list(session.list_conns())
             # list_sas() returns a generator backed by the VICI
             # socket; materialise it to a list now so we can close
             # the socket cleanly before processing the data.
@@ -315,18 +306,18 @@ def main():
         finally:
             s.close()
     else:
-        possible_connection_keys, _stderr, _retc = lib.lftest.test(
-            [args.TEST[0] + '-possible_connection_keys', args.TEST[1], args.TEST[2]]
-        )
-        possible_connection_keys = json.loads(possible_connection_keys)
-        active_connection_keys, _stderr, _retc = lib.lftest.test(
-            [args.TEST[0] + '-active_connection_keys', args.TEST[1], args.TEST[2]]
-        )
-        active_connection_keys = json.loads(active_connection_keys)
-        list_sas, _stderr, _retc = lib.lftest.test(
-            [args.TEST[0] + '-list_sas', args.TEST[1], args.TEST[2]]
-        )
-        list_sas = json.loads(list_sas)
+        # Single-file test fixture: a JSON object with `list_conns`
+        # and `list_sas` keys, both holding the raw VICI "list of
+        # single-key dicts" shape. `active_connection_keys` is
+        # derived from `list_sas` below via the same `_collect_keys`
+        # helper the production path uses, so the test and the
+        # production paths cannot drift.
+        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
+        fixture = json.loads(stdout)
+        list_conns = fixture.get('list_conns', [])
+        list_sas = fixture.get('list_sas', [])
+    possible_connection_keys = _collect_keys(list_conns)
+    active_connection_keys = _collect_keys(list_sas)
 
     # Apply the --match / --ignore filter to both the configured and
     # the active connection lists. Filtering before the "configured
