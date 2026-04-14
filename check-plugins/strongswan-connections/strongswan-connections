@@ -11,6 +11,8 @@
 """See the check's README for more details."""
 
 import argparse
+import json
+import re
 import socket
 import sys
 
@@ -18,7 +20,6 @@ import lib.args
 import lib.base
 import lib.human
 import lib.lftest
-import lib.shell
 import lib.time
 import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
@@ -31,11 +32,14 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041407'
 
 DESCRIPTION = """Checks IPSec connection states on a strongSwan VPN gateway. Connects to the charon
 daemon via the VICI interface to retrieve IKE SA and CHILD SA states. Alerts on
-connections that are not in the expected established state.
+connections that are not in the expected established state. Connection names can be
+filtered out with --ignore, which is useful for gateways that mix permanent site-to-site
+peers with transient remote-access clients where only the site-to-site peers should
+drive the alert.
 Requires root or sudo."""
 
 DEFAULT_LENGTHY = False
@@ -62,11 +66,41 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore',
+        help='Ignore connections whose VICI key matches this Python regular '
+        'expression. Case-sensitive by default; use `(?i)` for case-insensitive '
+        'matching. Can be specified multiple times. Example: `--ignore="^RA_"` '
+        'to skip transient remote-access clients on a VPN gateway that also '
+        'carries permanent site-to-site peers. Example: `--ignore="(?i)test"` '
+        '(case-insensitive) to skip any connection with "test" in its name. '
+        'Default: %(default)s',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
         '--lengthy',
         help=lib.args.help('--lengthy'),
         dest='LENGTHY',
         action='store_true',
         default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only check connections whose VICI key matches this Python regular '
+        'expression. Case-sensitive by default; use `(?i)` for case-insensitive '
+        'matching. Can be specified multiple times. If both `--match` and '
+        '`--ignore` are given, a connection must match `--match` AND not match '
+        '`--ignore` to be checked (include first, exclude second). '
+        'Example: `--match="^S2S_SITE-XY$"` to pin an Icinga service to one '
+        'specific site-to-site peer. Example: `--match="(?i)^s2s_"` '
+        '(case-insensitive) to check every site-to-site peer on a gateway. '
+        'Default: %(default)s',
+        dest='MATCH',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -88,38 +122,60 @@ def parse_args():
     return args
 
 
+def _collect_keys(entries):
+    """Return the sorted list of dict keys from a sequence of
+    single-key dicts. VICI's `list_conns()` and `list_sas()` both
+    yield one-key-per-dict entries, which makes them interchangeable
+    for a simple key collection.
+    """
+    keys = []
+    for entry in entries:
+        keys.extend(entry.keys())
+    keys.sort()
+    return keys
+
+
 def get_possible_connection_keys(session):
-    possible_connection_keys = []
-    for conn in session.list_conns():
-        for key in conn:
-            possible_connection_keys.append(key)
-    possible_connection_keys.sort()
-    return possible_connection_keys
+    """Return the sorted list of configured VICI connection names."""
+    return _collect_keys(session.list_conns())
 
 
 def get_active_connection_keys(session):
-    active_connection_keys = []
-    for conn in session.list_sas():
-        for key in conn:
-            active_connection_keys.append(key)
-    active_connection_keys.sort()
-    return active_connection_keys
+    """Return the sorted list of currently active VICI SA names."""
+    return _collect_keys(session.list_sas())
 
 
-# connname:
-# OrderedDict([('uniqueid', b'307'), ('version', b'2'), ('state', b'ESTABLISHED'), ('local-host', b'local-ip'), ('local-port', b'500'), ('local-id', b'local-ip'), ('remote-host', b'remote-ip'), ('remote-port', b'500'), ('remote-id', b'remote-ip'), ('initiator-spi', b'62030f8c83f1adb3'), ('responder-spi', b'3b1e135425ddf93e'), ('encr-alg', b'AES_CBC'), ('encr-keysize', b'256'), ('integ-alg', b'HMAC_SHA2_256_128'), ('prf-alg', b'PRF_HMAC_SHA2_256'), ('dh-group', b'MODP_2048'), ('established', b'924'), ('reauth-time', b'9083'), ('child-sas', OrderedDict([('customer-596', OrderedDict([('name', b'some-name'), ('uniqueid', b'596'), ('reqid', b'155'), ('state', b'INSTALLED'), ('mode', b'TUNNEL'), ('protocol', b'ESP'), ('spi-in', b'c13ff4b5'), ('spi-out', b'cfaa60fc'), ('encr-alg', b'AES_CBC'), ('encr-keysize', b'256'), ('integ-alg', b'HMAC_SHA2_256_128'), ('dh-group', b'MODP_2048'), ('bytes-in', b'67804'), ('packets-in', b'285'), ('use-in', b'3'), ('bytes-out', b'48956'), ('packets-out', b'346'), ('use-out', b'3'), ('rekey-time', b'1818'), ('life-time', b'2679'), ('install-time', b'921'), ('local-ts', [b'192.0.2.19/32']), ('remote-ts', [b'10.0.2.17/32'])]))]))])
+def keep_connection(name, match_patterns, ignore_patterns):
+    """Return True if `name` should be kept by the --match / --ignore
+    filter pair, False if it should be dropped. Include first, then
+    exclude: a name passes if it matches any `match_patterns` entry
+    (or if `match_patterns` is empty) AND does not match any
+    `ignore_patterns` entry. Same semantics as the disk-usage plugin
+    and the lib.args canonical `--match` / `--ignore` convention.
+    """
+    if match_patterns and not any(p.search(name) for p in match_patterns):
+        return False
+    return not any(p.search(name) for p in ignore_patterns)
 
 
 def format_sas_data(sas):
     """Re-format SAS connection details for a single connection.
     Also handle different VICI versions.
+
+    VICI returns all scalars as `bytes` at runtime, while the JSON
+    fixtures used by the unit tests hold already-decoded `str`
+    values. Both shapes are accepted: `bytes` are decoded via
+    `lib.txt.to_text()`, `bytearray` is joined and decoded, and
+    anything else (including `str`) is passed through unchanged.
     """
     data = {}
     for key, value in sas.items():
         if isinstance(value, bytes):
             data[key] = lib.txt.to_text(value)
-        if isinstance(value, bytearray):
+        elif isinstance(value, bytearray):
             data[key] = lib.txt.to_text(b', '.join(value))
+        else:
+            data[key] = value
         if key == 'integ-alg' and not value:
             continue
         # handle different versions:
@@ -161,6 +217,17 @@ def format_sas_data(sas):
     return data
 
 
+def _join_traffic_selectors(values):
+    """Join a VICI `local-ts` / `remote-ts` list into a single
+    comma-separated text string. VICI returns the list elements as
+    `bytes` at runtime; the JSON fixtures used by the unit tests
+    hold already-decoded `str` values. Both shapes work.
+    """
+    if not values:
+        return ''
+    return ', '.join(lib.txt.to_text(v) for v in values)
+
+
 def format_child_data(child):
     """Re-format child connection details for a single sub connection.
     This is much more volatile (depending on the conn state), so list all expected keys manually
@@ -175,12 +242,12 @@ def format_child_data(child):
     data['child-install-time'] = int(lib.txt.to_text(child.get('install-time', 0)))
     data['child-integ-alg'] = lib.txt.to_text(child.get('integ-alg', 'None'))
     data['child-life-time'] = int(lib.txt.to_text(child.get('life-time', 0)))
-    data['child-local-ts'] = lib.txt.to_text(b', '.join(child.get('local-ts', '')))
+    data['child-local-ts'] = _join_traffic_selectors(child.get('local-ts'))
     data['child-mode'] = lib.txt.to_text(child.get('mode', ''))
     data['child-name'] = lib.txt.to_text(child.get('name', ''))
     data['child-protocol'] = lib.txt.to_text(child.get('protocol', ''))
     data['child-rekey-time'] = int(lib.txt.to_text(child.get('rekey-time', 0)))
-    data['child-remote-ts'] = lib.txt.to_text(b', '.join(child.get('remote-ts', '')))
+    data['child-remote-ts'] = _join_traffic_selectors(child.get('remote-ts'))
     data['child-state'] = lib.txt.to_text(child.get('state', ''))
 
     data['child-bytes-in-hr'] = lib.human.bytes2human(data['child-bytes-in'])
@@ -215,21 +282,39 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # compile --match and --ignore patterns (case-sensitive by default,
+    # matching the lib.args convention; the user can opt into
+    # case-insensitive matching with the inline `(?i)` flag)
+    try:
+        match_patterns = [re.compile(p) for p in args.MATCH]
+        ignore_patterns = [re.compile(p) for p in args.IGNORE]
+    except re.error as e:
+        lib.base.cu(f'Invalid regular expression: {e}')
+
     # fetch data
     if args.TEST is None:
         s = socket.socket(socket.AF_UNIX)
         try:
             s.connect(args.SOCKET)
-        except Exception:
-            lib.base.cu('Failed to connect to the VICI Socket.')
-        session = vici.Session(s)
-        possible_connection_keys = get_possible_connection_keys(session)
-        active_connection_keys = get_active_connection_keys(session)
-        list_sas = session.list_sas()
+        except OSError as e:
+            s.close()
+            lib.base.cu(f'Failed to connect to the VICI socket at {args.SOCKET}: {e}')
+        try:
+            session = vici.Session(s)
+            possible_connection_keys = get_possible_connection_keys(session)
+            active_connection_keys = get_active_connection_keys(session)
+            # list_sas() returns a generator backed by the VICI
+            # socket; materialise it to a list now so we can close
+            # the socket cleanly before processing the data.
+            list_sas = list(session.list_sas())
+        finally:
+            s.close()
     else:
-        # do not call the command, put in test data
-        import json
-
         possible_connection_keys, _stderr, _retc = lib.lftest.test(
             [args.TEST[0] + '-possible_connection_keys', args.TEST[1], args.TEST[2]]
         )
@@ -242,6 +327,22 @@ def main():
             [args.TEST[0] + '-list_sas', args.TEST[1], args.TEST[2]]
         )
         list_sas = json.loads(list_sas)
+
+    # Apply the --match / --ignore filter to both the configured and
+    # the active connection lists. Filtering before the "configured
+    # but not active" comparison means an ignored connection that is
+    # configured but currently down does not trigger the warning,
+    # which is exactly the point of --ignore.
+    possible_connection_keys = [
+        k
+        for k in possible_connection_keys
+        if keep_connection(k, match_patterns, ignore_patterns)
+    ]
+    active_connection_keys = [
+        k
+        for k in active_connection_keys
+        if keep_connection(k, match_patterns, ignore_patterns)
+    ]
 
     if not possible_connection_keys:
         lib.base.oao(
@@ -269,13 +370,17 @@ def main():
             f'{lib.base.state2str(conf_state, prefix=" ")}. '
         )
 
-    # analyze data
-    for sas in list_sas:  # generator object, which has no attribute 'items'
-        for key in active_connection_keys:
-            try:
-                row = format_sas_data(sas[key])
-            except Exception:
+    # analyze data. `list_sas` is a list of single-key dicts where
+    # each key is the connection name and the value is the SA
+    # details; iterate the dict entries directly instead of trying
+    # `sas[name]` for every `active_connection_keys` item (which was
+    # O(n*m) and relied on a bare `except` to probe for presence).
+    active_keyset = set(active_connection_keys)
+    for sas in list_sas:
+        for key, details in sas.items():
+            if key not in active_keyset:
                 continue
+            row = format_sas_data(details)
             row['conn'] = key
             perfdata += lib.base.get_perfdata(
                 f'{key}_established',
@@ -290,13 +395,9 @@ def main():
                 _min=0,
             )
 
-            children = None
-            try:
-                children = sas[key]['child-sas']
-                if children == {}:
-                    children = None
-            except Exception:
-                pass
+            children = details.get('child-sas') or None
+            if children == {}:
+                children = None
 
             if children is not None:
                 for child_key in children:

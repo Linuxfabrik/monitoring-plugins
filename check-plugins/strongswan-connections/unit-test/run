@@ -46,6 +46,65 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ['Everything is ok.'],
     },
+
+    # #738: --match and --ignore filter on the VICI connection key.
+    # The mixed-s2s-and-ra-one-ra-inactive fixture has two permanent
+    # site-to-site peers (S2S_SITE-A, S2S_SITE-B, both active) plus
+    # three remote-access clients (RA_alice and RA_bob active,
+    # RA_carol configured but currently not connected). The default
+    # run therefore trips the "configured but not active" warning on
+    # RA_carol; --ignore='^RA_' or --match='^S2S_' restores OK
+    # because the transient RA clients drop out of the comparison.
+    {
+        'id': 'warn-mixed-s2s-and-ra-one-ra-inactive-default',
+        'test': 'stdout/mixed-s2s-and-ra-one-ra-inactive,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['One or more connections are configured but not active'],
+    },
+    {
+        'id': 'ok-mixed-s2s-and-ra-ignore-ra',
+        'test': 'stdout/mixed-s2s-and-ra-one-ra-inactive,,0',
+        'params': "--ignore='^RA_'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', 'S2S_SITE-A', 'S2S_SITE-B'],
+        'assert-not-in': ['RA_alice', 'RA_bob', 'RA_carol'],
+    },
+    {
+        'id': 'ok-mixed-s2s-and-ra-match-s2s-only',
+        'test': 'stdout/mixed-s2s-and-ra-one-ra-inactive,,0',
+        'params': "--match='^S2S_'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', 'S2S_SITE-A', 'S2S_SITE-B'],
+        'assert-not-in': ['RA_alice', 'RA_bob', 'RA_carol'],
+    },
+    {
+        'id': 'ok-mixed-s2s-and-ra-match-one-site',
+        'test': 'stdout/mixed-s2s-and-ra-one-ra-inactive,,0',
+        # Typical per-site Icinga service: pin to exactly one S2S
+        # peer and alert only on that one.
+        'params': "--match='^S2S_SITE-A$'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', 'S2S_SITE-A'],
+        'assert-not-in': ['S2S_SITE-B', 'RA_'],
+    },
+    {
+        'id': 'ok-mixed-s2s-and-ra-match-then-ignore',
+        'test': 'stdout/mixed-s2s-and-ra-one-ra-inactive,,0',
+        # `--match` is applied first, `--ignore` second: the match
+        # keeps both S2S peers, and the ignore then drops SITE-B,
+        # leaving only SITE-A.
+        'params': "--match='^S2S_' --ignore='^S2S_SITE-B$'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['S2S_SITE-A'],
+        'assert-not-in': ['S2S_SITE-B'],
+    },
+    {
+        'id': 'unknown-invalid-regex',
+        'test': 'stdout/mixed-s2s-and-ra-one-ra-inactive,,0',
+        'params': "--ignore='('",
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid regular expression'],
+    },
 ]
 
 

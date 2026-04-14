@@ -34,19 +34,41 @@ Checks IPSec connection states on a strongSwan VPN gateway by connecting to the 
 ## Help
 
 ```text
-usage: strongswan-connections [-h] [-V] [--always-ok] [--lengthy]
-                              [--socket SOCKET] [--test TEST]
+usage: strongswan-connections [-h] [-V] [--always-ok] [--ignore IGNORE]
+                              [--lengthy] [--match MATCH] [--socket SOCKET]
+                              [--test TEST]
 
 Checks IPSec connection states on a strongSwan VPN gateway. Connects to the
 charon daemon via the VICI interface to retrieve IKE SA and CHILD SA states.
-Alerts on connections that are not in the expected established state. Requires
+Alerts on connections that are not in the expected established state.
+Connection names can be filtered out with --ignore, which is useful for
+gateways that mix permanent site-to-site peers with transient remote-access
+clients where only the site-to-site peers should drive the alert. Requires
 root or sudo.
 
 options:
   -h, --help       show this help message and exit
   -V, --version    show program's version number and exit
   --always-ok      Always returns OK.
+  --ignore IGNORE  Ignore connections whose VICI key matches this Python
+                   regular expression. Case-sensitive by default; use `(?i)`
+                   for case-insensitive matching. Can be specified multiple
+                   times. Example: `--ignore="^RA_"` to skip transient remote-
+                   access clients on a VPN gateway that also carries permanent
+                   site-to-site peers. Example: `--ignore="(?i)test"` (case-
+                   insensitive) to skip any connection with "test" in its
+                   name. Default: None
   --lengthy        Extended reporting.
+  --match MATCH    Only check connections whose VICI key matches this Python
+                   regular expression. Case-sensitive by default; use `(?i)`
+                   for case-insensitive matching. Can be specified multiple
+                   times. If both `--match` and `--ignore` are given, a
+                   connection must match `--match` AND not match `--ignore` to
+                   be checked (include first, exclude second). Example:
+                   `--match="^S2S_SITE-XY$"` to pin an Icinga service to one
+                   specific site-to-site peer. Example: `--match="(?i)^s2s_"`
+                   (case-insensitive) to check every site-to-site peer on a
+                   gateway. Default: None
   --socket SOCKET  Path to the Versatile IKE Control Interface (VICI) socket.
                    Default: /run/strongswan/charon.vici
   --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-

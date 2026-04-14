@@ -5,8 +5,16 @@
                 "--always-ok": {
                     "set_if": "$strongswan_connections_always_ok$"
                 },
+                "--ignore": {
+                    "value": "$strongswan_connections_ignore$",
+                    "repeat_key": true
+                },
                 "--lengthy": {
                     "set_if": "$strongswan_connections_lengthy$"
+                },
+                "--match": {
+                    "value": "$strongswan_connections_match$",
+                    "repeat_key": true
                 },
                 "--socket": {
                     "value": "$strongswan_connections_socket$"
@@ -27,6 +35,16 @@
                 },
                 {
                     "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -72,7 +90,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks IPSec connection states on a strongSwan VPN gateway. Connects to the charon daemon via the VICI interface to retrieve IKE SA and CHILD SA states. Alerts on connections that are not in the expected established state. Requires root or sudo.",
+            "notes": "Checks IPSec connection states on a strongSwan VPN gateway. Connects to the charon daemon via the VICI interface to retrieve IKE SA and CHILD SA states. Alerts on connections that are not in the expected established state. Connection names can be filtered out with --ignore, which is useful for gateways that mix permanent site-to-site peers with transient remote-access clients where only the site-to-site peers should drive the alert. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/strongswan-connections/",
             "object_name": "tpl-service-strongswan-connections",
             "object_type": "template",
@@ -84,7 +102,9 @@
             "vars": {
                 "criticality": "C",
                 "strongswan_connections_always_ok": false,
+                "strongswan_connections_ignore": [],
                 "strongswan_connections_lengthy": false,
+                "strongswan_connections_match": [],
                 "strongswan_connections_socket": "/run/strongswan/charon.vici"
             },
             "volatile": null,
@@ -103,6 +123,17 @@
             "uuid": "584d20e3-6a37-49bd-8775-e659107932ea"
         },
         "2": {
+            "varname": "strongswan_connections_ignore",
+            "caption": "Strongswan Connections: Ignore",
+            "description": "Ignore connections whose VICI key matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Example: `--ignore=\"^RA_\"` to skip transient remote-access clients on a VPN gateway that also carries permanent site-to-site peers. Example: `--ignore=\"(?i)test\"` (case-insensitive) to skip any connection with \"test\" in its name.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "aa407e77-234d-4bd0-ace0-81c21fe71a9d"
+        },
+        "3": {
             "varname": "strongswan_connections_lengthy",
             "caption": "Strongswan Connections: Lengthy?",
             "description": "Extended reporting.",
@@ -111,7 +142,18 @@
             "settings": {},
             "uuid": "a59704e1-8a80-4f5a-a8f5-e7ed09ef73ab"
         },
-        "3": {
+        "4": {
+            "varname": "strongswan_connections_match",
+            "caption": "Strongswan Connections: Match",
+            "description": "Only check connections whose VICI key matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, a connection must match `--match` AND not match `--ignore` to be checked (include first, exclude second). Example: `--match=\"^S2S_SITE-XY$\"` to pin an Icinga service to one specific site-to-site peer. Example: `--match=\"(?i)^s2s_\"` (case-insensitive) to check every site-to-site peer on a gateway.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "003dbb6e-6dd0-40f7-892c-e61871dd5e7c"
+        },
+        "5": {
             "varname": "strongswan_connections_socket",
             "caption": "Strongswan Connections: Socket",
             "description": "Path to the Versatile IKE Control Interface (VICI) socket.",
