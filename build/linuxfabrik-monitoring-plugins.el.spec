@@ -7,13 +7,17 @@ URL:            https://github.com/Linuxfabrik/monitoring-plugins
 Vendor:         Linuxfabrik GmbH, Zurich, Switzerland
 Packager:       info@linuxfabrik.ch
 
-# Suppress the automatic debuginfo extraction. RPM would otherwise
-# install /usr/lib/.build-id/XX/YY... ELF build-id symlinks for every
-# shared object in the bundled venv into the main package, which can
-# collide file-for-file with other RPMs that happen to ship binaries
-# built from the same upstream source (e.g. azure-cli shipping its own
-# copy of libpython). See issue #979.
-%global debug_package %{nil}
+# Do not emit /usr/lib/.build-id/XX/YY... ELF build-id symlinks into
+# the main package. RPM installs one such symlink for every shared
+# object in the bundled venv, and the build-id hash is computed from
+# the .so content, so two independent RPMs that happen to ship the
+# same upstream binary (e.g. a bundled libpython) end up fighting over
+# the same symlink path and `dnf install` aborts with a file
+# conflict. Setting `_build_id_links` to `none` keeps the debuginfo
+# extraction running in general but tells rpmbuild to skip this
+# specific symlink creation. See issue #979 and the same workaround
+# in the azure-cli project at Azure/azure-cli#23798.
+%define _build_id_links none
 
 Source0:        https://github.com/Linuxfabrik/monitoring-plugins/archive/refs/tags/v%{version}.tar.gz
 Source1:        vendor.tar.gz
