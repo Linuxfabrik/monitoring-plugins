@@ -20,11 +20,15 @@
                 "--no-proxy": {
                     "set_if": "$php_fpm_status_no_proxy$"
                 },
+                "--severity": {
+                    "value": "$php_fpm_status_severity$"
+                },
                 "--timeout": {
                     "value": "$php_fpm_status_timeout$"
                 },
                 "--url": {
-                    "value": "$php_fpm_status_url$"
+                    "value": "$php_fpm_status_url$",
+                    "repeat_key": true
                 },
                 "--warning": {
                     "value": "$php_fpm_status_warning$"
@@ -85,6 +89,11 @@
                     "datafield_id": 10,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -128,7 +137,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Monitors PHP-FPM pool performance via the status page. Reports active processes, listen queue depth, idle workers, request rates, and memory usage per pool. Alerts when the pool approaches capacity. Also lists currently running processes with their request details. Supports extended reporting via --lengthy.",
+            "notes": "Monitors PHP-FPM pool performance via the pool status page. Reports pool saturation (percentage of busy workers), new slow requests since the previous check, the request rate, process counts, and per-process request details for every pool. Multiple pools on the same host can be checked in one run by passing `--url` several times; each URL is treated as an independent pool, and the overall plugin state is the worst of all pools. Basic authentication can be embedded in the URL as `http://user:pass@host/path`. Alerts when pool saturation exceeds the warning/critical thresholds or when new slow requests appear since the last check. Alerts with a configurable severity if a pool is unreachable. Supports extended reporting via --lengthy.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-fpm-status/",
             "object_name": "tpl-service-php-fpm-status",
             "object_type": "template",
@@ -143,16 +152,38 @@
                 "php_fpm_status_critical": 90,
                 "php_fpm_status_critical_slowreq": 100,
                 "php_fpm_status_insecure": false,
-                "php_fpm_status_lengthy": true,
+                "php_fpm_status_lengthy": false,
                 "php_fpm_status_no_proxy": false,
+                "php_fpm_status_severity": "warn",
                 "php_fpm_status_timeout": 8,
-                "php_fpm_status_url": "http://localhost/fpm-status",
+                "php_fpm_status_url": [],
                 "php_fpm_status_warning": 80,
                 "php_fpm_status_warning_slowreq": 1
             },
             "volatile": null,
             "zone": null,
             "uuid": "4a3f9c29-e612-4433-a989-70561b691769"
+        }
+    },
+    "DataList": {
+        "php_fpm_status_severity_list": {
+            "list_name": "php_fpm_status_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "7b7a9b07-1d57-4347-a969-799dc3540e5e"
         }
     },
     "Datafield": {
@@ -168,7 +199,7 @@
         "2": {
             "varname": "php_fpm_status_critical",
             "caption": "PHP-FPM Status: Critical",
-            "description": "CRIT threshold for queue usage, in percent.",
+            "description": "CRIT threshold for pool saturation (active processes / total processes), in percent.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -179,7 +210,7 @@
         "3": {
             "varname": "php_fpm_status_critical_slowreq",
             "caption": "PHP-FPM Status: Critical SlowReq",
-            "description": "CRIT threshold for the number of slow requests.",
+            "description": "CRIT threshold for the number of NEW slow requests seen since the previous check run.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -215,6 +246,19 @@
             "uuid": "08da853d-60f1-4210-831c-5a4bcdab4441"
         },
         "7": {
+            "varname": "php_fpm_status_severity",
+            "caption": "PHP-FPM Status: Severity",
+            "description": "Severity for alerting. Applied to pools that are unreachable or whose status JSON cannot be parsed. Saturation and slow-request thresholds are unaffected.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "php_fpm_status_severity_list"
+            },
+            "uuid": "f8ed8237-b7e0-4802-ac0e-ee05c52babbc"
+        },
+        "8": {
             "varname": "php_fpm_status_timeout",
             "caption": "PHP-FPM Status: Timeout",
             "description": "Network timeout in seconds.",
@@ -225,21 +269,21 @@
             },
             "uuid": "0facfbb8-835e-4490-877a-d8b89f639a8e"
         },
-        "8": {
+        "9": {
             "varname": "php_fpm_status_url",
             "caption": "PHP-FPM Status: URL",
-            "description": "PHP-FPM status page URL.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "description": "PHP-FPM status page URL. Can be specified multiple times to check several pools on the same host; each URL is treated as an independent pool. Basic authentication may be embedded in the URL as `http://user:password@host/pool-status`; the credentials are stripped from the request URL and sent via the `Authorization` header. Default: http://localhost/fpm-status",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "0922b18b-1da9-426f-95dd-3ba879acd78b"
         },
-        "9": {
+        "10": {
             "varname": "php_fpm_status_warning",
             "caption": "PHP-FPM Status: Warning",
-            "description": "WARN threshold for queue usage, in percent.",
+            "description": "WARN threshold for pool saturation (active processes / total processes), in percent.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -247,10 +291,10 @@
             },
             "uuid": "392b0d19-572e-4c6b-90c1-23c2b741f846"
         },
-        "10": {
+        "11": {
             "varname": "php_fpm_status_warning_slowreq",
             "caption": "PHP-FPM Status: Warning SlowReq",
-            "description": "WARN threshold for the number of slow requests.",
+            "description": "WARN threshold for the number of NEW slow requests seen since the previous check run.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

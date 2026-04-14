@@ -633,13 +633,13 @@ Format (space-separated label/value pairs):
 Rules:
 
 * Labels may contain any characters except `=` (equals) and `'` (single quote).
-* Single quotes around the label are optional but required if the label contains spaces.
+* **Prefer `snake_case` labels.** Multi-word labels should use underscores, not spaces (`active_processes`, not `active processes`). Per-instance labels should prefix the instance name with an underscore (`<instance>_<metric>`), for example `sda_read_bytes`, `www_saturation`, `procs_cpu_percent`. This matches the convention used by `procs`, `disk-io`, and other per-instance plugins, makes Grafana regex and InfluxDB tag matching trivial, and avoids the need for single quotes around labels in the `STATUS_TEXT | perfdata` line. Sanitize pool/instance names with `re.sub(r'\W+', '_', name)` so exotic names like `my-app` become `my_app_<metric>`.
+* Single quotes around the label are optional but required if the label contains spaces. Prefer underscores over spaces so the quotes are never needed.
 * The first 19 characters of a label should be unique (RRD data source limitation).
 * `value`, `min`, and `max` must match the character class `[-0-9.]` and share the same UOM.
 * `warn` and `crit` use the range format (see [Threshold and Ranges](#threshold-and-ranges)).
 * `min` and `max` are not required for percentage (`%`) UOM.
 * Trailing unfilled semicolons may be dropped.
-* `label` doesn't need to be machine friendly, so `Pages scanned=100;;;;;` is as valuable as `pages-scanned=100;;;;;`.
 
 UOM suffixes:
 

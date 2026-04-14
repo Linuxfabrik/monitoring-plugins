@@ -45,10 +45,17 @@ spec:
       refresh: 1
       sort: 1
       type: query
+    - label: Pool
+      name: pool
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "metric" WHERE hostname = '$hostname' AND service = '$service'
+      regex: /^(\S+)_saturation$/
+      refresh: 1
+      sort: 1
+      type: query
 
   panels:
 
-  - title: PHP-FPM Status - Accepted Connections
+  - title: PHP-FPM Status - Request Rate ($pool)
     type: timeseries
     gridPos:
       h: 8
@@ -82,7 +89,7 @@ spec:
 
     targets:
 
-    - alias: accepted conn
+    - alias: ${pool}_accepted_conn_rate
       refId: accepted conn
       groupBy:
       - params:
@@ -96,8 +103,6 @@ spec:
           type: field
         - params: []
           type: mean
-        - params: []
-          type: non_negative_difference
       tags:
       - key: hostname
         operator: '='
@@ -109,10 +114,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: accepted conn
+        value: ${pool}_accepted_conn_rate
 
 
-  - title: PHP-FPM Status - Accepted Connections - Last (CC)
+  - title: PHP-FPM Status - Request Rate ($pool) - Last
     type: stat
     gridPos:
       h: 8
@@ -133,13 +138,13 @@ spec:
       reduceOptions:
         calcs:
         - last
-        fields: /^accepted conn$/
+        fields: /req\/s$/
         values: false
       textMode: auto
 
     targets:
 
-    - alias: accepted conn
+    - alias: ${pool}_accepted_conn_rate
       refId: accepted conn last
       groupBy:
       - params:
@@ -164,10 +169,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: accepted conn
+        value: ${pool}_accepted_conn_rate
 
 
-  - title: PHP-FPM Status - Processes
+  - title: PHP-FPM Status - Processes ($pool)
     type: timeseries
     gridPos:
       h: 8
@@ -201,7 +206,7 @@ spec:
 
     targets:
 
-    - alias: active processes
+    - alias: ${pool}_active_processes
       refId: active processes
       groupBy:
       - params:
@@ -226,9 +231,8 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: active processes
-
-    - alias: idle processes
+        value: ${pool}_active_processes
+    - alias: ${pool}_idle_processes
       refId: idle processes
       groupBy:
       - params:
@@ -253,10 +257,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: idle processes
+        value: ${pool}_idle_processes
 
 
-  - title: PHP-FPM Status - Max Children Reached
+  - title: PHP-FPM Status - New Slow Requests ($pool)
     type: timeseries
     gridPos:
       h: 8
@@ -290,8 +294,8 @@ spec:
 
     targets:
 
-    - alias: max children reached
-      refId: max children reached
+    - alias: ${pool}_slow_requests_delta
+      refId: slow requests delta
       groupBy:
       - params:
         - $interval
@@ -315,10 +319,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: max children reached
+        value: ${pool}_slow_requests_delta
 
 
-  - title: PHP-FPM Status - Queue
+  - title: PHP-FPM Status - Queue ($pool)
     type: timeseries
     gridPos:
       h: 8
@@ -352,7 +356,7 @@ spec:
 
     targets:
 
-    - alias: listen queue
+    - alias: ${pool}_listen_queue
       refId: listen queue
       groupBy:
       - params:
@@ -377,9 +381,34 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: listen queue
-
-    - alias: listen queue len
+        value: ${pool}_listen_queue
+    - alias: ${pool}_max_listen_queue
+      refId: max listen queue
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: ${pool}_max_listen_queue
+    - alias: ${pool}_listen_queue_len
       refId: listen queue len
       groupBy:
       - params:
@@ -404,37 +433,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: listen queue len
-
-    - alias: slow requests
-      refId: slow requests
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: slow requests
+        value: ${pool}_listen_queue_len
 
 
-  - title: PHP-FPM Status - Queue - Percentages
+  - title: PHP-FPM Status - Saturation ($pool)
     type: timeseries
     gridPos:
       h: 8
@@ -469,8 +471,8 @@ spec:
 
     targets:
 
-    - alias: queue usage
-      refId: queue usage
+    - alias: ${pool}_saturation
+      refId: saturation
       groupBy:
       - params:
         - $interval
@@ -494,10 +496,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: queue usage
+        value: ${pool}_saturation
 
 
-  - title: PHP-FPM Status - Uptime
+  - title: PHP-FPM Status - Uptime ($pool)
     type: timeseries
     gridPos:
       h: 8
@@ -531,7 +533,7 @@ spec:
 
     targets:
 
-    - alias: start since
+    - alias: ${pool}_uptime
       refId: start since
       groupBy:
       - params:
@@ -556,4 +558,4 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: start since
+        value: ${pool}_start_since

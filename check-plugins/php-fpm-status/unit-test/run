@@ -8,61 +8,335 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import importlib.machinery
+import importlib.util
 import sys
+import unittest
 
 sys.path.insert(0, '..')
 
-import unittest
-
+import lib.base
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.shell
+import lib.url
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 
-TESTS = [
+
+def _load_plugin_module():
+    """Import the hyphen-named plugin as a Python module for direct function
+    unit tests."""
+    loader = importlib.machinery.SourceFileLoader('php_fpm_status', '../php-fpm-status')
+    spec = importlib.util.spec_from_loader('php_fpm_status', loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+php_fpm_status = _load_plugin_module()
+
+
+# ---------------------------------------------------------------------------
+# Declarative tests that go through the full plugin binary via `--test`. Each
+# fixture is a real PHP-FPM status JSON captured from a container: UBI8 with
+# PHP 7.2, UBI9 with PHP 8.0, Debian 12 with PHP 8.2, Ubuntu 24.04 with PHP
+# 8.3. All four platforms produce identical JSON shapes, which is why the
+# plugin can test the same scenarios across them.
+# ---------------------------------------------------------------------------
+
+FIXTURE_PLATFORMS = [
+    'ubi8-php72',
+    'ubi9-php80',
+    'deb12-php82',
+    'ubu2404-php83',
+]
+
+SEVERITY_MATRIX = [
+    # (suffix, fixture scenario, threshold params, expected retc, substring to find)
+    # saturation alerting across all platforms
+    ('default', 'pool-healthy', '', STATE_OK, 'Up '),
+    ('default', 'pool-saturated', '', STATE_CRIT, 'Up '),
+    (
+        'high-thresholds',
+        'pool-saturated',
+        '--warning 150 --critical 200',
+        STATE_OK,
+        'Up ',
+    ),
+    # slow-requests fixture is an OK baseline (first run, no cache), but the
+    # saturation metric is computed even on the first run, so test that too
+    ('default', 'pool-slow-requests', '', STATE_OK, 'Up '),
+]
+
+TESTS = []
+for platform in FIXTURE_PLATFORMS:
+    for suffix, scenario, params, retc, needle in SEVERITY_MATRIX:
+        TESTS.append(
+            {
+                'id': f'{platform}-{scenario}-{suffix}',
+                'test': f'stdout/{platform}-{scenario},,',
+                'params': params,
+                'assert-retc': retc,
+                'assert-in': [needle],
+            }
+        )
+
+# Extra declarative scenarios that are not part of the per-platform matrix.
+TESTS += [
+    # malformed JSON → --severity warn (default) → STATE_WARN
     {
-        'id': 'ok-dynamic-pool-healthy',
-        'test': 'stdout/dynamic-pool-healthy,,',
-        'assert-retc': STATE_OK,
-        'assert-in': [
-            'Pool www (dynamic): 128.8K connections, 23 processes (4 active, 19 idle), Up 3h 27m (since 2021-05-08 09:18:11)',
-        ],
-    },
-    {
-        'id': 'warn-dynamic-pool-queue-full',
-        'test': 'stdout/dynamic-pool-queue-full,,',
-        'assert-retc': STATE_WARN,
-        'assert-in': [
-            'Pool www (dynamic): 47/55 reqs waiting for a free process in listen queue (85.5%) [WARNING], "max children" was reached at least once [WARNING], 42 slow reqs have hit the configured `request_slowlog_timeout` [WARNING], 129.1K connections, 23 processes (3 active, 20 idle), Up 3h 28m (since 2021-05-08 09:18:11)',
-        ],
-    },
-    {
-        'id': 'crit-dynamic-pool-slowreq-critical',
-        'test': 'stdout/dynamic-pool-queue-full,,',
-        'params': '--critical-slowreq 40',
-        'assert-retc': STATE_CRIT,
-        'assert-in': [
-            'Pool www (dynamic): 47/55 reqs waiting for a free process in listen queue (85.5%) [WARNING], "max children" was reached at least once [WARNING], 42 slow reqs have hit the configured `request_slowlog_timeout` [CRITICAL], 129.1K connections, 23 processes (3 active, 20 idle), Up 3h 28m (since 2021-05-08 09:18:11)',
-        ],
-    },
-    {
-        'id': 'unknown-malformed-json',
+        'id': 'warn-malformed-json',
         'test': 'stdout/malformed-json,,',
-        'assert-retc': STATE_UNKNOWN,
-        'assert-in': ['ValueError: No JSON object could be decoded'],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['cannot parse status JSON'],
     },
+    # malformed JSON, severity overridden to crit
+    {
+        'id': 'crit-malformed-json-severity-crit',
+        'test': 'stdout/malformed-json,,',
+        'params': '--severity crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['cannot parse status JSON'],
+    },
+    # the pre-existing static-pm fixture (1 active of 2 workers → 50% sat
+    # → OK against default 80/90 thresholds)
     {
         'id': 'ok-static-pool-healthy',
         'test': 'stdout/static-pool-healthy,,',
         'assert-retc': STATE_OK,
-        'assert-in': [
-            'Pool HealthCheck (static): 35.0 connections, 2 processes (1 active, 1 idle), Up ',
-        ],
+        'assert-in': ['Pool HealthCheck (static)'],
+    },
+    # saturation perfdata label is pool-name-prefixed snake_case, even on
+    # a single pool
+    {
+        'id': 'ok-perfdata-label-prefix',
+        'test': 'stdout/ubi9-php80-pool-healthy,,',
+        'assert-retc': STATE_OK,
+        'assert-in': ['www_saturation'],
+    },
+    # --lengthy adds the extended columns to the pool table
+    {
+        'id': 'ok-lengthy-adds-columns',
+        'test': 'stdout/ubi9-php80-pool-saturated,,',
+        'params': '--warning 150 --critical 200 --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Mgr', 'Peak', 'LQmax'],
+    },
+    # default (non-lengthy) must NOT carry the extended columns
+    {
+        'id': 'ok-non-lengthy-omits-columns',
+        'test': 'stdout/ubi9-php80-pool-saturated,,',
+        'params': '--warning 150 --critical 200',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['LQmax', 'Peak'],
     },
 ]
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../php-fpm-status'
+
+    def test_multi_pool_worst_state_crit(self):
+        """Two pools, one saturated, one healthy: overall CRIT and the
+        summary line calls out the CRIT pool by name."""
+        cmd = (
+            f'{self.check} '
+            f'--url http://host/nextcloud-fpm-status '
+            f'--url http://host/wordpress-fpm-status '
+            f'--test=stdout/nextcloud-pool-saturated,, '
+            f'--test=stdout/wordpress-pool-healthy,,'
+        )
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+        self.assertIn('2 pools checked, 1 OK, 1 CRIT (nextcloud)', stdout)
+        self.assertIn('nextcloud_saturation', stdout)
+        self.assertIn('wordpress_saturation', stdout)
+
+    def test_multi_pool_both_unreachable_summary(self):
+        """Two unreachable URLs: WARN by default (via --severity), both
+        pools listed as unreachable in the summary and as placeholder rows
+        in the overview table."""
+        cmd = (
+            f'{self.check} '
+            f'--url http://127.0.0.1:1/first '
+            f'--url http://127.0.0.1:1/second '
+            f'--timeout 1'
+        )
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+        self.assertIn('2 pools checked, 0 OK, 2 unreachable', stdout)
+        self.assertIn('unreachable', stdout)
+
+    def test_multi_pool_unreachable_severity_crit(self):
+        """--severity crit promotes an unreachable pool to CRIT."""
+        cmd = (
+            f'{self.check} '
+            f'--url http://127.0.0.1:1/unreachable '
+            f'--severity crit '
+            f'--timeout 1'
+        )
+        _stdout, _stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        self.assertEqual(retc, STATE_CRIT)
+
+    # -----------------------------------------------------------------
+    # Direct unit tests against the plugin's pure helper functions.
+    # -----------------------------------------------------------------
+
+    def test_split_basic_auth_without_userinfo(self):
+        url, headers = lib.url.split_basic_auth('http://host/path')
+        self.assertEqual(url, 'http://host/path')
+        self.assertEqual(headers, {})
+
+    def test_split_basic_auth_with_userinfo(self):
+        url, headers = lib.url.split_basic_auth(
+            'http://alice:s3cret@host:8080/fpm-status'
+        )
+        self.assertEqual(url, 'http://host:8080/fpm-status')
+        self.assertIn('Authorization', headers)
+        # base64('alice:s3cret') == 'YWxpY2U6czNjcmV0'
+        self.assertEqual(headers['Authorization'], 'Basic YWxpY2U6czNjcmV0')
+
+    def test_split_basic_auth_percent_encoded(self):
+        url, headers = lib.url.split_basic_auth(
+            'http://user%40example.com:pw%3F%21@host/path'
+        )
+        self.assertEqual(url, 'http://host/path')
+        # base64('user@example.com:pw?!') == 'dXNlckBleGFtcGxlLmNvbTpwdz8h'
+        self.assertEqual(headers['Authorization'], 'Basic dXNlckBleGFtcGxlLmNvbTpwdz8h')
+
+    def test_build_fpm_url_adds_flags(self):
+        built = php_fpm_status.build_fpm_url('http://host/fpm-status')
+        self.assertEqual(built, 'http://host/fpm-status?json&full')
+
+    def test_build_fpm_url_preserves_existing_query(self):
+        built = php_fpm_status.build_fpm_url('http://host/fpm-status?token=abc')
+        self.assertIn('token=abc', built)
+        self.assertIn('json', built)
+        self.assertIn('full', built)
+
+    def test_build_fpm_url_idempotent(self):
+        once = php_fpm_status.build_fpm_url('http://host/fpm-status?json&full')
+        twice = php_fpm_status.build_fpm_url(once)
+        self.assertEqual(once, twice)
+
+    def test_format_request_duration(self):
+        # Sub-ms values round to 0ms (never show µs)
+        self.assertEqual(php_fpm_status._format_request_duration(0), '0ms')
+        self.assertEqual(php_fpm_status._format_request_duration(100), '0ms')
+        self.assertEqual(php_fpm_status._format_request_duration(1500), '2ms')
+        # Regular ms
+        self.assertEqual(php_fpm_status._format_request_duration(925_843), '926ms')
+        # Whole seconds with no ms remainder are clean
+        self.assertEqual(php_fpm_status._format_request_duration(3_000_000), '3s')
+        # Seconds + remainder
+        self.assertEqual(
+            php_fpm_status._format_request_duration(22_994_126), '22s 994ms'
+        )
+        # Minutes
+        self.assertEqual(php_fpm_status._format_request_duration(60_000_000), '1m')
+        self.assertEqual(php_fpm_status._format_request_duration(61_500_000), '1m 1s')
+
+    def test_strip_query_string(self):
+        self.assertEqual(php_fpm_status._strip_query_string('/index.php'), '/index.php')
+        self.assertEqual(
+            php_fpm_status._strip_query_string('/index.php?a=1'), '/index.php?'
+        )
+        self.assertEqual(
+            php_fpm_status._strip_query_string('/icingaweb2/index.php?name=X&host=y'),
+            '/icingaweb2/index.php?',
+        )
+        self.assertEqual(php_fpm_status._strip_query_string(''), '')
+
+    def test_abbreviate_path(self):
+        self.assertEqual(
+            php_fpm_status._abbreviate_path('/usr/share/icingaweb2/public/index.php'),
+            '/u/s/i/p/index.php',
+        )
+        self.assertEqual(
+            php_fpm_status._abbreviate_path('/var/www/html/nextcloud/index.php'),
+            '/v/w/h/n/index.php',
+        )
+        # Two-segment paths keep their structure
+        self.assertEqual(
+            php_fpm_status._abbreviate_path('/srv/index.php'),
+            '/s/index.php',
+        )
+        # Top-level file stays as-is
+        self.assertEqual(
+            php_fpm_status._abbreviate_path('/index.php'),
+            '/index.php',
+        )
+        # Sentinel "-" is passed through (no script)
+        self.assertEqual(php_fpm_status._abbreviate_path('-'), '-')
+
+    def test_compute_deltas_first_run_is_baseline(self):
+        data = {'start time': 1000, 'accepted conn': 100, 'slow requests': 5}
+        rate, slow, baseline = php_fpm_status.compute_deltas(data, None, 2000)
+        self.assertIsNone(rate)
+        self.assertIsNone(slow)
+        self.assertTrue(baseline)
+
+    def test_compute_deltas_empty_list_is_baseline(self):
+        """``lib.db_sqlite.select(fetchone=True)`` returns ``[]`` when there
+        is no row; ``compute_deltas`` must treat that the same as ``None``
+        (first run) instead of trying to index into the empty list."""
+        data = {'start time': 1000, 'accepted conn': 100, 'slow requests': 5}
+        rate, slow, baseline = php_fpm_status.compute_deltas(data, [], 2000)
+        self.assertIsNone(rate)
+        self.assertIsNone(slow)
+        self.assertTrue(baseline)
+
+    def test_compute_deltas_fpm_restart_is_baseline(self):
+        """Different start_time means FPM was restarted; delta is undefined."""
+        data = {'start time': 2000, 'accepted conn': 100, 'slow requests': 5}
+        old = {
+            'fpm_start_time': 1500,
+            'accepted_conn': 500,
+            'slow_requests': 20,
+            'ts': 1990,
+        }
+        rate, slow, baseline = php_fpm_status.compute_deltas(data, old, 2001)
+        self.assertIsNone(rate)
+        self.assertIsNone(slow)
+        self.assertTrue(baseline)
+
+    def test_compute_deltas_happy_path(self):
+        """Same start_time, counters moved forward: compute a real delta."""
+        data = {
+            'start time': 1000,
+            'accepted conn': 200,
+            'slow requests': 7,
+        }
+        old = {
+            'fpm_start_time': 1000,
+            'accepted_conn': 100,
+            'slow_requests': 5,
+            'ts': 1900,
+        }
+        rate, slow, baseline = php_fpm_status.compute_deltas(data, old, 2000)
+        self.assertFalse(baseline)
+        self.assertAlmostEqual(rate, (200 - 100) / (2000 - 1900))
+        self.assertEqual(slow, 2)
+
+    def test_compute_deltas_backwards_counter_rebaselines(self):
+        """Same start_time but accepted_conn went backwards: treat as a
+        silent restart and re-baseline."""
+        data = {
+            'start time': 1000,
+            'accepted conn': 50,
+            'slow requests': 0,
+        }
+        old = {
+            'fpm_start_time': 1000,
+            'accepted_conn': 500,
+            'slow_requests': 10,
+            'ts': 1990,
+        }
+        rate, slow, baseline = php_fpm_status.compute_deltas(data, old, 2000)
+        self.assertIsNone(rate)
+        self.assertIsNone(slow)
+        self.assertTrue(baseline)
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
