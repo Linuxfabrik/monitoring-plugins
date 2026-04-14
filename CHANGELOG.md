@@ -35,6 +35,7 @@ Monitoring Plugins:
 * by-winrm: executes commands on remote Windows hosts by WinRM, supporting JEA (including the JEA endpoint via `--winrm-configuration-name`)
 * infomaniak-swiss-backup-devices: add `--ignore-customer`, `--ignore-name`, `--ignore-tag`, `--ignore-user` parameters to skip devices by regex
 * infomaniak-swiss-backup-products: add `--ignore-customer`, `--ignore-tag` parameters to skip products by regex
+* haproxy-status: add `--ignore` parameter to filter out proxies, frontends, backends or servers by regex on the combined `<proxy>/<svname>` identifier, e.g. to skip an on-demand certbot backend that is only UP during cert renewal ([#835](https://github.com/Linuxfabrik/monitoring-plugins/issues/835))
 * ipmi-sel: add `--ignore` parameter to filter out SEL entries by regex, e.g. auto-generated "Log area reset/cleared" entries after `ipmitool sel clear` ([#982](https://github.com/Linuxfabrik/monitoring-plugins/issues/982))
 * json-values: add `--token` and `--header` parameters for HTTP bearer-token and custom header authentication when fetching JSON from protected endpoints, add `--warning-key` / `--warning` and `--critical-key` / `--critical` to alert on a numeric value at a specific JSON key (with Nagios range syntax), and support dot-notation for nested keys in all `--*-key` parameters (e.g. `--state-key=meta.state`) ([#1005](https://github.com/Linuxfabrik/monitoring-plugins/issues/1005))
 * librenms-alerts: add device-type `management`

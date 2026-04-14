@@ -91,6 +91,59 @@ TESTS = [
             'Proxy name',
         ],
     },
+
+    # #835: without --ignore, an on-demand certbot backend in MAINT/DOWN
+    # produces a WARN; --ignore='^certbot/' filters the whole proxy and
+    # the check comes back OK while still reporting the rest of the
+    # HAProxy topology. The regex is case-sensitive by default (matching
+    # the lib.args --match / --ignore-regex convention), so
+    # --ignore='^CERTBOT/' does NOT match; the user opts into
+    # case-insensitive matching with the inline `(?i)` flag.
+    {
+        'id': 'warn-certbot-backend-down',
+        'test': 'stdout/certbot-backend-down,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'certbot certbot_challenge: MAINT',
+            'certbot BACKEND: DOWN',
+        ],
+    },
+    {
+        'id': 'ok-certbot-ignored',
+        'test': 'stdout/certbot-backend-down,,0',
+        'params': "--ignore='^certbot/'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', 'web', 'FRONTEND'],
+        'assert-not-in': ['certbot'],
+    },
+    {
+        'id': 'warn-certbot-default-case-sensitive',
+        'test': 'stdout/certbot-backend-down,,0',
+        # Uppercase pattern must NOT match lowercase certbot: the regex
+        # default is case-sensitive, so this ignore is a no-op and the
+        # certbot proxy still triggers a WARN.
+        'params': "--ignore='^CERTBOT/'",
+        'assert-retc': STATE_WARN,
+        'assert-in': ['certbot BACKEND: DOWN'],
+    },
+    {
+        'id': 'ok-certbot-ignored-case-insensitive-opt-in',
+        'test': 'stdout/certbot-backend-down,,0',
+        # Opt into case-insensitive matching with the inline `(?i)`
+        # flag, which is the lib.args convention for --match /
+        # --ignore-regex parameters.
+        'params': "--ignore='(?i)^certbot/'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+        'assert-not-in': ['certbot certbot_challenge: MAINT'],
+    },
+    {
+        'id': 'unknown-ignore-invalid-regex',
+        'test': 'stdout/certbot-backend-down,,0',
+        'params': "--ignore='('",
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid regular expression'],
+    },
 ]
 
 

@@ -55,21 +55,33 @@ Monitors HAProxy performance and health via the stats endpoint. Reports frontend
 ## Help
 
 ```text
-usage: haproxy-status [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
-                      [--lengthy] [--no-proxy] [-p PASSWORD] [--test TEST]
-                      [--timeout TIMEOUT] [-u URL] [--username USERNAME]
-                      [-w WARN]
+usage: haproxy-status [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
+                      [--insecure] [--lengthy] [--no-proxy] [-p PASSWORD]
+                      [--test TEST] [--timeout TIMEOUT] [-u URL]
+                      [--username USERNAME] [-w WARN]
 
 Monitors HAProxy performance and health via the stats endpoint. Reports
 frontend and backend session usage, request rates, response times, error
 rates, and server states. Alerts when session usage exceeds the configured
-thresholds. Supports extended reporting via --lengthy.
+thresholds. Proxies, frontends, backends or individual servers can be filtered
+out with --ignore (e.g. an on-demand certbot backend that is only UP during
+cert renewal). Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold in percent. Default: >= 95
+  --ignore IGNORE       Ignore proxies, frontends, backends or servers
+                        matching this Python regular expression on the
+                        combined `<proxy>/<svname>` identifier (where `svname`
+                        is `FRONTEND`, `BACKEND` or an individual server
+                        name). Case-sensitive by default; use `(?i)` for case-
+                        insensitive matching. Can be specified multiple times.
+                        Example: `--ignore="^certbot/"` to ignore everything
+                        under the certbot proxy. Example:
+                        `--ignore="(?i)^certbot/"` for a case-insensitive
+                        match. Default: None
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --lengthy             Extended reporting.

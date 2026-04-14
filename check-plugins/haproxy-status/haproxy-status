@@ -12,6 +12,7 @@
 
 import argparse
 import base64
+import re
 import sys
 
 import lib.args
@@ -24,9 +25,13 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041001'
+__version__ = '2026041403'
 
-DESCRIPTION = """Monitors HAProxy performance and health via the stats endpoint. Reports frontend and backend session usage, request rates, response times, error rates, and server states. Alerts when session usage exceeds the configured thresholds. Supports extended reporting via --lengthy."""
+DESCRIPTION = """Monitors HAProxy performance and health via the stats endpoint. Reports
+frontend and backend session usage, request rates, response times, error rates, and server
+states. Alerts when session usage exceeds the configured thresholds. Proxies, frontends,
+backends or individual servers can be filtered out with --ignore (e.g. an on-demand certbot
+backend that is only UP during cert renewal). Supports extended reporting via --lengthy."""
 
 DEFAULT_CRIT = 95  # %
 DEFAULT_INSECURE = False
@@ -66,6 +71,22 @@ def parse_args():
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Ignore proxies, frontends, backends or servers matching this '
+        'Python regular expression on the combined `<proxy>/<svname>` '
+        'identifier (where `svname` is `FRONTEND`, `BACKEND` or an individual '
+        'server name). Case-sensitive by default; use `(?i)` for '
+        'case-insensitive matching. '
+        'Can be specified multiple times. '
+        'Example: `--ignore="^certbot/"` to ignore everything under the certbot proxy. '
+        'Example: `--ignore="(?i)^certbot/"` for a case-insensitive match. '
+        'Default: %(default)s',
+        dest='IGNORE',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -155,6 +176,17 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    if args.IGNORE is None:
+        args.IGNORE = []
+
+    # compile ignore patterns (case-sensitive by default, matching the
+    # lib.args convention for --match / --ignore-regex; the user can
+    # opt into case-insensitive matching with the inline `(?i)` flag).
+    try:
+        ignore_patterns = [re.compile(p) for p in args.IGNORE]
+    except re.error as e:
+        lib.base.cu(f'Invalid regular expression: {e}')
 
     # fetch data
     result = ''
@@ -271,6 +303,14 @@ def main():
             ha_ttime = values[61]
         except (ValueError, IndexError):
             lib.base.cu('Malformed HAProxy status info.')
+
+        # Skip rows matched by --ignore. The combined `<pxname>/<svname>`
+        # identifier is unique per row and lets the user target a whole
+        # proxy (`^certbot/`), every backend aggregate (`/BACKEND$`) or
+        # a specific server in a specific proxy (`^web/server-02$`).
+        ignore_key = f'{ha_pxname}/{ha_svname}'
+        if any(pattern.search(ignore_key) for pattern in ignore_patterns):
+            continue
 
         # Status check
         status_state = STATE_OK
