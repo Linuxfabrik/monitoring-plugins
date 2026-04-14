@@ -7,6 +7,14 @@ URL:            https://github.com/Linuxfabrik/monitoring-plugins
 Vendor:         Linuxfabrik GmbH, Zurich, Switzerland
 Packager:       info@linuxfabrik.ch
 
+# Suppress the automatic debuginfo extraction. RPM would otherwise
+# install /usr/lib/.build-id/XX/YY... ELF build-id symlinks for every
+# shared object in the bundled venv into the main package, which can
+# collide file-for-file with other RPMs that happen to ship binaries
+# built from the same upstream source (e.g. azure-cli shipping its own
+# copy of libpython). See issue #979.
+%global debug_package %{nil}
+
 Source0:        https://github.com/Linuxfabrik/monitoring-plugins/archive/refs/tags/v%{version}.tar.gz
 Source1:        vendor.tar.gz
 

@@ -126,6 +126,7 @@ Tools:
 
 Build, CI/CD:
 
+* RPM: `dnf install linuxfabrik-monitoring-plugins` no longer fails with a "conflicts with file from package azure-cli" (or any other package that ships a copy of libpython). The RPM used to install ELF build-id symlinks under `/usr/lib/.build-id/` into the main package, which collide file-for-file with similar symlinks shipped by other RPMs. Suppress the automatic debuginfo extraction in the spec files so those symlinks stay out of the main package ([#979](https://github.com/Linuxfabrik/monitoring-plugins/issues/979))
 * requirements.txt: add missing `setuptools` dependency (required by `pbr`)
 
 
