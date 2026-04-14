@@ -11,7 +11,6 @@
 """See the check's README for more details."""
 
 import argparse
-import base64
 import re
 import sys
 
@@ -25,13 +24,17 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041403'
+__version__ = '2026041407'
 
 DESCRIPTION = """Monitors HAProxy performance and health via the stats endpoint. Reports
 frontend and backend session usage, request rates, response times, error rates, and server
 states. Alerts when session usage exceeds the configured thresholds. Proxies, frontends,
 backends or individual servers can be filtered out with --ignore (e.g. an on-demand certbot
-backend that is only UP during cert renewal). Supports extended reporting via --lengthy."""
+backend that is only UP during cert renewal). HTTP basic auth is supplied through the URL
+itself (`https://user:secret@host/server-status`); the credentials are stripped from the
+URL before the request is sent and instead carried in an `Authorization: Basic` header so
+they never reach the request line or any proxy access log. Supports extended reporting
+via --lengthy."""
 
 DEFAULT_CRIT = 95  # %
 DEFAULT_INSECURE = False
@@ -39,7 +42,6 @@ DEFAULT_LENGTHY = False
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 3
 DEFAULT_URL = 'unix:///run/haproxy.sock'
-DEFAULT_USERNAME = 'haproxy-stats'
 DEFAULT_WARN = 80  # %
 
 GOOD_STATUSES = {'OPEN', 'UP', 'no check'}
@@ -113,10 +115,17 @@ def parse_args():
         default=DEFAULT_NO_PROXY,
     )
 
+    # `--password` and `--username` were removed in favour of HTTP basic
+    # auth embedded in the URL itself (e.g. `https://user:secret@host/`).
+    # The flags stay registered (with argparse.SUPPRESS so they do not
+    # show up in --help) so we can detect legacy usage in main() and
+    # exit UNKNOWN with a clear migration pointer; otherwise
+    # parser.parse_known_args() would silently swallow them and the
+    # plugin would run without credentials, surfacing as a 401.
     parser.add_argument(
         '-p',
         '--password',
-        help='HAProxy stats auth password. Not needed for socket access.',
+        help=argparse.SUPPRESS,
         dest='PASSWORD',
     )
 
@@ -140,19 +149,21 @@ def parse_args():
         '--url',
         help='HAProxy stats URI. '
         'Accepts `unix:///path/to/haproxy.sock` or an HTTP(S) URL. '
+        'For HTTP basic auth, embed the credentials in the URL itself; '
+        'the plugin strips them from the netloc before the request is '
+        'sent and carries them in an `Authorization: Basic` header. '
         'Example: `--url https://webserver:8443/server-status`. '
+        'Example: `--url https://stats:s3cret@webserver:8443/server-status`. '
         'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
 
+    # See the comment on --password above.
     parser.add_argument(
         '--username',
-        help='HAProxy stats auth username. '
-        'Not needed for socket access. '
-        'Default: %(default)s',
+        help=argparse.SUPPRESS,
         dest='USERNAME',
-        default=DEFAULT_USERNAME,
     )
 
     parser.add_argument(
@@ -177,6 +188,21 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # `--username` and `--password` were removed in favour of HTTP
+    # basic auth embedded in the URL itself. They are still
+    # registered (with argparse.SUPPRESS) so we can hard-UNKNOWN
+    # here with a clear migration pointer instead of letting
+    # parse_known_args silently swallow them and surface a 401 from
+    # the haproxy stats endpoint.
+    if args.USERNAME is not None or args.PASSWORD is not None:
+        lib.base.cu(
+            '--username and --password were removed. Embed the HTTP '
+            'basic auth credentials in the URL itself, e.g. '
+            '`--url=https://user:secret@host:8443/server-status`. The '
+            'plugin strips them from the netloc before the request is '
+            'sent and carries them in an Authorization: Basic header.'
+        )
+
     if args.IGNORE is None:
         args.IGNORE = []
 
@@ -199,15 +225,17 @@ def main():
             )
 
         if url.startswith('http'):
-            url += ';csv'
-            headers = {}
-            if args.USERNAME and args.PASSWORD:
-                auth = f'{args.USERNAME}:{args.PASSWORD}'
-                encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
-                headers = {'Authorization': f'Basic {encoded_auth}'}
+            # Move any `user:secret@` userinfo from the URL into an
+            # Authorization: Basic header so the credentials never reach
+            # the request line or any proxy access log. Append the
+            # `;csv` query that the haproxy stats endpoint expects to
+            # the stripped URL afterwards so the userinfo split stays
+            # confined to lib.url.split_basic_auth().
+            stripped_url, headers = lib.url.split_basic_auth(url)
+            stripped_url += ';csv'
             result = lib.base.coe(
                 lib.url.fetch(
-                    url,
+                    stripped_url,
                     header=headers,
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,

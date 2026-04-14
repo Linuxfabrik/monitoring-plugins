@@ -56,49 +56,51 @@ Monitors HAProxy performance and health via the stats endpoint. Reports frontend
 
 ```text
 usage: haproxy-status [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
-                      [--insecure] [--lengthy] [--no-proxy] [-p PASSWORD]
-                      [--test TEST] [--timeout TIMEOUT] [-u URL]
-                      [--username USERNAME] [-w WARN]
+                      [--insecure] [--lengthy] [--no-proxy] [--test TEST]
+                      [--timeout TIMEOUT] [-u URL] [-w WARN]
 
 Monitors HAProxy performance and health via the stats endpoint. Reports
 frontend and backend session usage, request rates, response times, error
 rates, and server states. Alerts when session usage exceeds the configured
 thresholds. Proxies, frontends, backends or individual servers can be filtered
 out with --ignore (e.g. an on-demand certbot backend that is only UP during
-cert renewal). Supports extended reporting via --lengthy.
+cert renewal). HTTP basic auth is supplied through the URL itself
+(`https://user:secret@host/server-status`); the credentials are stripped from
+the URL before the request is sent and instead carried in an `Authorization:
+Basic` header so they never reach the request line or any proxy access log.
+Supports extended reporting via --lengthy.
 
 options:
-  -h, --help            show this help message and exit
-  -V, --version         show program's version number and exit
-  --always-ok           Always returns OK.
-  -c, --critical CRIT   CRIT threshold in percent. Default: >= 95
-  --ignore IGNORE       Ignore proxies, frontends, backends or servers
-                        matching this Python regular expression on the
-                        combined `<proxy>/<svname>` identifier (where `svname`
-                        is `FRONTEND`, `BACKEND` or an individual server
-                        name). Case-sensitive by default; use `(?i)` for case-
-                        insensitive matching. Can be specified multiple times.
-                        Example: `--ignore="^certbot/"` to ignore everything
-                        under the certbot proxy. Example:
-                        `--ignore="(?i)^certbot/"` for a case-insensitive
-                        match. Default: None
-  --insecure            This option explicitly allows insecure SSL
-                        connections.
-  --lengthy             Extended reporting.
-  --no-proxy            Do not use a proxy.
-  -p, --password PASSWORD
-                        HAProxy stats auth password. Not needed for socket
-                        access.
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
-  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  -u, --url URL         HAProxy stats URI. Accepts
-                        `unix:///path/to/haproxy.sock` or an HTTP(S) URL.
-                        Example: `--url https://webserver:8443/server-status`.
-                        Default: unix:///run/haproxy.sock
-  --username USERNAME   HAProxy stats auth username. Not needed for socket
-                        access. Default: haproxy-stats
-  -w, --warning WARN    WARN threshold in percent. Default: >= 80
+  -h, --help           show this help message and exit
+  -V, --version        show program's version number and exit
+  --always-ok          Always returns OK.
+  -c, --critical CRIT  CRIT threshold in percent. Default: >= 95
+  --ignore IGNORE      Ignore proxies, frontends, backends or servers matching
+                       this Python regular expression on the combined
+                       `<proxy>/<svname>` identifier (where `svname` is
+                       `FRONTEND`, `BACKEND` or an individual server name).
+                       Case-sensitive by default; use `(?i)` for case-
+                       insensitive matching. Can be specified multiple times.
+                       Example: `--ignore="^certbot/"` to ignore everything
+                       under the certbot proxy. Example:
+                       `--ignore="(?i)^certbot/"` for a case-insensitive
+                       match. Default: None
+  --insecure           This option explicitly allows insecure SSL connections.
+  --lengthy            Extended reporting.
+  --no-proxy           Do not use a proxy.
+  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
+                       stderr-file,expected-retc".
+  --timeout TIMEOUT    Network timeout in seconds. Default: 3 (seconds)
+  -u, --url URL        HAProxy stats URI. Accepts
+                       `unix:///path/to/haproxy.sock` or an HTTP(S) URL. For
+                       HTTP basic auth, embed the credentials in the URL
+                       itself; the plugin strips them from the netloc before
+                       the request is sent and carries them in an
+                       `Authorization: Basic` header. Example: `--url
+                       https://webserver:8443/server-status`. Example: `--url
+                       https://stats:s3cret@webserver:8443/server-status`.
+                       Default: unix:///run/haproxy.sock
+  -w, --warning WARN   WARN threshold in percent. Default: >= 80
 ```
 
 

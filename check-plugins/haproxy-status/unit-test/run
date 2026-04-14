@@ -144,6 +144,32 @@ TESTS = [
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Invalid regular expression'],
     },
+
+    # --username and --password were removed in favour of HTTP basic
+    # auth embedded in the URL itself. The flags stay registered with
+    # argparse.SUPPRESS so we can hard-UNKNOWN here with a clear
+    # migration pointer instead of letting parse_known_args silently
+    # swallow them and surface a 401 from the haproxy stats endpoint.
+    {
+        'id': 'unknown-legacy-username',
+        'test': 'stdout/all-backends-up,,0',
+        'params': '--username=stats',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            '--username and --password were removed.',
+            'https://user:secret@host',
+        ],
+    },
+    {
+        'id': 'unknown-legacy-password',
+        'test': 'stdout/all-backends-up,,0',
+        'params': '--password=secret',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            '--username and --password were removed.',
+            'https://user:secret@host',
+        ],
+    },
 ]
 
 
