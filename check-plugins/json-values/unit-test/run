@@ -1,0 +1,293 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# The JSON fixtures under stdout/ are loaded via the plugin's own
+# --filename parameter, so no --test short-circuit is needed. Each
+# testcase pairs a fixture with a set of flags and asserts the
+# resulting plugin state. The same fixture can drive multiple
+# testcases that vary --warning/--critical (or the dot-notation
+# --*-key parameters) to reach different states.
+TESTS = [
+    # happy paths: flat JSON, state extracted straight from the state key
+    {
+        'id': 'ok-flat-state-0',
+        'test': 'stdout/flat-ok.json,,0',
+        'params': '--filename=stdout/flat-ok.json',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            "'cpu-usage'=5.6%;80;90;0;100",
+        ],
+    },
+    {
+        'id': 'warn-flat-state-1',
+        'test': 'stdout/flat-warn.json,,0',
+        'params': '--filename=stdout/flat-warn.json',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Cache is warming up.'],
+    },
+    {
+        'id': 'crit-flat-state-2',
+        'test': 'stdout/flat-crit.json,,0',
+        'params': '--filename=stdout/flat-crit.json',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Disk is full.'],
+    },
+
+    # state coercion: string-encoded integer is accepted, everything
+    # else (non-numeric string, dict, out-of-range integer, missing
+    # key) collapses to UNKNOWN so get_worst() never sees garbage
+    {
+        'id': 'crit-flat-state-string-2',
+        'test': 'stdout/flat-state-string.json,,0',
+        'params': '--filename=stdout/flat-state-string.json',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['String-encoded state.'],
+    },
+    {
+        'id': 'unknown-flat-state-garbage',
+        'test': 'stdout/flat-state-garbage.json,,0',
+        'params': '--filename=stdout/flat-state-garbage.json',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Non-numeric state.'],
+    },
+    {
+        'id': 'unknown-flat-state-out-of-range',
+        'test': 'stdout/flat-state-out-of-range.json,,0',
+        'params': '--filename=stdout/flat-state-out-of-range.json',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['State outside the 0..3 range.'],
+    },
+    {
+        'id': 'unknown-flat-state-missing',
+        'test': 'stdout/flat-state-missing.json,,0',
+        'params': '--filename=stdout/flat-state-missing.json',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['No state key at all.'],
+    },
+    {
+        'id': 'unknown-flat-state-dict',
+        'test': 'stdout/flat-state-dict.json,,0',
+        'params': '--filename=stdout/flat-state-dict.json',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['State is a dict instead of an integer.'],
+    },
+
+    # dot-notation for nested keys: --state-key / --message-key /
+    # --perfdata-key all walk the same path through the JSON object
+    {
+        'id': 'crit-nested-dot-notation',
+        'test': 'stdout/nested.json,,0',
+        'params': (
+            '--filename=stdout/nested.json '
+            '--state-key=meta.state '
+            '--message-key=meta.message '
+            '--perfdata-key=meta.perfdata'
+        ),
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Nested message.',
+            "'nested-metric'=42;80;90;0;100",
+        ],
+    },
+
+    # key-level thresholds: --warning-key/--warning and
+    # --critical-key/--critical evaluate numeric JSON values against a
+    # Nagios range. @N:M alerts when the value is inside the range.
+    {
+        'id': 'ok-threshold-value-below-warn',
+        'test': 'stdout/threshold.json,,0',
+        'params': (
+            '--filename=stdout/threshold.json '
+            '--warning-key=detailedInfo.count1 --warning=50'
+        ),
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'warn-threshold-value-inside-range',
+        'test': 'stdout/threshold.json,,0',
+        'params': (
+            '--filename=stdout/threshold.json '
+            '--warning-key=detailedInfo.count1 --warning=@40:50'
+        ),
+        'assert-retc': STATE_WARN,
+    },
+    {
+        'id': 'crit-threshold-value-above-crit',
+        'test': 'stdout/threshold.json,,0',
+        'params': (
+            '--filename=stdout/threshold.json '
+            '--critical-key=detailedInfo.count1 --critical=10'
+        ),
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        'id': 'unknown-threshold-key-non-numeric',
+        'test': 'stdout/threshold.json,,0',
+        'params': (
+            '--filename=stdout/threshold.json '
+            '--warning-key=detailedInfo.label --warning=10'
+        ),
+        'assert-retc': STATE_UNKNOWN,
+    },
+    {
+        'id': 'unknown-threshold-key-missing',
+        'test': 'stdout/threshold.json,,0',
+        'params': (
+            '--filename=stdout/threshold.json '
+            '--warning-key=detailedInfo.missing --warning=10'
+        ),
+        'assert-retc': STATE_UNKNOWN,
+    },
+
+    # parameter-pair validation: range without a key (or vice versa)
+    # is rejected up front with an UNKNOWN instead of silently never
+    # alerting
+    {
+        'id': 'unknown-warning-without-warning-key',
+        'test': 'stdout/threshold.json,,0',
+        'params': '--filename=stdout/threshold.json --warning=10',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            '--warning and --warning-key must be used together.',
+        ],
+    },
+    {
+        'id': 'unknown-critical-key-without-critical',
+        'test': 'stdout/threshold.json,,0',
+        'params': (
+            '--filename=stdout/threshold.json '
+            '--critical-key=detailedInfo.count1'
+        ),
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            '--critical and --critical-key must be used together.',
+        ],
+    },
+
+    # --always-ok masks the crit state but the rendered output still
+    # shows the original [CRITICAL] marker so the admin knows what
+    # the JSON source reported
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'test': 'stdout/flat-crit.json,,0',
+        'params': '--filename=stdout/flat-crit.json --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Disk is full.'],
+    },
+
+    # Reporter example from #1005: a schema-free JSON response with
+    # no dedicated state/message/perfdata keys. The admin opts out of
+    # JSON-driven state by passing an empty --state-key and drives the
+    # result from key-level thresholds. The fixture values (days=100,
+    # countRemaining=700, detailedInfo.count1=752) are copied verbatim
+    # from the issue body so the tests stay faithful to the original
+    # request.
+    {
+        'id': 'ok-issue-1005-days-below-warn',
+        'test': 'stdout/issue-1005.json,,0',
+        'params': (
+            '--filename=stdout/issue-1005.json '
+            "--state-key='' --message-key='' "
+            '--warning-key=days --warning=200'
+        ),
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'warn-issue-1005-days-above-warn',
+        'test': 'stdout/issue-1005.json,,0',
+        'params': (
+            '--filename=stdout/issue-1005.json '
+            "--state-key='' --message-key='' "
+            '--warning-key=days --warning=50'
+        ),
+        'assert-retc': STATE_WARN,
+    },
+    {
+        'id': 'crit-issue-1005-days-above-crit',
+        'test': 'stdout/issue-1005.json,,0',
+        'params': (
+            '--filename=stdout/issue-1005.json '
+            "--state-key='' --message-key='' "
+            '--warning-key=days --warning=50 '
+            '--critical-key=days --critical=90'
+        ),
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        'id': 'crit-issue-1005-nested-count1-above-500',
+        'test': 'stdout/issue-1005.json,,0',
+        'params': (
+            '--filename=stdout/issue-1005.json '
+            "--state-key='' --message-key='' "
+            '--critical-key=detailedInfo.count1 --critical=500'
+        ),
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        'id': 'ok-issue-1005-nested-count1-outside-inside-range',
+        'test': 'stdout/issue-1005.json,,0',
+        # @90:100 means alert when *inside* 90..100 (inclusive). The
+        # fixture has count1=752, which is outside, so the check stays
+        # OK. This documents the Nagios @-range semantic for readers
+        # who expect "between 90 and 100" to alert at 752.
+        'params': (
+            '--filename=stdout/issue-1005.json '
+            "--state-key='' --message-key='' "
+            '--warning-key=detailedInfo.count1 --warning=@90:100'
+        ),
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'warn-issue-1005-nested-count1-inside-range',
+        'test': 'stdout/issue-1005.json,,0',
+        'params': (
+            '--filename=stdout/issue-1005.json '
+            "--state-key='' --message-key='' "
+            '--warning-key=detailedInfo.count1 --warning=@700:800'
+        ),
+        'assert-retc': STATE_WARN,
+    },
+    {
+        'id': 'crit-issue-1005-worst-of-warn-and-crit',
+        'test': 'stdout/issue-1005.json,,0',
+        # Both thresholds trigger: days=100 is WARN (>=50) and
+        # detailedInfo.count1=752 is CRIT (>=700). get_worst() must
+        # pick CRIT, regardless of evaluation order.
+        'params': (
+            '--filename=stdout/issue-1005.json '
+            "--state-key='' --message-key='' "
+            '--warning-key=days --warning=50 '
+            '--critical-key=detailedInfo.count1 --critical=700'
+        ),
+        'assert-retc': STATE_CRIT,
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../json-values'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -18,7 +18,7 @@ import lib.args
 import lib.base
 import lib.txt
 import lib.url
-from lib.globals import STATE_UNKNOWN
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 missing_lib = None
 try:
@@ -30,12 +30,13 @@ except ModuleNotFoundError as e:
     missing_lib = e.name
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041001'
+__version__ = '2026041401'
 
-DESCRIPTION = """Parses a JSON array from a file, URL, or SMB share and extracts message, state,
-and perfdata values from specific keys. Useful for integrating custom applications or
-APIs that provide monitoring data in JSON format.
-Alerts based on the state value extracted from the JSON data."""
+DESCRIPTION = """Parses a JSON object from a file, URL, or SMB share and extracts message, state,
+and perfdata values from configurable keys. Useful for integrating custom applications or
+APIs that expose monitoring data as JSON. Supports HTTP bearer-token and arbitrary header
+authentication, dot-notation for nested JSON keys, and per-key Nagios-range thresholds in
+addition to the state value extracted from the JSON itself."""
 
 DEFAULT_INSECURE = False
 DEFAULT_MESSAGE_KEY = 'message'
@@ -65,10 +66,50 @@ def parse_args():
     )
 
     parser.add_argument(
+        '-c',
+        '--critical',
+        help='Nagios range expression evaluated for the CRIT state against '
+        'the value of the JSON key referenced by --critical-key. '
+        'Example: `--critical-key=days --critical=1`. '
+        'Example: `--critical-key=detailedInfo.count1 --critical=@90:100`. '
+        'Default: %(default)s',
+        dest='CRIT',
+        type=str,
+        default=None,
+    )
+
+    parser.add_argument(
+        '--critical-key',
+        help='Name of the JSON key whose value should be evaluated against '
+        '--critical for the CRIT state. Supports dot-notation for nested '
+        'keys (e.g. `detailedInfo.count1`). The value at the resolved key '
+        'must be numeric in the JSON, otherwise the check returns UNKNOWN. '
+        'Example: `--critical-key=days`. '
+        'Example: `--critical-key=detailedInfo.count1`. '
+        'Default: %(default)s',
+        dest='CRITICAL_KEY',
+        type=str,
+        default=None,
+    )
+
+    parser.add_argument(
         '--filename',
         help='Path to a local JSON file. Mutually exclusive with -u / --url.',
         dest='FILENAME',
         type=str,
+    )
+
+    parser.add_argument(
+        '--header',
+        help='Custom HTTP request header to send when fetching the URL. '
+        'curl-style format `"Name: Value"`. Can be specified multiple times. '
+        'Example: `--header="X-API-Key: linuxfabrik"`. '
+        'Example: `--header="Accept: application/json"`. '
+        'Default: %(default)s',
+        dest='HEADER',
+        type=str,
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -81,7 +122,9 @@ def parse_args():
 
     parser.add_argument(
         '--message-key',
-        help='Name of the JSON array key containing the output message. '
+        help='Name of the JSON key containing the output message. Supports '
+        'dot-notation for nested keys (e.g. `meta.message`). '
+        'Example: `--message-key=meta.message`. '
         'Default: %(default)s',
         dest='MESSAGE_KEY',
         type=str,
@@ -104,7 +147,10 @@ def parse_args():
 
     parser.add_argument(
         '--perfdata-key',
-        help='Name of the JSON array key containing the perfdata. Default: %(default)s',
+        help='Name of the JSON key containing the perfdata. Supports '
+        'dot-notation for nested keys (e.g. `meta.perfdata`). '
+        'Example: `--perfdata-key=meta.perfdata`. '
+        'Default: %(default)s',
         dest='PERFDATA_KEY',
         type=str,
         default=DEFAULT_PERFDATA_KEY,
@@ -112,7 +158,10 @@ def parse_args():
 
     parser.add_argument(
         '--state-key',
-        help='Name of the JSON array key containing the state. Default: %(default)s',
+        help='Name of the JSON key containing the state. Supports '
+        'dot-notation for nested keys (e.g. `meta.state`). '
+        'Example: `--state-key=meta.state`. '
+        'Default: %(default)s',
         dest='STATE_KEY',
         type=str,
         default=DEFAULT_STATE_KEY,
@@ -124,6 +173,20 @@ def parse_args():
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--token',
+        help='HTTP bearer token. Adds an `Authorization: Bearer <token>` '
+        'header to the URL request. Can be combined with --header to '
+        'send additional custom headers (e.g. `--token=linuxfabrik '
+        '--header="Accept: application/json"`); a manual `--header='
+        '"Authorization: ..."` is overridden by --token if both are '
+        'specified. '
+        'Default: %(default)s',
+        dest='TOKEN',
+        type=str,
+        default=None,
     )
 
     parser.add_argument(
@@ -141,8 +204,169 @@ def parse_args():
         dest='USERNAME',
     )
 
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='Nagios range expression evaluated for the WARN state against '
+        'the value of the JSON key referenced by --warning-key. '
+        'Example: `--warning-key=days --warning=7`. '
+        'Example: `--warning-key=detailedInfo.count1 --warning=@80:90`. '
+        'Default: %(default)s',
+        dest='WARN',
+        type=str,
+        default=None,
+    )
+
+    parser.add_argument(
+        '--warning-key',
+        help='Name of the JSON key whose value should be evaluated against '
+        '--warning for the WARN state. Supports dot-notation for nested '
+        'keys (e.g. `detailedInfo.count1`). The value at the resolved key '
+        'must be numeric in the JSON, otherwise the check returns UNKNOWN. '
+        'Example: `--warning-key=days`. '
+        'Example: `--warning-key=detailedInfo.count1`. '
+        'Default: %(default)s',
+        dest='WARNING_KEY',
+        type=str,
+        default=None,
+    )
+
     args, _ = parser.parse_known_args()
     return args
+
+
+def get_nested(data, dotted_key):
+    """Walk `data` along a dot-separated `dotted_key` path.
+
+    Returns the value at the resolved key, or `None` if any segment of
+    the path is missing or if `data` is not a dict at any level. An
+    empty `dotted_key` returns `None` so callers can treat "no key
+    configured" the same as "key not found".
+    """
+    if not dotted_key:
+        return None
+    current = data
+    for part in dotted_key.split('.'):
+        if not isinstance(current, dict):
+            return None
+        if part not in current:
+            return None
+        current = current[part]
+    return current
+
+
+def coerce_state(raw):
+    """Convert a raw `--state-key` JSON value into a real Nagios state.
+
+    Accepts the integer literals `0`, `1`, `2`, `3` and their string
+    equivalents (`"0"`, `"1"`, ...). Anything else - including `None`,
+    a non-numeric string, a dict, a list, or a number outside `0..3` -
+    is mapped to `STATE_UNKNOWN` so the downstream `get_worst()` call
+    always sees a valid integer state.
+    """
+    if isinstance(raw, bool):
+        return STATE_UNKNOWN
+    if isinstance(raw, int):
+        return raw if 0 <= raw <= 3 else STATE_UNKNOWN
+    if isinstance(raw, str):
+        try:
+            value = int(raw)
+        except ValueError:
+            return STATE_UNKNOWN
+        return value if 0 <= value <= 3 else STATE_UNKNOWN
+    return STATE_UNKNOWN
+
+
+def evaluate_key_threshold(data, key, threshold, level):
+    """Look up `key` in `data` and check the value against `threshold`.
+
+    `level` is one of `'warn'` or `'crit'`; it controls which slot of
+    `lib.base.get_state()` the threshold is fed into. Returns
+    `STATE_UNKNOWN` if the key cannot be resolved or if its value is
+    not numeric, otherwise the state computed by `get_state()` against
+    the Nagios range.
+    """
+    value = get_nested(data, key)
+    if value is None:
+        return STATE_UNKNOWN
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return STATE_UNKNOWN
+    if level == 'warn':
+        return lib.base.get_state(numeric, threshold, None, _operator='range')
+    return lib.base.get_state(numeric, None, threshold, _operator='range')
+
+
+def build_request_headers(token, header_args):
+    """Combine `--token` and `--header` arguments into a single dict.
+
+    `--token` is shorthand for `Authorization: Bearer <token>`;
+    `--header` is a list of curl-style `"Name: Value"` strings (or
+    `None` if the user did not pass any). Returns a `dict` ready to
+    hand to `lib.url.fetch_json(header=...)`, or `None` if the caller
+    supplied neither token nor headers (so the existing fetch_json
+    default-header behaviour is preserved when authentication is not
+    needed).
+    """
+    if not token and not header_args:
+        return None
+    headers = {}
+    for raw in header_args or []:
+        if ':' not in raw:
+            lib.base.cu(
+                f'HTTP header "{raw}" must be of the form NAME: VALUE.',
+            )
+        name, _, value = raw.partition(':')
+        headers[name.strip()] = value.strip()
+    if token:
+        headers['Authorization'] = f'Bearer {token}'
+    return headers
+
+
+def load_source(args):
+    """Load the JSON document from whichever source the caller picked.
+
+    Returns the parsed JSON object, or exits via ``lib.base.cu()`` when
+    the source cannot be read, the protocol is unsupported, or the
+    response is not decodable as JSON. Split out of ``main()`` so the
+    source-specific branches (file, http, smb) live in their own
+    function instead of inflating the main control flow.
+    """
+    if args.FILENAME:
+        with open(args.FILENAME, encoding='utf-8') as json_file:
+            return json.load(json_file)
+
+    if not args.URL:
+        return None
+
+    split_url = args.URL.split('://')
+    if len(split_url) != 2:
+        lib.base.cu(f'Could not parse the protocol of the url "{args.URL}".')
+    proto, url = split_url
+
+    if proto in ['http', 'https']:
+        return lib.base.coe(
+            lib.url.fetch_json(
+                args.URL,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+                header=build_request_headers(args.TOKEN, args.HEADER),
+            )
+        )
+    if proto == 'smb':
+        if not HAVE_SMB:
+            lib.base.cu(f'Python module "{missing_lib}" is not installed.')
+        with lib.base.coe(
+            lib.smb.open_file(url, args.USERNAME, args.PASSWORD, args.TIMEOUT)
+        ) as fd:
+            try:
+                return json.loads(lib.txt.to_text(fd.read()))
+            except Exception:
+                lib.base.cu('ValueError: No JSON object could be decoded')
+    lib.base.cu(f'The protocol "{proto}" is not supported.')
+    return None
 
 
 def main():
@@ -159,47 +383,51 @@ def main():
             'The --filename and -u / --url parameter are mutually exclusive. Please only use one.'
         )
 
-    result = None
-    if args.FILENAME:
-        with open(args.FILENAME) as json_file:
-            result = json.load(json_file)
+    # The two halves of a key-level threshold must always be supplied
+    # together: a range without a key would have nothing to compare,
+    # and a key without a range would silently never alert.
+    if bool(args.WARN) != bool(args.WARNING_KEY):
+        lib.base.cu(
+            '--warning and --warning-key must be used together. Please '
+            'specify both, or neither.'
+        )
+    if bool(args.CRIT) != bool(args.CRITICAL_KEY):
+        lib.base.cu(
+            '--critical and --critical-key must be used together. Please '
+            'specify both, or neither.'
+        )
 
-    if args.URL:
-        split_url = args.URL.split('://')
-        if len(split_url) != 2:
-            lib.base.cu(f'Could not parse the protocol of the url "{args.URL}".')
-        proto, url = split_url
-
-        if proto in ['http', 'https']:
-            result = lib.base.coe(
-                lib.url.fetch_json(
-                    args.URL,
-                    insecure=args.INSECURE,
-                    no_proxy=args.NO_PROXY,
-                    timeout=args.TIMEOUT,
-                )
-            )
-        elif proto == 'smb':
-            if not HAVE_SMB:
-                lib.base.cu(f'Python module "{missing_lib}" is not installed.')
-            with lib.base.coe(
-                lib.smb.open_file(url, args.USERNAME, args.PASSWORD, args.TIMEOUT)
-            ) as fd:
-                try:
-                    result = json.loads(lib.txt.to_text(fd.read()))
-                except Exception:
-                    lib.base.cu('ValueError: No JSON object could be decoded')
-        else:
-            lib.base.cu(f'The protocol "{proto}" is not supported.')
-
+    # fetch data
+    result = load_source(args)
     if result is None:
         lib.base.cu('Nothing returned.')
 
-    msg = result.get(args.MESSAGE_KEY, '') if args.MESSAGE_KEY else ''
-    state = (
-        result.get(args.STATE_KEY, STATE_UNKNOWN) if args.STATE_KEY else STATE_UNKNOWN
-    )
-    perfdata = result.get(args.PERFDATA_KEY) if args.PERFDATA_KEY else None
+    # analyze data; an empty --state-key is an intentional opt-out
+    # (the admin is driving the result from key-level thresholds only,
+    # e.g. when the monitored JSON has no dedicated state field) and
+    # must not degrade the check to UNKNOWN, so default it to OK.
+    msg = get_nested(result, args.MESSAGE_KEY) or '' if args.MESSAGE_KEY else ''
+    if args.STATE_KEY:
+        state = coerce_state(get_nested(result, args.STATE_KEY))
+    else:
+        state = STATE_OK
+    perfdata = get_nested(result, args.PERFDATA_KEY) if args.PERFDATA_KEY else None
+
+    # apply key-level thresholds; UNKNOWN if any of them cannot be
+    # resolved or is non-numeric, otherwise WARN/CRIT/OK as computed
+    # against the Nagios range
+    state_warn = STATE_OK
+    state_crit = STATE_OK
+    if args.WARNING_KEY:
+        state_warn = evaluate_key_threshold(
+            result, args.WARNING_KEY, args.WARN, 'warn',
+        )
+    if args.CRITICAL_KEY:
+        state_crit = evaluate_key_threshold(
+            result, args.CRITICAL_KEY, args.CRIT, 'crit',
+        )
+
+    state = lib.base.get_worst(state, state_warn, state_crit)
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
