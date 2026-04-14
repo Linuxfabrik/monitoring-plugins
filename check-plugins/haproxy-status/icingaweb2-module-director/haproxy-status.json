@@ -21,17 +21,11 @@
                 "--no-proxy": {
                     "set_if": "$haproxy_status_no_proxy$"
                 },
-                "--password": {
-                    "value": "$haproxy_status_password$"
-                },
                 "--timeout": {
                     "value": "$haproxy_status_timeout$"
                 },
                 "--url": {
                     "value": "$haproxy_status_url$"
-                },
-                "--username": {
-                    "value": "$haproxy_status_username$"
                 },
                 "--warning": {
                     "value": "$haproxy_status_warning$"
@@ -84,16 +78,6 @@
                     "datafield_id": 9,
                     "is_required": "n",
                     "var_filter": null
-                },
-                {
-                    "datafield_id": 10,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 11,
-                    "is_required": "n",
-                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -137,7 +121,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Monitors HAProxy performance and health via the stats endpoint. Reports frontend and backend session usage, request rates, response times, error rates, and server states. Alerts when session usage exceeds the configured thresholds. Proxies, frontends, backends or individual servers can be filtered out with --ignore (e.g. an on-demand certbot backend that is only UP during cert renewal). Supports extended reporting via --lengthy.",
+            "notes": "Monitors HAProxy performance and health via the stats endpoint. Reports frontend and backend session usage, request rates, response times, error rates, and server states. Alerts when session usage exceeds the configured thresholds. Proxies, frontends, backends or individual servers can be filtered out with --ignore (e.g. an on-demand certbot backend that is only UP during cert renewal). HTTP basic auth is supplied through the URL itself (`https://user:secret@host/server-status`); the credentials are stripped from the URL before the request is sent and instead carried in an `Authorization: Basic` header so they never reach the request line or any proxy access log. Supports extended reporting via --lengthy.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/haproxy-status/",
             "object_name": "tpl-service-haproxy-status",
             "object_type": "template",
@@ -156,7 +140,6 @@
                 "haproxy_status_no_proxy": false,
                 "haproxy_status_timeout": 3,
                 "haproxy_status_url": "unix:///run/haproxy.sock",
-                "haproxy_status_username": "haproxy-stats",
                 "haproxy_status_warning": 80
             },
             "volatile": null,
@@ -224,17 +207,6 @@
             "uuid": "a309e05c-4de7-443e-9c0e-a5ffb0f7c017"
         },
         "7": {
-            "varname": "haproxy_status_password",
-            "caption": "HAProxy Status: Password",
-            "description": "HAProxy stats auth password. Not needed for socket access.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "hidden"
-            },
-            "uuid": "faf92ec9-694a-49e8-bbab-2c926539dfd6"
-        },
-        "8": {
             "varname": "haproxy_status_timeout",
             "caption": "HAProxy Status: Timeout",
             "description": "Network timeout in seconds.",
@@ -245,10 +217,10 @@
             },
             "uuid": "803a48ca-c842-48b7-8c06-ab626230eadb"
         },
-        "9": {
+        "8": {
             "varname": "haproxy_status_url",
             "caption": "HAProxy Status: URL",
-            "description": "HAProxy stats URI. Accepts `unix:///path/to/haproxy.sock` or an HTTP(S) URL. Example: `--url https://webserver:8443/server-status`.",
+            "description": "HAProxy stats URI. Accepts `unix:///path/to/haproxy.sock` or an HTTP(S) URL. For HTTP basic auth, embed the credentials in the URL itself; the plugin strips them from the netloc before the request is sent and carries them in an `Authorization: Basic` header. Example: `--url https://webserver:8443/server-status`. Example: `--url https://stats:s3cret@webserver:8443/server-status`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -256,18 +228,7 @@
             },
             "uuid": "9a5bdff2-0b2c-4a02-a478-9723f60ea9cd"
         },
-        "10": {
-            "varname": "haproxy_status_username",
-            "caption": "HAProxy Status: Username",
-            "description": "HAProxy stats auth username. Not needed for socket access.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "uuid": "e1afab75-bc8a-4c88-915b-fe423c9fd19d"
-        },
-        "11": {
+        "9": {
             "varname": "haproxy_status_warning",
             "caption": "HAProxy Status: Warning",
             "description": "WARN threshold in percent.",
