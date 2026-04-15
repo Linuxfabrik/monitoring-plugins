@@ -16,10 +16,29 @@ import os
 import sys
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040701'
+__version__ = '2026041501'
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 DOCS_DIR = os.path.join(REPO_ROOT, 'docs')
+
+# Check plugins whose README is also reachable under
+# `docs/check-plugins/<name>/README.md` so that markdown links like
+# `[text](check-plugins/<name>/README.md)` from CONTRIBUTING.md
+# resolve both on GitHub (where the link points at the real README
+# file in the plugin subdirectory) and on the rendered mkdocs site
+# (where the symlink created here shadows the subdirectory). The
+# default `tools/build-docs` layout only publishes one doc page per
+# plugin at `docs/check-plugins/<name>.md`; this list adds the
+# second form where it is needed.
+#
+# `example` is also excluded from the main nav because it is a
+# template rather than a real plugin; every other entry in this
+# list still shows up in the nav normally via its primary docs
+# page and only gets an *additional* README.md symlink.
+README_LINKED_FROM_CONTRIBUTING = [
+    'example',
+    'php-fpm-status',
+]
 
 # Top-level markdown files to include in the documentation.
 # Format: (source filename, target filename in docs/, nav title)
@@ -122,7 +141,8 @@ def generate_mkdocs_yml(nav_sections):
     lines.append('')
     lines.append('not_in_nav: |')
     lines.append('  CHANGELOG.md')
-    lines.append('  check-plugins/example/README.md')
+    for name in sorted(README_LINKED_FROM_CONTRIBUTING):
+        lines.append(f'  check-plugins/{name}/README.md')
     lines.append('  CODE_OF_CONDUCT.md')
     lines.append('')
 
@@ -193,13 +213,16 @@ def main():
     with open(mkdocs_path, 'w') as f:
         f.write(mkdocs_content)
 
-    # Create symlink for the example plugin (not in nav, but linked from contributing.md)
-    example_source = os.path.join(REPO_ROOT, 'check-plugins', 'example', 'README.md')
-    if os.path.isfile(example_source):
-        example_target_dir = os.path.join(DOCS_DIR, 'check-plugins', 'example')
-        os.makedirs(example_target_dir, exist_ok=True)
-        example_target = os.path.join(example_target_dir, 'README.md')
-        create_symlink(example_source, example_target)
+    # Create extra README.md symlinks under docs/check-plugins/<name>/
+    # for every plugin linked from CONTRIBUTING.md. See the comment on
+    # README_LINKED_FROM_CONTRIBUTING at the top of this file.
+    for name in README_LINKED_FROM_CONTRIBUTING:
+        src = os.path.join(REPO_ROOT, 'check-plugins', name, 'README.md')
+        if not os.path.isfile(src):
+            continue
+        tgt_dir = os.path.join(DOCS_DIR, 'check-plugins', name)
+        os.makedirs(tgt_dir, exist_ok=True)
+        create_symlink(src, os.path.join(tgt_dir, 'README.md'))
 
     # Count
     total_symlinks = len(TOP_LEVEL_DOCS)
