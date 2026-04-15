@@ -1104,7 +1104,7 @@ If you want to move a service from one Service Set to another, you have to creat
 
 ### README Structure
 
-Each plugin README follows a fixed structure. See [check-plugins/example/README.md](check-plugins/example/README.md) for the reference template. The sections are:
+Each plugin README follows a fixed structure. Use [check-plugins/example/README.md](check-plugins/example/README.md) as the reference template for the structure, and [check-plugins/php-fpm-status/README.md](check-plugins/php-fpm-status/README.md) as the reference for the level of detail and especially for troubleshooting depth that a Linux system engineer expects. When updating or writing READMEs, orient yourself on these two. The sections are:
 
 1. **Overview**: Describes *what* the plugin does. A leading sentence stating the main purpose. This must include at least the text from the plugin's `DESCRIPTION` variable. Followed by subsections:
 
