@@ -210,6 +210,28 @@ PID   ! Reqs ! LastDur ! Mthd ! URI         ! User
 
 ### Multi-pool output (default)
 
+With multiple `--url` arguments, the plugin emits a summary line, a pool-overview table with one row per pool, and a separate process table for each pool that has `Running` workers (the default view filters out idle workers; use `--lengthy` to include them). The example below shows a gateway where the `wordpress` pool is quiet and the `nextcloud` pool is saturated with long-running requests:
+
+```text
+2 pools checked, 1 OK, 1 CRIT (nextcloud)
+
+Pool      ! Req/s ! Act ! Tot ! Sat    ! Slow+
+----------+-------+-----+-----+--------+------
+wordpress ! 2.1   ! 1   ! 5   ! 20.0%  ! 0
+nextcloud ! 71.0  ! 10  ! 10  ! 100.0% ! 0
+
+Pool nextcloud — processes:
+PID   ! Reqs ! LastDur  ! Mthd ! URI          ! User
+------+------+----------+------+--------------+-----
+55238 ! 5    ! 926ms    ! GET  ! /index.php?… ! -
+55239 ! 5    ! 923ms    ! GET  ! /index.php?… ! -
+55240 ! 5    ! 924ms    ! GET  ! /index.php?… ! -
+55241 ! 4    ! 926ms    ! GET  ! /index.php?… ! -
+55242 ! 1    ! 3s       ! GET  ! /index.php?… ! -
+```
+
+A "quiet day" run where both pools are OK and have no running workers collapses to a single overview table without any per-pool process tables:
+
 ```text
 2 pools checked, 2 OK
 
