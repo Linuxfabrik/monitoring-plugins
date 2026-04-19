@@ -11,24 +11,33 @@
 """See the check's README for more details."""
 
 import argparse
+import base64
+import json
+import re
 import sys
 
 import lib.args
 import lib.base
+import lib.cache
 import lib.shell
+import lib.time
+import lib.url
 import lib.version
-from lib.globals import STATE_UNKNOWN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026041901'
 
 DESCRIPTION = """Checks the installed GitLab version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
-default, alerts 30 days before the official EOL date. The offset is configurable."""
+default, alerts 30 days before the official EOL date. The offset is configurable.
+Optionally also asks the public GitLab Version Check service whether the installed
+version has a security-relevant update available."""
 
 DEFAULT_CHECK_MAJOR = False
 DEFAULT_CHECK_MINOR = False
 DEFAULT_CHECK_PATCH = False
+DEFAULT_CHECK_SECURITY = False
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_OFFSET_EOL = -30  # days
@@ -77,6 +86,14 @@ def parse_args():
         dest='CHECK_PATCH',
         action='store_true',
         default=DEFAULT_CHECK_PATCH,
+    )
+
+    parser.add_argument(
+        '--check-security',
+        help=lib.args.help('--check-security'),
+        dest='CHECK_SECURITY',
+        action='store_true',
+        default=DEFAULT_CHECK_SECURITY,
     )
 
     parser.add_argument(
@@ -129,6 +146,42 @@ def get_installed_version(args):
     return result
 
 
+def check_security(installed_version, insecure, no_proxy, timeout):
+    """Ask the public GitLab Version Check service whether the installed version
+    has a security-relevant update available. Cached for 4 hours."""
+    cache_key = f'gitlab-security:{installed_version}'
+    try:
+        cached = lib.cache.get(cache_key, filename='linuxfabrik-lib-version.db')
+        data = json.loads(cached) if cached else None
+    except (json.JSONDecodeError, TypeError):
+        data = None
+
+    if not data:
+        info = base64.b64encode(
+            json.dumps({'version': installed_version}).encode('utf-8')
+        ).decode('ascii')
+        endpoint = f'https://version.gitlab.com/check.json?gitlab_info={info}'
+        success, data = lib.url.fetch_json(
+            endpoint, insecure=insecure, no_proxy=no_proxy, timeout=timeout,
+        )
+        if not success or not isinstance(data, dict):
+            return STATE_UNKNOWN, 'security check unavailable'
+        lib.cache.set(
+            cache_key,
+            json.dumps(data),
+            expire=lib.time.now() + 4 * 3600,
+            filename='linuxfabrik-lib-version.db',
+        )
+
+    severity = data.get('severity', 'success')
+    critical = bool(data.get('critical_vulnerability', False))
+    if severity == 'success' and not critical:
+        return STATE_OK, 'no security update'
+    if critical:
+        return STATE_WARN, 'critical security update available'
+    return STATE_WARN, 'security update available'
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -154,9 +207,26 @@ def main():
         timeout=args.TIMEOUT,
     )
 
+    sec_prefix = ''
+    state_suffix = ''
+    if args.CHECK_SECURITY:
+        sec_state, sec_msg = check_security(
+            installed_version,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        )
+        state = lib.base.get_worst(state, sec_state)
+        if sec_state != STATE_OK:
+            sec_prefix = f', {sec_msg}'
+        # collapse all inline state markers into a single overall marker at the
+        # end, so EOL and security do not each stamp their own [WARNING]
+        msg = re.sub(r' \[(?:OK|WARNING|CRITICAL|UNKNOWN)\]', '', msg)
+        state_suffix = lib.base.state2str(state, prefix=' ')
+
     # over and out
     lib.base.oao(
-        f'GitLab v{installed_version} ({msg})',
+        f'GitLab v{installed_version}{sec_prefix} ({msg}){state_suffix}',
         state,
         lib.base.get_perfdata(
             'gitlab-version',

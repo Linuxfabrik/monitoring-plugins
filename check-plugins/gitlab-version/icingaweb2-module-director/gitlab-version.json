@@ -14,6 +14,9 @@
                 "--check-patch": {
                     "set_if": "$gitlab_version_check_patch$"
                 },
+                "--check-security": {
+                    "set_if": "$gitlab_version_check_security$"
+                },
                 "--insecure": {
                     "set_if": "$gitlab_version_insecure$"
                 },
@@ -77,6 +80,11 @@
                     "datafield_id": 9,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -120,7 +128,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the installed GitLab version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.",
+            "notes": "Checks the installed GitLab version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable. Optionally also asks the public GitLab Version Check service whether the installed version has a security-relevant update available.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/gitlab-version/",
             "object_name": "tpl-service-gitlab-version",
             "object_type": "template",
@@ -135,6 +143,7 @@
                 "gitlab_version_check_major": false,
                 "gitlab_version_check_minor": false,
                 "gitlab_version_check_patch": false,
+                "gitlab_version_check_security": true,
                 "gitlab_version_insecure": false,
                 "gitlab_version_no_proxy": false,
                 "gitlab_version_offset_eol": -30,
@@ -184,6 +193,15 @@
             "uuid": "cd5e1aa7-4e09-4ae5-9f9a-1a4dc1d6eb0c"
         },
         "5": {
+            "varname": "gitlab_version_check_security",
+            "caption": "Gitlab Version: Check Security?",
+            "description": "Alert when the vendor version-check service reports a security-relevant update for the currently installed version (security severity, critical vulnerability or similar). Requires online access to the vendor service. Has no effect on plugins that do not implement an upstream security check.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "2dadfa13-71db-4f86-bccd-674b69bd3243"
+        },
+        "6": {
             "varname": "gitlab_version_insecure",
             "caption": "Gitlab Version: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -192,7 +210,7 @@
             "settings": {},
             "uuid": "1a5a4a38-ca73-465a-a359-8d6bf34d2840"
         },
-        "6": {
+        "7": {
             "varname": "gitlab_version_no_proxy",
             "caption": "Gitlab Version: No Proxy?",
             "description": "Do not use a proxy.",
@@ -201,7 +219,7 @@
             "settings": {},
             "uuid": "3d7e4261-dd1f-426e-97eb-0a1e88ecd460"
         },
-        "7": {
+        "8": {
             "varname": "gitlab_version_offset_eol",
             "caption": "Gitlab Version: Offset Eol",
             "description": "Alert n days before (\"-30\") or after an EOL date (\"30\" or \"+30\").",
@@ -212,7 +230,7 @@
             },
             "uuid": "53491bb4-bb0d-4449-b76f-d9db8888475a"
         },
-        "8": {
+        "9": {
             "varname": "gitlab_version_path",
             "caption": "Gitlab Version: Path",
             "description": "Full path to GitLab's `version-manifest.txt`.",
@@ -223,7 +241,7 @@
             },
             "uuid": "e1439f84-269a-4b81-af64-4775c386aa3b"
         },
-        "9": {
+        "10": {
             "varname": "gitlab_version_timeout",
             "caption": "Gitlab Version: Timeout",
             "description": "Network timeout in seconds.",
