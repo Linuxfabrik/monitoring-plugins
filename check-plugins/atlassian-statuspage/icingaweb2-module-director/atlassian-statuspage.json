@@ -11,6 +11,10 @@
                 "--no-proxy": {
                     "set_if": "$atlassian_statuspage_no_proxy$"
                 },
+                "--service": {
+                    "value": "$atlassian_statuspage_service$",
+                    "repeat_key": true
+                },
                 "--timeout": {
                     "value": "$atlassian_statuspage_timeout$"
                 },
@@ -43,6 +47,11 @@
                 },
                 {
                     "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -88,7 +97,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Monitors a public Atlassian Statuspage for incidents and maintenance windows. Returns OK when no incidents are reported, WARN for minor incidents or scheduled maintenance, and CRIT for major or critical incidents. Works with any Statuspage-powered status page, not just Atlassian's own.",
+            "notes": "Monitors a public Atlassian Statuspage for incidents, degraded services, and scheduled maintenance windows. Reports the overall status indicator, the name and latest update of each unresolved incident, the status of each affected service, and any ongoing or upcoming maintenance. Returns OK when no incidents are reported, WARN for minor incidents, degraded or partially unavailable services and maintenance windows, and CRIT for major/critical incidents or major service outages. Works with any Statuspage-powered status page, not just Atlassian's own.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/atlassian-statuspage/",
             "object_name": "tpl-service-atlassian-statuspage",
             "object_type": "template",
@@ -102,6 +111,7 @@
                 "atlassian_statuspage_always_ok": false,
                 "atlassian_statuspage_insecure": false,
                 "atlassian_statuspage_no_proxy": false,
+                "atlassian_statuspage_service": [],
                 "atlassian_statuspage_timeout": 30,
                 "atlassian_statuspage_url": "https://status.atlassian.com"
             },
@@ -139,6 +149,17 @@
             "uuid": "246a847a-59cc-47af-b313-12b836283ac2"
         },
         "4": {
+            "varname": "atlassian_statuspage_service",
+            "caption": "Atlassian Statuspage: Service",
+            "description": "Regex matching the \"name\" field of a service. Only incidents affecting a matching service, matching degraded services, and maintenance windows affecting a matching service are reported. Can be specified multiple times (logical OR). If not specified, all services are considered. Examples: --service \"^API$\" --service \"^bexio \" --service \"PostFinance\"",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "dc77c7e4-64d6-4f30-ae78-8822321e7c79"
+        },
+        "5": {
             "varname": "atlassian_statuspage_timeout",
             "caption": "Atlassian Statuspage: Timeout",
             "description": "Network timeout in seconds.",
@@ -149,7 +170,7 @@
             },
             "uuid": "771c4d0e-c9a8-48a5-a5b1-342f2317cc12"
         },
-        "5": {
+        "6": {
             "varname": "atlassian_statuspage_url",
             "caption": "Atlassian Statuspage: URL",
             "description": "Atlassian Statuspage URL.",

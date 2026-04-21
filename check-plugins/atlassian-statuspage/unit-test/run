@@ -17,50 +17,108 @@ import unittest
 import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 
-# Fixtures were captured from real Atlassian-Statuspage-powered pages:
+# Fixtures were captured from the `/api/v2/summary.json` endpoint of real
+# Atlassian-Statuspage-powered pages (or are synthetic where noted):
 #
-#   all-operational                      - status.atlassian.com
-#                                           indicator: "none"
-#   minor-partially-degraded             - exact.statuspage.io
-#                                           indicator: "minor"
-#   minor-outage                         - status.cloudflarestatus.com
-#                                           indicator: "minor"
-#   minor-partial-degradation-no-timezone - status.hashicorp.com
-#                                           indicator: "minor", no `time_zone`
-#                                           field (tests the fallback branch)
-#   critical-outage                      - synthetic, indicator: "critical"
-#                                           (no real public capture was
-#                                           available at the time)
+#   all-operational                     - status.atlassian.com
+#                                         indicator: "none", no components
+#   operational-with-components         - www.githubstatus.com
+#                                         indicator: "none", 12 operational
+#                                         components, no incidents
+#   major-asana                         - status.asana.com
+#                                         indicator: "major", 1 component in
+#                                         major_outage, 0 incidents, 0
+#                                         maintenances
+#   minor-bexio                         - www.bexio-status.com
+#                                         indicator: "minor", 1 incident with
+#                                         major impact, 2 components in
+#                                         partial_outage
+#   minor-cloudflare-with-maintenances  - www.cloudflarestatus.com
+#                                         indicator: "minor", 1 incident,
+#                                         many components in partial_outage /
+#                                         under_maintenance, 1 ongoing and
+#                                         several upcoming maintenances
+#   minor-hashicorp                     - status.hashicorp.com
+#                                         indicator: "minor", 2 incidents,
+#                                         no degraded components
+#   critical-outage                     - synthetic (no real capture with
+#                                         indicator "critical" was available
+#                                         at capture time), exercises critical
+#                                         impact + major_outage component +
+#                                         upcoming maintenance
 TESTS = [
     {
         'id': 'ok-all-operational',
         'test': 'stdout/all-operational,,0',
         'assert-retc': STATE_OK,
-        'assert-in': ['Everything is ok'],
+        'assert-in': ['All systems operational', 'Atlassian'],
     },
     {
-        'id': 'warn-minor-partially-degraded',
-        'test': 'stdout/minor-partially-degraded,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['Partially Degraded Service', 'last update at'],
+        'id': 'ok-operational-with-components',
+        'test': 'stdout/operational-with-components,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['All systems operational', 'GitHub'],
     },
     {
-        'id': 'warn-minor-outage',
-        'test': 'stdout/minor-outage,,0',
+        'id': 'warn-minor-bexio-partial-outage-components',
+        'test': 'stdout/minor-bexio,,0',
         'assert-retc': STATE_WARN,
-        'assert-in': ['Minor Service Outage', 'last update at'],
+        'assert-in': [
+            'Minor incidents',
+            'bexio AG',
+            'BCV interface currently unavailable',
+            'We are currently investigating this issue.',
+            'Banking / Fetch transactions',
+            'partial_outage',
+        ],
     },
     {
-        'id': 'warn-minor-partial-degradation-no-timezone',
-        'test': 'stdout/minor-partial-degradation-no-timezone,,0',
+        'id': 'warn-minor-hashicorp-two-incidents',
+        'test': 'stdout/minor-hashicorp,,0',
         'assert-retc': STATE_WARN,
-        'assert-in': ['Partial System Degradation', 'last update at'],
+        'assert-in': [
+            'Minor incidents',
+            'HashiCorp Services',
+            'Hashicorp GPG Key Rotation',
+            'minor impact',
+        ],
+    },
+    {
+        'id': 'warn-minor-cloudflare-with-maintenances',
+        'test': 'stdout/minor-cloudflare-with-maintenances,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Ongoing maintenance since',
+            'Minor incidents',
+            'Cloudflare',
+            'WARP connectivity',
+            'Maintenance',
+            'Upcoming Maintenance',
+            'in_progress',
+        ],
+    },
+    {
+        'id': 'crit-major-asana-component-only',
+        'test': 'stdout/major-asana,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Major incidents',
+            'Asana',
+            'major_outage',
+        ],
     },
     {
         'id': 'crit-critical-outage',
         'test': 'stdout/critical-outage,,0',
         'assert-retc': STATE_CRIT,
-        'assert-in': ['Full Service Outage', 'last update at'],
+        'assert-in': [
+            'Major incidents',
+            'Full Service Outage',
+            'All API endpoints are currently returning 503',
+            'major_outage',
+            'Upcoming Maintenance',
+            'Database failover drill',
+        ],
     },
     {
         'id': 'ok-always-ok-masks-crit',
@@ -68,6 +126,31 @@ TESTS = [
         'params': '--always-ok',
         'assert-retc': STATE_OK,
         'assert-in': ['Full Service Outage'],
+    },
+    {
+        'id': 'ok-service-filter-no-match-drops-state',
+        'test': 'stdout/minor-bexio,,0',
+        'params': '--service=^bexio Office$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['All systems operational'],
+    },
+    {
+        'id': 'warn-service-filter-matches-banking',
+        'test': 'stdout/minor-bexio,,0',
+        'params': '--service=Banking',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'BCV interface currently unavailable',
+            'Banking / Fetch transactions',
+        ],
+        'assert-not-in': ['bexio Office', 'PostFinance'],
+    },
+    {
+        'id': 'warn-service-filter-regex-or',
+        'test': 'stdout/minor-bexio,,0',
+        'params': '--service=^API$ --service=Banking',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Banking / Fetch transactions'],
     },
 ]
 

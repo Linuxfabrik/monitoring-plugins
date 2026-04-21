@@ -63,26 +63,8 @@ spec:
           lineInterpolation: smooth
           spanNulls: false
         decimals: 0
-        max: 3
         min: 0
         unit: short
-      overrides:
-      - matcher:
-          id: byName
-          options: atlassian-statuspage
-        properties:
-        - id: mappings
-          value:
-          - options:
-              '0':
-                text: OK
-              '1':
-                text: WARN
-              '2':
-                text: CRIT
-              '3':
-                text: UNKN
-            type: value
     options:
       legend:
         calcs:
@@ -97,8 +79,8 @@ spec:
 
     targets:
 
-    - alias: atlassian-statuspage
-      refId: atlassian-statuspage
+    - alias: cnt_warn
+      refId: cnt_warn
       groupBy:
       - params:
         - $interval
@@ -122,4 +104,31 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: atlassian-statuspage
+        value: cnt_warn
+
+    - alias: cnt_crit
+      refId: cnt_crit
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: cnt_crit

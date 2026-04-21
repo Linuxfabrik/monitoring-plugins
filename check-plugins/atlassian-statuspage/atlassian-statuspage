@@ -12,23 +12,27 @@
 
 import argparse
 import json
+import re
 import sys
 
 import lib.args
 import lib.base
-import lib.human
 import lib.lftest
 import lib.time
+import lib.txt
 import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026042101'
 
-DESCRIPTION = """Monitors a public Atlassian Statuspage for incidents and maintenance windows. Returns
-OK when no incidents are reported, WARN for minor incidents or scheduled maintenance,
-and CRIT for major or critical incidents. Works with any Statuspage-powered status
-page, not just Atlassian's own."""
+DESCRIPTION = """Monitors a public Atlassian Statuspage for incidents, degraded services, and
+scheduled maintenance windows. Reports the overall status indicator, the name and latest
+update of each unresolved incident, the status of each affected service, and any ongoing
+or upcoming maintenance. Returns OK when no incidents are reported, WARN for minor
+incidents, degraded or partially unavailable services and maintenance windows, and CRIT
+for major/critical incidents or major service outages. Works with any Statuspage-powered
+status page, not just Atlassian's own."""
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
@@ -72,6 +76,22 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--service',
+        help='Regex matching the "name" field of a service. '
+        'Only incidents affecting a matching service, matching degraded '
+        'services, and maintenance windows affecting a matching service '
+        'are reported. '
+        'Can be specified multiple times (logical OR). '
+        'If not specified, all services are considered.\n'
+        'Examples:\n'
+        '  --service "^API$"\n'
+        '  --service "^bexio " --service "PostFinance"',
+        dest='SERVICE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
         '--test',
         help=lib.args.help('--test'),
         dest='TEST',
@@ -97,17 +117,42 @@ def parse_args():
     return args
 
 
-def statuspage2state(indicator):
-    """Convert Atlassian's Statuspage incident level to the Nagios world.
+def indicator2state(indicator):
+    """Convert Atlassian's top-level Statuspage indicator to the Nagios world.
     https://support.atlassian.com/statuspage/docs/top-level-status-and-incident-impact-calculations/
     """
-    indicator = indicator.lower()
-    if indicator in ['minor', 'maintenance']:
+    if indicator in ('minor', 'maintenance'):
         return STATE_WARN
-    if indicator in ['major', 'critical']:
+    if indicator in ('major', 'critical'):
         return STATE_CRIT
-    # indicator == 'none'
+    # 'none' or unknown
     return STATE_OK
+
+
+def service_status2state(status):
+    """Convert a service (Statuspage "component") status to the Nagios world."""
+    if status == 'major_outage':
+        return STATE_CRIT
+    if status in ('degraded_performance', 'partial_outage', 'under_maintenance'):
+        return STATE_WARN
+    # 'operational' or unknown
+    return STATE_OK
+
+
+def matches_any(name, compiled_patterns):
+    """Return True if `name` matches any compiled regex, or if there are
+    no patterns (no filter).
+    """
+    if not compiled_patterns:
+        return True
+    return any(p.search(name or '') for p in compiled_patterns)
+
+
+def fmt_ts(ts):
+    """Trim an ISO timestamp down to 'YYYY-MM-DD HH:MM:SS'."""
+    if not ts:
+        return ''
+    return ts.replace('T', ' ')[:19]
 
 
 def main():
@@ -119,11 +164,22 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # fetch data (https://url/api/v2/status.json)
+    # args.SERVICE: None means "consider all services"; a list means
+    # "only consider services whose name matches any of these regexes"
+    try:
+        compiled_service = (
+            [re.compile(item) for item in args.SERVICE]
+            if args.SERVICE is not None
+            else []
+        )
+    except re.error:
+        lib.base.cu('Unable to compile regex.')
+
+    # fetch data (https://url/api/v2/summary.json)
     if args.TEST is None:
         result = lib.base.coe(
             lib.url.fetch_json(
-                f'{args.URL.rstrip("/")}/api/v2/status.json',
+                f'{args.URL.rstrip("/")}/api/v2/summary.json',
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
                 timeout=args.TIMEOUT,
@@ -131,39 +187,206 @@ def main():
         )
     else:
         # do not call the command, put in test data
-        result, _, _ = lib.lftest.test(args.TEST)
-        result = json.loads(result)
+        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
+        result = json.loads(stdout)
 
     # init some vars
+    page = result.get('page') or {}
+    page_url = page.get('url') or args.URL.rstrip('/')
+    page_tz = page.get('time_zone') or ''
+    status = result.get('status') or {}
+
+    page_name = page.get('name') or page_url
     msg = ''
-    state = statuspage2state(result.get('status').get('indicator'))
+    state = STATE_OK
     perfdata = ''
+    cnt_warn = 0
+    cnt_crit = 0
+    incidents = []
+    service_rows = []
+    active_maint_rows = []
+    upcoming_maint_rows = []
 
-    # analyze data and build the message
-    if state == STATE_OK:
+    # Top-level indicator is only authoritative when the user did not ask
+    # for a specific subset via --service. Otherwise derive state purely
+    # from the filtered incidents/services/maintenances below.
+    if args.SERVICE is None:
+        state = lib.base.get_worst(state, indicator2state(status.get('indicator')))
 
-        # build the message
-        msg += f'Everything is ok @ {result.get("page").get("url")}'
-    else:
-        msg += f'{result.get("status").get("description")} @ {result.get("page").get("url")}, '
-        updated_at = lib.time.timestr2epoch(
-            result.get('page').get('updated_at')[:19],  # 2025-05-28T11:04:36.171+01:00
-            pattern='%Y-%m-%dT%H:%M:%S',  # 2025-02-26T13:45:15
-            tzinfo=lib.time.get_timezone(result.get('page').get('time_zone')),
+    # unresolved incidents. The incident `impact` does NOT drive the Nagios
+    # state: an incident with `major` impact whose affected services are
+    # only in `partial_outage` is WARN, not CRIT. The state is derived from
+    # the concrete per-service status below (which is what the admin sees
+    # on the status page), not from the provider's self-assessed impact.
+    # `components` is the raw Atlassian Statuspage API field name and is
+    # surfaced to the admin as "service" for consistency with the statuspal
+    # plugin.
+    for incident in result.get('incidents') or []:
+        affected = incident.get('components') or []
+        if args.SERVICE is not None and not any(
+            matches_any(c.get('name'), compiled_service) for c in affected
+        ):
+            continue
+        incidents.append(incident)
+
+    # services (raw API key `components`); skip group headers and
+    # "Visit www.xyz.com for more information" placeholders
+    for svc in result.get('components') or []:
+        if svc.get('group'):
+            continue
+        name = svc.get('name') or ''
+        if name.startswith('Visit '):
+            continue
+        if not matches_any(name, compiled_service):
+            continue
+        status_value = svc.get('status') or 'operational'
+        if status_value == 'operational':
+            continue
+        svc_state = service_status2state(status_value)
+        state = lib.base.get_worst(state, svc_state)
+        if svc_state == STATE_WARN:
+            cnt_warn += 1
+        elif svc_state == STATE_CRIT:
+            cnt_crit += 1
+        service_rows.append(
+            {
+                'name': name,
+                'status': status_value,
+                'state': lib.base.state2str(svc_state, empty_ok=False),
+                'updated_at': fmt_ts(svc.get('updated_at')),
+            }
         )
-        delta = lib.time.now() - updated_at
-        msg += f'last update at {result.get("page").get("updated_at")[:19]}'
-        if result.get('page').get('time_zone'):
-            msg += f' {result.get("page").get("time_zone")}'
-        msg += f' ({lib.human.seconds2human(delta)} ago)'
+
+    # scheduled maintenances: separate ongoing from upcoming
+    for maint in result.get('scheduled_maintenances') or []:
+        affected = maint.get('components') or []
+        if args.SERVICE is not None and not any(
+            matches_any(c.get('name'), compiled_service) for c in affected
+        ):
+            continue
+        # Atlassian Statuspage uses `status` (scheduled / in_progress /
+        # verified / completed) for the maintenance lifecycle. We surface it
+        # as "Type" for consistency with the statuspal plugin, where that
+        # column shows values like "scheduled" or "emergency-maintenance".
+        row = {
+            'title': maint.get('name') or '',
+            'type': maint.get('status') or '',
+            'starts_at': fmt_ts(maint.get('scheduled_for')),
+            'ends_at': fmt_ts(maint.get('scheduled_until')),
+        }
+        if maint.get('status') == 'in_progress':
+            state = lib.base.get_worst(state, STATE_WARN)
+            active_maint_rows.append(row)
+        else:
+            upcoming_maint_rows.append(row)
+
+    # build the first line (analog to the statuspal plugin)
+    if state == STATE_OK:
+        msg = f'All systems operational @ {page_name}'
+    elif state == STATE_WARN:
+        msg = f'Minor incidents @ {page_name}'
+    elif state == STATE_CRIT:
+        msg = f'Major incidents @ {page_name}'
+    else:
+        msg = f'Got state "{status.get("indicator")}" from {page_url} for {page_name}'
+    msg += f' ({page_url}, TZ {page_tz or "n/a"})'
+
+    # primary incident inline on the first line
+    if incidents:
+        first = incidents[0]
+        msg += f': {(first.get("name") or "").strip()}'
+        latest = (first.get('incident_updates') or [{}])[0]
+        body = (latest.get('body') or '').strip()
+        if body:
+            msg += f' / {body} ({fmt_ts(latest.get("updated_at"))})'
+        if first.get('shortlink'):
+            msg += f' (see {first["shortlink"]})'
+
+    # additional incidents on their own lines. Each incident has its own
+    # `shortlink` (stspg.io short URL) pointing at that specific event, so
+    # append it per-line instead of only once in the top line.
+    for incident in incidents[1:]:
+        latest = (incident.get('incident_updates') or [{}])[0]
+        msg += (
+            f'\n{fmt_ts(incident.get("updated_at"))}'
+            f', {incident.get("impact")} impact'
+            f', {incident.get("status")}'
+            f': {(incident.get("name") or "").strip()}.'
+            f' {(latest.get("body") or "").strip()}'
+        )
+        if incident.get('shortlink'):
+            msg += f' (see {incident["shortlink"]})'
+
+    # `lib.base.get_table` ends with a trailing newline; strip it so each
+    # table is separated by exactly one blank line.
+    if service_rows:
+        msg += '\n\n' + lib.base.get_table(
+            service_rows,
+            ['name', 'status', 'updated_at', 'state'],
+            header=[
+                'Service',
+                'Status',
+                f'Updated ({page_tz or "TZ n/a"})',
+                'State',
+            ],
+        ).rstrip('\n')
+
+    if active_maint_rows:
+        msg += '\n\n' + lib.base.get_table(
+            active_maint_rows,
+            ['title', 'type', 'starts_at', 'ends_at'],
+            header=[
+                'Maintenance',
+                'Type',
+                f'Start ({page_tz or "TZ n/a"})',
+                'End',
+            ],
+        ).rstrip('\n')
+
+    if upcoming_maint_rows:
+        msg += '\n\n' + lib.base.get_table(
+            upcoming_maint_rows,
+            ['title', 'type', 'starts_at', 'ends_at'],
+            header=[
+                'Upcoming Maintenance',
+                'Type',
+                f'Start ({page_tz or "TZ n/a"})',
+                'End',
+            ],
+        ).rstrip('\n')
+
+    # prepend an ongoing-maintenance notice to the very first line, analog
+    # to the statuspal plugin — draws the admin's eye to the most relevant
+    # fact before any other detail
+    if active_maint_rows:
+        first_maint = active_maint_rows[0]
+        now_iso = lib.time.now(as_type='iso')
+        if first_maint['starts_at'] and first_maint['starts_at'] <= now_iso:
+            msg = (
+                f'Ongoing maintenance since {first_maint["starts_at"]}: '
+                f'{first_maint["title"]}\n{msg}'
+            )
+
+    # Perfdata is modelled 1:1 on the statuspal plugin: only the count of
+    # services in WARN and CRIT state, so both Statuspage-powered checks
+    # surface the same metric names in Grafana.
     perfdata += lib.base.get_perfdata(
-        'impact',
-        state,
+        'cnt_warn',
+        cnt_warn,
         uom=None,
         warn=None,
         crit=None,
-        _min=STATE_OK,
-        _max=STATE_UNKNOWN,
+        _min=0,
+        _max=None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'cnt_crit',
+        cnt_crit,
+        uom=None,
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=None,
     )
 
     # over and out
