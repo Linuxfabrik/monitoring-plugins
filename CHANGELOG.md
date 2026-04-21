@@ -12,52 +12,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Build, CI/CD:
 
-* Remove `flatdict` dependency as it breaks builds on newer targets (RHEL 10, SLE 15/16) and no fix is available that also supports older targets (such as RHEL 8). The statuspal plugin has been rewritten to no longer depend on `flatdict` ([#1044](https://github.com/Linuxfabrik/monitoring-plugins/issues/1044)).
+* Drop the `flatdict` dependency; `statuspal` reworked accordingly. Unblocks builds on RHEL 10 and SLE 15/16 ([#1044](https://github.com/Linuxfabrik/monitoring-plugins/issues/1044))
 
 Monitoring Plugins:
 
-* haproxy-status: `--username` and `--password` were removed in favour of HTTP basic auth embedded in the URL itself, e.g. `--url=https://stats:s3cret@webserver:8443/server-status`. The plugin strips the credentials from the netloc before the request is sent and instead carries them in an `Authorization: Basic` header so they never reach the request line or any proxy access log. Existing Icinga services that still pass `--username` / `--password` will hard-UNKNOWN with a clear migration pointer; migrate the URL field to include the credentials and drop the username/password fields from the service template
-* mailq: the alerting semantic has flipped from "number of mails in the queue" to "age of the oldest mail in the queue". `--warning` and `--critical` now take a duration string with a unit suffix (`1h`, `3D`, `30m`, `72h`, ...) and the defaults are `1h` / `3D` (down from `2` / `250` mails). The rationale is that a queue with 100 fresh mails is still OK when they are delivered within minutes, while a single mail stuck for more than an hour is always interesting and is exactly when an admin wants to look. The mail count stays in perfdata (`mailq`) so Grafana trending keeps working, and the new `oldest_mail_age` perfdata metric carries the age in seconds. Existing Icinga services that set `mailq_warning=10` and `mailq_critical=500` need to be migrated to duration strings (e.g. `mailq_warning=1h`, `mailq_critical=3D`). Also adds `--mta=auto|postfix|exim|sendmail` to override MTA autodetection: Postfix is now read via `postqueue -j` (JSON with `arrival_time` as Unix epoch) for a rock-solid timestamp, Exim still uses `mailq` (= `exim -bp`) and its built-in age literals, and everything else falls back to `mailq` with `Date:` line parsing ([#781](https://github.com/Linuxfabrik/monitoring-plugins/issues/781))
-* php-fpm-status: multi-pool support plus full rework of the alerting and perfdata semantics. `--url` can now be specified multiple times to check several pools on the same host in a single plugin run; the overall state is the worst of all pools, and the summary line calls out which pool is in trouble. Basic authentication can be embedded in the URL as `http://user:password@host/pool-status`, with the credentials stripped from the request URL and sent via an `Authorization` header. All perfdata labels are now prefixed with the pool name in `<pool>_snake_case` form (for example `nextcloud_saturation`), including in the single-pool case, matching the `procs` / `disk-io` convention now documented in `CONTRIBUTING.md`. Existing Grafana panels and InfluxDB queries need to be updated; the bundled Grafana dashboard has been rewritten to use a `$pool` template variable that lets the admin switch between pools. The wrongly-named `queue usage` metric has been renamed to `saturation` and now correctly reports the percentage of busy worker processes (`active_processes / total_processes`) instead of the socket backlog fill rate, which was never "pool near capacity". The cumulative counters `accepted conn` and `slow requests` have been replaced by the computed `<pool>_accepted_conn_rate` (requests per second since the previous run) and `<pool>_slow_requests_delta` (new slow requests since the previous run), which follow the "no continuous counters" rule in CONTRIBUTING and make the `--warning-slowreq` / `--critical-slowreq` thresholds actually actionable again (previously they alerted permanently after the first historical slow request, until the next FPM restart). The `max children reached` metric and its implicit WARN have been removed and will return with delta-based semantics in a later release. A new `--severity warn|crit` parameter controls the state reported for pools that are unreachable or whose status JSON cannot be parsed; the default is `warn`. The `--lengthy` flag now correctly defaults to off (matching the project convention) and adds extended columns to both the pool overview table and the per-process table; in `--lengthy` it also includes idle workers in the process table so the table is always populated, even on quiet pools. The process table itself has been made friendlier for narrow Icinga views: request URIs are stripped of their query strings (just `?` is kept as a visual cue), script paths are abbreviated by reducing every directory component to its first character (`/usr/share/icingaweb2/public/index.php` → `/u/s/i/p/index.php`), request durations are shown at millisecond precision (no µs noise), and worker start times drop seconds and the trailing "ago". The plugin uses a local SQLite cache (`linuxfabrik-monitoring-plugins-php-fpm-status.db`) to compute deltas between runs; the first run after install, and the first run after an FPM restart, report OK for the delta metrics with a `baseline captured, waiting for more data` note while the saturation metric is alerted normally. Unit tests now run against real PHP-FPM status JSON captured from four container platforms (UBI8 + PHP 7.2, UBI9 + PHP 8.0, Debian 12 + PHP 8.2, Ubuntu 24.04 + PHP 8.3)
-* procs: `--argument`, `--command` and `--username` now use regular expressions instead of substring/startswith matching. Existing filters like `--command=httpd` still work but now match anywhere in the name. Use `--command='^httpd'` for the previous startswith behavior, or `--username='^apache$'` for exact matches.
+* haproxy-status: replaced `--username` / `--password` with HTTP basic auth in `--url` (e.g. `https://user:pw@host/server-status`); old parameters now UNKNOWN with a migration hint
+* mailq: `--warning` / `--critical` now take a duration (`1h`, `3D`; defaults `1h` / `3D`) instead of a mail count. New `oldest_mail_age` perfdata (seconds). New `--mta=auto|postfix|exim|sendmail` ([#781](https://github.com/Linuxfabrik/monitoring-plugins/issues/781))
+* php-fpm-status: multi-pool via repeatable `--url`; HTTP basic auth in the URL. All perfdata labels renamed and prefixed with `<pool>_` (`queue usage` → `saturation`; `accepted conn` → `accepted_conn_rate`; `slow requests` → `slow_requests_delta`; `max children reached` removed) — Grafana and InfluxDB queries need updating. New `--severity warn|crit` for unreachable pools
+* procs: `--argument`, `--command`, `--username` now regex instead of substring/startswith; use `^foo` for startswith, `^foo$` for exact match
 
 
 ### Added
 
 Build, CI/CD:
 
-* Add MkDocs-based documentation site, served at <https://linuxfabrik.github.io/monitoring-plugins/> and kept in sync with the repo automatically on every merge to `main`
-* Add support for SLE 15 packages
-* Add support for SLE 16 packages
-* Add support for Ubuntu 26.04 packages, including an "OS - Ubuntu 26 Basic Service Set" template in the Icinga Director basket
+* Documentation site at <https://linuxfabrik.github.io/monitoring-plugins/>
+* Package support for SLE 15, SLE 16, Ubuntu 26.04 (incl. "OS - Ubuntu 26 Basic Service Set" template)
 
 
 Monitoring Plugins:
 
-* by-ssh: add alerting on single numeric values
-* by-winrm: executes commands on remote Windows hosts by WinRM, supporting JEA (including the JEA endpoint via `--winrm-configuration-name`)
-* dhcp-scope-usage: add `--brief` parameter to hide scopes within the thresholds, useful on DHCP servers with thousands of scopes where the default output becomes unreadable. Inverse of `--lengthy`: `--brief` filters rows, `--lengthy` adds columns, both are orthogonal and can be combined. Perfdata and alerting are unaffected, so Grafana trending stays complete ([#788](https://github.com/Linuxfabrik/monitoring-plugins/issues/788))
-* disk-usage: add `--brief` parameter to hide filesystems within the thresholds, useful on hosts with hundreds of mounts where the default output becomes unreadable. Inverse of `--lengthy`: `--brief` filters rows, `--lengthy` adds columns, both are orthogonal and can be combined. Perfdata and alerting are unaffected, so Grafana trending stays complete ([#782](https://github.com/Linuxfabrik/monitoring-plugins/issues/782))
-* gitlab-version: add `--check-security` parameter that asks the public GitLab Version Check service (`https://version.gitlab.com/check.json`) whether the installed version has a security-relevant update available, and warns when GitLab reports a non-`success` severity or a critical vulnerability. The service requires no authentication and is the same one the GitLab admin dashboard uses internally. Default off on the CLI for backwards compatibility, default on in the Icinga Director Service Template so newly imported templates get the security check out of the box ([#688](https://github.com/Linuxfabrik/monitoring-plugins/issues/688))
-* infomaniak-swiss-backup-devices: add `--ignore-customer`, `--ignore-name`, `--ignore-tag`, `--ignore-user` parameters to skip devices by regex
-* infomaniak-swiss-backup-products: add `--ignore-customer`, `--ignore-tag` parameters to skip products by regex
-* docker-info, podman-info: add `--ignore` parameter to filter stderr warnings and errors by regex, e.g. to suppress the `WARNING: No swap limit support` message from `docker info` on kernels without swap accounting, or the `WARNING: bridge-nf-call-iptables is disabled` message on Debian hosts that do not load the `br_netfilter` module. Accepts a Python regex, is case-sensitive by default (use `(?i)` for case-insensitive matching) and can be specified multiple times. The same treatment was applied to both plugins because they share the same stderr-parsing code path ([#834](https://github.com/Linuxfabrik/monitoring-plugins/issues/834))
-* haproxy-status: add `--ignore` parameter to filter out proxies, frontends, backends or servers by regex on the combined `<proxy>/<svname>` identifier, e.g. to skip an on-demand certbot backend that is only UP during cert renewal ([#835](https://github.com/Linuxfabrik/monitoring-plugins/issues/835))
-* ipmi-sel: add `--ignore` parameter to filter out SEL entries by regex, e.g. auto-generated "Log area reset/cleared" entries after `ipmitool sel clear` ([#982](https://github.com/Linuxfabrik/monitoring-plugins/issues/982))
-* json-values: add `--token` and `--header` parameters for HTTP bearer-token and custom header authentication when fetching JSON from protected endpoints, add `--warning-key` / `--warning` and `--critical-key` / `--critical` to alert on a numeric value at a specific JSON key (with Nagios range syntax), and support dot-notation for nested keys in all `--*-key` parameters (e.g. `--state-key=meta.state`) ([#1005](https://github.com/Linuxfabrik/monitoring-plugins/issues/1005))
-* librenms-alerts: add device-type `management`
-* librenms-health: add device-type `management`
-* nextcloud-enterprise: provides information about an installed Nextcloud Enterprise subscription
-* podman-info: displays system-wide Podman information (dedicated Podman counterpart to docker-info) ([#1023](https://github.com/Linuxfabrik/monitoring-plugins/issues/1023))
-* podman-stats: prints cpu and memory statistics for all running Podman containers (dedicated Podman counterpart to docker-stats) ([#1023](https://github.com/Linuxfabrik/monitoring-plugins/issues/1023))
-* procs: add `--lengthy` parameter for extended `--top` table output with all platform-specific memory fields
-* procs: add `--top` parameter to list the top N processes by CPU time and memory usage
-* procs: add `--warning-cpu-percent` / `--critical-cpu-percent` thresholds for aggregated CPU usage of filtered processes (requires SQLite for delta calculation between runs)
-* scanrootkit: add 41 signatures for modern Linux rootkits, backdoors and implants, including BPFDoor, Drovorub, Ebury 1.7/1.8, FontOnLake, HiddenWasp, Kaiji, Kobalos, Lightning Framework, Medusa, Nuk3Gh0st, OrBit, perfctl, PUMAKIT, Pygmy Goat, Reptile, RotaJakiro, sedexp, Skidmap, SSHdoor, Symbiote, Syslogk, TripleCross, UNC3886, Winnti for Linux, Adore-NG, Azazel, BEURK, Father, Honey Pot Bears and Umbra. Sourced from public vendor and threat-research IoC reports (ESET, Sandfly, Intezer, Elastic, Mandiant, Sophos, NCSC UK, fkie-cad/linux-rootkit-iocs, etc.)
-* scanrootkit: each finding now shows the year the rootkit was first publicly disclosed when known, e.g. `* CiNIK Worm (2002): /tmp/.cinik (File)`. Old rkhunter-era signatures and the new 2019+ signatures have all been dated where a reliable public source exists; signatures without a confirmed year are shown without the suffix as before
-* sensors-temperatures: add `--ignore` parameter to filter out sensors by regex ([#965](https://github.com/Linuxfabrik/monitoring-plugins/issues/965))
-* strongswan-connections: add `--match` and `--ignore` parameters to filter configured and active VICI connections by regex. Useful for gateways that mix permanent site-to-site peers with transient remote-access clients: admins can either hide the RA clients via `--ignore='^RA_'` (and keep a single Icinga service for all S2S peers) or pin a dedicated Icinga service to a single site via `--match='^S2S_SITE-XY$'`. Include-first, exclude-second semantics, same as the `disk-usage` plugin; both parameters follow the `lib.args` canonical convention (case-sensitive by default, `(?i)` opt-in, appending). As part of this work the test-mode code path was fixed so fixtures stop silently matching the trivial "Everything is ok." fallback via a swallowed exception ([#738](https://github.com/Linuxfabrik/monitoring-plugins/issues/738))
-* statuspal: also detect 'emergency-maintenance' state
+* by-ssh: alert on single numeric values
+* by-winrm: executes commands on remote Windows hosts via WinRM, with JEA support (incl. `--winrm-configuration-name`)
+* dhcp-scope-usage: add `--brief` to hide scopes within thresholds ([#788](https://github.com/Linuxfabrik/monitoring-plugins/issues/788))
+* disk-usage: add `--brief` to hide filesystems within thresholds ([#782](https://github.com/Linuxfabrik/monitoring-plugins/issues/782))
+* docker-info, podman-info: add `--ignore` to filter stderr warnings/errors by regex ([#834](https://github.com/Linuxfabrik/monitoring-plugins/issues/834))
+* gitlab-version: add `--check-security` to warn on security-relevant updates (default on in the Icinga Director Service Template) ([#688](https://github.com/Linuxfabrik/monitoring-plugins/issues/688))
+* haproxy-status: add `--ignore` to filter proxies/frontends/backends/servers by regex on `<proxy>/<svname>` ([#835](https://github.com/Linuxfabrik/monitoring-plugins/issues/835))
+* infomaniak-swiss-backup-devices: add `--ignore-customer`, `--ignore-name`, `--ignore-tag`, `--ignore-user`
+* infomaniak-swiss-backup-products: add `--ignore-customer`, `--ignore-tag`
+* ipmi-sel: add `--ignore` to filter SEL entries by regex ([#982](https://github.com/Linuxfabrik/monitoring-plugins/issues/982))
+* json-values: add `--token` / `--header` for HTTP auth, `--warning-key` / `--warning` / `--critical-key` / `--critical` for numeric alerts at a JSON key, and dot-notation in `--*-key` ([#1005](https://github.com/Linuxfabrik/monitoring-plugins/issues/1005))
+* librenms-alerts, librenms-health: support device-type `management`
+* nextcloud-enterprise: reports Nextcloud Enterprise subscription information
+* podman-info: displays system-wide Podman information ([#1023](https://github.com/Linuxfabrik/monitoring-plugins/issues/1023))
+* podman-stats: cpu and memory statistics for all running Podman containers ([#1023](https://github.com/Linuxfabrik/monitoring-plugins/issues/1023))
+* procs: add `--top N` to list the top N processes by CPU time and memory usage
+* procs: add `--lengthy` for extended `--top` table output
+* procs: add `--warning-cpu-percent` / `--critical-cpu-percent` for aggregated CPU usage of filtered processes
+* scanrootkit: add 41 signatures for modern Linux rootkits, backdoors and implants (BPFDoor, Drovorub, Ebury, FontOnLake, Kaiji, Kobalos, perfctl, PUMAKIT, Reptile, Symbiote, Winnti for Linux, and more)
+* scanrootkit: findings now show the year the rootkit was first publicly disclosed when known
+* sensors-temperatures: add `--ignore` to filter sensors by regex ([#965](https://github.com/Linuxfabrik/monitoring-plugins/issues/965))
+* strongswan-connections: add `--match` and `--ignore` to filter VICI connections by regex ([#738](https://github.com/Linuxfabrik/monitoring-plugins/issues/738))
+* statuspal: also detect `emergency-maintenance` state
 * valkey-status: support user and password credentials [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954), thanks to [Claudio Kuenzler](https://github.com/Napsty)
 
 
@@ -75,8 +72,8 @@ Assets:
 
 Build, CI/CD:
 
-* Bump pinned `linuxfabrik-lib` dependency from 3.0.0 to 3.2.0, picking up the new `run_mariadb()` / `MARIADB_LTS_IMAGES` container-test helpers, the `attach_each()` / `attach_tests()` unit-test helpers, the `disk.dir_exists()` directory check, `human2seconds()` / `humanduration2seconds()` accepting the lowercase `d` / `w` day/week markers (which the mailq plugin needs to parse exim age literals), and the new `url.split_basic_auth(url)` helper that lets monitoring plugins accept HTTP basic auth via the URL itself instead of through separate `--username` / `--password` arguments (used by `php-fpm-status` and now `haproxy-status`)
-* Windows MSI still installs all plugins to ProgramFiles64Folder/ICINGA2/sbin/linuxfabrik, but does not depend on an Icinga2 agent any longer
+* Bump pinned `linuxfabrik-lib` dependency from 3.0.0 to 3.2.0
+* Windows MSI no longer depends on an installed Icinga2 agent (install path unchanged: `ProgramFiles64Folder/ICINGA2/sbin/linuxfabrik`)
 
 
 Grafana:
@@ -86,50 +83,42 @@ Grafana:
 
 Icinga Director:
 
-* Service Templates: the "Notes URL" field now opens the rendered plugin page on <https://linuxfabrik.github.io/monitoring-plugins/> instead of the raw source listing on GitHub; regenerate your basket with `tools/build-basket --auto` to pick up the new URL
+* Service Templates: "Notes URL" now points at the docs site instead of GitHub source; re-run `tools/build-basket --auto` to pick up the new URL
 
 
 Monitoring Plugins:
 
-* all plugins: convert `.format()` string formatting to f-strings
-* all plugins: ignore unknown arguments instead of generating an error (this helps with updating Icinga and Nagios service definitions considerably)
-* all plugins: improve and expand the `DESCRIPTION` shown in `--help`, so the plugin's purpose (and any gotchas) is clear before deploying it
-* all plugins: rewrite all READMEs to follow a consistent structure (Overview, Fact Sheet, Help, Usage Examples, States, Perfdata, Troubleshooting, Credits) and normalize the parameter help text shown in `--help`
-* all plugins: remove false "Supports Nagios ranges" mentions from the `--help` output of plugins that do not actually implement range parsing
-* all plugins: plugin-group READMEs (Keycloak, MySQL, Rocket.Chat, WildFly) now link to the published docs site at <https://linuxfabrik.github.io/monitoring-plugins/> instead of raw GitHub URLs
-* atlassian-statuspage: the output now names the primary incident, lists the affected services with their individual status, and shows ongoing and upcoming maintenance windows (before: only the overall status indicator). Adds `--service REGEX` (repeatable) to alert only on a subset of services of a status page. Perfdata changes from `impact` to `cnt_warn` / `cnt_crit`, matching the statuspal plugin — Grafana dashboards that graphed `impact` need to be re-pointed at the new metrics
-* by-ssh, by-winrm, disk-usage, example, file-ownership, fs-ro, infomaniak-events, journald-query, logfile, matomo-reporting, mysql-logfile, php-status, pip-updates, systemd-unit: fix `append` parameters so that user-specified values replace defaults instead of being appended to them ([#540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
-* cpu-usage: remove `--top` parameter (the top N processes by CPU time are now reported by the procs check via `--top`)
+* all plugins: ignore unknown arguments instead of erroring (helps when rolling out updated service definitions)
+* all plugins: expanded `DESCRIPTION` in `--help`, consistent README structure across all plugins
+* all plugins: drop incorrect "Supports Nagios ranges" mentions from `--help` where not implemented
+* all plugins: plugin-group READMEs (Keycloak, MySQL, Rocket.Chat, WildFly) now link to the docs site
+* atlassian-statuspage: report the primary incident, affected services and maintenance windows. New `--service REGEX` (repeatable). Perfdata: `impact` → `cnt_warn` / `cnt_crit`; Grafana dashboards need re-pointing
+* by-ssh, by-winrm, disk-usage, example, file-ownership, fs-ro, infomaniak-events, journald-query, logfile, matomo-reporting, mysql-logfile, php-status, pip-updates, systemd-unit: user-supplied `append` parameter values replace the defaults instead of being appended ([#540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
+* cpu-usage: remove `--top` (moved to `procs --top`)
 * disk-io: also monitor normalized iowait on Linux (100% = one fully I/O-saturated core)
-* file-count: stopping when number of files actually exceed thresholds, therefore dramatically faster for large directories
-* file-ownership: `--filename` now merges with the default file list instead of replacing it; use `--no-default-files` to check only user-supplied files
-* file-ownership: extend default file list with CIS benchmark-relevant files (login.defs, sudoers, sysctl, systemd, PAM, etc.)
-* file-ownership: use `os.stat()` instead of shelling out to `stat`, improving performance and robustness
-* mysql-table-cache: document in the plugin README why `Table_open_cache_overflows` is intentionally not tracked (it is routine cache housekeeping, not a pass/fail signal) and link to the MariaDB KB for tuning guidance; the check logic itself is unchanged and remains in sync with MySQLTuner v2.8.38 ([#968](https://github.com/Linuxfabrik/monitoring-plugins/issues/968))
-* nextcloud-enterprise, nextcloud-version: no longer require the Nextcloud `occ` script to be marked executable. The plugins now locate `php` on the system and invoke `php occ <cmd>` under the numeric UID that owns `config/config.php`, which also works on installations where `occ` lacks the execute bit or its shebang does not resolve to a working PHP interpreter
-* nextcloud-version: modernize code
-* php-status: always assume http://localhost/monitoring.php and, if not found, be tolerant
-* redis-status, valkey-status: modernize code and unify both plugins again after [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954)
-* rocketchat-stats: improve output
-* scanrootkit: kernel symbol matching is now exact per symbol instead of a substring search, so a signature like `is_invisible` no longer accidentally matches an unrelated legitimate symbol named `is_invisible_helper`. False positives on clean systems that previously had such symbol-name collisions will disappear.
-* service: Windows services whose technical name contains a space (e.g. `"RAS Telegraf"`) are now correctly matched by `--service`. The plugin also produces a much more helpful error when the regex matches a service but it is filtered out by `--starttype` (previously it reported "does not match any service name", which was misleading because the service existed but had a different start type) ([#921](https://github.com/Linuxfabrik/monitoring-plugins/issues/921))
-* statuspal: replace `flatdict` dependency with a recursive approach ([#1044](https://github.com/Linuxfabrik/monitoring-plugins/issues/1044))
-* systemd-units-failed: show failed unit names in the first output line for better dashboard and SMS alert readability ([#967](https://github.com/Linuxfabrik/monitoring-plugins/issues/967))
-* updates: adapt to updated powershell.py library
+* file-count: much faster on large directories (stops counting once thresholds are exceeded)
+* file-ownership: `--filename` merges with the default file list; use `--no-default-files` to check only user-supplied files
+* file-ownership: default file list extended with CIS benchmark-relevant files (login.defs, sudoers, sysctl, systemd, PAM, etc.)
+* mysql-table-cache: README explains why `Table_open_cache_overflows` is not tracked ([#968](https://github.com/Linuxfabrik/monitoring-plugins/issues/968))
+* nextcloud-enterprise, nextcloud-version: `occ` no longer has to be executable; `php occ <cmd>` is invoked under the owner of `config/config.php`
+* php-status: default to `http://localhost/monitoring.php`, tolerate its absence
+* scanrootkit: exact per-symbol kernel symbol matching (fewer false positives on legit symbols that share a substring with a signature)
+* service: Windows services with a space in their technical name (e.g. `"RAS Telegraf"`) now match `--service`; clearer error when filtered out by `--starttype` ([#921](https://github.com/Linuxfabrik/monitoring-plugins/issues/921))
+* systemd-units-failed: failed unit names appear in the first output line for dashboard/SMS readability ([#967](https://github.com/Linuxfabrik/monitoring-plugins/issues/967))
 
 
 Tools:
 
-* build-basket: `--auto` is now truly non-interactive. Previously it kept its promise only when every datafield already existed in the committed basket; the moment a plugin introduced a new datafield, the tool fell through to an `input()` prompt and crashed with `EOFError` when run from CI or a non-interactive shell. `--auto` now treats unknown datafields and objects as new and generates fresh uuids for them instead of asking
-* rename `tools/check2basket` to `tools/build-basket` (one basket is built per run, so the singular name matches what the tool does) and `tools/remove-uuids` to `tools/basket-remove-uuids` (prefix-group consistency with `basket-compare` / `basket-join`). Update any scripts, wrappers or documentation that invoked the old names.
+* build-basket: `--auto` is now truly non-interactive; unknown datafields and objects get fresh uuids instead of prompting
+* rename `tools/check2basket` → `tools/build-basket` and `tools/remove-uuids` → `tools/basket-remove-uuids`; update any wrappers or documentation
 
 
 ### Removed
 
 Monitoring Plugins:
 
-* cpu-usage: remove `--top` parameter (the top N processes by CPU time are now reported by the procs check via `--top`)
-* scanrootkit: remove the in-depth Suckit rootkit check and the `rootkit_extra` perfdata field. The Suckit check was dead code (it created a harmless test file and then re-read it from the same Python process, which cannot detect file-hiding rootkits that hook `getdents`), and the `rootkit_extra` perfdata is no longer produced. Update Grafana panels and alerting that rely on `rootkit_extra`.
+* cpu-usage: remove `--top` (moved to `procs --top`)
+* scanrootkit: remove the Suckit rootkit check and the `rootkit_extra` perfdata; update Grafana panels and alerts that rely on `rootkit_extra`
 
 
 Tools:
@@ -141,75 +130,60 @@ Tools:
 
 Build, CI/CD:
 
-* RPM: `dnf install linuxfabrik-monitoring-plugins` no longer fails with a "conflicts with file from package azure-cli" (or any other package that ships a copy of libpython). The RPM used to install ELF build-id symlinks under `/usr/lib/.build-id/` into the main package, which collide file-for-file with similar symlinks shipped by other RPMs. The spec files now tell rpmbuild to skip the build-id symlink creation so those symlinks stay out of the main package ([#979](https://github.com/Linuxfabrik/monitoring-plugins/issues/979))
-* requirements.txt: add missing `setuptools` dependency (required by `pbr`)
+* RPM: `dnf install linuxfabrik-monitoring-plugins` no longer conflicts with other RPMs shipping ELF build-id symlinks (e.g. `azure-cli`) ([#979](https://github.com/Linuxfabrik/monitoring-plugins/issues/979))
+* requirements.txt: add missing `setuptools` dependency
 
 
 Tools:
 
-* build-basket (formerly `check2basket`): fix missing `importlib.machinery` and `importlib.util` imports
-* build-basket (formerly `check2basket`): strip argparse `%%` escaping in Icinga Director basket descriptions
-* build-basket (formerly `check2basket`): write `[]` as default value for `append` parameters with `default=None` in the Icinga Director basket
+* build-basket: fix missing `importlib.machinery` / `importlib.util` imports
+* build-basket: strip argparse `%%` escaping in Icinga Director basket descriptions
+* build-basket: write `[]` as default value for `append` parameters with `default=None`
 
 
 Grafana:
 
-* Icinga Dashboard: Use a query instead of a constant service name to allow the dashboard to be used even if the service name differs
+* Icinga Dashboard: use a query for the service name so the dashboard works regardless of the configured service name
 
 Monitoring Plugins:
 
-* about-me: error in perfdata if using `--dmidecode` and there is no HW information
-* about-me: fix various errors with `sys_dimensions` on some machines ([#1006](https://github.com/Linuxfabrik/monitoring-plugins/issues/1006))
-* axenita-stats: fix the version string shown in the output for versions with multi-digit patch numbers like `14.0.12` (the plugin previously truncated the trailing digit and showed a garbled version) ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* batch of semantic bugfixes across axenita-stats, hin-status, keycloak-version, mysql-table-locks, network-connections, nextcloud-security-scan, ntp-w32tm, openstack-swift-stat, openvpn-version, php-status, qts-temperatures, redis-status, sap-open-concur-com, starface-java-memory-usage, valkey-status, wildfly-memory-usage, wildfly-non-xa-datasource-stats, wildfly-xa-datasource-stats ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* about-me: perfdata error when `--dmidecode` is used and no HW information is available
+* about-me: various `sys_dimensions` errors on some machines ([#1006](https://github.com/Linuxfabrik/monitoring-plugins/issues/1006))
 * by-ssh: add missing `--verbose` parameter
-* cpu-usage: fix false 100% readings on Windows with 64+ cores caused by all-zero CPU time samples from psutil ([#626](https://github.com/Linuxfabrik/monitoring-plugins/issues/626))
-* deb-updates: fix crash (`AttributeError`) when reporting the number of available updates
-* docker-stats: fix memory perfdata using CPU thresholds instead of memory thresholds
+* cpu-usage: false 100% readings on Windows with 64+ cores ([#626](https://github.com/Linuxfabrik/monitoring-plugins/issues/626))
+* deb-updates: crash when reporting the number of available updates
+* docker-stats: memory perfdata used CPU thresholds
 * docker-stats: replace per-container perfdata with aggregate metrics (containers, cpu)
-* file-age: handle `FileNotFoundError` race condition when files disappear on busy file systems
-* fs-ro: ignore `/run/credentials` (https://systemd.io/CREDENTIALS/)
-* hin-status: the incident count in perfdata now matches the actual number of incidents listed in the message (previously it was stuck at `1` regardless of how many incidents the status page listed) ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* keycloak-stats: fix incorrect symlink for lib
-* keycloak-version: detect the Keycloak version reliably even if the format of `/opt/keycloak/version.txt` changes, and fall back to the API when the file cannot be parsed ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* logfile: fix `OverflowError` when inode exceeds SQLite INTEGER range on Windows/NTFS ([#1035](https://github.com/Linuxfabrik/monitoring-plugins/issues/1035))
-* mysql-joins: fix `ZeroDivisionError` crash on a freshly booted server where `SHOW GLOBAL STATUS LIKE 'Uptime'` can return 0 in the first second after startup
-* mysql-memory: fix a crash in the "other process memory" calculation on hosts running psutil older than 5.3.0 ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* mysql-table-locks: fix the "X immediate / Y locks" summary - the "Y" value now correctly shows the total lock count (immediate + waited) instead of the immediate count twice ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* mysql-traffic: fix `AttributeError` crash caused by a missing `lib.args` import, and fix `ZeroDivisionError` crash on a freshly booted server where `SHOW GLOBAL STATUS LIKE 'Uptime'` can return 0 in the first second after startup
-* needs-restarting: the "Running Kernel X != Installed Kernel Y" line now shows up on Debian-based systems when `needrestart` reports a pending kernel upgrade
-* network-connections: the plugin now exits with the correct WARN/CRIT state when any threshold is violated; previously it always reported OK regardless of the loop's accumulated state ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* nextcloud-security-scan: only trigger a rescan for scans that are actually in the past; future-dated scans caused by clock skew no longer trigger an unnecessary rescan ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* notify-host-mail, notify-service-mail: the Icinga logo now renders inline again in notification mails sent from hosts with long FQDNs. On such hosts the logo used to appear as a base64 attachment instead of the embedded banner image ([#790](https://github.com/Linuxfabrik/monitoring-plugins/issues/790))
-* ntp-\*: prevent `TypeError: ''=' not supported between instances of 'int' and 'str'`
-* ntp-w32tm: show the correct state label (WARNING or CRITICAL) in the "Time since Last Good Sync Time" line; it was hardcoded to WARNING even when the actual state was CRITICAL ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* openstack-swift-stat: "bytes used" is now shown for any account with non-zero usage, regardless of whether a quota is set ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* openvpn-version: detect the OpenVPN version reliably across upstream output format changes ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* php-status: the "missing config" output lines now show the real key and value instead of the literal `{key} = {value}` placeholder text ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* podman-stats: use `podman stats --format '{{json .}}'` for precise numeric values; aggregate perfdata includes block I/O and network I/O totals
-* qts-temperatures: fix the perfdata WARN/CRIT thresholds for system and CPU temperatures; they were swapped between the two sensors, so perfdata alerted on the wrong thresholds even though the message text was correct ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* redis-status, valkey-status: the `key_count` perfdata now reports the total key count across all databases instead of just the last database's key count ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* rocketchat-stats: fix crash (`AttributeError`) when reporting the user count
-* sap-open-concur-com: `--service` now validates the service name against the allowed list; previously any value was silently accepted ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* scanrootkit: a single signature file that fails any YAML parse stage (scanner, constructor, etc.) no longer crashes the whole check. Any `yaml.YAMLError` subclass is now caught and reported as a scan-file error, leaving the remaining signatures to scan normally.
-* scanrootkit: directory indicators (the `dirs:` field in a signature) are now actually evaluated. The plugin previously called `lib.disk.file_exists()` for both files and directories, but that helper returns `False` for directories, so directory-only rootkit signatures (e.g. KBeast `/usr/_h4x_`, Kaiji `/usr/bin/lib`) silently never matched. Directory checks now use `os.path.isdir()` directly.
-* starface-java-memory-usage: fix corrupted overall state in the heap and non-heap memory checks (could previously report CRIT when only WARN thresholds were exceeded, or produce an out-of-range state integer) ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* updates: fix crash on Python 3.9 when pending updates are reported
-* users: fix incorrect TTY count when SSH clients connect via IPv6 ([#989](https://github.com/Linuxfabrik/monitoring-plugins/issues/989))
-* valkey-status: fix TLS connection [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954), thanks to [Claudio Kuenzler](https://github.com/Napsty)
-* wildfly-memory-usage: fix corrupted overall state in the heap and non-heap memory checks (same root cause as starface-java-memory-usage) ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* wildfly-non-xa-datasource-stats, wildfly-xa-datasource-stats: the "max used" threshold now checks the max-used percentage instead of the active-count percentage; the message text was already correct ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* file-age: handle race when files disappear on busy file systems
+* fs-ro: ignore `/run/credentials`
+* keycloak-stats: incorrect symlink for lib
+* logfile: `OverflowError` when inode exceeds SQLite INTEGER range on Windows/NTFS ([#1035](https://github.com/Linuxfabrik/monitoring-plugins/issues/1035))
+* mysql-joins: crash on a server booted less than one second ago
+* mysql-memory: crash in "other process memory" on hosts with psutil older than 5.3.0
+* mysql-traffic: crash from missing import and crash on a server booted less than one second ago
+* needs-restarting: show "Running Kernel X != Installed Kernel Y" on Debian-based systems when `needrestart` reports a pending kernel upgrade
+* notify-host-mail, notify-service-mail: Icinga logo renders inline again on hosts with long FQDNs ([#790](https://github.com/Linuxfabrik/monitoring-plugins/issues/790))
+* ntp-\*: prevent `TypeError` when comparing int and str
+* podman-stats: precise numeric values; aggregate perfdata includes block and network I/O totals
+* rocketchat-stats: crash when reporting the user count
+* scanrootkit: a single malformed signature file no longer crashes the whole check
+* scanrootkit: directory-only rootkit signatures (e.g. KBeast `/usr/_h4x_`, Kaiji `/usr/bin/lib`) are now actually evaluated
+* updates: crash on Python 3.9 when pending updates are reported
+* users: incorrect TTY count when SSH clients connect via IPv6 ([#989](https://github.com/Linuxfabrik/monitoring-plugins/issues/989))
+* valkey-status: TLS connection [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954), thanks to [Claudio Kuenzler](https://github.com/Napsty)
 
 
 ### Security
 
 Build, CI/CD:
 
-* Harden the CI supply chain: the `pre-commit` install in the pre-commit-autoupdate workflow is now hash-pinned via `.github/pre-commit/requirements.txt` (generated with `pip-compile --generate-hashes --strip-extras`), and `dependabot/fetch-metadata` is pinned to a commit SHA so all GitHub Actions used in `.github/workflows/` are now pinned by hash. The policy is documented in CONTRIBUTING.md under "CI Supply Chain". No admin-facing behavior change.
+* CI supply chain: all GitHub Actions in `.github/workflows/` and the `pre-commit` install are now hash-pinned. Policy documented in CONTRIBUTING.md. No admin-facing change.
 
 
 Monitoring Plugins:
 
-* Security audit over all plugins: reviewed every remaining `shell=True`, dynamic SQL query and admin-supplied `eval()` expression, confirmed each is driven by trusted check configuration rather than end-user input, and annotated them accordingly. No admin-facing behavior change.
+* Security audit over all plugins: reviewed remaining `shell=True`, dynamic SQL and admin-supplied `eval()` usages. No admin-facing change.
 
 
 
