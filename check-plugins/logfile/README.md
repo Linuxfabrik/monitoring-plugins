@@ -29,6 +29,7 @@ object ApiUser "linuxfabrik-check-logfile" {
 * Detects logfile rotation by tracking the file's inode and size; resets to the beginning when rotation is detected
 * Uses SQLite state persistence to store the file offset and all matching lines between runs
 * Pattern arguments use the Python `in` operator for simple substring matching, which is faster than regex in most cases
+* Matches are persisted in the SQLite state DB so alerting continues across runs, even when the logfile stops growing. A match stays active for `--alarm-duration` minutes (default 60) and is then auto-pruned, OR — with `--icinga-callback` — until the admin acknowledges the service in Icinga. Still-active matches from earlier runs show up in the output as "Unacknowledged warning/critical matches from previous runs" and count towards the WARN/CRIT thresholds just like new matches do.
 
 
 ## Fact Sheet
@@ -137,7 +138,7 @@ EOF
 Output:
 
 ```text
-Scanned 8 lines, 1 warning match, 2 critical matches
+Scanned /tmp/test-logfile (8 lines) using patterns 'warn' (matched 1 line) [WARNING] and 'error' (matched 2 lines) [CRITICAL].
 
 Warning matches:
 * warning
@@ -146,6 +147,8 @@ Critical matches:
 * error1
 * error2
 ```
+
+The `(N lines)` figure is the number of **new** lines scanned since the previous plugin run (the plugin resumes from a stored byte offset and does not re-read the whole file each time). On first run — or after a logfile rotation — this equals the full file length.
 
 
 ## States

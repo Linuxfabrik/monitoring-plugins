@@ -99,6 +99,7 @@ Monitoring Plugins:
 * file-count: much faster on large directories (stops counting once thresholds are exceeded)
 * file-ownership: `--filename` merges with the default file list; use `--no-default-files` to check only user-supplied files
 * file-ownership: default file list extended with CIS benchmark-relevant files (login.defs, sudoers, sysctl, systemd, PAM, etc.)
+* logfile: output now names the scanned file, each configured `--*-pattern` / `--*-regex` with its per-pattern match count and severity label, and the `--ignore-*` patterns ([#547](https://github.com/Linuxfabrik/monitoring-plugins/issues/547))
 * mysql-table-cache: README explains why `Table_open_cache_overflows` is not tracked ([#968](https://github.com/Linuxfabrik/monitoring-plugins/issues/968))
 * nextcloud-enterprise, nextcloud-version: `occ` no longer has to be executable; `php occ <cmd>` is invoked under the owner of `config/config.php`
 * php-status: default to `http://localhost/monitoring.php`, tolerate its absence

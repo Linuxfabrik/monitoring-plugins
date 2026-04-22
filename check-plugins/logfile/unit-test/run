@@ -50,7 +50,13 @@ TESTS = [
             '--critical-regex=" ERROR "'
         ),
         'assert-retc': STATE_OK,
-        'assert-in': ['Scanned 5 lines'],
+        'assert-in': [
+            'Scanned stdout/django-app-clean',
+            '5 lines',
+            "' WARNING ' (matched 0 lines)",
+            "' ERROR ' (matched 0 lines)",
+        ],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
     },
     {
         'id': 'warn-two-warnings',
@@ -62,8 +68,10 @@ TESTS = [
         ),
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'Scanned 4 lines',
-            '2 warning matches',
+            'Scanned stdout/django-app-two-warnings',
+            '4 lines',
+            "' WARNING ' (matched 2 lines) [WARNING]",
+            "' ERROR ' (matched 0 lines)",
             'Not Found: /favicon.ico',
             'Not Found: /robots.txt',
         ],
@@ -78,9 +86,10 @@ TESTS = [
         ),
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            'Scanned 3 lines',
-            '1 warning match',
-            '1 critical match',
+            'Scanned stdout/django-app-one-warning-one-error',
+            '3 lines',
+            "' WARNING ' (matched 1 line) [WARNING]",
+            "' ERROR ' (matched 1 line) [CRITICAL]",
             'MYPRODUCT salutation sync failed',
         ],
     },
@@ -95,8 +104,14 @@ TESTS = [
             '--ignore-pattern=robots.txt'
         ),
         'assert-retc': STATE_OK,
-        'assert-in': ['Scanned 4 lines'],
-        'assert-not-in': ['warning matches', 'critical matches'],
+        'assert-in': [
+            'Scanned stdout/django-app-two-warnings',
+            '4 lines',
+            "' WARNING ' (matched 0 lines)",
+            "' ERROR ' (matched 0 lines)",
+            "ignoring 'favicon.ico' and 'robots.txt'",
+        ],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
     },
 ]
 

@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026042201'
 
 DESCRIPTION = """Scans a logfile for matching patterns or regular expressions and alerts based on the
 number of matches found. Reads the file backwards from the end and supports Icinga
@@ -321,6 +321,14 @@ def main():
     compiled_crit_regex = [re.compile(item) for item in args.CRIT_REGEX]
     compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
 
+    # per-pattern counters, for the verbose "matched N lines" summary.
+    # These are purely for reporting; the scan semantics (which lines are
+    # classified as warn/crit) remain unchanged.
+    warn_pattern_hits = {pat: 0 for pat in args.WARN_PATTERN}
+    warn_regex_hits = {rgx: 0 for rgx in args.WARN_REGEX}
+    crit_pattern_hits = {pat: 0 for pat in args.CRIT_PATTERN}
+    crit_regex_hits = {rgx: 0 for rgx in args.CRIT_REGEX}
+
     warn_matches = []
     crit_matches = []
     line_counter = 0
@@ -329,24 +337,36 @@ def main():
             logfile.seek(offset)
             for line in logfile:
                 line_counter += 1
+                is_ignored = any(
+                    ignore_pattern in line for ignore_pattern in args.IGNORE_PATTERN
+                ) or any(item.search(line) for item in compiled_ignore_regex)
+
                 # due to lazy evaluation, the regex will only be executed
                 # if the pattern does not match
                 # see https://docs.python.org/3/reference/expressions.html#boolean-operations
                 if any(
                     warn_pattern in line for warn_pattern in args.WARN_PATTERN
                 ) or any(item.search(line) for item in compiled_warn_regex):
-                    if not any(
-                        ignore_pattern in line for ignore_pattern in args.IGNORE_PATTERN
-                    ) and not any(item.search(line) for item in compiled_ignore_regex):
+                    if not is_ignored:
                         warn_matches.append(line.strip())
+                        for pat in args.WARN_PATTERN:
+                            if pat in line:
+                                warn_pattern_hits[pat] += 1
+                        for idx, rgx in enumerate(compiled_warn_regex):
+                            if rgx.search(line):
+                                warn_regex_hits[args.WARN_REGEX[idx]] += 1
 
                 if any(
                     crit_pattern in line for crit_pattern in args.CRIT_PATTERN
                 ) or any(item.search(line) for item in compiled_crit_regex):
-                    if not any(
-                        ignore_pattern in line for ignore_pattern in args.IGNORE_PATTERN
-                    ) and not any(item.search(line) for item in compiled_ignore_regex):
+                    if not is_ignored:
                         crit_matches.append(line.strip())
+                        for pat in args.CRIT_PATTERN:
+                            if pat in line:
+                                crit_pattern_hits[pat] += 1
+                        for idx, rgx in enumerate(compiled_crit_regex):
+                            if rgx.search(line):
+                                crit_regex_hits[args.CRIT_REGEX[idx]] += 1
             offset = logfile.tell()
     except PermissionError:
         lib.base.cu(f"Permission denied opening '{args.FILENAME}'.")
@@ -481,30 +501,57 @@ def main():
     lib.base.coe(lib.db_sqlite.commit(conn))
     lib.db_sqlite.close(conn)
 
-    # build the message
-    msg = f'Scanned {line_counter} lines'
-    if warn_matches:
-        msg += (
-            f', {len(warn_matches)} warning'
-            f' {lib.txt.pluralize("match", len(warn_matches), "es")}'
+    # build the message: name the scanned file, every configured pattern /
+    # regex with its per-pattern match count, the severity label if the
+    # pattern produced hits, and the ignore patterns. See issue #547.
+    def _fmt_pattern(pattern, count, severity):
+        label = f' [{severity}]' if count > 0 else ''
+        return (
+            f"'{pattern}' (matched {count} {lib.txt.pluralize('line', count)}){label}"
         )
 
-    if crit_matches:
-        msg += (
-            f', {len(crit_matches)} critical'
-            f' {lib.txt.pluralize("match", len(crit_matches), "es")}'
-        )
+    def _join_and(items):
+        if len(items) <= 1:
+            return ''.join(items)
+        if len(items) == 2:
+            return f'{items[0]} and {items[1]}'
+        return f'{", ".join(items[:-1])} and {items[-1]}'
+
+    pattern_parts = []
+    for pat in sorted(args.WARN_PATTERN):
+        pattern_parts.append(_fmt_pattern(pat, warn_pattern_hits[pat], 'WARNING'))
+    for rgx in sorted(args.WARN_REGEX):
+        pattern_parts.append(_fmt_pattern(rgx, warn_regex_hits[rgx], 'WARNING'))
+    for pat in sorted(args.CRIT_PATTERN):
+        pattern_parts.append(_fmt_pattern(pat, crit_pattern_hits[pat], 'CRITICAL'))
+    for rgx in sorted(args.CRIT_REGEX):
+        pattern_parts.append(_fmt_pattern(rgx, crit_regex_hits[rgx], 'CRITICAL'))
+
+    ignore_parts = [
+        f"'{item}'" for item in sorted(args.IGNORE_PATTERN + args.IGNORE_REGEX)
+    ]
+
+    msg = (
+        f'Scanned {args.FILENAME} ({line_counter} '
+        f'{lib.txt.pluralize("line", line_counter)}) '
+        f'using patterns {_join_and(pattern_parts)}'
+    )
+    if ignore_parts:
+        msg += f', ignoring {_join_and(ignore_parts)}'
+    msg += '.'
 
     if old_warn_matches:
         msg += (
-            f', {len(old_warn_matches)} old warning'
+            f' {len(old_warn_matches)} unacknowledged warning'
             f' {lib.txt.pluralize("match", len(old_warn_matches), "es")}'
+            f' from previous runs.'
         )
 
     if old_crit_matches:
         msg += (
-            f', {len(old_crit_matches)} old critical'
+            f' {len(old_crit_matches)} unacknowledged critical'
             f' {lib.txt.pluralize("match", len(old_crit_matches), "es")}'
+            f' from previous runs.'
         )
 
     if not args.SUPPRESS_OUTPUT:
@@ -515,13 +562,15 @@ def main():
             msg += '\n\nCritical matches:\n* ' + '\n* '.join(crit_matches)
 
         if old_warn_matches:
-            msg += '\n\nOld warning matches:\n* ' + '\n* '.join(
-                [match['line'] for match in old_warn_matches]
+            msg += (
+                '\n\nUnacknowledged warning matches from previous runs:\n* '
+                + '\n* '.join(match['line'] for match in old_warn_matches)
             )
 
         if old_crit_matches:
-            msg += '\n\nOld critical matches:\n* ' + '\n* '.join(
-                [match['line'] for match in old_crit_matches]
+            msg += (
+                '\n\nUnacknowledged critical matches from previous runs:\n* '
+                + '\n* '.join(match['line'] for match in old_crit_matches)
             )
 
     perfdata = lib.base.get_perfdata(
