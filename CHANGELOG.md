@@ -160,6 +160,7 @@ Monitoring Plugins:
 * fs-ro: ignore `/run/credentials`
 * keycloak-stats: incorrect symlink for lib
 * logfile: `OverflowError` when inode exceeds SQLite INTEGER range on Windows/NTFS ([#1035](https://github.com/Linuxfabrik/monitoring-plugins/issues/1035))
+* logfile: multiple services on the same logfile with different patterns no longer interfere with each other ([#698](https://github.com/Linuxfabrik/monitoring-plugins/issues/698))
 * mysql-joins: crash on a server booted less than one second ago
 * mysql-memory: crash in "other process memory" on hosts with psutil older than 5.3.0
 * mysql-traffic: crash from missing import and crash on a server booted less than one second ago

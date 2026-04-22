@@ -12,12 +12,13 @@
 
 The plugin has no `--test` hook because it reads a real file given via
 `--filename`. The test scenarios pass the fixture paths directly as
-`--filename` values. The plugin also maintains a per-file SQLite cache
-under `/tmp/linuxfabrik-monitoring-plugins-logfile-<basename>.db` to
-track the last read offset, so each subtest deletes its own cache DB
-first to ensure a clean "first scan" state.
+`--filename` values. The plugin also maintains a per-check SQLite cache
+under `/tmp/linuxfabrik-monitoring-plugins-logfile-<basename>-<hash>.db`
+(hash over all pattern/regex arguments), so each subtest removes every
+cache DB that matches its fixture to ensure a clean "first scan" state.
 """
 
+import glob
 import os
 import sys
 import tempfile
@@ -29,7 +30,14 @@ import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 
 
-def _db_path(fixture_basename):
+def _db_glob(fixture_basename):
+    return os.path.join(
+        tempfile.gettempdir(),
+        f'linuxfabrik-monitoring-plugins-logfile-{fixture_basename}-*.db',
+    )
+
+
+def _legacy_db_path(fixture_basename):
     return os.path.join(
         tempfile.gettempdir(),
         f'linuxfabrik-monitoring-plugins-logfile-{fixture_basename}.db',
@@ -121,16 +129,81 @@ class TestCheck(unittest.TestCase):
 
 
 def _run_logfile_test(test, testcase):
-    # Delete the stateful cache DB for this fixture so the test is
-    # reproducible and always starts from offset 0.
+    # Delete every stateful cache DB for this fixture so the test is
+    # reproducible and always starts from offset 0. The plugin derives a
+    # per-check hash from the pattern arguments, so we wipe both the
+    # legacy per-file DB and any per-check DBs already sitting in /tmp.
     fixture_basename = testcase['params'].split('--filename=stdout/', 1)[1].split(' ', 1)[0]
-    db_file = _db_path(fixture_basename)
-    if os.path.exists(db_file):
+    legacy_db = _legacy_db_path(fixture_basename)
+    if os.path.exists(legacy_db):
+        os.remove(legacy_db)
+    for db_file in glob.glob(_db_glob(fixture_basename)):
         os.remove(db_file)
     lib.lftest.run(test, test.check, testcase)
 
 
 lib.lftest.attach_each(TestCheck, TESTS, _run_logfile_test, id_func=lambda t: t['id'])
+
+
+class TestMultipleChecksSameFile(unittest.TestCase):
+    """Regression test for issue #698: two checks on the same logfile with
+    different pattern sets must not trample each other's read offset or
+    match history. Each check should maintain its own state DB."""
+
+    check = '../logfile'
+    fixture = 'stdout/django-app-one-warning-one-error'
+
+    def setUp(self):
+        # Start from a clean slate for both hypothetical checks.
+        fixture_basename = os.path.basename(self.fixture)
+        legacy_db = _legacy_db_path(fixture_basename)
+        if os.path.exists(legacy_db):
+            os.remove(legacy_db)
+        for db_file in glob.glob(_db_glob(fixture_basename)):
+            os.remove(db_file)
+
+    def test_two_distinct_checks_do_not_share_state(self):
+        # Check A only looks for WARNING lines.
+        testcase_a = {
+            'id': 'instance-a-warning-only',
+            'test': f'{self.fixture},,0',
+            'params': (
+                f'--filename={self.fixture} '
+                '--warning-regex=" WARNING "'
+            ),
+            'assert-retc': STATE_WARN,
+            'assert-in': [
+                "' WARNING ' (matched 1 line) [WARNING]",
+            ],
+        }
+        lib.lftest.run(self, self.check, testcase_a)
+
+        # Check B, run immediately after on the same file, only looks
+        # for ERROR lines. Before the fix, Check A would have advanced
+        # the shared offset to end-of-file and Check B would have seen
+        # zero matches. With per-check state, Check B must find its
+        # own match.
+        testcase_b = {
+            'id': 'instance-b-critical-only',
+            'test': f'{self.fixture},,0',
+            'params': (
+                f'--filename={self.fixture} '
+                '--critical-regex=" ERROR "'
+            ),
+            'assert-retc': STATE_CRIT,
+            'assert-in': [
+                "' ERROR ' (matched 1 line) [CRITICAL]",
+            ],
+        }
+        lib.lftest.run(self, self.check, testcase_b)
+
+        # Two distinct DBs must now exist side by side.
+        dbs = glob.glob(_db_glob(os.path.basename(self.fixture)))
+        self.assertEqual(
+            len(dbs),
+            2,
+            f'expected two per-check state DBs, found: {dbs}',
+        )
 
 
 if __name__ == '__main__':

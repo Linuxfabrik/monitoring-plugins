@@ -12,6 +12,8 @@
 
 import argparse
 import datetime
+import hashlib
+import json
 import os
 import re
 import sys
@@ -19,13 +21,14 @@ import sys
 import lib.args
 import lib.base
 import lib.db_sqlite
+import lib.disk
 import lib.icinga
 import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026042201'
+__version__ = '2026042202'
 
 DESCRIPTION = """Scans a logfile for matching patterns or regular expressions and alerts based on the
 number of matches found. Reads the file backwards from the end and supports Icinga
@@ -270,10 +273,46 @@ def main():
             '`--icinga-callback` requires `--icinga-url`, `--icinga-password`, `--icinga-username` and `--icinga-service-name`.'
         )
 
+    # Derive a short, stable hash over every argument that influences which
+    # lines this check flags. This is used to give each unique combination
+    # of patterns/regexes its own state DB, so two Icinga services on the
+    # same logfile with different patterns no longer trample each other's
+    # read offset or match history (issue #698).
+    instance_payload = json.dumps(
+        {
+            'crit_pattern': sorted(args.CRIT_PATTERN),
+            'crit_regex': sorted(args.CRIT_REGEX),
+            'ignore_pattern': sorted(args.IGNORE_PATTERN),
+            'ignore_regex': sorted(args.IGNORE_REGEX),
+            'warn_pattern': sorted(args.WARN_PATTERN),
+            'warn_regex': sorted(args.WARN_REGEX),
+        },
+        sort_keys=True,
+    ).encode('utf-8')
+    instance_hash = hashlib.sha256(instance_payload).hexdigest()[:10]
+
+    basename = os.path.basename(args.FILENAME)
+    db_filename = f'linuxfabrik-monitoring-plugins-logfile-{basename}-{instance_hash}.db'
+
+    # Transparent migration for deployments that ran exactly one check per
+    # logfile before this change: rename the legacy per-file DB to the new
+    # per-check name so the existing offset and pending matches survive.
+    tmpdir = lib.disk.get_tmpdir()
+    legacy_db_path = os.path.join(
+        tmpdir,
+        f'linuxfabrik-monitoring-plugins-logfile-{basename}.db',
+    )
+    new_db_path = os.path.join(tmpdir, db_filename)
+    if os.path.exists(legacy_db_path) and not os.path.exists(new_db_path):
+        try:
+            os.rename(legacy_db_path, new_db_path)
+        except OSError:
+            pass
+
     # create the db table
     conn = lib.base.coe(
         lib.db_sqlite.connect(
-            filename=f'linuxfabrik-monitoring-plugins-logfile-{os.path.basename(args.FILENAME)}.db'
+            filename=db_filename,
         )
     )
     definition = """
@@ -324,10 +363,10 @@ def main():
     # per-pattern counters, for the verbose "matched N lines" summary.
     # These are purely for reporting; the scan semantics (which lines are
     # classified as warn/crit) remain unchanged.
-    warn_pattern_hits = {pat: 0 for pat in args.WARN_PATTERN}
-    warn_regex_hits = {rgx: 0 for rgx in args.WARN_REGEX}
-    crit_pattern_hits = {pat: 0 for pat in args.CRIT_PATTERN}
-    crit_regex_hits = {rgx: 0 for rgx in args.CRIT_REGEX}
+    warn_pattern_hits = dict.fromkeys(args.WARN_PATTERN, 0)
+    warn_regex_hits = dict.fromkeys(args.WARN_REGEX, 0)
+    crit_pattern_hits = dict.fromkeys(args.CRIT_PATTERN, 0)
+    crit_regex_hits = dict.fromkeys(args.CRIT_REGEX, 0)
 
     warn_matches = []
     crit_matches = []

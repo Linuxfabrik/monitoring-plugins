@@ -28,6 +28,7 @@ object ApiUser "linuxfabrik-check-logfile" {
 * Reads the logfile forward from the last known offset, only scanning new lines since the previous run
 * Detects logfile rotation by tracking the file's inode and size; resets to the beginning when rotation is detected
 * Uses SQLite state persistence to store the file offset and all matching lines between runs
+* Each combination of logfile plus pattern set (`--warning-pattern`, `--warning-regex`, `--critical-pattern`, `--critical-regex`, `--ignore-pattern`, `--ignore-regex`) gets its own state DB, keyed by a short hash over those arguments. Two Icinga services that point at the same logfile but look for different things therefore maintain independent read offsets and match histories. Changing any pattern argument implicitly creates a new state DB, which means the first run after such a change rescans from offset 0.
 * Pattern arguments use the Python `in` operator for simple substring matching, which is faster than regex in most cases
 * Matches are persisted in the SQLite state DB so alerting continues across runs, even when the logfile stops growing. A match stays active for `--alarm-duration` minutes (default 60) and is then auto-pruned, OR — with `--icinga-callback` — until the admin acknowledges the service in Icinga. Still-active matches from earlier runs show up in the output as "Unacknowledged warning/critical matches from previous runs" and count towards the WARN/CRIT thresholds just like new matches do.
 
@@ -42,7 +43,7 @@ object ApiUser "linuxfabrik-check-logfile" {
 | Can be called without parameters      | No (`--filename` and at least one pattern/regex are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
-| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-logfile-*.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-logfile-<basename>-<hash>.db` (one DB per combination of logfile and pattern set) |
 
 
 ## Help
