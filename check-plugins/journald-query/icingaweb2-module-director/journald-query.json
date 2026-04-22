@@ -8,6 +8,21 @@
                 "--facility": {
                     "value": "$journald_query_facility$"
                 },
+                "--icinga-callback": {
+                    "set_if": "$journald_query_icinga_callback$"
+                },
+                "--icinga-password": {
+                    "value": "$journald_query_icinga_password$"
+                },
+                "--icinga-service-name": {
+                    "value": "$journald_query_icinga_service_name$"
+                },
+                "--icinga-url": {
+                    "value": "$journald_query_icinga_url$"
+                },
+                "--icinga-username": {
+                    "value": "$journald_query_icinga_username$"
+                },
                 "--identifier": {
                     "value": "$journald_query_identifier$"
                 },
@@ -19,6 +34,12 @@
                     "value": "$journald_query_ignore_regex$",
                     "repeat_key": true
                 },
+                "--insecure": {
+                    "set_if": "$journald_query_insecure$"
+                },
+                "--no-proxy": {
+                    "set_if": "$journald_query_no_proxy$"
+                },
                 "--priority": {
                     "value": "$journald_query_priority$"
                 },
@@ -27,6 +48,9 @@
                 },
                 "--since": {
                     "value": "$journald_query_since$"
+                },
+                "--timeout": {
+                    "value": "$journald_query_timeout$"
                 },
                 "--unit": {
                     "value": "$journald_query_unit$",
@@ -89,6 +113,46 @@
                     "datafield_id": 10,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 18,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -132,7 +196,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Queries the systemd journal using journalctl and alerts when matching entries are found. Supports all journalctl filtering options such as --unit, --priority, --facility, --identifier, and --grep. Useful for monitoring specific log patterns in real time. Requires root or sudo.",
+            "notes": "Queries the systemd journal using journalctl and alerts when matching entries are found. Supports all journalctl filtering options such as --unit, --priority, --facility, --identifier, and --grep. Useful for monitoring specific log patterns in real time. Optionally integrates with Icinga: when the service is acknowledged, the matching events are suppressed on following runs so they don't re-alert. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/journald-query/",
             "object_name": "tpl-service-journald-query",
             "object_type": "template",
@@ -144,11 +208,15 @@
             "vars": {
                 "criticality": "C",
                 "journald_query_always_ok": false,
+                "journald_query_icinga_callback": false,
                 "journald_query_ignore_pattern": [],
                 "journald_query_ignore_regex": [],
+                "journald_query_insecure": true,
+                "journald_query_no_proxy": false,
                 "journald_query_priority": "emerg..err",
                 "journald_query_severity": "warn",
                 "journald_query_since": "\\-8h",
+                "journald_query_timeout": 5,
                 "journald_query_unit": [],
                 "journald_query_user_unit": []
             },
@@ -200,6 +268,59 @@
             "uuid": "ac2f79f6-71e4-43cc-a7ef-714c2f5f9163"
         },
         "3": {
+            "varname": "journald_query_icinga_callback",
+            "caption": "Journald Query: Icinga Callback?",
+            "description": "Get the service acknowledgement from Icinga. When the service is acknowledged, the currently reported journald events are persisted as \"already handled\" so they no longer trigger alerts on following runs.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "4d0f66b1-4af3-4fd0-a9af-6131bca6d713"
+        },
+        "4": {
+            "varname": "journald_query_icinga_password",
+            "caption": "Journald Query: Icinga Password",
+            "description": "Icinga API password.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "hidden"
+            },
+            "uuid": "e926a25f-0619-49ae-b2df-c2bbc19d569c"
+        },
+        "5": {
+            "varname": "journald_query_icinga_service_name",
+            "caption": "Journald Query: Icinga Service Name",
+            "description": "Unique name of the service using this check within Icinga. Take it from the `__name` service attribute. Example: `icinga-server!my-service-name`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "c089e878-e795-44fd-8eb3-b8ed3a481c91"
+        },
+        "6": {
+            "varname": "journald_query_icinga_url",
+            "caption": "Journald Query: Icinga URL",
+            "description": "Icinga API URL. Example: `https://icinga-server:5665`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "c9673f89-f55d-4e48-a963-289f3eee4d5a"
+        },
+        "7": {
+            "varname": "journald_query_icinga_username",
+            "caption": "Journald Query: Icinga Username",
+            "description": "Icinga API username.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "7f4f778f-2111-416a-b464-a60be0dec120"
+        },
+        "8": {
             "varname": "journald_query_identifier",
             "caption": "Journald Query: Identifier",
             "description": "Show messages for the specified syslog identifier (passed to journalctl).",
@@ -210,7 +331,7 @@
             },
             "uuid": "f8067419-b975-4dc2-8907-1d55b64f4895"
         },
-        "4": {
+        "9": {
             "varname": "journald_query_ignore_pattern",
             "caption": "Journald Query: Ignore Pattern",
             "description": "Any line containing this case-sensitive string in the MESSAGE field will be ignored. Can be specified multiple times. Unlike journalctl, this allows easy string-based filtering.",
@@ -221,7 +342,7 @@
             },
             "uuid": "38241f89-41dc-40c9-8210-4d2e9f4d1064"
         },
-        "5": {
+        "10": {
             "varname": "journald_query_ignore_regex",
             "caption": "Journald Query: Ignore Regex",
             "description": "Any line matching this Python regex on the MESSAGE field will be ignored. Can be specified multiple times. Example: `--ignore-regex='(?i)linuxfabrik'`.",
@@ -232,7 +353,25 @@
             },
             "uuid": "49e141c2-b6c4-498d-85b1-5f7a26d7aa1a"
         },
-        "6": {
+        "11": {
+            "varname": "journald_query_insecure",
+            "caption": "Journald Query: Insecure?",
+            "description": "This option explicitly allows insecure SSL connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "7d905e4c-8461-4a4e-b98d-3dc3412562cf"
+        },
+        "12": {
+            "varname": "journald_query_no_proxy",
+            "caption": "Journald Query: No Proxy?",
+            "description": "Do not use a proxy.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "55e6d16f-1454-46a3-927e-78d19f7fd1f0"
+        },
+        "13": {
             "varname": "journald_query_priority",
             "caption": "Journald Query: Priority",
             "description": "Filter output by message priorities or priority ranges (passed to journalctl).",
@@ -243,7 +382,7 @@
             },
             "uuid": "365b15ae-a51c-4e48-a457-994549b05d76"
         },
-        "7": {
+        "14": {
             "varname": "journald_query_severity",
             "caption": "Journald Query: Severity",
             "description": "Severity for alerts when journalctl returns results.",
@@ -256,7 +395,7 @@
             },
             "uuid": "13f9360c-fa85-47f2-9503-9e91a73695f7"
         },
-        "8": {
+        "15": {
             "varname": "journald_query_since",
             "caption": "Journald Query: Since",
             "description": "Show entries on or newer than the specified date (passed to journalctl).",
@@ -267,7 +406,18 @@
             },
             "uuid": "858a4298-5f7e-41af-be65-a0028115b7be"
         },
-        "9": {
+        "16": {
+            "varname": "journald_query_timeout",
+            "caption": "Journald Query: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "157f271f-7d0a-449b-87a3-422afaba2ce1"
+        },
+        "17": {
             "varname": "journald_query_unit",
             "caption": "Journald Query: Unit",
             "description": "Show messages for the specified systemd unit UNIT|PATTERN (passed to journalctl). Can be specified multiple times.",
@@ -278,7 +428,7 @@
             },
             "uuid": "8a6371ec-9b10-4bd3-b689-731b4dfeea67"
         },
-        "10": {
+        "18": {
             "varname": "journald_query_user_unit",
             "caption": "Journald Query: User Unit",
             "description": "Show messages for the specified user session unit (passed to journalctl). Can be specified multiple times.",

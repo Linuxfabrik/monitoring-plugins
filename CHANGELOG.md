@@ -42,6 +42,7 @@ Monitoring Plugins:
 * infomaniak-swiss-backup-devices: add `--ignore-customer`, `--ignore-name`, `--ignore-tag`, `--ignore-user`
 * infomaniak-swiss-backup-products: add `--ignore-customer`, `--ignore-tag`
 * ipmi-sel: add `--ignore` to filter SEL entries by regex ([#982](https://github.com/Linuxfabrik/monitoring-plugins/issues/982))
+* journald-query: add `--icinga-callback` so acknowledging the service in Icinga suppresses the matching events on following runs ([#649](https://github.com/Linuxfabrik/monitoring-plugins/issues/649))
 * json-values: add `--token` / `--header` for HTTP auth, `--warning-key` / `--warning` / `--critical-key` / `--critical` for numeric alerts at a JSON key, and dot-notation in `--*-key` ([#1005](https://github.com/Linuxfabrik/monitoring-plugins/issues/1005))
 * librenms-alerts, librenms-health: support device-type `management`
 * nextcloud-enterprise: reports Nextcloud Enterprise subscription information

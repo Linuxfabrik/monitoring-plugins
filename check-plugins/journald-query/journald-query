@@ -11,31 +11,45 @@
 """See the check's README for more details."""
 
 import argparse
+import datetime
+import hashlib
 import json
 import re
 import sys
 
 import lib.args
 import lib.base
+import lib.db_sqlite
+import lib.disk
 import lib.human
+import lib.icinga
 import lib.lftest
 import lib.shell
 import lib.time
+import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041001'
+__version__ = '2026042201'
 
 DESCRIPTION = """Queries the systemd journal using journalctl and alerts when matching entries are found.
 Supports all journalctl filtering options such as --unit, --priority, --facility,
 --identifier, and --grep. Useful for monitoring specific log patterns in real time.
+Optionally integrates with Icinga: when the service is acknowledged, the matching
+events are suppressed on following runs so they don't re-alert.
 Requires root or sudo."""
 
+ACK_RETENTION_DAYS = 30
+
 DEFAULT_FACILITY = None
+DEFAULT_ICINGA_CALLBACK = False
 DEFAULT_IDENTIFIER = None
+DEFAULT_INSECURE = True
+DEFAULT_NO_PROXY = False
 DEFAULT_PRIORITY = 'emerg..err'
 DEFAULT_SERVERITY = 'warn'
 DEFAULT_SINCE = '-8h'
+DEFAULT_TIMEOUT = 5
 DEFAULT_UNIT = None
 DEFAULT_USER_UNIT = None
 
@@ -81,6 +95,43 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--icinga-callback',
+        help='Get the service acknowledgement from Icinga. When the service is '
+        'acknowledged, the currently reported journald events are persisted as '
+        '"already handled" so they no longer trigger alerts on following runs. '
+        'Default: %(default)s',
+        dest='ICINGA_CALLBACK',
+        action='store_true',
+        default=DEFAULT_ICINGA_CALLBACK,
+    )
+
+    parser.add_argument(
+        '--icinga-password',
+        help='Icinga API password.',
+        dest='ICINGA_PASSWORD',
+    )
+
+    parser.add_argument(
+        '--icinga-service-name',
+        help='Unique name of the service using this check within Icinga. '
+        'Take it from the `__name` service attribute. '
+        'Example: `icinga-server!my-service-name`.',
+        dest='ICINGA_SERVICE_NAME',
+    )
+
+    parser.add_argument(
+        '--icinga-url',
+        help='Icinga API URL. Example: `https://icinga-server:5665`.',
+        dest='ICINGA_URL',
+    )
+
+    parser.add_argument(
+        '--icinga-username',
+        help='Icinga API username.',
+        dest='ICINGA_USERNAME',
+    )
+
+    parser.add_argument(
         '--identifier',
         help='Show messages for the specified syslog identifier (passed to journalctl). '
         'Default: %(default)s',
@@ -106,6 +157,22 @@ def parse_args():
         action='append',
         default=None,
         dest='IGNORE_REGEX',
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
     )
 
     parser.add_argument(
@@ -138,6 +205,14 @@ def parse_args():
         help=lib.args.help('--test'),
         dest='TEST',
         type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
@@ -178,6 +253,78 @@ def main():
         args.IGNORE_PATTERN = []
     if args.IGNORE_REGEX is None:
         args.IGNORE_REGEX = []
+
+    if args.ICINGA_CALLBACK and not all(
+        (
+            args.ICINGA_URL,
+            args.ICINGA_PASSWORD,
+            args.ICINGA_USERNAME,
+            args.ICINGA_SERVICE_NAME,
+        )
+    ):
+        lib.base.cu(
+            '`--icinga-callback` requires `--icinga-url`, `--icinga-password`, `--icinga-username` and `--icinga-service-name`.'
+        )
+
+    # Persisted ack state is only needed when the Icinga callback is in use.
+    # When it is, each unique combination of filter arguments gets its own
+    # state DB so two Icinga services watching the journal with different
+    # filters do not share ack state.
+    acked_fingerprints = set()
+    ack_conn = None
+    if args.ICINGA_CALLBACK:
+        instance_payload = json.dumps(
+            {
+                'facility': args.FACILITY,
+                'identifier': args.IDENTIFIER,
+                'ignore_pattern': sorted(args.IGNORE_PATTERN),
+                'ignore_regex': sorted(args.IGNORE_REGEX),
+                'priority': args.PRIORITY,
+                'since': args.SINCE,
+                'unit': sorted(args.UNIT) if args.UNIT else [],
+                'user_unit': sorted(args.USER_UNIT) if args.USER_UNIT else [],
+            },
+            sort_keys=True,
+        ).encode('utf-8')
+        instance_hash = hashlib.sha256(instance_payload).hexdigest()[:10]
+        ack_db_filename = (
+            f'linuxfabrik-monitoring-plugins-journald-query-{instance_hash}.db'
+        )
+        ack_conn = lib.base.coe(lib.db_sqlite.connect(filename=ack_db_filename))
+        definition = """
+            event_hash TEXT NOT NULL PRIMARY KEY,
+            event_timestamp INTEGER NOT NULL,
+            acknowledged_at TIMESTAMP NOT NULL
+        """
+        lib.base.coe(
+            lib.db_sqlite.create_table(
+                ack_conn, definition, table='acknowledged_events'
+            )
+        )
+        # Prune ack records that are older than ACK_RETENTION_DAYS to keep
+        # the DB bounded. By that age the event has rotated out of the
+        # journal and can no longer re-appear anyway.
+        retention_cutoff = lib.time.now(as_type='datetime') - datetime.timedelta(
+            days=ACK_RETENTION_DAYS
+        )
+        lib.base.coe(
+            lib.db_sqlite.delete(
+                ack_conn,
+                """
+                DELETE FROM acknowledged_events
+                WHERE acknowledged_at <= :cutoff
+                """,
+                {'cutoff': retention_cutoff},
+            )
+        )
+        rows = lib.base.coe(
+            lib.db_sqlite.select(
+                ack_conn,
+                'SELECT event_hash FROM acknowledged_events',
+                fetchone=False,
+            )
+        )
+        acked_fingerprints = {row['event_hash'] for row in rows}
 
     # fetch data
     if args.TEST is None:
@@ -278,6 +425,18 @@ def main():
                 for ignore_pattern in args.IGNORE_PATTERN
             ) or any(item.search(event['MESSAGE']) for item in compiled_ignore_regex):
                 continue
+            # Stable per-event fingerprint for ack persistence. Kept
+            # deliberately simple (timestamp + message) so the same hash is
+            # derived the next time journalctl returns the same entry.
+            event_fingerprint = hashlib.sha256(
+                (
+                    f'{event.get("__REALTIME_TIMESTAMP", "")}|'
+                    f'{event.get("MESSAGE", "")}'
+                ).encode()
+            ).hexdigest()
+            if event_fingerprint in acked_fingerprints:
+                continue
+            event['_fingerprint'] = event_fingerprint
             # shorten message if necessary
             if len(event['MESSAGE']) > 80:
                 event['MESSAGE'] = event['MESSAGE'][0:77] + '...'
@@ -297,12 +456,67 @@ def main():
             table_data.append(event)
 
         cnt = len(table_data)
+        if cnt == 0:
+            state = STATE_OK
         if cnt > 10:
             # shorten the message
             table_data = table_data[0:5] + table_data[-5:]
             shortened = True
         else:
             shortened = False
+
+    # Ask Icinga about the service acknowledgement. If acknowledged, persist
+    # the fingerprints of the events that are currently being reported so
+    # they do not re-alert on following runs, and return OK to Icinga. See
+    # issue #649.
+    msg_addendum = ''
+    if args.ICINGA_CALLBACK and state != STATE_OK:
+        success, icinga = lib.icinga.get_service(
+            args.ICINGA_URL,
+            args.ICINGA_USERNAME,
+            args.ICINGA_PASSWORD,
+            servicename=args.ICINGA_SERVICE_NAME,
+            attrs='state,acknowledgement',
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        )
+        if success:
+            try:
+                if icinga['results'][0]['attrs']['acknowledgement']:
+                    now_dt = lib.time.now(as_type='datetime')
+                    for event in table_data:
+                        lib.base.coe(
+                            lib.db_sqlite.replace(
+                                ack_conn,
+                                {
+                                    'event_hash': event['_fingerprint'],
+                                    'event_timestamp': int(
+                                        event.get('__REALTIME_TIMESTAMP', 0)
+                                    ),
+                                    'acknowledged_at': now_dt,
+                                },
+                                table='acknowledged_events',
+                            )
+                        )
+                    state = STATE_OK
+                else:
+                    msg_addendum += (
+                        'Note: Acknowledge this service to reset the state to OK.'
+                    )
+            except IndexError:
+                msg_addendum += (
+                    'Note: Could not determine the acknowledgement from the '
+                    'Icinga API, this could be due to an incorrect service name.'
+                )
+        else:
+            msg_addendum += (
+                f'Note: Could not determine the acknowledgement from the Icinga API:\n{icinga}.'
+            )
+
+    if ack_conn is not None:
+        lib.base.coe(lib.db_sqlite.commit(ack_conn))
+        lib.db_sqlite.close(ack_conn)
 
     # build the message
     if table_data:
@@ -351,7 +565,43 @@ def main():
                 f' services.'
             )
     else:
-        msg = 'Everything is ok.'
+        # Status line analog to the logfile check: name what was queried,
+        # the hit count, the filters the query ran with and any ignores.
+        def _join_and(items):
+            if len(items) <= 1:
+                return ''.join(items)
+            if len(items) == 2:
+                return f'{items[0]} and {items[1]}'
+            return f'{", ".join(items[:-1])} and {items[-1]}'
+
+        filter_parts = [
+            f"priority='{args.PRIORITY}'",
+            f"since='{args.SINCE}'",
+        ]
+        if args.UNIT:
+            filter_parts.append(
+                f'units {_join_and([f"{u!r}" for u in sorted(args.UNIT)])}'
+            )
+        if args.USER_UNIT:
+            filter_parts.append(
+                f'user-units {_join_and([f"{u!r}" for u in sorted(args.USER_UNIT)])}'
+            )
+        if args.FACILITY:
+            filter_parts.append(f"facility='{args.FACILITY}'")
+        if args.IDENTIFIER:
+            filter_parts.append(f"identifier='{args.IDENTIFIER}'")
+
+        ignore_parts = [
+            f"'{item}'" for item in sorted(args.IGNORE_PATTERN + args.IGNORE_REGEX)
+        ]
+
+        msg = (
+            f'Queried the systemd journal (0 events) using '
+            f'{_join_and(filter_parts)}'
+        )
+        if ignore_parts:
+            msg += f', ignoring {_join_and(ignore_parts)}'
+        msg += '.'
         state = STATE_OK
 
     full_cmd = (
@@ -371,6 +621,9 @@ def main():
         cnt,
         _min=0,
     )
+
+    if msg_addendum:
+        msg += '\n\n' + msg_addendum
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

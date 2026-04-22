@@ -8,21 +8,28 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import hashlib
+import json
+import os
+import sqlite3
 import sys
+import tempfile
 
 sys.path.insert(0, '..')
 
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
     {
         'id': 'ok-no-events',
         'test': 'stdout/no-events,,0',
         'assert-retc': STATE_OK,
-        'assert-in': ['Everything is ok.'],
+        'assert-in': [
+            "Queried the systemd journal (0 events) using priority='emerg..err' and since='-8h'."
+        ],
     },
     {
         'id': 'warn-one-iscsid-err',
@@ -56,6 +63,122 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+# The hash algorithm below mirrors the plugin's instance-hash and event
+# fingerprint exactly. Keep them in sync if the plugin ever changes either.
+def _instance_db_path(payload):
+    blob = json.dumps(payload, sort_keys=True).encode('utf-8')
+    instance_hash = hashlib.sha256(blob).hexdigest()[:10]
+    return os.path.join(
+        tempfile.gettempdir(),
+        f'linuxfabrik-monitoring-plugins-journald-query-{instance_hash}.db',
+    )
+
+
+def _default_instance_payload():
+    return {
+        'facility': None,
+        'identifier': None,
+        'ignore_pattern': [],
+        'ignore_regex': [],
+        'priority': 'emerg..err',
+        'since': '-8h',
+        'unit': [],
+        'user_unit': [],
+    }
+
+
+class TestIcingaCallback(unittest.TestCase):
+    """Covers the Icinga callback plumbing introduced for issue #649."""
+
+    check = '../journald-query'
+
+    def setUp(self):
+        db = _instance_db_path(_default_instance_payload())
+        if os.path.exists(db):
+            os.remove(db)
+
+    def tearDown(self):
+        db = _instance_db_path(_default_instance_payload())
+        if os.path.exists(db):
+            os.remove(db)
+
+    def test_missing_callback_params_fail_unknown(self):
+        testcase = {
+            'id': 'cb-missing-params',
+            'test': 'stdout/no-events,,0',
+            'params': '--icinga-callback',
+            'assert-retc': STATE_UNKNOWN,
+            'assert-in': ['`--icinga-callback` requires'],
+        }
+        lib.lftest.run(self, self.check, testcase)
+
+    def test_ok_state_skips_icinga_api_call(self):
+        # With state OK there is nothing to acknowledge, so the plugin
+        # must not attempt to talk to the (deliberately unreachable)
+        # Icinga API and must succeed cleanly.
+        testcase = {
+            'id': 'cb-ok-state',
+            'test': 'stdout/no-events,,0',
+            'params': (
+                '--icinga-callback '
+                '--icinga-url=https://icinga.example.invalid:5665 '
+                '--icinga-username=fake '
+                '--icinga-password=fake '
+                '--icinga-service-name=x!y'
+            ),
+            'assert-retc': STATE_OK,
+            'assert-in': [
+                "Queried the systemd journal (0 events) using priority='emerg..err' and since='-8h'."
+            ],
+        }
+        lib.lftest.run(self, self.check, testcase)
+
+    def test_previously_acknowledged_event_is_suppressed(self):
+        # Pre-populate the ack DB with the fingerprint of the sole event
+        # in the 'one-iscsid-err' fixture. On the next run the plugin
+        # must filter it out and report OK.
+        event_fingerprint = hashlib.sha256(
+            '1659011388341815|iSCSI daemon with pid=865 started!'.encode()
+        ).hexdigest()
+        db = _instance_db_path(_default_instance_payload())
+        conn = sqlite3.connect(db)
+        try:
+            conn.execute(
+                """
+                CREATE TABLE acknowledged_events (
+                    event_hash TEXT NOT NULL PRIMARY KEY,
+                    event_timestamp INTEGER NOT NULL,
+                    acknowledged_at TIMESTAMP NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                'INSERT INTO acknowledged_events VALUES (?, ?, ?)',
+                (event_fingerprint, 1659011388341815, '2026-04-22 12:00:00'),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        testcase = {
+            'id': 'cb-suppressed-by-ack',
+            'test': 'stdout/one-iscsid-err,,0',
+            'params': (
+                '--icinga-callback '
+                '--icinga-url=https://icinga.example.invalid:5665 '
+                '--icinga-username=fake '
+                '--icinga-password=fake '
+                '--icinga-service-name=x!y'
+            ),
+            'assert-retc': STATE_OK,
+            'assert-in': [
+                "Queried the systemd journal (0 events) using priority='emerg..err' and since='-8h'."
+            ],
+            'assert-not-in': ['iSCSI daemon'],
+        }
+        lib.lftest.run(self, self.check, testcase)
 
 
 if __name__ == '__main__':
