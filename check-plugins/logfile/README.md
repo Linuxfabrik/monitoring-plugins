@@ -13,7 +13,7 @@ Scans a logfile for matching patterns or regular expressions and alerts based on
 
 ```text
 object ApiUser "linuxfabrik-check-logfile" {
-  password = "mysupersecretpassword"
+  password = "linuxfabrik"
   permissions = [
   {
     permission = "objects/query/service"

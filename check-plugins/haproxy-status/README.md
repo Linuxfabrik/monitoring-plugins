@@ -65,10 +65,10 @@ rates, and server states. Alerts when session usage exceeds the configured
 thresholds. Proxies, frontends, backends or individual servers can be filtered
 out with --ignore (e.g. an on-demand certbot backend that is only UP during
 cert renewal). HTTP basic auth is supplied through the URL itself
-(`https://user:secret@host/server-status`); the credentials are stripped from
-the URL before the request is sent and instead carried in an `Authorization:
-Basic` header so they never reach the request line or any proxy access log.
-Supports extended reporting via --lengthy.
+(`https://user:linuxfabrik@host/server-status`); the credentials are stripped
+from the URL before the request is sent and instead carried in an
+`Authorization: Basic` header so they never reach the request line or any
+proxy access log. Supports extended reporting via --lengthy.
 
 options:
   -h, --help           show this help message and exit

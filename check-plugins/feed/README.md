@@ -12,7 +12,7 @@ Monitors an RSS or Atom feed for new entries and alerts when new items appear wi
 
 ```text
 object ApiUser "linuxfabrik-check-api-user" {
-  password = "mysupersecretpassword"
+  password = "linuxfabrik"
   permissions = [ "objects/query/service" ]
 }
 ```
@@ -91,7 +91,7 @@ options:
 ```bash
 ./feed
 ./feed --url https://github.com/Linuxfabrik/monitoring-plugins/releases.atom --warn 1440
-./feed --icinga-url https://icinga-host:5665 --icinga-callback --icinga-username linuxfabrik-check-api-user --icinga-password mysupersecretpassword --icinga-service-name 'icinga-host!Feed Service Name' --url https://www.heise.de/security/rss/alert-news-atom.xml
+./feed --icinga-url https://icinga-host:5665 --icinga-callback --icinga-username linuxfabrik-check-api-user --icinga-password linuxfabrik --icinga-service-name 'icinga-host!Feed Service Name' --url https://www.heise.de/security/rss/alert-news-atom.xml
 ```
 
 Output:

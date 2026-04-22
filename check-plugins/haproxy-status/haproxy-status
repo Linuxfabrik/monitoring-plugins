@@ -24,14 +24,14 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041407'
+__version__ = '2026042201'
 
 DESCRIPTION = """Monitors HAProxy performance and health via the stats endpoint. Reports
 frontend and backend session usage, request rates, response times, error rates, and server
 states. Alerts when session usage exceeds the configured thresholds. Proxies, frontends,
 backends or individual servers can be filtered out with --ignore (e.g. an on-demand certbot
 backend that is only UP during cert renewal). HTTP basic auth is supplied through the URL
-itself (`https://user:secret@host/server-status`); the credentials are stripped from the
+itself (`https://user:linuxfabrik@host/server-status`); the credentials are stripped from the
 URL before the request is sent and instead carried in an `Authorization: Basic` header so
 they never reach the request line or any proxy access log. Supports extended reporting
 via --lengthy."""
@@ -116,7 +116,7 @@ def parse_args():
     )
 
     # `--password` and `--username` were removed in favour of HTTP basic
-    # auth embedded in the URL itself (e.g. `https://user:secret@host/`).
+    # auth embedded in the URL itself (e.g. `https://user:linuxfabrik@host/`).
     # The flags stay registered (with argparse.SUPPRESS so they do not
     # show up in --help) so we can detect legacy usage in main() and
     # exit UNKNOWN with a clear migration pointer; otherwise
@@ -198,7 +198,7 @@ def main():
         lib.base.cu(
             '--username and --password were removed. Embed the HTTP '
             'basic auth credentials in the URL itself, e.g. '
-            '`--url=https://user:secret@host:8443/server-status`. The '
+            '`--url=https://user:linuxfabrik@host:8443/server-status`. The '
             'plugin strips them from the netloc before the request is '
             'sent and carries them in an Authorization: Basic header.'
         )
@@ -225,7 +225,7 @@ def main():
             )
 
         if url.startswith('http'):
-            # Move any `user:secret@` userinfo from the URL into an
+            # Move any `user:linuxfabrik@` userinfo from the URL into an
             # Authorization: Basic header so the credentials never reach
             # the request line or any proxy access log. Append the
             # `;csv` query that the haproxy stats endpoint expects to
