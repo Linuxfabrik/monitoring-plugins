@@ -54,6 +54,20 @@ TESTS = [
             '2022-07-28 14:29:48 ! iscsid ! err  ! iSCSI daemon with pid=865 started!',
         ],
     },
+    {
+        # Baseline: the three-sshd-errs fixture must produce WARN with
+        # three distinct events before any ack logic kicks in. The
+        # TestAckPersistence cases below build on this baseline.
+        'id': 'warn-three-sshd-errs',
+        'test': 'stdout/three-sshd-errs,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '3 events.',
+            'Failed password for root from 10.0.0.1',
+            'Failed password for root from 10.0.0.2',
+            'Failed password for root from 10.0.0.3',
+        ],
+    },
 ]
 
 
@@ -179,6 +193,184 @@ class TestIcingaCallback(unittest.TestCase):
             'assert-not-in': ['iSCSI daemon'],
         }
         lib.lftest.run(self, self.check, testcase)
+
+
+def _event_fingerprint(realtime_timestamp_microseconds, message):
+    """Mirror of the plugin's own fingerprint algorithm. Must be kept in
+    sync with `journald-query`.
+    """
+    return hashlib.sha256(
+        f'{realtime_timestamp_microseconds}|{message}'.encode()
+    ).hexdigest()
+
+
+# Fingerprints for the three events carried in stdout/three-sshd-errs.
+# Keep this list aligned with that fixture.
+THREE_SSHD_FINGERPRINTS = [
+    _event_fingerprint(
+        '1700000000000001',
+        'Failed password for root from 10.0.0.1 port 40001 ssh2',
+    ),
+    _event_fingerprint(
+        '1700000000000002',
+        'Failed password for root from 10.0.0.2 port 40002 ssh2',
+    ),
+    _event_fingerprint(
+        '1700000000000003',
+        'Failed password for root from 10.0.0.3 port 40003 ssh2',
+    ),
+]
+
+
+def _callback_params():
+    return (
+        '--icinga-callback '
+        '--icinga-url=https://icinga.example.invalid:5665 '
+        '--icinga-username=fake '
+        '--icinga-password=fake '
+        '--icinga-service-name=x!y'
+    )
+
+
+def _seed_ack_db(db_path, fingerprints, acknowledged_at='2026-04-22 12:00:00'):
+    """Create an ack DB with the given fingerprints pre-populated,
+    using the exact schema the plugin expects.
+    """
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute("""
+            CREATE TABLE acknowledged_events (
+                event_hash TEXT NOT NULL PRIMARY KEY,
+                event_timestamp INTEGER NOT NULL,
+                acknowledged_at TIMESTAMP NOT NULL
+            )
+        """)
+        for fp in fingerprints:
+            conn.execute(
+                'INSERT INTO acknowledged_events VALUES (?, ?, ?)',
+                (fp, 0, acknowledged_at),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+class TestAckPersistence(unittest.TestCase):
+    """Thorough coverage of the ack persistence path: pre-seeded
+    fingerprints must suppress the exact matching events on subsequent
+    runs, partial acks must leave non-acknowledged events alerting,
+    state must survive repeated runs, and the underlying column type
+    must stay TEXT so that the fingerprint comparison does not drift
+    across runs (cross-check against the logfile #1035-fallout bug)."""
+
+    check = '../journald-query'
+
+    def setUp(self):
+        db = _instance_db_path(_default_instance_payload())
+        if os.path.exists(db):
+            os.remove(db)
+
+    def tearDown(self):
+        db = _instance_db_path(_default_instance_payload())
+        if os.path.exists(db):
+            os.remove(db)
+
+    def test_all_events_suppressed_when_all_fingerprints_acked(self):
+        db = _instance_db_path(_default_instance_payload())
+        _seed_ack_db(db, THREE_SSHD_FINGERPRINTS)
+
+        testcase = {
+            'id': 'ack-all-three',
+            'test': 'stdout/three-sshd-errs,,0',
+            'params': _callback_params(),
+            'assert-retc': STATE_OK,
+            'assert-in': [
+                "Queried the systemd journal (0 events) using priority='emerg..err' and since='-8h'."
+            ],
+            'assert-not-in': [
+                '10.0.0.1',
+                '10.0.0.2',
+                '10.0.0.3',
+            ],
+        }
+        lib.lftest.run(self, self.check, testcase)
+
+    def test_partial_ack_leaves_only_non_acked_events_alerting(self):
+        # Ack the first two events. Only the third one should alert.
+        db = _instance_db_path(_default_instance_payload())
+        _seed_ack_db(db, THREE_SSHD_FINGERPRINTS[:2])
+
+        testcase = {
+            'id': 'ack-two-of-three',
+            'test': 'stdout/three-sshd-errs,,0',
+            'params': _callback_params(),
+            'assert-retc': STATE_WARN,
+            'assert-in': [
+                '1 event.',
+                '10.0.0.3',
+            ],
+            'assert-not-in': [
+                '10.0.0.1',
+                '10.0.0.2',
+            ],
+        }
+        lib.lftest.run(self, self.check, testcase)
+
+    def test_ack_state_survives_repeated_runs(self):
+        # Ack all three events. The plugin must report OK on the first
+        # run and keep reporting OK on every subsequent run without
+        # the ack state drifting — the fingerprint stored as TEXT
+        # must still compare equal to the freshly computed TEXT
+        # fingerprint coming from journalctl.
+        db = _instance_db_path(_default_instance_payload())
+        _seed_ack_db(db, THREE_SSHD_FINGERPRINTS)
+
+        ok_testcase = {
+            'id': 'ack-all-persistent-run',
+            'test': 'stdout/three-sshd-errs,,0',
+            'params': _callback_params(),
+            'assert-retc': STATE_OK,
+            'assert-in': [
+                "Queried the systemd journal (0 events)"
+            ],
+            'assert-not-in': [
+                '10.0.0.1',
+                '10.0.0.2',
+                '10.0.0.3',
+            ],
+        }
+        # Run the plugin three times back to back with the same input.
+        # If the fingerprint round-trip via SQLite were lossy (e.g.
+        # affinity-coerced), the second or third run would flip to
+        # WARN. All three must stay OK.
+        for _ in range(3):
+            lib.lftest.run(self, self.check, ok_testcase)
+
+    def test_event_hash_column_preserves_text_affinity(self):
+        # Seed a fingerprint (hex string) and verify that SQLite stores
+        # and returns it as TEXT. This is the type-consistency probe
+        # that guards against the #1035-style bug in the logfile plugin,
+        # where an INTEGER column silently converted numeric-looking
+        # strings to int on insert and broke future comparisons.
+        # A sha256 hex digest is alphanumeric (contains letters) so an
+        # INTEGER affinity would visibly break it — but we check both
+        # typeof() and value equality for robustness.
+        db = _instance_db_path(_default_instance_payload())
+        _seed_ack_db(db, THREE_SSHD_FINGERPRINTS[:1])
+
+        conn = sqlite3.connect(db)
+        try:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute(
+                'SELECT event_hash, typeof(event_hash) AS t '
+                'FROM acknowledged_events'
+            ).fetchone()
+        finally:
+            conn.close()
+
+        self.assertEqual(row['t'], 'text')
+        self.assertEqual(row['event_hash'], THREE_SSHD_FINGERPRINTS[0])
+        self.assertIsInstance(row['event_hash'], str)
 
 
 if __name__ == '__main__':

@@ -28,7 +28,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026042202'
+__version__ = '2026042203'
 
 DESCRIPTION = """Scans a logfile for matching patterns or regular expressions and alerts based on the
 number of matches found. Reads the file backwards from the end and supports Icinga
@@ -350,7 +350,16 @@ def main():
     if old_file_stats:
         # this is not the first time we are scanning this logfile, try to continue where we left off
         offset = old_file_stats.get('offset', 0)
-        if current_inode != old_file_stats.get('inode') or current_size < offset:
+        # Compare the stored inode as string: legacy DBs created before
+        # issue #1035 still hold the inode column with INTEGER affinity
+        # and return int on read, while current_inode is a string. Without
+        # the cast the comparison is always truthy and the offset is
+        # reset to 0 on every run, making the plugin re-read the whole
+        # file each time.
+        if (
+            str(old_file_stats.get('inode')) != current_inode
+            or current_size < offset
+        ):
             # this means the file has been rotated
             offset = 0
     else:

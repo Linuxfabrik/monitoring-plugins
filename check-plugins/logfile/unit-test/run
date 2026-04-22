@@ -19,7 +19,11 @@ cache DB that matches its fixture to ensure a clean "first scan" state.
 """
 
 import glob
+import hashlib
+import json
 import os
+import shutil
+import sqlite3
 import sys
 import tempfile
 import unittest
@@ -204,6 +208,162 @@ class TestMultipleChecksSameFile(unittest.TestCase):
             2,
             f'expected two per-check state DBs, found: {dbs}',
         )
+
+
+# The hash algorithm below mirrors the plugin's instance-hash exactly.
+# Keep it in sync if the plugin ever changes the calculation.
+def _instance_hash(warn_pattern=None, warn_regex=None, crit_pattern=None,
+                   crit_regex=None, ignore_pattern=None, ignore_regex=None):
+    payload = json.dumps(
+        {
+            'crit_pattern': sorted(crit_pattern or []),
+            'crit_regex': sorted(crit_regex or []),
+            'ignore_pattern': sorted(ignore_pattern or []),
+            'ignore_regex': sorted(ignore_regex or []),
+            'warn_pattern': sorted(warn_pattern or []),
+            'warn_regex': sorted(warn_regex or []),
+        },
+        sort_keys=True,
+    ).encode('utf-8')
+    return hashlib.sha256(payload).hexdigest()[:10]
+
+
+def _per_check_db_path(basename, **hash_kwargs):
+    return os.path.join(
+        tempfile.gettempdir(),
+        f'linuxfabrik-monitoring-plugins-logfile-{basename}-'
+        f'{_instance_hash(**hash_kwargs)}.db',
+    )
+
+
+class TestOffsetSurvivesAcrossRuns(unittest.TestCase):
+    """Regression tests for issue #1035 fallout: the offset comparison
+    must continue to match across runs for both the current TEXT-inode
+    schema AND legacy INTEGER-inode schemas migrated forward by the
+    #698 state-DB rename. Otherwise the plugin resets the offset to 0
+    on every run and re-reads the whole file each time, which shows up
+    as a steadily growing `scanned_lines` in Grafana."""
+
+    check = '../logfile'
+    source_fixture = 'stdout/django-app-one-warning-one-error'
+    hash_kwargs = {
+        'warn_regex': [' WARNING '],
+        'crit_regex': [' ERROR '],
+    }
+
+    def setUp(self):
+        # Work on a scratch copy of the fixture so we can safely append
+        # to it without polluting the tracked fixture file.
+        self.scratch_dir = tempfile.mkdtemp(prefix='logfile-offset-')
+        self.scratch_file = os.path.join(self.scratch_dir, 'scan.log')
+        shutil.copy(self.source_fixture, self.scratch_file)
+        self.scratch_basename = os.path.basename(self.scratch_file)
+        # Paranoid: remove any lingering state DB for this basename.
+        legacy = _legacy_db_path(self.scratch_basename)
+        if os.path.exists(legacy):
+            os.remove(legacy)
+        for db_file in glob.glob(_db_glob(self.scratch_basename)):
+            os.remove(db_file)
+
+    def tearDown(self):
+        legacy = _legacy_db_path(self.scratch_basename)
+        if os.path.exists(legacy):
+            os.remove(legacy)
+        for db_file in glob.glob(_db_glob(self.scratch_basename)):
+            os.remove(db_file)
+        shutil.rmtree(self.scratch_dir, ignore_errors=True)
+
+    def _params(self):
+        return (
+            f'--filename={self.scratch_file} '
+            '--warning-regex=" WARNING " '
+            '--critical-regex=" ERROR " '
+            '--always-ok'
+        )
+
+    def _run(self, expected_new_lines):
+        testcase = {
+            'id': f'scan-expecting-{expected_new_lines}-lines',
+            'test': f'{self.scratch_file},,0',
+            'params': self._params(),
+            'assert-retc': STATE_OK,
+            'assert-in': [
+                f'({expected_new_lines} '
+                f'{"line" if expected_new_lines == 1 else "lines"})',
+            ],
+        }
+        lib.lftest.run(self, self.check, testcase)
+
+    def test_fresh_db_advances_offset_across_runs(self):
+        # Run 1: first scan, reads the whole fixture (3 lines).
+        self._run(expected_new_lines=3)
+        # Run 2: unchanged file must yield 0 new lines — proof that the
+        # offset was persisted and correctly matched on the second read.
+        self._run(expected_new_lines=0)
+        # Run 3: append one line, expect exactly one new line scanned.
+        with open(self.scratch_file, 'a') as fh:
+            fh.write('2026-04-22 14:00:00 INFO added one more line\n')
+        self._run(expected_new_lines=1)
+
+    def test_legacy_integer_inode_schema_does_not_reset_offset(self):
+        # Seed a legacy-schema DB (pre-#1035: inode INTEGER) at the new
+        # per-check path so the plugin picks it up without triggering
+        # the transparent rename. Inode stored as int to mimic what the
+        # old plugin would have written.
+        db_path = _per_check_db_path(
+            self.scratch_basename, **self.hash_kwargs
+        )
+        stat = os.stat(self.scratch_file)
+        conn = sqlite3.connect(db_path)
+        try:
+            conn.execute("""
+                CREATE TABLE file_stats (
+                    filename TEXT NOT NULL PRIMARY KEY,
+                    offset INTEGER NOT NULL,
+                    inode INTEGER NOT NULL
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE matching_lines (
+                    filename TEXT NOT NULL,
+                    state INTEGER NOT NULL,
+                    line TEXT NOT NULL,
+                    found_at TIMESTAMP NOT NULL
+                )
+            """)
+            # Seed offset at the current end-of-file and store the inode
+            # as INTEGER, exactly as the pre-#1035 plugin would have.
+            conn.execute(
+                'INSERT INTO file_stats VALUES (?, ?, ?)',
+                (self.scratch_file, stat.st_size, stat.st_ino),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        # Without the string-cast fix, Run 1 would compare
+        #   str(st_ino) != int_from_db  → always True  → offset=0
+        # and report 3 lines scanned. With the fix, the offset carries
+        # over and the first run sees 0 new lines.
+        self._run(expected_new_lines=0)
+        # Append a line; the plugin should read exactly that one.
+        with open(self.scratch_file, 'a') as fh:
+            fh.write('2026-04-22 14:05:00 INFO new line after legacy db\n')
+        self._run(expected_new_lines=1)
+        # One more unchanged run to confirm the offset keeps advancing
+        # cleanly after the legacy row has been overwritten.
+        self._run(expected_new_lines=0)
+
+    def test_file_rotation_via_inode_change_still_resets_offset(self):
+        # After a real log rotation the file name stays the same but the
+        # inode changes. The plugin must detect this and reset the
+        # offset to 0 — regardless of the string-cast safety net.
+        self._run(expected_new_lines=3)
+        self._run(expected_new_lines=0)
+        # Simulate rotation: unlink + recreate gives a new inode.
+        os.unlink(self.scratch_file)
+        shutil.copy(self.source_fixture, self.scratch_file)
+        self._run(expected_new_lines=3)
 
 
 if __name__ == '__main__':
