@@ -12,7 +12,7 @@
   <span>&#8226;</span>
   <b>made by <a href="https://linuxfabrik.ch/">Linuxfabrik</a></b>
 </p>
-<div align="center">
+<div align="center" markdown>
 
 ![GitHub Stars](https://img.shields.io/github/stars/linuxfabrik/monitoring-plugins)
 ![GitHub](https://img.shields.io/github/license/linuxfabrik/monitoring-plugins)
