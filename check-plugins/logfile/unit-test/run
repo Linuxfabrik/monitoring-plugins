@@ -404,8 +404,7 @@ class TestMacroFilenameExpansion(unittest.TestCase):
 
     def test_today_macro_resolves_compact_when_only_compact_exists(self):
         # Primary case: daily-rotated logfiles that use YYYYMMDD naming
-        # (Windows apps, many shell scripts) must be found by {today}
-        # without further configuration.
+        # must be found by {today} without further configuration.
         compact_today = self.today.strftime('%Y%m%d')
         resolved = self._seed(f'app-{compact_today}.log')
         template = os.path.join(self.scratch_dir, 'app-{today}.log')
@@ -438,7 +437,7 @@ class TestMacroFilenameExpansion(unittest.TestCase):
         )
 
     def test_today_macro_falls_back_to_iso_when_compact_missing(self):
-        # Laravel-style `laravel-YYYY-MM-DD.log` names must also work.
+        # `app-YYYY-MM-DD.log` names must also work as the ISO fallback.
         iso_today = self.today.strftime('%Y-%m-%d')
         resolved = self._seed(f'app-{iso_today}.log')
         template = os.path.join(self.scratch_dir, 'app-{today}.log')
