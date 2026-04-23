@@ -112,8 +112,7 @@ Monitoring Plugins:
 * mysql-table-cache: README explains why `Table_open_cache_overflows` is not tracked ([#968](https://github.com/Linuxfabrik/monitoring-plugins/issues/968))
 * nextcloud-enterprise, nextcloud-version: `occ` no longer has to be executable; `php occ <cmd>` is invoked under the owner of `config/config.php`
 * php-status: default to `http://localhost/monitoring.php`, tolerate its absence
-* redfish-drives, redfish-sel, redfish-sensor, redfish-system: aligned to the example plugin (section comments, argparse ordering), all four now carry a `--test` hook for fixture-based unit tests. `redfish-sensor`'s `--insecure` default now matches the other three (`True`, since BMCs typically use self-signed certificates)
-* redfish-sel: fixture files under `unit-test/stdout/` renamed to scenario-descriptive names (`empty-sel-root`, `empty-sel-managers`, `empty-sel-sel` instead of `-v1*` appendages)
+* redfish-sensor: `--insecure` now defaults to `True` to match `redfish-drives`, `redfish-sel` and `redfish-system`. BMCs typically serve a self-signed certificate, so the previous default (`False`) made the check fail out of the box on most hardware. Pass `--insecure=false` explicitly if you have a trusted CA chain installed
 * scanrootkit: exact per-symbol kernel symbol matching (fewer false positives on legit symbols that share a substring with a signature)
 * service: Windows services with a space in their technical name (e.g. `"RAS Telegraf"`) now match `--service`; clearer error when filtered out by `--starttype` ([#921](https://github.com/Linuxfabrik/monitoring-plugins/issues/921))
 * systemd-units-failed: failed unit names appear in the first output line for dashboard/SMS readability ([#967](https://github.com/Linuxfabrik/monitoring-plugins/issues/967))
