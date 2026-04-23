@@ -1,195 +1,277 @@
-# Compile and Package the Linuxfabrik Monitoring Plugins
+# Building and Packaging the Linuxfabrik Monitoring Plugins
 
-On Linux (RHEL, Debian) the Linuxfabrik Monitoring Plugins are packaged directly as Python source code including required dependencies in the native package formats. The Linux packages therefore depend on the system Python installation.
+Target audience: the release manager who cuts the next Linuxfabrik Monitoring
+Plugins release, and contributors who need to reproduce a build locally.
 
-For Windows we compile and package (= "build") using Nuitka on GitHub runners. Compiling the Linuxfabrik Monitoring Plugins allows you to completely avoid a separate Python installation on target systems.
+Outputs per release:
 
-With this manual, plugin packages can be created on GitHub runners (Linux, Windows) or a self-hosted Ubuntu VM (which is compatible to the GitHub runner; for Linux only).
+* Linux (RPM and DEB) for x86_64 and aarch64, unsigned. Published to
+  <https://repo.linuxfabrik.ch/monitoring-plugins/>.
+* Windows (ZIP of compiled plugins, and a signed MSI) for x86_64 only.
+  Published to <https://download.linuxfabrik.ch/monitoring-plugins/>.
+* Source-only zip for all operating systems. Published to the download
+  server as well.
+
+All three platform builds are manually triggered via GitHub Actions
+`workflow_dispatch`. There is no automatic build on push or tag.
 
 
-## Call Graphs
+## Overview
 
-The two call graphs show how the [build scripts](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/build) are wired together when they're driven by the GitHub runner workflows and how you'd stitch them together on a standalone Ubuntu host.
+| Platform | Arch    | GitHub workflow                  | Runner             | Outputs                | Signed            |
+| -------- | ------- | -------------------------------- | ------------------ | ---------------------- | ----------------- |
+| Linux    | x86_64  | `lf-build-linux-x86_64.yml`      | `ubuntu-24.04`     | `.rpm`, `.deb`         | no                |
+| Linux    | aarch64 | `lf-build-linux-aarch64.yml`     | `ubuntu-24.04-arm` | `.rpm`, `.deb`         | no                |
+| Windows  | x86_64  | `lf-build-windows-x86_64.yml`    | `windows-2025`     | `.zip`, `.msi`         | yes (SignPath.io) |
+
+Windows aarch64 is not built today.
+
+
+## Linux Packages
+
+
+### How it is built on GitHub
+
+The two Linux workflows run the same build chain on different runner types.
+Each one loops over a matrix of target distributions and builds one podman
+container per distro, then produces the native `.rpm` or `.deb` inside that
+container:
 
 ```text
-GitHub Runners
-├── Linux Workflow (lf-build-linux-*.yml)
-│   ├── debug.sh                            # just dumps env & uname
-│   ├── install-podman.sh                   # install Podman locally
-│   └── matrix-package.sh                   # builds a container per target-distro
-│       └── create-package.sh               # branches on $LFMP_TARGET_DISTRO
-│           ├── create-src-tarball.sh       # upstream source archive
-│           ├── create-vendor-tarball.sh    # 3rd-party deps
-│           ├── create-deb.sh               # for Debian/Ubuntu distros
-│           └── create-rpm.sh               # for RHEL distros
-└── Windows Workflow (lf-build-windows-x86_64.yml)
-    ├── compile-multiple.sh
-    │   └── compile-one.sh
-    ├── create-wxs.sh
-    └── wix.exe build                       # produces the .msi from the .wxs
-
-Standalone Ubuntu
-├── install-podman.sh
-└── matrix-package.sh
-    └── create-package.sh
-        ├── create-src-tarball.sh
-        ├── create-vendor-tarball.sh
-        ├── create-deb.sh
-        └── create-rpm.sh
+lf-build-linux-x86_64.yml  /  lf-build-linux-aarch64.yml
+├── debug.sh                            # env dump
+├── install-podman.sh                   # installs podman on the runner
+└── matrix-package.sh                   # one container per target distro
+    └── create-package.sh               # branches on $LFMP_TARGET_DISTRO
+        ├── create-src-tarball.sh       # upstream source archive
+        ├── create-vendor-tarball.sh    # pinned third-party deps
+        ├── create-deb.sh               # Debian/Ubuntu target
+        └── create-rpm.sh               # RHEL/SLE target
 ```
 
+Every workflow run takes three inputs: `target-distros` (space-separated list;
+default is every supported distribution), `version` (e.g. `2.2.1`),
+`package-iteration` (e.g. `1`).
 
-## Build for Linux
+The shared `monitoring-plugins` source tarball and `vendor.tar.gz` (pip-downloaded,
+hash-pinned third-party wheels) are produced once per workflow run.
+`create-rpm.sh` and `create-deb.sh` then build a venv under
+`/usr/lib64/linuxfabrik-monitoring-plugins/venv/` inside the container and
+rewrite plugin shebangs to point at that venv's `python`, so the final
+package is self-contained.
 
-The following steps describe the **manual package building process on an Ubuntu 24.04 LTS host**. The same steps have been automated using GitHub actions. See the [.github/workflows](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/) as well as the [build](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/build) folder for details.
 
-To be able to perform the same steps on a local Ubuntu host as well as on a GitHub runner, we decided to minimize the use of GitHub actions for the Linux build process (and therefore use some build scripts) and maximize the use of GitHub actions on Windows. The build scripts are written in bash and make heavy use of environment variables to be compliant with the GitHub runners.
+### Reproducing a Release Build Locally
 
-To build on Linux, first set environment variables for (absolute) paths, versions, etc.:
+For cutting a release by hand or for debugging a specific distro build, use
+an **Ubuntu 24.04 LTS** host. This matches the `ubuntu-24.04` GitHub runner
+one-to-one, which is the environment the build scripts are tested against.
+`build/install-podman.sh` uses `apt` to install podman, so other Linux
+families fail there without manual adjustments. Building the packages
+themselves is distro-agnostic (every package is produced inside its own
+target container), but the orchestrating host should match.
+
+Set the same environment variables the workflow uses and call
+`matrix-package.sh` directly:
 
 ```bash
 cat > env-file << 'EOF'
-# ---
 # User input on GitHub:
-export LFMP_ARCH=x86_64                                   # or "aarch64" if running on ARM64
-export LFMP_VERSION=1.4.0
-export LFMP_PACKAGE_ITERATION=7
-export LFMP_TARGET_DISTROS="debian13 rocky10"              # "debian11 debian12 debian13 rocky8 rocky9 rocky10 sle15 sle16 ubuntu2004 ubuntu2204 ubuntu2404 ubuntu2604"
+export LFMP_ARCH=x86_64                                   # or "aarch64" on ARM64
+export LFMP_VERSION=2.2.1
+export LFMP_PACKAGE_ITERATION=1
+export LFMP_TARGET_DISTROS="debian13 rocky10"             # subset of the supported list
 
-# ---
-# Constants
-# use absolute paths here
+# Constants (absolute paths):
 export LFMP_DIR_REPOS=/tmp/lfmp/repos
 export LFMP_DIR_REPO_MP=$LFMP_DIR_REPOS/monitoring-plugins
 export LFMP_DIR_PACKAGED=/tmp/lfmp/packaged
-mkdir -p $LFMP_DIR_REPOS
-mkdir -p $LFMP_DIR_PACKAGED
+mkdir -p $LFMP_DIR_REPOS $LFMP_DIR_PACKAGED
 EOF
-```
 
-```bash
 source env-file
 ```
 
-The paths and their meanings:
+Supported `LFMP_TARGET_DISTROS` values: `debian11 debian12 debian13 rocky8
+rocky9 rocky10 sle15 sle16 ubuntu2004 ubuntu2204 ubuntu2404 ubuntu2604`.
 
-* repos: the source code / git repositories
-* packaged: contains the built packages
-
-Clone the Linuxfabrik Monitoring Plugins from GitHub:
+Clone the repository and run the build:
 
 ```bash
 git clone https://github.com/Linuxfabrik/monitoring-plugins.git $LFMP_DIR_REPO_MP
-```
-
-Install podman:
-
-```bash
 bash $LFMP_DIR_REPO_MP/build/install-podman.sh
-```
-
-From the containers perspective, every container assumes:
-
-* Python source code is located at `/repos/monitoring-plugins`.
-
-For each distro package the plugins including assets:
-
-```bash
 bash $LFMP_DIR_REPO_MP/build/matrix-package.sh
 ```
 
-After that, the packages directory should look like this:
+From each container's perspective, the Python source code is at
+`/repos/monitoring-plugins`.
+
+After the build, the packages directory looks like this:
 
 ```text
 $LFMP_DIR_PACKAGED
-├── debian12/
-│   └── linuxfabrik-monitoring-plugins_1.4.0-7_amd64.deb
-└── rocky9/
-    ├── linuxfabrik-monitoring-plugins-1.4.0-7.el9.x86_64.rpm
-    └── linuxfabrik-monitoring-plugins-selinux-1.4.0-7.el9.x86_64.rpm
+├── debian13/
+│   └── linuxfabrik-monitoring-plugins_2.2.1-1_amd64.deb
+└── rocky10/
+    ├── linuxfabrik-monitoring-plugins-2.2.1-1.el10.x86_64.rpm
+    └── linuxfabrik-monitoring-plugins-selinux-2.2.1-1.el10.x86_64.rpm
 ```
 
 
-## Build for Windows
+## Windows Binaries and MSI
 
-Packaging for Windows means creating both a zip and an msi file, both of which can be downloaded from <https://download.linuxfabrik.ch/monitoring-plugins/>. Both files are created automatically using the GitHub Actions workflow [Linuxfabrik: Build Windows](https://github.com/Linuxfabrik/monitoring-plugins/actions/workflows/lf-build-windows.yml).
-
-To create the msi file, we use the most recent [WiX Toolset](https://wixtoolset.org/docs/intro/).
-
-Code signing policy:
-
-* Free code signing on Windows provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org) (thank you for your support!).
-* .dll, .exe, .pyd and .msi files are signed.
+Windows is built on a single GitHub-hosted `windows-2025` runner with Python
+3.13. Every plugin that carries a `.windows` marker file is compiled with
+Nuitka (`--standalone`, `--msvc=latest`) into its own directory. The results
+are packaged twice: once as a ZIP of the compiled trees, once as an MSI that
+installs them under `C:\Program Files\ICINGA2\sbin\linuxfabrik\`. Both
+artifacts are signed by SignPath before they leave the runner.
 
 
-## Compiling/Packaging - Good to Know
-
-### Platforms
-
-rpm and deb OS packages  
-For Red Hat Package Manager (rpm) and Debian-based package files (deb), we build the packages using native packaging tools.
-
-Packaging platform for .rpm and .deb files:
+### How it is built on GitHub
 
 ```text
-Target OS     ! Packaged on
---------------+-------------------------------------
-Debian 11     ! docker.io/library/debian:11
-Debian 12     ! docker.io/library/debian:12
-Debian 13     ! docker.io/library/debian:13
-RHEL 8        ! docker.io/rockylinux/rockylinux:8
-RHEL 9        ! docker.io/rockylinux/rockylinux:9
-RHEL 10       ! docker.io/rockylinux/rockylinux:10
-SLE 15        ! registry.suse.com/suse/sle15:15.5
-SLE 16        ! registry.suse.com/bci/bci-base:16.0
-Ubuntu 20.04  ! docker.io/library/ubuntu:20.04
-Ubuntu 22.04  ! docker.io/library/ubuntu:22.04
-Ubuntu 24.04  ! docker.io/library/ubuntu:24.04
-Ubuntu 26.04  ! docker.io/library/ubuntu:26.04
+lf-build-windows-x86_64.yml
+├── debug.sh                             # env dump
+├── compile-multiple.sh                  # loops plugins, calls compile-one.sh
+│   └── compile-one.sh                   # python3 -m nuitka --standalone
+├── SignPath submit-signing-request      # signs the compiled ZIP
+├── create-wxs.sh                        # emits lfmp.wxs
+├── wix.exe build                        # .wxs -> .msi
+└── SignPath submit-signing-request      # signs the MSI
 ```
 
-> [!NOTE]
-> Why Rocky instead of RHEL's "ubi" container images? According to [Types of container images](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/building_running_and_managing_containers/assembly_types-of-container-images_building-running-and-managing-containers#assembly_types-of-container-images_building-running-and-managing-containers), Red Hat Universal Base images ("ubi") are built from a subset of the normal Red Hat Enterprise Linux content, so you have access to free dnf repositories for adding and updating software. A subset of the CRB repo is also available, and that's why EPEL is installable. If you need more packages, you will need to purchase a (developer) subscription or run the container on a subscribed host.
-
-> [!NOTE]
-> Why `docker.io/rockylinux/rockylinux` instead of `docker.io/library/rockylinux`?  
-> `docker.io/library/rockylinux` is currently not updated: "The Docker team curates the Official Images program, and there are currently some technical constraints preventing Rocky Linux from publishing updates here. For the most up-to-date container images, please refer to [the Rocky Linux Docker Hub repository](https://hub.docker.com/r/rockylinux/rockylinux) for now." (from https://hub.docker.com/_/rockylinux#important-note)
-
-> [!NOTE]
-> The SLE 15 packages require at least openSUSE 15.5 or SLES 15 Service Pack 5.
-
-Windows Binaries  
-Binaries for Windows are compiled on Windows Server 2025 using MSVC 14.
+Workflow inputs: `compile-plugins` (optional, space-separated allowlist;
+empty means all plugins), `version`, `package-iteration`.
 
 
-### pyinstaller vs. Nuitka
+### Code Signing
 
-Why Nuitka? We compiled `disk-usage` - once with `pyinstaller` and once with Nuitka. The results led us to set Nuitka as the standard compiler (sorted by runtime as of 2024-12-23):
+Free code signing is provided by [SignPath.io](https://signpath.io) under
+the open-source program, with a certificate issued by the
+[SignPath Foundation](https://signpath.org) (thank you).
 
-```text
-! Platform    ! Py   ! Compiler    ! Type    ! Option1       ! Option2       ! Size in MB ! 500 runs (sec) ! VirusTotal !
-! ----------- ! ---- ! ----------- ! ------- ! ------------- ! ------------- ! ---------- ! -------------- ! ---------- !
-! Rocky 8     !  3.9 ! nuitka      ! mfiles  ! --standalone  !               ! 19.7       !  15.706        !            !
-! Rocky 8     !  3.9 ! pyinstaller ! mfiles  ! --onedir      ! --noupx       ! 13.7       !  19.392        !            !
-! WinSrv 2022 ! 3.12 ! nuitka+gcc  ! mfiles  ! --standalone  !               ! 23.4       !  29.570        !  4/72      !
-! WinSrv 2022 ! 3.12 ! nuitka+msvc ! mfiles  ! --standalone  !               ! 22.3       !  31.560        !  2/71      !
-! Rocky 8     !  3.9 ! nuitka      ! onefile ! --onefile     ! --standalone  !  7.9       !  33.339        !            !
-! Rocky 8     !  3.9 ! pyinstaller ! onefile ! --onefile     ! --noupx       !  6.4       !  45.838        !            !
-! WinSrv 2022 ! 3.12 ! pyinstaller ! mfiles  ! --onedir      !               ! 16.7       !  51.476        ! 13/71      !
-! WinSrv 2022 ! 3.12 ! nuitka+gcc  ! onefile ! --onefile     ! --standalone  !  6.83      ! 243.167        ! 24/71      !
-! WinSrv 2022 ! 3.12 ! nuitka+msvc ! onefile ! --onefile     ! --standalone  !  6.67      ! 253.006        ! 15/72      !
-! WinSrv 2022 ! 3.12 ! pyinstaller ! onefile ! --onefile     !               ! 17.1       ! 462.180        !  7/72      !
+Signed files are `.dll`, `.exe`, `.pyd` and `.msi`. Two SignPath
+`artifact-configuration-slug`s are used:
+
+* `compiled`: the ZIP of Nuitka-built plugin directories.
+* `packaged`: the final MSI.
+
+Both use the `release-signing` policy. The SignPath project is
+`monitoring-plugins` under organization-id
+`35067665-5434-42c5-9fa2-4c750069f161`. The workflow waits for SignPath to
+return each signed artifact before proceeding.
+
+
+### Reproducing a Release Build Locally
+
+Compiling a single plugin on a Windows developer box is supported. Producing
+the final MSI locally is not: the workflow drives SignPath, and signing
+requires the Linuxfabrik project credentials.
+
+Prerequisites:
+
+* **Git Bash** (the `build/*.sh` scripts assume bash).
+* **Python 3.13**, on `PATH` as `python3`.
+* **Visual Studio 2022 Build Tools** (supplies MSVC, required by Nuitka
+  `--msvc=latest`).
+* `python3 -m pip install --upgrade ordered-set Nuitka`.
+* `python3 -m pip install --require-hashes --requirement requirements-windows.txt`
+  from the monitoring-plugins repository root.
+* The plugin must carry a `.windows` marker file. Plugins without it are
+  skipped by `compile-one.sh`.
+
+To compile one plugin:
+
+```bash
+export LFMP_DIR_REPOS=/c/Users/<you>/lfmp/repos
+export LFMP_DIR_COMPILED=/c/Users/<you>/lfmp/compiled
+mkdir -p "$LFMP_DIR_COMPILED"
+git clone https://github.com/Linuxfabrik/monitoring-plugins.git "$LFMP_DIR_REPOS/monitoring-plugins"
+
+bash "$LFMP_DIR_REPOS/monitoring-plugins/build/compile-one.sh" check-plugins cpu-usage
+# result: $LFMP_DIR_COMPILED/check-plugins/cpu-usage/ (unsigned)
 ```
 
-One-file compilation:
+For a full dry run of the compilation step, call
+`compile-multiple.sh` instead; it loops over every plugin the workflow would
+build. The MSI and the signing steps have no local fallback, so stop there.
 
-* Plugin will be slower (execution results in higher cpu load), but small.
-* Each plugin can be updated separately.
-* Best choice where size matters.
 
-Multiple-files compilation:
+## Appendix: Packaging Decisions
 
-* Plugin will be fast (3x compared to one file), but big.
-* You can't update just one plugin, you have to update all of them at once.
 
-On Windows, using Nuitka in onedir mode, a typical plugin will be 30MB plus 34MB of shared global libs, while in onefile mode it will be 16MB. 100 plugins result in 3.0 GB (onedir) versus 1.6 GB (onefile). We prefer speed over file size, especially on Windows, where plugins compiled with Nuitka in onedir mode are also likely to be killed by Windows Defender with a false positive Trojan:Win32 report. On Windows, gcc vs. msvc really makes no difference.
+### Why Rocky Linux Instead of Red Hat UBI
+
+According to [Types of container images](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/building_running_and_managing_containers/assembly_types-of-container-images_building-running-and-managing-containers#assembly_types-of-container-images_building-running-and-managing-containers),
+Red Hat Universal Base Images (UBI) are built from a subset of RHEL content.
+EPEL is installable because a subset of the CRB repo ships with UBI. If we
+need anything outside that subset, we have to buy a subscription or run the
+container on a subscribed host. Rocky Linux avoids that constraint and
+matches upstream RHEL closely enough for our purposes.
+
+
+### Why `docker.io/rockylinux/rockylinux` Instead of `docker.io/library/rockylinux`
+
+`docker.io/library/rockylinux` is not updated regularly: the Docker Official
+Images program has technical constraints that prevent Rocky Linux from
+publishing there. The project-maintained repository at
+[docker.io/rockylinux/rockylinux](https://hub.docker.com/r/rockylinux/rockylinux)
+is the current source of truth.
+
+
+### Distro Build Targets
+
+| Target OS    | Build container                                |
+| ------------ | ---------------------------------------------- |
+| Debian 11    | `docker.io/library/debian:11`                  |
+| Debian 12    | `docker.io/library/debian:12`                  |
+| Debian 13    | `docker.io/library/debian:13`                  |
+| RHEL 8       | `docker.io/rockylinux/rockylinux:8`            |
+| RHEL 9       | `docker.io/rockylinux/rockylinux:9`            |
+| RHEL 10      | `docker.io/rockylinux/rockylinux:10`           |
+| SLE 15       | `registry.suse.com/suse/sle15:15.5`            |
+| SLE 16       | `registry.suse.com/bci/bci-base:16.0`          |
+| Ubuntu 20.04 | `docker.io/library/ubuntu:20.04`               |
+| Ubuntu 22.04 | `docker.io/library/ubuntu:22.04`               |
+| Ubuntu 24.04 | `docker.io/library/ubuntu:24.04`               |
+| Ubuntu 26.04 | `docker.io/library/ubuntu:26.04`               |
+
+The SLE 15 package requires at least openSUSE Leap 15.5 or SLES 15 Service
+Pack 5 on the target host.
+
+
+### Why Nuitka Instead of PyInstaller (Windows)
+
+Benchmark, December 2024, compiling `disk-usage` with each tool and running
+it 500 times:
+
+| Platform    | Python | Build tool        | Mode           | Size (MB) | 500 runs (s) | VirusTotal |
+| ----------- | ------ | ----------------- | -------------- | --------- | ------------ | ---------- |
+| Rocky 8     | 3.9    | Nuitka            | `--standalone` | 19.7      | 15.706       |            |
+| Rocky 8     | 3.9    | PyInstaller       | `--onedir`     | 13.7      | 19.392       |            |
+| Rocky 8     | 3.9    | Nuitka            | `--onefile`    |  7.9      | 33.339       |            |
+| Rocky 8     | 3.9    | PyInstaller       | `--onefile`    |  6.4      | 45.838       |            |
+| WinSrv 2022 | 3.12   | Nuitka (msvc)     | `--standalone` | 22.3      | 31.560       |  2/71      |
+| WinSrv 2022 | 3.12   | Nuitka (gcc)      | `--standalone` | 23.4      | 29.570       |  4/72      |
+| WinSrv 2022 | 3.12   | PyInstaller       | `--onedir`     | 16.7      | 51.476       | 13/71      |
+| WinSrv 2022 | 3.12   | Nuitka (msvc)     | `--onefile`    |  6.67     | 253.006      | 15/72      |
+| WinSrv 2022 | 3.12   | Nuitka (gcc)      | `--onefile`    |  6.83     | 243.167      | 24/71      |
+| WinSrv 2022 | 3.12   | PyInstaller       | `--onefile`    | 17.1      | 462.180      |  7/72      |
+
+Takeaways:
+
+* **Nuitka `--standalone` is the fastest runtime option on both platforms**
+  (1.2x-1.7x over PyInstaller `--onedir`), at the cost of 30-45% more
+  on-disk size.
+* **Onefile builds pay a per-run self-extraction tax** that makes them 3x
+  to 10x slower than their onedir counterparts. For a plugin that runs
+  every 10-60 seconds, this is disqualifying.
+* **On Windows, Nuitka `--standalone` with MSVC has the lowest Windows
+  Defender / VirusTotal false-positive rate** we measured (2/71). gcc is
+  close behind (4/72). Onefile builds are flagged noticeably more often.
+
+The benchmark has not been re-run against Python 3.13 (our current build
+target); ratios there may have shifted.
+
+

@@ -449,9 +449,30 @@ See [BUILD](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/BUILD.md
 
 ## FAQ
 
-Q: **After an update, I get "Operational Error: no such column: ..., state UNKNOWN". On the next run, this disappears. What happened?**
+Q: **All pipe characters `|` in the output of any plugin are replaced with `!`. Why?**
 
-A: Some check plugins require SQLite database files to cache data or to calculate data over time. After an update it is possible that the check plugin uses a new schema, but the database file on disk hasn't been updated (we don't implement database migrations). So in case of an "OperationalError", which happens for example when the plugin tries to INSERT into an outdated table, the database library simply deletes the sqlite database file. It will then be recreated from scratch by the plugin on the next run, with the updated database structure.
+A: We have to. The output syntax of Nagios plugins is fixed and not very flexible:
+
+```
+Output lines | Performance data
+```
+
+So the `|` character is reserved to separate plugin output from performance data. There is no way to escape it - so we have to replace it with `!`.
+
+
+Q: **Can I overwrite specific plugins with its source code variant, if all other plugins are installed by the OS package manager?**
+
+A: Of course. Just don't forget to install the libs either.
+
+
+Q: **Do the OS packages have external dependencies?**
+
+A: No.
+
+
+Q: **Do the plugins also handle proxy environment variables like `HTTP_PROXY`?**
+
+A: Yes, `HTTP_PROXY`, `HTTPS_PROXY`, `http_proxy` and `https_proxy` are automatically used by the Linuxfabrik monitoring plugins if they are set.
 
 
 Q: **How can I remove the performance data after the `|` from the check output?**
@@ -459,9 +480,21 @@ Q: **How can I remove the performance data after the `|` from the check output?*
 A: In Bash, use `/usr/lib64/nagios/plugins/check-command | cut -f1 -d'|'`
 
 
-Q: **Do the plugins also handle proxy environment variables like `HTTP_PROXY`?**
+Q: **Wondering about `/usr/lib64/nagios/plugins/` on Debian/Ubuntu?**
 
-A: Yes, `HTTP_PROXY`, `HTTPS_PROXY`, `http_proxy` and `https_proxy` are automatically used by the Linuxfabrik monitoring plugins if they are set.
+A: We are always using the path `/usr/lib64/nagios/plugins/` on all Linux OS, even if the original Nagios-package installs itself to `/usr/lib/nagios/plugins/`. This is because adding a command with `sudo` in Icinga Director, one needs to use the full path of the plugin. See the following [GitHub issue](https://github.com/Icinga/icingaweb2-module-director/issues/2123).
+
+
+## Troubleshooting
+
+Q: **A plugin exits UNKNOWN with `sudo: a password is required` or `not allowed to execute`.**
+
+A: The plugin needs elevated privileges (typical for `dmesg`, `disk-smart`, journald, and others) but the Icinga user has no sudo rule for it. Install the matching sudoers drop-in from `assets/sudoers/` (`Debian.sudoers` or `RedHat.sudoers`) into `/etc/sudoers.d/`, as described in the Post-Install section of [INSTALL.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/INSTALL.md). The RPM and DEB packages already drop this in for you.
+
+
+Q: **After an update, I get "Operational Error: no such column: ..., state UNKNOWN". On the next run, this disappears. What happened?**
+
+A: Some check plugins require SQLite database files to cache data or to calculate data over time. After an update it is possible that the check plugin uses a new schema, but the database file on disk hasn't been updated (we don't implement database migrations). So in case of an "OperationalError", which happens for example when the plugin tries to INSERT into an outdated table, the database library simply deletes the sqlite database file. It will then be recreated from scratch by the plugin on the next run, with the updated database structure.
 
 
 Q: **Icinga does not seem to pass the environment variable `http_proxy` to the plugins. What am i doing wrong?**
@@ -487,20 +520,14 @@ Pro tips:
 * Environment variables with the same name in both `/etc/environment` and `/etc/icinga2/icinga2.conf` will be overwritten by `/etc/icinga2/icinga2.conf`.
 
 
-Q: **All pipe characters `|` in the output of any plugin are replaced with `!`. Why?**
-
-A: We have to. The output syntax of Nagios plugins is fixed and not very flexible:
-
-```
-Output lines | Performance data
-```
-
-So the `|` character is reserved to separate plugin output from performance data. There is no way to escape it - so we have to replace it with `!`.
-
-
 Q: **Negative values for plugin arguments cause problems in Icinga.**
 
 A: As of 2024-11, Icinga still passes parameter values to plugins without a leading `=`. This causes plugins to assume that parameters starting with negative values are additional but unknown arguments. In Icinga this can be avoided by prefixing the first minus sign of a value with a backslash `\`, which is later removed by the [base.py](https://github.com/Linuxfabrik/lib/blob/main/base.py) library (v2024112001+, v2.0.0.0+). So just use `\-60` or `\-60:-3600` instead of `-60` or `-60:-3600` (see [#789](https://github.com/Linuxfabrik/monitoring-plugins/issues/789)).
+
+
+Q: **On Windows, some plugins result in `0x80070005 (E_ACCESSDENIED)`.**
+
+A: When using the plugins in Icinga: [According to the Icinga documentation](https://icinga.com/docs/icinga-2/latest/doc/06-distributed-monitoring/#agent-setup-on-windows-configuration-wizard) the Icinga Agent runs as the `Network Service` user by default. This may result in `0x80070005 (E_ACCESSDENIED)` messages for some plugins. In this case, [use JEA Profiles for Icinga for Windows](https://icinga.com/docs/icinga-for-windows/latest/doc/130-JEA/01-JEA-Profiles/) and see [installing JEA for Windows](https://icinga.com/docs/icinga-for-windows/latest/doc/130-JEA/02-Installation/).
 
 
 Q: **On Windows, sometimes Windows Defender randomly kills a plugin. Why?**
@@ -510,24 +537,4 @@ A: Depending on your signature versions or the healthiness of your signature cac
 1. Open command prompt as administrator and change directory to `c:\program files\windows defender`
 2. Run `MpCmdRun.exe -removedefinitions -dynamicsignatures`
 3. Run `MpCmdRun.exe -SignatureUpdate`
-
-
-Q: **Do the OS packages have external dependencies?**
-
-A: No.
-
-
-Q: **Can I overwrite specific plugins with its source code variant, if all other plugins are installed by the OS package manager?**
-
-A: Of course. Just don't forget to install the libs either.
-
-
-Q: **Wondering about `/usr/lib64/nagios/plugins/` on Debian/Ubuntu?**
-
-A: We are always using the path `/usr/lib64/nagios/plugins/` on all Linux OS, even if the original Nagios-package installs itself to `/usr/lib/nagios/plugins/`. This is because adding a command with `sudo` in Icinga Director, one needs to use the full path of the plugin. See the following [GitHub issue](https://github.com/Icinga/icingaweb2-module-director/issues/2123).
-
-
-Q: **On Windows, some plugins result in `0x80070005 (E_ACCESSDENIED)`.**
-
-A: When using the plugins in Icinga: [According to the Icinga documentation](https://icinga.com/docs/icinga-2/latest/doc/06-distributed-monitoring/#agent-setup-on-windows-configuration-wizard) the Icinga Agent runs as the `Network Service` user by default. This may result in `0x80070005 (E_ACCESSDENIED)` messages for some plugins. In this case, [use JEA Profiles for Icinga for Windows](https://icinga.com/docs/icinga-for-windows/latest/doc/130-JEA/01-JEA-Profiles/) and see [installing JEA for Windows](https://icinga.com/docs/icinga-for-windows/latest/doc/130-JEA/02-Installation/).
 

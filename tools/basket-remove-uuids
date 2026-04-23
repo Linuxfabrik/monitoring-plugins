@@ -10,17 +10,25 @@
 
 """Strip the `uuid` fields from an Icinga Director basket JSON.
 
-Linuxfabrik runs a forked Icinga Director that keeps uuids in its
-exported baskets. The upstream Director rejects imports that
-contain them, so users who install against upstream need a version
-of the basket without uuids. This tool reads a basket, walks every
-top-level object (and the embedded `services` inside service
-sets), drops every `uuid` key it finds and writes the result back
-to a new file.
+Upstream Icinga Director supports uuids in baskets since v1.9.0
+(2022), so the default workflow (`tools/basket-join` -> `icingacli
+director basket restore`) already produces a file that imports
+cleanly on any currently supported Director version. This tool
+exists for the edge cases where uuids still get in the way:
 
-Run as the second step of the "build a basket for upstream
-Director" pipeline, after `tools/basket-join` has produced the
-combined basket:
+  * pre-v1.9 Director installations that do not understand uuids,
+  * reimports where a uuid in the basket collides with a different
+    object that already owns that uuid in the target database.
+
+It reads a basket, walks every top-level object (and the embedded
+`services` inside service sets), drops every `uuid` key it finds
+and writes the result back to a new file. Trade-off: without uuids
+the Director falls back to name-based object matching, so you lose
+the ability to rename a Datafield while preserving the values
+already set on hosts and services. Prefer the default path unless
+you hit an actual import error.
+
+Run after `tools/basket-join`:
 
     tools/basket-join
     tools/basket-remove-uuids \\
@@ -35,11 +43,12 @@ from pathlib import Path
 import _basket
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041301'
+__version__ = '2026042301'
 
-DESCRIPTION = """Strip the `uuid` fields from an Icinga Director basket JSON so it can be
-imported into a Director that uses the upstream schema. Linuxfabrik uses a forked Director
-that keeps uuids; the upstream version does not, and rejects imports that contain them."""
+DESCRIPTION = """Strip the `uuid` fields from an Icinga Director basket JSON. Upstream Director
+accepts uuids since v1.9.0, so this is only needed for pre-v1.9 installations or to work
+around reimports where a uuid in the basket collides with a different object already in
+the target database."""
 
 
 def parse_args():

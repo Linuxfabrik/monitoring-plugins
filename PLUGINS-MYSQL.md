@@ -1,58 +1,94 @@
-# Notes on all mysql Plugins
+# MySQL Plugins
 
-## PyMySQL
+The MySQL plugins talk to any MySQL or MariaDB server over the standard
+protocol. They read credentials from a MySQL option file (`.my.cnf`) instead
+of taking them on the command line, which keeps passwords out of process
+listings and the monitoring host's shell history.
 
-If you are running the mysql-\* plugins in the source variant on RHEL 7+, you can install the Python MySQL Connector with `python3 -m pip install pymysql`.
+
+## Plugins in this group
+
+* `mysql-aria`: MariaDB Aria storage engine counters.
+* `mysql-binlog-cache`: binlog cache hit/miss rate.
+* `mysql-connections`: current and max connections.
+* `mysql-database-metrics`: per-database size and object counts.
+* `mysql-innodb-buffer-pool-instances`: InnoDB buffer-pool instance count.
+* `mysql-innodb-buffer-pool-size`: InnoDB buffer-pool sizing vs. hit rate.
+* `mysql-innodb-log-waits`: InnoDB log wait rate.
+* `mysql-joins`: joins without indexes.
+* `mysql-logfile`: grep-like pattern check against the MySQL error log.
+* `mysql-memory`: server memory metrics.
+* `mysql-open-files`: open-files vs. `open_files_limit`.
+* `mysql-perf-metrics`: general performance counters.
+* `mysql-query`: run an arbitrary SQL query and alert on the returned value.
+* `mysql-replica-status`: replica status for asynchronous replication.
+* `mysql-slow-queries`: slow-query counter and rate.
+* `mysql-sorts`: sort counters.
+* `mysql-storage-engines`: which storage engines are in use.
+* `mysql-system`: server uptime and basic stats.
+* `mysql-table-cache`: `table_open_cache` hit rate.
+* `mysql-table-definition-cache`: `table_definition_cache` hit rate.
+* `mysql-table-indexes`: tables without primary keys.
+* `mysql-table-locks`: table-lock waits.
+* `mysql-temp-tables`: on-disk vs. in-memory temp tables.
+* `mysql-thread-cache`: thread-cache hit rate.
+* `mysql-traffic`: bytes sent and received.
+* `mysql-user-security`: accounts without password, wildcard hosts, etc.
+* `mysql-version`: installed MySQL/MariaDB version, EOL check.
 
 
 ## Authentication
 
-Specifying a password on the command line should be considered insecure. To avoid giving the password on the command line, use an option file. For example, on Unix, you can list your credentials in the \[client\] section of the `.my.cnf` file in your home directory:
+Specifying a password on the command line is insecure: it shows up in
+`ps auxf` and in shell history. Use a MySQL option file instead.
+
+A minimal option file (typically `~/.my.cnf` of the user running the plugins,
+e.g. `/var/spool/icinga2/.my.cnf` on Icinga):
 
 ```text
 [client]
+user = monitoring
 password = linuxfabrik
 ```
 
-To keep the password safe, the file should not be accessible to anyone but yourself. To ensure this, set the file access mode to `400` or `600`. For example:
+Restrict the file's permissions so no one else can read it:
 
 ```bash
-chmod 0400 .my.cnf
+chmod 0400 /var/spool/icinga2/.my.cnf
+chown icinga:icinga /var/spool/icinga2/.my.cnf
 ```
 
-To name from the command line a specific option file containing the password, use the `--defaults-file=file_name` option, where `file_name` is the full path name to the file. For example:
+Point the plugin at the file with `--defaults-file`:
 
 ```bash
 ./mysql-aria --defaults-file=/var/spool/icinga2/.my.cnf
 ```
 
+PyMySQL is used for the connection and is packaged with the RPM and DEB
+builds. For source-installed plugins, install it into the user's venv:
 
-## Locations
+```bash
+python3 -m pip install pymysql
+```
 
-Recommendations where to store credentials:
 
-1.  `$HOME/.my.cnf` file, where `$HOME` is the home directory of the user running the plugins, for example `/var/spool/icinga2/.my.cnf`
-2.  `/etc/my.cnf.d/icinga.cnf`, where `icinga.cnf` is the name of your monitoring software
+## Recommended option-file locations
 
-Not recommended:
+1. `$HOME/.my.cnf` of the user running the plugins. Typical paths:
+   `/var/spool/icinga2/.my.cnf` (Icinga), `/var/lib/nagios/.my.cnf` (Nagios).
+2. `/etc/my.cnf.d/icinga.cnf` for a site-wide Icinga-only secret. Use a file
+   name that names its consumer, not `client.cnf`.
+
+Avoid these, they leak credentials to every MySQL client on the host:
 
 * `/etc/my.cnf.d/client.cnf`
 * `/etc/my.cnf`
 
 
-## Option File Examples
+## Option-file example with all supported options
 
-The name of the group/section defaults to `client` and can be changed using the `--defaults-group` parameter of the mysql-\* monitoring plugins.
-
-Minimal working example to connect to localhost:
-
-```text
-[client]
-user = root
-password = linuxfabrik
-```
-
-Full fledged example with all supported options:
+The plugins read the `[client]` group by default. Use `--defaults-group` to
+pick a different group name.
 
 ```text
 [client]
@@ -61,32 +97,58 @@ password = linuxfabrik
 host = 127.0.0.1
 port = 3306
 
-# Database to use, None to not use a particular one.
-database = 
+# Database to use, leave empty to not pick one.
+database =
 
-# Use a unix socket rather than TCP/IP
+# Connect through a UNIX socket instead of TCP/IP.
 unix_socket = /var/lib/mysql/mysql.sock
 
-# When the client has multiple network interfaces, specify
-# the interface from which to connect to the host. Argument can be
-# a hostname or an IP address.
-bind_address = 
+# Bind to a specific local interface (hostname or IP address).
+bind_address =
 
-# Charset to use.
-charset = 
+# Charset for the connection.
+charset =
 
-# The path name of the Certificate Authority (CA) certificate file in PEM format.
-# The file contains a list of trusted SSL Certificate Authorities. 
-ssl-ca = 
-# The path name of the directory that contains trusted SSL Certificate Authority (CA)
-# certificate files in PEM format.
-ssl-capath = 
-# The path name of the server SSL public key certificate file in PEM format. 
-ssl-cert = 
-# The path name of the server SSL private key file in PEM format. For better security,
-# use a certificate with an RSA key size of at least 2048 bits. 
-ssl-key = 
-# The list of permissible ciphers for connection encryption. If no cipher in the list is
-# supported, encrypted connections do not work. 
-ssl-cipher = 
+# Path to the CA certificate file (PEM) used to verify the server.
+ssl-ca =
+# Directory of CA certificate files (PEM).
+ssl-capath =
+# Client certificate (PEM).
+ssl-cert =
+# Client private key (PEM), >= 2048 bits RSA recommended.
+ssl-key =
+# Allowed ciphers.
+ssl-cipher =
 ```
+
+
+## Common parameters
+
+Shared across all MySQL plugins (run `<plugin> --help` for the full list):
+
+* `--defaults-file`: path to the option file.
+* `--defaults-group`: option-file group to read. Default `client`.
+* `--timeout`: network/query timeout.
+
+Thresholds (`--warning` / `--critical`) and plugin-specific selectors are per
+plugin — check the individual READMEs.
+
+
+## Service Sets in the Icinga Director Basket
+
+The shipped basket slices MySQL monitoring into six Service Sets, each
+activated by its own tag on the host. Pick the subset that fits the server's
+role; activate several sets on the same host when appropriate.
+
+* **MySQL Service Set**: baseline health (connections, memory, uptime,
+  version). Activate for every monitored MySQL/MariaDB server.
+* **MySQL InnoDB Service Set**: InnoDB-specific counters (buffer pool, log
+  waits). For servers using InnoDB as the main engine.
+* **MySQL Metrics Service Set**: query-level metrics (joins, sorts, slow
+  queries, temp tables, thread and table caches).
+* **MySQL Replication Service Set**: replica health. Activate on asynchronous
+  replicas.
+* **MySQL Schemas Service Set**: per-database size and index quality
+  (database metrics, table indexes, table locks).
+* **MySQL Security Service Set**: account hygiene and the server-side error
+  log (`mysql-user-security`, `mysql-logfile`).
