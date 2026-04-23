@@ -7,6 +7,7 @@ Sends host notifications via email for Icinga/Nagios. Generates an HTML-formatte
 
 **Important Notes:**
 
+* Designed for use with the [Linuxfabrik Icinga Director Basket](icingaweb2-module-director/notify-host-mail.json). The basket wires every Icinga macro (`$host.state$`, `$host.display_name$`, `$notification.author$`, etc.) to the parameter names the plugin actually expects (`--host-state`, `--host-displayname`, `--notification-author`, ...). Icinga's stock ITL notification templates (`mail-host-notification` from `icinga2-common`) use different parameter names (`--hoststate`, `--hostdisplayname`, `--longdatetime`, ...) and will not work with this plugin. If you plug the plugin directly into the stock ITL template, `argparse` fails with "the following arguments are required: ..." because the names do not match. Import the basket into Icinga Director instead.
 * Use the `--short` parameter to create a short message without a subject, for example for sending to a SMS relay service.
 
 **Data Collection:**
