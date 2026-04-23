@@ -81,7 +81,6 @@ Build, CI/CD:
 * ICINGA: rewritten. Covers what the basket ships, tag-based service assignment, upstream-vs-fork positioning, onboarding a host, upgrade via `basket-compare`, and troubleshooting (upload size limits, UUID conflicts, non-default master zone)
 * INSTALL: rewritten. All install paths on one page with per-distro sections (Debian, RHEL, SLE, Ubuntu) and Linux-before-Windows ordering. `repo.linuxfabrik.ch` and `download.linuxfabrik.ch` now link to the docs instead of duplicating the commands
 * PLUGINS-KEYCLOAK, PLUGINS-MYSQL, PLUGINS-ROCKETCHAT, PLUGINS-WILDFLY: rewritten. Keycloak clarifies that the `query-groups` role is a client role of the `master-realm` client (not a realm role, verified against Keycloak 26.6) and updates the Admin Console navigation. Rocket.Chat now has separate instructions for Enterprise Edition and Community Edition (custom roles are EE only)
-* README: FAQ split into FAQ (concepts, design decisions, capability questions) and Troubleshooting (runtime errors), both sorted alphabetically. New Troubleshooting entry for plugins exiting UNKNOWN with sudo errors
 * Windows MSI no longer depends on an installed Icinga2 agent (install path unchanged: `ProgramFiles64Folder/ICINGA2/sbin/linuxfabrik`)
 
 

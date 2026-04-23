@@ -119,6 +119,27 @@ git clone git@github.com:Linuxfabrik/monitoring-plugins.git
 ```
 
 
+### Directory Layout
+
+Each plugin lives in its own directory and follows the same structure:
+
+```text
+└── plugin-name
+    ├── assets                      Additional resources, for example helper scripts like monitoring.php
+    ├── grafana                     Grafana dashboard definition
+    ├── icingaweb2-module-director  Icinga Director basket definition
+    ├── icingaweb2-module-grafana   Grafana panel definition for Icinga's Grafana module
+    ├── icon                        SVG icon for Web GUIs
+    ├── lib                         Link to the Linuxfabrik Python libraries
+    ├── unit-test                   Files for unit tests
+    │   ├── retc                    Files for simulating return codes
+    │   ├── stdin                   Files for simulating input to STDIN
+    │   ├── stdout                  Files for simulating output to STDOUT
+    │   └── run                     The unit test
+    └── plugin-name                 The monitoring plugin
+```
+
+
 ### Deliverables
 
 Checklist:
