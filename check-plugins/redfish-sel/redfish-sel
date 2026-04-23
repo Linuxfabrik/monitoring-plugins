@@ -24,11 +24,12 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026042301'
+__version__ = '2026042302'
 
 DESCRIPTION = """Checks the System Event Log (SEL) of Redfish-compatible servers via the Redfish API.
 Alerts based on the severity of log entries. Entries can be filtered by regex."""
 
+API_BASE = '/redfish/v1'
 DEFAULT_INSECURE = True
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 8
@@ -121,19 +122,15 @@ def main():
     if args.TEST is None:
         if not args.URL.startswith('http'):
             lib.base.cu('--url parameter has to start with "http://" or https://".')
-
-        # Authorization (if needed)
-        header = {}
-        header['Accept'] = 'application/json'
+        header = {'Accept': 'application/json'}
         if args.USERNAME and args.PASSWORD:
             auth = f'{args.USERNAME}:{args.PASSWORD}'
             encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
             header['Authorization'] = f'Basic {encoded_auth}'
-
-        # get the vendor to know which entry point to use
+        # service root: figure out the vendor to pick the entry point
         result = lib.base.coe(
             lib.url.fetch_json(
-                f'{args.URL}/redfish/v1/',
+                f'{args.URL}{API_BASE}/',
                 header=header,
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
@@ -141,13 +138,11 @@ def main():
             )
         )
         vendor = lib.redfish.get_vendor(result)
-
         entry_point = 'Systems' if vendor == 'supermicro' else 'Managers'
-
-        # Entry point: Get the main data
+        # Entry point: the Managers (or Systems for Supermicro) collection
         result = lib.base.coe(
             lib.url.fetch_json(
-                f'{args.URL}/redfish/v1/{entry_point}',
+                f'{args.URL}{API_BASE}/{entry_point}',
                 header=header,
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
@@ -180,6 +175,8 @@ def main():
     # init some vars
     msg = ''
     state = STATE_OK
+    perfdata = ''
+    member_count = 0
 
     if vendor == 'generic':
         sel_path = '/LogServices/Log/Entries'
@@ -202,8 +199,8 @@ def main():
     else:
         sel_path = ''
 
-    member_count = 0
-    # fetch and analyze data by following the "Members" found
+    # analyze data: follow each "Member" link and aggregate the SEL entries'
+    # severity into `state`.
     for member in result.get('Members', []):
         if not sel_path:
             continue
@@ -242,7 +239,7 @@ def main():
         msg = (f'Everything is ok, checked SEL on {member_count} {members}.\n\n') + msg
 
     # over and out
-    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026042302'
+__version__ = '2026042303'
 
 DESCRIPTION = """Checks the state of all physical drives and their storage controllers in a
 Redfish-compatible server via the Redfish API. Alerts when any drive or storage controller
@@ -32,6 +32,7 @@ reports a degraded or failed state. System-level health (processors, BIOS, power
 indicator LED, etc.) is deliberately ignored by this check so that a system warning unrelated
 to storage does not mask the drive status; use `redfish-system` for that."""
 
+API_BASE = '/redfish/v1'
 DEFAULT_INSECURE = True
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 8
@@ -132,7 +133,7 @@ def main():
         # Entry point: the Systems collection
         result = lib.base.coe(
             lib.url.fetch_json(
-                f'{args.URL}/redfish/v1/Systems',
+                f'{args.URL}{API_BASE}/Systems',
                 header=header,
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,

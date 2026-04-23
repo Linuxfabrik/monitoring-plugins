@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026042301'
+__version__ = '2026042302'
 
 DESCRIPTION = """Checks the overall system health reported by a Redfish-compatible server via the
 Redfish API. Reports every enabled system member with its identification (manufacturer, model,
@@ -32,6 +32,7 @@ hostname, SKU, serial number), compute summary (processors, BIOS version, power 
 indicator LED) and rolled-up health status, and alerts whenever any system's status leaves
 `OK`. Use `redfish-drives` for drive- and storage-controller-specific monitoring."""
 
+API_BASE = '/redfish/v1'
 DEFAULT_INSECURE = True
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 8
@@ -132,7 +133,7 @@ def main():
         # Entry point: the Systems collection
         result = lib.base.coe(
             lib.url.fetch_json(
-                f'{args.URL}/redfish/v1/Systems',
+                f'{args.URL}{API_BASE}/Systems',
                 header=header,
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
