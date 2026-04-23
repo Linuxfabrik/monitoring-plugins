@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+# The plugin appends `-systems` (collection) and `-system` (member)
+# to the --test path as it walks the Redfish API, so each scenario
+# requires two fixture files: `<name>-systems` and `<name>-system`.
+TESTS = [
+    {
+        'id': 'ok-healthy-server',
+        'test': 'stdout/healthy-server,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok, checked system health on 1 member.'],
+    },
+    {
+        'id': 'warn-warning-system',
+        'test': 'stdout/warning-system,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['[WARNING]'],
+    },
+    {
+        'id': 'crit-critical-system',
+        'test': 'stdout/critical-system,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['[CRITICAL]'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../redfish-system'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

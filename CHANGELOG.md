@@ -81,6 +81,7 @@ Build, CI/CD:
 * ICINGA: rewritten. Covers what the basket ships, tag-based service assignment, upstream-vs-fork positioning, onboarding a host, upgrade via `basket-compare`, and troubleshooting (upload size limits, UUID conflicts, non-default master zone)
 * INSTALL: rewritten. All install paths on one page with per-distro sections (Debian, RHEL, SLE, Ubuntu) and Linux-before-Windows ordering. `repo.linuxfabrik.ch` and `download.linuxfabrik.ch` now link to the docs instead of duplicating the commands
 * PLUGINS-KEYCLOAK, PLUGINS-MYSQL, PLUGINS-ROCKETCHAT, PLUGINS-WILDFLY: rewritten. Keycloak clarifies that the `query-groups` role is a client role of the `master-realm` client (not a realm role, verified against Keycloak 26.6) and updates the Admin Console navigation. Rocket.Chat now has separate instructions for Enterprise Edition and Community Edition (custom roles are EE only)
+* README: extracted the "Thresholds and Ranges" reference into a dedicated [THRESHOLDS.md](THRESHOLDS.md), analog to UNITS.md
 * Windows MSI no longer depends on an installed Icinga2 agent (install path unchanged: `ProgramFiles64Folder/ICINGA2/sbin/linuxfabrik`)
 
 
@@ -111,6 +112,8 @@ Monitoring Plugins:
 * mysql-table-cache: README explains why `Table_open_cache_overflows` is not tracked ([#968](https://github.com/Linuxfabrik/monitoring-plugins/issues/968))
 * nextcloud-enterprise, nextcloud-version: `occ` no longer has to be executable; `php occ <cmd>` is invoked under the owner of `config/config.php`
 * php-status: default to `http://localhost/monitoring.php`, tolerate its absence
+* redfish-drives, redfish-sel, redfish-sensor, redfish-system: aligned to the example plugin (section comments, argparse ordering), all four now carry a `--test` hook for fixture-based unit tests. `redfish-sensor`'s `--insecure` default now matches the other three (`True`, since BMCs typically use self-signed certificates)
+* redfish-sel: fixture files under `unit-test/stdout/` renamed to scenario-descriptive names (`empty-sel-root`, `empty-sel-managers`, `empty-sel-sel` instead of `-v1*` appendages)
 * scanrootkit: exact per-symbol kernel symbol matching (fewer false positives on legit symbols that share a substring with a signature)
 * service: Windows services with a space in their technical name (e.g. `"RAS Telegraf"`) now match `--service`; clearer error when filtered out by `--starttype` ([#921](https://github.com/Linuxfabrik/monitoring-plugins/issues/921))
 * systemd-units-failed: failed unit names appear in the first output line for dashboard/SMS readability ([#967](https://github.com/Linuxfabrik/monitoring-plugins/issues/967))

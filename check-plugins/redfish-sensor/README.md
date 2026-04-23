@@ -37,8 +37,8 @@ Checks hardware sensor readings (temperature, voltage, fan speed, power) from th
 
 ```text
 usage: redfish-sensor [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                      [--password PASSWORD] [--timeout TIMEOUT] [--url URL]
-                      [--username USERNAME]
+                      [--password PASSWORD] [--test TEST] [--timeout TIMEOUT]
+                      [--url URL] [--username USERNAME]
 
 Checks hardware sensor readings (temperature, voltage, fan speed, power) from
 the Redfish Chassis collection via the Redfish API. Alerts when any sensor
@@ -51,6 +51,8 @@ options:
   --insecure           This option explicitly allows insecure SSL connections.
   --no-proxy           Do not use a proxy.
   --password PASSWORD  Redfish API password.
+  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
+                       stderr-file,expected-retc".
   --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
   --url URL            Redfish API URL. Default: https://localhost:5000
   --username USERNAME  Redfish API username.

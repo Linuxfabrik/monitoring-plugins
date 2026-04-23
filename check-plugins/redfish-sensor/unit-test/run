@@ -1,0 +1,44 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_OK
+
+# The plugin appends `-chassises` (Chassis collection), `-chassis` (member),
+# `-sensors` (Sensors collection), `-sensor-N` (each Sensor, indexed) and
+# `-thermal` (Thermal block) to the --test path as it walks the Redfish API.
+TESTS = [
+    {
+        'id': 'ok-healthy-chassis',
+        'test': 'stdout/healthy-chassis,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok, checked sensors on 1 member.',
+        ],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../redfish-sensor'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

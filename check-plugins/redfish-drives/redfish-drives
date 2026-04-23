@@ -12,17 +12,19 @@
 
 import argparse
 import base64
+import json
 import sys
 
 import lib.args
 import lib.base
+import lib.lftest
 import lib.redfish
 import lib.txt
 import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026042301'
+__version__ = '2026042302'
 
 DESCRIPTION = """Checks the state of all physical drives and their storage controllers in a
 Redfish-compatible server via the Redfish API. Alerts when any drive or storage controller
@@ -78,6 +80,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -112,25 +121,33 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    base_url = args.URL
-    if not args.URL.startswith('http'):
-        lib.base.cu('--url parameter has to start with "http://" or https://".')
-    header = {'Accept': 'application/json'}
-    if args.USERNAME and args.PASSWORD:
-        auth = f'{args.USERNAME}:{args.PASSWORD}'
-        encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
-        header['Authorization'] = f'Basic {encoded_auth}'
-    # "/redfish/v1/Systems"
-    url = f'{base_url}/redfish/v1/Systems'
-    result = lib.base.coe(
-        lib.url.fetch_json(
-            url,
-            header=header,
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            timeout=args.TIMEOUT,
+    if args.TEST is None:
+        if not args.URL.startswith('http'):
+            lib.base.cu('--url parameter has to start with "http://" or https://".')
+        header = {'Accept': 'application/json'}
+        if args.USERNAME and args.PASSWORD:
+            auth = f'{args.USERNAME}:{args.PASSWORD}'
+            encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
+            header['Authorization'] = f'Basic {encoded_auth}'
+        # Entry point: the Systems collection
+        result = lib.base.coe(
+            lib.url.fetch_json(
+                f'{args.URL}/redfish/v1/Systems',
+                header=header,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+            )
         )
-    )
+    else:
+        # do not call the API, put in test data. Each API call in the
+        # Redfish walk has an explicit fixture suffix, so the fixture
+        # file names describe what they contain (systems, system,
+        # storages, storage, drive-N).
+        test_base = args.TEST[0]
+        args.TEST[0] = f'{test_base}-systems'
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        result = json.loads(stdout)
     # "Members": [
     #     {
     #         "@odata.id": "/redfish/v1/Systems/437XR1138R2"
@@ -149,17 +166,21 @@ def main():
     # storage-controller health into `state`. System-level health is
     # deliberately not aggregated (see `redfish-system` for that).
     for member in result.get('Members', []):
-        # "/redfish/v1/Systems/437XR1138R2"
-        url = f'{base_url}{member["@odata.id"]}'
-        systems = lib.base.coe(
-            lib.url.fetch_json(
-                url,
-                header=header,
-                insecure=args.INSECURE,
-                no_proxy=args.NO_PROXY,
-                timeout=args.TIMEOUT,
+        if args.TEST is None:
+            # "/redfish/v1/Systems/437XR1138R2"
+            systems = lib.base.coe(
+                lib.url.fetch_json(
+                    f'{args.URL}{member["@odata.id"]}',
+                    header=header,
+                    insecure=args.INSECURE,
+                    no_proxy=args.NO_PROXY,
+                    timeout=args.TIMEOUT,
+                )
             )
-        )
+        else:
+            args.TEST[0] = f'{test_base}-system'
+            stdout, _, _ = lib.lftest.test(args.TEST)
+            systems = json.loads(stdout)
         systems = lib.redfish.get_systems(systems)
         if systems['Status_State'] not in ['Enabled', 'Quiesced']:
             continue
@@ -183,45 +204,57 @@ def main():
             msg += '\n\n'
             continue
 
-        # "/redfish/v1/Systems/437XR1138R2/Storage"
-        url = f'{base_url}{systems["Storage_@odata.id"]}'
-        storages = lib.base.coe(
-            lib.url.fetch_json(
-                url,
-                header=header,
-                insecure=args.INSECURE,
-                no_proxy=args.NO_PROXY,
-                timeout=args.TIMEOUT,
-            )
-        )
-        table_data = []
-        table_data_drive = []
-        for storage in storages.get('Members', []):
-            # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1"
-            url = f'{base_url}{storage["@odata.id"]}'
-            storage_data = lib.base.coe(
+        if args.TEST is None:
+            # "/redfish/v1/Systems/437XR1138R2/Storage"
+            storages = lib.base.coe(
                 lib.url.fetch_json(
-                    url,
+                    f'{args.URL}{systems["Storage_@odata.id"]}',
                     header=header,
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,
                     timeout=args.TIMEOUT,
                 )
             )
-
-            # get drives attached to the storage member
-            for drive in storage_data.get('Drives', []):
-                # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1/Drives/Disk.Bay.0:Enclosure.Internal.0-1:RAID.SL.7-1"
-                url = f'{base_url}{drive["@odata.id"]}'
-                drive_data = lib.base.coe(
+        else:
+            args.TEST[0] = f'{test_base}-storages'
+            stdout, _, _ = lib.lftest.test(args.TEST)
+            storages = json.loads(stdout)
+        table_data = []
+        table_data_drive = []
+        for storage in storages.get('Members', []):
+            if args.TEST is None:
+                # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1"
+                storage_data = lib.base.coe(
                     lib.url.fetch_json(
-                        url,
+                        f'{args.URL}{storage["@odata.id"]}',
                         header=header,
                         insecure=args.INSECURE,
                         no_proxy=args.NO_PROXY,
                         timeout=args.TIMEOUT,
                     )
                 )
+            else:
+                args.TEST[0] = f'{test_base}-storage'
+                stdout, _, _ = lib.lftest.test(args.TEST)
+                storage_data = json.loads(stdout)
+
+            # get drives attached to the storage member
+            for drive_idx, drive in enumerate(storage_data.get('Drives', [])):
+                if args.TEST is None:
+                    # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1/Drives/Disk.Bay.0"
+                    drive_data = lib.base.coe(
+                        lib.url.fetch_json(
+                            f'{args.URL}{drive["@odata.id"]}',
+                            header=header,
+                            insecure=args.INSECURE,
+                            no_proxy=args.NO_PROXY,
+                            timeout=args.TIMEOUT,
+                        )
+                    )
+                else:
+                    args.TEST[0] = f'{test_base}-drive-{drive_idx}'
+                    stdout, _, _ = lib.lftest.test(args.TEST)
+                    drive_data = json.loads(stdout)
                 drive_data = lib.redfish.get_systems_storage_drives(drive_data)
                 if drive_data['Status_State'] not in ['Enabled', 'Quiesced']:
                     continue

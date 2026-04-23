@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026042301'
 
 DESCRIPTION = """Checks the System Event Log (SEL) of Redfish-compatible servers via the Redfish API.
 Alerts based on the severity of log entries. Entries can be filtered by regex."""
@@ -155,13 +155,17 @@ def main():
             )
         )
     else:
-        # do not call the command, put in test data
-        args.TEST[0] += '-v1'
+        # do not call the API, put in test data. Each API call in the
+        # Redfish walk has an explicit fixture suffix, so the fixture
+        # file names describe what they contain (root, managers, sel)
+        # instead of being a string-appended chain.
+        test_base = args.TEST[0]
+        args.TEST[0] = f'{test_base}-root'
         stdout, _, _ = lib.lftest.test(args.TEST)
         result = json.loads(stdout)
         vendor = lib.redfish.get_vendor(result)
 
-        args.TEST[0] += '-managers'
+        args.TEST[0] = f'{test_base}-managers'
         stdout, _, _ = lib.lftest.test(args.TEST)
         result = json.loads(stdout)
 
@@ -216,12 +220,11 @@ def main():
                 )
             )
         else:
-            args.TEST[0] += '-vendor'
+            args.TEST[0] = f'{test_base}-sel'
             stdout, _, _ = lib.lftest.test(args.TEST)
             sel = json.loads(stdout)
         member_msg, member_state = lib.redfish.get_manager_logservices_sel_entries(sel)
         if member_msg:
-
             # build the message
             msg += f'{member["@odata.id"]}\n{member_msg}\n\n'
             state = lib.base.get_worst(state, member_state)

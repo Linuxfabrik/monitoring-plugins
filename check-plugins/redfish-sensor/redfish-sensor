@@ -12,23 +12,25 @@
 
 import argparse
 import base64
+import json
 import sys
 
 import lib.args
 import lib.base
+import lib.lftest
 import lib.redfish
 import lib.txt
 import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026042301'
 
 DESCRIPTION = """Checks hardware sensor readings (temperature, voltage, fan speed, power) from the
 Redfish Chassis collection via the Redfish API. Alerts when any sensor reports a
 non-ok state."""
 
-DEFAULT_INSECURE = False
+DEFAULT_INSECURE = True
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 8
 DEFAULT_URL = 'https://localhost:5000'
@@ -76,6 +78,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -109,29 +118,34 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    base_url = args.URL
-    if not args.URL.startswith('http'):
-        lib.base.cu('--url parameter has to start with "http://" or https://".')
-
-    # Authorization (if needed)
-    header = {}
-    header['Accept'] = 'application/json'
-    if args.USERNAME and args.PASSWORD:
-        auth = f'{args.USERNAME}:{args.PASSWORD}'
-        encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
-        header['Authorization'] = f'Basic {encoded_auth}'
-
-    # Entry point: Get the main data
-    url = f'{base_url}/redfish/v1/Chassis'
-    result = lib.base.coe(
-        lib.url.fetch_json(
-            url,
-            header=header,
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            timeout=args.TIMEOUT,
+    # fetch data
+    if args.TEST is None:
+        if not args.URL.startswith('http'):
+            lib.base.cu('--url parameter has to start with "http://" or https://".')
+        header = {'Accept': 'application/json'}
+        if args.USERNAME and args.PASSWORD:
+            auth = f'{args.USERNAME}:{args.PASSWORD}'
+            encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
+            header['Authorization'] = f'Basic {encoded_auth}'
+        # Entry point: the Chassis collection
+        result = lib.base.coe(
+            lib.url.fetch_json(
+                f'{args.URL}/redfish/v1/Chassis',
+                header=header,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+            )
         )
-    )
+    else:
+        # do not call the API, put in test data. Each API call in the
+        # Redfish walk has an explicit fixture suffix, so the fixture
+        # file names describe what they contain (chassises, chassis,
+        # sensors, sensor-N, thermal).
+        test_base = args.TEST[0]
+        args.TEST[0] = f'{test_base}-chassises'
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        result = json.loads(stdout)
     # "Members": [
     #     {
     #         "@odata.id": "/redfish/v1/Chassis/1U"
@@ -144,27 +158,32 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
-
     member_count = 0
-    # fetch and analyze data by following the "Members" found
+
+    # analyze data: follow each "Member" link, aggregate chassis,
+    # sensor and thermal health into `state`.
     for member in result.get('Members', []):
-        url = f'{base_url}{member["@odata.id"]}'  # "/redfish/v1/Chassis/1U"
-        chassis = lib.base.coe(
-            lib.url.fetch_json(
-                url,
-                header=header,
-                insecure=args.INSECURE,
-                no_proxy=args.NO_PROXY,
-                timeout=args.TIMEOUT,
+        if args.TEST is None:
+            # "/redfish/v1/Chassis/1U"
+            chassis = lib.base.coe(
+                lib.url.fetch_json(
+                    f'{args.URL}{member["@odata.id"]}',
+                    header=header,
+                    insecure=args.INSECURE,
+                    no_proxy=args.NO_PROXY,
+                    timeout=args.TIMEOUT,
+                )
             )
-        )
+        else:
+            args.TEST[0] = f'{test_base}-chassis'
+            stdout, _, _ = lib.lftest.test(args.TEST)
+            chassis = json.loads(stdout)
         chassis = lib.redfish.get_chassis(chassis)
         if chassis['Status_State'] not in ['Enabled', 'Quiesced']:
             continue
         member_count += 1
         chassis_state = lib.redfish.get_state(chassis)
         state = lib.base.get_worst(state, chassis_state)
-
 
         # build the message
         msg += 'Member:'
@@ -183,28 +202,36 @@ def main():
             msg += '\n\n'
             continue
 
-        url = f'{base_url}{chassis["Sensors_@odata.id"]}'
-        sensors = lib.base.coe(
-            lib.url.fetch_json(
-                url,
-                header=header,
-                insecure=args.INSECURE,
-                no_proxy=args.NO_PROXY,
-                timeout=args.TIMEOUT,
-            )
-        )
-        table_data = []
-        for sensor in sensors.get('Members', []):
-            url = f'{base_url}{sensor["@odata.id"]}'
-            sensor_data = lib.base.coe(
+        if args.TEST is None:
+            sensors = lib.base.coe(
                 lib.url.fetch_json(
-                    url,
+                    f'{args.URL}{chassis["Sensors_@odata.id"]}',
                     header=header,
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,
                     timeout=args.TIMEOUT,
                 )
             )
+        else:
+            args.TEST[0] = f'{test_base}-sensors'
+            stdout, _, _ = lib.lftest.test(args.TEST)
+            sensors = json.loads(stdout)
+        table_data = []
+        for sensor_idx, sensor in enumerate(sensors.get('Members', [])):
+            if args.TEST is None:
+                sensor_data = lib.base.coe(
+                    lib.url.fetch_json(
+                        f'{args.URL}{sensor["@odata.id"]}',
+                        header=header,
+                        insecure=args.INSECURE,
+                        no_proxy=args.NO_PROXY,
+                        timeout=args.TIMEOUT,
+                    )
+                )
+            else:
+                args.TEST[0] = f'{test_base}-sensor-{sensor_idx}'
+                stdout, _, _ = lib.lftest.test(args.TEST)
+                sensor_data = json.loads(stdout)
             sensor_data = lib.redfish.get_chassis_sensors(sensor_data)
             if sensor_data['Status_State'] not in ['Enabled', 'Quiesced']:
                 continue
@@ -235,16 +262,20 @@ def main():
             msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
 
         # get thermal values for the member
-        url = f'{base_url}{member["@odata.id"]}/Thermal'
-        thermal = lib.base.coe(
-            lib.url.fetch_json(
-                url,
-                header=header,
-                insecure=args.INSECURE,
-                no_proxy=args.NO_PROXY,
-                timeout=args.TIMEOUT,
+        if args.TEST is None:
+            thermal = lib.base.coe(
+                lib.url.fetch_json(
+                    f'{args.URL}{member["@odata.id"]}/Thermal',
+                    header=header,
+                    insecure=args.INSECURE,
+                    no_proxy=args.NO_PROXY,
+                    timeout=args.TIMEOUT,
+                )
             )
-        )
+        else:
+            args.TEST[0] = f'{test_base}-thermal'
+            stdout, _, _ = lib.lftest.test(args.TEST)
+            thermal = json.loads(stdout)
 
         # redundancy
         table_data = []
@@ -265,6 +296,7 @@ def main():
 
         msg += '\n\n'
 
+    # build the message
     members = lib.txt.pluralize('member', member_count)
     if state == STATE_CRIT:
         msg = (

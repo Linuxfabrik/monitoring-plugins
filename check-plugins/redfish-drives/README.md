@@ -38,8 +38,8 @@ Checks the state of all physical drives and their storage controllers in a Redfi
 
 ```text
 usage: redfish-drives [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                      [--password PASSWORD] [--timeout TIMEOUT] [--url URL]
-                      [--username USERNAME]
+                      [--password PASSWORD] [--test TEST] [--timeout TIMEOUT]
+                      [--url URL] [--username USERNAME]
 
 Checks the state of all physical drives and their storage controllers in a
 Redfish-compatible server via the Redfish API. Alerts when any drive or
@@ -55,6 +55,8 @@ options:
   --insecure           This option explicitly allows insecure SSL connections.
   --no-proxy           Do not use a proxy.
   --password PASSWORD  Redfish API password.
+  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
+                       stderr-file,expected-retc".
   --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
   --url URL            Redfish API URL. Default: https://localhost:5000
   --username USERNAME  Redfish API username.
