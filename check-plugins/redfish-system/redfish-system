@@ -24,11 +24,11 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026042301'
 
-DESCRIPTION = """Checks the state of all physical drives and their storage controllers in a
-Redfish-compatible server via the Redfish API. Alerts when any drive or storage controller
-reports a degraded or failed state. System-level health (processors, BIOS, power, temperature,
-indicator LED, etc.) is deliberately ignored by this check so that a system warning unrelated
-to storage does not mask the drive status; use `redfish-system` for that."""
+DESCRIPTION = """Checks the overall system health reported by a Redfish-compatible server via the
+Redfish API. Reports every enabled system member with its identification (manufacturer, model,
+hostname, SKU, serial number), compute summary (processors, BIOS version, power state,
+indicator LED) and rolled-up health status, and alerts whenever any system's status leaves
+`OK`. Use `redfish-drives` for drive- and storage-controller-specific monitoring."""
 
 DEFAULT_INSECURE = True
 DEFAULT_NO_PROXY = False
@@ -145,9 +145,9 @@ def main():
     perfdata = ''
     member_count = 0
 
-    # analyze data: follow each "Member" link, aggregate drive and
-    # storage-controller health into `state`. System-level health is
-    # deliberately not aggregated (see `redfish-system` for that).
+    # analyze data: follow each "Member" link and aggregate the rolled-up
+    # Redfish system `Status` into `state`. Drive and storage-controller
+    # health is covered by `redfish-drives`.
     for member in result.get('Members', []):
         # "/redfish/v1/Systems/437XR1138R2"
         url = f'{base_url}{member["@odata.id"]}'
@@ -164,132 +164,50 @@ def main():
         if systems['Status_State'] not in ['Enabled', 'Quiesced']:
             continue
         member_count += 1
+        systems_state = lib.redfish.get_state(systems)
+        state = lib.base.get_worst(state, systems_state)
 
-        # build the message: only identify the member (manufacturer, model,
-        # hostname, SKU, serial number). System-level health is intentionally
-        # not aggregated here and not labelled with a state; use
-        # `redfish-system` for that.
+        # build the message
         msg += 'Member:'
         msg += f' {systems["Manufacturer"]}' if systems['Manufacturer'] else ''
         msg += f' {systems["Model"]}' if systems['Model'] else ''
         msg += ', '
         msg += f'HostName: {systems["HostName"]}, ' if systems['HostName'] else ''
+        msg += f'Processors: {systems["ProcessorSummary_Count"]}x'
+        msg += (
+            f' {systems["ProcessorSummary_Model"]}'
+            if systems['ProcessorSummary_Model']
+            else ''
+        )
+        msg += (
+            f' ({systems["ProcessorSummary_LogicalProcessorCount"]} logical)'
+            if systems['ProcessorSummary_LogicalProcessorCount']
+            else ''
+        )
+        msg += ', '
+        msg += f'BIOS: {systems["BiosVersion"]}, '
+        msg += f'Power: {systems["PowerState"]}, ' if systems['PowerState'] else ''
+        msg += f'LED: {systems["IndicatorLED"]}, ' if systems['IndicatorLED'] else ''
         msg += f'SKU: {systems["SKU"]}, ' if systems['SKU'] else ''
         msg += f'SerNo: {systems["SerialNumber"]}, ' if systems['SerialNumber'] else ''
-        msg = msg[:-2]
-
-        # get all available storage links for the member
-        if not systems['Storage_@odata.id']:
-            msg += '\n\n'
-            continue
-
-        # "/redfish/v1/Systems/437XR1138R2/Storage"
-        url = f'{base_url}{systems["Storage_@odata.id"]}'
-        storages = lib.base.coe(
-            lib.url.fetch_json(
-                url,
-                header=header,
-                insecure=args.INSECURE,
-                no_proxy=args.NO_PROXY,
-                timeout=args.TIMEOUT,
-            )
-        )
-        table_data = []
-        table_data_drive = []
-        for storage in storages.get('Members', []):
-            # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1"
-            url = f'{base_url}{storage["@odata.id"]}'
-            storage_data = lib.base.coe(
-                lib.url.fetch_json(
-                    url,
-                    header=header,
-                    insecure=args.INSECURE,
-                    no_proxy=args.NO_PROXY,
-                    timeout=args.TIMEOUT,
-                )
-            )
-
-            # get drives attached to the storage member
-            for drive in storage_data.get('Drives', []):
-                # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1/Drives/Disk.Bay.0:Enclosure.Internal.0-1:RAID.SL.7-1"
-                url = f'{base_url}{drive["@odata.id"]}'
-                drive_data = lib.base.coe(
-                    lib.url.fetch_json(
-                        url,
-                        header=header,
-                        insecure=args.INSECURE,
-                        no_proxy=args.NO_PROXY,
-                        timeout=args.TIMEOUT,
-                    )
-                )
-                drive_data = lib.redfish.get_systems_storage_drives(drive_data)
-                if drive_data['Status_State'] not in ['Enabled', 'Quiesced']:
-                    continue
-                # is the storage_data state healthy at all?
-                drive_data_state = lib.redfish.get_state(drive_data)
-                state = lib.base.get_worst(state, drive_data_state)
-                drive_data['State'] = lib.base.state2str(
-                    drive_data_state, empty_ok=False
-                )
-                table_data_drive.append(drive_data)
-
-            storage_data = lib.redfish.get_systems_storage(storage_data)
-            if storage_data['Status_State'] not in ['Enabled', 'Quiesced']:
-                continue
-            # is the storage_data state healthy at all?
-            storage_data_state = lib.redfish.get_state(storage_data)
-            state = lib.base.get_worst(state, storage_data_state)
-            storage_data['State'] = lib.base.state2str(
-                storage_data_state, empty_ok=False
-            )
-            table_data.append(storage_data)
-
-        if table_data_drive:
-            keys = [
-                'Name',
-                'MediaType',
-                'Protocol',
-                'Manufacturer',
-                'Model',
-                'SerialNumber',
-                'CapacityBytes',
-                'PredictedMediaLifeLeftPercent',
-                'State',
-            ]
-            headers = [
-                'Disk',
-                'Type',
-                'Proto',
-                'Manufacturer',
-                'Model',
-                'SerialNumber',
-                'Size',
-                'LifeLeft %',
-                'State',
-            ]
-            msg += '\n\n' + lib.base.get_table(table_data_drive, keys, header=headers)
-
-        if table_data:
-            keys = ['Id', 'Name', 'Description', 'Drives@odata.count', 'State']
-            headers = ['ID', 'Name', 'Description', 'Drives', 'State']
-            msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
-
+        msg = msg[:-2] + lib.base.state2str(systems_state, prefix=' ')
         msg += '\n\n'
 
     # build the message
     members = lib.txt.pluralize('member', member_count)
     if state == STATE_CRIT:
         msg = (
-            f'Checked storage on {member_count} {members}.'
+            f'Checked system health on {member_count} {members}.'
             f' There are critical errors.\n\n'
         ) + msg
     elif state == STATE_WARN:
         msg = (
-            f'Checked storage on {member_count} {members}. There are warnings.\n\n'
+            f'Checked system health on {member_count} {members}.'
+            f' There are warnings.\n\n'
         ) + msg
     else:
         msg = (
-            f'Everything is ok, checked storage on {member_count} {members}.\n\n'
+            f'Everything is ok, checked system health on {member_count} {members}.\n\n'
         ) + msg
 
     # over and out

@@ -1,30 +1,30 @@
 {
     "Command": {
-        "cmd-check-redfish-drives": {
+        "cmd-check-redfish-system": {
             "arguments": {
                 "--always-ok": {
-                    "set_if": "$redfish_drives_always_ok$"
+                    "set_if": "$redfish_system_always_ok$"
                 },
                 "--insecure": {
-                    "set_if": "$redfish_drives_insecure$"
+                    "set_if": "$redfish_system_insecure$"
                 },
                 "--no-proxy": {
-                    "set_if": "$redfish_drives_no_proxy$"
+                    "set_if": "$redfish_system_no_proxy$"
                 },
                 "--password": {
-                    "value": "$redfish_drives_password$"
+                    "value": "$redfish_system_password$"
                 },
                 "--timeout": {
-                    "value": "$redfish_drives_timeout$"
+                    "value": "$redfish_system_timeout$"
                 },
                 "--url": {
-                    "value": "$redfish_drives_url$"
+                    "value": "$redfish_system_url$"
                 },
                 "--username": {
-                    "value": "$redfish_drives_username$"
+                    "value": "$redfish_system_username$"
                 }
             },
-            "command": "/usr/lib64/nagios/plugins/redfish-drives",
+            "command": "/usr/lib64/nagios/plugins/redfish-system",
             "disabled": false,
             "fields": [
                 {
@@ -66,20 +66,20 @@
             "imports": [],
             "is_string": null,
             "methods_execute": "PluginCheck",
-            "object_name": "cmd-check-redfish-drives",
+            "object_name": "cmd-check-redfish-system",
             "object_type": "object",
             "timeout": 30,
             "vars": {},
             "zone": null,
-            "uuid": "de66b251-7e94-452e-b9c9-1e475e022d6b"
+            "uuid": "2beffd7e-0f06-4aaf-8aec-7370119b72b2"
         }
     },
     "ServiceTemplate": {
-        "tpl-service-redfish-drives": {
+        "tpl-service-redfish-system": {
             "action_url": null,
             "apply_for": null,
             "assign_filter": null,
-            "check_command": "cmd-check-redfish-drives",
+            "check_command": "cmd-check-redfish-system",
             "check_interval": 300,
             "check_period": null,
             "check_timeout": null,
@@ -98,15 +98,15 @@
             "flapping_threshold_low": null,
             "groups": [],
             "host": null,
-            "icon_image": "redfish-drives.svg",
+            "icon_image": "redfish-system.svg",
             "icon_image_alt": null,
             "imports": [
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the state of all physical drives and their storage controllers in a Redfish-compatible server via the Redfish API. Alerts when any drive or storage controller reports a degraded or failed state. System-level health (processors, BIOS, power, temperature, indicator LED, etc.) is deliberately ignored by this check so that a system warning unrelated to storage does not mask the drive status; use `redfish-system` for that.",
-            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-drives/",
-            "object_name": "tpl-service-redfish-drives",
+            "notes": "Checks the overall system health reported by a Redfish-compatible server via the Redfish API. Reports every enabled system member with its identification (manufacturer, model, hostname, SKU, serial number), compute summary (processors, BIOS version, power state, indicator LED) and rolled-up health status, and alerts whenever any system's status leaves `OK`. Use `redfish-drives` for drive- and storage-controller-specific monitoring.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-system/",
+            "object_name": "tpl-service-redfish-system",
             "object_type": "template",
             "retry_interval": 30,
             "service_set": null,
@@ -115,21 +115,21 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "A",
-                "redfish_drives_always_ok": false,
-                "redfish_drives_insecure": true,
-                "redfish_drives_no_proxy": false,
-                "redfish_drives_timeout": 8,
-                "redfish_drives_url": "https://localhost:5000"
+                "redfish_system_always_ok": false,
+                "redfish_system_insecure": true,
+                "redfish_system_no_proxy": false,
+                "redfish_system_timeout": 8,
+                "redfish_system_url": "https://localhost:5000"
             },
             "volatile": null,
             "zone": null,
-            "uuid": "fce2217d-7980-42ed-8354-1c5ce126e6ab"
+            "uuid": "abf27c8e-04c4-4f29-84f1-0deb818dc3f9"
         },
-        "tpl-service-redfish-drives-no-agent": {
+        "tpl-service-redfish-system-no-agent": {
             "action_url": null,
             "apply_for": null,
             "assign_filter": null,
-            "check_command": "cmd-check-redfish-drives",
+            "check_command": "cmd-check-redfish-system",
             "check_interval": null,
             "check_period": null,
             "check_timeout": null,
@@ -151,12 +151,12 @@
             "icon_image": null,
             "icon_image_alt": null,
             "imports": [
-                "tpl-service-redfish-drives"
+                "tpl-service-redfish-system"
             ],
             "max_check_attempts": null,
             "notes": null,
             "notes_url": null,
-            "object_name": "tpl-service-redfish-drives-no-agent",
+            "object_name": "tpl-service-redfish-system-no-agent",
             "object_type": "template",
             "retry_interval": null,
             "service_set": null,
@@ -168,80 +168,80 @@
             },
             "volatile": null,
             "zone": null,
-            "uuid": "b832d4c7-201c-4e2c-807e-6c2a458dca0b"
+            "uuid": "201500b6-8ef8-45b4-bdd6-fb25de3a57af"
         }
     },
     "Datafield": {
         "1": {
-            "varname": "redfish_drives_always_ok",
-            "caption": "Redfish Drives: Always OK?",
+            "varname": "redfish_system_always_ok",
+            "caption": "Redfish System: Always OK?",
             "description": "Always returns OK.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
-            "uuid": "86f500da-cbff-478b-8c3b-49ce71ebc5b5"
+            "uuid": "ff307bd7-d03e-47ff-9f48-b9c745d367eb"
         },
         "2": {
-            "varname": "redfish_drives_insecure",
-            "caption": "Redfish Drives: Insecure?",
+            "varname": "redfish_system_insecure",
+            "caption": "Redfish System: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
-            "uuid": "70c21dbe-0a34-4f13-acf4-014a9da8e745"
+            "uuid": "fd5d152d-ba21-4c04-81a0-c56e5ede1e3c"
         },
         "3": {
-            "varname": "redfish_drives_no_proxy",
-            "caption": "Redfish Drives: No Proxy?",
+            "varname": "redfish_system_no_proxy",
+            "caption": "Redfish System: No Proxy?",
             "description": "Do not use a proxy.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
-            "uuid": "bce2a499-b0be-432c-805e-706f4ae33377"
+            "uuid": "9e85a7e3-e39b-48c6-9364-1f1d82b29c13"
         },
         "4": {
-            "varname": "redfish_drives_password",
-            "caption": "Redfish Drives: Password",
+            "varname": "redfish_system_password",
+            "caption": "Redfish System: Password",
             "description": "Redfish API password.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "hidden"
             },
-            "uuid": "77904e59-da06-4e8f-a17b-2a632985a6b1"
+            "uuid": "80c35e1f-f7cb-4fcb-b562-762cf72ba4be"
         },
         "5": {
-            "varname": "redfish_drives_timeout",
-            "caption": "Redfish Drives: Timeout",
+            "varname": "redfish_system_timeout",
+            "caption": "Redfish System: Timeout",
             "description": "Network timeout in seconds.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "59ca2c35-414e-4763-82e2-3b59c39524f6"
+            "uuid": "dbfe3a04-69b3-40b1-bbf1-4d816cbebbd7"
         },
         "6": {
-            "varname": "redfish_drives_url",
-            "caption": "Redfish Drives: URL",
+            "varname": "redfish_system_url",
+            "caption": "Redfish System: URL",
             "description": "Redfish API URL.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "a2f07a98-af67-482c-a037-669e8edf578b"
+            "uuid": "3040cb79-856b-4e6c-ac8d-7a1bbd025b36"
         },
         "7": {
-            "varname": "redfish_drives_username",
-            "caption": "Redfish Drives: Username",
+            "varname": "redfish_system_username",
+            "caption": "Redfish System: Username",
             "description": "Redfish API username.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "b2bd915d-f555-4258-bb09-83a3d9984f88"
+            "uuid": "b1775c93-3790-4f10-af9d-301c63c6e23c"
         }
     }
 }

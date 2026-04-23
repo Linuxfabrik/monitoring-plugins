@@ -52,6 +52,7 @@ Monitoring Plugins:
 * procs: add `--top N` to list the top N processes by CPU time and memory usage
 * procs: add `--lengthy` for extended `--top` table output
 * procs: add `--warning-cpu-percent` / `--critical-cpu-percent` for aggregated CPU usage of filtered processes
+* redfish-system: checks overall system health (processors, BIOS, power state, indicator LED, hostname, SKU, serial number) reported by a Redfish-compatible server, previously bundled into `redfish-drives` ([#652](https://github.com/Linuxfabrik/monitoring-plugins/issues/652))
 * scanrootkit: add 41 signatures for modern Linux rootkits, backdoors and implants (BPFDoor, Drovorub, Ebury, FontOnLake, Kaiji, Kobalos, perfctl, PUMAKIT, Reptile, Symbiote, Winnti for Linux, and more)
 * scanrootkit: findings now show the year the rootkit was first publicly disclosed when known
 * sensors-temperatures: add `--ignore` to filter sensors by regex ([#965](https://github.com/Linuxfabrik/monitoring-plugins/issues/965))
@@ -75,6 +76,11 @@ Assets:
 Build, CI/CD:
 
 * Bump pinned `linuxfabrik-lib` dependency from 3.0.0 to 3.2.0
+* GRAFANA: expanded guide. Documents the asset layout (per-plugin YAML, shared folder, default and Icinga dashboards), keeps the pinned Grizzly version at v0.2.0 (dashboards have not been validated against later releases), updates the Service Account navigation path to current Grafana, and adds an outlook section on the planned migration to `grafanactl` (tracked in [#1062](https://github.com/Linuxfabrik/monitoring-plugins/issues/1062))
+* PLUGINS-KEYCLOAK, PLUGINS-MYSQL, PLUGINS-ROCKETCHAT, PLUGINS-WILDFLY: rewritten with a unified structure (Plugins in this group, Authentication, Common parameters, Service Sets in the Icinga Director Basket). Keycloak corrects the role terminology (`query-groups` is a client role of the `master-realm` client, not a realm role of `master`; verified against Keycloak 26.6) and reflects the modern Admin Console navigation. Rocket.Chat now separates the Enterprise Edition and Community Edition paths (custom roles are EE only)
+* ICINGA: rewritten around the full-basket workflow. Adds sections on what the basket ships (Host/Service Templates, Service Sets, Time Periods, Notifications, Data Lists, Datafields), tag-based service assignment, upstream-vs-fork positioning, onboarding a host, upgrade-with-`basket-compare`, and troubleshooting (PHP/MySQL size limits, UUID conflicts, non-default master zone). Contributor-facing `build-basket` details remain in CONTRIBUTING.md
+* README: split the FAQ section into FAQ (concepts, design decisions, capability questions) and Troubleshooting (runtime errors); both lists sorted alphabetically. New Troubleshooting entry for plugins exiting UNKNOWN with sudo errors that points at the sudoers drop-in
+* INSTALL: rewritten as a single source of truth with a per-distro TOC (Debian, RHEL, SLE, Ubuntu), Linux before Windows, recommended paths first. Package-manager, Ansible, source tarball, Git, Windows MSI, Windows ZIP and Windows-from-source paths are now all documented on one page. `repo.linuxfabrik.ch` and `download.linuxfabrik.ch` link to the docs site instead of duplicating the commands
 * Windows MSI no longer depends on an installed Icinga2 agent (install path unchanged: `ProgramFiles64Folder/ICINGA2/sbin/linuxfabrik`)
 
 
@@ -172,6 +178,7 @@ Monitoring Plugins:
 * notify-host-mail, notify-service-mail: Icinga logo renders inline again on hosts with long FQDNs ([#790](https://github.com/Linuxfabrik/monitoring-plugins/issues/790))
 * ntp-\*: prevent `TypeError` when comparing int and str
 * podman-stats: precise numeric values; aggregate perfdata includes block and network I/O totals
+* redfish-drives: a system-level warning unrelated to storage (such as an inlet temperature threshold) no longer flips the check to WARN while all drives are healthy. The system-level health is covered by `redfish-system` instead ([#652](https://github.com/Linuxfabrik/monitoring-plugins/issues/652))
 * rocketchat-stats: crash when reporting the user count
 * scanrootkit: a single malformed signature file no longer crashes the whole check
 * scanrootkit: directory-only rootkit signatures (e.g. KBeast `/usr/_h4x_`, Kaiji `/usr/bin/lib`) are now actually evaluated
