@@ -402,12 +402,15 @@ class TestMacroFilenameExpansion(unittest.TestCase):
         shutil.copy(self.source_fixture, resolved_path)
         return resolved_path
 
-    def test_today_macro_expands_and_scan_reports_resolved_path(self):
-        iso_today = self.today.strftime('%Y-%m-%d')
-        resolved = self._seed(f'app-{iso_today}.log')
+    def test_today_macro_resolves_compact_when_only_compact_exists(self):
+        # Primary case: daily-rotated logfiles that use YYYYMMDD naming
+        # (Windows apps, many shell scripts) must be found by {today}
+        # without further configuration.
+        compact_today = self.today.strftime('%Y%m%d')
+        resolved = self._seed(f'app-{compact_today}.log')
         template = os.path.join(self.scratch_dir, 'app-{today}.log')
         testcase = {
-            'id': 'today-macro-expands',
+            'id': 'today-macro-resolves-compact',
             'test': f'{resolved},,0',
             'params': (
                 f'--filename={template} '
@@ -433,6 +436,55 @@ class TestMacroFilenameExpansion(unittest.TestCase):
             1,
             f'expected one state DB keyed off the template basename, found: {dbs}',
         )
+
+    def test_today_macro_falls_back_to_iso_when_compact_missing(self):
+        # Laravel-style `laravel-YYYY-MM-DD.log` names must also work.
+        iso_today = self.today.strftime('%Y-%m-%d')
+        resolved = self._seed(f'app-{iso_today}.log')
+        template = os.path.join(self.scratch_dir, 'app-{today}.log')
+        testcase = {
+            'id': 'today-macro-falls-back-to-iso',
+            'test': f'{resolved},,0',
+            'params': (
+                f'--filename={template} '
+                '--warning-regex=" WARNING " '
+                '--critical-regex=" ERROR "'
+            ),
+            'assert-retc': STATE_CRIT,
+            'assert-in': [
+                f'Scanned {resolved}',
+                "' WARNING ' (matched 1 line) [WARNING]",
+                "' ERROR ' (matched 1 line) [CRITICAL]",
+            ],
+        }
+        lib.lftest.run(self, self.check, testcase)
+
+    def test_today_macro_prefers_compact_over_iso_when_both_exist(self):
+        # If both files happen to exist side by side, the compact form
+        # wins because it matches what rotated logfiles typically look
+        # like in the wild.
+        compact_today = self.today.strftime('%Y%m%d')
+        iso_today = self.today.strftime('%Y-%m-%d')
+        compact_resolved = self._seed(f'app-{compact_today}.log')
+        iso_resolved = self._seed(f'app-{iso_today}.log')
+        template = os.path.join(self.scratch_dir, 'app-{today}.log')
+        testcase = {
+            'id': 'today-macro-prefers-compact',
+            'test': f'{compact_resolved},,0',
+            'params': (
+                f'--filename={template} '
+                '--warning-regex=" WARNING " '
+                '--critical-regex=" ERROR "'
+            ),
+            'assert-retc': STATE_CRIT,
+            'assert-in': [
+                f'Scanned {compact_resolved}',
+            ],
+            'assert-not-in': [
+                f'Scanned {iso_resolved}',
+            ],
+        }
+        lib.lftest.run(self, self.check, testcase)
 
     def test_strftime_components_expand(self):
         compact_today = self.today.strftime('%Y%m%d')

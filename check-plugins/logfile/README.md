@@ -25,7 +25,7 @@ object ApiUser "linuxfabrik-check-logfile" {
 
 **Data Collection:**
 
-* Expands time macros in `--filename` on every run, so logfiles whose name contains the current date (`laravel-{today}.log`, `{%Y}{%m}{%d}.log`, etc.) can be monitored directly. The state DB is keyed off the unexpanded template, so the read offset and pending matches carry over when the resolved filename changes on the next day and no wrapper script is needed.
+* Expands time macros in `--filename` on every run, so logfiles whose name contains the current date (`{today}.log`, `laravel-{today}.log`, `{%Y}{%m}{%d}.log`, etc.) can be monitored directly. For `{today}` and `{yesterday}`, the compact form (`YYYYMMDD`) is tried first and ISO 8601 (`YYYY-MM-DD`) is used as fallback, so both Windows-style and Laravel-style naming work without extra configuration. The state DB is keyed off the unexpanded template, so the read offset and pending matches carry over when the resolved filename changes on the next day and no wrapper script is needed.
 * Reads the logfile forward from the last known offset, only scanning new lines since the previous run
 * Detects logfile rotation by tracking the file's inode and size; resets to the beginning when rotation is detected
 * Uses SQLite state persistence to store the file offset and all matching lines between runs
@@ -66,8 +66,10 @@ on the number of matches found. Reads the file backwards from the end and
 supports Icinga acknowledgement integration to suppress repeated alerts for
 known issues. Configurable alarm duration limits how long matches trigger
 alerts. `--filename` accepts time macros, so logfiles whose name contains the
-current date (Laravel `laravel-YYYY-MM-DD.log`, Windows `YYYYMMDD.log`, etc.)
-can be monitored directly. Read offset and pending matches carry over when the
+current date (Windows `YYYYMMDD.log`, Laravel `laravel-YYYY-MM-DD.log`, etc.)
+can be monitored directly. `{today}` / `{yesterday}` resolve tolerantly:
+compact (`YYYYMMDD`) first, ISO 8601 (`YYYY-MM-DD`) as fallback if the compact
+file does not exist. Read offset and pending matches carry over when the
 filename changes on the next day, no wrapper script needed. Requires root or
 sudo.
 
@@ -88,10 +90,12 @@ options:
                         Any line matching this Python regex will count as a
                         critical. Can be specified multiple times.
   --filename FILENAME   Path to the logfile. Supports time macros that are
-                        expanded on every run: `{today}` / `{yesterday}`
-                        render as `YYYY-MM-DD`, `{%Y}`, `{%y}`, `{%m}`,
-                        `{%d}`, `{%H}`, `{%M}`, `{%S}` render the matching
-                        strftime component of the current time. Example:
+                        expanded on every run: `{today}` / `{yesterday}` first
+                        try the compact form `YYYYMMDD`, then fall back to
+                        `YYYY-MM-DD` if that file does not exist. `{%Y}`,
+                        `{%y}`, `{%m}`, `{%d}`, `{%H}`, `{%M}`, `{%S}` render
+                        the matching strftime component of the current time.
+                        Example: `C:\logs\{today}.log`. Example:
                         `/var/log/laravel/laravel-{today}.log`. Example:
                         `C:\logs\{%Y}{%m}{%d}.log`.
   --icinga-callback     Get the service acknowledgement from Icinga.
