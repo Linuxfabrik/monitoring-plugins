@@ -75,13 +75,7 @@ Assets:
 
 Build, CI/CD:
 
-* BUILD: rewritten. Covers the current Linux x86_64/aarch64 and Windows x86_64 build workflows, local reproduction on Ubuntu, per-plugin Nuitka compilation on a Windows developer host, Code Signing via SignPath, and the Nuitka-vs-PyInstaller rationale
 * Bump pinned `linuxfabrik-lib` dependency from 3.0.0 to 3.2.0
-* GRAFANA: expanded. Documents what the repo ships (per-plugin YAML, folder, default and Icinga dashboards), the Grizzly v0.2.0 pin (later releases have not been validated against our dashboards), the current Grafana Service Account path, and the planned `grafanactl` migration ([#1062](https://github.com/Linuxfabrik/monitoring-plugins/issues/1062))
-* ICINGA: rewritten. Covers what the basket ships, tag-based service assignment, upstream-vs-fork positioning, onboarding a host, upgrade via `basket-compare`, and troubleshooting (upload size limits, UUID conflicts, non-default master zone)
-* INSTALL: rewritten. All install paths on one page with per-distro sections (Debian, RHEL, SLE, Ubuntu) and Linux-before-Windows ordering. `repo.linuxfabrik.ch` and `download.linuxfabrik.ch` now link to the docs instead of duplicating the commands
-* PLUGINS-KEYCLOAK, PLUGINS-MYSQL, PLUGINS-ROCKETCHAT, PLUGINS-WILDFLY: rewritten. Keycloak clarifies that the `query-groups` role is a client role of the `master-realm` client (not a realm role, verified against Keycloak 26.6) and updates the Admin Console navigation. Rocket.Chat now has separate instructions for Enterprise Edition and Community Edition (custom roles are EE only)
-* README: extracted the "Thresholds and Ranges" reference into a dedicated [THRESHOLDS.md](THRESHOLDS.md), analog to UNITS.md
 * Windows MSI no longer depends on an installed Icinga2 agent (install path unchanged: `ProgramFiles64Folder/ICINGA2/sbin/linuxfabrik`)
 
 
@@ -98,9 +92,8 @@ Icinga Director:
 Monitoring Plugins:
 
 * all plugins: ignore unknown arguments instead of erroring (helps when rolling out updated service definitions)
-* all plugins: expanded `DESCRIPTION` in `--help`, consistent README structure across all plugins
+* all plugins: expanded `DESCRIPTION` in `--help`
 * all plugins: drop incorrect "Supports Nagios ranges" mentions from `--help` where not implemented
-* all plugins: plugin-group READMEs (Keycloak, MySQL, Rocket.Chat, WildFly) now link to the docs site
 * atlassian-statuspage: report the primary incident, affected services and maintenance windows. New `--service REGEX` (repeatable). Perfdata: `impact` → `cnt_warn` / `cnt_crit`; Grafana dashboards need re-pointing
 * by-ssh, by-winrm, disk-usage, example, file-ownership, fs-ro, infomaniak-events, journald-query, logfile, matomo-reporting, mysql-logfile, php-status, pip-updates, systemd-unit: user-supplied `append` parameter values replace the defaults instead of being appended ([#540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
 * cpu-usage: remove `--top` (moved to `procs --top`)
@@ -109,7 +102,6 @@ Monitoring Plugins:
 * file-ownership: `--filename` merges with the default file list; use `--no-default-files` to check only user-supplied files
 * file-ownership: default file list extended with CIS benchmark-relevant files (login.defs, sudoers, sysctl, systemd, PAM, etc.)
 * logfile: output now names the scanned file, each configured `--*-pattern` / `--*-regex` with its per-pattern match count and severity label, and the `--ignore-*` patterns ([#547](https://github.com/Linuxfabrik/monitoring-plugins/issues/547))
-* mysql-table-cache: README explains why `Table_open_cache_overflows` is not tracked ([#968](https://github.com/Linuxfabrik/monitoring-plugins/issues/968))
 * nextcloud-enterprise, nextcloud-version: `occ` no longer has to be executable; `php occ <cmd>` is invoked under the owner of `config/config.php`
 * php-status: default to `http://localhost/monitoring.php`, tolerate its absence
 * redfish-sensor: `--insecure` now defaults to `True` to match `redfish-drives`, `redfish-sel` and `redfish-system`. BMCs typically serve a self-signed certificate, so the previous default (`False`) made the check fail out of the box on most hardware. Pass `--insecure=false` explicitly if you have a trusted CA chain installed

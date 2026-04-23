@@ -11,7 +11,7 @@ it day-to-day, and how we expect you to extend it. Plugin authors looking for th
 per-plugin basket workflow (editing the YAML under
 `check-plugins/<name>/icingaweb2-module-director/`, regenerating with
 `build-basket`) should read the Icinga Director Basket Config section in
-[CONTRIBUTING.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md)
+[CONTRIBUTING.md](CONTRIBUTING.md)
 instead.
 
 
@@ -440,3 +440,34 @@ importing:
 sed --in-place 's/"zone": "master"/"zone": "icinga-master-zone"/g' \
     icingaweb2-module-director-basket.json
 ```
+
+
+### Icinga does not forward `http_proxy` to the plugins
+
+The plugins honour `HTTP_PROXY` / `HTTPS_PROXY` if they reach the process, but Icinga does not forward environment variables to check commands by default, and this setting cannot be made in Icinga Director. On the Icinga master, set the variable on the default `CheckCommand` template in `/etc/icinga2/icinga2.conf`:
+
+```
+template CheckCommand default {
+    env.http_proxy = "http://username:password@proxy.example.com:port"
+    env.https_proxy = "http://username:password@proxy.example.com:port"
+}
+```
+
+If some plugins are invoked via `sudo`, also preserve the variables in the matching drop-in under `/etc/sudoers.d/`:
+
+```
+Defaults env_keep += "http_proxy https_proxy"
+```
+
+A value defined in both `/etc/environment` and `/etc/icinga2/icinga2.conf` is overridden by the Icinga config.
+
+
+### Negative parameter values are treated as unknown options
+
+Icinga Director passes argument values without a leading `=`, so a value like `-60` is seen by `argparse` as another option and rejected. Prefix the first minus sign with a backslash in the Director-side argument value (`\-60` or `\-60:-3600`); `lib.base` strips the backslash before `argparse` runs (`linuxfabrik-lib` v2024112001+, v2.0.0.0+). See [#789](https://github.com/Linuxfabrik/monitoring-plugins/issues/789).
+
+
+## Next Steps
+
+* Grafana dashboards and panels: see [GRAFANA.md](GRAFANA.md).
+* Plugin groups with shared Icinga setup (Keycloak, MySQL, Rocket.Chat, WildFly): see the corresponding `PLUGINS-*.md` files at the repository root.

@@ -16,7 +16,7 @@ import os
 import sys
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026042301'
+__version__ = '2026042302'
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 DOCS_DIR = os.path.join(REPO_ROOT, 'docs')
@@ -42,6 +42,13 @@ README_LINKED_FROM_CONTRIBUTING = [
 
 # Top-level markdown files to include in the documentation.
 # Format: (source filename, target filename in docs/, nav title)
+# The site's landing page (docs/index.md) is a symlink to the root
+# README.md so the docs site and GitHub always show the same front
+# page. Every other top-level .md file is symlinked under the
+# lowercased `target filename` used by the nav, plus an extra
+# uppercase alias (identical to the source filename) so that
+# relative links in README.md like `[INSTALL.md](INSTALL.md)`
+# resolve correctly from the rendered index.md.
 TOP_LEVEL_DOCS = [
     ('BUILD.md', 'build.md', 'Compiling and Packaging'),
     ('CHANGELOG.md', 'CHANGELOG.md', None),
@@ -55,8 +62,12 @@ TOP_LEVEL_DOCS = [
     ('PLUGINS-ROCKETCHAT.md', 'plugins-rocketchat.md', 'Plugin Group: Rocket.Chat'),
     ('PLUGINS-WILDFLY.md', 'plugins-wildfly.md', 'Plugin Group: WildFly'),
     ('POSTER.md', 'poster.md', 'Check Plugin Poster'),
+    ('README.md', 'index.md', None),
     ('SECURITY.md', 'security.md', 'Security'),
+    ('SPONSORS.md', 'SPONSORS.md', None),
     ('TESTIMONIALS.md', 'testimonials.md', 'Testimonials'),
+    ('THRESHOLDS.md', 'thresholds.md', 'Thresholds and Ranges'),
+    ('TOOLS.md', 'tools.md', 'Maintainer Tools'),
     ('UNITS.md', 'units.md', 'Human-Readable Units'),
 ]
 
@@ -142,36 +153,63 @@ def generate_mkdocs_yml(nav_sections):
     lines.append('plugins:')
     lines.append('  - search')
     lines.append('')
+    # Collect uppercase alias filenames that must be hidden from the
+    # nav but still exist as reachable pages so relative links from
+    # the root README (rendered as index.md) do not 404.
+    alias_hidden = []
+    for source_name, target_name, _ in TOP_LEVEL_DOCS:
+        if source_name != target_name and source_name != 'README.md':
+            alias_hidden.append(source_name)
+
     lines.append('not_in_nav: |')
     lines.append('  CHANGELOG.md')
     for name in sorted(README_LINKED_FROM_CONTRIBUTING):
         lines.append(f'  check-plugins/{name}/README.md')
     lines.append('  CODE_OF_CONDUCT.md')
+    lines.append('  SPONSORS.md')
+    for name in sorted(alias_hidden):
+        lines.append(f'  {name}')
     lines.append('')
 
     # Build nav
     lines.append('nav:')
     lines.append("  - 'Home': 'index.md'")
-    lines.append("  - 'Installation': 'install.md'")
+
+    # Installation groups the general install doc and the four
+    # plugin-group install docs (Keycloak, MySQL, Rocket.Chat,
+    # WildFly) since those are essentially per-stack install
+    # instructions.
+    lines.append("  - 'Installation':")
+    lines.append("      - 'Overview': 'install.md'")
+    lines.append("      - 'Keycloak Plugins': 'plugins-keycloak.md'")
+    lines.append("      - 'MySQL Plugins': 'plugins-mysql.md'")
+    lines.append("      - 'Rocket.Chat Plugins': 'plugins-rocketchat.md'")
+    lines.append("      - 'WildFly Plugins': 'plugins-wildfly.md'")
+
     lines.append("  - 'Icinga Setup': 'icinga.md'")
     lines.append("  - 'Grafana': 'grafana.md'")
+
+    # Remaining top-level admin docs from the project root, ordered
+    # general → specific: reference → showcase → meta.
+    lines.append("  - 'Human-Readable Units': 'units.md'")
+    lines.append("  - 'Thresholds and Ranges': 'thresholds.md'")
+    lines.append("  - 'Check Plugin Poster': 'poster.md'")
+    lines.append("  - 'Testimonials': 'testimonials.md'")
+    lines.append("  - 'Security': 'security.md'")
 
     for section_dir, section_title, plugins in nav_sections:
         lines.append(f"  - '{section_title}':")
         for plugin in plugins:
             lines.append(f"      - '{plugin}': '{section_dir}/{plugin}.md'")
 
-    lines.append("  - 'Plugin Groups':")
-    lines.append("      - 'Keycloak': 'plugins-keycloak.md'")
-    lines.append("      - 'MySQL': 'plugins-mysql.md'")
-    lines.append("      - 'Rocket.Chat': 'plugins-rocketchat.md'")
-    lines.append("      - 'WildFly': 'plugins-wildfly.md'")
-    lines.append("  - 'Human-Readable Units': 'units.md'")
-    lines.append("  - 'Check Plugin Poster': 'poster.md'")
-    lines.append("  - 'Testimonials': 'testimonials.md'")
-    lines.append("  - 'Compiling and Packaging': 'build.md'")
-    lines.append("  - 'Contributing': 'contributing.md'")
-    lines.append("  - 'Security': 'security.md'")
+    # Developer-facing documentation, grouped at the bottom so admins
+    # are not distracted by contribution/build/tooling details they
+    # will not need for day-to-day monitoring.
+    lines.append("  - 'For Developers':")
+    lines.append("      - 'Contributing': 'contributing.md'")
+    lines.append("      - 'Compiling and Packaging': 'build.md'")
+    lines.append("      - 'Maintainer Tools': 'tools.md'")
+
     lines.append('')
 
     return '\n'.join(lines)
@@ -180,14 +218,22 @@ def generate_mkdocs_yml(nav_sections):
 def main():
     os.makedirs(DOCS_DIR, exist_ok=True)
 
-    # Create symlinks for top-level docs
+    # Create symlinks for top-level docs. For files whose target
+    # filename differs from their source name (e.g. INSTALL.md →
+    # install.md), also create an uppercase alias symlink so that
+    # relative links from the root README like `[INSTALL.md]
+    # (INSTALL.md)` keep resolving once README.md is rendered as
+    # docs/index.md.
     for source_name, target_name, _ in TOP_LEVEL_DOCS:
         source = os.path.join(REPO_ROOT, source_name)
         target = os.path.join(DOCS_DIR, target_name)
-        if os.path.isfile(source):
-            create_symlink(source, target)
-        else:
+        if not os.path.isfile(source):
             print(f'WARNING: {source_name} not found, skipping.')
+            continue
+        create_symlink(source, target)
+        if source_name != target_name and source_name != 'README.md':
+            alias_target = os.path.join(DOCS_DIR, source_name)
+            create_symlink(source, alias_target)
 
     # Create symlinks for plugin READMEs
     nav_sections = []

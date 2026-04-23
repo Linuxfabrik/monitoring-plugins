@@ -87,7 +87,9 @@ Python packages installed via `pip` inside workflows follow a two-tier policy:
 
 ## Check Plugin Developer Guidelines
 
-Use the [example](check-plugins/example/example) plugin as a skeleton for new plugins. It demonstrates all standard patterns, library functions, and coding conventions described below.
+Target audience: developers contributing a new check plugin or reworking an existing one. If you are an admin deploying the plugins, you do not need this document.
+
+All plugins are written in Python and released under the [UNLICENSE](https://unlicense.org/), which dedicates the work to the public domain with no conditions attached. Use the [example](check-plugins/example/example) plugin as a skeleton for new plugins. It demonstrates all standard patterns, library functions, and coding conventions described below.
 
 
 ### Monitoring of an Application
@@ -106,12 +108,10 @@ Better write three separate checks:
 * `myapp-memory-usage --warning 80 --critical 90`
 * `myapp-deployment-status`
 
-All plugins are written in Python and will be licensed under the [UNLICENSE](https://unlicense.org/), which is a license with no conditions whatsoever that dedicates works to the public domain.
-
 
 ### Setting up your Development Environment
 
-All plugins are coded using Python 3.9. Simply clone the libraries and monitoring plugins and start working:
+All plugins target Python 3.9 or newer (Python 3.9 is required for RHEL 8 compatibility). Clone the libraries and monitoring plugins and start working:
 
 ```bash
 git clone git@github.com:Linuxfabrik/lib.git
@@ -149,11 +149,11 @@ Checklist:
 * A free, monochrome, transparent SVG icon from <https://simpleicons.org> or <https://fontawesome.com/search?ic=free>, placed in the `icon` directory.
 * Optional: `unit-test/run` - the unittest file (see [Unit Tests](#unit-tests))
 * Optional: `requirements.txt`
-* If providing performance data: Grafana dashboard (see [GRAFANA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/GRAFANA.md)) and `.ini` file for the Icinga Web 2 Grafana Module
+* If providing performance data: Grafana dashboard (see [GRAFANA.md](GRAFANA.md)) and `.ini` file for the Icinga Web 2 Grafana Module
 * Icinga Director Basket Config for the check plugin (`build-basket`)
 * Icinga Service Set in `all-the-rest.json`
 * Optional: sudoers file (see [sudoers File](#sudoers-file))
-* Optional: A screenshot of the plugins' output from within Icinga, resized to 423x106, using background-color `#f5f9fa`, hosted on [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/), and listed alphabetically in the projects [README](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/README.md).
+* Optional: A screenshot of the plugins' output from within Icinga, resized to 423x106, using background-color `#f5f9fa`, hosted on [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/), and listed alphabetically in [POSTER.md](POSTER.md).
 * CHANGELOG
 
 
@@ -455,33 +455,18 @@ For the first commit, use the message `Add <plugin-name>`.
 
 ### Threshold and Ranges
 
-If a threshold has to be handled as a range parameter, this is how to interpret them. Compatible with the [Monitoring Plugins Development Guidelines](https://www.monitoring-plugins.org/doc/guidelines.html#THRESHOLDFORMAT) and the [Nagios Plugin Development Guidelines](https://nagios-plugins.org/doc/guidelines.html#THRESHOLDFORMAT).
+The user-facing range syntax (`start:end`, `~`, `@`, inclusive/exclusive semantics) is documented in [THRESHOLDS.md](THRESHOLDS.md). Read that first.
 
-The generalized range format is `[@]start:end`:
+To evaluate a value against `--warning` / `--critical` in a plugin, keep `type=str` on the argparse definition and pass `_operator='range'` to `lib.base.get_state()`:
 
-* `start` must be less than or equal to `end`.
-* `start` and `:` are not required if `start` is 0.
-* simple value: a range from 0 up to and including the value
-* empty value after `:`: positive infinity
-* `~`: negative infinity
-* `@`: if range starts with "@", then alert if inside this range (including endpoints)
-* An alert is raised if the metric is **outside** the range (inclusive of endpoints). The `@` prefix inverts this logic.
+```python
+item_state = lib.base.get_state(value, args.WARN, args.CRIT, _operator='range')
+state = lib.base.get_worst(state, item_state)
+```
 
-Examples:
+The library parses the range expression and returns `STATE_OK`, `STATE_WARN`, or `STATE_CRIT`. Never reimplement range parsing per plugin. See `check-plugins/procs/procs` and the `example` plugin for reference implementations with multiple metrics and per-row worst-state aggregation.
 
-| `-w, -c` | OK if result is | WARN/CRIT if |
-|---|---|---|
-| 10 | in (0..10) | not in (0..10) |
-| -10:0 | in (-10..0) | not in (-10..0) |
-| 10: | in (10..inf) | not in (10..inf) |
-| : | in (0..inf) | not in (0..inf) |
-| ~:10 | in (-inf..10) | not in (-inf..10) |
-| 10:20 | in (10..20) | not in (10..20) |
-| @10:20 | not in (10..20) | in 10..20 |
-| @~:20 | not in (-inf..20) | in (-inf..20) |
-| @ | not in (0..inf) | in (0..inf) |
-
-So, a definition like `--warning 2:100 --critical 1:150` should return the states:
+Multi-threshold worked example: `--warning 2:100 --critical 1:150`. The per-value state the library will return:
 
 ```text
 val   0   1   2 .. 100 101 .. 150 151
@@ -490,25 +475,7 @@ val   0   1   2 .. 100 101 .. 150 151
 =>   CR  WA  OK     OK  WA     WA  CR
 ```
 
-Another example: `--warning 190: --critical 200:`
-
-```text
-val 189 190 191 .. 199 200 201
--w   WA  OK  OK     OK  OK  OK
--c   CR  CR  CR     CR  OK  OK
-=>   CR  CR  CR     CR  OK  OK
-```
-
-Another example: `--warning ~:0 --critical 10`
-
-```text
-val  -2  -1   0   1 ..   9  10  11
--w   OK  OK  OK  WA     WA  WA  WA
--c   CR  CR  OK  OK     OK  OK  CR
-=>   CR  CR  OK  WA     WA  WA  CR
-```
-
-Have a look at `procs` on how to implement this.
+If the plugin ships ranges with a single bound (`--warning 190: --critical 200:`), the same aggregation applies; the library handles `~` (negative infinity) and the trailing empty bound (positive infinity).
 
 
 ### Caching temporary data, SQLite database
@@ -1162,116 +1129,25 @@ Each plugin README follows a fixed structure. Use [check-plugins/example/README.
 
 ### Grafana Dashboards
 
-The title of the dashboard should be capitalized, the name has to match the folder/plugin name (spaces will be replaced with `-`, `/` will be ignored. eg `Network I/O` will become `network-io`). Each Grafana panel should be meaningful, especially when comparing it to other related panels (eg memory usage and CPU usage).
+Dashboard definitions live as YAML files under `check-plugins/<plugin>/grafana/<plugin>.yml`. The dashboard title is capitalized, the YAML filename (and the dashboard `uid`) matches the plugin directory name. Spaces in a panel-name component become `-`, `/` is dropped (e.g. `Network I/O` → `network-io`). Only define properties that differ from Grafana defaults, to keep the file small and diffable.
 
-Dashboard definitions are stored as YAML files in `check-plugins/<plugin-name>/grafana/`. Only define properties that differ from Grafana defaults to keep files minimal and maintainable.
+Panels should be meaningful next to their siblings: if a plugin ships memory-usage and cpu-usage dashboards, the shared time ranges, thresholds and labels should line up so an admin can compare the two side by side.
 
-Dashboards are currently managed using [Grizzly](https://github.com/grafana/grizzly) (`apiVersion: grizzly.grafana.com/v1alpha1`). Grizzly is being phased out in favor of [grafanactl](https://github.com/grafana/grafanactl) (`apiVersion: dashboard.grafana.app/v1`), which requires Grafana 12+. Continue using the Grizzly format for now. A migration to grafanactl is planned ([#1062](https://github.com/Linuxfabrik/monitoring-plugins/issues/1062)).
+Provisioning and the Grizzly → grafanactl migration are documented in [GRAFANA.md](GRAFANA.md).
 
 
 ### Plugins and Capabilities
 
-Incomplete list of special features in some check-plugins.
+Non-obvious patterns worth copying from, when writing a new plugin. Each entry points at a single plugin that demonstrates the pattern well.
 
-README explains Python regular expression negative lookaheads to exclude matches:
-
-* [by-ssh](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/by-ssh)
-
-Lists "Top X" values (search for `--top` parameter):
-
-* [cpu-usage](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage)
-* [disk-io](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io)
-* [file-descriptors](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-descriptors)
-* [memory-usage](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/memory-usage)
-* [swap-usage](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/swap-usage)
-
-Alerts only after a certain amount of calls (search for `--count` parameter):
-
-* [cpu-usage](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage)
-
-Cuts (truncates) its SQLite database table:
-
-* [cpu-usage](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage)
-
-Pure/raw network communication using byte-structs and sockets:
-
-* [dhcp-relayed](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dhcp-relayed)
-
-Checks for a minimum required 3rd party library version:
-
-* [disk-io](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io)
-
-"Learns" thresholds on its own (implementing some kind of "threshold warm-up"):
-
-* [disk-io](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io)
-
-Ports of applications:
-
-* [disk-smart](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-smart): port of [GSmartControl](https://github.com/ashaduri/gsmartcontrol) to Python.
-* All mysql-\* plugins: Port of [MySQLTuner](https://github.com/major/MySQLTuner-perl) to Python.
-
-Makes use of `FREE` and `USED` wording in parameters:
-
-* [disk-usage](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-usage)
-
-`--perfdata-regex` parameter lets you filter for a subset of performance data:
-
-* [disk-usage](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-usage)
-
-Is aware of its acknowledgement status in Icinga, and will suppress further warnings if it has been ACKed:
-
-* [feed](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/feed)
-* [logfile](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/logfile)
-
-Calculates mean and median perfdata over a set of individual items:
-
-* [file-age](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-age)
-
-Supports human-readable Nagios ranges for bytes:
-
-* [file-size](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-size)
-
-Sanitizes complex data before querying MySQL/MariaDB:
-
-* [librenms-alerts](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/librenms-alerts)
-
-Reads a file line-by-line, but backwards:
-
-* [logfile](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/logfile)
-
-Makes heavy use of patterns versus compiled regexes, matching any() of them:
-
-* [logfile](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/logfile)
-
-Using application's config file for authentication:
-
-* All mysql-\* plugins
-
-Optionally uses an asset:
-
-* [php-status](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/php-status): relies on `monitoring.php` that can provide more PHP insight in the context of the web server
-
-Provides useful feedback from Redis' Memory Doctor:
-
-* [redis-status](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redis-status)
-
-Work without the `jolokia.war` plugin and use the native API:
-
-* All wildfly-\* checks
-
-Supports human-readable Nagios ranges for durations:
-
-* [uptime](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/uptime)
-
-Differentiates between Windows and Linux (search for `lib.base.LINUX` or `lib.base.WINDOWS`):
-
-* [users](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/users)
-
-Unit tests use Docker/Podman to test against a range of versions or a range of operating systems:
-
-* [cpu-usage](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage)
-* [keycloak-version](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/keycloak-version) (checking the filesystem in the container as well as the API)
-
-Read ini files (example use case: password file parsing):
-
-* [icinga-topflap-services](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/icinga-topflap-services)
+| Pattern | Reference plugin |
+|---|---|
+| `--count`: alert only after N consecutive threshold violations | [cpu-usage](check-plugins/cpu-usage) |
+| SQLite `cut()` to keep the local state DB bounded | [cpu-usage](check-plugins/cpu-usage) |
+| Raw network communication via byte-structs and sockets | [dhcp-relayed](check-plugins/dhcp-relayed) |
+| Check minimum required 3rd-party library version at import time | [disk-io](check-plugins/disk-io) |
+| Threshold warm-up (learns a baseline before alerting) | [disk-io](check-plugins/disk-io) |
+| `--icinga-callback`: acknowledgement-aware plugin | [logfile](check-plugins/logfile) |
+| Credential file via MySQL option-file / `configparser` | All mysql-\* plugins, [icinga-topflap-services](check-plugins/icinga-topflap-services) |
+| Optional asset script (`monitoring.php`) alongside the plugin | [php-status](check-plugins/php-status) |
+| Cross-platform branching (`lib.base.LINUX` / `lib.base.WINDOWS`) | [users](check-plugins/users) |
