@@ -28,12 +28,18 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026042203'
+__version__ = '2026042301'
 
 DESCRIPTION = """Scans a logfile for matching patterns or regular expressions and alerts based on the
 number of matches found. Reads the file backwards from the end and supports Icinga
 acknowledgement integration to suppress repeated alerts for known issues. Configurable
 alarm duration limits how long matches trigger alerts.
+
+`--filename` accepts time macros, so logfiles whose name contains the current date
+(Laravel `laravel-YYYY-MM-DD.log`, Windows `YYYYMMDD.log`, etc.) can be monitored
+directly. Read offset and pending matches carry over when the filename changes on
+the next day, no wrapper script needed.
+
 Requires root or sudo."""
 
 DEFAULT_ALARM_DURATION = 60  # minutes (1 hour)
@@ -104,7 +110,13 @@ def parse_args():
 
     parser.add_argument(
         '--filename',
-        help='Path to the logfile.',
+        help='Path to the logfile. '
+        'Supports time macros that are expanded on every run: '
+        '`{today}` / `{yesterday}` render as `YYYY-MM-DD`, '
+        '`{%%Y}`, `{%%y}`, `{%%m}`, `{%%d}`, `{%%H}`, `{%%M}`, `{%%S}` '
+        'render the matching strftime component of the current time. '
+        'Example: `/var/log/laravel/laravel-{today}.log`. '
+        'Example: `C:\\logs\\{%%Y}{%%m}{%%d}.log`.',
         dest='FILENAME',
         required=True,
         type=str,
@@ -250,11 +262,16 @@ def main():
     if args.WARN_REGEX is None:
         args.WARN_REGEX = []
 
+    # Expand time macros for filesystem access only. args.FILENAME stays the
+    # DB key so offset and pending matches survive the daily filename change
+    # (issue #678).
+    scan_path = lib.time.macro2timestr(args.FILENAME)
+
     try:
-        file_stat = os.stat(args.FILENAME)
+        file_stat = os.stat(scan_path)
     except FileNotFoundError as e:
         # no traceback wanted, so using oao() instead of cu()
-        lib.base.oao(f'{e.strerror}: "{args.FILENAME}"', STATE_UNKNOWN)
+        lib.base.oao(f'{e.strerror}: "{scan_path}"', STATE_UNKNOWN)
 
     if not any(
         (args.WARN_PATTERN, args.WARN_REGEX, args.CRIT_PATTERN, args.CRIT_REGEX)
@@ -292,7 +309,9 @@ def main():
     instance_hash = hashlib.sha256(instance_payload).hexdigest()[:10]
 
     basename = os.path.basename(args.FILENAME)
-    db_filename = f'linuxfabrik-monitoring-plugins-logfile-{basename}-{instance_hash}.db'
+    db_filename = (
+        f'linuxfabrik-monitoring-plugins-logfile-{basename}-{instance_hash}.db'
+    )
 
     # Transparent migration for deployments that ran exactly one check per
     # logfile before this change: rename the legacy per-file DB to the new
@@ -356,10 +375,7 @@ def main():
         # the cast the comparison is always truthy and the offset is
         # reset to 0 on every run, making the plugin re-read the whole
         # file each time.
-        if (
-            str(old_file_stats.get('inode')) != current_inode
-            or current_size < offset
-        ):
+        if str(old_file_stats.get('inode')) != current_inode or current_size < offset:
             # this means the file has been rotated
             offset = 0
     else:
@@ -381,7 +397,7 @@ def main():
     crit_matches = []
     line_counter = 0
     try:
-        with open(args.FILENAME) as logfile:
+        with open(scan_path) as logfile:
             logfile.seek(offset)
             for line in logfile:
                 line_counter += 1
@@ -417,7 +433,7 @@ def main():
                                 crit_regex_hits[args.CRIT_REGEX[idx]] += 1
             offset = logfile.tell()
     except PermissionError:
-        lib.base.cu(f"Permission denied opening '{args.FILENAME}'.")
+        lib.base.cu(f"Permission denied opening '{scan_path}'.")
         # make sure conn is always closed
         lib.db_sqlite.close(conn)
 
@@ -580,7 +596,7 @@ def main():
     ]
 
     msg = (
-        f'Scanned {args.FILENAME} ({line_counter} '
+        f'Scanned {scan_path} ({line_counter} '
         f'{lib.txt.pluralize("line", line_counter)}) '
         f'using patterns {_join_and(pattern_parts)}'
     )

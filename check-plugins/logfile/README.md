@@ -25,6 +25,7 @@ object ApiUser "linuxfabrik-check-logfile" {
 
 **Data Collection:**
 
+* Expands time macros in `--filename` on every run, so logfiles whose name contains the current date (`laravel-{today}.log`, `{%Y}{%m}{%d}.log`, etc.) can be monitored directly. The state DB is keyed off the unexpanded template, so the read offset and pending matches carry over when the resolved filename changes on the next day and no wrapper script is needed.
 * Reads the logfile forward from the last known offset, only scanning new lines since the previous run
 * Detects logfile rotation by tracking the file's inode and size; resets to the beginning when rotation is detected
 * Uses SQLite state persistence to store the file offset and all matching lines between runs
@@ -64,7 +65,11 @@ Scans a logfile for matching patterns or regular expressions and alerts based
 on the number of matches found. Reads the file backwards from the end and
 supports Icinga acknowledgement integration to suppress repeated alerts for
 known issues. Configurable alarm duration limits how long matches trigger
-alerts. Requires root or sudo.
+alerts. `--filename` accepts time macros, so logfiles whose name contains the
+current date (Laravel `laravel-YYYY-MM-DD.log`, Windows `YYYYMMDD.log`, etc.)
+can be monitored directly. Read offset and pending matches carry over when the
+filename changes on the next day, no wrapper script needed. Requires root or
+sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -82,7 +87,13 @@ options:
   --critical-regex CRIT_REGEX
                         Any line matching this Python regex will count as a
                         critical. Can be specified multiple times.
-  --filename FILENAME   Path to the logfile.
+  --filename FILENAME   Path to the logfile. Supports time macros that are
+                        expanded on every run: `{today}` / `{yesterday}`
+                        render as `YYYY-MM-DD`, `{%Y}`, `{%y}`, `{%m}`,
+                        `{%d}`, `{%H}`, `{%M}`, `{%S}` render the matching
+                        strftime component of the current time. Example:
+                        `/var/log/laravel/laravel-{today}.log`. Example:
+                        `C:\logs\{%Y}{%m}{%d}.log`.
   --icinga-callback     Get the service acknowledgement from Icinga.
                         Overwrites `--alarm-duration`. Default: False
   --icinga-password ICINGA_PASSWORD

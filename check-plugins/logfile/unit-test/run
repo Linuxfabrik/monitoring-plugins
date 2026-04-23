@@ -18,6 +18,7 @@ under `/tmp/linuxfabrik-monitoring-plugins-logfile-<basename>-<hash>.db`
 cache DB that matches its fixture to ensure a clean "first scan" state.
 """
 
+import datetime
 import glob
 import hashlib
 import json
@@ -137,7 +138,9 @@ def _run_logfile_test(test, testcase):
     # reproducible and always starts from offset 0. The plugin derives a
     # per-check hash from the pattern arguments, so we wipe both the
     # legacy per-file DB and any per-check DBs already sitting in /tmp.
-    fixture_basename = testcase['params'].split('--filename=stdout/', 1)[1].split(' ', 1)[0]
+    fixture_basename = (
+        testcase['params'].split('--filename=stdout/', 1)[1].split(' ', 1)[0]
+    )
     legacy_db = _legacy_db_path(fixture_basename)
     if os.path.exists(legacy_db):
         os.remove(legacy_db)
@@ -171,10 +174,7 @@ class TestMultipleChecksSameFile(unittest.TestCase):
         testcase_a = {
             'id': 'instance-a-warning-only',
             'test': f'{self.fixture},,0',
-            'params': (
-                f'--filename={self.fixture} '
-                '--warning-regex=" WARNING "'
-            ),
+            'params': (f'--filename={self.fixture} --warning-regex=" WARNING "'),
             'assert-retc': STATE_WARN,
             'assert-in': [
                 "' WARNING ' (matched 1 line) [WARNING]",
@@ -190,10 +190,7 @@ class TestMultipleChecksSameFile(unittest.TestCase):
         testcase_b = {
             'id': 'instance-b-critical-only',
             'test': f'{self.fixture},,0',
-            'params': (
-                f'--filename={self.fixture} '
-                '--critical-regex=" ERROR "'
-            ),
+            'params': (f'--filename={self.fixture} --critical-regex=" ERROR "'),
             'assert-retc': STATE_CRIT,
             'assert-in': [
                 "' ERROR ' (matched 1 line) [CRITICAL]",
@@ -212,8 +209,14 @@ class TestMultipleChecksSameFile(unittest.TestCase):
 
 # The hash algorithm below mirrors the plugin's instance-hash exactly.
 # Keep it in sync if the plugin ever changes the calculation.
-def _instance_hash(warn_pattern=None, warn_regex=None, crit_pattern=None,
-                   crit_regex=None, ignore_pattern=None, ignore_regex=None):
+def _instance_hash(
+    warn_pattern=None,
+    warn_regex=None,
+    crit_pattern=None,
+    crit_regex=None,
+    ignore_pattern=None,
+    ignore_regex=None,
+):
     payload = json.dumps(
         {
             'crit_pattern': sorted(crit_pattern or []),
@@ -310,9 +313,7 @@ class TestOffsetSurvivesAcrossRuns(unittest.TestCase):
         # per-check path so the plugin picks it up without triggering
         # the transparent rename. Inode stored as int to mimic what the
         # old plugin would have written.
-        db_path = _per_check_db_path(
-            self.scratch_basename, **self.hash_kwargs
-        )
+        db_path = _per_check_db_path(self.scratch_basename, **self.hash_kwargs)
         stat = os.stat(self.scratch_file)
         conn = sqlite3.connect(db_path)
         try:
@@ -364,6 +365,123 @@ class TestOffsetSurvivesAcrossRuns(unittest.TestCase):
         os.unlink(self.scratch_file)
         shutil.copy(self.source_fixture, self.scratch_file)
         self._run(expected_new_lines=3)
+
+
+class TestMacroFilenameExpansion(unittest.TestCase):
+    """Regression tests for issue #678: `--filename` must expand time
+    macros so logfiles whose name contains the current date can be
+    monitored without a wrapper script. The state DB must still key off
+    the unexpanded template so the read offset carries over when the
+    resolved filename changes on the next day."""
+
+    check = '../logfile'
+    source_fixture = 'stdout/django-app-one-warning-one-error'
+
+    def setUp(self):
+        self.scratch_dir = tempfile.mkdtemp(prefix='logfile-macro-')
+        self.today = datetime.date.today()
+        # Clean any stale state DB from prior runs.
+        for template_basename in (
+            'app-{today}.log',
+            '{%Y}{%m}{%d}.log',
+        ):
+            for db_file in glob.glob(_db_glob(template_basename)):
+                os.remove(db_file)
+
+    def tearDown(self):
+        for template_basename in (
+            'app-{today}.log',
+            '{%Y}{%m}{%d}.log',
+        ):
+            for db_file in glob.glob(_db_glob(template_basename)):
+                os.remove(db_file)
+        shutil.rmtree(self.scratch_dir, ignore_errors=True)
+
+    def _seed(self, resolved_basename):
+        resolved_path = os.path.join(self.scratch_dir, resolved_basename)
+        shutil.copy(self.source_fixture, resolved_path)
+        return resolved_path
+
+    def test_today_macro_expands_and_scan_reports_resolved_path(self):
+        iso_today = self.today.strftime('%Y-%m-%d')
+        resolved = self._seed(f'app-{iso_today}.log')
+        template = os.path.join(self.scratch_dir, 'app-{today}.log')
+        testcase = {
+            'id': 'today-macro-expands',
+            'test': f'{resolved},,0',
+            'params': (
+                f'--filename={template} '
+                '--warning-regex=" WARNING " '
+                '--critical-regex=" ERROR "'
+            ),
+            'assert-retc': STATE_CRIT,
+            'assert-in': [
+                # Output must show the resolved path, not the template.
+                f'Scanned {resolved}',
+                "' WARNING ' (matched 1 line) [WARNING]",
+                "' ERROR ' (matched 1 line) [CRITICAL]",
+            ],
+            'assert-not-in': ['{today}'],
+        }
+        lib.lftest.run(self, self.check, testcase)
+
+        # State DB must be keyed off the template basename, not the
+        # resolved one, so it survives the daily filename change.
+        dbs = glob.glob(_db_glob('app-{today}.log'))
+        self.assertEqual(
+            len(dbs),
+            1,
+            f'expected one state DB keyed off the template basename, found: {dbs}',
+        )
+
+    def test_strftime_components_expand(self):
+        compact_today = self.today.strftime('%Y%m%d')
+        resolved = self._seed(f'{compact_today}.log')
+        template = os.path.join(self.scratch_dir, '{%Y}{%m}{%d}.log')
+        testcase = {
+            'id': 'strftime-components-expand',
+            'test': f'{resolved},,0',
+            'params': (
+                f'--filename={template} '
+                '--warning-regex=" WARNING " '
+                '--critical-regex=" ERROR "'
+            ),
+            'assert-retc': STATE_CRIT,
+            'assert-in': [
+                f'Scanned {resolved}',
+                "' WARNING ' (matched 1 line) [WARNING]",
+                "' ERROR ' (matched 1 line) [CRITICAL]",
+            ],
+        }
+        lib.lftest.run(self, self.check, testcase)
+
+    def test_second_run_on_same_template_uses_persisted_offset(self):
+        # Proves that args.FILENAME (the template) is the DB key: a
+        # second run on an unchanged file must report 0 new lines.
+        iso_today = self.today.strftime('%Y-%m-%d')
+        self._seed(f'app-{iso_today}.log')
+        template = os.path.join(self.scratch_dir, 'app-{today}.log')
+        first = {
+            'id': 'first-run-reads-all',
+            'test': f'{template},,0',
+            'params': (
+                f'--filename={template} '
+                '--warning-regex=" WARNING " '
+                '--critical-regex=" ERROR " '
+                '--always-ok'
+            ),
+            'assert-retc': STATE_OK,
+            'assert-in': ['(3 lines)'],
+        }
+        lib.lftest.run(self, self.check, first)
+        second = {
+            'id': 'second-run-uses-offset',
+            'test': f'{template},,0',
+            'params': first['params'],
+            'assert-retc': STATE_OK,
+            'assert-in': ['(0 lines)'],
+        }
+        lib.lftest.run(self, self.check, second)
 
 
 if __name__ == '__main__':
