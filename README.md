@@ -180,7 +180,7 @@ For vulnerabilities, follow the private disclosure process in [SECURITY.md](SECU
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for check-plugin developer guidelines, coding conventions, and the basket / Grafana deliverables. The [example plugin](check-plugins/example/example) is the reference skeleton.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for check-plugin developer guidelines, coding conventions, and the basket / Grafana deliverables. The [example plugin](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/check-plugins/example/example) is the reference skeleton.
 
 Compiling and packaging (RPM, DEB, Windows MSI, Code Signing) is documented in [BUILD.md](BUILD.md). Helper scripts under `tools/` (basket generation, docs build, unit-test and linter runners) are described in [TOOLS.md](TOOLS.md).
 

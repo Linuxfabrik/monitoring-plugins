@@ -146,7 +146,7 @@ Remove measurements from an InfluxDB instance where the latest entry
 per host is older than the given threshold. Useful when the monitoring
 system does not automatically drop measurements for hosts or services
 that have been removed. See
-[tools/influxdb-remove-old-measurements/README.md](tools/influxdb-remove-old-measurements/README.md)
+[tools/influxdb-remove-old-measurements/README.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/tools/influxdb-remove-old-measurements/README.md)
 for the full fact sheet.
 
 ```bash

@@ -204,9 +204,9 @@ The file names match
 [ansible_facts\['os_family'\]](https://github.com/ansible/ansible/blob/37ae2435878b7dd76b812328878be620a93a30c9/lib/ansible/module_utils/facts.py#L267).
 Install the file for your family into `/etc/sudoers.d/` on every monitored host:
 
-* [Debian.sudoers](assets/sudoers/Debian.sudoers):
+* [Debian.sudoers](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/sudoers/Debian.sudoers):
   Debian, Raspbian, Ubuntu.
-* [RedHat.sudoers](assets/sudoers/RedHat.sudoers):
+* [RedHat.sudoers](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/sudoers/RedHat.sudoers):
   Alma, Amazon, CentOS, CloudLinux, Fedora, Oracle Linux, RedHat, Rocky, Scientific.
 
 When the Linuxfabrik RPM or DEB package is installed, you will already find the

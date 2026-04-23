@@ -89,7 +89,7 @@ Python packages installed via `pip` inside workflows follow a two-tier policy:
 
 Target audience: developers contributing a new check plugin or reworking an existing one. If you are an admin deploying the plugins, you do not need this document.
 
-All plugins are written in Python and released under the [UNLICENSE](https://unlicense.org/), which dedicates the work to the public domain with no conditions attached. Use the [example](check-plugins/example/example) plugin as a skeleton for new plugins. It demonstrates all standard patterns, library functions, and coding conventions described below.
+All plugins are written in Python and released under the [UNLICENSE](https://unlicense.org/), which dedicates the work to the public domain with no conditions attached. Use the [example](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/check-plugins/example/example) plugin as a skeleton for new plugins. It demonstrates all standard patterns, library functions, and coding conventions described below.
 
 
 ### Monitoring of an Application
@@ -363,7 +363,7 @@ For all other options, use long parameters only. Separate words using a `-`. We 
 * `choices=['udp', 'udp6', 'tcp', 'tcp6']`
 * `action='store_true'`, `action='store_false'` for switches
 
-**Threshold parameters** (`--warning`, `--critical`) in new plugins must use `type=str` (not `int` or `float`) to support [Nagios range expressions](https://www.monitoring-plugins.org/doc/guidelines.html#THRESHOLDFORMAT) like `80`, `10:`, `~:50`, `@10:20`. In `main()`, use `lib.base.get_state(value, args.WARN, args.CRIT, _operator='range')`. See the [example](check-plugins/example/example) plugin and the [Threshold and Ranges](#threshold-and-ranges) section for details.
+**Threshold parameters** (`--warning`, `--critical`) in new plugins must use `type=str` (not `int` or `float`) to support [Nagios range expressions](https://www.monitoring-plugins.org/doc/guidelines.html#THRESHOLDFORMAT) like `80`, `10:`, `~:50`, `@10:20`. In `main()`, use `lib.base.get_state(value, args.WARN, args.CRIT, _operator='range')`. See the [example](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/check-plugins/example/example) plugin and the [Threshold and Ranges](#threshold-and-ranges) section for details.
 
 Hints:
 
@@ -647,7 +647,7 @@ c - a continuous counter (such as bytes transmitted on an interface [so instead 
 * Preserves the actual unit of measurement (`B`, `%`, `s`, etc.) in perfdata.
 * Saves resources on the monitoring server by doing the calculation once per check run instead of repeatedly in Grafana.
 
-See the [example](check-plugins/example/example) plugin for a complete implementation of this pattern.
+See the [example](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/check-plugins/example/example) plugin for a complete implementation of this pattern.
 
 Wherever possible, prefer percentages over absolute values to assist users in comparing different systems with different absolute sizes.
 
@@ -711,7 +711,7 @@ pylint check-plugins/my-check/my-check
 
 ### Unit Tests
 
-Unit tests are implemented using the `unittest` framework (<https://docs.python.org/3/library/unittest.html>) with a declarative, data-driven approach. Test definitions are a list of dicts (or a list of platform/image items for container tests), materialised into one real `unittest` test method per item via `lib.lftest.attach_tests()` or `lib.lftest.attach_each()`. See the [example](check-plugins/example/unit-test/run) plugin for the reference implementation.
+Unit tests are implemented using the `unittest` framework (<https://docs.python.org/3/library/unittest.html>) with a declarative, data-driven approach. Test definitions are a list of dicts (or a list of platform/image items for container tests), materialised into one real `unittest` test method per item via `lib.lftest.attach_tests()` or `lib.lftest.attach_each()`. See the [example](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/check-plugins/example/unit-test/run) plugin for the reference implementation.
 
 
 #### Test directory structure
@@ -1142,12 +1142,12 @@ Non-obvious patterns worth copying from, when writing a new plugin. Each entry p
 
 | Pattern | Reference plugin |
 |---|---|
-| `--count`: alert only after N consecutive threshold violations | [cpu-usage](check-plugins/cpu-usage) |
-| SQLite `cut()` to keep the local state DB bounded | [cpu-usage](check-plugins/cpu-usage) |
-| Raw network communication via byte-structs and sockets | [dhcp-relayed](check-plugins/dhcp-relayed) |
-| Check minimum required 3rd-party library version at import time | [disk-io](check-plugins/disk-io) |
-| Threshold warm-up (learns a baseline before alerting) | [disk-io](check-plugins/disk-io) |
-| `--icinga-callback`: acknowledgement-aware plugin | [logfile](check-plugins/logfile) |
-| Credential file via MySQL option-file / `configparser` | All mysql-\* plugins, [icinga-topflap-services](check-plugins/icinga-topflap-services) |
-| Optional asset script (`monitoring.php`) alongside the plugin | [php-status](check-plugins/php-status) |
-| Cross-platform branching (`lib.base.LINUX` / `lib.base.WINDOWS`) | [users](check-plugins/users) |
+| `--count`: alert only after N consecutive threshold violations | [cpu-usage](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage) |
+| SQLite `cut()` to keep the local state DB bounded | [cpu-usage](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage) |
+| Raw network communication via byte-structs and sockets | [dhcp-relayed](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dhcp-relayed) |
+| Check minimum required 3rd-party library version at import time | [disk-io](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io) |
+| Threshold warm-up (learns a baseline before alerting) | [disk-io](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io) |
+| `--icinga-callback`: acknowledgement-aware plugin | [logfile](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/logfile) |
+| Credential file via MySQL option-file / `configparser` | All mysql-\* plugins, [icinga-topflap-services](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/icinga-topflap-services) |
+| Optional asset script (`monitoring.php`) alongside the plugin | [php-status](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/php-status) |
+| Cross-platform branching (`lib.base.LINUX` / `lib.base.WINDOWS`) | [users](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/users) |
