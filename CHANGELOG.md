@@ -141,6 +141,7 @@ Tools:
 * build-basket: fix missing `importlib.machinery` / `importlib.util` imports
 * build-basket: strip argparse `%%` escaping in Icinga Director basket descriptions
 * build-basket: write `[]` as default value for `append` parameters with `default=None`
+* update-readmes: backslashes in a plugin's `--help` output (e.g. Windows example paths like `C:\logs\...`) no longer make README regeneration crash
 
 
 Grafana:

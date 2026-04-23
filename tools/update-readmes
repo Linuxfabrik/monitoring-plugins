@@ -33,7 +33,7 @@ import lib.base
 import lib.disk
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041301'
+__version__ = '2026042301'
 
 DESCRIPTION = """Refresh the `## Help` section of every check-plugin README by running each plugin
 with --help and replacing the fenced code block between `## Help` and `## Usage Examples`."""
@@ -98,7 +98,10 @@ def update_readme(plugin_dir, help_text):
     readme_path = plugin_dir / 'README.md'
     current = lib.base.coe(lib.disk.read_file(str(readme_path)))
     replacement = f'## Help\n\n```text\n{help_text}\n```\n\n\n## Usage Examples'
-    updated = HELP_BLOCK_REGEX.sub(replacement, current)
+    # Pass the replacement through a lambda so re.sub() treats it as a
+    # literal string; otherwise backslashes in a plugin's --help output
+    # (e.g. Windows example paths) look like regex escape sequences.
+    updated = HELP_BLOCK_REGEX.sub(lambda _m: replacement, current)
     if updated == current:
         return False
     lib.base.coe(lib.disk.write_file(str(readme_path), updated))
@@ -110,7 +113,8 @@ def main():
     parse_args()
 
     plugin_dirs = [
-        p for p in _common.iter_check_plugins(skip=frozenset())
+        p
+        for p in _common.iter_check_plugins(skip=frozenset())
         if (p / 'README.md').is_file() and (p / p.name).is_file()
     ]
 
