@@ -1,0 +1,305 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Integration test for the librenms-alerts check plugin.
+
+Spins up a LibreNMS application container next to a MariaDB
+container (shared network), waits for LibreNMS to migrate its
+schema against the live database, loads a seed fixture with one
+device per LibreNMS AlertState value, and runs the plugin. This
+guards against regressions like #882, where the plugin only
+matched `alerts.state = 1` (ACTIVE) and missed WORSE, BETTER and
+CHANGED - states that LibreNMS itself treats as open alerts.
+
+The LibreNMS image is pulled from Docker Hub because there is no
+Red Hat family image; MariaDB uses the sclorg c10s family to stay
+consistent with the other mysql-* plugin tests.
+"""
+
+import os
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_WARN
+
+LIBRENMS_IMAGE = 'docker.io/librenms/librenms:latest'
+MARIADB_IMAGE = 'quay.io/sclorg/mariadb-118-c10s'
+
+SCENARIOS = [
+    {
+        'id': 'crit-all-open-states',
+        'params': ['--lengthy'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'There are 4 alerts. Checked 6 devices.',
+            'dev-active',
+            'dev-worse',
+            'dev-better',
+            'dev-changed',
+            'dev-acked',
+            'dev-recovered',
+        ],
+        'assert-regex': [
+            r'dev-active\s.*\[CRITICAL\]',
+            r'dev-worse\s.*\[CRITICAL\]',
+            r'dev-better\s.*\[CRITICAL\]',
+            r'dev-changed\s.*\[CRITICAL\]',
+            r'dev-acked\s.*\[OK\]',
+            r'dev-recovered\s.*\[OK\]',
+        ],
+    },
+    {
+        'id': 'warn-severity-warn',
+        'params': ['--lengthy', '--severity=warn'],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['There are 4 alerts. Checked 6 devices.'],
+        'assert-regex': [r'dev-worse\s.*\[WARNING\]'],
+    },
+]
+
+
+FIXTURE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fixtures')
+
+
+def _free_port():
+    # Ask the kernel for a free TCP port. There is a tiny race between
+    # closing the probe socket and `podman run -p`, but in practice it
+    # is fine for a single-user test environment.
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('127.0.0.1', 0))
+        return s.getsockname()[1]
+
+
+def _start_stack():
+    # Start a dedicated podman network, a MariaDB and a LibreNMS
+    # container on it, and wait until LibreNMS has migrated the
+    # schema against the DB. Returns (network_name, db_container_id,
+    # app_container_id, host_port).
+    network = f'librenms-alerts-test-{os.getpid()}'
+    subprocess.run(
+        ['podman', 'network', 'create', network],
+        check=True,
+        capture_output=True,
+    )
+
+    port = _free_port()
+    db = subprocess.run(
+        [
+            'podman',
+            'run',
+            '-d',
+            '--network',
+            network,
+            '--network-alias',
+            'db',
+            '-p',
+            f'127.0.0.1:{port}:3306',
+            '-e',
+            'MYSQL_ROOT_PASSWORD=linuxfabrik',
+            '-e',
+            'MYSQL_USER=librenms',
+            '-e',
+            'MYSQL_PASSWORD=linuxfabrik',
+            '-e',
+            'MYSQL_DATABASE=librenms',
+            MARIADB_IMAGE,
+            'run-mysqld',
+            '--port=3306',
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    # Wait for the DB to accept connections.
+    for _ in range(60):
+        result = subprocess.run(
+            [
+                'podman',
+                'exec',
+                db,
+                'mariadb',
+                '-ulibrenms',
+                '-plinuxfabrik',
+                '-e',
+                'SELECT 1',
+                'librenms',
+            ],
+            capture_output=True,
+        )
+        if result.returncode == 0:
+            break
+        time.sleep(1)
+    else:
+        raise RuntimeError('MariaDB did not become ready in 60s')
+
+    app = subprocess.run(
+        [
+            'podman',
+            'run',
+            '-d',
+            '--network',
+            network,
+            '-e',
+            'DB_HOST=db',
+            '-e',
+            'DB_NAME=librenms',
+            '-e',
+            'DB_USER=librenms',
+            '-e',
+            'DB_PASSWORD=linuxfabrik',
+            '-e',
+            'MEMCACHED_HOST=127.0.0.1',
+            '-e',
+            'SIDECAR_DISPATCHER=0',
+            '-e',
+            'SIDECAR_POLLER=0',
+            LIBRENMS_IMAGE,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    # Wait for LibreNMS to finish its init pipeline. The log marker
+    # "ready to handle connections" is emitted by php-fpm after the
+    # cont-init.d scripts (which run `artisan migrate`) have all
+    # succeeded, so we can be sure the schema matches the plugin's
+    # expectations once we see it.
+    for _ in range(180):
+        logs = subprocess.run(
+            ['podman', 'logs', app],
+            capture_output=True,
+            text=True,
+        )
+        if 'ready to handle connections' in (logs.stdout + logs.stderr):
+            break
+        time.sleep(2)
+    else:
+        raise RuntimeError('LibreNMS did not finish init in 6 minutes')
+
+    return network, db, app, port
+
+
+def _cleanup_stack(network, db, app):
+    for cid in (app, db):
+        if cid:
+            subprocess.run(['podman', 'rm', '-f', cid], capture_output=True)
+    if network:
+        subprocess.run(['podman', 'network', 'rm', network], capture_output=True)
+
+
+def _load_seed(db_container, fixture):
+    path = os.path.join(FIXTURE_DIR, fixture)
+    with open(path) as f:
+        seed_sql = f.read()
+    result = subprocess.run(
+        [
+            'podman',
+            'exec',
+            '-i',
+            db_container,
+            'mariadb',
+            '-ulibrenms',
+            '-plinuxfabrik',
+            'librenms',
+        ],
+        input=seed_sql,
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f'Seed load failed (rc={result.returncode}):\n'
+            f'stdout: {result.stdout}\nstderr: {result.stderr}'
+        )
+
+
+def _write_defaults_file(port):
+    fd, path = tempfile.mkstemp(suffix='.cnf')
+    with os.fdopen(fd, 'w') as f:
+        f.write(
+            '[client]\n'
+            f'host=127.0.0.1\n'
+            f'port={port}\n'
+            'user=librenms\n'
+            'password=linuxfabrik\n'
+            'database=librenms\n'
+        )
+    os.chmod(path, 0o600)
+    return path
+
+
+class TestCheck(unittest.TestCase):
+    check = '../librenms-alerts'
+
+    network = None
+    db = None
+    app = None
+    port = None
+    defaults_file = None
+
+    @classmethod
+    def setUpClass(cls):
+        cls.network, cls.db, cls.app, cls.port = _start_stack()
+        cls.defaults_file = _write_defaults_file(cls.port)
+        _load_seed(cls.db, 'seed-all-alert-states.sql')
+
+    @classmethod
+    def tearDownClass(cls):
+        if cls.defaults_file:
+            try:
+                os.unlink(cls.defaults_file)
+            except OSError:
+                pass
+        _cleanup_stack(cls.network, cls.db, cls.app)
+
+
+def _run_scenario(test, scenario):
+    cmd = [test.check, f'--defaults-file={test.defaults_file}']
+    cmd += scenario['params']
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        cwd=os.path.dirname(os.path.abspath(__file__)),
+    )
+    combined = result.stdout + result.stderr
+    test.assertEqual(
+        result.returncode,
+        scenario['assert-retc'],
+        f'Expected retc {scenario["assert-retc"]}, got {result.returncode}\n'
+        f'--- stdout/stderr ---\n{combined}',
+    )
+    for s in scenario.get('assert-in', []):
+        test.assertIn(s, combined)
+    for s in scenario.get('assert-not-in', []):
+        test.assertNotIn(s, combined)
+    for pattern in scenario.get('assert-regex', []):
+        test.assertRegex(combined, pattern)
+
+
+lib.lftest.attach_each(
+    TestCheck,
+    SCENARIOS,
+    _run_scenario,
+    id_func=lambda it: it['id'],
+)
+
+
+if __name__ == '__main__':
+    unittest.main()
