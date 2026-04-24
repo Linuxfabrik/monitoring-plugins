@@ -13,6 +13,7 @@
 import argparse
 import base64
 import json
+import os
 import sys
 
 import lib.args
@@ -24,7 +25,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026042302'
+__version__ = '2026042401'
 
 DESCRIPTION = """Checks hardware sensor readings (temperature, voltage, fan speed, power) from the
 Redfish Chassis collection via the Redfish API. Alerts when any sensor reports a
@@ -110,6 +111,21 @@ def parse_args():
     return args
 
 
+def load_test_fixture(test_args, path):
+    # Replace the first element of args.TEST with the walk-specific
+    # fixture path, read it via lib.lftest.test() and return the parsed
+    # JSON. On a missing file or malformed JSON, exit STATE_UNKNOWN with
+    # a helpful message instead of letting json.loads raise a traceback.
+    if not os.path.isfile(path):
+        lib.base.cu(f'Test fixture not found: "{path}".')
+    test_args[0] = path
+    stdout, _, _ = lib.lftest.test(test_args)
+    try:
+        return json.loads(stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        lib.base.cu(f'Test fixture "{path}" does not contain valid JSON: {e}')
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -144,9 +160,7 @@ def main():
         # file names describe what they contain (chassises, chassis,
         # sensors, sensor-N, thermal).
         test_base = args.TEST[0]
-        args.TEST[0] = f'{test_base}-chassises'
-        stdout, _, _ = lib.lftest.test(args.TEST)
-        result = json.loads(stdout)
+        result = load_test_fixture(args.TEST, f'{test_base}-chassises')
     # "Members": [
     #     {
     #         "@odata.id": "/redfish/v1/Chassis/1U"
@@ -176,9 +190,7 @@ def main():
                 )
             )
         else:
-            args.TEST[0] = f'{test_base}-chassis'
-            stdout, _, _ = lib.lftest.test(args.TEST)
-            chassis = json.loads(stdout)
+            chassis = load_test_fixture(args.TEST, f'{test_base}-chassis')
         chassis = lib.redfish.get_chassis(chassis)
         if chassis['Status_State'] not in ['Enabled', 'Quiesced']:
             continue
@@ -214,9 +226,7 @@ def main():
                 )
             )
         else:
-            args.TEST[0] = f'{test_base}-sensors'
-            stdout, _, _ = lib.lftest.test(args.TEST)
-            sensors = json.loads(stdout)
+            sensors = load_test_fixture(args.TEST, f'{test_base}-sensors')
         table_data = []
         for sensor_idx, sensor in enumerate(sensors.get('Members', [])):
             if args.TEST is None:
@@ -230,9 +240,10 @@ def main():
                     )
                 )
             else:
-                args.TEST[0] = f'{test_base}-sensor-{sensor_idx}'
-                stdout, _, _ = lib.lftest.test(args.TEST)
-                sensor_data = json.loads(stdout)
+                sensor_data = load_test_fixture(
+                    args.TEST,
+                    f'{test_base}-sensor-{sensor_idx}',
+                )
             sensor_data = lib.redfish.get_chassis_sensors(sensor_data)
             if sensor_data['Status_State'] not in ['Enabled', 'Quiesced']:
                 continue
@@ -274,9 +285,7 @@ def main():
                 )
             )
         else:
-            args.TEST[0] = f'{test_base}-thermal'
-            stdout, _, _ = lib.lftest.test(args.TEST)
-            thermal = json.loads(stdout)
+            thermal = load_test_fixture(args.TEST, f'{test_base}-thermal')
 
         # redundancy
         table_data = []

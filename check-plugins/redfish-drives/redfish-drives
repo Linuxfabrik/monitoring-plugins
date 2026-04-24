@@ -13,6 +13,7 @@
 import argparse
 import base64
 import json
+import os
 import sys
 
 import lib.args
@@ -24,7 +25,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026042303'
+__version__ = '2026042401'
 
 DESCRIPTION = """Checks the state of all physical drives and their storage controllers in a
 Redfish-compatible server via the Redfish API. Alerts when any drive or storage controller
@@ -112,6 +113,21 @@ def parse_args():
     return args
 
 
+def load_test_fixture(test_args, path):
+    # Replace the first element of args.TEST with the walk-specific
+    # fixture path, read it via lib.lftest.test() and return the parsed
+    # JSON. On a missing file or malformed JSON, exit STATE_UNKNOWN with
+    # a helpful message instead of letting json.loads raise a traceback.
+    if not os.path.isfile(path):
+        lib.base.cu(f'Test fixture not found: "{path}".')
+    test_args[0] = path
+    stdout, _, _ = lib.lftest.test(test_args)
+    try:
+        return json.loads(stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        lib.base.cu(f'Test fixture "{path}" does not contain valid JSON: {e}')
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -146,9 +162,7 @@ def main():
         # file names describe what they contain (systems, system,
         # storages, storage, drive-N).
         test_base = args.TEST[0]
-        args.TEST[0] = f'{test_base}-systems'
-        stdout, _, _ = lib.lftest.test(args.TEST)
-        result = json.loads(stdout)
+        result = load_test_fixture(args.TEST, f'{test_base}-systems')
     # "Members": [
     #     {
     #         "@odata.id": "/redfish/v1/Systems/437XR1138R2"
@@ -179,9 +193,7 @@ def main():
                 )
             )
         else:
-            args.TEST[0] = f'{test_base}-system'
-            stdout, _, _ = lib.lftest.test(args.TEST)
-            systems = json.loads(stdout)
+            systems = load_test_fixture(args.TEST, f'{test_base}-system')
         systems = lib.redfish.get_systems(systems)
         if systems['Status_State'] not in ['Enabled', 'Quiesced']:
             continue
@@ -217,9 +229,7 @@ def main():
                 )
             )
         else:
-            args.TEST[0] = f'{test_base}-storages'
-            stdout, _, _ = lib.lftest.test(args.TEST)
-            storages = json.loads(stdout)
+            storages = load_test_fixture(args.TEST, f'{test_base}-storages')
         table_data = []
         table_data_drive = []
         for storage in storages.get('Members', []):
@@ -235,9 +245,7 @@ def main():
                     )
                 )
             else:
-                args.TEST[0] = f'{test_base}-storage'
-                stdout, _, _ = lib.lftest.test(args.TEST)
-                storage_data = json.loads(stdout)
+                storage_data = load_test_fixture(args.TEST, f'{test_base}-storage')
 
             # get drives attached to the storage member
             for drive_idx, drive in enumerate(storage_data.get('Drives', [])):
@@ -253,9 +261,10 @@ def main():
                         )
                     )
                 else:
-                    args.TEST[0] = f'{test_base}-drive-{drive_idx}'
-                    stdout, _, _ = lib.lftest.test(args.TEST)
-                    drive_data = json.loads(stdout)
+                    drive_data = load_test_fixture(
+                        args.TEST,
+                        f'{test_base}-drive-{drive_idx}',
+                    )
                 drive_data = lib.redfish.get_systems_storage_drives(drive_data)
                 if drive_data['Status_State'] not in ['Enabled', 'Quiesced']:
                     continue

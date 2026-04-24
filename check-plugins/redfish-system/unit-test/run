@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 # The plugin appends `-systems` (collection) and `-system` (member)
 # to the --test path as it walks the Redfish API, so each scenario
@@ -38,6 +38,14 @@ TESTS = [
         'test': 'stdout/hardware-fault,,0',
         'assert-retc': STATE_CRIT,
         'assert-in': ['[CRITICAL]'],
+    },
+    {
+        # A missing fixture must surface as STATE_UNKNOWN with a
+        # readable message, not as a Python traceback.
+        'id': 'unknown-missing-fixture',
+        'test': 'stdout/does-not-exist,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Test fixture not found'],
     },
 ]
 

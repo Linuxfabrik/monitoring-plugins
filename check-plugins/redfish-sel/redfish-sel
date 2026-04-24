@@ -13,6 +13,7 @@
 import argparse
 import base64
 import json
+import os
 import sys
 
 import lib.args
@@ -24,7 +25,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026042302'
+__version__ = '2026042401'
 
 DESCRIPTION = """Checks the System Event Log (SEL) of Redfish-compatible servers via the Redfish API.
 Alerts based on the severity of log entries. Entries can be filtered by regex."""
@@ -109,6 +110,21 @@ def parse_args():
     return args
 
 
+def load_test_fixture(test_args, path):
+    # Replace the first element of args.TEST with the walk-specific
+    # fixture path, read it via lib.lftest.test() and return the parsed
+    # JSON. On a missing file or malformed JSON, exit STATE_UNKNOWN with
+    # a helpful message instead of letting json.loads raise a traceback.
+    if not os.path.isfile(path):
+        lib.base.cu(f'Test fixture not found: "{path}".')
+    test_args[0] = path
+    stdout, _, _ = lib.lftest.test(test_args)
+    try:
+        return json.loads(stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        lib.base.cu(f'Test fixture "{path}" does not contain valid JSON: {e}')
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -155,14 +171,9 @@ def main():
         # file names describe what they contain (root, managers, sel)
         # instead of being a string-appended chain.
         test_base = args.TEST[0]
-        args.TEST[0] = f'{test_base}-root'
-        stdout, _, _ = lib.lftest.test(args.TEST)
-        result = json.loads(stdout)
+        result = load_test_fixture(args.TEST, f'{test_base}-root')
         vendor = lib.redfish.get_vendor(result)
-
-        args.TEST[0] = f'{test_base}-managers'
-        stdout, _, _ = lib.lftest.test(args.TEST)
-        result = json.loads(stdout)
+        result = load_test_fixture(args.TEST, f'{test_base}-managers')
 
     # "Members": [
     #     {
@@ -217,9 +228,7 @@ def main():
                 )
             )
         else:
-            args.TEST[0] = f'{test_base}-sel'
-            stdout, _, _ = lib.lftest.test(args.TEST)
-            sel = json.loads(stdout)
+            sel = load_test_fixture(args.TEST, f'{test_base}-sel')
         member_msg, member_state = lib.redfish.get_manager_logservices_sel_entries(sel)
         if member_msg:
             # build the message

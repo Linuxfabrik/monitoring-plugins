@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 # The plugin appends `-v1`, `-managers`, `-vendor` to the --test path
 # as it walks the Redfish API, so each scenario requires three fixture
@@ -26,6 +26,14 @@ TESTS = [
         'test': 'stdout/empty-sel,,0',
         'assert-retc': STATE_OK,
         'assert-in': ['Everything is ok, checked SEL on 1 member.'],
+    },
+    {
+        # A missing fixture must surface as STATE_UNKNOWN with a
+        # readable message, not as a Python traceback.
+        'id': 'unknown-missing-fixture',
+        'test': 'stdout/does-not-exist,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Test fixture not found'],
     },
 ]
 
