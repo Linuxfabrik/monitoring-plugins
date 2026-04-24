@@ -187,7 +187,7 @@ def generate_mkdocs_yml(nav_sections):
     lines.append("      - 'WildFly Plugins': 'plugins-wildfly.md'")
 
     lines.append("  - 'Integration':")
-    lines.append("      - 'Icinga Setup': 'icinga.md'")
+    lines.append("      - 'Icinga': 'icinga.md'")
     lines.append("      - 'Grafana': 'grafana.md'")
 
     # Remaining top-level admin docs from the project root, grouped
@@ -201,18 +201,18 @@ def generate_mkdocs_yml(nav_sections):
     lines.append("      - 'Testimonials': 'testimonials.md'")
     lines.append("      - 'Security': 'security.md'")
 
-    for section_dir, section_title, plugins in nav_sections:
-        lines.append(f"  - '{section_title}':")
-        for plugin in plugins:
-            lines.append(f"      - '{plugin}': '{section_dir}/{plugin}.md'")
-
-    # Developer-facing documentation, grouped at the bottom so admins
-    # are not distracted by contribution/build/tooling details they
-    # will not need for day-to-day monitoring.
+    # Developer-facing documentation sits above the plugin indexes so
+    # that new contributors reach it without scrolling past hundreds
+    # of per-plugin pages.
     lines.append("  - 'For Developers':")
     lines.append("      - 'Contributing': 'contributing.md'")
     lines.append("      - 'Compiling and Packaging': 'build.md'")
     lines.append("      - 'Maintainer Tools': 'tools.md'")
+
+    for section_dir, section_title, plugins in nav_sections:
+        lines.append(f"  - '{section_title}':")
+        for plugin in plugins:
+            lines.append(f"      - '{plugin}': '{section_dir}/{plugin}.md'")
 
     lines.append('')
 
