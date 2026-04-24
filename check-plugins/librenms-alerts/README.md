@@ -16,6 +16,7 @@ Checks for unacknowledged alerts in LibreNMS and reports the most recent alert p
 
 * Queries the LibreNMS MySQL/MariaDB database directly (the API is too resource-intensive for large-scale environments)
 * Joins `devices`, `alerts`, `alert_rules`, `device_groups`, and `locations` tables to build the device/alert overview
+* Matches the same set of open, notifiable alerts that the LibreNMS UI and alerter consider as "needs attention": `alerts.open = 1` and `alerts.state IN (1, 3, 4, 5)`. LibreNMS encodes the alert lifecycle in `alerts.state` (`LibreNMS/Enum/AlertState.php`): `0` = CLEAR / RECOVERED, `1` = ACTIVE, `2` = ACKNOWLEDGED, `3` = WORSE, `4` = BETTER, `5` = CHANGED. WORSE and BETTER exist since LibreNMS 1.54 (July 2019); CHANGED was added in LibreNMS 25.2.0 (February 2025) and is now triggered whenever the alert `diff` detects a change, so a plugin that only looked at state `1` would miss a growing share of real alerts on LibreNMS 25.x.
 * Supports filtering by device group (`--device-group`, with SQL wildcards), device hostname (`--device-hostname`, repeatable), and device type (`--device-type`, repeatable)
 * In default (compact) mode, only devices with active alerts are shown; use `--lengthy` to display all devices with extended details (hardware, type, OS, location, uptime)
 
@@ -109,8 +110,8 @@ Hostname   ! SysName                 ! Hardware ! Type    ! OS    ! Location ! U
 
 ## States
 
-* OK if there are no unacknowledged alerts.
-* WARN or CRIT (default: CRIT, configurable via `--severity`) for each device with an unacknowledged alert.
+* OK if there are no open, unacknowledged alerts. Acknowledged alerts (`alerts.state = 2`) and cleared/recovered alerts (`alerts.state = 0`) are reported as OK.
+* WARN or CRIT (default: CRIT, configurable via `--severity`) for each device with an open alert, i.e. `alerts.state` in `ACTIVE` (1), `WORSE` (3), `BETTER` (4) or `CHANGED` (5).
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

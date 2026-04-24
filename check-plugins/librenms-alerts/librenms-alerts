@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026042401'
 
 DESCRIPTION = """Checks for unacknowledged alerts in LibreNMS and reports the most recent alert per
 device. Only considers devices that do not have alerting disabled in their LibreNMS
@@ -180,7 +180,8 @@ def main():
             device_groups AS dg ON dgd.device_group_id = dg.id
                 LEFT JOIN
             alerts AS a ON d.device_id = a.device_id
-                AND a.state = 1
+                AND a.open = 1
+                AND a.state IN (1, 3, 4, 5)
                 LEFT JOIN
             alert_rules AS ar ON ar.id = a.rule_id
         WHERE

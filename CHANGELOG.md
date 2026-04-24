@@ -162,6 +162,7 @@ Monitoring Plugins:
 * file-age: handle race when files disappear on busy file systems
 * fs-ro: ignore `/run/credentials`
 * keycloak-stats: incorrect symlink for lib
+* librenms-alerts: also report alerts in the `WORSE`, `BETTER` and `CHANGED` states, not only `ACTIVE`. Previously any device whose alert had already transitioned (severity bumped, diff detected, etc.) was silently reported as OK. On LibreNMS 25.2.0 and newer this affected a large share of alerts because every `diff` detection now flips the alert into the `CHANGED` state ([#882](https://github.com/Linuxfabrik/monitoring-plugins/issues/882))
 * logfile: `OverflowError` when inode exceeds SQLite INTEGER range on Windows/NTFS ([#1035](https://github.com/Linuxfabrik/monitoring-plugins/issues/1035))
 * logfile: multiple services on the same logfile with different patterns no longer interfere with each other ([#698](https://github.com/Linuxfabrik/monitoring-plugins/issues/698))
 * logfile: after the #698 state-DB rename, the read offset could reset on every run on hosts upgrading from an older DB schema, visible as a steadily climbing `scanned_lines` in Grafana
