@@ -142,7 +142,7 @@ Each plugin lives in its own directory and follows the same structure:
 
 ### Deliverables
 
-Checklist:
+When creating a new plugin, make sure to deliver:
 
 * The plugin itself, tested on RHEL and Debian.
 * README file explaining "How?" and "Why?"
@@ -154,7 +154,7 @@ Checklist:
 * Icinga Service Set in `all-the-rest.json`
 * Optional: sudoers file (see [sudoers File](#sudoers-file))
 * Optional: A screenshot of the plugins' output from within Icinga, resized to 423x106, using background-color `#f5f9fa`, hosted on [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/), and listed alphabetically in [POSTER.md](POSTER.md).
-* CHANGELOG
+* Update `CHANGELOG.md`.
 
 
 ### Rules of Thumb
