@@ -39,7 +39,7 @@ Written in Python, released into the public domain under the [UNLICENSE](https:/
 
 ## Documentation
 
-Full documentation is at [linuxfabrik.github.io/monitoring-plugins](https://linuxfabrik.github.io/monitoring-plugins/). It is rebuilt and deployed on every push to `main`, so the docs site is always in sync with this repository.
+Full documentation is available at [linuxfabrik.github.io/monitoring-plugins](https://linuxfabrik.github.io/monitoring-plugins/). It is automatically built and deployed on every push to `main`.
 
 For a visual tour of what plugins look like in Icinga Web 2, see [POSTER.md](POSTER.md).
 
