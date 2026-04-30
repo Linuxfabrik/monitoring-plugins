@@ -275,3 +275,15 @@ The benchmark has not been re-run against Python 3.13 (our current build
 target); ratios there may have shifted.
 
 
+### Why Python 3.13 (Not 3.14) on Windows
+
+Nuitka 4.0 (current stable) lists Python 3.14 as experimental and explicitly
+not production-ready. Official support covers Python 3.4 through 3.13. We
+build with `--standalone --msvc=latest`, both paths where partial 3.14 support
+in Nuitka tends to surface first. Until Nuitka declares 3.14 stable, the
+Windows workflow stays pinned to 3.13.
+
+This has no security impact: `actions/setup-python@v6` resolves
+`python-version: '3.13'` to the latest 3.13.x patch release at build time,
+so each release picks up the bundled OpenSSL update from upstream CPython.
+
