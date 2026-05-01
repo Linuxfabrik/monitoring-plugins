@@ -1,25 +1,26 @@
-name: "Linuxfabrik: Dependabot auto-merge"
+name: 'Linuxfabrik: Dependabot auto-merge'
 
 on:
-  pull_request:
+  pull_request: {}
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: 'read-all'
 
 jobs:
   auto-merge:
-    runs-on: ubuntu-latest
-    if: github.actor == 'dependabot[bot]'
+    runs-on: 'ubuntu-latest'
+    if: 'github.actor == ''dependabot[bot]'''
+    permissions:
+      contents: 'write'
+      pull-requests: 'write'
     steps:
 
-      - uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
-        id: meta
+      - uses: 'dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98' # v3.1.0
+        id: 'meta'
 
       - if: >-
           steps.meta.outputs.update-type == 'version-update:semver-patch'
           || steps.meta.outputs.update-type == 'version-update:semver-minor'
-        run: gh pr merge --auto --squash "$PR_URL"
+        run: 'gh pr merge --auto --squash "$PR_URL"'
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: '${{ github.event.pull_request.html_url }}'
+          GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
