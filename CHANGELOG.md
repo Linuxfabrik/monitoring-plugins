@@ -58,7 +58,9 @@ Monitoring Plugins:
 * procs: add `--warning-cpu-percent` / `--critical-cpu-percent` for aggregated CPU usage of filtered processes
 * redfish-system: checks overall system health (processors, BIOS, power state, indicator LED, hostname, SKU, serial number) reported by a Redfish-compatible server, previously bundled into `redfish-drives` ([#652](https://github.com/Linuxfabrik/monitoring-plugins/issues/652))
 * scanrootkit: add 41 signatures for modern Linux rootkits, backdoors and implants (BPFDoor, Drovorub, Ebury, FontOnLake, Kaiji, Kobalos, perfctl, PUMAKIT, Reptile, Symbiote, Winnti for Linux, and more)
+* scanrootkit: add 11 further signatures for recent Linux threats (Auto-Color, Bootkitty + BCDropper, DslogdRAT, Hadooken, Koske, LinkPro, randkit, Snapekit, Sutekh, tracker-fs / vmwfxs, WolfsBane / FireWood)
 * scanrootkit: findings now show the year the rootkit was first publicly disclosed when known
+* scanrootkit: `rootkit_items` and `rootkit_possible` perfdata now count distinct rootkits (one rootkit triggering several indicators counts once), and the `max` field carries the current total number of rootkit signatures so signature-database growth can be graphed
 * sensors-temperatures: add `--ignore` to filter sensors by regex ([#965](https://github.com/Linuxfabrik/monitoring-plugins/issues/965))
 * strongswan-connections: add `--match` and `--ignore` to filter VICI connections by regex ([#738](https://github.com/Linuxfabrik/monitoring-plugins/issues/738))
 * statuspal: also detect `emergency-maintenance` state

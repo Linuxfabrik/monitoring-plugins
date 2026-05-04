@@ -29,9 +29,9 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041303'
+__version__ = '2026050402'
 
-DESCRIPTION = """Scans the system for approximately 160 known rootkits by checking for their
+DESCRIPTION = """Scans the system for approximately 170 known rootkits by checking for their
 characteristic files, directories, and kernel symbols. Each finding includes the year
 the rootkit was first publicly disclosed when known. New rootkit definitions can be
 added by dropping YAML files into the assets folder.
@@ -100,9 +100,11 @@ def main():
     state = STATE_OK
     perfdata = ''
     rkdef_path = os.path.join(os.path.dirname(__file__), 'assets')
-    rkscanned = 0  # number of rootkits scanned
-    rkfound = []  # number of rootkit items (not rootkits) found
-    rkpossible = []  # number of possible rootkit items (not rootkits) found
+    rkscanned = 0  # number of rootkit signatures loaded (used as perfdata _max)
+    rkfound = []  # detail lines per indicator hit (one line per file/dir/ksym match)
+    rkpossible = []  # detail lines per possible-only indicator hit (cl < 100)
+    rkfound_count = 0  # number of distinct rootkits with at least one confirmed hit
+    rkpossible_count = 0  # number of distinct rootkits with at least one possible hit
 
     # get a list of rootkit definition filenames
     rootkits = lib.disk.walk_directory(
@@ -133,11 +135,13 @@ def main():
             )
             confirmed = not ('cl' in rk and rk['cl'] < 100)
             target = rkfound if confirmed else rkpossible
+            hit = False
 
             # see if any of the known files exists
             for item in rk['files']:
                 if lib.disk.file_exists(item, allow_empty=True):
                     target.append(f'* {label}: {item} (File)')
+                    hit = True
 
             # see if any of the directories exist. We use os.path.isdir directly
             # because lib.disk.file_exists is os.path.isfile under the hood and
@@ -145,13 +149,23 @@ def main():
             for item in rk['dirs']:
                 if os.path.isdir(item):
                     target.append(f'* {label}: {item} (Dir)')
+                    hit = True
 
             # scan kernel symbols for signs of rootkits or other malicious software
-            if not ksyms:
-                continue
-            for item in rk['ksyms']:
-                if item in ksyms:
-                    target.append(f'* {label}: {item} (Kernel Symbol)')
+            if ksyms:
+                for item in rk['ksyms']:
+                    if item in ksyms:
+                        target.append(f'* {label}: {item} (Kernel Symbol)')
+                        hit = True
+
+            # count this rootkit once if any of its indicators triggered, so the
+            # perfdata value reflects distinct rootkits found and not the total
+            # number of indicator hits (one rootkit can trigger many indicators)
+            if hit:
+                if confirmed:
+                    rkfound_count += 1
+                else:
+                    rkpossible_count += 1
 
         except KeyError as e:
             # missing a yaml attribute like 'files' or 'dirs'
@@ -174,25 +188,31 @@ def main():
         if rkfound:
             state = lib.base.get_worst(state, lib.base.str2state(args.SEVERITY))
         msg += (
-            f'Found {len(rkfound)} rootkit'
-            f' {lib.txt.pluralize("item", len(rkfound))}.'
-            f' {len(rkpossible)} possible rootkit'
-            f' {lib.txt.pluralize("item", len(rkpossible))}'
+            f'Found {rkfound_count}'
+            f' {lib.txt.pluralize("rootkit", rkfound_count)}.'
+            f' {rkpossible_count} possible'
+            f' {lib.txt.pluralize("rootkit", rkpossible_count)}'
             f' found. {lib.base.state2str(state)}'
         )
         msg += '\n\nRootkits:\n' + '\n'.join(rkfound) if rkfound else ''
         msg += '\n\nPossible Rootkits:\n' + '\n'.join(rkpossible) if rkpossible else ''
     msg += '\n\nScanfile Errors:\n' + '\n'.join(errors) if errors else ''
 
+    # rootkit_items / rootkit_possible carry the count of distinct rootkits with
+    # at least one indicator match. _max is the total number of signatures loaded,
+    # so admins immediately see the upper bound and can graph signature-database
+    # growth via the perfdata max field.
     perfdata += lib.base.get_perfdata(
         'rootkit_items',
-        len(rkfound),
+        rkfound_count,
         _min=0,
+        _max=rkscanned,
     )
     perfdata += lib.base.get_perfdata(
         'rootkit_possible',
-        len(rkpossible),
+        rkpossible_count,
         _min=0,
+        _max=rkscanned,
     )
 
     # over and out

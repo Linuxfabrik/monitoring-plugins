@@ -87,11 +87,11 @@ class TestCheck(unittest.TestCase):
     def test_real_cinik_signature_default_severity_is_crit(self):
         # /tmp/.cinik matches both the CiNIK Worm and Slapper Worm rkhunter
         # signatures shipped in assets/, so a single trigger file produces
-        # two rootkit findings.
+        # two distinct rootkit findings.
         self._touch('/tmp/.cinik')
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check))
         self.assertIn(
-            'Found 2 rootkit items. 0 possible rootkit items found. [CRITICAL]',
+            'Found 2 rootkits. 0 possible rootkits found. [CRITICAL]',
             stdout,
         )
         self.assertIn('Rootkits:', stdout)
@@ -107,7 +107,7 @@ class TestCheck(unittest.TestCase):
             lib.shell.shell_exec(self.check + ' --severity=warn')
         )
         self.assertIn(
-            'Found 2 rootkit items. 0 possible rootkit items found. [WARNING]',
+            'Found 2 rootkits. 0 possible rootkits found. [WARNING]',
             stdout,
         )
         self.assertIn('Rootkits:', stdout)
@@ -283,6 +283,16 @@ class TestCheck(unittest.TestCase):
         self.assertIn('Key Error', stdout)
         self.assertEqual(retc, STATE_OK)
 
+    def test_perfdata_max_carries_signature_count(self):
+        # The total number of rootkit signatures in assets/ has to surface as the
+        # `max` field of both `rootkit_items` and `rootkit_possible`. This is
+        # what admins use to graph signature-database growth, and it doubles as
+        # the upper bound of the metric range for visualization tools.
+        sig_count = len([f for f in os.listdir(ASSETS_DIR) if f.endswith('.yml')])
+        stdout, _, _ = lib.base.coe(lib.shell.shell_exec(self.check))
+        self.assertIn(f"'rootkit_items'=0;;;0;{sig_count}", stdout)
+        self.assertIn(f"'rootkit_possible'=0;;;0;{sig_count}", stdout)
+
     def test_confirmed_and_possible_in_one_run_is_crit(self):
         confirmed_target = TMP_PREFIX + 'mix-confirmed'
         possible_target = TMP_PREFIX + 'mix-possible'
@@ -309,8 +319,8 @@ class TestCheck(unittest.TestCase):
             ),
         )
         stdout, _, retc = lib.base.coe(lib.shell.shell_exec(self.check))
-        self.assertIn('Found 1 rootkit item.', stdout)
-        self.assertIn('1 possible rootkit item found.', stdout)
+        self.assertIn('Found 1 rootkit.', stdout)
+        self.assertIn('1 possible rootkit found.', stdout)
         self.assertIn('Rootkits:', stdout)
         self.assertIn('Possible Rootkits:', stdout)
         # Confirmed wins over possible: state must be CRIT, not WARN.

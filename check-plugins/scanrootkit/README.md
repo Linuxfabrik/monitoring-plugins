@@ -3,7 +3,7 @@
 
 ## Overview
 
-Scans the system for approximately 160 known rootkits by checking for their characteristic files, directories, and kernel symbols. New rootkit definitions can be added by dropping YAML files into the `assets` folder.
+Scans the system for approximately 170 known rootkits by checking for their characteristic files, directories, and kernel symbols. New rootkit definitions can be added by dropping YAML files into the `assets` folder.
 
 **Important Notes:**
 
@@ -34,13 +34,16 @@ Scans the system for approximately 160 known rootkits by checking for their char
 
 Because rkhunter is no longer updated, file-path and kernel-symbol signatures for rootkits released after ~2018 have to be collected from current threat research. When extending the signature set, prefer sources that publish concrete on-disk indicators (full file paths, directory names, kernel module names, exported symbol names). Good starting points, in alphabetical order:
 
+* [Aqua Nautilus](https://www.aquasec.com/blog/) - cloud-native and Linux threat research, frequent honeypot-based discoveries with file-path IoCs
 * [CISA cybersecurity advisories](https://www.cisa.gov/news-events/cybersecurity-advisories) - joint IoC reports, often Linux-specific
+* [Elastic Security Labs](https://www.elastic.co/security-labs) - Linux malware analyses with detailed indicator appendices
 * [ESET welivesecurity](https://www.welivesecurity.com/) - Linux malware teardowns (Ebury, FontOnLake, Kobalos) typically include an IoC appendix
 * [Intezer blog](https://intezer.com/blog/) - Linux threat analyses
 * [Kaspersky Securelist](https://securelist.com/) - Symbiote, HiatusRAT and similar
 * [MITRE ATT&CK T1014 Rootkit](https://attack.mitre.org/techniques/T1014/) and linked software entries
 * [Sandfly Security blog](https://sandflysecurity.com/blog) - specializes in Linux forensics, regularly publishes file-path IoCs
 * [Sysdig threat research](https://sysdig.com/blog/topic/threat-research/), [CrowdStrike](https://www.crowdstrike.com/en-us/blog/category/threat-intel-research/), [Mandiant](https://cloud.google.com/security/resources/insights) - mixed IoC quality, worth checking
+* [Volexity blog](https://www.volexity.com/blog/) - APT and Linux implant analyses with concrete on-disk indicators
 
 Signatures should be strong enough to avoid false positives on a clean system. Prefer uncommon, rootkit-specific file paths (e.g. `/usr/_h4x_/`) over generic ones (`/tmp/.X11-unix`) and exact kernel symbol names over substrings. If a signature is only partially reliable, set `cl` below 100 so the plugin reports it as "possible" instead of "confirmed".
 
@@ -69,7 +72,7 @@ Signatures should be strong enough to avoid false positives on a clean system. P
 ```text
 usage: scanrootkit [-h] [-V] [--severity {warn,crit}]
 
-Scans the system for approximately 160 known rootkits by checking for their
+Scans the system for approximately 170 known rootkits by checking for their
 characteristic files, directories, and kernel symbols. Each finding includes
 the year the rootkit was first publicly disclosed when known. New rootkit
 definitions can be added by dropping YAML files into the assets folder. Alerts
@@ -93,7 +96,7 @@ options:
 Output:
 
 ```text
-Found 4 rootkit items. 2 possible rootkit items found. [CRITICAL]
+Found 4 rootkits. 2 possible rootkits found. [CRITICAL]
 
 Rootkits:
 * Diamorphine LKM (2013): diamorphine_init (Kernel Symbol)
@@ -106,7 +109,7 @@ Possible Rootkits:
 * Symbiote userland Linux rootkit (2022): /usr/include/certbot.h (File)
 ```
 
-Each finding lists the rootkit name followed by the year it was first publicly disclosed in parentheses (when known), the matched indicator, and the indicator type (`File`, `Dir`, or `Kernel Symbol`). Possible findings (signatures with `cl < 100`, e.g. broad component groups or modern rootkits whose paths could collide with legitimate software) are listed in a separate section and produce a WARN state instead of CRIT, regardless of `--severity`.
+Each finding lists the rootkit name followed by the year it was first publicly disclosed in parentheses (when known), the matched indicator, and the indicator type (`File`, `Dir`, or `Kernel Symbol`). The summary line counts distinct rootkits, so two indicator hits for the same rootkit count once. Possible findings (signatures with `cl < 100`, e.g. broad component groups or modern rootkits whose paths could collide with legitimate software) are listed in a separate section and produce a WARN state instead of CRIT, regardless of `--severity`.
 
 
 ## States
@@ -121,8 +124,8 @@ Each finding lists the rootkit name followed by the year it was first publicly d
 
 | Name | Type | Description |
 |----|----|----|
-| rootkit_items | Number | The number of confirmed rootkit items found on the system. |
-| rootkit_possible | Number | Number of possible rootkit items found on the system. |
+| rootkit_items | Number | The number of distinct rootkits with at least one confirmed indicator hit (`cl: 100`). The `max` field carries the total number of rootkit signatures the plugin currently scans for, so admins see the upper bound and can graph signature-database growth via the max field. |
+| rootkit_possible | Number | The number of distinct rootkits with at least one possible indicator hit (`cl < 100`). Same `max` semantics as above. |
 
 
 ## Troubleshooting
