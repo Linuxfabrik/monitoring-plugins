@@ -128,7 +128,10 @@ jobs:
         uses: 'microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57' # v3.0.0
 
       - name: 'Install WiX toolset, the packaging tool'
-        run: 'dotnet tool install --global wix'
+        # Pinned to 5.0.* because WiX 7 introduced the Open Source Maintenance Fee (OSMF)
+        # EULA (https://wixtoolset.org/osmf/) that the build would otherwise have to accept.
+        # 5.0.* matches the version used in the last successful release (v2.2.1).
+        run: 'dotnet tool install --global wix --version 5.0.*'
 
       - name: 'Verify WiX installation'
         run: 'wix --version'
