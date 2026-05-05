@@ -13,7 +13,17 @@ Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ### Issue Tracking
 
-Open issues are tracked on GitHub Issues in the respective repository.
+Open issues are tracked on GitHub Issues in the respective repository. In addition to the GitHub default labels (`bug`, `documentation`, `duplicate`, `enhancement`, `good first issue`, `help wanted`, `invalid`, `question`, `wontfix`), the following project-specific labels are used:
+
+| Label | Use for |
+|---|---|
+| `build` | Packaging, build scripts, distribution artifacts. |
+| `ci/cd` | Continuous integration, GitHub Actions workflows, release automation, test automation. |
+| `dependencies` | Pull requests opened by Dependabot. |
+| `github_actions` | Pull requests that update GitHub Actions workflow definitions or pinned action SHAs. |
+| `python` | Pull requests that update Python dependencies. |
+
+When opening a new issue, attach the label that matches the area of work. The `build` and `ci/cd` labels mirror the conventional commit scopes used in the same areas (`fix(build): ...`, `chore(ci/cd): ...`).
 
 
 ### Pre-commit
