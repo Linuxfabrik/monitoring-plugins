@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+tbd
+
+
+## [v3.0.0] - 2026-05-05
+
 ### Security
 
 * **ci**: Scope `GITHUB_TOKEN` permissions in the dependabot-auto-merge workflow to the job level, with top-level now `read-all`. Matches the pattern used by the other Linuxfabrik workflows and addresses the OpenSSF Scorecard `Token-Permissions` finding.
@@ -145,7 +150,6 @@ Build, CI/CD:
 
 Tools:
 
-* build-basket: fix missing `importlib.machinery` / `importlib.util` imports
 * build-basket: strip argparse `%%` escaping in Icinga Director basket descriptions
 * build-basket: write `[]` as default value for `append` parameters with `default=None`
 * update-readmes: backslashes in a plugin's `--help` output (e.g. Windows example paths like `C:\logs\...`) no longer make README regeneration crash
@@ -186,19 +190,6 @@ Monitoring Plugins:
 * updates: crash on Python 3.9 when pending updates are reported
 * users: incorrect TTY count when SSH clients connect via IPv6 ([#989](https://github.com/Linuxfabrik/monitoring-plugins/issues/989))
 * valkey-status: TLS connection [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954), thanks to [Claudio Kuenzler](https://github.com/Napsty)
-
-
-### Security
-
-Build, CI/CD:
-
-* CI supply chain: all GitHub Actions in `.github/workflows/` and the `pre-commit` install are now hash-pinned. Policy documented in CONTRIBUTING.md. No admin-facing change.
-
-
-Monitoring Plugins:
-
-* Security audit over all plugins: reviewed remaining `shell=True`, dynamic SQL and admin-supplied `eval()` usages. No admin-facing change.
-
 
 
 ## [v2.2.1] - 2025-09-22
@@ -2144,7 +2135,8 @@ Monitoring Plugins:
 Initial release for the general public.
 
 
-[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.2.1...HEAD
+[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v3.0.0...HEAD
+[v3.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.2.1...v3.0.0
 [v2.2.1]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.2.0...v2.2.1
 [v2.2.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.1.1...v2.2.0
 [v2.1.1]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.1.0...v2.1.1
