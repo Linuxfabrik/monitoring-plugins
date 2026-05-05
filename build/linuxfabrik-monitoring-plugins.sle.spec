@@ -71,6 +71,6 @@ install --mode 0440 --no-target-directory assets/sudoers/RedHat.sudoers %{buildr
 %{_libdir}/%{name}/venv/
 %{_libdir}/nagios/plugins/
 %{_sysconfdir}/sudoers.d/%{name}
-%license LICENSE.txt
+%license LICENSE
 
 %changelog

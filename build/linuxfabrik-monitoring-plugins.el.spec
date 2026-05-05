@@ -118,7 +118,7 @@ fi
 %{_libdir}/%{name}/venv/
 %{_libdir}/nagios/plugins/
 %{_sysconfdir}/sudoers.d/%{name}
-%license LICENSE.txt
+%license LICENSE
 
 %files selinux
 %{_datadir}/selinux/packages/linuxfabrik-monitoring-plugins.pp
