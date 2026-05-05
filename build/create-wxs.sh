@@ -37,8 +37,7 @@ cat > "$LFMP_DIR_PACKAGED/in/lfmp.wxs" << EOF
             <Files Include="$LFMP_DIR_COMPILED\check-plugins\**" />
 
             <!-- Only run ServiceControl if the Icinga 2 service exists -->
-            <Component Id="Icinga2ServiceControl" Guid="{7e398e63-b894-47d1-9375-eea744988032}">
-              <Condition>ICINGA2_SERVICE_FOUND</Condition>
+            <Component Id="Icinga2ServiceControl" Guid="{7e398e63-b894-47d1-9375-eea744988032}" Condition="ICINGA2_SERVICE_FOUND">
               <ServiceControl
                   Id="icinga2"
                   Name="icinga2"
