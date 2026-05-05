@@ -36,7 +36,7 @@ linuxfabrik-monitoring-plugins ($LFMP_VERSION-$LFMP_PACKAGE_ITERATION) unstable;
 
   * v$LFMP_VERSION release.
 
- -- Linuxfabrik GmbH, Zurich, Switzerland <info@linuxfabrik.ch>  $(date --rfc-email)
+ -- Linuxfabrik GmbH <info@linuxfabrik.ch>  $(date --rfc-email)
 EOF
 
 # debuild params first then dpkg-buildpackage params (cf. debuild(1))
