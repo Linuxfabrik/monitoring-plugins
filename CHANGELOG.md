@@ -35,7 +35,9 @@ Icinga Director:
 
 Monitoring Plugins:
 
-* dmesg: extend the default ignore list with SHPC PCI hot-plug noise (`pci_hp_register failed with error -16`, `Slot initialization failed`), commonly seen on OpenStack, KVM and VMware guests. Each default ignore pattern is now annotated with its rationale so admins can decide whether an entry still applies to their environment
+* dmesg: `--ignore` now takes a Python regular expression (was substring) and is repeatable. Specifying `--ignore` replaces the bundled default ignore list rather than extending it, so admins curate their own catalogue without inheriting the defaults. Service templates that combined defaults with custom strings need their `dmesg_ignore` Custom Var widened to a regex that covers both. Bundled defaults grew to cover SHPC PCI hot-plug noise on OpenStack, KVM and VMware guests (`pci_hp_register failed with error -16`, `Slot initialization failed`); each default pattern now carries its rationale and reference URL inline so it can be re-evaluated over time
+* dmesg: `--severity` is deprecated and silently accepted for backwards compatibility; the plugin always alerts as CRIT because kernel ring buffer messages on err level are not a meaningful "warning" in a server-hosting context. Existing service templates with `dmesg_severity = warn` keep working but no longer downgrade the state
+* dmesg: emit `errors` perfdata so the unfiltered error count can be trended in Grafana
 
 
 ### Removed

@@ -8,9 +8,6 @@
                 "--ignore": {
                     "value": "$dmesg_ignore$",
                     "repeat_key": true
-                },
-                "--severity": {
-                    "value": "$dmesg_severity$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/dmesg",
@@ -23,11 +20,6 @@
                 },
                 {
                     "datafield_id": 2,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 3,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -90,7 +82,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, alert, crit, and err. Known false positives and hardware-specific noise are filtered out by default. To clear reported messages after resolving the underlying issue, run \"dmesg --clear\". Requires root or sudo.",
+            "notes": "Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, alert, crit, and err. Known false positives and hardware-specific noise are filtered out by default; the filtered count is reported as the `errors` perfdata so trends can be graphed. To clear reported messages after resolving the underlying issue, run \"dmesg --clear\". Note: the kernel ring buffer is a fixed-size circular buffer, so older messages are overwritten over time, and timestamps may drift across SUSPEND/RESUME because the time source is not updated on resume. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dmesg/",
             "object_name": "tpl-service-dmesg",
             "object_type": "template",
@@ -117,8 +109,9 @@
                     " integrity: Problem loading X.509 certificate -126",
                     " ioctl error in smb2_get_dfs_refer rc=-5",
                     " kvm_set_msr_common: MSR_IA32_DEBUGCTLMSR ",
-                    " mokvar: EFI MOKvar config table is not in EFI runtime memory",
                     " No Caching mode page found",
+                    " pci_hp_register failed with error -16",
+                    " Slot initialization failed",
                     " SMBus base address uninitialized - upgrade BIOS or use ",
                     " SMBus Host Controller not enabled!",
                     " tsc: Fast TSC calibration failed",
@@ -127,8 +120,7 @@
                     " vcpu0 disabled perfctr wrmsr",
                     " Warning: Deprecated Driver is detected",
                     " Warning: Unmaintained driver is detected"
-                ],
-                "dmesg_severity": "crit"
+                ]
             },
             "volatile": null,
             "zone": null,
@@ -180,27 +172,6 @@
             "uuid": "ef8a368e-75e4-489e-856a-260814317eae"
         }
     },
-    "DataList": {
-        "dmesg_severity_list": {
-            "list_name": "dmesg_severity_list",
-            "owner": "icinga-admin",
-            "entries": [
-                {
-                    "entry_name": "warn",
-                    "entry_value": "Warn",
-                    "format": "string",
-                    "allowed_roles": null
-                },
-                {
-                    "entry_name": "crit",
-                    "entry_value": "Crit",
-                    "format": "string",
-                    "allowed_roles": null
-                }
-            ],
-            "uuid": "5a5fdea8-a481-4c03-a6fd-5d8cccd1de93"
-        }
-    },
     "Datafield": {
         "1": {
             "varname": "dmesg_always_ok",
@@ -214,26 +185,13 @@
         "2": {
             "varname": "dmesg_ignore",
             "caption": "Dmesg: Ignore",
-            "description": "Ignore a kernel message (case-sensitive, repeating).",
+            "description": "Ignore a kernel message matching this Python regular expression. Can be specified multiple times. Specifying this parameter replaces the bundled default ignore list.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "b1799285-43f4-44b5-9bb6-7f37182bddf7"
-        },
-        "3": {
-            "varname": "dmesg_severity",
-            "caption": "Dmesg: Severity",
-            "description": "Severity for alerting.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
-            "format": null,
-            "settings": {
-                "behavior": "strict",
-                "data_type": "string",
-                "datalist": "dmesg_severity_list"
-            },
-            "uuid": "a46e1550-630a-407d-9677-7770bedd01c7"
         }
     }
 }

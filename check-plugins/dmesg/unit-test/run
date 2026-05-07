@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 TESTS = [
     {
@@ -86,6 +86,39 @@ TESTS = [
         'params': '--ignore 567760 --ignore 2719104 --ignore anything',
         'assert-retc': STATE_OK,
         'assert-regex': r'Everything is ok\.',
+    },
+    {
+        'id': 'ok-regex-character-class-suppresses-all-blk-errors',
+        'test': 'stdout/errors-blk-update-request-two,,0',
+        'params': "--ignore='sector [0-9]+ op'",
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\.',
+    },
+    {
+        'id': 'crit-perfdata-counts-two-blk-errors',
+        'test': 'stdout/errors-blk-update-request-two,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r"\|\s*'errors'=2;;;0",
+    },
+    {
+        'id': 'ok-perfdata-zero-when-everything-filtered',
+        'test': 'stdout/benign-ignored-messages-v4,,0',
+        'assert-retc': STATE_OK,
+        'assert-regex': r"\|\s*'errors'=0;;;0",
+    },
+    {
+        'id': 'crit-deprecated-severity-warn-still-crit',
+        'test': 'stdout/error-rcu-stall,,0',
+        'params': '--severity warn',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'1 error in Kernel Ring Buffer\.',
+    },
+    {
+        'id': 'unknown-invalid-ignore-regex',
+        'test': 'stdout/errors-blk-update-request-two,,0',
+        'params': '--ignore "["',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-regex': r'unterminated character set',
     },
 ]
 
