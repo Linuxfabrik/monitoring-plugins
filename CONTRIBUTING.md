@@ -992,7 +992,7 @@ The `v` is mandatory and machine-readable: it is the unambiguous separator betwe
 
 **SLE vs. SLES.** SUSE distinguishes the platform brand `SLE` (SUSE Linux Enterprise) from the server product `SLES` (SUSE Linux Enterprise Server) under that platform. We use both deliberately:
 
-* `sles-v15`, `sles-v16` for **test and build Containerfiles** — we explicitly target the server edition (the BCI base image is SLES-derived, never SLED), so the bezeichner names the product.
+* `sles-v15`, `sles-v16` for **test and build Containerfiles** — we explicitly target the server edition (the BCI base image is SLES-derived, never SLED), so the identifier names the product.
 * `sle.spec` (`build/linuxfabrik-monitoring-plugins.sle.spec`) and the public repo path `repo.linuxfabrik.ch/monitoring-plugins/sle/<version>/` for the **platform** — the same RPM and the same repo URL are valid for SLES *and* SLED, so the platform name is what belongs there.
 
 The repo URL is a public contract with customer `/etc/zypp/repos.d/` configurations and must not be renamed without coordinated migration.
