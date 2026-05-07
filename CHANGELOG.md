@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+tbd
+
+
+## [v4.0.0] - 2026-05-07
+
 ### Added
 
 Icinga Director:
@@ -2171,7 +2176,8 @@ Monitoring Plugins:
 Initial release for the general public.
 
 
-[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v4.0.0...HEAD
+[v4.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v3.0.0...v4.0.0
 [v3.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.2.1...v3.0.0
 [v2.2.1]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.2.0...v2.2.1
 [v2.2.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.1.1...v2.2.0
