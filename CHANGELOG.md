@@ -8,7 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-tbd
+### Added
+
+Icinga Director:
+
+* Add `OS - RHEL 10 Basic Service Set` for Rocky Linux 10 / RHEL 10 / AlmaLinux 10 hosts. Mirrors the RHEL 9 Basic Service Set and additionally checks `audit-rules.service`, which is enabled by default in the RHEL 10 systemd preset
+* Add `Postfix MTA Service Set (Multi-Instance)` for hosts where the actual MTA runs as `postfix@-.service` (Debian 11/12, Ubuntu 20.04/22.04/24.04). The existing `Postfix MTA Service Set` continues to monitor `postfix.service` and stays correct on Red Hat-family distributions, Debian 13 and Ubuntu 26.04 ([#535](https://github.com/Linuxfabrik/monitoring-plugins/issues/535))
+
+Monitoring Plugins:
+
+* users: cross-distro container-based test (Arch, Debian 11/12/13, Fedora 43, RHEL 8/9/10, SLES 15/16, Ubuntu 20.04/22.04/26.04) that opens a real SSH session and asserts the plugin counts it as PTS. Pins #989 with an explicit RHEL 10 fixture covering SSH sessions without a PTY. Ubuntu 24.04 is currently skipped because its `procps 2:4.0.4-4ubuntu3.2` ships a `w` that segfaults on active SSH sessions ([#989](https://github.com/Linuxfabrik/monitoring-plugins/issues/989))
+
+
+### Changed
+
+Build, CI/CD:
+
+* Bump pinned `linuxfabrik-lib` dependency from 3.4.0 to 3.4.1, which fixes `librenms-alerts` silently reporting OK on alerts in LibreNMS states `WORSE`, `BETTER` or `CHANGED`
 
 
 ## [v3.0.0] - 2026-05-05
