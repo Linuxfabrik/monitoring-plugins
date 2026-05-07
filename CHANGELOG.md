@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Icinga Director:
 
+* Add a daily `Needs Restarting` check (runs via sudo, once a day) to every Linux OS Basic Service Set. Surfaces servers that have been patched but not yet rebooted, on Red Hat-based and Debian-based distributions alike
 * Add `OS - RHEL 10 Basic Service Set` for Rocky Linux 10 / RHEL 10 / AlmaLinux 10 hosts. Mirrors the RHEL 9 Basic Service Set and additionally checks `audit-rules.service`, which is enabled by default in the RHEL 10 systemd preset
 * Add `Postfix MTA Service Set (Multi-Instance)` for hosts where the actual MTA runs as `postfix@-.service` (Debian 11/12, Ubuntu 20.04/22.04/24.04). The existing `Postfix MTA Service Set` continues to monitor `postfix.service` and stays correct on Red Hat-family distributions, Debian 13 and Ubuntu 26.04 ([#535](https://github.com/Linuxfabrik/monitoring-plugins/issues/535))
 
@@ -28,11 +29,20 @@ Build, CI/CD:
 
 Icinga Director:
 
+* Backfill `Disk I/O` (Debian 9) and `Network I/O` (Debian 9, 10, 11, 12, Debian 12 (Cloud Image)) checks on the OS Basic Service Sets where they were missing. Both rely on cross-platform plugins and were previously inconsistent across the older Debian sets
 * OS host tag labels now make it explicit that each OS service set applies to the compatible derivative distributions as well. `OS - RHEL 9` is displayed as `OS - RHEL 9 (and compatible)`, `OS - Ubuntu 24` as `OS - Ubuntu 24 (and compatible)`, and so on for every OS tag. Tag names (`rhel9`, `ubuntu24`, etc.) are unchanged, so existing host configurations stay valid
+* Remove the hard-wired `Systemd Unit - rsyslog.service` check from every OS Basic Service Set. Hosts running rsyslog should be tagged `rsyslog` instead, which activates the dedicated `rsyslog Service Set`. The `about-me` plugin already detects rsyslog and emits the matching tag with `--tags`
 
 Monitoring Plugins:
 
 * dmesg: extend the default ignore list with SHPC PCI hot-plug noise (`pci_hp_register failed with error -16`, `Slot initialization failed`), commonly seen on OpenStack, KVM and VMware guests. Each default ignore pattern is now annotated with its rationale so admins can decide whether an entry still applies to their environment
+
+
+### Removed
+
+Icinga Director:
+
+* Drop the `OS - Debian 8 Basic Service Set`. Debian 8 (Jessie) has been EOL since June 2020 and is not covered by the rest of the project anymore
 
 
 ## [v3.0.0] - 2026-05-05
