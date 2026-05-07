@@ -134,14 +134,20 @@ class TestCheck(unittest.TestCase):
 lib.lftest.attach_tests(TestCheck, TESTS)
 
 
-# Container-based smoke tests for RHEL 8, 9 and 10. Each Containerfile
-# installs strongSwan from EPEL and keeps the container alive via
-# `sleep infinity`. The test harness starts charon inside the
-# container on demand, waits for the VICI control socket to appear,
-# bind-mounts the plugin script + the local lib/ tree into /tmp, and
-# runs the plugin against the live socket. The point is to verify
-# that the plugin can open the Unix socket, speak the VICI protocol
-# and parse charon's reply across all three target distros.
+# Container-based smoke tests across the same Linux distribution
+# matrix used by cpu-usage and users (Arch, Debian 11/12/13, Fedora
+# 43, RHEL 8/9/10, SLES 15/16, Ubuntu 20.04/22.04/24.04/26.04). Each
+# Containerfile installs strongSwan via the distro's package manager
+# (EPEL on RHEL), normalises the charon binary path to
+# /usr/libexec/strongswan/charon and pins the VICI socket to
+# /run/strongswan/charon.vici via /etc/strongswan.d/99-lfmp-test.conf,
+# then keeps the container alive via `sleep infinity`. The test
+# harness starts charon inside the container on demand, waits for the
+# VICI control socket to appear, bind-mounts the plugin script + the
+# local lib/ tree into /tmp, and runs the plugin against the live
+# socket. The point is to verify that the plugin can open the Unix
+# socket, speak the VICI protocol and parse charon's reply across
+# every supported distro.
 #
 # charon logs a long list of CAP_NET_ADMIN / IPSec-kernel warnings
 # because no real VPN machinery is available in an unprivileged
@@ -162,10 +168,41 @@ LIB_DIR = os.path.realpath(os.path.join(HERE, '..', 'lib'))
 PLUGIN = os.path.realpath(os.path.join(HERE, '..', 'strongswan-connections'))
 
 CONTAINERFILES = [
+    'archlinux-vlatest',
+    'debian-v11',
+    'debian-v12',
+    'debian-v13',
+    'fedora-v43',
     'rhel-v8',
     'rhel-v9',
     'rhel-v10',
+    'sles-v15',
+    'sles-v16',
+    'ubuntu-v2004',
+    'ubuntu-v2204',
+    'ubuntu-v2404',
+    'ubuntu-v2604',
 ]
+
+
+def _python_invocation(container):
+    """Pick the right python invocation for the distro inside the container.
+
+    Some Containerfiles install dependencies into a venv at /tmp/venv
+    (Arch, Debian 12+, Fedora, SLES, Ubuntu 20.04+), others install
+    them system-wide (RHEL 8/9/10, Debian 11, Ubuntu 22.04). Detect at
+    runtime and return a sh -c command prefix that ends with
+    `python3 ./strongswan-connections`.
+    """
+    probe = container.exec(
+        ['sh', '-c', 'test -d /tmp/venv && echo venv || echo system'],
+    )
+    if b'venv' in probe.output:
+        return [
+            'sh', '-c',
+            '. /tmp/venv/bin/activate && cd /tmp && python3 ./strongswan-connections',
+        ]
+    return ['sh', '-c', 'cd /tmp && python3 ./strongswan-connections']
 
 
 def _check_containerfile(test, containerfile):
@@ -230,9 +267,7 @@ def _check_containerfile(test, containerfile):
             # plugin exits UNKNOWN with "No connections configured."
             # That IS the successful smoke test: plugin opened the
             # Unix socket, spoke VICI, got a reply, rendered output.
-            result = container.exec(
-                ['sh', '-c', 'cd /tmp && python3 ./strongswan-connections'],
-            )
+            result = container.exec(_python_invocation(container))
             output = (result.output or b'').decode('utf-8', errors='replace')
             print(f'Script output:\n{output.strip()}', flush=True)
 

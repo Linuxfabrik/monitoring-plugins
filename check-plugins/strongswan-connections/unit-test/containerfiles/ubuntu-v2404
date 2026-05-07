@@ -1,0 +1,39 @@
+# Base image: Official Ubuntu 24.04 (noble)
+FROM ubuntu:24.04
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Update and install Python 3 and strongswan
+RUN apt-get update && \
+    apt-get install -y \
+        python3-full python3-pip python3-dev gcc \
+        strongswan strongswan-swanctl charon-systemd && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Normalize charon path and VICI socket so the cross-distro test
+# harness can drive every container the same way: it expects
+# /usr/libexec/strongswan/charon and /run/strongswan/charon.vici.
+RUN install -d -m 0755 /usr/libexec/strongswan /run/strongswan && \
+    ln -sf /usr/sbin/charon-systemd /usr/libexec/strongswan/charon && \
+    printf 'charon { plugins { vici { socket = "unix:///run/strongswan/charon.vici" } } }\n' \
+        > /etc/strongswan.d/99-lfmp-test.conf
+
+# Set the working directory in the container
+WORKDIR /tmp
+
+# Use ADD to download the requirements.txt file
+ADD https://raw.githubusercontent.com/Linuxfabrik/monitoring-plugins/refs/heads/main/requirements.txt /tmp/requirements.txt
+
+# Install dependencies using pip (venv to avoid PEP 668 externally-managed)
+RUN python3 -m venv /tmp/venv && \
+    . /tmp/venv/bin/activate && \
+    python3 -m pip install --upgrade pip && \
+    python3 -m pip install --no-cache-dir --requirement requirements.txt --require-hashes --no-deps
+
+# Verify Python installation
+RUN python3 --version
+
+# Default command to keep the container running
+CMD ["sleep", "infinity"]

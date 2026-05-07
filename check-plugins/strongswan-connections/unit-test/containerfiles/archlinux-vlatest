@@ -1,0 +1,45 @@
+# Base image: Official Arch Linux
+FROM archlinux:latest
+
+# Arch is rolling release, and the cached archlinux:latest base image
+# can be months out of date; its archlinux-keyring no longer trusts
+# the current packagers. Refresh the keyring from the shipped files
+# and pull in the latest archlinux-keyring package before -Syu so the
+# full upgrade can verify signatures.
+#
+# --disable-sandbox disables pacman 7.x's landlock/alpm download
+# sandbox, which cannot be applied inside rootless podman.
+RUN pacman-key --init && \
+    pacman-key --populate && \
+    pacman -Sy --noconfirm --disable-sandbox archlinux-keyring && \
+    pacman -Syu --noconfirm --disable-sandbox && \
+    pacman -S --noconfirm --disable-sandbox \
+        python python-pip gcc \
+        strongswan && \
+    pacman -Scc --noconfirm
+
+# Normalize charon path and VICI socket so the cross-distro test
+# harness can drive every container the same way: it expects
+# /usr/libexec/strongswan/charon and /run/strongswan/charon.vici.
+RUN install -d -m 0755 /usr/libexec/strongswan /run/strongswan && \
+    ln -sf /usr/lib/strongswan/charon /usr/libexec/strongswan/charon && \
+    printf 'charon { plugins { vici { socket = "unix:///run/strongswan/charon.vici" } } }\n' \
+        > /etc/strongswan.d/99-lfmp-test.conf
+
+# Set the working directory in the container
+WORKDIR /tmp
+
+# Use ADD to download the requirements.txt file
+ADD https://raw.githubusercontent.com/Linuxfabrik/monitoring-plugins/refs/heads/main/requirements.txt /tmp/requirements.txt
+
+# Set up a Python virtual environment and install dependencies
+RUN python -m venv /tmp/venv && \
+    . /tmp/venv/bin/activate && \
+    python -m pip install --upgrade pip && \
+    python -m pip install --no-cache-dir --requirement requirements.txt --require-hashes --no-deps
+
+# Verify Python installation
+RUN /tmp/venv/bin/python --version
+
+# Default command to keep the container running
+CMD ["sleep", "infinity"]
