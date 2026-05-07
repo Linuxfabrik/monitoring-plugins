@@ -977,16 +977,20 @@ Some plugins can only be tested meaningfully when they run inside a distribution
 
 For that case, use a `Containerfile` per target distro under `unit-test/containerfiles/<distro>-v<version>` that installs python3, the plugin's requirements and keeps the container alive via `CMD ["sleep", "infinity"]`. Iterate over the file list via `lib.lftest.attach_each()` so every distro shows up as its own `test_<distro>` method. Bind-mount `lib/` and the plugin script into `/tmp` and run them via `container.exec()`.
 
-The canonical distro matrix is the cpu-usage `CONTAINERFILES` list. **Where possible, new "plugin runs inside the container" tests should target the same OS platforms** so the coverage stays consistent across plugins and adding a new distro is a single-line change everywhere:
+**Containerfile naming convention.** Files in `containerfiles/` follow the pattern `<distro>-v<version>`, lowercase, dash-separated, with the literal `v` prefixing the version part:
 
 ```text
 archlinux-vlatest
 debian-v11 / v12 / v13
-fedora-v35 / v40 / v41 / v42 / v43
+fedora-v43
 rhel-v8 / v9 / v10
 sles-v15 / v16
 ubuntu-v2004 / v2204 / v2404 / v2604
 ```
+
+The `v` is mandatory and machine-readable: it is the unambiguous separator between distro and version, sorts the matrix naturally, and lets `archlinux-vlatest` slot into the same scheme as `rhel-v8`. Image tags derived from the file name follow the same shape (`lfmp-<plugin>-<distro>-v<version>`).
+
+The canonical distro matrix is the cpu-usage `CONTAINERFILES` list. **Where possible, new "plugin runs inside the container" tests should target the same OS platforms** so the coverage stays consistent across plugins and adding a new distro is a single-line change everywhere.
 
 Rules and tips:
 
