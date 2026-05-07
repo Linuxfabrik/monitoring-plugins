@@ -8,14 +8,75 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+"""Unit tests for the users check plugin.
+
+Two layers:
+
+1. **Fixture-based**: feed canned `w` outputs from various distros into
+   the plugin via `--test` and assert the parsed counts. Cheap, runs
+   without containers, covers historic regressions (#919, #989) and
+   distro-specific column layouts (Linux/BSD/RHEL10).
+
+2. **Container-based**: for every Containerfile under `containerfiles/`,
+   build the image, start a container, then:
+
+       a. Run the plugin with no users logged in and assert the
+          "No one is logged in." path is reachable on this distro.
+       b. Start sshd, ssh into localhost as the pre-baked `testuser`
+          (with PTY allocation, detached so the session survives the
+          exec call), wait for the utmp entry to appear, then run
+          the plugin and assert it reports "TTY: 0, PTS: 1".
+
+   This proves the plugin runs end-to-end on every supported
+   distribution against the distro's actual `w` output, not a captured
+   snapshot. Containers have no init system to populate
+   /var/run/utmp, so the Containerfiles create an empty utmp/wtmp at
+   build time; sshd then writes its own entries on login.
+
+Requirements: podman (or docker) with a reachable socket. For
+rootless podman, export `DOCKER_HOST=unix:///run/user/$UID/podman/podman.sock`
+and `TESTCONTAINERS_RYUK_DISABLED=true`.
+"""
+
+import os
 import sys
+import time
+import unittest
 
 sys.path.insert(0, '..')
 
-import unittest
-
 import lib.lftest
 from lib.globals import STATE_OK, STATE_WARN
+
+try:
+    from testcontainers.core.container import DockerContainer
+    from testcontainers.core.image import DockerImage
+except ImportError:
+    print('Python module "testcontainers" is not installed.')
+    sys.exit(STATE_OK)
+
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+LIB_DIR = os.path.realpath(os.path.join(HERE, '..', 'lib'))
+PLUGIN = os.path.realpath(os.path.join(HERE, '..', 'users'))
+
+CONTAINERFILES = [
+    'archlinux-vlatest',
+    'debian-v11',
+    'debian-v12',
+    'debian-v13',
+    'fedora-v43',
+    'rhel-v8',
+    'rhel-v9',
+    'rhel-v10',
+    'sles-v15',
+    'sles-v16',
+    'ubuntu-v2004',
+    'ubuntu-v2204',
+    'ubuntu-v2404',
+    'ubuntu-v2604',
+]
+
 
 TESTS = [
     {
@@ -97,6 +158,23 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ['TTY: 0, PTS: 2'],
     },
+    # RHEL 10 / procps-ng 4.0.4 dropped the FROM column. SSH sessions
+    # without a PTY (sshd-session and per-user systemd --user) leave the
+    # TTY column empty, while the second whitespace-token of every data
+    # line is the LOGIN@ time `HH:MM`. The pre-#989 parser counted any
+    # token containing ":" as a TTY (`:0` X-display heuristic) and so
+    # reported `TTY: 2, PTS: 0` for these lines. The header-position
+    # parser must classify both lines as PTS.
+    {
+        'id': 'ok-linux-rhel10-sshd-session-only',
+        'test': 'stdout/linux-rhel10-sshd-session-only,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'TTY: 0, PTS: 2',
+            'USER     TTY        LOGIN@   IDLE   JCPU   PCPU WHAT',
+            'linuxfab           15:15   45:28   0.00s  0.02s sshd-session: linuxfabrik [priv]',
+        ],
+    },
 ]
 
 
@@ -105,7 +183,119 @@ class TestCheck(unittest.TestCase):
     check = '../users'
 
 
+def _python_invocation(container):
+    """Pick the right python invocation for the distro inside the container.
+
+    Some Containerfiles install dependencies into a venv at /tmp/venv
+    (debian, ubuntu, archlinux, fedora, sles), others install them
+    system-wide (rhel, debian-v11, ubuntu-v2004/v2204). Detect at
+    runtime and return a sh -c command prefix that ends with
+    `python3 ./users`.
+    """
+    probe = container.exec(
+        ['sh', '-c', 'test -d /tmp/venv && echo venv || echo system'],
+    )
+    if b'venv' in probe.output:
+        return ['sh', '-c', '. /tmp/venv/bin/activate && cd /tmp && python3 ./users']
+    return ['sh', '-c', 'cd /tmp && python3 ./users']
+
+
+def _wait_for_utmp_entry(container, timeout=10.0):
+    """Poll `w -h` (header-less) until at least one session shows up.
+
+    `w -h` prints one line per logged-in user, no header. Empty output
+    means utmp has no entries yet; the SSH session is still racing
+    against sshd's session bookkeeping.
+    """
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        result = container.exec(['w', '-h'])
+        if (result.output or b'').strip():
+            return True
+        time.sleep(0.2)
+    return False
+
+
+# Distros where `w` is broken in a way that has nothing to do with the
+# users plugin itself. Document the upstream bug and skip the live
+# container test, but keep the Containerfile so we can re-enable once
+# the distro ships a fix.
+KNOWN_BROKEN = {
+    'ubuntu-v2404': (
+        'procps `2:4.0.4-4ubuntu3.2` (noble) ships a `w` that segfaults '
+        'while printing the FROM column for an active SSH session. The '
+        'same upstream procps-ng 4.0.4 works on rhel-v10/fedora-v43/'
+        'debian-v13/ubuntu-v2604, so this is an Ubuntu-noble downstream '
+        'regression, not a plugin bug. Skip until Ubuntu ships a fix.'
+    ),
+}
+
+
+def _check_containerfile(test, containerfile):
+    if containerfile in KNOWN_BROKEN:
+        test.skipTest(KNOWN_BROKEN[containerfile])
+    print(f'\n=== Testing {containerfile} ===', flush=True)
+    image_tag = f'lfmp-users-{containerfile}'.lower()
+    # clean_up=False keeps the built image on the host so the next
+    # run reuses all cached layers instead of rebuilding from the
+    # base image.
+    with DockerImage(
+        path=HERE,
+        dockerfile_path=f'containerfiles/{containerfile}',
+        tag=image_tag,
+        clean_up=False,
+    ) as image:
+        # `,Z` relabels the mount for SELinux on podman/rhel hosts so
+        # the container can actually read the bind-mounted files.
+        container = (
+            DockerContainer(str(image.tag))
+            .with_volume_mapping(LIB_DIR, '/tmp/lib', mode='ro,Z')
+            .with_volume_mapping(PLUGIN, '/tmp/users', mode='ro,Z')
+        )
+        with container:
+            python_cmd = _python_invocation(container)
+
+            # 1. Pre-login: no users logged in yet.
+            print('Run plugin (pre-login)', flush=True)
+            result = container.exec(python_cmd)
+            output = (result.output or b'').decode('utf-8', errors='replace')
+            print(f'Plugin output:\n{output.strip()}', flush=True)
+            test.assertEqual(result.exit_code, STATE_OK)
+            test.assertIn('No one is logged in.', output)
+
+            # 2. Start sshd and open one PTY ssh session as testuser.
+            container.exec(['/usr/sbin/sshd'])
+            # Detach the ssh client so it survives the exec call;
+            # without `detach=True` the exec call waits for the
+            # client to exit, which would defeat the whole test.
+            wrapped = container.get_wrapped_container()
+            wrapped.exec_run(
+                [
+                    'su', '-', 'testuser', '-c',
+                    'ssh -tt '
+                    '-o StrictHostKeyChecking=no '
+                    '-o UserKnownHostsFile=/dev/null '
+                    'testuser@localhost "sleep 600"',
+                ],
+                detach=True,
+            )
+            test.assertTrue(
+                _wait_for_utmp_entry(container),
+                f'SSH session never registered in utmp on {containerfile}',
+            )
+
+            # 3. Post-login: exactly one PTS user.
+            print('Run plugin (post-login)', flush=True)
+            result = container.exec(python_cmd)
+            output = (result.output or b'').decode('utf-8', errors='replace')
+            print(f'Plugin output:\n{output.strip()}', flush=True)
+            test.assertEqual(result.exit_code, STATE_OK)
+            test.assertIn('TTY: 0', output)
+            test.assertIn('PTS: 1', output)
+
+
 lib.lftest.attach_tests(TestCheck, TESTS)
+lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_containerfile)
 
 
 if __name__ == '__main__':

@@ -1,0 +1,47 @@
+# Base image: Official Debian 11 (bullseye)
+FROM debian:11
+
+# Update and install Python 3, w (procps), and OpenSSH server + client.
+RUN apt-get update && \
+    apt-get install -y \
+        python3 python3-pip python3-dev gcc \
+        procps openssh-server openssh-client passwd && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Generate host keys, prepare the privsep dir, create empty utmp/wtmp
+# (containers do not run systemd-update-utmp.service so the files do
+# not exist by default; without them sshd cannot record sessions and
+# `w` reports nothing). Then create a test user with a pre-baked
+# passwordless ssh-to-localhost setup.
+RUN ssh-keygen -A && \
+    install -d -m 0755 /run/sshd && \
+    install -d -m 0711 /var/empty/sshd && \
+    install --mode=0664 --group=utmp /dev/null /var/run/utmp && \
+    install --mode=0664 --group=utmp /dev/null /var/log/wtmp && \
+    useradd --create-home --user-group --shell /bin/bash testuser && \
+    echo "testuser:linuxfabrik" | chpasswd && \
+    install -d -m 0700 -o testuser -g testuser /home/testuser/.ssh && \
+    ssh-keygen -t ed25519 -f /home/testuser/.ssh/id_ed25519 -N '' && \
+    chown testuser:testuser /home/testuser/.ssh/id_ed25519 /home/testuser/.ssh/id_ed25519.pub && \
+    cp /home/testuser/.ssh/id_ed25519.pub /home/testuser/.ssh/authorized_keys && \
+    chown testuser:testuser /home/testuser/.ssh/authorized_keys && \
+    chmod 600 /home/testuser/.ssh/authorized_keys && \
+    install -d -m 0755 /etc/ssh/sshd_config.d && \
+    printf 'UsePAM no\nPrintLastLog no\nPrintMotd no\n' > /etc/ssh/sshd_config.d/00-lfmp-test.conf
+
+# Set the working directory in the container
+WORKDIR /tmp
+
+# Use ADD to download the requirements.txt file
+ADD https://raw.githubusercontent.com/Linuxfabrik/monitoring-plugins/refs/heads/main/requirements.txt /tmp/requirements.txt
+
+# Install dependencies using pip
+RUN python3 -m pip install --upgrade pip && \
+    python3 -m pip install --no-cache-dir --requirement requirements.txt --require-hashes --no-deps
+
+# Verify Python installation
+RUN python3 --version
+
+# Default command to keep the container running
+CMD ["sleep", "infinity"]
