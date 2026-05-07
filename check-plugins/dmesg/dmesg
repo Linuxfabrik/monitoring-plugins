@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026050701'
+__version__ = '2026050702'
 
 DESCRIPTION = """Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, alert,
 crit, and err. Known false positives and hardware-specific noise are filtered out by
@@ -48,7 +48,8 @@ DEFAULT_IGNORE = [
     ' CIFS VFS: Free previous auth_key.response = ',
     # Legacy cpufreq init failing to read CPU frequency; older kernels and virt. guests
     ' cpufreq: __cpufreq_add_dev: ->get() failed',
-    # Shim/MOK config table not exposed as EFI runtime memory; cosmetic, no Secure Boot impact
+    # Shim/MOK config table not exposed as EFI runtime memory; cosmetic, no Secure Boot impact.
+    # Documented for Rocky Linux 8.5, https://rockylinux.org/news/rocky-linux-8-5-ga-release/
     ' EFI MOKvar config table is not in EFI runtime memory',
     # ACPI Error Record Serialization Table not provided by firmware; common on most boards/VMs
     ' ERST: Failed to get Error Log Address Range.',
@@ -58,11 +59,14 @@ DEFAULT_IGNORE = [
     ' i8042: No controller found',
     # ACPI power_meter: software cap above firmware-declared safe range; kernel honors it but warns
     ' Ignoring unsafe software power cap!',
-    # IMA/EVM cannot load kernel-shipped X.509 cert (-126 ENOKEY); MOK keyring not yet populated
+    # IMA/EVM cannot load kernel-shipped X.509 cert (-126 ENOKEY); MOK keyring not yet populated,
+    # https://access.redhat.com/solutions/7049158
     ' integrity: Problem loading X.509 certificate -126',
-    # CIFS DFS referral lookup failure (-5 EIO); cosmetic on shares without DFS
+    # CIFS DFS referral lookup failure (-5 EIO); cosmetic on shares without DFS,
+    # https://access.redhat.com/solutions/3496971
     ' ioctl error in smb2_get_dfs_refer rc=-5',
-    # KVM guest writes MSR_IA32_DEBUGCTLMSR; host emulates as no-op
+    # KVM guest writes MSR_IA32_DEBUGCTLMSR (host emulates as no-op); typically Windows guests
+    # on KVM/oVirt
     ' kvm_set_msr_common: MSR_IA32_DEBUGCTLMSR ',
     # SCSI sd: same probe path as "Asking for cache data failed"; falls back to write-through
     ' No Caching mode page found',
@@ -70,7 +74,8 @@ DEFAULT_IGNORE = [
     # hot-plug keeps working via the other driver. Common on OpenStack/KVM/VMware guests
     ' pci_hp_register failed with error -16',
     ' Slot initialization failed',
-    # SMBus controller absent or BIOS-disabled (i2c-piix4 / i2c-i801); no impact on monitoring
+    # SMBus controller absent or BIOS-disabled (i2c-piix4 / i2c-i801); no impact on monitoring,
+    # https://access.redhat.com/solutions/2115401
     ' SMBus base address uninitialized - upgrade BIOS or use ',
     ' SMBus Host Controller not enabled!',
     # Fast TSC calibration unavailable; kernel falls back to PIT/HPET-based calibration
