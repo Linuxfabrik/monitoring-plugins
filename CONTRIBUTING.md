@@ -990,6 +990,13 @@ ubuntu-v2004 / v2204 / v2404 / v2604
 
 The `v` is mandatory and machine-readable: it is the unambiguous separator between distro and version, sorts the matrix naturally, and lets `archlinux-vlatest` slot into the same scheme as `rhel-v8`. Image tags derived from the file name follow the same shape (`lfmp-<plugin>-<distro>-v<version>`).
 
+**SLE vs. SLES.** SUSE distinguishes the platform brand `SLE` (SUSE Linux Enterprise) from the server product `SLES` (SUSE Linux Enterprise Server) under that platform. We use both deliberately:
+
+* `sles-v15`, `sles-v16` for **test and build Containerfiles** — we explicitly target the server edition (the BCI base image is SLES-derived, never SLED), so the bezeichner names the product.
+* `sle.spec` (`build/linuxfabrik-monitoring-plugins.sle.spec`) and the public repo path `repo.linuxfabrik.ch/monitoring-plugins/sle/<version>/` for the **platform** — the same RPM and the same repo URL are valid for SLES *and* SLED, so the platform name is what belongs there.
+
+The repo URL is a public contract with customer `/etc/zypp/repos.d/` configurations and must not be renamed without coordinated migration.
+
 The canonical distro matrix is the cpu-usage `CONTAINERFILES` list. **Where possible, new "plugin runs inside the container" tests should target the same OS platforms** so the coverage stays consistent across plugins and adding a new distro is a single-line change everywhere.
 
 Rules and tips:
