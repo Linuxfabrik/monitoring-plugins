@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Icinga Director:
 
-* Add a daily `Needs Restarting` check (runs via sudo, once a day) to every Linux OS Basic Service Set. Surfaces servers that have been patched but not yet rebooted, on Red Hat-based and Debian-based distributions alike
+* Add `Needs Restarting Service Set` (host tag `needs-restarting`), surfacing Linux servers that have been patched but not yet rebooted. The service runs via sudo once a day. Tag only hosts where reboots are manual: on auto-reboot setups the daily interval would produce a 24h stale WARN once the check trips during the update window. Works on Red Hat- and Debian-based distributions
 * Add `OS - RHEL 10 Basic Service Set` for Rocky Linux 10 / RHEL 10 / AlmaLinux 10 hosts. Mirrors the RHEL 9 Basic Service Set and additionally checks `audit-rules.service`, which is enabled by default in the RHEL 10 systemd preset
 * Add `Postfix MTA Service Set (Multi-Instance)` for hosts where the actual MTA runs as `postfix@-.service` (Debian 11/12, Ubuntu 20.04/22.04/24.04). The existing `Postfix MTA Service Set` continues to monitor `postfix.service` and stays correct on Red Hat-family distributions, Debian 13 and Ubuntu 26.04 ([#535](https://github.com/Linuxfabrik/monitoring-plugins/issues/535))
 
