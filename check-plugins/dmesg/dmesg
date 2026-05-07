@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026050701'
 
 DESCRIPTION = """Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, alert,
 crit, and err. Known false positives and hardware-specific noise are filtered out by
@@ -33,31 +33,55 @@ DEFAULT_SEVERITY = 'crit'
 
 cmd = 'dmesg --level=emerg,alert,crit,err --ctime'
 
-# ignore false positives / bugs / messages without impact on anything:
+# Ignore false positives, hardware-specific noise, and bugs without operational impact.
+# Patterns are matched as substrings against each dmesg line; keep them alphabetical and
+# include the rationale so we can later re-evaluate whether an entry still applies.
 DEFAULT_IGNORE = [
+    # SCSI sd: cache mode page absent (Virtio/USB/SD-card disks); falls back to write-through
     ' Asking for cache data failed',
     ' Assuming drive cache: write through',
+    # Broadcom WLAN firmware-load info on Raspberry Pi 3B+ (BCM4345/6); informational, not an error
     ' brcmfmac: brcmf_c_preinit_dcmds: Firmware: BCM4345/6',
     ' brcmfmac: brcmf_fw_alloc_request: using brcm/brcmfmac43455-sdio'
     ' for chip BCM4345/6',
+    # CIFS reconnect noise on RHEL 8 / Linux 5.4 and older; demoted to KERN_DEBUG upstream in 2020
     ' CIFS VFS: Free previous auth_key.response = ',
+    # Legacy cpufreq init failing to read CPU frequency; older kernels and virt. guests
     ' cpufreq: __cpufreq_add_dev: ->get() failed',
+    # Shim/MOK config table not exposed as EFI runtime memory; cosmetic, no Secure Boot impact
     ' EFI MOKvar config table is not in EFI runtime memory',
+    # ACPI Error Record Serialization Table not provided by firmware; common on most boards/VMs
     ' ERST: Failed to get Error Log Address Range.',
-    ' flip_done timed out',  # https://access.redhat.com/solutions/4490391
+    # DRM vsync flip timeout on i915 / virt. GPUs, https://access.redhat.com/solutions/4490391
+    ' flip_done timed out',
+    # No PS/2 keyboard controller; normal on systems without legacy PS/2 ports
     ' i8042: No controller found',
+    # ACPI power_meter: software cap above firmware-declared safe range; kernel honors it but warns
     ' Ignoring unsafe software power cap!',
+    # IMA/EVM cannot load kernel-shipped X.509 cert (-126 ENOKEY); MOK keyring not yet populated
     ' integrity: Problem loading X.509 certificate -126',
+    # CIFS DFS referral lookup failure (-5 EIO); cosmetic on shares without DFS
     ' ioctl error in smb2_get_dfs_refer rc=-5',
+    # KVM guest writes MSR_IA32_DEBUGCTLMSR; host emulates as no-op
     ' kvm_set_msr_common: MSR_IA32_DEBUGCTLMSR ',
-    ' mokvar: EFI MOKvar config table is not in EFI runtime memory',
+    # SCSI sd: same probe path as "Asking for cache data failed"; falls back to write-through
     ' No Caching mode page found',
+    # SHPC PCI hot-plug slot already owned by acpiphp/pciehp on virt. PCI bridges (-16 EBUSY);
+    # hot-plug keeps working via the other driver. Common on OpenStack/KVM/VMware guests
+    ' pci_hp_register failed with error -16',
+    ' Slot initialization failed',
+    # SMBus controller absent or BIOS-disabled (i2c-piix4 / i2c-i801); no impact on monitoring
     ' SMBus base address uninitialized - upgrade BIOS or use ',
     ' SMBus Host Controller not enabled!',
+    # Fast TSC calibration unavailable; kernel falls back to PIT/HPET-based calibration
     ' tsc: Fast TSC calibration failed',
-    ' unhandled rdmsr: ',  # https://access.redhat.com/solutions/59299
-    ' unhandled wrmsr: ',  # https://bugzilla.redhat.com/show_bug.cgi?id=874627
-    ' vcpu0 disabled perfctr wrmsr',  # https://access.redhat.com/solutions/2188061
+    # KVM guest reads unhandled MSR, https://access.redhat.com/solutions/59299
+    ' unhandled rdmsr: ',
+    # KVM guest writes unhandled MSR, https://bugzilla.redhat.com/show_bug.cgi?id=874627
+    ' unhandled wrmsr: ',
+    # KVM guest perfctr writes blocked, https://access.redhat.com/solutions/2188061
+    ' vcpu0 disabled perfctr wrmsr',
+    # RHEL flags driver as deprecated/unmaintained for the next major release; informational only
     ' Warning: Deprecated Driver is detected',
     ' Warning: Unmaintained driver is detected',
 ]

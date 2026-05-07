@@ -26,6 +26,14 @@ Build, CI/CD:
 
 * Bump pinned `linuxfabrik-lib` dependency from 3.4.0 to 3.4.1, which fixes `librenms-alerts` silently reporting OK on alerts in LibreNMS states `WORSE`, `BETTER` or `CHANGED`
 
+Icinga Director:
+
+* OS host tag labels now make it explicit that each OS service set applies to the compatible derivative distributions as well. `OS - RHEL 9` is displayed as `OS - RHEL 9 (and compatible)`, `OS - Ubuntu 24` as `OS - Ubuntu 24 (and compatible)`, and so on for every OS tag. Tag names (`rhel9`, `ubuntu24`, etc.) are unchanged, so existing host configurations stay valid
+
+Monitoring Plugins:
+
+* dmesg: extend the default ignore list with SHPC PCI hot-plug noise (`pci_hp_register failed with error -16`, `Slot initialization failed`), commonly seen on OpenStack, KVM and VMware guests. Each default ignore pattern is now annotated with its rationale so admins can decide whether an entry still applies to their environment
+
 
 ## [v3.0.0] - 2026-05-05
 

@@ -59,14 +59,14 @@ options:
                         unsafe software power cap!', ' integrity: Problem
                         loading X.509 certificate -126', ' ioctl error in
                         smb2_get_dfs_refer rc=-5', ' kvm_set_msr_common:
-                        MSR_IA32_DEBUGCTLMSR ', ' mokvar: EFI MOKvar config
-                        table is not in EFI runtime memory', ' No Caching mode
-                        page found', ' SMBus base address uninitialized -
-                        upgrade BIOS or use ', ' SMBus Host Controller not
-                        enabled!', ' tsc: Fast TSC calibration failed', '
-                        unhandled rdmsr: ', ' unhandled wrmsr: ', ' vcpu0
-                        disabled perfctr wrmsr', ' Warning: Deprecated Driver
-                        is detected', ' Warning: Unmaintained driver is
+                        MSR_IA32_DEBUGCTLMSR ', ' No Caching mode page found',
+                        ' pci_hp_register failed with error -16', ' Slot
+                        initialization failed', ' SMBus base address
+                        uninitialized - upgrade BIOS or use ', ' SMBus Host
+                        Controller not enabled!', ' tsc: Fast TSC calibration
+                        failed', ' unhandled rdmsr: ', ' unhandled wrmsr: ', '
+                        vcpu0 disabled perfctr wrmsr', ' Warning: Deprecated
+                        Driver is detected', ' Warning: Unmaintained driver is
                         detected']
   --severity {warn,crit}
                         Severity for alerting. Default: crit
