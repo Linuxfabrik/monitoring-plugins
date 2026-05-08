@@ -687,6 +687,31 @@ We use [PEP 8 -- Style Guide for Python Code](https://www.python.org/dev/peps/pe
 **String quoting:** Use single quotes as the default. Use double quotes only inside f-string expressions (e.g. `f'{lib.base.state2str(state, prefix=" ")}'`) or when the string itself contains single quotes (e.g. `'Python module "psutil" is not installed.'`). Use `"""` for all triple-quoted strings (docstrings, `DESCRIPTION`, SQL, etc.). This is enforced by `ruff format`.
 
 
+### Imports
+
+Import every `lib.X` module the plugin actually uses, even when another `lib.*` module already pulls it in transitively. Relying on transitive imports breaks the moment an upstream `lib` module reorganises its own imports, and ruff/pylint cannot warn about something the file itself does not declare.
+
+Bad:
+
+```python
+import lib.base
+
+# works today only because lib.base happens to import lib.time
+now = lib.time.now()
+```
+
+Good:
+
+```python
+import lib.base
+import lib.time
+
+now = lib.time.now()
+```
+
+Keep `import lib.*` lines sorted alphabetically. `ruff` (via the import-sorting rules in `pyproject.toml`) groups them with the other third-party imports.
+
+
 ### DESCRIPTION Variable
 
 Every plugin must define a `DESCRIPTION` variable that is passed to `argparse.ArgumentParser(description=DESCRIPTION)`. Rules:
