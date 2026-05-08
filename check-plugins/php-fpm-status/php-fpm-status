@@ -26,7 +26,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041407'
+__version__ = '2026050801'
 
 DESCRIPTION = """Monitors PHP-FPM pool performance via the pool status page. Reports pool
 saturation (percentage of busy workers), new slow requests since the previous check, the
@@ -34,9 +34,14 @@ request rate, process counts, and per-process request details for every pool. Mu
 pools on the same host can be checked in one run by passing `--url` several times; each
 URL is treated as an independent pool, and the overall plugin state is the worst of all
 pools. Basic authentication can be embedded in the URL as `http://user:pass@host/path`.
-Alerts when pool saturation exceeds the warning/critical thresholds or when new slow
-requests appear since the last check. Alerts with a configurable severity if a pool is
-unreachable. Supports extended reporting via --lengthy."""
+For static pools, alerts when pool saturation exceeds the warning/critical thresholds.
+For dynamic and ondemand pools `total processes` is the live worker count rather than
+`pm.max_children`, so the active/total ratio reads 100% as soon as every currently
+spawned worker is busy even though FPM still has room to scale up. Saturation thresholds
+do not apply in that mode; the plugin alerts CRIT when `listen queue` is non-zero
+(requests are actually queueing). Also alerts when new slow requests appear since the
+last check. Alerts with a configurable severity if a pool is unreachable. Supports
+extended reporting via --lengthy."""
 
 DEFAULT_CRIT = 90  # %
 DEFAULT_CRIT_SLOW_REQUESTS = 100
@@ -74,6 +79,10 @@ def parse_args():
         '--critical',
         help='CRIT threshold for pool saturation '
         '(active processes / total processes), in percent. '
+        'Applies to static pools only - on dynamic and ondemand pools, '
+        '`total processes` is the live worker count, so 100%% is a transient '
+        'state and the plugin uses `listen queue > 0` as the saturation '
+        'signal instead. '
         'Default: >= %(default)s',
         dest='CRIT',
         type=int,
@@ -163,6 +172,10 @@ def parse_args():
         '--warning',
         help='WARN threshold for pool saturation '
         '(active processes / total processes), in percent. '
+        'Applies to static pools only - on dynamic and ondemand pools, '
+        '`total processes` is the live worker count, so 100%% is a transient '
+        'state and the plugin uses `listen queue > 0` as the saturation '
+        'signal instead. '
         'Default: >= %(default)s',
         dest='WARN',
         type=int,
@@ -573,7 +586,26 @@ def analyze_pool(url, raw, old_snapshot, now, args):
     total = int(data.get('total processes', 0))
     active = int(data.get('active processes', 0))
     saturation = (active / total * 100) if total > 0 else 0.0
-    saturation_state = lib.base.get_state(saturation, args.WARN, args.CRIT)
+    proc_mgr = str(data.get('process manager', '')).lower()
+    listen_queue = data.get('listen queue')
+    if proc_mgr in ('dynamic', 'ondemand') and listen_queue is not None:
+        # `total processes` scales up to pm.max_children at runtime, so the
+        # active/total ratio reads 100% as soon as every spawned worker is
+        # busy even though FPM still has room to grow. Use listen queue as
+        # the real backpressure signal: if requests are queueing, the pool
+        # cannot keep up right now. Take this path only when the process
+        # manager is unambiguously dynamic or ondemand AND the listen-queue
+        # field is present in the status payload; any uncertainty falls
+        # back to the conservative active/total threshold below.
+        saturation_state = (
+            STATE_CRIT if int(listen_queue) > 0 else STATE_OK
+        )
+    else:
+        # static pool, missing process manager field, or missing listen
+        # queue: total == pm.max_children for static and we have no
+        # better signal otherwise, so the percentage threshold is what
+        # we have.
+        saturation_state = lib.base.get_state(saturation, args.WARN, args.CRIT)
 
     req_rate, slow_delta, baseline = compute_deltas(data, old_snapshot, now)
 

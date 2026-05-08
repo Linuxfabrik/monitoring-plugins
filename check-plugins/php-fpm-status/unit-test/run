@@ -52,16 +52,12 @@ FIXTURE_PLATFORMS = [
 
 SEVERITY_MATRIX = [
     # (suffix, fixture scenario, threshold params, expected retc, substring to find)
-    # saturation alerting across all platforms
+    # saturation alerting across all platforms; the pool-saturated fixtures
+    # are dynamic with `listen queue: 5` so they trip the queue-based CRIT
+    # signal that replaces the active/total ratio for dynamic and ondemand
+    # pools (where 100% is a transient state and not a real backlog).
     ('default', 'pool-healthy', '', STATE_OK, 'Up '),
     ('default', 'pool-saturated', '', STATE_CRIT, 'Up '),
-    (
-        'high-thresholds',
-        'pool-saturated',
-        '--warning 150 --critical 200',
-        STATE_OK,
-        'Up ',
-    ),
     # slow-requests fixture is an OK baseline (first run, no cache), but the
     # saturation metric is computed even on the first run, so test that too
     ('default', 'pool-slow-requests', '', STATE_OK, 'Up '),
@@ -105,6 +101,23 @@ TESTS += [
         'assert-retc': STATE_OK,
         'assert-in': ['Pool HealthCheck (static)'],
     },
+    # static pool with low thresholds: the active/total ratio threshold path
+    # is still in effect for `pm = static` pools.
+    {
+        'id': 'crit-static-pool-via-threshold',
+        'test': 'stdout/static-pool-healthy,,',
+        'params': '--warning 10 --critical 30',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Pool HealthCheck (static)'],
+    },
+    # dynamic pool with empty listen queue: thresholds do NOT apply, so
+    # even an aggressive --warning/--critical does not trip the state.
+    {
+        'id': 'ok-dynamic-pool-no-queue-ignores-thresholds',
+        'test': 'stdout/ubi9-php80-pool-healthy,,',
+        'params': '--warning 1 --critical 1',
+        'assert-retc': STATE_OK,
+    },
     # saturation perfdata label is pool-name-prefixed snake_case, even on
     # a single pool
     {
@@ -116,16 +129,16 @@ TESTS += [
     # --lengthy adds the extended columns to the pool table
     {
         'id': 'ok-lengthy-adds-columns',
-        'test': 'stdout/ubi9-php80-pool-saturated,,',
-        'params': '--warning 150 --critical 200 --lengthy',
+        'test': 'stdout/ubi9-php80-pool-healthy,,',
+        'params': '--lengthy',
         'assert-retc': STATE_OK,
         'assert-in': ['Mgr', 'Peak', 'LQmax'],
     },
     # default (non-lengthy) must NOT carry the extended columns
     {
         'id': 'ok-non-lengthy-omits-columns',
-        'test': 'stdout/ubi9-php80-pool-saturated,,',
-        'params': '--warning 150 --critical 200',
+        'test': 'stdout/ubi9-php80-pool-healthy,,',
+        'params': '',
         'assert-retc': STATE_OK,
         'assert-not-in': ['LQmax', 'Peak'],
     },

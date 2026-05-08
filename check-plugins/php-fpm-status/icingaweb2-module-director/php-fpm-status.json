@@ -137,7 +137,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Monitors PHP-FPM pool performance via the pool status page. Reports pool saturation (percentage of busy workers), new slow requests since the previous check, the request rate, process counts, and per-process request details for every pool. Multiple pools on the same host can be checked in one run by passing `--url` several times; each URL is treated as an independent pool, and the overall plugin state is the worst of all pools. Basic authentication can be embedded in the URL as `http://user:pass@host/path`. Alerts when pool saturation exceeds the warning/critical thresholds or when new slow requests appear since the last check. Alerts with a configurable severity if a pool is unreachable. Supports extended reporting via --lengthy.",
+            "notes": "Monitors PHP-FPM pool performance via the pool status page. Reports pool saturation (percentage of busy workers), new slow requests since the previous check, the request rate, process counts, and per-process request details for every pool. Multiple pools on the same host can be checked in one run by passing `--url` several times; each URL is treated as an independent pool, and the overall plugin state is the worst of all pools. Basic authentication can be embedded in the URL as `http://user:pass@host/path`. For static pools, alerts when pool saturation exceeds the warning/critical thresholds. For dynamic and ondemand pools `total processes` is the live worker count rather than `pm.max_children`, so the active/total ratio reads 100% as soon as every currently spawned worker is busy even though FPM still has room to scale up. Saturation thresholds do not apply in that mode; the plugin alerts CRIT when `listen queue` is non-zero (requests are actually queueing). Also alerts when new slow requests appear since the last check. Alerts with a configurable severity if a pool is unreachable. Supports extended reporting via --lengthy.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-fpm-status/",
             "object_name": "tpl-service-php-fpm-status",
             "object_type": "template",
@@ -199,7 +199,7 @@
         "2": {
             "varname": "php_fpm_status_critical",
             "caption": "PHP-FPM Status: Critical",
-            "description": "CRIT threshold for pool saturation (active processes / total processes), in percent.",
+            "description": "CRIT threshold for pool saturation (active processes / total processes), in percent. Applies to static pools only - on dynamic and ondemand pools, `total processes` is the live worker count, so 100% is a transient state and the plugin uses `listen queue > 0` as the saturation signal instead.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -283,7 +283,7 @@
         "10": {
             "varname": "php_fpm_status_warning",
             "caption": "PHP-FPM Status: Warning",
-            "description": "WARN threshold for pool saturation (active processes / total processes), in percent.",
+            "description": "WARN threshold for pool saturation (active processes / total processes), in percent. Applies to static pools only - on dynamic and ondemand pools, `total processes` is the live worker count, so 100% is a transient state and the plugin uses `listen queue > 0` as the saturation signal instead.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

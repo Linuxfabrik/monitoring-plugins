@@ -3,7 +3,9 @@
 
 ## Overview
 
-Monitors PHP-FPM pool performance via the pool status page. Reports pool saturation (percentage of busy workers), new slow requests since the previous check, the request rate, process counts, and per-process request details for every pool. Multiple pools on the same host can be checked in one run by passing `--url` several times; each URL is treated as an independent pool, and the overall plugin state is the worst of all pools. Basic authentication can be embedded in the URL as `http://user:password@host/pool-status`. Alerts when pool saturation exceeds the warning/critical thresholds or when new slow requests appear since the last check. Alerts with a configurable severity if a pool is unreachable. Supports extended reporting via `--lengthy`.
+Monitors PHP-FPM pool performance via the pool status page. Reports pool saturation (percentage of busy workers), new slow requests since the previous check, the request rate, process counts, and per-process request details for every pool. Multiple pools on the same host can be checked in one run by passing `--url` several times; each URL is treated as an independent pool, and the overall plugin state is the worst of all pools. Basic authentication can be embedded in the URL as `http://user:password@host/pool-status`.
+
+For static pools, alerts when pool saturation (active processes / total processes) exceeds the warning/critical thresholds. For dynamic and ondemand pools `total processes` is the live worker count rather than `pm.max_children`, so the active/total ratio reads 100% as soon as every currently spawned worker is busy even though FPM still has room to scale up. Saturation thresholds do not apply in that mode; the plugin alerts CRIT when `listen queue` is non-zero (requests are actually queueing). Also alerts when new slow requests appear since the last check, and with a configurable severity if a pool is unreachable. Supports extended reporting via `--lengthy`.
 
 **Important Notes:**
 
@@ -122,17 +124,26 @@ check, the request rate, process counts, and per-process request details for
 every pool. Multiple pools on the same host can be checked in one run by
 passing `--url` several times; each URL is treated as an independent pool, and
 the overall plugin state is the worst of all pools. Basic authentication can
-be embedded in the URL as `http://user:pass@host/path`. Alerts when pool
-saturation exceeds the warning/critical thresholds or when new slow requests
-appear since the last check. Alerts with a configurable severity if a pool is
-unreachable. Supports extended reporting via --lengthy.
+be embedded in the URL as `http://user:pass@host/path`. For static pools,
+alerts when pool saturation exceeds the warning/critical thresholds. For
+dynamic and ondemand pools `total processes` is the live worker count rather
+than `pm.max_children`, so the active/total ratio reads 100% as soon as every
+currently spawned worker is busy even though FPM still has room to scale up.
+Saturation thresholds do not apply in that mode; the plugin alerts CRIT when
+`listen queue` is non-zero (requests are actually queueing). Also alerts when
+new slow requests appear since the last check. Alerts with a configurable
+severity if a pool is unreachable. Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold for pool saturation (active processes /
-                        total processes), in percent. Default: >= 90
+                        total processes), in percent. Applies to static pools
+                        only - on dynamic and ondemand pools, `total
+                        processes` is the live worker count, so 100% is a
+                        transient state and the plugin uses `listen queue > 0`
+                        as the saturation signal instead. Default: >= 90
   --critical-slowreq CRIT_SLOW_REQUESTS
                         CRIT threshold for the number of NEW slow requests
                         seen since the previous check run. Default: >= 100
@@ -159,7 +170,11 @@ options:
                         via the `Authorization` header. Default:
                         http://localhost/fpm-status
   -w, --warning WARN    WARN threshold for pool saturation (active processes /
-                        total processes), in percent. Default: >= 80
+                        total processes), in percent. Applies to static pools
+                        only - on dynamic and ondemand pools, `total
+                        processes` is the live worker count, so 100% is a
+                        transient state and the plugin uses `listen queue > 0`
+                        as the saturation signal instead. Default: >= 80
   --warning-slowreq WARN_SLOW_REQUESTS
                         WARN threshold for the number of NEW slow requests
                         seen since the previous check run. Default: >= 1
