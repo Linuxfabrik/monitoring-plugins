@@ -15,6 +15,7 @@ Icinga Director:
 * `Apache apache2 Service Set (Debian 10-)` matches only `debian10` now; obsolete `debian8`/`debian9` removed from the filter
 * `Apache apache2 Service Set (Ubuntu 18+)` now also matches `ubuntu24` and `ubuntu26`
 * `Apache httpd Service Set` (Fedora / RHEL) now also matches `rhel10`
+* `OS - RHEL 10 Basic Service Set` drops the `audit-rules.service` check. The `Type=oneshot` unit only signals boot-time rule loading and stays `inactive (dead)` on default installs. Ongoing audit health stays covered by `auditd.service` and the `audit.log` file-size check
 
 
 ## [v4.0.0] - 2026-05-07
