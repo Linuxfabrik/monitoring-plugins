@@ -161,10 +161,24 @@ When creating a new plugin, make sure to deliver:
 * Optional: `requirements.txt`
 * If providing performance data: Grafana dashboard (see [GRAFANA.md](GRAFANA.md)) and `.ini` file for the Icinga Web 2 Grafana Module
 * Icinga Director Basket Config for the check plugin (`build-basket`)
-* Icinga Service Set in `all-the-rest.json`
+* Icinga Service Set in `all-the-rest.json` if appropriate (see [Service Set vs. Service Template](#service-set-vs-service-template))
 * Optional: sudoers file (see [sudoers File](#sudoers-file))
 * Optional: A screenshot of the plugins' output from within Icinga, resized to 423x106, using background-color `#f5f9fa`, hosted on [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/), and listed alphabetically in [POSTER.md](POSTER.md).
 * Update `CHANGELOG.md`.
+
+
+### Icinga Director: Service Set vs. Service Template
+
+A Director Service Set is a host-tagged bundle that activates one or more services as soon as the matching tag is set. It is the right granularity when the check is generic and host-typical, or when several related checks belong together.
+
+For a single-plugin contribution, ask whether the plugin needs *per-instance* parameters (URL, hostname, account, API token, page id, repository path). If yes, a Service Set is the wrong shape: the tag activates one service with one default configuration, but admins typically need several instances with different parameters. Apply rules end up replacing the Set anyway, and the tag dropdown grows without giving real value.
+
+Use:
+
+* **Service Set** when the check runs identically on every tagged host, or when it bundles several related checks (status + version + systemd unit). Examples: `chronyd`, `firewalld`, `Apache httpd`, `OS - RHEL 10 Basic Service Set`.
+* **Service Template only** when the check is per-instance parametrized (URL, account, token, hostname). Admins create services manually or via Apply rules, choosing the template and providing the values. Examples: `atlassian-statuspage`, `kemp-services`, `uptimerobot`, `virustotal-scan-url`.
+
+Ship the Service Template in `build-basket` either way. Add a Service Set entry to `all-the-rest.json` only if the check fits the generic or bundled shape.
 
 
 ### Rules of Thumb
