@@ -8,7 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-tbd
+### Changed
+
+Icinga Director:
+
+* `Apache apache2 Service Set (Debian 10-)` matches only `debian10` now; obsolete `debian8`/`debian9` removed from the filter
+* `Apache apache2 Service Set (Ubuntu 18+)` now also matches `ubuntu24` and `ubuntu26`
+* `Apache httpd Service Set` (Fedora / RHEL) now also matches `rhel10`
 
 
 ## [v4.0.0] - 2026-05-07
