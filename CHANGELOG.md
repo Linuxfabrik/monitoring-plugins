@@ -27,6 +27,13 @@ Icinga Director:
 * `all-the-rest.json`: obsolete `tarifpool-v2` host tag dropped (the Set itself was removed in v3)
 
 
+### Fixed
+
+Monitoring Plugins:
+
+* network-port-tcp: fix plugin crashing on every invocation
+
+
 ## [v4.0.0] - 2026-05-07
 
 ### Added
