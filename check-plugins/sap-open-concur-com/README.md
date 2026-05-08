@@ -47,7 +47,7 @@ options:
   --always-ok           Always returns OK.
   -V, --version         show program's version number and exit
   --datacenter {us,us2,eu,eu2,cn,pscc}
-                        SAP Concur datacenter to query. Default: eu
+                        SAP Concur datacenter to query. Default: eu2
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --no-proxy            Do not use a proxy.

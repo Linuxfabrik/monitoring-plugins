@@ -17,6 +17,12 @@ Monitoring Plugins:
 
 ### Changed
 
+Monitoring Plugins:
+
+* sap-open-concur-com: default `--datacenter` is now `eu2` (the legacy `eu` endpoint returns HTTP 500). Setups passing `--datacenter` explicitly are unaffected
+* sap-open-concur-com: longer default timeout so slow but healthy SAP API responses no longer flip to UNKNOWN
+
+
 Icinga Director:
 
 * `Apache apache2 Service Set (Debian 10-)` matches only `debian10` now; obsolete `debian8`/`debian9` removed from the filter
