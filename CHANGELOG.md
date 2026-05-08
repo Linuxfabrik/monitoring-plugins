@@ -19,6 +19,14 @@ Icinga Director:
 * OS host tag labels for `rhel7`/`rhel8`/`rhel9` get a leading double space (`OS - RHEL  7 (and compatible)`, etc.) so they sort before `rhel10` in the Director dropdown. Tag names unchanged
 
 
+### Removed
+
+Icinga Director:
+
+* `all-the-rest.json`: 13 single-plugin Service Sets and their host tags removed because the underlying checks need per-instance parameters (URL, hostname, account, API token), so the Set can only ship one default-parameterised service. Affected: `Atlassian Statuspage`, `Axenita`, `HIN`, `KEMP`, `Metabase`, `OnlyOffice (Containerized)`, `SafeNet HSM`, `Spring Boot Actuator Health`, `StatusIQ`, `Statuspal`, `UptimeRobot`, `VirusTotal`, `WHMCS`. The Service Templates remain; configure services via Director Apply rules. See `CONTRIBUTING.md` for the rule of thumb
+* `all-the-rest.json`: obsolete `tarifpool-v2` host tag dropped (the Set itself was removed in v3)
+
+
 ## [v4.0.0] - 2026-05-07
 
 ### Added
