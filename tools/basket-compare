@@ -34,7 +34,7 @@ from deepdiff import DeepDiff
 import lib.base
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041301'
+__version__ = '2026050801'
 
 DESCRIPTION = """Compare two Icinga Director baskets and highlight the differences."""
 
@@ -515,6 +515,26 @@ def get_datafields_diff(diff):
                     tmp['changed'] = k.replace("root['", '').replace("']", '')
                     tmp['old_value'] = get_val(v['old_value'])
                     tmp['new_value'] = get_val(v['new_value'])
+                    table_data.append(tmp)
+            elif category == 'dictionary_item_added':
+                for k, v in changes.items():
+                    tmp = {}
+                    tmp['varname'] = d['varname']
+                    tmp['uuid'] = d['uuid']
+                    tmp['what'] = 'item added'
+                    tmp['changed'] = k.replace("root['", '').replace("']", '')
+                    tmp['old_value'] = '-'
+                    tmp['new_value'] = get_val(v)
+                    table_data.append(tmp)
+            elif category == 'dictionary_item_removed':
+                for k, v in changes.items():
+                    tmp = {}
+                    tmp['varname'] = d['varname']
+                    tmp['uuid'] = d['uuid']
+                    tmp['what'] = 'item removed'
+                    tmp['changed'] = k.replace("root['", '').replace("']", '')
+                    tmp['old_value'] = get_val(v)
+                    tmp['new_value'] = '-'
                     table_data.append(tmp)
             else:
                 _common.die(f'unhandled deepdiff category: {category}')
