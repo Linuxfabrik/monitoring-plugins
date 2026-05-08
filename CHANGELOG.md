@@ -16,6 +16,7 @@ Icinga Director:
 * `Apache apache2 Service Set (Ubuntu 18+)` now also matches `ubuntu24` and `ubuntu26`
 * `Apache httpd Service Set` (Fedora / RHEL) now also matches `rhel10`
 * `OS - RHEL 10 Basic Service Set` drops the `audit-rules.service` check. The `Type=oneshot` unit only signals boot-time rule loading and stays `inactive (dead)` on default installs. Ongoing audit health stays covered by `auditd.service` and the `audit.log` file-size check
+* OS host tag labels for `rhel7`/`rhel8`/`rhel9` get a leading double space (`OS - RHEL  7 (and compatible)`, etc.) so they sort before `rhel10` in the Director dropdown. Tag names unchanged
 
 
 ## [v4.0.0] - 2026-05-07
