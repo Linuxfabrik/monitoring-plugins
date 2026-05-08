@@ -32,6 +32,7 @@ Icinga Director:
 Monitoring Plugins:
 
 * network-port-tcp: fix plugin crashing on every invocation
+* Various Plugins: declare `lib.*` imports explicitly to protect against future crashes if upstream library refactors drop transitive imports. Affects cpu-usage, gitlab-version, grassfish-players, grassfish-screens, librenms-health, matomo-version, mediawiki-version, mysql-logfile, nodebb-database, nodebb-groups, redis-status, systemd-timedate-status, valkey-status, whmcs-status. No runtime change today
 
 
 ## [v4.0.0] - 2026-05-07
