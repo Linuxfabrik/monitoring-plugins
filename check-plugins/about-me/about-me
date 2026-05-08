@@ -37,7 +37,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026050701 / v4.0.0'
+__version__ = '2026050801 / v4.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -52,6 +52,18 @@ DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_PUBLIC_IP_URL = None
 DEFAULT_TIMEOUT = 2
+
+
+def _natural_key(s):
+    """Case-insensitive natural sort key. Splits a string into alternating
+    text and integer chunks so 'foo10' sorts after 'foo2' and 'MariaDB-server'
+    interleaves with lowercase 'mariadb-...' instead of clustering at the top
+    because of ASCII capital ordering.
+    """
+    return [
+        int(part) if part.isdigit() else part
+        for part in re.split(r'(\d+)', (s or '').lower())
+    ]
 
 
 def parse_args():
@@ -934,6 +946,7 @@ def get_nondefault_software():
     for line in stdout.splitlines():
         data = dict(zip(header, line.split(';')))
         table_data.append(data)
+    table_data.sort(key=lambda r: _natural_key(r['name']))
     output = lib.base.get_table(
         table_data,
         header,
@@ -1002,11 +1015,11 @@ def get_nondefault_users():
         if data['user'] not in default_linux_users:
             table_data.append(data)
 
+    table_data.sort(key=lambda r: _natural_key(r['user']))
     output = lib.base.get_table(
         table_data,
         header,
         header=header,
-        sort_by_key='user',
     )
     if output:
         return f'Non-default Users:\n{output}\n'
@@ -1214,11 +1227,11 @@ def get_systemd_timers():
                 }
             )
 
+    table_data.sort(key=lambda r: _natural_key(r['unit']))
     output = lib.base.get_table(
         table_data,
         ['unit', 'activates', 'next'],
         header=['unit', 'activates', 'next'],
-        sort_by_key='unit',
     )
     if output:
         return f'systemctl list-timers:\n{output}\n'

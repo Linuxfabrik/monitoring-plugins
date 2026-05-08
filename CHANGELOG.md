@@ -44,6 +44,7 @@ Icinga Director:
 
 Monitoring Plugins:
 
+* about-me: Non-default Software, Non-default Users and systemctl list-timers tables now sort case-insensitive and natural, so `foo10` lands after `foo2` and capital-letter names no longer cluster at the top
 * network-port-tcp: fix plugin crashing on every invocation
 * Various Plugins: declare `lib.*` imports explicitly to protect against future crashes if upstream library refactors drop transitive imports. Affects cpu-usage, gitlab-version, grassfish-players, grassfish-screens, librenms-health, matomo-version, mediawiki-version, mysql-logfile, nodebb-database, nodebb-groups, redis-status, systemd-timedate-status, valkey-status, whmcs-status. No runtime change today
 
