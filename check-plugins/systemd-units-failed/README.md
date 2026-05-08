@@ -5,9 +5,12 @@
 
 Checks for failed systemd units by running `systemctl --state=failed`. Reports any unit that is in a failed active state or failed sub state.
 
+When no unit is currently failed, the plugin reads the current boot's journal for the most recent system unit-failed event and appends it to the output, so the admin sees how long the host has been clean since the last reboot and which unit last broke.
+
 **Data Collection:**
 
 * Executes `systemctl --state=failed --no-pager --no-legend`
+* When everything is OK, additionally runs `journalctl --output=short-unix --boot=0 _PID=1 --grep="Failed with result"` and picks the last matching line client-side, to read the most recent system-scope unit-failed event of the current boot. Scoping to `--boot=0` keeps the call fast regardless of total journal size. If `journalctl` is unavailable, returns nothing, or its entry cannot be parsed, the suffix is silently omitted
 * Units can be excluded from the check via `--ignore`, which supports glob patterns according to Python's `fnmatch` module (e.g. `--ignore "sshd@*.service"`)
 
 
@@ -31,7 +34,9 @@ usage: systemd-units-failed [-h] [-V] [--always-ok] [--ignore IGNORE]
 
 Checks for failed systemd units. Alerts when any unit is in a failed state.
 Specific units can be excluded from the check via --ignore with regular
-expressions.
+expressions. When no unit is currently failed, reports the most recent system
+unit-failed event from the journal so operators see at a glance how long the
+host has been clean.
 
 options:
   -h, --help       show this help message and exit
@@ -56,7 +61,7 @@ options:
 ./systemd-units-failed --ignore=sshd@*.service
 ```
 
-Output:
+Output (something is failing):
 
 ```text
 1 failed unit: ipmievd.service
@@ -64,6 +69,12 @@ Output:
 unit            ! load   ! active ! sub    ! description
 ----------------+--------+--------+--------+----------------
 ipmievd.service ! loaded ! failed ! failed ! Ipmievd Daemon
+```
+
+Output (currently clean, with last failure surfaced from the journal):
+
+```text
+Everything is ok. Last failed: `ipmievd.service` with message "Failed with result 'exit-code'" at 2026-04-30 12:01:53 (1W 2D ago)
 ```
 
 

@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+Monitoring Plugins:
+
+* systemd-units-failed: in OK state, output now includes the last failed unit since the last reboot, its timestamp and how long ago
+
+
 ### Changed
 
 Icinga Director:
