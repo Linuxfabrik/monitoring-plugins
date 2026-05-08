@@ -30,16 +30,29 @@ Checks whether a TCP network port is reachable by attempting to establish a conn
 ## Help
 
 ```text
-Traceback (most recent call last):
-  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/network-port-tcp/network-port-tcp", line 140, in 'module'
-    main()
-    ~~~~^^
-  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/network-port-tcp/network-port-tcp", line 104, in main
-    args = parse_args()
-  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/network-port-tcp/network-port-tcp", line 72, in parse_args
-    help=lib.args.help('--severity') + ' Default: %(default)s',
-         ^^^^^^^^
-AttributeError: module 'lib' has no attribute 'args'
+usage: network-port-tcp [-h] [-V] [-H HOSTNAME] [-p PORT]
+                        [--portname PORTNAME] [--severity {warn,crit}]
+                        [-t TIMEOUT] [--type {tcp,tcp6}]
+
+Checks whether a TCP network port is reachable by attempting to establish a
+connection. Measures and reports the connection time. Useful for monitoring
+service availability from the network perspective. Alerts if the port is
+unreachable or the connection time exceeds the configured thresholds.
+
+options:
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  -H, --hostname HOSTNAME
+                        Host or IP address to check. Default: localhost
+  -p, --port PORT       TCP port number to check. Default: 22
+  --portname PORTNAME   Human-readable display name for the port in the output
+                        message. Example: `--portname https`.
+  --severity {warn,crit}
+                        Severity for alerting. Default: warn
+  -t, --timeout TIMEOUT
+                        Network timeout in seconds. Default: 2
+  --type {tcp,tcp6}     Connection type, "tcp" for IPv4 or "tcp6" for IPv6.
+                        Default: tcp
 ```
 
 

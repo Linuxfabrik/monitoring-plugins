@@ -35,8 +35,8 @@ usage: systemd-units-failed [-h] [-V] [--always-ok] [--ignore IGNORE]
 Checks for failed systemd units. Alerts when any unit is in a failed state.
 Specific units can be excluded from the check via --ignore with regular
 expressions. When no unit is currently failed, reports the most recent system
-unit-failed event from the journal so operators see at a glance how long the
-host has been clean.
+unit-failed event from the current boot's journal so operators see at a glance
+how long the host has been clean since the last reboot.
 
 options:
   -h, --help       show this help message and exit

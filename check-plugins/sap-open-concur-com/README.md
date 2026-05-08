@@ -60,7 +60,7 @@ options:
                         available for which datacenter. Default: All
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
-  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --utc-offset UTC_OFFSET
                         UTC offset for timestamp display. Default: +0200
 ```
