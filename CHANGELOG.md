@@ -15,6 +15,13 @@ Monitoring Plugins:
 * nut-ups: monitor a UPS managed by Network UPS Tools (NUT). Reports battery, load, voltages, remaining runtime, temperature and the aggregated UPS status. Picks up the UPS automatically and uses the thresholds the UPS already knows
 
 
+### Removed
+
+Monitoring Plugins:
+
+* hin-status: removed, the HIN support status page no longer exists
+
+
 ## [v4.1.0] - 2026-05-08
 
 ### Added

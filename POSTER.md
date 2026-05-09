@@ -31,7 +31,6 @@ Icinga Web 2. Click any thumbnail (or zoom your browser) to read the plugin outp
 <img alt="gitlab-readiness" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/gitlab-readiness.png" width="30%"/> &nbsp;
 <img alt="gitlab-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/gitlab-version.png" width="30%"/> &nbsp;
 <img alt="grafana-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/grafana-version.png" width="30%"/> &nbsp;
-<img alt="hin-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/hin-status.png" width="30%"/> &nbsp;
 <img alt="icinga-topflap-services" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/icinga-topflap-services.png" width="30%"/> &nbsp;
 <img alt="infomaniak-events" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/infomaniak-events.png" width="30%"/> &nbsp;
 <img alt="infomaniak-swiss-backup-devices" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/infomaniak-swiss-backup-devices.png" width="30%"/> &nbsp;
