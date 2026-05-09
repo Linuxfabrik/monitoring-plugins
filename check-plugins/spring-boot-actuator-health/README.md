@@ -149,7 +149,7 @@ Each numeric component detail value is exposed as perfdata. Additionally, the Na
 | ... | ... | Other numeric component details |
 
 
-## Development
+## For Maintainers
 
 For testing purposes, install a Spring Boot Actuator application providing a `/health` endpoint. For example:
 

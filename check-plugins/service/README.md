@@ -121,7 +121,7 @@ service --service="^(?!DPS|MSDTC|MapsBroker|UsoSvc|Dnscache|gpsvc$).*$" --startt
 There is no perfdata.
 
 
-## Development
+## For Maintainers
 
 How to create and delete a service on Windows (it will be removed on next boot):
 
