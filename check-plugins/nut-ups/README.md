@@ -195,7 +195,7 @@ The state aggregation has two sources: the `ups.status` flags reported by the UP
 | `FSD`     | CRIT  | Forced Shutdown signalled to clients. |
 | `OB`+`LB` | CRIT  | On battery **and** low battery: utility power is gone and the battery is almost empty. The protected load is about to drop. |
 
-Per-metric threshold mapping (Nagios ranges, see [THRESHOLDS.md](../../THRESHOLDS.md)):
+Per-metric threshold mapping (Nagios ranges, see [THRESHOLDS.md](../THRESHOLDS.md)):
 
 | Metric | WARN default | CRIT default | Direction |
 |--------|--------------|--------------|-----------|
@@ -230,7 +230,7 @@ The named entries below are the threshold-aware metrics that drive the plugin st
 
 ## For Maintainers
 
-The plugin ships ready-to-use Containerfiles for every supported distribution under [`unit-test/containerfiles/`](unit-test/containerfiles/) (`archlinux-vlatest`, `debian-v11/v12/v13`, `fedora-v43`, `rhel-v8/v9/v10`, `sles-v15/v16`, `ubuntu-v2004/v2204/v2404/v2604`). Each one installs `nut-server` with a dummy UPS profile, exposes upsd on TCP 3493 and configures an `admin` user with the password `linuxfabrik` for testing the auth path.
+The plugin ships ready-to-use Containerfiles for every supported distribution under [`unit-test/containerfiles/`](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nut-ups/unit-test/containerfiles) (`archlinux-vlatest`, `debian-v11/v12/v13`, `fedora-v43`, `rhel-v8/v9/v10`, `sles-v15/v16`, `ubuntu-v2004/v2204/v2404/v2604`). Each one installs `nut-server` with a dummy UPS profile, exposes upsd on TCP 3493 and configures an `admin` user with the password `linuxfabrik` for testing the auth path.
 
 Quick smoke test against one image, from the repository root:
 
