@@ -1,0 +1,42 @@
+# Base image: Fedora 43
+FROM registry.fedoraproject.org/fedora:43
+
+# NUT server with dummy driver. Fedora ships /etc/ups as the config dir.
+RUN dnf --assumeyes install --setopt=install_weak_deps=False nut && \
+    dnf clean all
+
+RUN echo 'MODE=netserver' > /etc/ups/nut.conf && \
+    printf '%s\n' \
+        '[dummy]' \
+        '    driver = dummy-ups' \
+        '    port = dummy.dev' \
+        '    desc = "Linuxfabrik Dummy UPS"' \
+        > /etc/ups/ups.conf && \
+    printf '%s\n' \
+        'battery.charge: 87' \
+        'battery.charge.low: 20' \
+        'battery.runtime: 1800' \
+        'battery.type: PbAc' \
+        'device.mfr: Linuxfabrik' \
+        'device.model: Dummy UPS' \
+        'input.voltage: 230.0' \
+        'output.voltage: 230.0' \
+        'ups.load: 22' \
+        'ups.mfr: Linuxfabrik' \
+        'ups.model: Dummy UPS' \
+        'ups.realpower: 110' \
+        'ups.realpower.nominal: 1500' \
+        'ups.status: OL' \
+        'ups.temperature: 30.5' \
+        > /etc/ups/dummy.dev && \
+    echo 'LISTEN 0.0.0.0 3493' > /etc/ups/upsd.conf && \
+    printf '%s\n' \
+        '[admin]' \
+        '    password = linuxfabrik' \
+        '    actions = SET' \
+        '    instcmds = ALL' \
+        > /etc/ups/upsd.users && \
+    chown -R nut:nut /etc/ups /var/lib/ups /run/nut 2>/dev/null || true
+
+EXPOSE 3493
+CMD ["sh", "-c", "upsdrvctl start && upsd && exec sleep infinity"]

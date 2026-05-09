@@ -1,0 +1,298 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for nut-ups.
+
+Two flavours live side by side, per CONTRIBUTING:
+
+- Fixture-based tests (TESTS): cover the plugin's state machine via captured `LIST VAR`
+  responses. They run in a fraction of a second and are part of the multi-Python tox matrix.
+- Container-based tests (CONTAINERFILES): bring up `nut-server` with the dummy driver inside
+  one container per supported distribution and run the plugin against the live upsd from the
+  host. Surfaces NUT version differences across the matrix.
+"""
+
+import os
+import subprocess
+import sys
+import time
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+# Each fixture in stdout/ contains a captured `LIST VAR <ups>` block from a real (or
+# realistic) NUT upsd response. The plugin parses the same block whether it comes from the
+# socket or from --test, which is why fixture-based tests cover the full plugin logic.
+TESTS = [
+    # ---- OK paths ----------------------------------------------------------------------
+    {
+        'id': 'ok-online-charged',
+        'test': 'stdout/online-charged,,0',
+        'params': '--device dummy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Online', 'charge 87%', 'load 22%', 'temp 30.5C'],
+    },
+    {
+        'id': 'ok-calibrating',
+        'test': 'stdout/calibrating,,0',
+        'params': '--device dummy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Online', 'Calibrating', 'Charging'],
+    },
+    {
+        'id': 'ok-minimal-fields',
+        'test': 'stdout/minimal-fields,,0',
+        'params': '--device dummy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Online', 'charge 75%'],
+        'assert-not-in': ['load', 'runtime', 'temp'],
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'test': 'stdout/on-battery-low,,0',
+        'params': '--device dummy --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'On Battery, Low Battery',
+    },
+    # ---- WARN paths --------------------------------------------------------------------
+    {
+        'id': 'warn-on-battery',
+        'test': 'stdout/on-battery,,0',
+        'params': '--device dummy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['On Battery', 'Discharging', 'charge 60%'],
+    },
+    {
+        'id': 'warn-replace-battery',
+        'test': 'stdout/replace-battery,,0',
+        'params': '--device dummy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Online', 'Replace Battery'],
+    },
+    {
+        'id': 'warn-bypass',
+        'test': 'stdout/bypass,,0',
+        'params': '--device dummy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['On Bypass'],
+    },
+    {
+        # OVER status flag alone: we want to see the WARN come from the flag mapping, not
+        # from any threshold. Widen all numeric thresholds past the fixture values so the
+        # only thing that can colour the state is the status-flag table.
+        'id': 'warn-overload-flag',
+        'test': 'stdout/overload,,0',
+        'params': (
+            '--device dummy '
+            '--warning-load ~:200 --critical-load ~:300 '
+            '--warning-runtime 100: --critical-runtime 50: '
+            '--warning-temperature ~:60 --critical-temperature ~:80'
+        ),
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Overload'],
+    },
+    {
+        'id': 'warn-charge-below-warn',
+        'test': 'stdout/online-charged,,0',
+        'params': '--device dummy --warning-charge 90: --critical-charge 5:',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'charge 87%.*\[WARNING\]',
+    },
+    # ---- CRIT paths --------------------------------------------------------------------
+    {
+        'id': 'crit-on-battery-low',
+        'test': 'stdout/on-battery-low,,0',
+        'params': '--device dummy',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['On Battery, Low Battery'],
+    },
+    {
+        'id': 'crit-forced-shutdown',
+        'test': 'stdout/forced-shutdown,,0',
+        'params': '--device dummy',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Forced Shutdown'],
+    },
+    {
+        'id': 'crit-load-above-crit',
+        'test': 'stdout/overload,,0',
+        'params': '--device dummy --warning-load ~:50 --critical-load ~:100',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'load 112%.*\[CRITICAL\]',
+    },
+    {
+        'id': 'crit-runtime-below-crit',
+        'test': 'stdout/forced-shutdown,,0',
+        'params': '--device dummy --warning-runtime 600: --critical-runtime 60:',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Forced Shutdown'],
+    },
+    # ---- Lengthy table -----------------------------------------------------------------
+    {
+        'id': 'ok-lengthy-table',
+        'test': 'stdout/online-charged,,0',
+        'params': '--device dummy --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Linuxfabrik',
+            'Dummy UPS',
+            'Metric',
+            'Value',
+            'State',
+            'ups.realpower',
+        ],
+    },
+    # ---- UPS-reported thresholds win over the plugin defaults --------------------------
+    {
+        # battery.charge.warning=50 from the UPS makes the WARN threshold tighter than the
+        # plugin default of 30. With charge=100 we are still OK; the perfdata line confirms
+        # the resolver picked up "50:" / "10:".
+        'id': 'ok-ups-reported-thresholds-win',
+        'test': 'stdout/apc-smart-ups-1500,,0',
+        'params': '--device apc-ups',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'charge'=100.0%;50:;10:;0;100", "'runtime'=9976.0s;600:;150:;0"],
+    },
+    {
+        # Explicit CLI threshold must override the UPS-reported value. With the override at
+        # 101: (alert if charge < 101) the fixture value of 100 falls below and produces a
+        # WARN; without the override, the resolver would pick UPS-reported 50: and stay OK.
+        'id': 'warn-cli-threshold-overrides-ups',
+        'test': 'stdout/apc-smart-ups-1500,,0',
+        'params': '--device apc-ups --warning-charge 101:',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r"'charge'=100\.0%;101:;10:;0;100",
+    },
+    # ---- Real-world hardware identification block --------------------------------------
+    {
+        'id': 'ok-real-apc-identification',
+        'test': 'stdout/apc-smart-ups-1500,,0',
+        'params': '--device apc-ups --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'American Power Conversion',
+            'Smart-UPS_1500',
+            'S/N AS0000000000',
+            'firmware UPS 02.0',
+            'via USB 051d:0003',
+            # Lengthy table keeps the original NUT names with dots.
+            'battery.charge.low',
+            'driver.parameter.port',
+            'ups.firmware',
+        ],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../nut-ups'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+# Container-based cross-distro coverage. Builds one nut-server image per distro under
+# containerfiles/, exposes upsd on TCP 3493 and runs the plugin against it from the host.
+# Skipped silently when testcontainers is not available (tox / pure fixture run).
+
+CONTAINERFILES = [
+    'archlinux-vlatest',
+    'debian-v11',
+    'debian-v12',
+    'debian-v13',
+    'fedora-v43',
+    'rhel-v8',
+    'rhel-v9',
+    'rhel-v10',
+    'sles-v15',
+    'sles-v16',
+    'ubuntu-v2004',
+    'ubuntu-v2204',
+    'ubuntu-v2404',
+    'ubuntu-v2604',
+]
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+PLUGIN = os.path.realpath(os.path.join(HERE, '..', 'nut-ups'))
+
+
+try:
+    from testcontainers.core.container import DockerContainer
+    from testcontainers.core.image import DockerImage
+
+    HAVE_TESTCONTAINERS = True
+except ImportError:
+    HAVE_TESTCONTAINERS = False
+
+
+class TestContainer(unittest.TestCase):
+    pass
+
+
+def _check_containerfile(test, containerfile):
+    """Build the per-distro image, start it, point the plugin at the exposed upsd port."""
+    if not HAVE_TESTCONTAINERS:
+        test.skipTest('testcontainers is not installed')
+    print(f'\n=== Testing {containerfile} ===', flush=True)
+    image_tag = f'lfmp-nut-ups-{containerfile}'.lower()
+    # clean_up=False keeps the layer cache between runs so subsequent invocations finish in
+    # seconds instead of rebuilding from the base image.
+    with DockerImage(
+        path=HERE,
+        dockerfile_path=f'containerfiles/{containerfile}',
+        tag=image_tag,
+        clean_up=False,
+    ) as image:
+        with DockerContainer(str(image)).with_exposed_ports(3493) as container:
+            # upsd self-daemonises and writes its readiness banner to syslog, not to stdout
+            # we can wait_log on. A short sleep is cheap and version-agnostic across NUT
+            # 2.7.x and 2.8.x.
+            time.sleep(5)
+            host_ip = container.get_container_host_ip()
+            host_port = container.get_exposed_port(3493)
+            cmd = [
+                'python3',
+                PLUGIN,
+                '--device=dummy',
+                f'--hostname={host_ip}',
+                f'--port={host_port}',
+            ]
+            print(f'Run plugin: {" ".join(cmd)}', flush=True)
+            result = subprocess.run(
+                cmd,
+                cwd=HERE,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            combined = result.stdout + result.stderr
+            print(
+                f'  retc={result.returncode}, output={combined.strip()[:200]}',
+                flush=True,
+            )
+            test.assertEqual(
+                result.returncode,
+                STATE_OK,
+                f'plugin returned {result.returncode} on {containerfile}, expected OK\n'
+                f'{combined}',
+            )
+            test.assertIn('Online', combined)
+            test.assertIn('charge 87%', combined)
+
+
+lib.lftest.attach_each(TestContainer, CONTAINERFILES, _check_containerfile, id_func=str)
+
+
+if __name__ == '__main__':
+    unittest.main()

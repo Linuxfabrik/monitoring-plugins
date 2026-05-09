@@ -1,0 +1,810 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.human
+import lib.lftest
+import lib.net
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026050901'
+
+DESCRIPTION = """Monitors an Uninterruptible Power Supply (UPS) managed by Network UPS Tools
+(NUT, https://networkupstools.org). Talks to the upsd daemon over TCP and reports battery
+charge, runtime, load, input/output voltage, real power and temperature, plus the aggregated
+ups.status flags. Alerts when the UPS goes on battery, when the battery runs low, when the UPS
+signals a forced shutdown, when the load is above threshold, when battery temperature is above
+threshold, or when battery charge or runtime drop below threshold. The NUT daemon abstracts the
+underlying connection to the UPS (USB, serial, SNMP), so the same plugin works for any UPS that
+NUT supports. Without --device the plugin queries upsd and picks the only configured UPS; on a
+multi-UPS host it picks the first entry and surfaces the choice in the plugin output. Optional
+NUT authentication via --username and --password. Supports extended reporting via --lengthy."""
+
+DEFAULT_CRITICAL_CHARGE = '10:'
+DEFAULT_CRITICAL_LOAD = '~:95'
+DEFAULT_CRITICAL_RUNTIME = '300:'
+DEFAULT_CRITICAL_TEMPERATURE = '~:60'
+DEFAULT_HOSTNAME = '127.0.0.1'
+DEFAULT_PORT = 3493
+DEFAULT_TIMEOUT = 8
+DEFAULT_WARNING_CHARGE = '30:'
+DEFAULT_WARNING_LOAD = '~:80'
+DEFAULT_WARNING_RUNTIME = '600:'
+DEFAULT_WARNING_TEMPERATURE = '~:50'
+
+# NUT ups.status flag mapping. Severity is per individual flag; CRIT is reserved for situations
+# that require an immediate human reaction (i.e. the UPS is about to drop the load). Two flag
+# combinations carry their own special-case severity in get_ups_state() and override the
+# entries below: OB+LB (on battery and low) -> CRIT, FSD (forced shutdown) -> CRIT.
+STATUS_FLAGS = {
+    'ALARM': (STATE_WARN, 'Alarm'),
+    'BOOST': (STATE_OK, 'Boosting Voltage'),
+    'BYPASS': (STATE_WARN, 'On Bypass'),
+    'CAL': (STATE_OK, 'Calibrating'),
+    'CHRG': (STATE_OK, 'Charging'),
+    'DISCHRG': (STATE_WARN, 'Discharging'),
+    'FSD': (STATE_CRIT, 'Forced Shutdown'),
+    'HB': (STATE_WARN, 'High Battery'),
+    'LB': (STATE_WARN, 'Low Battery'),
+    'OB': (STATE_WARN, 'On Battery'),
+    'OFF': (STATE_WARN, 'Off'),
+    'OL': (STATE_OK, 'Online'),
+    'OVER': (STATE_WARN, 'Overload'),
+    'RB': (STATE_WARN, 'Replace Battery'),
+    'TRIM': (STATE_OK, 'Trimming Voltage'),
+}
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--critical-charge',
+        help='CRIT threshold for battery charge in percent. '
+        'When omitted, the plugin prefers the UPS-reported `battery.charge.low` (which is '
+        'the level at which the UPS itself triggers the LB flag). '
+        f'Falls back to {DEFAULT_CRITICAL_CHARGE!r} if neither the UPS nor the admin '
+        'configured a value. '
+        'Supports Nagios ranges.',
+        dest='CRITICAL_CHARGE',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--critical-load',
+        help='CRIT threshold for UPS load in percent. '
+        'Supports Nagios ranges. '
+        f'Default: {DEFAULT_CRITICAL_LOAD}',
+        dest='CRITICAL_LOAD',
+        default=DEFAULT_CRITICAL_LOAD,
+    )
+
+    parser.add_argument(
+        '--critical-runtime',
+        help='CRIT threshold for remaining battery runtime in seconds. '
+        'When omitted, the plugin prefers the UPS-reported `battery.runtime.low` (which is '
+        'the runtime at which the UPS itself triggers the LB flag). '
+        f'Falls back to {DEFAULT_CRITICAL_RUNTIME!r} if neither the UPS nor the admin '
+        'configured a value. '
+        'Supports Nagios ranges.',
+        dest='CRITICAL_RUNTIME',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--critical-temperature',
+        help='CRIT threshold for UPS temperature in degrees Celsius. '
+        'Supports Nagios ranges. '
+        f'Default: {DEFAULT_CRITICAL_TEMPERATURE}',
+        dest='CRITICAL_TEMPERATURE',
+        default=DEFAULT_CRITICAL_TEMPERATURE,
+    )
+
+    parser.add_argument(
+        '--device',
+        help='UPS device name as configured in NUT (matches the [section] in ups.conf). '
+        'If omitted, the plugin queries upsd for the configured UPS list and picks the first '
+        'entry, which is the right thing to do on the typical single-UPS setup. On hosts '
+        'with more than one configured UPS the picked name is mentioned in the plugin '
+        'output so the admin notices and can pin the choice via --device.',
+        dest='DEVICE',
+        default=None,
+    )
+
+    parser.add_argument(
+        '-H',
+        '--hostname',
+        help=lib.args.help('--hostname') + f' Default: {DEFAULT_HOSTNAME}',
+        dest='HOSTNAME',
+        default=DEFAULT_HOSTNAME,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--password',
+        help=lib.args.help('--password'),
+        dest='PASSWORD',
+    )
+
+    parser.add_argument(
+        '--port',
+        help=lib.args.help('--port') + f' Default: {DEFAULT_PORT}',
+        dest='PORT',
+        type=int,
+        default=DEFAULT_PORT,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + f' Default: {DEFAULT_TIMEOUT} (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--username',
+        help=lib.args.help('--username'),
+        dest='USERNAME',
+    )
+
+    parser.add_argument(
+        '--warning-charge',
+        help='WARN threshold for battery charge in percent. '
+        'When omitted, the plugin prefers the UPS-reported `battery.charge.warning`. '
+        f'Falls back to {DEFAULT_WARNING_CHARGE!r} if neither the UPS nor the admin '
+        'configured a value. '
+        'Supports Nagios ranges.',
+        dest='WARNING_CHARGE',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--warning-load',
+        help='WARN threshold for UPS load in percent. '
+        'Supports Nagios ranges. '
+        f'Default: {DEFAULT_WARNING_LOAD}',
+        dest='WARNING_LOAD',
+        default=DEFAULT_WARNING_LOAD,
+    )
+
+    parser.add_argument(
+        '--warning-runtime',
+        help='WARN threshold for remaining battery runtime in seconds. '
+        'Supports Nagios ranges. '
+        f'Default: {DEFAULT_WARNING_RUNTIME}',
+        dest='WARNING_RUNTIME',
+        default=DEFAULT_WARNING_RUNTIME,
+    )
+
+    parser.add_argument(
+        '--warning-temperature',
+        help='WARN threshold for UPS temperature in degrees Celsius. '
+        'Supports Nagios ranges. '
+        f'Default: {DEFAULT_WARNING_TEMPERATURE}',
+        dest='WARNING_TEMPERATURE',
+        default=DEFAULT_WARNING_TEMPERATURE,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def parse_list_var(text):
+    """Parses NUT 'LIST VAR' output (`VAR <ups> <name> "<value>"` lines) into a dict mapping
+    variable name to value (str). Lines that do not match are ignored, including the
+    BEGIN/END markers and the trailing OK Goodbye.
+    """
+    success, pattern = lib.txt.compile_regex(r'^VAR\s+\S+\s+(\S+)\s+"(.*)"\s*$')
+    if not success:
+        return False, pattern
+    result = {}
+    for line in text.splitlines():
+        match = pattern.match(line)
+        if match:
+            result[match.group(1)] = match.group(2)
+    return True, result
+
+
+def parse_list_ups(text):
+    """Parses NUT 'LIST UPS' output (`UPS <name> "<description>"` lines) into a list of UPS
+    names, in the order returned by upsd.
+    """
+    success, pattern = lib.txt.compile_regex(r'^UPS\s+(\S+)\s+')
+    if not success:
+        return []
+    devices = []
+    for line in text.splitlines():
+        match = pattern.match(line)
+        if match:
+            devices.append(match.group(1))
+    return devices
+
+
+def discover_device(args):
+    """Asks upsd which UPS devices are configured and returns (success, list_of_names).
+
+    The plugin picks the first name on a typical single-UPS host so the admin does not need
+    to pass --device. With multiple configured devices the picked name is surfaced in the
+    plugin output so the choice is visible.
+    """
+    dialog = []
+    if args.USERNAME:
+        dialog.append((f'USERNAME {args.USERNAME}\n'.encode(), r'^(OK|ERR)\b'))
+    if args.PASSWORD:
+        dialog.append((f'PASSWORD {args.PASSWORD}\n'.encode(), r'^(OK|ERR)\b'))
+    dialog.append((b'LIST UPS\n', r'^END LIST UPS\s*$|^ERR\b'))
+    dialog.append((b'LOGOUT\n', r'OK Goodbye|^ERR\b'))
+
+    success, responses = lib.net.fetch(
+        args.HOSTNAME,
+        args.PORT,
+        dialog=dialog,
+        timeout=args.TIMEOUT,
+    )
+    if not success:
+        return False, responses
+
+    auth_steps = (1 if args.USERNAME else 0) + (1 if args.PASSWORD else 0)
+    for step_response in responses[:auth_steps]:
+        if step_response.lstrip().startswith('ERR'):
+            return False, f'NUT authentication failed: {step_response.strip()}'
+
+    list_response = responses[auth_steps]
+    first_line = list_response.lstrip().splitlines()[0] if list_response else ''
+    if first_line.startswith('ERR'):
+        return False, first_line.strip()
+
+    devices = parse_list_ups(list_response)
+    if not devices:
+        return False, 'No UPS configured on upsd. Configure ups.conf and try again.'
+    return True, devices
+
+
+def get_ups_data(args):
+    """Talks to the NUT upsd daemon and returns (success, dict_of_vars).
+
+    In test mode (--test), reads a fixture file containing the LIST VAR response and parses it
+    directly. In live mode, optionally authenticates with USERNAME/PASSWORD, sends LIST VAR,
+    then LOGOUT. Translates NUT-level ERR responses into descriptive failure messages.
+    """
+    if args.TEST is not None:
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        return parse_list_var(stdout)
+
+    end_marker = re.escape(args.DEVICE)
+    dialog = []
+    if args.USERNAME:
+        dialog.append((f'USERNAME {args.USERNAME}\n'.encode(), r'^(OK|ERR)\b'))
+    if args.PASSWORD:
+        dialog.append((f'PASSWORD {args.PASSWORD}\n'.encode(), r'^(OK|ERR)\b'))
+    dialog.append(
+        (
+            f'LIST VAR {args.DEVICE}\n'.encode(),
+            rf'^END LIST VAR {end_marker}\s*$|^ERR\b',
+        )
+    )
+    dialog.append((b'LOGOUT\n', r'OK Goodbye|^ERR\b'))
+
+    success, responses = lib.net.fetch(
+        args.HOSTNAME,
+        args.PORT,
+        dialog=dialog,
+        timeout=args.TIMEOUT,
+    )
+    if not success:
+        return False, responses
+
+    # Walk the auth steps (if present) and surface the first ERR.
+    auth_steps = (1 if args.USERNAME else 0) + (1 if args.PASSWORD else 0)
+    for step_response in responses[:auth_steps]:
+        if step_response.lstrip().startswith('ERR'):
+            return False, f'NUT authentication failed: {step_response.strip()}'
+
+    list_var_response = responses[auth_steps]
+    first_line = list_var_response.lstrip().splitlines()[0] if list_var_response else ''
+    if first_line.startswith('ERR'):
+        # ERR UNKNOWN-UPS, ERR ACCESS-DENIED, ERR DATA-STALE, ...
+        return False, first_line.strip()
+
+    return parse_list_var(list_var_response)
+
+
+def get_connection_string(data):
+    """Builds a short, human-readable description of the UPS connection from the NUT
+    `driver.name` and `driver.parameter.port` variables. Returns a string like `USB`,
+    `SNMP 192.0.2.10`, `Serial /dev/ttyUSB0`, or the raw driver name as a fallback. Returns
+    an empty string if the NUT driver did not report enough information.
+    """
+    driver = (data.get('driver.name') or '').strip()
+    port = (data.get('driver.parameter.port') or '').strip()
+    driver_lower = driver.lower()
+
+    # Network drivers (vendor specific): name carries the "snmp"/"netxml"/"modbus" hint and
+    # the port is the IP/hostname of the managed device.
+    if 'snmp' in driver_lower:
+        return f'SNMP {port}' if port else 'SNMP'
+    if (
+        'netxml' in driver_lower
+        or 'modbus' in driver_lower
+        or 'powerman' in driver_lower
+    ):
+        return f'Network {port}' if port else 'Network'
+
+    # USB drivers: most ship a `usb` substring in the driver name; otherwise the convention
+    # for USB UPS in NUT is `port = auto`. When known, append the vendor:product ID and the
+    # USB bus, both reported by the driver, so the admin can map the UPS to a `lsusb` line.
+    if 'usb' in driver_lower or port == 'auto':
+        ids = []
+        vid = (data.get('ups.vendorid') or '').strip()
+        pid = (data.get('ups.productid') or '').strip()
+        if vid and pid:
+            ids.append(f'{vid.lower()}:{pid.lower()}')
+        bus = (data.get('driver.parameter.bus') or '').strip()
+        if bus:
+            ids.append(f'bus {bus}')
+        return f'USB {" ".join(ids)}' if ids else 'USB'
+
+    # Serial: the port is a TTY device path.
+    if port.startswith('/dev/') or port.startswith('COM'):
+        return f'Serial {port}'
+
+    # Dummy / unknown: just surface the driver name so the admin sees what is in play.
+    return driver
+
+
+def build_identification(data):
+    """Collects the model, serial, firmware, battery date and connection info from the LIST
+    VAR dict into a single human-readable line. Returns an empty string if no useful field
+    is populated. The NUT device name does not live here; it is rendered as a prefix in the
+    main output so the admin sees it immediately.
+    """
+    parts = []
+
+    mfr = data.get('ups.mfr') or data.get('device.mfr') or ''
+    model = data.get('ups.model') or data.get('device.model') or ''
+    name = ' '.join(p for p in (mfr.strip(), model.strip()) if p)
+    if name:
+        parts.append(name)
+
+    extras = []
+    serial = data.get('device.serial') or data.get('ups.serial')
+    if (
+        serial
+        and serial.strip()
+        and serial.strip().lower() not in ('unknown', 'none', '-')
+    ):
+        extras.append(f'S/N {serial.strip()}')
+    firmware = data.get('ups.firmware') or data.get('ups.firmware.aux')
+    if firmware and firmware.strip():
+        extras.append(f'firmware {firmware.strip()}')
+    battery_date = data.get('battery.date') or data.get('battery.mfr.date')
+    if battery_date and battery_date.strip():
+        extras.append(f'battery date {battery_date.strip()}')
+    connection = get_connection_string(data)
+    if connection:
+        extras.append(f'via {connection}')
+
+    if not parts and not extras:
+        return ''
+    if extras:
+        return f'{parts[0]} ({", ".join(extras)})' if parts else ', '.join(extras)
+    return parts[0]
+
+
+def get_ups_state(status_str):
+    """Maps the ups.status flag string to (state, [(label, code), ...]).
+
+    Each list entry pairs the human-readable label with the raw NUT flag code so the output
+    can show both, e.g. "Online (OL)". The OB+LB combination is presented as a single entry
+    with the code "OB+LB" so the special-case CRIT severity is visible in the output.
+
+    Special cases that override the per-flag severity table:
+    - OB + LB together: CRIT (the UPS is on battery and the battery is almost empty -> the
+      protected load is about to drop). This is the textbook 2-AM wakeup.
+    - FSD on its own: CRIT (the UPS has signalled forced shutdown to its clients).
+
+    Otherwise the worst per-flag severity wins.
+    """
+    flags = status_str.split()
+    state = STATE_OK
+    labels = []
+
+    # Special case: OB + LB combined is always CRIT, regardless of the per-flag table.
+    if 'OB' in flags and 'LB' in flags:
+        state = STATE_CRIT
+        labels.append(('On Battery, Low Battery', 'OB+LB'))
+        # Drop both flags so they are not labelled twice below.
+        flags = [f for f in flags if f not in ('OB', 'LB')]
+
+    for flag in flags:
+        flag_state, label = STATUS_FLAGS.get(flag, (STATE_WARN, f'Unknown flag {flag}'))
+        labels.append((label, flag))
+        state = lib.base.get_worst(state, flag_state)
+
+    if not labels:
+        labels.append(('No status reported', ''))
+        state = STATE_WARN
+
+    return state, labels
+
+
+def main():
+    """The main function. This is where the magic happens."""
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # Auto-discover the UPS device when --device was not specified. Skipped in --test mode
+    # because the fixture is already self-contained.
+    other_devices = []
+    if args.DEVICE is None and args.TEST is None:
+        devices = lib.base.coe(discover_device(args))
+        args.DEVICE = devices[0]
+        other_devices = devices[1:]
+
+    data = lib.base.coe(get_ups_data(args))
+
+    # Resolve threshold values. Priority: explicit CLI > UPS-reported > hardcoded fallback.
+    # The UPS-reported values come from the upsd config (ups.conf) or from the UPS firmware
+    # itself. They reflect what the UPS treats as "warning" / "low battery" thresholds, so
+    # using them aligns the plugin with the UPS's own self-perception. Explicit CLI values
+    # always win.
+    def _resolve_below(cli_value, ups_var, fallback):
+        """Returns a Nagios 'alert if below X' threshold (`X:`)."""
+        if cli_value is not None:
+            return cli_value
+        ups_value = (data.get(ups_var) or '').strip() if ups_var else ''
+        if ups_value:
+            return f'{ups_value}:'
+        return fallback
+
+    args.WARNING_CHARGE = _resolve_below(
+        args.WARNING_CHARGE, 'battery.charge.warning', DEFAULT_WARNING_CHARGE,
+    )
+    args.CRITICAL_CHARGE = _resolve_below(
+        args.CRITICAL_CHARGE, 'battery.charge.low', DEFAULT_CRITICAL_CHARGE,
+    )
+    args.CRITICAL_RUNTIME = _resolve_below(
+        args.CRITICAL_RUNTIME, 'battery.runtime.low', DEFAULT_CRITICAL_RUNTIME,
+    )
+
+    status_str = data.get('ups.status', '')
+    state, status_flags = get_ups_state(status_str)
+
+    # Render the status flags as "Label (CODE)" pairs so the admin sees both the friendly
+    # name and the raw NUT flag straight away. ups.alarm and ups.test.result are joined
+    # afterwards as additional, code-less status messages.
+    flag_parts = [
+        f'{label} ({code})' if code else label for label, code in status_flags
+    ]
+
+    # ups.alarm carries vendor-specific alarm text (e.g. "Replace battery"). NUT only fills
+    # it when the UPS firmware actually reports an alarm. Show it inline so the admin sees
+    # the reason without having to consult `upsc`.
+    ups_alarm = (data.get('ups.alarm') or '').strip()
+    if ups_alarm:
+        flag_parts.append(f'alarm: {ups_alarm}')
+        state = lib.base.get_worst(state, STATE_WARN)
+
+    # ups.test.result is the outcome of the last battery self-test. "Done and passed" and
+    # "No test initiated" are silent; everything else surfaces in the header. WARN if the
+    # last test returned a warning or was inconclusive, OK otherwise.
+    test_result = (data.get('ups.test.result') or '').strip()
+    if test_result and test_result.lower() not in (
+        'done and passed',
+        'no test initiated',
+        'none',
+    ):
+        flag_parts.append(f'self-test: {test_result}')
+        if 'warning' in test_result.lower() or 'inconclusive' in test_result.lower():
+            state = lib.base.get_worst(state, STATE_WARN)
+
+    msg = ''
+    perfdata = ''
+
+    # Threshold-driven metrics. Each metric pulls its value out of the LIST VAR dict, falls
+    # back across NUT variants where applicable, evaluates the threshold, contributes to the
+    # message header, the perfdata line and the optional --lengthy table.
+    #
+    # Only standard Nagios UOMs (s, %, B) are emitted. Volts, Watts and Celsius are
+    # non-standard and would confuse downstream tooling (Grafana axis labels, RRD), so the
+    # unit lives in the human-readable message only.
+    # `header_label` is the prefix used in the one-line summary. `value_fmt` formats the raw
+    # number into a human-readable string. The header line concatenates them as
+    # "<header_label> <value_str>"; the --lengthy table puts the label in the Metric column
+    # and the value alone in the Value column, so the label is never repeated.
+    metrics = [
+        # (label, value_var, fallback_var, uom, _min, _max, warn, crit, header_label,
+        #  value_fmt)
+        (
+            'charge',
+            'battery.charge',
+            None,
+            '%',
+            0,
+            100,
+            args.WARNING_CHARGE,
+            args.CRITICAL_CHARGE,
+            'charge',
+            lambda v: f'{v:.0f}%',
+        ),
+        (
+            'load',
+            'ups.load',
+            None,
+            '%',
+            0,
+            100,
+            args.WARNING_LOAD,
+            args.CRITICAL_LOAD,
+            'load',
+            lambda v: f'{v:.0f}%',
+        ),
+        (
+            'runtime',
+            'battery.runtime',
+            None,
+            's',
+            0,
+            None,
+            args.WARNING_RUNTIME,
+            args.CRITICAL_RUNTIME,
+            # NUT's `battery.runtime` is the remaining-on-battery estimate in seconds, not
+            # the UPS uptime. "runtime left" makes that obvious in the one-line output.
+            'runtime left',
+            lambda v: lib.human.seconds2human(int(v)),
+        ),
+        # NUT specifies all temperature variables (ups.temperature, battery.temperature,
+        # ambient.temperature) as "degrees C". Drivers are required to convert their
+        # native reading to Celsius before exposing it on the upsd protocol, so the
+        # plugin can append "C" unconditionally. https://networkupstools.org/docs/user-manual.chunked/apcs02.html
+        (
+            'temperature',
+            'ups.temperature',
+            'battery.temperature',
+            '',
+            None,
+            None,
+            args.WARNING_TEMPERATURE,
+            args.CRITICAL_TEMPERATURE,
+            'temp',
+            lambda v: f'{v:.1f}C',
+        ),
+    ]
+
+    # Per-NUT-variable state, populated by the threshold-driven loop and reused later when
+    # rendering the lengthy table so the State column lines up with what the header showed.
+    nut_var_states = {}
+    header_parts = [', '.join(flag_parts)]
+    for (
+        label,
+        var,
+        fallback,
+        uom,
+        _min,
+        _max,
+        warn,
+        crit,
+        header_label,
+        value_fmt,
+    ) in metrics:
+        raw = data.get(var)
+        used_var = var
+        if raw is None and fallback is not None:
+            raw = data.get(fallback)
+            used_var = fallback
+        value = lib.base.smartcast(raw) if raw is not None else None
+        if not isinstance(value, float):
+            continue
+        item_state = lib.base.get_state(value, warn, crit, _operator='range')
+        state = lib.base.get_worst(state, item_state)
+        nut_var_states[used_var] = item_state
+        value_str = value_fmt(value)
+        header_parts.append(
+            f'{header_label} {value_str}{lib.base.state2str(item_state, prefix=" ")}',
+        )
+        perfdata += lib.base.get_perfdata(
+            label,
+            value,
+            uom=uom,
+            warn=warn,
+            crit=crit,
+            _min=_min,
+            _max=_max,
+        )
+
+    # Trending-only metrics: no thresholds, just perfdata. Status flags (OVER, TRIM, BOOST,
+    # OL, OB) already cover the voltage edge cases. UOM is left empty for the same reason as
+    # for temperature: V, W, Hz and A are not standard Nagios UOMs. The plugin emits every
+    # variable the UPS reports; missing variables are silently skipped, which is what allows
+    # the same metric block to fit cheap home UPSes (only voltage) and rack-grade APC/Eaton
+    # devices (full electrical telemetry) without per-vendor branching.
+    #
+    # `header_fmt` decides whether the value also lands on the human-readable first line.
+    # Non-`_nom` electrical readings make it into the header so the admin sees battery
+    # voltage and the in/out values at a glance; nominal references, frequencies and
+    # currents stay in the perfdata + --lengthy table to keep the header below sane width.
+    for label, var, header_fmt in (
+        ('battery_voltage', 'battery.voltage', lambda v: f'battery {v:.1f}V'),
+        ('battery_voltage_nom', 'battery.voltage.nominal', None),
+        # battery.runtime.elapsed: seconds spent on battery in the current outage. 0 while
+        # online; only worth surfacing in the header when the UPS is actually discharging.
+        (
+            'battery_runtime_elapsed',
+            'battery.runtime.elapsed',
+            lambda v: (
+                f'on-battery for {lib.human.seconds2human(int(v))}' if v > 0 else None
+            ),
+        ),
+        ('input_current', 'input.current', None),
+        ('input_frequency', 'input.frequency', None),
+        ('input_voltage', 'input.voltage', lambda v: f'input {v:.0f}V'),
+        ('input_voltage_nom', 'input.voltage.nominal', None),
+        ('output_current', 'output.current', None),
+        ('output_frequency', 'output.frequency', None),
+        ('output_voltage', 'output.voltage', lambda v: f'output {v:.0f}V'),
+        ('output_voltage_nom', 'output.voltage.nominal', None),
+        ('realpower', 'ups.realpower', lambda v: f'{v:.0f}W'),
+        ('realpower_nom', 'ups.realpower.nominal', None),
+    ):
+        raw = data.get(var)
+        value = lib.base.smartcast(raw) if raw is not None else None
+        if not isinstance(value, float):
+            continue
+        perfdata += lib.base.get_perfdata(label, value)
+        if header_fmt is not None:
+            header_value = header_fmt(value)
+            # Some formatters skip the header line conditionally (e.g.
+            # battery.runtime.elapsed only surfaces when > 0). Filter their None return out.
+            if header_value:
+                header_parts.append(header_value)
+
+    # Generic perfdata pass: emit every other numeric NUT variable so admins see vendor
+    # specific telemetry (battery.runtime.low, ups.delay.shutdown, input.transfer.high, ...)
+    # without the plugin needing an explicit allow-list. NUT's dotted names are sanitised to
+    # snake_case to match the Linuxfabrik perfdata convention. Variables already covered
+    # above are skipped; identifiers that happen to look numeric (vendor / product IDs) are
+    # skipped too.
+    explicitly_emitted = {
+        'battery.charge',
+        'battery.runtime',
+        'battery.runtime.elapsed',
+        'battery.temperature',
+        'battery.voltage',
+        'battery.voltage.nominal',
+        'input.current',
+        'input.frequency',
+        'input.voltage',
+        'input.voltage.nominal',
+        'output.current',
+        'output.frequency',
+        'output.voltage',
+        'output.voltage.nominal',
+        'ups.load',
+        'ups.realpower',
+        'ups.realpower.nominal',
+        'ups.temperature',
+    }
+    skip_perfdata = explicitly_emitted | {
+        # Already encoded as the warn/crit thresholds inside `charge` and `runtime`
+        # perfdata; emitting them again as standalone series would just duplicate.
+        'battery.charge.low',
+        'battery.charge.warning',
+        'battery.runtime.low',
+        # Identifiers that happen to look numeric (USB hex, vendor IDs):
+        'driver.parameter.productid',
+        'driver.parameter.vendorid',
+        'ups.id',
+        'ups.productid',
+        'ups.vendorid',
+    }
+    for var, raw in sorted(data.items()):
+        if var in skip_perfdata:
+            continue
+        value = lib.base.smartcast(raw) if raw else None
+        if not isinstance(value, float):
+            continue
+        label = re.sub(r'\W+', '_', var).strip('_').lower()
+        perfdata += lib.base.get_perfdata(label, value)
+
+    # Build the human-readable output. One line, ordered most-important to least-important:
+    # "Everything is ok." prefix on OK -> NUT device name -> status flags -> threshold
+    # metrics -> identification (model, S/N, firmware, battery date, connection). The NUT
+    # device name leads the status block so the admin can drop it into `upsc <name>`
+    # straight away.
+    if state == STATE_OK:
+        msg = 'Everything is ok. '
+    if args.DEVICE:
+        msg += f'Device `{args.DEVICE}`: '
+    msg += ', '.join(header_parts)
+    identification = build_identification(data)
+    if identification:
+        msg += f', {identification}'
+    if other_devices:
+        msg += (
+            f'\nOther configured UPS on this upsd: {", ".join(other_devices)}. '
+            f'Use --device to pin the choice.'
+        )
+    if args.LENGTHY:
+        # Render every NUT variable from the LIST VAR response in the lengthy table, with
+        # its original dotted name (so admins can map the row 1:1 to `upsc <name>`). The
+        # State column is filled only for variables whose value drove a threshold check;
+        # the rest stays blank because there is no reliable, generic way to assign units
+        # or severities to arbitrary NUT keys.
+        table_data = []
+        for var, raw in sorted(data.items()):
+            item_state = nut_var_states.get(var)
+            state_cell = (
+                lib.base.state2str(item_state, empty_ok=False) or 'OK'
+                if item_state is not None
+                else ''
+            )
+            table_data.append(
+                {
+                    'metric': var,
+                    'value': raw.strip() if isinstance(raw, str) else raw,
+                    'state': state_cell,
+                }
+            )
+        msg += '\n\n' + lib.base.get_table(
+            table_data,
+            ['metric', 'value', 'state'],
+            header=['Metric', 'Value', 'State'],
+        )
+
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

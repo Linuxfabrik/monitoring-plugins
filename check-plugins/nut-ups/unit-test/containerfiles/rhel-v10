@@ -1,0 +1,46 @@
+# Base image: Rocky Linux 10 (RHEL 10 binary-compatible).
+#
+# UBI 10 lacks the CodeReady Builder repository which provides libfreeipmi and libgpiod, both
+# hard dependencies of nut in EPEL 10. Rocky ships CRB out of the box.
+FROM quay.io/rockylinux/rockylinux:10
+
+RUN dnf --assumeyes install --nodocs dnf-plugins-core epel-release && \
+    dnf config-manager --set-enabled crb && \
+    dnf --assumeyes install --nodocs --setopt=install_weak_deps=False nut && \
+    dnf clean all
+
+RUN echo 'MODE=netserver' > /etc/ups/nut.conf && \
+    printf '%s\n' \
+        '[dummy]' \
+        '    driver = dummy-ups' \
+        '    port = dummy.dev' \
+        '    desc = "Linuxfabrik Dummy UPS"' \
+        > /etc/ups/ups.conf && \
+    printf '%s\n' \
+        'battery.charge: 87' \
+        'battery.charge.low: 20' \
+        'battery.runtime: 1800' \
+        'battery.type: PbAc' \
+        'device.mfr: Linuxfabrik' \
+        'device.model: Dummy UPS' \
+        'input.voltage: 230.0' \
+        'output.voltage: 230.0' \
+        'ups.load: 22' \
+        'ups.mfr: Linuxfabrik' \
+        'ups.model: Dummy UPS' \
+        'ups.realpower: 110' \
+        'ups.realpower.nominal: 1500' \
+        'ups.status: OL' \
+        'ups.temperature: 30.5' \
+        > /etc/ups/dummy.dev && \
+    echo 'LISTEN 0.0.0.0 3493' > /etc/ups/upsd.conf && \
+    printf '%s\n' \
+        '[admin]' \
+        '    password = linuxfabrik' \
+        '    actions = SET' \
+        '    instcmds = ALL' \
+        > /etc/ups/upsd.users && \
+    chown -R nut:nut /etc/ups /var/lib/ups /run/nut 2>/dev/null || true
+
+EXPOSE 3493
+CMD ["sh", "-c", "upsdrvctl start && upsd && exec sleep infinity"]
