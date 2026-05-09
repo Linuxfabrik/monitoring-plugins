@@ -81,7 +81,7 @@
                 },
                 {
                     "datafield_id": 6,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -176,7 +176,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Monitors an Uninterruptible Power Supply (UPS) managed by Network UPS Tools (NUT, https://networkupstools.org). Talks to the upsd daemon over TCP and reports battery charge, runtime, load, input/output voltage, real power and temperature, plus the aggregated ups.status flags. Alerts when the UPS goes on battery, when the battery runs low, when the UPS signals a forced shutdown, when the load is above threshold, when battery temperature is above threshold, or when battery charge or runtime drop below threshold. The NUT daemon abstracts the underlying connection to the UPS (USB, serial, SNMP), so the same plugin works for any UPS that NUT supports. Optional NUT authentication via --username and --password. Supports extended reporting via --lengthy.",
+            "notes": "Monitors an Uninterruptible Power Supply (UPS) managed by Network UPS Tools (NUT, https://networkupstools.org). Talks to the upsd daemon over TCP and reports battery charge, runtime, load, input/output voltage, real power and temperature, plus the aggregated ups.status flags. Alerts when the UPS goes on battery, when the battery runs low, when the UPS signals a forced shutdown, when the load is above threshold, when battery temperature is above threshold, or when battery charge or runtime drop below threshold. The NUT daemon abstracts the underlying connection to the UPS (USB, serial, SNMP), so the same plugin works for any UPS that NUT supports. Without --device the plugin queries upsd and picks the only configured UPS; on a multi-UPS host it picks the first entry and surfaces the choice in the plugin output. Optional NUT authentication via --username and --password. Supports extended reporting via --lengthy.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nut-ups/",
             "object_name": "tpl-service-nut-ups",
             "object_type": "template",
@@ -188,18 +188,15 @@
             "vars": {
                 "criticality": "C",
                 "nut_ups_always_ok": false,
-                "nut_ups_critical_charge": "10:",
                 "nut_ups_critical_load": "~:95",
-                "nut_ups_critical_runtime": "300:",
-                "nut_ups_critical_temperature": "~:50",
+                "nut_ups_critical_temperature": "~:60",
                 "nut_ups_hostname": "127.0.0.1",
                 "nut_ups_lengthy": false,
                 "nut_ups_port": 3493,
                 "nut_ups_timeout": 8,
-                "nut_ups_warning_charge": "30:",
                 "nut_ups_warning_load": "~:80",
                 "nut_ups_warning_runtime": "600:",
-                "nut_ups_warning_temperature": "~:40"
+                "nut_ups_warning_temperature": "~:50"
             },
             "volatile": null,
             "zone": null,
@@ -219,7 +216,7 @@
         "2": {
             "varname": "nut_ups_critical_charge",
             "caption": "Nut Ups: Critical Charge",
-            "description": "CRIT threshold for battery charge in percent. Supports Nagios ranges. Default: 10:",
+            "description": "CRIT threshold for battery charge in percent. When omitted, the plugin prefers the UPS-reported `battery.charge.low` (which is the level at which the UPS itself triggers the LB flag). Falls back to '10:' if neither the UPS nor the admin configured a value. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -241,7 +238,7 @@
         "4": {
             "varname": "nut_ups_critical_runtime",
             "caption": "Nut Ups: Critical Runtime",
-            "description": "CRIT threshold for remaining battery runtime in seconds. Supports Nagios ranges. Default: 300:",
+            "description": "CRIT threshold for remaining battery runtime in seconds. When omitted, the plugin prefers the UPS-reported `battery.runtime.low` (which is the runtime at which the UPS itself triggers the LB flag). Falls back to '300:' if neither the UPS nor the admin configured a value. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -252,7 +249,7 @@
         "5": {
             "varname": "nut_ups_critical_temperature",
             "caption": "Nut Ups: Critical Temperature",
-            "description": "CRIT threshold for UPS temperature in degrees Celsius. Supports Nagios ranges. Default: ~:50",
+            "description": "CRIT threshold for UPS temperature in degrees Celsius. Supports Nagios ranges. Default: ~:60",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -263,7 +260,7 @@
         "6": {
             "varname": "nut_ups_device",
             "caption": "Nut Ups: Device",
-            "description": "UPS device name as configured in NUT (matches the [section] in ups.conf). Required.",
+            "description": "UPS device name as configured in NUT (matches the [section] in ups.conf). If omitted, the plugin queries upsd for the configured UPS list and picks the first entry, which is the right thing to do on the typical single-UPS setup. On hosts with more than one configured UPS the picked name is mentioned in the plugin output so the admin notices and can pin the choice via --device.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -338,7 +335,7 @@
         "13": {
             "varname": "nut_ups_warning_charge",
             "caption": "Nut Ups: Warning Charge",
-            "description": "WARN threshold for battery charge in percent. Supports Nagios ranges. Default: 30:",
+            "description": "WARN threshold for battery charge in percent. When omitted, the plugin prefers the UPS-reported `battery.charge.warning`. Falls back to '30:' if neither the UPS nor the admin configured a value. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -371,7 +368,7 @@
         "16": {
             "varname": "nut_ups_warning_temperature",
             "caption": "Nut Ups: Warning Temperature",
-            "description": "WARN threshold for UPS temperature in degrees Celsius. Supports Nagios ranges. Default: ~:40",
+            "description": "WARN threshold for UPS temperature in degrees Celsius. Supports Nagios ranges. Default: ~:50",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
