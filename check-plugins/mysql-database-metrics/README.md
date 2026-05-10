@@ -108,6 +108,10 @@ When everything is clean:
 8 user schema(s) scanned, 246 table(s), 12.4M rows, 1.2GiB data, 384.0MiB indices. Everything is ok.
 ```
 
+With `--lengthy`, the output additionally includes a per-schema breakdown table mirroring what `mysqltuner --dbstat` prints (Schema, Tables, Rows, Data, Index, Total, Engines, Table Collations, Column Charsets, Column Collations).
+
+The Director Basket activates `--lengthy` by default and pre-fills `--ignore-schemas` with `^icinga`, so admins running the shipped `MySQL Schemas Service Set` get the verbose table without the well-known Icinga-ecosystem mixed-collation noise (Icinga Director, Icinga Web 2 and Icinga DB ship schemas with mixed utf8/utf8mb4 collations by design).
+
 
 ## States
 
