@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the open file usage in MySQL/MariaDB as a percentage of the configured `open_files_limit`. If the usage approaches the limit, the server may start refusing new connections or fail to open tables.
+Reports MySQL/MariaDB's current open-files count (`Open_files`, a server-wide status counter) as a percentage of `open_files_limit` (the per-process file-descriptor ceiling MySQL was started with). Alerts when the ratio crosses `--warning` / `--critical`. If the usage approaches the limit, the server may start refusing new connections or fail to open tables.
 
 **Important Notes:**
 
@@ -11,10 +11,10 @@ Checks the open file usage in MySQL/MariaDB as a percentage of the configured `o
 
 **Data Collection:**
 
-* Queries `SHOW GLOBAL VARIABLES` for `open_files_limit`
-* Queries `SHOW GLOBAL STATUS` for `Open_files`
-* Calculates the percentage of open files relative to the limit
-* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
+* Queries `SHOW GLOBAL VARIABLES` for `open_files_limit`.
+* Queries `SHOW GLOBAL STATUS` for `Open_files`.
+* Calculates the percentage of open files relative to the limit.
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats() ("Open files" section), verified in sync with v2.8.41.
 
 
 ## Fact Sheet
@@ -33,17 +33,23 @@ Checks the open file usage in MySQL/MariaDB as a percentage of the configured `o
 ## Help
 
 ```text
-usage: mysql-open-files [-h] [-V] [--always-ok]
+usage: mysql-open-files [-h] [-V] [--always-ok] [-c CRITICAL]
                         [--defaults-file DEFAULTS_FILE]
                         [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
+                        [-w WARNING]
 
-Checks the open file usage in MySQL/MariaDB as a percentage of the configured
-open_files_limit. Alerts when the usage rate approaches the limit.
+Reports MySQL/MariaDB's current open-files count as a percentage of
+`open_files_limit` (the per-process file-descriptor ceiling MySQL was started
+with; `Open_files` is a server-wide status counter, not a per-connection
+metric). Alerts when the ratio crosses `--warning` / `--critical`.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  -c, --critical CRITICAL
+                        Percentage of `open_files_limit` at which the open-
+                        files ratio flips to CRITICAL. Default: 95
   --defaults-file DEFAULTS_FILE
                         MySQL/MariaDB cnf file to read user, host and password
                         from. Example: `--defaults-
@@ -53,6 +59,9 @@ options:
                         Group/section to read from in the cnf file. Default:
                         client
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+  -w, --warning WARNING
+                        Percentage of `open_files_limit` at which the open-
+                        files ratio flips to WARNING. Default: 85
 ```
 
 
@@ -62,16 +71,25 @@ options:
 ./mysql-open-files --defaults-file=/var/spool/icinga2/.my.cnf
 ```
 
-Output:
+Output (OK):
 
 ```text
-0.2% of open_files_limit used (80.0/32.8K).
+0.2% of `open_files_limit` used (80.0/32.8K).
+```
+
+Output (WARN / CRIT):
+
+```text
+92.0% of `open_files_limit` used (30.2K/32.8K) [WARNING].
+
+Recommendations:
+* Raise `open_files_limit` (currently 32.8K)
 ```
 
 
 ## States
 
-* WARN if the number of open files exceeds 85% of `open_files_limit`.
+* WARN when `Open_files` / `open_files_limit` reaches `--warning` (default 85%); CRIT at `--critical` (default 95%).
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

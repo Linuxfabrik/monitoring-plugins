@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$mysql_open_files_always_ok$"
                 },
+                "--critical": {
+                    "value": "$mysql_open_files_critical$"
+                },
                 "--defaults-file": {
                     "value": "$mysql_open_files_defaults_file$"
                 },
@@ -13,6 +16,9 @@
                 },
                 "--timeout": {
                     "value": "$mysql_open_files_timeout$"
+                },
+                "--warning": {
+                    "value": "$mysql_open_files_warning$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/mysql-open-files",
@@ -35,6 +41,16 @@
                 },
                 {
                     "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -80,7 +96,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the open file usage in MySQL/MariaDB as a percentage of the configured open_files_limit. Alerts when the usage rate approaches the limit.",
+            "notes": "Reports MySQL/MariaDB's current open-files count as a percentage of `open_files_limit` (the per-process file-descriptor ceiling MySQL was started with; `Open_files` is a server-wide status counter, not a per-connection metric). Alerts when the ratio crosses `--warning` / `--critical`.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-open-files/",
             "object_name": "tpl-service-mysql-open-files",
             "object_type": "template",
@@ -92,9 +108,11 @@
             "vars": {
                 "criticality": "C",
                 "mysql_open_files_always_ok": false,
+                "mysql_open_files_critical": 95,
                 "mysql_open_files_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_open_files_defaults_group": "client",
-                "mysql_open_files_timeout": 3
+                "mysql_open_files_timeout": 3,
+                "mysql_open_files_warning": 85
             },
             "volatile": null,
             "zone": null,
@@ -112,6 +130,17 @@
             "uuid": "0321561c-bade-45cb-b184-001e35d25d22"
         },
         "2": {
+            "varname": "mysql_open_files_critical",
+            "caption": "MySQL Open Files: Critical",
+            "description": "Percentage of `open_files_limit` at which the open-files ratio flips to CRITICAL.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "517e7d09-9f54-49e5-aec2-e2628d5baee1"
+        },
+        "3": {
             "varname": "mysql_open_files_defaults_file",
             "caption": "MySQL Open Files: Defaults File",
             "description": "MySQL/MariaDB cnf file to read user, host and password from. Example: `--defaults-file=/var/spool/icinga2/.my.cnf`.",
@@ -122,7 +151,7 @@
             },
             "uuid": "e816e3c0-0016-4475-bee6-a8e58e27f1ec"
         },
-        "3": {
+        "4": {
             "varname": "mysql_open_files_defaults_group",
             "caption": "MySQL Open Files: Defaults Group",
             "description": "Group/section to read from in the cnf file.",
@@ -133,7 +162,7 @@
             },
             "uuid": "82e101f8-7136-412d-bcdb-2ba9e54e66e3"
         },
-        "4": {
+        "5": {
             "varname": "mysql_open_files_timeout",
             "caption": "MySQL Open Files: Timeout",
             "description": "Network timeout in seconds.",
@@ -143,6 +172,17 @@
                 "visibility": "visible"
             },
             "uuid": "ded529b4-02e9-4f8b-80c8-855548d7e165"
+        },
+        "6": {
+            "varname": "mysql_open_files_warning",
+            "caption": "MySQL Open Files: Warning",
+            "description": "Percentage of `open_files_limit` at which the open-files ratio flips to WARNING.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "258f4358-b9b7-4af0-81be-f4619d3445d3"
         }
     }
 }
