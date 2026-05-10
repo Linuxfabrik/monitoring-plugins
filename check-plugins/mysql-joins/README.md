@@ -9,6 +9,7 @@ Checks the rate of joins executed without indexes in MySQL/MariaDB (`Select_rang
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * The recommendation depends on the current `join_buffer_size`: below 4 MiB the plugin suggests raising it; above 4 MiB the buffer is already considered large enough and only "use JOINs with indexes" is suggested (matching MySQLTuner's logic - raising the buffer further mostly hurts memory usage without helping the actual problem)
+* `join_buffer_size > 4 MiB` is independently flagged as WARN (deviation from MySQLTuner): the buffer is allocated per session, so on a server with many `max_connections` an oversized `join_buffer_size` reserves a lot of memory without measurable benefit
 
 **Data Collection:**
 
@@ -84,6 +85,7 @@ When the rate is below the threshold, the plugin still emits the count and break
 ## States
 
 * WARN if more than 250 joins without indexes per day on a lifetime average (`Select_range_check + Select_full_join` divided by `Uptime / 86400`).
+* WARN if `join_buffer_size > 4 MiB`. The buffer is allocated **per session**, so `max_connections × join_buffer_size` is real reserved memory; above 4 MiB the cost is paid without measurable benefit on the joins-without-indexes rate (this is the same threshold above which MySQLTuner stops recommending to raise the buffer). MySQLTuner itself does not alert this case; we deliberately do because the memory cost is admin-visible.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

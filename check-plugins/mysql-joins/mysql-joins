@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051001'
+__version__ = '2026051002'
 
 DESCRIPTION = """Checks the rate of joins executed without indexes in MySQL/MariaDB
 (`Select_range_check + Select_full_join`). A high rate (more than 250 such joins per day,
@@ -227,14 +227,15 @@ def main():
 
     # Always show what was measured, even on OK - admins reading the service line
     # benefit from seeing the actual count and breakdown rather than a bare
-    # "Everything is ok.".
+    # "Everything is ok.". Component breakdown is also human-formatted for symmetry
+    # with the per-day rate.
     facts = (
         f'{lib.human.number2human(joins_without_indexes)}'
         f' {lib.txt.pluralize("JOIN", joins_without_indexes)} without indexes'
         f' in {lib.human.seconds2human(uptime)} of uptime'
         f' (approx. {lib.human.number2human(joins_per_day)}/day;'
-        f' `Select_range_check` = {select_range_check},'
-        f' `Select_full_join` = {select_full_join})'
+        f' `Select_range_check` = {lib.human.number2human(select_range_check)},'
+        f' `Select_full_join` = {lib.human.number2human(select_full_join)})'
     )
 
     if joins_per_day > 250:
@@ -264,6 +265,22 @@ def main():
         )
     else:
         sections.append(f'{facts}.')
+
+    # Independent WARN: oversized `join_buffer_size`. mysqltuner does not flag this,
+    # but the variable is allocated PER SESSION on the server, so a 4+ MiB buffer
+    # times `max_connections` is real reserved memory. Above the 4 MiB point
+    # (mysqltuner's "raising stops helping" threshold) the cost is paid without
+    # measurable benefit.
+    if join_buffer_size > JOIN_BUFFER_SIZE_RECOMMEND_CEILING:
+        state = lib.base.get_worst(state, STATE_WARN)
+        sections.append(
+            f'`join_buffer_size` ({lib.human.bytes2human(join_buffer_size)}) is'
+            f' above the 4.0MiB point above which raising it stops helping the'
+            f' joins-without-indexes rate, but the buffer is allocated per session,'
+            f' so the cost is paid (up to `max_connections` times the buffer'
+            f' size). Consider lowering `join_buffer_size`'
+            f' {lib.base.state2str(STATE_WARN, prefix=" ")}.'
+        )
 
     msg = '\n\n'.join(sections)
 
