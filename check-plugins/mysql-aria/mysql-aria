@@ -16,11 +16,15 @@ import sys
 import lib.args
 import lib.base
 import lib.db_mysql
+import lib.db_sqlite
 import lib.human
+import lib.time
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
+SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-aria.db'
+
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051002'
+__version__ = '2026051003'
 
 DESCRIPTION = """Checks metrics of the Aria storage engine in MySQL/MariaDB, including the page-cache
 hit rate. Alerts when cache efficiency drops below optimal levels."""
@@ -98,6 +102,73 @@ def get_status(conn):
             or variable_name like 'Aria_pagecache_read_requests';
           """
     return lib.base.coe(lib.db_mysql.select(conn, sql))
+
+
+def per_second_deltas(read_requests, reads):
+    """Persist the current cumulative `Aria_pagecache_read_requests` and
+    `Aria_pagecache_reads` counters in the local SQLite cache and return their per-second
+    deltas vs. the previous run. Returns `(req_per_s, reads_per_s)`, or `(None, None)`
+    when fewer than two samples are recorded yet or after a counter reset (server
+    restart, `FLUSH STATUS`).
+
+    Avoids `uom='c'` counters in perfdata (per CONTRIBUTING.md): we compute the rate
+    here once per run instead of forcing every Grafana panel to do
+    `non_negative_difference()`.
+    """
+    sqlite_conn = lib.base.coe(lib.db_sqlite.connect(filename=SQLITE_DB))
+    definition = """
+        name                         TEXT NOT NULL,
+        timestamp                    INT NOT NULL,
+        aria_pagecache_read_requests INT NOT NULL,
+        aria_pagecache_reads         INT NOT NULL
+    """
+    lib.base.coe(
+        lib.db_sqlite.create_table(sqlite_conn, definition, drop_table_first=False),
+    )
+    lib.base.coe(lib.db_sqlite.create_index(sqlite_conn, 'name'))
+
+    lib.base.coe(
+        lib.db_sqlite.insert(
+            sqlite_conn,
+            {
+                'name': 'mysql-aria',
+                'timestamp': lib.time.now(),
+                'aria_pagecache_read_requests': read_requests,
+                'aria_pagecache_reads': reads,
+            },
+        )
+    )
+    lib.base.coe(lib.db_sqlite.cut(sqlite_conn, _max=2))
+    lib.base.coe(lib.db_sqlite.commit(sqlite_conn))
+
+    rows = lib.base.coe(
+        lib.db_sqlite.select(
+            sqlite_conn,
+            """
+            SELECT *
+            FROM perfdata
+            WHERE name = :name
+            ORDER BY timestamp DESC
+            """,
+            {'name': 'mysql-aria'},
+        )
+    )
+    lib.db_sqlite.close(sqlite_conn)
+
+    if len(rows) < 2:
+        return None, None
+    timestamp_diff = rows[0]['timestamp'] - rows[1]['timestamp']
+    if timestamp_diff <= 0:
+        return None, None
+    req_delta = (
+        rows[0]['aria_pagecache_read_requests']
+        - rows[1]['aria_pagecache_read_requests']
+    )
+    reads_delta = rows[0]['aria_pagecache_reads'] - rows[1]['aria_pagecache_reads']
+    if req_delta < 0 or reads_delta < 0:
+        # counter reset (server restart, FLUSH STATUS)
+        return None, None
+    return int(req_delta / timestamp_diff), int(reads_delta / timestamp_diff)
 
 
 def main():
@@ -204,24 +275,37 @@ def main():
         _min=0,
     )
 
-    if int(mystat['Aria_pagecache_read_requests']) > 0:
-        cached = lib.human.number2human(
-            mystat['Aria_pagecache_read_requests'],
+    aria_read_requests = int(mystat.get('Aria_pagecache_read_requests', 0))
+    aria_reads = int(mystat.get('Aria_pagecache_reads', 0))
+
+    # Per-CONTRIBUTING: emit the cumulative Aria pagecache counters as per-second
+    # deltas (computed in-plugin against a local SQLite cache) instead of cumulative
+    # `c` counters that force Grafana to do non_negative_difference() per panel.
+    req_per_s, reads_per_s = per_second_deltas(aria_read_requests, aria_reads)
+    if req_per_s is not None:
+        perfdata += lib.base.get_perfdata(
+            'mysql_aria_pagecache_read_requests_per_second',
+            req_per_s,
+            _min=0,
         )
-        reads = lib.human.number2human(
-            mystat['Aria_pagecache_reads'],
+        perfdata += lib.base.get_perfdata(
+            'mysql_aria_pagecache_reads_per_second',
+            reads_per_s,
+            _min=0,
         )
+
+    if aria_read_requests > 0:
+        cached = lib.human.number2human(aria_read_requests)
+        reads_human = lib.human.number2human(aria_reads)
         msg += (
             f'{pct_aria_keys_from_mem}%'
             f' Aria pagecache hit rate'
-            f' ({cached} cached / {reads} reads)'
+            f' ({cached} cached / {reads_human} reads)'
         )
-        # Remove WARN if `aria_pagecache_read_requests` > 0 and `pct_aria_keys_from_mem` < 95%
-        # Because there's nothing we can do about it:
-        # if pct_aria_keys_from_mem < 95:
-        #     pct_aria_keys_from_mem_state = STATE_WARN
-        #     state = lib.base.get_worst(state, pct_aria_keys_from_mem_state)
-        #     msg += f'{lib.base.state2str(pct_aria_keys_from_mem_state, prefix=" ")}'
+        # Standalone WARN at pct_aria_keys_from_mem < 95% (which mysqltuner emits)
+        # is intentionally not raised here: the only fix is growing
+        # aria_pagecache_buffer_size, which the buffer-vs-index check above
+        # already covers.
         perfdata += lib.base.get_perfdata(
             'mysql_pct_aria_keys_from_mem',
             pct_aria_keys_from_mem,
@@ -229,18 +313,6 @@ def main():
             warn=95,
             _min=0,
             _max=100,
-        )
-        perfdata += lib.base.get_perfdata(
-            'mysql_aria_pagecache_read_requests',
-            mystat['Aria_pagecache_read_requests'],
-            uom='c',
-            _min=0,
-        )
-        perfdata += lib.base.get_perfdata(
-            'mysql_aria_pagecache_reads',
-            mystat['Aria_pagecache_reads'],
-            uom='c',
-            _min=0,
         )
 
     # over and out
