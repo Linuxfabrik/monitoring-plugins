@@ -16,30 +16,39 @@ import ssl
 import sys
 import time
 import urllib.parse
+from pathlib import Path
 
 import lib.args
 import lib.base
 import lib.time
-from lib.globals import STATE_CRIT, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 try:
     from cryptography import x509
-    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives import hashes, serialization
 except ImportError:
     print('Python module "cryptography" is not installed.')
     sys.exit(STATE_UNKNOWN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051001'
+__version__ = '2026051006'
 
-DESCRIPTION = """Inspects an X.509 server certificate from a TLS endpoint and alerts on days
-remaining until expiry, hostname mismatch, and chain verification failures. The chain is
-verified against the system trust store by default; pass --ca-file to override. Hostname
-mismatch and chain verification failures share one --severity (warn or crit). Expired
-certificates are unconditionally reported as CRIT. Pluggable via --source, currently only
-"url" is implemented; "file", "p12" and "jks" sources can be added later without renaming
-the plugin."""
+DESCRIPTION = """Inspects an X.509 certificate and alerts on days remaining until expiry,
+hostname mismatch and chain verification failures. Sources via --source: `url` fetches the
+certificate from a TLS endpoint and verifies the chain against the system trust store by
+default (override with --ca-file); `file` reads one or many certificate files via glob
+expansion (PEM or DER). PEM bundles expand to one item per certificate, so a fullchain.pem
+produces a row for the leaf and a row for each intermediate. With --source url the plugin
+only runs the TLS handshake and reads the server certificate; no HTTP request is sent.
+That means it works for any "TLS from start" service, not only HTTPS: IMAPS (port 993),
+LDAPS (636), SMTPS (465), AMQPS (5671), MQTTS (8883), custom TLS ports - just point --url
+at the right host and port (`https://mail.example.com:993/` inspects the IMAPS cert).
+STARTTLS protocols that upgrade an existing plaintext connection (SMTP submission on 587,
+IMAP on 143, LDAP on 389) are not supported. Hostname mismatch and chain verification
+failures share one --severity (warn or crit) and only apply to --source url. Expired
+certificates are unconditionally reported as CRIT. With --source file, the worst state
+across all matched files drives the plugin state."""
 
 DEFAULT_CRIT = '5:'
 DEFAULT_LENGTHY = False
@@ -48,7 +57,7 @@ DEFAULT_TIMEOUT = 8
 DEFAULT_WARN = '14:'
 
 VALID_SEVERITIES = ('crit', 'warn')
-VALID_SOURCES = ('url',)
+VALID_SOURCES = ('file', 'url')
 
 
 def parse_args():
@@ -101,6 +110,20 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--filename',
+        help='Path to a certificate file or a glob pattern matching multiple certificate '
+        'files. Required when --source=file. Files are read as PEM or DER (autodetected); '
+        'when a PEM bundle contains multiple certificates (typical for fullchain.pem or a '
+        'CA bundle), each certificate becomes its own row in the output. Globs follow '
+        'Python conventions: `*` matches one path segment, `**` matches across '
+        'directories. Always quote the pattern in shells so that the shell does not '
+        'expand the wildcard before the plugin sees it. '
+        'Example: `--filename=\'/etc/ssl/certs/*.pem\'`. '
+        'Recursive example: `--filename=\'/etc/letsencrypt/live/**/cert.pem\'`',
+        dest='FILENAME',
+    )
+
+    parser.add_argument(
         '--insecure',
         help='Skip chain and hostname verification entirely. The certificate is still '
         'fetched and inspected, but the chain verdict is reported as "verification skipped".',
@@ -138,8 +161,11 @@ def parse_args():
 
     parser.add_argument(
         '--source',
-        help='Where the certificate is fetched from. Currently only "url" is implemented; '
-        '"file", "p12" and "jks" are reserved for future expansion. '
+        help='Where the certificate is fetched from. '
+        '`url` fetches it from a TLS endpoint (requires --url). '
+        '`file` reads it from one or many local files (requires --filename, supports glob '
+        'patterns). '
+        '`p12` and `jks` are reserved for future expansion. '
         'Default: %(default)s',
         dest='SOURCE',
         choices=VALID_SOURCES,
@@ -246,6 +272,130 @@ def get_cert_from_url(args):
     }
 
 
+def _looks_like_cert(data):
+    """Return True if `data` has a recognisable certificate envelope. PEM certificates carry
+    the `BEGIN CERTIFICATE` marker; DER certificates always start with the ASN.1 SEQUENCE
+    tag (`0x30`). Files that match neither (private keys, OpenSSL trust bundles, text
+    files) are not certificates and should be skipped silently when expanding a glob.
+    """
+    if b'-----BEGIN CERTIFICATE-----' in data:
+        return True
+    return data[:1] == b'\x30'
+
+
+def _load_all_certs(data):
+    """Parse every certificate from `data` and return a list of DER-encoded bytes. Should
+    only be called on data that already passed `_looks_like_cert()`. Raises `ValueError`
+    when the envelope looks like a certificate (PEM marker present or DER prefix detected)
+    but the content cannot be parsed.
+
+    PEM bundles can carry multiple `BEGIN CERTIFICATE`/`END CERTIFICATE` blocks (typical
+    for `fullchain.pem` or system CA bundles); each block becomes its own list entry.
+    DER files always carry exactly one certificate.
+    """
+    certs = []
+    if b'-----BEGIN CERTIFICATE-----' in data:
+        # walk the PEM block by block so a single corrupt block fails the whole call
+        # rather than silently dropping the rest of the bundle
+        marker_begin = b'-----BEGIN CERTIFICATE-----'
+        marker_end = b'-----END CERTIFICATE-----'
+        cursor = 0
+        while True:
+            start = data.find(marker_begin, cursor)
+            if start < 0:
+                break
+            end = data.find(marker_end, start)
+            if end < 0:
+                raise ValueError(
+                    'truncated PEM bundle: BEGIN CERTIFICATE without matching END',
+                )
+            block = data[start:end + len(marker_end)]
+            cert = x509.load_pem_x509_certificate(block)
+            certs.append(cert.public_bytes(serialization.Encoding.DER))
+            cursor = end + len(marker_end)
+    else:
+        cert = x509.load_der_x509_certificate(data)
+        certs.append(cert.public_bytes(serialization.Encoding.DER))
+    return certs
+
+
+def get_certs_from_files(args):
+    """Glob-expand --filename, read each match, parse every certificate per file.
+
+    Returns (success, items) where items is a list of dicts with `cert_der` and `label`.
+    PEM bundles expand to one item per certificate so `fullchain.pem` produces a leaf row
+    plus an intermediate row, and a CA bundle becomes one row per anchor. Files that don't
+    look like certificates at all are silently skipped, which makes recursive globs safe
+    even when they hit private keys or trust bundles. Files that look like certificates
+    but fail to parse are reported as a real error so corrupt certs surface clearly.
+    """
+    path = Path(args.FILENAME)
+    matches = sorted(Path(path.anchor).glob(str(path.relative_to(path.anchor))))
+    items = []
+    matched_files = 0
+    for match in matches:
+        if not match.is_file():
+            continue
+        matched_files += 1
+        try:
+            data = match.read_bytes()
+        except OSError as e:
+            return False, f'Cannot read {match}: {e}'
+        if not _looks_like_cert(data):
+            continue
+        try:
+            cert_ders = _load_all_certs(data)
+        except (ValueError, TypeError) as e:
+            return False, f'Cannot parse certificate from {match}: {e}'
+        for cert_der in cert_ders:
+            items.append({
+                'cert_der': cert_der,
+                'chain_verdict': None,
+                'handshake_seconds': None,
+                'label': str(match),
+                'tls_version': None,
+            })
+    if not items:
+        if matched_files == 0:
+            return False, f'No files match "{args.FILENAME}"'
+        return False, (
+            f'No parseable certificates among {matched_files} file(s)'
+            f' matching "{args.FILENAME}"'
+        )
+    return True, items
+
+
+def collect_items(args):
+    """Return (success, items). Each item has the keys consumed by main(): `cert_der`,
+    `label`, `chain_verdict`, `tls_version`, `handshake_seconds`. Wraps the per-source
+    fetchers so main() can iterate uniformly over URL and file sources.
+    """
+    if args.SOURCE == 'url':
+        if not args.URL:
+            return False, '--url is required when --source=url'
+        ok, info = get_cert_from_url(args)
+        if not ok:
+            return False, info
+        if args.INSECURE:
+            chain_verdict = 'verification skipped'
+        elif info['chain_ok']:
+            chain_verdict = 'verified'
+        else:
+            chain_verdict = f'unverified ({info["chain_reason"]})'
+        return True, [{
+            'cert_der': info['cert_der'],
+            'chain_verdict': chain_verdict,
+            'handshake_seconds': info['handshake_seconds'],
+            'label': info['host'],
+            'tls_version': info['tls_version'],
+        }]
+    if args.SOURCE == 'file':
+        if not args.FILENAME:
+            return False, '--filename is required when --source=file'
+        return get_certs_from_files(args)
+    return False, f'Source "{args.SOURCE}" is not implemented yet'
+
+
 def parse_cert(cert_der):
     """Decode a DER-encoded X.509 certificate into a flat dict of human-readable fields."""
     cert = x509.load_der_x509_certificate(cert_der)
@@ -298,6 +448,60 @@ def parse_cert(cert_der):
     }
 
 
+def _format_days_left(days_left):
+    """Render the days-remaining counter as a human-friendly phrase. Negative values mean
+    the certificate is already past its `notAfter` date, so we say "expired N days ago"
+    rather than the unintuitive "-N days left".
+    """
+    if days_left < 0:
+        return f'expired {-days_left} days ago'
+    if days_left == 0:
+        return 'expires today'
+    return f'{days_left}d left'
+
+
+def _evaluate_item(item, args, now, severity_state):
+    """Compute the per-item state, the human-readable summary fragment and the parsed cert
+    fields. Pure function so the same logic drives URL and file sources.
+    """
+    cert = parse_cert(item['cert_der'])
+    days_left = (cert['not_after'] - now).days
+
+    item_state = lib.base.get_state(days_left, args.WARN, args.CRIT, _operator='range')
+    if days_left < 0:
+        item_state = STATE_CRIT
+    if item['chain_verdict'] and item['chain_verdict'].startswith('unverified'):
+        item_state = lib.base.get_worst(item_state, severity_state)
+
+    return cert, days_left, item_state
+
+
+def _build_lengthy_table(item, cert):
+    """Render the full --lengthy field/value table for a single certificate."""
+    key_label = (
+        f'{cert["key_type"]} {cert["key_size"]}'
+        if cert['key_size']
+        else cert['key_type']
+    )
+    sans_label = ', '.join(cert['sans']) if cert['sans'] else '-'
+    rows = [
+        {'k': 'Subject CN', 'v': cert['subject_cn'] or '(no CN)'},
+        {'k': 'Issuer CN', 'v': cert['issuer_cn'] or '(no CN)'},
+        {'k': 'Serial', 'v': cert['serial_hex']},
+        {'k': 'Signature Algorithm', 'v': cert['sig_algorithm']},
+        {'k': 'Public Key', 'v': key_label},
+        {'k': 'SANs', 'v': sans_label},
+        {'k': 'Not Before', 'v': cert['not_before'].isoformat() + 'Z'},
+        {'k': 'Not After', 'v': cert['not_after'].isoformat() + 'Z'},
+        {'k': 'SHA-256 Fingerprint', 'v': cert['sha256_fingerprint']},
+    ]
+    if item['tls_version'] is not None:
+        rows.append({'k': 'TLS Version', 'v': item['tls_version']})
+    if item['chain_verdict'] is not None:
+        rows.append({'k': 'Chain', 'v': item['chain_verdict']})
+    return lib.base.get_table(rows, ['k', 'v'], header=['Field', 'Value'])
+
+
 def main():
     """The main function. This is where the magic happens."""
     try:
@@ -305,75 +509,78 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    if args.SOURCE != 'url':
-        lib.base.cu(f'Source "{args.SOURCE}" is not implemented yet')
-    if not args.URL:
-        lib.base.cu('--url is required when --source=url')
-
-    info = lib.base.coe(get_cert_from_url(args))
-    cert = parse_cert(info['cert_der'])
-
-    now = lib.time.now(as_type='datetime')
-    delta = cert['not_after'] - now
-    days_left = delta.days
-
-    state = lib.base.get_state(days_left, args.WARN, args.CRIT, _operator='range')
-    if days_left < 0:
-        state = STATE_CRIT
-
     severity_state = STATE_CRIT if args.SEVERITY == 'crit' else STATE_WARN
-    if args.INSECURE:
-        chain_verdict = 'verification skipped'
-    elif info['chain_ok']:
-        chain_verdict = 'verified'
-    else:
-        chain_verdict = f'unverified ({info["chain_reason"]})'
-        state = lib.base.get_worst(state, severity_state)
+    items = lib.base.coe(collect_items(args))
+    now = lib.time.now(as_type='datetime')
 
-    msg = (
-        f'{cert["subject_cn"] or "(no CN)"}'
-        f', {days_left}d left{lib.base.state2str(state, prefix=" ")}'
-        f', chain {chain_verdict}'
-    )
+    state = STATE_OK
+    days_left_values = []
+    summary_table = []
+    lengthy_blocks = []
+    handshake_seconds = None
+
+    for item in items:
+        cert, days_left, item_state = _evaluate_item(item, args, now, severity_state)
+        state = lib.base.get_worst(state, item_state)
+        days_left_values.append(days_left)
+        if item['handshake_seconds'] is not None:
+            handshake_seconds = item['handshake_seconds']
+
+        summary_table.append({
+            'label': item['label'],
+            'subject_cn': cert['subject_cn'] or '(no CN)',
+            'days_left': _format_days_left(days_left),
+            'state': lib.base.state2str(item_state, empty_ok=False),
+        })
+        if args.LENGTHY:
+            lengthy_blocks.append((item['label'], _build_lengthy_table(item, cert)))
+
+    if len(items) == 1:
+        only = summary_table[0]
+        chain = items[0]['chain_verdict']
+        # state2str goes at the end of the line so [WARNING] / [CRITICAL] sits next to the
+        # reason (chain unverified, expired, etc.) rather than always next to days_left
+        msg = f'{only["subject_cn"]}, {only["days_left"]}'
+        if chain is not None:
+            msg += f', chain {chain}'
+        msg += lib.base.state2str(state, prefix=' ')
+    else:
+        worst_idx = days_left_values.index(min(days_left_values))
+        worst = days_left_values[worst_idx]
+        worst_subject = summary_table[worst_idx]['subject_cn']
+        msg = (
+            f'{len(items)} certificates checked'
+            f', worst {_format_days_left(worst)} ({worst_subject})'
+            f'{lib.base.state2str(state, prefix=" ")}'
+        )
+        msg += '\n\n' + lib.base.get_table(
+            summary_table,
+            ['label', 'subject_cn', 'days_left', 'state'],
+            header=['File', 'Subject CN', 'Status', 'State'],
+        )
+
+    if args.LENGTHY:
+        for label, block in lengthy_blocks:
+            # `lib.base.get_table` already ends with a newline, so a single `\n` here
+            # produces exactly one blank line between blocks
+            if len(items) > 1:
+                msg += f'\n{label}\n{block}'
+            else:
+                msg += f'\n\n{block}'
 
     perfdata = lib.base.get_perfdata(
         'cert_days_left',
-        days_left,
+        min(days_left_values),
         uom='d',
         warn=args.WARN,
         crit=args.CRIT,
     )
-    perfdata += lib.base.get_perfdata(
-        'tls_handshake_time',
-        round(info['handshake_seconds'], 4),
-        uom='s',
-        _min=0,
-    )
-
-    if args.LENGTHY:
-        key_label = (
-            f'{cert["key_type"]} {cert["key_size"]}'
-            if cert['key_size']
-            else cert['key_type']
-        )
-        sans_label = ', '.join(cert['sans']) if cert['sans'] else '-'
-        table = [
-            {'k': 'Subject CN', 'v': cert['subject_cn'] or '(no CN)'},
-            {'k': 'Issuer CN', 'v': cert['issuer_cn'] or '(no CN)'},
-            {'k': 'Serial', 'v': cert['serial_hex']},
-            {'k': 'Signature Algorithm', 'v': cert['sig_algorithm']},
-            {'k': 'Public Key', 'v': key_label},
-            {'k': 'SANs', 'v': sans_label},
-            {'k': 'Not Before', 'v': cert['not_before'].isoformat() + 'Z'},
-            {'k': 'Not After', 'v': cert['not_after'].isoformat() + 'Z'},
-            {'k': 'SHA-256 Fingerprint', 'v': cert['sha256_fingerprint']},
-            {'k': 'TLS Version', 'v': info['tls_version']},
-            {'k': 'Chain', 'v': chain_verdict},
-        ]
-        msg += '\n\n' + lib.base.get_table(
-            table,
-            ['k', 'v'],
-            header=['Field', 'Value'],
+    if handshake_seconds is not None:
+        perfdata += lib.base.get_perfdata(
+            'tls_handshake_time',
+            round(handshake_seconds, 4),
+            uom='s',
+            _min=0,
         )
 
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

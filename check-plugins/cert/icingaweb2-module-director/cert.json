@@ -17,6 +17,9 @@
                 "--critical": {
                     "value": "$cert_critical$"
                 },
+                "--filename": {
+                    "value": "$cert_filename$"
+                },
                 "--insecure": {
                     "set_if": "$cert_insecure$"
                 },
@@ -109,6 +112,11 @@
                     "datafield_id": 13,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -128,7 +136,7 @@
             "apply_for": null,
             "assign_filter": null,
             "check_command": "cmd-check-cert",
-            "check_interval": 3600,
+            "check_interval": 86400,
             "check_period": null,
             "check_timeout": null,
             "command_endpoint": null,
@@ -152,11 +160,11 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Inspects an X.509 server certificate from a TLS endpoint and alerts on days remaining until expiry, hostname mismatch, and chain verification failures. The chain is verified against the system trust store by default; pass --ca-file to override. Hostname mismatch and chain verification failures share one --severity (warn or crit). Expired certificates are unconditionally reported as CRIT. Pluggable via --source, currently only \"url\" is implemented; \"file\", \"p12\" and \"jks\" sources can be added later without renaming the plugin.",
+            "notes": "Inspects an X.509 certificate and alerts on days remaining until expiry, hostname mismatch and chain verification failures. Sources via --source: `url` fetches the certificate from a TLS endpoint and verifies the chain against the system trust store by default (override with --ca-file); `file` reads one or many certificate files via glob expansion (PEM or DER). PEM bundles expand to one item per certificate, so a fullchain.pem produces a row for the leaf and a row for each intermediate. With --source url the plugin only runs the TLS handshake and reads the server certificate; no HTTP request is sent. That means it works for any \"TLS from start\" service, not only HTTPS: IMAPS (port 993), LDAPS (636), SMTPS (465), AMQPS (5671), MQTTS (8883), custom TLS ports - just point --url at the right host and port (`https://mail.example.com:993/` inspects the IMAPS cert). STARTTLS protocols that upgrade an existing plaintext connection (SMTP submission on 587, IMAP on 143, LDAP on 389) are not supported. Hostname mismatch and chain verification failures share one --severity (warn or crit) and only apply to --source url. Expired certificates are unconditionally reported as CRIT. With --source file, the worst state across all matched files drives the plugin state.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cert/",
             "object_name": "tpl-service-cert",
             "object_type": "template",
-            "retry_interval": 600,
+            "retry_interval": 3600,
             "service_set": null,
             "template_choice": null,
             "use_agent": null,
@@ -166,7 +174,7 @@
                 "cert_always_ok": false,
                 "cert_critical": "5:",
                 "cert_insecure": false,
-                "cert_lengthy": false,
+                "cert_lengthy": true,
                 "cert_severity": "warn",
                 "cert_source": "url",
                 "cert_timeout": 8,
@@ -201,6 +209,12 @@
             "list_name": "cert_source_list",
             "owner": "icinga-admin",
             "entries": [
+                {
+                    "entry_name": "file",
+                    "entry_value": "File",
+                    "format": "string",
+                    "allowed_roles": null
+                },
                 {
                     "entry_name": "url",
                     "entry_value": "URL",
@@ -266,6 +280,17 @@
             "uuid": "6fdbf84f-4a4a-414f-9ac5-b305a5302dbe"
         },
         "6": {
+            "varname": "cert_filename",
+            "caption": "Cert: Filename",
+            "description": "Path to a certificate file or a glob pattern matching multiple certificate files. Required when --source=file. Files are read as PEM or DER (autodetected); when a PEM bundle contains multiple certificates (typical for fullchain.pem or a CA bundle), each certificate becomes its own row in the output. Globs follow Python conventions: `*` matches one path segment, `**` matches across directories. Always quote the pattern in shells so that the shell does not expand the wildcard before the plugin sees it. Example: `--filename='/etc/ssl/certs/*.pem'`. Recursive example: `--filename='/etc/letsencrypt/live/**/cert.pem'`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "e1a3f93c-3ba0-42eb-8a51-732381792f9a"
+        },
+        "7": {
             "varname": "cert_insecure",
             "caption": "Cert: Insecure?",
             "description": "Skip chain and hostname verification entirely. The certificate is still fetched and inspected, but the chain verdict is reported as \"verification skipped\".",
@@ -274,7 +299,7 @@
             "settings": {},
             "uuid": "ba4bc30f-2b0d-477e-ad51-79cb7ea0fa5c"
         },
-        "7": {
+        "8": {
             "varname": "cert_lengthy",
             "caption": "Cert: Lengthy?",
             "description": "Extended reporting.",
@@ -283,7 +308,7 @@
             "settings": {},
             "uuid": "b2294ebc-36b0-4a9f-8f37-bb3520b255a5"
         },
-        "8": {
+        "9": {
             "varname": "cert_severity",
             "caption": "Cert: Severity",
             "description": "Severity assigned to hostname mismatch and chain verification failures. Defaults to %(default)s so that operators running internal CAs are not paged by trust issues that are expected in their environment. Set to `crit` to enforce strict trust.",
@@ -296,7 +321,7 @@
             },
             "uuid": "87d1027d-8b39-4dab-9539-b8ae3ef09d0b"
         },
-        "9": {
+        "10": {
             "varname": "cert_sni_hostname",
             "caption": "Cert: Sni Hostname",
             "description": "SNI hostname sent during the TLS handshake and used for hostname verification. Useful when --url points at an IP address or a load balancer that needs an explicit SNI. Default uses the hostname from --url.",
@@ -307,10 +332,10 @@
             },
             "uuid": "b5ca62eb-7883-4d08-87c8-d31190c9efad"
         },
-        "10": {
+        "11": {
             "varname": "cert_source",
             "caption": "Cert: Source",
-            "description": "Where the certificate is fetched from. Currently only \"url\" is implemented; \"file\", \"p12\" and \"jks\" are reserved for future expansion.",
+            "description": "Where the certificate is fetched from. `url` fetches it from a TLS endpoint (requires --url). `file` reads it from one or many local files (requires --filename, supports glob patterns). `p12` and `jks` are reserved for future expansion.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -320,7 +345,7 @@
             },
             "uuid": "584dc1b2-48e8-40cb-82eb-6aa546b5d183"
         },
-        "11": {
+        "12": {
             "varname": "cert_timeout",
             "caption": "Cert: Timeout",
             "description": "Network timeout in seconds.",
@@ -331,7 +356,7 @@
             },
             "uuid": "2ae3b17a-3261-4167-a573-3034ff7c72c5"
         },
-        "12": {
+        "13": {
             "varname": "cert_url",
             "caption": "Cert: URL",
             "description": "URL of the TLS endpoint to inspect. Required when --source=url. Example: `https://www.example.com/`",
@@ -342,7 +367,7 @@
             },
             "uuid": "02140b96-19c6-4d46-8d9a-a50afb1278ea"
         },
-        "13": {
+        "14": {
             "varname": "cert_warning",
             "caption": "Cert: Warning",
             "description": "WARN threshold for days remaining until the certificate expires. Supports Nagios ranges. Example: `14:` (WARN when below 14 days).",

@@ -10,9 +10,11 @@
 
 """Unit tests for cert.
 
-Each test generates a fresh self-signed certificate via the `cryptography` lib, fires up a
-tiny single-shot TLS listener on a random localhost port, runs the plugin against it and
-asserts on the exit code and the user-facing message. No external network access is required.
+Each test generates a fresh self-signed certificate via the `cryptography` lib. URL-source
+tests fire up a tiny single-shot TLS listener on a random localhost port, run the plugin
+against it and assert on the exit code and the user-facing message. File-source tests write
+the generated certificate to a temp file (PEM or DER) and run the plugin against the path.
+No external network access is required.
 """
 
 import datetime
@@ -204,7 +206,8 @@ class TestCheck(unittest.TestCase):
             '--sni-hostname', 'test.example.com', '--insecure',
         )
         self.assertEqual(result.returncode, STATE_CRIT, result.stdout)
-        self.assertIn('d left', result.stdout)
+        self.assertIn('expired', result.stdout)
+        self.assertIn('days ago', result.stdout)
 
     def test_warn_low_days(self):
         cert_pem, key_pem = make_cert(
@@ -317,6 +320,151 @@ class TestCheck(unittest.TestCase):
         )
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
         self.assertIn('chain unverified', result.stdout)
+
+
+class TestFileSource(unittest.TestCase):
+    """Tests for --source file. Each test writes a freshly generated cert to a temp file
+    (PEM or DER) and runs the plugin against the path or a glob.
+    """
+
+    def _write(self, data, suffix='.pem'):
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+        tmp.write(data)
+        tmp.close()
+        self.addCleanup(os.unlink, tmp.name)
+        return tmp.name
+
+    def test_ok_pem_file(self):
+        cert_pem, _ = make_cert('test.example.com', days_valid=60)
+        path = self._write(cert_pem)
+        result = run_plugin('--source', 'file', '--filename', path)
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        self.assertIn('test.example.com', result.stdout)
+        self.assertIn('59d left', result.stdout)
+        self.assertNotIn('chain', result.stdout)
+        # tls_handshake_time perfdata only applies to URL source
+        self.assertNotIn('tls_handshake_time', result.stdout)
+
+    def test_ok_der_file(self):
+        cert_pem, _ = make_cert('test.example.com', days_valid=60)
+        cert = x509.load_pem_x509_certificate(cert_pem)
+        cert_der = cert.public_bytes(serialization.Encoding.DER)
+        path = self._write(cert_der, suffix='.der')
+        result = run_plugin('--source', 'file', '--filename', path)
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        self.assertIn('test.example.com', result.stdout)
+
+    def test_crit_expired_file(self):
+        cert_pem, _ = make_cert(
+            'test.example.com', days_valid=10, days_offset=-30,
+        )
+        path = self._write(cert_pem)
+        result = run_plugin('--source', 'file', '--filename', path)
+        self.assertEqual(result.returncode, STATE_CRIT, result.stdout)
+
+    def test_pem_bundle_expands_to_all_certs(self):
+        leaf_pem, _ = make_cert('leaf.example.com', days_valid=60)
+        intermediate_pem, _ = make_cert('intermediate.example.com', days_valid=365)
+        path = self._write(leaf_pem + intermediate_pem)
+        result = run_plugin('--source', 'file', '--filename', path)
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        # both certs from the bundle must appear as separate rows
+        self.assertIn('2 certificates checked', result.stdout)
+        self.assertIn('leaf.example.com', result.stdout)
+        self.assertIn('intermediate.example.com', result.stdout)
+
+    def test_bundle_worst_state_drives_verdict(self):
+        # leaf is fine, intermediate is expired. Worst-state aggregation across all certs
+        # in a single bundle file must surface the expired intermediate as CRIT.
+        leaf_pem, _ = make_cert('leaf.example.com', days_valid=60)
+        expired_intermediate_pem, _ = make_cert(
+            'old.intermediate.example.com', days_valid=10, days_offset=-30,
+        )
+        path = self._write(leaf_pem + expired_intermediate_pem)
+        result = run_plugin('--source', 'file', '--filename', path)
+        self.assertEqual(result.returncode, STATE_CRIT, result.stdout)
+        self.assertIn('expired', result.stdout)
+
+    def test_glob_multi_aggregates_worst(self):
+        ok_pem, _ = make_cert('ok.example.com', days_valid=60)
+        warn_pem, _ = make_cert('warn.example.com', days_valid=10)
+        # write into a single tempdir so the glob matches both
+        with tempfile.TemporaryDirectory() as tmpdir:
+            for name, data in (('ok.pem', ok_pem), ('warn.pem', warn_pem)):
+                with open(os.path.join(tmpdir, name), 'wb') as fh:
+                    fh.write(data)
+            result = run_plugin(
+                '--source', 'file', '--filename', f'{tmpdir}/*.pem',
+                '--warning', '14:', '--critical', '5:',
+            )
+        self.assertEqual(result.returncode, STATE_WARN, result.stdout)
+        self.assertIn('2 certificates checked', result.stdout)
+        self.assertIn('worst', result.stdout)
+        self.assertIn('ok.example.com', result.stdout)
+        self.assertIn('warn.example.com', result.stdout)
+
+    def test_unknown_no_match(self):
+        result = run_plugin(
+            '--source', 'file', '--filename', '/tmp/lfmp-cert-no-such-file-*.pem',
+        )
+        self.assertEqual(result.returncode, STATE_UNKNOWN, result.stdout)
+        self.assertIn('No files match', result.stdout)
+
+    def test_unknown_non_cert_file(self):
+        # plain text file, no PEM marker and no DER prefix; the parser silently skips it
+        # so we end up with zero parseable certs across one matched file
+        path = self._write(b'not a certificate')
+        result = run_plugin('--source', 'file', '--filename', path)
+        self.assertEqual(result.returncode, STATE_UNKNOWN, result.stdout)
+        self.assertIn('No parseable certificates', result.stdout)
+
+    def test_unknown_corrupt_pem(self):
+        # a file with a PEM CERTIFICATE marker but truncated body must surface as a real
+        # error, not get silently skipped
+        path = self._write(
+            b'-----BEGIN CERTIFICATE-----\nnotbase64\n-----END CERTIFICATE-----\n',
+        )
+        result = run_plugin('--source', 'file', '--filename', path)
+        self.assertEqual(result.returncode, STATE_UNKNOWN, result.stdout)
+        self.assertIn('Cannot parse', result.stdout)
+
+    def test_recursive_glob_skips_non_cert_files(self):
+        # mix of certs, private key and a stray text file in nested dirs; recursive glob
+        # should pick up only the certs and silently skip the rest
+        cert_pem, key_pem = make_cert('test.example.com', days_valid=60)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.makedirs(os.path.join(tmpdir, 'a/b/c'))
+            with open(os.path.join(tmpdir, 'a/cert1.pem'), 'wb') as fh:
+                fh.write(cert_pem)
+            with open(os.path.join(tmpdir, 'a/b/cert2.pem'), 'wb') as fh:
+                fh.write(cert_pem)
+            with open(os.path.join(tmpdir, 'a/b/c/key.pem'), 'wb') as fh:
+                fh.write(key_pem)
+            with open(os.path.join(tmpdir, 'a/b/c/notes.txt'), 'wb') as fh:
+                fh.write(b'shopping list')
+            result = run_plugin(
+                '--source', 'file', '--filename', f'{tmpdir}/**/*',
+            )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        self.assertIn('2 certificates checked', result.stdout)
+
+    def test_unknown_missing_filename(self):
+        result = run_plugin('--source', 'file')
+        self.assertEqual(result.returncode, STATE_UNKNOWN, result.stdout)
+        self.assertIn('--filename is required', result.stdout)
+
+    def test_lengthy_file_omits_tls_and_chain(self):
+        cert_pem, _ = make_cert('test.example.com', days_valid=60)
+        path = self._write(cert_pem)
+        result = run_plugin(
+            '--source', 'file', '--filename', path, '--lengthy',
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        self.assertIn('Subject CN', result.stdout)
+        self.assertIn('SHA-256 Fingerprint', result.stdout)
+        # no TLS handshake happened, so these rows should be absent
+        self.assertNotIn('TLS Version', result.stdout)
+        self.assertNotIn('Chain', result.stdout)
 
 
 if __name__ == '__main__':
