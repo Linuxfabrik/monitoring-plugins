@@ -20,7 +20,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026051001'
 
 DESCRIPTION = """Checks the replication status of a MySQL/MariaDB replica, including I/O thread state,
 SQL thread state, seconds behind master, and replication errors. Alerts when
@@ -127,7 +127,7 @@ def main():
         'timeout': args.TIMEOUT,
     }
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
-    lib.base.coe(lib.db_mysql.check_privileges(conn))
+    lib.base.coe(lib.db_mysql.check_privileges(conn, ['REPLICATION CLIENT', 'SLAVE MONITOR', 'REPLICA MONITOR']))
 
     myvar = lib.db_mysql.lod2dict(get_vars(conn))
     myvar['have_galera'] = 'NO'

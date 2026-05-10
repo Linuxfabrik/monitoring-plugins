@@ -8,7 +8,7 @@ Checks the replication status of a MySQL/MariaDB replica, including I/O thread s
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
-* User account requires SUPER, REPLICATION CLIENT, and REPLICATION SLAVE privileges
+* User account requires `REPLICATION CLIENT`. On MariaDB 10.5+ this privilege has been split, so `SLAVE MONITOR` (or its MariaDB 11+ alias `REPLICA MONITOR`) is also accepted
 * Can safely be run against standalone servers; it will report "This is a standalone server."
 
 **Data Collection:**
@@ -28,6 +28,7 @@ Checks the replication status of a MySQL/MariaDB replica, including I/O thread s
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
+| Requirements                          | User with `REPLICATION CLIENT` (or `SLAVE MONITOR` / `REPLICA MONITOR` on MariaDB 10.5+), locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |
 
 

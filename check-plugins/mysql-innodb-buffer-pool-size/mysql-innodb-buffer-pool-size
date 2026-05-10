@@ -20,7 +20,7 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026051001'
 
 DESCRIPTION = """Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the
 configured size against the recommended size based on actual data and index sizes.
@@ -116,7 +116,7 @@ def main():
         'timeout': args.TIMEOUT,
     }
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
-    lib.base.coe(lib.db_mysql.check_privileges(conn))
+    lib.base.coe(lib.db_mysql.check_privileges(conn, 'SELECT'))
 
     engines = lib.db_mysql.get_engines(conn)
     if not engines.get('have_innodb', ''):

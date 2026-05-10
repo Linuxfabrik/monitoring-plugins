@@ -25,7 +25,7 @@ Checks MySQL/MariaDB user security settings, including accounts with empty passw
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
-| Requirements                          | User with SELECT privileges on mysql.user, locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
+| Requirements                          | User with `SELECT` privilege on `mysql.*` (or `*.*`), locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |
 
 

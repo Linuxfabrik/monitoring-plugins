@@ -134,6 +134,35 @@ Thresholds (`--warning` / `--critical`) and plugin-specific selectors are per
 plugin — check the individual READMEs.
 
 
+## Required database privileges
+
+Most MySQL plugins only call `SHOW GLOBAL VARIABLES` and `SHOW GLOBAL STATUS`,
+which work with `GRANT USAGE` (login-only). A handful of plugins read from
+`information_schema` or `mysql.*` and need `SELECT`; `mysql-replica-status`
+needs a replication-monitoring grant.
+
+The first row of the table is the **union for one shared monitoring user**
+that covers every plugin in this group. The remaining rows show the per-plugin
+minimum.
+
+| Scope | Minimum grant on `*.*` |
+|----|----|
+| **One shared monitoring user (covers all MySQL plugins)** | `GRANT USAGE, SELECT, REPLICATION CLIENT ON *.* TO 'monitoring'@'127.0.0.1'`. On MariaDB 10.5+, `SLAVE MONITOR` (or its MariaDB 11+ alias `REPLICA MONITOR`) also satisfies `mysql-replica-status` |
+| `mysql-aria`, `mysql-database-metrics`, `mysql-innodb-buffer-pool-size`, `mysql-storage-engines`, `mysql-table-definition-cache`, `mysql-table-indexes` | `GRANT SELECT ON *.*` (needed to see all rows in `information_schema`) |
+| `mysql-replica-status` | `GRANT REPLICATION CLIENT ON *.*` (MySQL and MariaDB <10.5). On MariaDB 10.5+, `SLAVE MONITOR` or `REPLICA MONITOR` is accepted as well |
+| `mysql-user-security` | `GRANT SELECT ON mysql.*` (queries `mysql.user` and `mysql.global_priv`) |
+| All other `mysql-*` plugins | `GRANT USAGE ON *.*` (login-only, no further privileges) |
+| `mysql-query` | depends entirely on the SQL passed via `--query` |
+
+Each plugin verifies the grants up front via `SHOW GRANTS FOR CURRENT_USER()`
+and exits `UNKNOWN` with a message that names the missing privilege if a
+grant is absent. `ALL PRIVILEGES` and `SUPER` short-circuit the check.
+
+`mysql-system` and `mysql-version` open no database connection and therefore
+need no grants; they read uptime and package-version facts from the operating
+system.
+
+
 ## Service Sets in the Icinga Director Basket
 
 The shipped basket slices MySQL monitoring into six Service Sets, each

@@ -16,6 +16,15 @@ Monitoring Plugins:
 * ups-nut: monitor a UPS managed by Network UPS Tools (NUT). Reports battery, load, voltages, remaining runtime, temperature and the aggregated UPS status. Picks up the UPS automatically and uses the thresholds the UPS already knows
 
 
+### Changed
+
+Monitoring Plugins:
+
+* mysql-* plugins: each plugin now declares the database privileges it actually needs and verifies them against `SHOW GRANTS FOR CURRENT_USER()` before running. On a missing grant the plugin exits UNKNOWN with a message that names the missing privilege, instead of failing later with a generic SQL error. Most plugins still need only login (`GRANT USAGE`); plugins reading from `information_schema` or `mysql.*` now require `SELECT`, and `mysql-replica-status` accepts `REPLICATION CLIENT` or, on MariaDB 10.5+, `SLAVE MONITOR` / `REPLICA MONITOR`. The central [PLUGINS-MYSQL.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md) documents the per-plugin grants and the union for a single shared monitoring user
+* mysql-replica-status: documented privilege requirement narrowed from `SUPER, REPLICATION CLIENT, REPLICATION SLAVE` to the actually needed `REPLICATION CLIENT` (with MariaDB 10.5+ aliases noted)
+* mysql-user-security: documented privilege requirement broadened from `SELECT on mysql.user` to `SELECT on mysql.*`, since the plugin also reads from `mysql.global_priv`
+
+
 ### Removed
 
 Monitoring Plugins:
