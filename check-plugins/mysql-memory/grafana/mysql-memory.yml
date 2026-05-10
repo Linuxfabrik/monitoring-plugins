@@ -18,7 +18,6 @@ spec:
     - 1m
   timezone: browser
   title: MySQL Memory
-  uid: linuxfabrik-monitoring-plugins-mysql-memory
   editable: true
   liveNow: true
   refresh: 1m
@@ -92,6 +91,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -119,6 +121,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -146,6 +151,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -173,6 +181,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -200,6 +211,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -227,6 +241,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -254,6 +271,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -281,6 +301,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -308,6 +331,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -374,6 +400,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -401,6 +430,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -428,6 +460,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -455,6 +490,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -521,6 +559,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -587,6 +628,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -614,6 +658,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -680,6 +727,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -707,6 +757,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -734,6 +787,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -761,6 +817,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -788,6 +847,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -815,6 +877,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -842,6 +907,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -862,6 +930,96 @@ spec:
         key: metric
         operator: '='
         value: mysql_max_total_per_thread_buffers
+
+    - alias: mysql_pf_memory
+      refId: mysql_pf_memory
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_pf_memory
+
+    - alias: mysql_gcache_memory
+      refId: mysql_gcache_memory
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_gcache_memory
+
+    - alias: mysql_other_process_memory
+      refId: mysql_other_process_memory
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_other_process_memory
 
 
   - title: MySQL Memory - Percentages
@@ -908,6 +1066,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:
@@ -935,6 +1096,9 @@ spec:
       - params:
         - $interval
         type: time
+      - params:
+        - previous
+        type: fill
       measurement: $command
       resultFormat: time_series
       select:

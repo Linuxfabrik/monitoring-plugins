@@ -12,14 +12,14 @@
 
 import argparse
 import os
+import re
 import sys
 
 import lib.args
 import lib.base
 import lib.db_mysql
 import lib.human
-import lib.version
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 try:
     import psutil
@@ -32,14 +32,28 @@ except ImportError:
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026051001'
 
-DESCRIPTION = """Checks memory allocation and usage metrics for MySQL/MariaDB, including global buffers,
-per-thread buffers, and total potential memory consumption. Alerts if the server's
-memory configuration could lead to excessive memory usage."""
+DESCRIPTION = """Estimates MySQL/MariaDB memory consumption and compares it to the host's
+physical RAM. Reports the currently-reached usage (server-wide buffers + per-thread
+buffers * `Max_used_connections` + Performance Schema memory + Galera GCache if
+present) and the theoretical worst-case peak (same formula but with `max_connections`).
+Also surfaces the RAM consumed by non-database processes on the host so admins can
+see when MySQL plus the rest of the system would exceed physical memory.
+Alerts when used or peak memory crosses the `--warning` / `--critical` thresholds,
+when peak + other-process memory exceeds physical RAM, and when MySQL would allocate
+more than 2 GiB on a 32-bit system."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_TIMEOUT = 3
-DEFAULT_WARN = 95  # % max peak memory usage
+# % of physical RAM at which `pct_max_used_memory` (the currently-reached
+# footprint) turns WARN / CRIT. Default 85/95 matches mysqltuner v2.8.41.
+DEFAULT_WARN = 85
+DEFAULT_CRIT = 95
+
+# MySQL/MariaDB allocates each buffer from the 32-bit address space (~4 GiB
+# practical limit; mysqltuner uses 2 GiB as the conservative threshold). On a
+# 32-bit binary, anything above that risks instability.
+ADDR_LIMIT_32BIT = 2 * 1024 * 1024 * 1024
 
 
 def parse_args():
@@ -62,6 +76,18 @@ def parse_args():
     )
 
     parser.add_argument(
+        '-c',
+        '--critical',
+        help='Percentage of physical RAM at which the reached MySQL memory'
+        ' footprint (server_buffers + per_thread_buffers * Max_used_connections'
+        ' + Performance Schema + Galera GCache) flips to CRITICAL. '
+        'Default: %(default)s',
+        dest='CRITICAL',
+        type=int,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
         '--defaults-file',
         help='MySQL/MariaDB cnf file to read user, host and password from. '
         'Example: `--defaults-file=/var/spool/icinga2/.my.cnf`. '
@@ -78,6 +104,18 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--lengthy',
+        help='Append a full memory breakdown table to the output (each '
+        'contributing buffer + the calculation that produces server_buffers, '
+        'per_thread_buffers, max_used_memory and max_peak_memory). Useful '
+        'when a WARNING/CRITICAL fires and you need to see which buffer '
+        'dominates the footprint.',
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -85,14 +123,24 @@ def parse_args():
         default=DEFAULT_TIMEOUT,
     )
 
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='Percentage of physical RAM at which the reached MySQL memory'
+        ' footprint flips to WARNING. Default: %(default)s',
+        dest='WARNING',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
 
 def get_vars(conn):
-    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
-    # Without the GLOBAL modifier, SHOW VARIABLES displays the values that are used for
-    # the current connection to MariaDB.
+    # Pull only the variables we actually need rather than implementing a
+    # full `get_all_vars()`. SHOW VARIABLES without GLOBAL is connection-local
+    # but we only read session-shared knobs here.
     sql = """
         show global variables
         where variable_name like 'aria_pagecache_buffer_size'
@@ -111,15 +159,14 @@ def get_vars(conn):
             or variable_name like 'sort_buffer_size'
             or variable_name like 'thread_stack'
             or variable_name like 'tmp_table_size'
+            or variable_name like 'wsrep_on'
+            or variable_name like 'wsrep_provider_options'
             ;
           """
     return lib.base.coe(lib.db_mysql.select(conn, sql))
 
 
 def get_status(conn):
-    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
-    # Without the GLOBAL modifier, SHOW STATUS displays the values that are used for
-    # the current connection to MariaDB.
     sql = """
         show global status
         where variable_name like 'Max_used_connections'
@@ -129,85 +176,158 @@ def get_status(conn):
 
 
 def get_pf_memory(conn, myvar):
-    # get memory usage from Performance Schema
-    if not myvar.get('performance_schema', 0):
+    """Return Performance Schema memory usage in bytes, or 0 when PFS is OFF
+    / unavailable. PFS reports its own footprint as the `memory` row of
+    `SHOW ENGINE PERFORMANCE_SCHEMA STATUS`.
+    """
+    if myvar.get('performance_schema', 'OFF') != 'ON':
         return 0
-    if myvar['performance_schema'] == 'OFF':
-        return 0
-
     sql = 'show engine performance_schema status;'
-    infoPFSMemory = lib.base.coe(lib.db_mysql.select(conn, sql))
-    if len(infoPFSMemory) == 0:
-        return 0
-    for item in infoPFSMemory:
+    rows = lib.base.coe(lib.db_mysql.select(conn, sql))
+    for item in rows or []:
         if item['Type'] == 'performance_schema' and item['Name'].startswith('memory'):
             return int(item['Status'])
     return 0
 
 
+def get_gcache_memory(myvar):
+    """Return the Galera GCache size in bytes if this is a wsrep node with a
+    parseable `gcache.size` in `wsrep_provider_options`, else 0.
+
+    `wsrep_provider_options` looks like a long `;`-separated key=value blob:
+        gmcast.listen_addr = tcp://0.0.0.0:4567; gcache.size = 128M; ...
+    """
+    if myvar.get('wsrep_on', 'OFF') != 'ON':
+        return 0
+    options = myvar.get('wsrep_provider_options') or ''
+    match = re.search(r'gcache\.size\s*=\s*([^;\s]+)', options)
+    if not match:
+        return 0
+    raw = match.group(1).strip()
+    # gcache.size can be expressed with a SI/IEC suffix (e.g. "128M", "1G")
+    # or as a raw byte count. lib.human.human2bytes handles both.
+    try:
+        return lib.human.human2bytes(raw)
+    except (ValueError, TypeError):
+        return 0
+
+
 def get_other_process_memory():
+    """Total RSS of processes that are *not* MySQL/MariaDB. Used to detect
+    whether MySQL's theoretical peak plus the rest of the host's footprint
+    would exceed physical RAM.
+    """
     if not HAVE_PSUTIL:
         return 0
-    totalMemOther = 0
-    if lib.version.version(psutil.__version__) >= lib.version.version('5.3.0'):
-        try:
-            for p in psutil.process_iter(attrs=['name', 'cmdline', 'memory_info']):
-                if not p.info['cmdline']:
-                    continue
-                cmdline = ' '.join(p.info['cmdline'])
-                if not cmdline.strip():
-                    continue
-                if 'PID' in cmdline:
-                    continue
-                if 'mysqld' in cmdline:
-                    continue
-                if 'mariadbd' in cmdline:
-                    continue
-                if 'systemd' in cmdline:
-                    continue
-                if '[' in cmdline or ']' in cmdline:
-                    continue
-                if cmdline.startswith(' '):
-                    continue
-                totalMemOther += p.info['memory_info'].rss
-        except psutil.NoSuchProcess:
-            pass
-    else:
-        try:
-            for p in [
-                x.as_dict(attrs=['name', 'cmdline', 'memory_info'])
-                for x in psutil.process_iter()
-            ]:
-                if not p.get('cmdline'):
-                    continue
-                cmdline = ' '.join(p['cmdline'])
-                if not cmdline.strip():
-                    continue
-                if 'PID' in cmdline:
-                    continue
-                if 'mysqld' in cmdline:
-                    continue
-                if 'mariadbd' in cmdline:
-                    continue
-                if 'systemd' in cmdline:
-                    continue
-                if '[' in cmdline or ']' in cmdline:
-                    continue
-                if cmdline.startswith(' '):
-                    continue
-                totalMemOther += p['memory_info'].rss
-        except psutil.NoSuchProcess:
-            pass
-    return totalMemOther
+    db_names = {'mysqld', 'mariadbd'}
+    total = 0
+    try:
+        for proc in psutil.process_iter(attrs=['name', 'memory_info']):
+            name = proc.info.get('name') or ''
+            if name in db_names:
+                continue
+            mem = proc.info.get('memory_info')
+            if mem is None:
+                continue
+            total += mem.rss
+    except psutil.NoSuchProcess:
+        pass
+    return total
+
+
+def render_breakdown(myvar, mystat, mycalc):
+    """Render the verbose --lengthy memory-breakdown block (the same data the
+    short summary derives from, but per-buffer). Surface MySQL/MariaDB
+    variable names in backticks so admins can grep for them in their config.
+    """
+    bh = lib.human.bytes2human
+
+    def row(label, value):
+        return f'  {label:<48s}{bh(value):>12s}'
+
+    lines = ['Memory breakdown:']
+    lines.append('')
+    lines.append('Server-wide buffers (allocated regardless of connections):')
+    lines.append(row('`key_buffer_size`', int(myvar['key_buffer_size'])))
+    lines.append(row(
+        f'`max_tmp_table_size` (min of `tmp_table_size`'
+        f'={bh(int(myvar["tmp_table_size"]))} and `max_heap_table_size`'
+        f'={bh(int(myvar["max_heap_table_size"]))})',
+        mycalc['max_tmp_table_size'],
+    ))
+    lines.append(row(
+        '`innodb_buffer_pool_size`',
+        int(myvar.get('innodb_buffer_pool_size', 0)),
+    ))
+    lines.append(row(
+        '`innodb_additional_mem_pool_size`',
+        int(myvar.get('innodb_additional_mem_pool_size', 0)),
+    ))
+    lines.append(row(
+        '`innodb_log_buffer_size`',
+        int(myvar.get('innodb_log_buffer_size', 0)),
+    ))
+    lines.append(row(
+        '`query_cache_size`',
+        int(myvar.get('query_cache_size', 0)),
+    ))
+    lines.append(row(
+        '`aria_pagecache_buffer_size`',
+        int(myvar.get('aria_pagecache_buffer_size', 0)),
+    ))
+    lines.append(row('= server_buffers', mycalc['server_buffers']))
+
+    lines.append('')
+    lines.append('Per-thread buffers (multiplied by connection count):')
+    lines.append(row('`read_buffer_size`', int(myvar['read_buffer_size'])))
+    lines.append(row(
+        '`read_rnd_buffer_size`',
+        int(myvar['read_rnd_buffer_size']),
+    ))
+    lines.append(row('`sort_buffer_size`', int(myvar['sort_buffer_size'])))
+    lines.append(row('`thread_stack`', int(myvar['thread_stack'])))
+    lines.append(row(
+        '`max_allowed_packet`',
+        int(myvar['max_allowed_packet']),
+    ))
+    lines.append(row('`join_buffer_size`', int(myvar['join_buffer_size'])))
+    lines.append(row('= per_thread_buffers', mycalc['per_thread_buffers']))
+
+    max_used_conn = int(mystat['Max_used_connections'])
+    max_conn = int(myvar['max_connections'])
+    lines.append('')
+    lines.append('Totals:')
+    lines.append(row(
+        f'Performance Schema memory'
+        f' ({"OFF" if myvar.get("performance_schema") != "ON" else "ON"})',
+        mycalc['pf_memory'],
+    ))
+    if mycalc['gcache_memory'] > 0:
+        lines.append(row('Galera GCache (`gcache.size`)', mycalc['gcache_memory']))
+    lines.append(row(
+        f'per_thread_buffers * `Max_used_connections`={max_used_conn}',
+        mycalc['max_total_per_thread_buffers'],
+    ))
+    lines.append(row(
+        f'per_thread_buffers * `max_connections`={max_conn}',
+        mycalc['total_per_thread_buffers'],
+    ))
+    lines.append(row(
+        '= max_used_memory (currently reached)',
+        mycalc['max_used_memory'],
+    ))
+    lines.append(row('= max_peak_memory (theoretical peak)', mycalc['max_peak_memory']))
+    lines.append(row('Physical RAM (host)', mycalc['physical_memory']))
+    lines.append(row('Other process memory (host)', mycalc['other_process_memory']))
+    return '\n'.join(lines)
 
 
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:mysql_stats(), section # Memory usage, v1.9.8
-    # including variable names
+    # logic taken from mysqltuner.pl:mysql_stats(), section "Memory usage",
+    # verified in sync with MySQLTuner v2.8.41
 
-    # parse the command line
     try:
         args = parse_args()
     except SystemExit:
@@ -224,15 +344,23 @@ def main():
     myvar = lib.db_mysql.lod2dict(get_vars(conn))
     mystat = lib.db_mysql.lod2dict(get_status(conn))
 
-    # init some vars
-    msg = ''
     state = STATE_OK
-    perfdata = ''
+    sections = []
+    facts = []
+    # All recommendations from all WARN/CRIT paths land here and render once
+    # at the end as a `Recommendations:\n* ...` bulleted block, regardless of
+    # which combinations of WARN paths fire.
+    recommendations = []
 
-    # calculations
+    # Calculations
     mycalc = {}
-    mycalc['max_tmp_table_size'] = max(
-        int(myvar['max_heap_table_size']), int(myvar['tmp_table_size'])
+    # The effective size of an internal in-memory temp table is the *minimum*
+    # of these two settings (mysql docs:
+    # https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_tmp_table_size).
+    # The plugin used to take max() here, which over-estimated server_buffers.
+    mycalc['max_tmp_table_size'] = min(
+        int(myvar['tmp_table_size']),
+        int(myvar['max_heap_table_size']),
     )
     mycalc['server_buffers'] = (
         int(myvar['key_buffer_size']) + mycalc['max_tmp_table_size']
@@ -255,168 +383,120 @@ def main():
         myvar['max_connections']
     )
 
-    # Global memory
-    # Max used memory is memory used by MySQL based on Max_used_connections
-    # This is the max memory used theoretically calculated with the max concurrent connection number reached by mysql
     mycalc['pf_memory'] = get_pf_memory(conn, myvar)
+    mycalc['gcache_memory'] = get_gcache_memory(myvar)
     mycalc['max_used_memory'] = (
         mycalc['server_buffers']
         + mycalc['max_total_per_thread_buffers']
         + mycalc['pf_memory']
+        + mycalc['gcache_memory']
     )
     mycalc['max_peak_memory'] = (
         mycalc['server_buffers']
         + mycalc['total_per_thread_buffers']
         + mycalc['pf_memory']
+        + mycalc['gcache_memory']
     )
-    physical_memory = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
+    mycalc['physical_memory'] = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
     mycalc['pct_max_used_memory'] = round(
-        mycalc['max_used_memory'] / physical_memory * 100, 1
+        mycalc['max_used_memory'] / mycalc['physical_memory'] * 100, 1
     )
     mycalc['pct_max_physical_memory'] = round(
-        mycalc['max_peak_memory'] / physical_memory * 100, 1
+        mycalc['max_peak_memory'] / mycalc['physical_memory'] * 100, 1
     )
+    mycalc['other_process_memory'] = get_other_process_memory()
 
     lib.db_mysql.close(conn)
 
-    if not lib.base.IS_64BIT and mycalc['max_used_memory'] > 2 * 1024 * 1024 * 1024:
-        mem1_state = STATE_WARN
+    bh = lib.human.bytes2human
 
-        # build the message
-        msg += 'Allocating > 2GB RAM on 32-bit systems can cause system instability. '
-    elif mycalc['pct_max_used_memory'] > DEFAULT_WARN:
-        mem1_state = STATE_WARN
-    else:
-        mem1_state = STATE_OK
-    state = lib.base.get_worst(state, mem1_state)
-    msg += (
-        f'{mycalc["pct_max_used_memory"]}%'
-        f' - total: {lib.human.bytes2human(physical_memory)}'
-        f', used: {lib.human.bytes2human(mycalc["max_used_memory"])}'
-        f'{lib.base.state2str(mem1_state, prefix=" ")}. '
+    # ---- Used memory (currently reached) ----
+    used_state = STATE_OK
+    if not lib.base.IS_64BIT and mycalc['max_used_memory'] > ADDR_LIMIT_32BIT:
+        used_state = STATE_WARN
+        recommendations.append(
+            f'Reduce MySQL buffer sizes: > {bh(ADDR_LIMIT_32BIT)} of allocations'
+            f' on a 32-bit binary can cause instability'
+        )
+    elif mycalc['pct_max_used_memory'] >= args.CRITICAL:
+        used_state = STATE_CRIT
+        recommendations.append(
+            'Reduce your overall MySQL memory footprint for system stability'
+        )
+    elif mycalc['pct_max_used_memory'] >= args.WARNING:
+        used_state = STATE_WARN
+        recommendations.append(
+            'Reduce your overall MySQL memory footprint for system stability'
+        )
+    state = lib.base.get_worst(state, used_state)
+    facts.append(
+        f'Max used memory: {mycalc["pct_max_used_memory"]}%'
+        f' ({bh(mycalc["max_used_memory"])} of {bh(mycalc["physical_memory"])}'
+        f' physical)'
+        f'{lib.base.state2str(used_state, prefix=" ")}'
     )
 
-    msg += (
-        f'Maximum possible memory usage is'
-        f' {mycalc["pct_max_physical_memory"]}%'
-        f' (possible peak:'
-        f' {lib.human.bytes2human(mycalc["max_peak_memory"])}). '
+    # ---- Peak memory (theoretical) ----
+    peak_state = STATE_OK
+    if mycalc['pct_max_physical_memory'] >= args.CRITICAL:
+        peak_state = STATE_CRIT
+        rec = 'Reduce your overall MySQL memory footprint for system stability'
+        if rec not in recommendations:
+            recommendations.append(rec)
+    elif mycalc['pct_max_physical_memory'] >= args.WARNING:
+        peak_state = STATE_WARN
+        rec = 'Reduce your overall MySQL memory footprint for system stability'
+        if rec not in recommendations:
+            recommendations.append(rec)
+    state = lib.base.get_worst(state, peak_state)
+    facts.append(
+        f'Peak possible: {mycalc["pct_max_physical_memory"]}%'
+        f' ({bh(mycalc["max_peak_memory"])})'
+        f'{lib.base.state2str(peak_state, prefix=" ")}'
     )
-    other_process_memory = get_other_process_memory()
-    if physical_memory < mycalc['max_peak_memory'] + other_process_memory:
-        mem2_state = STATE_WARN
-        state = lib.base.get_worst(state, mem2_state)
-        msg += (
-            f'Overall possible memory usage'
-            f' ({lib.human.bytes2human(mycalc["max_peak_memory"])})'
-            f' with other processes'
-            f' ({lib.human.bytes2human(other_process_memory)})'
-            f' will exceed physical memory'
-            f' ({lib.human.bytes2human(physical_memory)}).'
-            f'{lib.base.state2str(mem2_state, prefix=" ")}'
+
+    # ---- Overcommit check (peak + other processes > physical) ----
+    overcommit_state = STATE_OK
+    overcommit_total = mycalc['max_peak_memory'] + mycalc['other_process_memory']
+    if mycalc['physical_memory'] < overcommit_total:
+        overcommit_state = STATE_WARN
+        recommendations.append(
+            'Dedicate this server to MySQL/MariaDB: peak MySQL memory plus'
+            ' other-process memory would exceed physical RAM'
+        )
+    state = lib.base.get_worst(state, overcommit_state)
+    facts.append(
+        f'Other process memory: {bh(mycalc["other_process_memory"])}'
+        f'{lib.base.state2str(overcommit_state, prefix=" ")}'
+    )
+
+    # ---- Performance Schema info note ----
+    if myvar.get('performance_schema', 'OFF') != 'ON':
+        facts.append('Performance Schema is OFF (pfs memory not counted)')
+
+    sections.append('. '.join(facts) + '.')
+
+    if args.LENGTHY:
+        sections.append(render_breakdown(myvar, mystat, mycalc))
+
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
         )
 
-    if mycalc['pct_max_physical_memory'] > DEFAULT_WARN:
-        msg += '\n\nRecommendations:\n'
-        msg += '* Reduce your overall MySQL memory footprint for system stability.'
+    msg = '\n\n'.join(sections)
 
-    # be nice and print the calculation
-    msg += '\n\nCalculations:\n'
-    msg += (
-        f'* Memory usage according to Performance Schema:'
-        f' pfm = {lib.human.bytes2human(mycalc["pf_memory"])}\n'
-    )
-
-    msg += f'* Server Buffers: sb = {lib.human.bytes2human(mycalc["server_buffers"])}\n'
-    msg += f'      {lib.human.bytes2human(int(myvar["key_buffer_size"]))} key_buffer_size\n'
-    msg += f'    + {lib.human.bytes2human(mycalc["max_tmp_table_size"])} max_tmp_table_size\n'
-    msg += (
-        f'    +'
-        f' {lib.human.bytes2human(int(myvar.get("innodb_buffer_pool_size", 0)))}'
-        f' innodb_buffer_pool_size\n'
-    )
-    msg += (
-        f'    +'
-        f' {lib.human.bytes2human(int(myvar.get("innodb_additional_mem_pool_size", 0)))}'
-        f' innodb_additional_mem_pool_size\n'
-    )
-    msg += (
-        f'    +'
-        f' {lib.human.bytes2human(int(myvar.get("innodb_log_buffer_size", 0)))}'
-        f' innodb_log_buffer_size\n'
-    )
-    msg += (
-        f'    +'
-        f' {lib.human.bytes2human(int(myvar.get("query_cache_size", 0)))}'
-        f' query_cache_size\n'
-    )
-    msg += (
-        f'    +'
-        f' {lib.human.bytes2human(int(myvar.get("aria_pagecache_buffer_size", 0)))}'
-        f' aria_pagecache_buffer_size\n'
-    )
-
-    msg += f'* Per Thread Buffers: ptb = {lib.human.bytes2human(mycalc["per_thread_buffers"])}\n'
-    msg += f'      {lib.human.bytes2human(int(myvar["read_buffer_size"]))} read_buffer_size\n'
-    msg += (
-        f'    +'
-        f' {lib.human.bytes2human(int(myvar["read_rnd_buffer_size"]))}'
-        f' read_rnd_buffer_size\n'
-    )
-    msg += f'    + {lib.human.bytes2human(int(myvar["sort_buffer_size"]))} sort_buffer_size\n'
-    msg += f'    + {lib.human.bytes2human(int(myvar["thread_stack"]))} thread_stack\n'
-    msg += f'    + {lib.human.bytes2human(int(myvar["max_allowed_packet"]))} max_allowed_packet\n'
-    msg += f'    + {lib.human.bytes2human(int(myvar["join_buffer_size"]))} join_buffer_size\n'
-
-    msg += (
-        f'* Max Total per Thread Buffers:'
-        f' mtptb = ptb * max_used_conns'
-        f' = {lib.human.bytes2human(mycalc["per_thread_buffers"])}'
-        f' * {int(mystat["Max_used_connections"])}'
-        f' = {lib.human.bytes2human(mycalc["max_total_per_thread_buffers"])}\n'
-    )
-    msg += (
-        f'* Total per Thread Buffers:'
-        f' tptb = ptb * max_conns'
-        f' = {lib.human.bytes2human(mycalc["per_thread_buffers"])}'
-        f' * {int(myvar["max_connections"])}'
-        f' = {lib.human.bytes2human(mycalc["total_per_thread_buffers"])}\n'
-    )
-
-    msg += (
-        f'* Max Used Memory: mum = sb + mtptb + pfm'
-        f' = {lib.human.bytes2human(mycalc["server_buffers"])}'
-        f' + {lib.human.bytes2human(mycalc["max_total_per_thread_buffers"])}'
-        f' + {lib.human.bytes2human(mycalc["pf_memory"])}'
-        f' = {lib.human.bytes2human(mycalc["max_used_memory"])}\n'
-    )
-    msg += (
-        f'* Possible Peak Memory: ppm = sb + tptb + pfm'
-        f' = {lib.human.bytes2human(mycalc["server_buffers"])}'
-        f' + {lib.human.bytes2human(mycalc["total_per_thread_buffers"])}'
-        f' + {lib.human.bytes2human(mycalc["pf_memory"])}'
-        f' = {lib.human.bytes2human(mycalc["max_peak_memory"])}\n'
-    )
-    msg += f'* Other Process Memory: {lib.human.bytes2human(other_process_memory)}\n'
-    msg += f'* Physical Memory: pm = {lib.human.bytes2human(physical_memory)}\n'
-    msg += (
-        f'* Max Used Memory %: mump = mum / pm * 100'
-        f' = {lib.human.bytes2human(mycalc["max_used_memory"])}'
-        f' / {lib.human.bytes2human(physical_memory)}'
-        f' * 100 = {mycalc["pct_max_used_memory"]}%\n'
-    )
-    msg += (
-        f'* Max Possible Memory Usage %:'
-        f' mpmu = ppm / pm * 100'
-        f' = {lib.human.bytes2human(mycalc["max_peak_memory"])}'
-        f' / {lib.human.bytes2human(physical_memory)}'
-        f' * 100 = {mycalc["pct_max_physical_memory"]}%\n'
-    )
-
-    # perfdata
+    # ---- Perfdata ----
+    perfdata = ''
     perfdata += lib.base.get_perfdata(
         'mysql_aria_pagecache_buffer_size',
         myvar.get('aria_pagecache_buffer_size', 0),
+        uom='B',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_gcache_memory',
+        mycalc['gcache_memory'],
         uom='B',
         _min=0,
     )
@@ -458,6 +538,12 @@ def main():
     perfdata += lib.base.get_perfdata(
         'mysql_max_heap_table_size',
         myvar['max_heap_table_size'],
+        uom='B',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_pf_memory',
+        mycalc['pf_memory'],
         uom='B',
         _min=0,
     )
@@ -506,7 +592,13 @@ def main():
 
     perfdata += lib.base.get_perfdata(
         'mysql_physical_memory',
-        physical_memory,
+        mycalc['physical_memory'],
+        uom='B',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_other_process_memory',
+        mycalc['other_process_memory'],
         uom='B',
         _min=0,
     )
@@ -538,6 +630,8 @@ def main():
         'mysql_pct_max_physical_memory',
         mycalc['pct_max_physical_memory'],
         uom='%',
+        warn=args.WARNING,
+        crit=args.CRITICAL,
         _min=0,
         _max=100,
     )
@@ -545,6 +639,8 @@ def main():
         'mysql_pct_max_used_memory',
         mycalc['pct_max_used_memory'],
         uom='%',
+        warn=args.WARNING,
+        crit=args.CRITICAL,
         _min=0,
         _max=100,
     )

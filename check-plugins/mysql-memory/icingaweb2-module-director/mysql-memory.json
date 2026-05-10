@@ -5,14 +5,23 @@
                 "--always-ok": {
                     "set_if": "$mysql_memory_always_ok$"
                 },
+                "--critical": {
+                    "value": "$mysql_memory_critical$"
+                },
                 "--defaults-file": {
                     "value": "$mysql_memory_defaults_file$"
                 },
                 "--defaults-group": {
                     "value": "$mysql_memory_defaults_group$"
                 },
+                "--lengthy": {
+                    "set_if": "$mysql_memory_lengthy$"
+                },
                 "--timeout": {
                     "value": "$mysql_memory_timeout$"
+                },
+                "--warning": {
+                    "value": "$mysql_memory_warning$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/mysql-memory",
@@ -35,6 +44,21 @@
                 },
                 {
                     "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -80,7 +104,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks memory allocation and usage metrics for MySQL/MariaDB, including global buffers, per-thread buffers, and total potential memory consumption. Alerts if the server's memory configuration could lead to excessive memory usage.",
+            "notes": "Estimates MySQL/MariaDB memory consumption and compares it to the host's physical RAM. Reports the currently-reached usage (server-wide buffers + per-thread buffers * `Max_used_connections` + Performance Schema memory + Galera GCache if present) and the theoretical worst-case peak (same formula but with `max_connections`). Also surfaces the RAM consumed by non-database processes on the host so admins can see when MySQL plus the rest of the system would exceed physical memory. Alerts when used or peak memory crosses the `--warning` / `--critical` thresholds, when peak + other-process memory exceeds physical RAM, and when MySQL would allocate more than 2 GiB on a 32-bit system.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-memory/",
             "object_name": "tpl-service-mysql-memory",
             "object_type": "template",
@@ -92,9 +116,12 @@
             "vars": {
                 "criticality": "C",
                 "mysql_memory_always_ok": false,
+                "mysql_memory_critical": 95,
                 "mysql_memory_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_memory_defaults_group": "client",
-                "mysql_memory_timeout": 3
+                "mysql_memory_lengthy": false,
+                "mysql_memory_timeout": 3,
+                "mysql_memory_warning": 85
             },
             "volatile": null,
             "zone": null,
@@ -112,6 +139,17 @@
             "uuid": "0e522476-90ef-44ab-9246-c255117f17dc"
         },
         "2": {
+            "varname": "mysql_memory_critical",
+            "caption": "MySQL Memory: Critical",
+            "description": "Percentage of physical RAM at which the reached MySQL memory footprint (server_buffers + per_thread_buffers * Max_used_connections + Performance Schema + Galera GCache) flips to CRITICAL.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "72efd326-3a57-4329-a36a-264298002ccd"
+        },
+        "3": {
             "varname": "mysql_memory_defaults_file",
             "caption": "MySQL Memory: Defaults File",
             "description": "MySQL/MariaDB cnf file to read user, host and password from. Example: `--defaults-file=/var/spool/icinga2/.my.cnf`.",
@@ -122,7 +160,7 @@
             },
             "uuid": "60d11f3a-81dc-44b0-81d5-3616b7e992f3"
         },
-        "3": {
+        "4": {
             "varname": "mysql_memory_defaults_group",
             "caption": "MySQL Memory: Defaults Group",
             "description": "Group/section to read from in the cnf file.",
@@ -133,7 +171,16 @@
             },
             "uuid": "aa9260cf-5323-4a74-89f7-f6059badf52e"
         },
-        "4": {
+        "5": {
+            "varname": "mysql_memory_lengthy",
+            "caption": "MySQL Memory: Lengthy?",
+            "description": "Append a full memory breakdown table to the output (each contributing buffer + the calculation that produces server_buffers, per_thread_buffers, max_used_memory and max_peak_memory). Useful when a WARNING/CRITICAL fires and you need to see which buffer dominates the footprint.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "57070daa-f181-4ee1-b884-b50bf3b29113"
+        },
+        "6": {
             "varname": "mysql_memory_timeout",
             "caption": "MySQL Memory: Timeout",
             "description": "Network timeout in seconds.",
@@ -143,6 +190,17 @@
                 "visibility": "visible"
             },
             "uuid": "e75e0344-7b62-4dd4-8460-a7b40777b317"
+        },
+        "7": {
+            "varname": "mysql_memory_warning",
+            "caption": "MySQL Memory: Warning",
+            "description": "Percentage of physical RAM at which the reached MySQL memory footprint flips to WARNING.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "3e9cbd44-abf5-487c-938d-aa09ff7d247d"
         }
     }
 }
