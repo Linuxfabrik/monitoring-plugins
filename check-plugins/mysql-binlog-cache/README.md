@@ -100,10 +100,10 @@ Binary logging is enabled, no binlog cache activity yet.
 
 | Name | Type | Description |
 |----|----|----|
-| mysql_binlog_cache_disk_use | Continuous Counter | Number of transactions which used a temporary disk cache because they could not fit in the regular binary log cache, being larger than `binlog_cache_size`. |
+| mysql_binlog_cache_disk_use_per_second | Number | Per-second rate of transactions that had to spill to a temporary disk file because they exceeded `binlog_cache_size`. Only emitted from the second run onwards (the plugin keeps a small SQLite cache between runs to compute the delta in-plugin instead of using a continuous counter). |
 | mysql_binlog_cache_size | Bytes | Size in bytes, per-connection, of the cache holding a record of binary log changes during a transaction. |
-| mysql_binlog_cache_use | Continuous Counter | Number of transactions which used the regular binary log cache, being smaller than `binlog_cache_size`. |
-| mysql_pct_binlog_cache | Percentage | (Binlog_cache_use - Binlog_cache_disk_use) / Binlog_cache_use * 100 |
+| mysql_binlog_cache_use_per_second | Number | Per-second rate of transactions that used the in-memory binlog cache. Only emitted from the second run onwards. |
+| mysql_pct_binlog_cache | Percentage | (Binlog_cache_use - Binlog_cache_disk_use) / Binlog_cache_use * 100, computed from the cumulative MySQL/MariaDB counters. |
 
 
 ## Credits, License
