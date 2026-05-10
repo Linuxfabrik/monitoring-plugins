@@ -28,12 +28,13 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026051001'
 
-DESCRIPTION = """Checks system requirements and kernel settings for MySQL/MariaDB, including swap
-configuration, open file limits, and other OS-level parameters that affect database
-performance and stability.
-Alerts on misconfigured system settings."""
+DESCRIPTION = """Checks Linux kernel parameters that affect MySQL/MariaDB stability and
+performance: vm.swappiness, the asynchronous-I/O event ceiling fs.aio-max-nr, the per-process
+file-handle ceiling fs.nr_open, and (on hosts that mount NFS) the sunrpc TCP slot-table size.
+Optionally also flags hosts that listen on too many TCP ports.
+Alerts on misconfigured settings."""
 
 DEFAULT_MAXPORTSALLOWED = 0
 
@@ -59,7 +60,8 @@ def parse_args():
 
     parser.add_argument(
         '--maxportsallowed',
-        help='Maximum number of open ports allowed on this host. 0 disables the check. Default: %(default)s',
+        help='Maximum number of TCP ports listening on this host. 0 disables the check. '
+        'Default: %(default)s',
         dest='MAXPORTSALLOWED',
         type=int,
         default=DEFAULT_MAXPORTSALLOWED,
@@ -69,23 +71,36 @@ def parse_args():
     return args
 
 
-def get_opened_ports():
-    opened_ports = {}
-    if HAVE_PSUTIL:
-        opened_ports = psutil.net_connections()
-    return len(opened_ports)
+def get_listening_ports():
+    """Return the count of distinct local TCP ports in LISTEN state, or `None` if `psutil`
+    is not installed.
+    """
+    if not HAVE_PSUTIL:
+        return None
+    listening = {
+        c.laddr.port
+        for c in psutil.net_connections(kind='inet')
+        if c.status == psutil.CONN_LISTEN and c.laddr
+    }
+    return len(listening)
 
 
 def get_sysctl(key):
+    """Read a sysctl key. Returns the stripped value, or `None` if empty/unreadable."""
     cmd = f'sysctl --values {key} 2> /dev/null'
     stdout, _stderr, _retc = lib.base.coe(lib.shell.shell_exec(cmd))
-    return stdout.strip()
+    value = stdout.strip()
+    return value or None
 
 
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:get_kernel_info(), v1.9.8
+    # logic taken from mysqltuner.pl:get_kernel_info(),
+    # verified in sync with MySQLTuner v2.8.41 (vm.swappiness <= 10,
+    # sunrpc.tcp_slot_table_entries > 100, fs.aio-max-nr >= 1M
+    # and fs.nr_open >= 1M, with the same recommendations
+    # mysqltuner emits).
 
     # parse the command line
     try:
@@ -98,82 +113,110 @@ def main():
     state = STATE_OK
     perfdata = ''
 
-    # count ports
-    opened_ports = get_opened_ports()
-    if args.MAXPORTSALLOWED > 0:
-        if opened_ports == 0:
+    # NOTE: lib.base.oao() strips `<` and `>` from the printed message (HTML-injection
+    # mitigation), so threshold descriptions and shell-redirection examples are written in
+    # plain English instead of with comparison operators.
 
-            # build the message
-            msg += 'No ports checked (psutil missing). '
-        if opened_ports > args.MAXPORTSALLOWED:
+    # count distinct local TCP ports in LISTEN state
+    listening = get_listening_ports()
+    if listening is None:
+        msg += 'No ports checked (psutil missing). '
+    else:
+        if args.MAXPORTSALLOWED > 0 and listening > args.MAXPORTSALLOWED:
             state = STATE_WARN
             msg += (
-                f'There are too many listening ports:'
-                f' {opened_ports} opened >'
-                f' {args.MAXPORTSALLOWED} allowed'
-                f' (consider dedicating a server for your'
-                f' database installation with less services'
-                f' running on). '
+                f'There are too many listening ports: {listening} listening,'
+                f' {args.MAXPORTSALLOWED} allowed (consider dedicating a server'
+                f' for your database installation with less services running on). '
             )
-    perfdata += lib.base.get_perfdata(
-        'mysql_opened_ports',
-        opened_ports,
-        _min=0,
-    )
+        else:
+            msg += f'{listening} listening TCP ports. '
+        perfdata += lib.base.get_perfdata(
+            'mysql_listening_ports',
+            listening,
+            _min=0,
+        )
 
     # get kernel settings on linux
     if lib.base.LINUX:
+        # vm.swappiness — should be 10 or below to keep MySQL pages out of swap
         result = get_sysctl('vm.swappiness')
-        if not result:
+        if result is None:
             lib.base.cu('Permission denied reading `vm.swappiness`')
         if int(result) > 10:
             state = STATE_WARN
             msg += (
-                f'vm.swappiness is {result},'
-                f' should be <= 10'
-                f' (use `echo 10 >'
-                f' /proc/sys/vm/swappiness`). '
+                f'vm.swappiness is {result}, should be 10 or below'
+                f' (set `vm.swappiness=10` in /etc/sysctl.conf or'
+                f' /etc/sysctl.d/, then `sysctl -p`). '
             )
+        else:
+            msg += f'vm.swappiness is {result}. '
         perfdata += lib.base.get_perfdata(
-            'mysql_kernel_vm.swappiness',
+            'mysql_kernel_vm_swappiness',
             result,
             uom='%',
             _min=0,
             _max=100,
         )
 
-        # only if /proc/sys/sunrpc exists
+        # sunrpc.tcp_slot_table_entries — only if /proc/sys/sunrpc exists (i.e. NFS in use)
         if os.path.isdir('/proc/sys/sunrpc'):
             result = get_sysctl('sunrpc.tcp_slot_table_entries')
-            if int(result) <= 100:
-                state = STATE_WARN
-                msg += (
-                    f'sunrpc.tcp_slot_table_entries is'
-                    f' {result}, should be > 100'
-                    f' (use `echo 128 > /proc/sys/sunrpc'
-                    f'/tcp_slot_table_entries`). '
+            if result is not None:
+                if int(result) <= 100:
+                    state = STATE_WARN
+                    msg += (
+                        f'sunrpc.tcp_slot_table_entries is {result},'
+                        f' should be at least 128 (set'
+                        f' `sunrpc.tcp_slot_table_entries=128` in /etc/sysctl.conf'
+                        f' or /etc/sysctl.d/, then `sysctl -p`). '
+                    )
+                else:
+                    msg += f'sunrpc.tcp_slot_table_entries is {result}. '
+                perfdata += lib.base.get_perfdata(
+                    'mysql_kernel_sunrpc_tcp_slot_table_entries',
+                    result,
+                    _min=0,
                 )
-            perfdata += lib.base.get_perfdata(
-                'mysql_kernel_sunrpc.tcp_slot_table_entries',
-                result,
-                _min=0,
-            )
 
+        # fs.aio-max-nr — InnoDB AIO event ceiling, recommend at least 1M
         if os.path.isfile('/proc/sys/fs/aio-max-nr'):
             result = get_sysctl('fs.aio-max-nr')
-            if int(result) < 1000000:
-                state = STATE_WARN
-                msg += (
-                    f'fs.aio-max-nr is {result},'
-                    f' should be > 1M'
-                    f' (use `echo 1048576 >'
-                    f' /proc/sys/fs/aio-max-nr`). '
+            if result is not None:
+                if int(result) < 1000000:
+                    state = STATE_WARN
+                    msg += (
+                        f'fs.aio-max-nr is {result}, should be at least 1M'
+                        f' (set `fs.aio-max-nr=1048576` in /etc/sysctl.conf or'
+                        f' /etc/sysctl.d/, then `sysctl -p`). '
+                    )
+                else:
+                    msg += f'fs.aio-max-nr is {result}. '
+                perfdata += lib.base.get_perfdata(
+                    'mysql_kernel_fs_aio_max_nr',
+                    result,
+                    _min=0,
                 )
-            perfdata += lib.base.get_perfdata(
-                'mysql_kernel_fs.aio-max-nr',
-                result,
-                _min=0,
-            )
+
+        # fs.nr_open — per-process file-handle ceiling, recommend at least 1M
+        if os.path.isfile('/proc/sys/fs/nr_open'):
+            result = get_sysctl('fs.nr_open')
+            if result is not None:
+                if int(result) < 1000000:
+                    state = STATE_WARN
+                    msg += (
+                        f'fs.nr_open is {result}, should be at least 1M'
+                        f' (set `fs.nr_open=1048576` in /etc/sysctl.conf or'
+                        f' /etc/sysctl.d/, then `sysctl -p`). '
+                    )
+                else:
+                    msg += f'fs.nr_open is {result}. '
+                perfdata += lib.base.get_perfdata(
+                    'mysql_kernel_fs_nr_open',
+                    result,
+                    _min=0,
+                )
 
     if not msg:
         msg = 'Everything is ok.'

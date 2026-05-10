@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks system requirements and kernel settings specifically for MySQL/MariaDB, including swap configuration, open file limits, and other OS-level parameters that affect database performance and stability. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):get_kernel_info(), v1.9.8.
+Checks Linux kernel parameters that affect MySQL/MariaDB stability and performance: `vm.swappiness`, the asynchronous-I/O event ceiling `fs.aio-max-nr`, the per-process file-handle ceiling `fs.nr_open`, and (on hosts that mount NFS) the sunrpc TCP slot-table size. Optionally also flags hosts that listen on too many TCP ports. Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):get_kernel_info() and has been verified in sync with MySQLTuner v2.8.41.
 
 **Important Notes:**
 
@@ -13,7 +13,7 @@ Checks system requirements and kernel settings specifically for MySQL/MariaDB, i
 
 **Data Collection:**
 
-* Counts open ports using `psutil` (if available)
+* Counts distinct local TCP ports in `LISTEN` state via `psutil` (if available). Connections in `ESTABLISHED`, `TIME_WAIT` etc. are not counted
 * Reads Linux kernel parameters via `sysctl`
 * Does not need access to MySQL/MariaDB itself
 
@@ -28,6 +28,7 @@ Checks system requirements and kernel settings specifically for MySQL/MariaDB, i
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |
+| Requirements                          | Read access to `/proc/sys/*` (default for any user). No MySQL/MariaDB credentials needed - the plugin does not connect to the database |
 | 3rd Party Python modules              | `psutil` |
 
 
@@ -37,17 +38,18 @@ Checks system requirements and kernel settings specifically for MySQL/MariaDB, i
 usage: mysql-system [-h] [-V] [--always-ok]
                     [--maxportsallowed MAXPORTSALLOWED]
 
-Checks system requirements and kernel settings for MySQL/MariaDB, including
-swap configuration, open file limits, and other OS-level parameters that
-affect database performance and stability. Alerts on misconfigured system
-settings.
+Checks Linux kernel parameters that affect MySQL/MariaDB stability and
+performance: vm.swappiness, the asynchronous-I/O event ceiling fs.aio-max-nr,
+the per-process file-handle ceiling fs.nr_open, and (on hosts that mount NFS)
+the sunrpc TCP slot-table size. Optionally also flags hosts that listen on too
+many TCP ports. Alerts on misconfigured settings.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --maxportsallowed MAXPORTSALLOWED
-                        Maximum number of open ports allowed on this host. 0
+                        Maximum number of TCP ports listening on this host. 0
                         disables the check. Default: 0
 ```
 
@@ -61,15 +63,24 @@ options:
 Output:
 
 ```text
-There are too many listening ports: 56 opened > 15 allowed (consider dedicating a server for your database installation with less services running on). vm.swappiness is 60, should be <= 10 (use `echo 10 > /proc/sys/vm/swappiness`). sunrpc.tcp_slot_table_entries is 2, should be > 100 (use `echo 128 > /proc/sys/sunrpc/tcp_slot_table_entries`).
+There are too many listening ports: 56 listening > 15 allowed (consider dedicating a server for your database installation with less services running on). vm.swappiness is 60, should be <= 10 (`echo 10 > /proc/sys/vm/swappiness`, or `vm.swappiness=10` in /etc/sysctl.conf for persistence). sunrpc.tcp_slot_table_entries is 2, should be > 100 (recommended: 128; `echo 128 > /proc/sys/sunrpc/tcp_slot_table_entries`, or `sunrpc.tcp_slot_table_entries=128` in /etc/sysctl.conf for persistence). fs.aio-max-nr is 1048576 (>= 1M). fs.nr_open is 2147483584 (>= 1M).
+```
+
+When the host is fully tuned, the OK output enumerates each verified setting:
+
+```text
+16 listening TCP ports. vm.swappiness is 5 (<= 10). sunrpc.tcp_slot_table_entries is 128 (> 100). fs.aio-max-nr is 1048576 (>= 1M). fs.nr_open is 1048576 (>= 1M).
 ```
 
 
 ## States
 
 * OK if all kernel parameters are within the recommended range and the port count is acceptable.
-* WARN if there are too many listening ports.
-* WARN if any of the checked Linux kernel parameters is not in the optimal range.
+* WARN if `--maxportsallowed` is set and the count of listening TCP ports exceeds it.
+* WARN if `vm.swappiness > 10`.
+* WARN if `sunrpc.tcp_slot_table_entries <= 100` (only on hosts where `/proc/sys/sunrpc` exists).
+* WARN if `fs.aio-max-nr < 1M`.
+* WARN if `fs.nr_open < 1M`.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -77,10 +88,11 @@ There are too many listening ports: 56 opened > 15 allowed (consider dedicating 
 
 | Name | Type | Description |
 |----|----|----|
-| mysql_kernel_fs.aio-max-nr | Number | Maximum number of asynchronous I/O operations the system can handle. |
-| mysql_kernel_sunrpc.tcp_slot_table_entries | Number | Number of TCP RPC entries pre-allocated for in-flight RPC requests. |
-| mysql_kernel_vm.swappiness | Percentage | Balance between swapping out runtime memory versus dropping pages from the system page cache. |
-| mysql_opened_ports | Number | Number of opened ports. |
+| mysql_kernel_fs_aio_max_nr | Number | Maximum number of asynchronous I/O operations the system can handle. |
+| mysql_kernel_fs_nr_open | Number | Per-process ceiling for the number of open file descriptors. |
+| mysql_kernel_sunrpc_tcp_slot_table_entries | Number | Number of TCP RPC entries pre-allocated for in-flight RPC requests. Only emitted when `/proc/sys/sunrpc` exists. |
+| mysql_kernel_vm_swappiness | Percentage | Balance between swapping out runtime memory versus dropping pages from the system page cache. |
+| mysql_listening_ports | Number | Count of distinct local TCP ports in `LISTEN` state. |
 
 
 ## Credits, License

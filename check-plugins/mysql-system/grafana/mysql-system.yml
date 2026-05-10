@@ -48,7 +48,7 @@ spec:
 
   panels:
 
-  - title: MySQL System - Kernel fs
+  - title: MySQL System - Kernel fs - File handle ceilings
     type: timeseries
     gridPos:
       h: 8
@@ -68,10 +68,16 @@ spec:
       overrides:
       - matcher:
           id: byName
-          options: mysql_kernel_fs.aio-max-nr
+          options: mysql_kernel_fs_aio_max_nr
         properties:
         - id: displayName
           value: Kernel fs.aio-max-nr
+      - matcher:
+          id: byName
+          options: mysql_kernel_fs_nr_open
+        properties:
+        - id: displayName
+          value: Kernel fs.nr_open
     options:
       legend:
         calcs:
@@ -89,8 +95,8 @@ spec:
 
     targets:
 
-    - alias: mysql_kernel_fs.aio-max-nr
-      refId: mysql_kernel_fs.aio-max-nr
+    - alias: mysql_kernel_fs_aio_max_nr
+      refId: mysql_kernel_fs_aio_max_nr
       groupBy:
       - params:
         - $interval
@@ -114,7 +120,34 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_kernel_fs.aio-max-nr
+        value: mysql_kernel_fs_aio_max_nr
+
+    - alias: mysql_kernel_fs_nr_open
+      refId: mysql_kernel_fs_nr_open
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_kernel_fs_nr_open
 
 
   - title: MySQL System - Kernel sunrpc
@@ -137,7 +170,7 @@ spec:
       overrides:
       - matcher:
           id: byName
-          options: mysql_kernel_sunrpc.tcp_slot_table_entries
+          options: mysql_kernel_sunrpc_tcp_slot_table_entries
         properties:
         - id: displayName
           value: Kernel sunrpc.tcp_slot_table_entries
@@ -158,8 +191,8 @@ spec:
 
     targets:
 
-    - alias: mysql_kernel_sunrpc.tcp_slot_table_entries
-      refId: mysql_kernel_sunrpc.tcp_slot_table_entries
+    - alias: mysql_kernel_sunrpc_tcp_slot_table_entries
+      refId: mysql_kernel_sunrpc_tcp_slot_table_entries
       groupBy:
       - params:
         - $interval
@@ -183,7 +216,7 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_kernel_sunrpc.tcp_slot_table_entries
+        value: mysql_kernel_sunrpc_tcp_slot_table_entries
 
 
   - title: MySQL System - Kernel vm - Percentages
@@ -207,7 +240,7 @@ spec:
       overrides:
       - matcher:
           id: byName
-          options: mysql_kernel_vm.swappiness
+          options: mysql_kernel_vm_swappiness
         properties:
         - id: displayName
           value: Kernel vm.swappiness
@@ -228,8 +261,8 @@ spec:
 
     targets:
 
-    - alias: mysql_kernel_vm.swappiness
-      refId: mysql_kernel_vm.swappiness
+    - alias: mysql_kernel_vm_swappiness
+      refId: mysql_kernel_vm_swappiness
       groupBy:
       - params:
         - $interval
@@ -253,10 +286,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_kernel_vm.swappiness
+        value: mysql_kernel_vm_swappiness
 
 
-  - title: MySQL System - Opened Ports
+  - title: MySQL System - Listening Ports
     type: timeseries
     gridPos:
       h: 8
@@ -276,10 +309,10 @@ spec:
       overrides:
       - matcher:
           id: byName
-          options: mysql_opened_ports
+          options: mysql_listening_ports
         properties:
         - id: displayName
-          value: Opened ports
+          value: Listening TCP ports
     options:
       legend:
         calcs:
@@ -297,8 +330,8 @@ spec:
 
     targets:
 
-    - alias: mysql_opened_ports
-      refId: mysql_opened_ports
+    - alias: mysql_listening_ports
+      refId: mysql_listening_ports
       groupBy:
       - params:
         - $interval
@@ -322,5 +355,5 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_opened_ports
+        value: mysql_listening_ports
 
