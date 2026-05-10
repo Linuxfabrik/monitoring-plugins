@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051002'
+__version__ = '2026051003'
 
 DESCRIPTION = """Checks the rate of joins executed without indexes in MySQL/MariaDB
 (`Select_range_check + Select_full_join`). A high rate (more than 250 such joins per day,
@@ -37,8 +37,10 @@ DEFAULT_TIMEOUT = 3
 SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-joins.db'
 
 # Above this `join_buffer_size`, mysqltuner stops recommending raising it - the
-# bottleneck is then the query design, not the buffer (raising further hurts memory
-# usage without helping). Same threshold (4 MiB) we mirror.
+# upstream code hard-codes `if join_buffer_size < 4 * 1024 * 1024` for the "raise"
+# branch, without further justification. We mirror the same threshold and use the
+# *per-session* allocation argument (size × max_connections is reserved memory) to
+# motivate it instead of guessing about diminishing returns above 4 MiB.
 JOIN_BUFFER_SIZE_RECOMMEND_CEILING = 4 * 1024 * 1024
 
 
@@ -238,48 +240,54 @@ def main():
         f' `Select_full_join` = {lib.human.number2human(select_full_join)})'
     )
 
+    # All recommendations from all WARN paths land in this single list and are
+    # rendered once at the end as a `Recommendations:` bulleted block. Keeps the
+    # output structure consistent regardless of which combinations of WARN paths
+    # fire.
+    recommendations = []
+
     if joins_per_day > 250:
         state = lib.base.get_worst(state, STATE_WARN)
         sections.append(f'{facts}{lib.base.state2str(STATE_WARN, prefix=" ")}.')
-
-        # Recommendation depends on the current `join_buffer_size`. mysqltuner only
-        # suggests raising it when it is still below 4 MiB - above that the buffer
-        # is large enough and the bottleneck is the query design (missing indexes).
-        recs = ['Use JOINs with indexes wherever possible']
+        recommendations.append('Use JOINs with indexes wherever possible')
         if join_buffer_size < JOIN_BUFFER_SIZE_RECOMMEND_CEILING:
-            recs.append(
-                f'Otherwise raise `join_buffer_size` >'
-                f' {lib.human.bytes2human(join_buffer_size)} (currently below'
-                f' the {lib.human.bytes2human(JOIN_BUFFER_SIZE_RECOMMEND_CEILING)}'
-                f' point above which raising it stops helping)'
+            recommendations.append(
+                f'Otherwise raise `join_buffer_size`'
+                f' (currently {lib.human.bytes2human(join_buffer_size)}). MySQLTuner'
+                f' uses 4 MiB as its cutoff for this recommendation, above which'
+                f' it stops suggesting further increases'
             )
         else:
-            recs.append(
+            recommendations.append(
                 f'`join_buffer_size` is already'
-                f' {lib.human.bytes2human(join_buffer_size)} (above the 4.0MiB'
-                f' point); raising it further is unlikely to help, the bottleneck'
-                f' is the query design'
+                f' {lib.human.bytes2human(join_buffer_size)} - above the 4 MiB'
+                f' point at which MySQLTuner stops recommending to raise it, so the'
+                f' bottleneck is more likely the query design (missing indexes)'
+                f' than the buffer size'
             )
-        sections.append(
-            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recs)
-        )
     else:
         sections.append(f'{facts}.')
 
     # Independent WARN: oversized `join_buffer_size`. mysqltuner does not flag this,
-    # but the variable is allocated PER SESSION on the server, so a 4+ MiB buffer
-    # times `max_connections` is real reserved memory. Above the 4 MiB point
-    # (mysqltuner's "raising stops helping" threshold) the cost is paid without
-    # measurable benefit.
+    # but the variable is allocated PER SESSION, so size × `max_connections` is
+    # real reserved memory.
     if join_buffer_size > JOIN_BUFFER_SIZE_RECOMMEND_CEILING:
         state = lib.base.get_worst(state, STATE_WARN)
         sections.append(
             f'`join_buffer_size` ({lib.human.bytes2human(join_buffer_size)}) is'
-            f' above the 4.0MiB point above which raising it stops helping the'
-            f' joins-without-indexes rate, but the buffer is allocated per session,'
-            f' so the cost is paid (up to `max_connections` times the buffer'
-            f' size). Consider lowering `join_buffer_size`'
-            f' {lib.base.state2str(STATE_WARN, prefix=" ")}.'
+            f' above MySQLTuner\'s 4 MiB cutoff, and the buffer is allocated per'
+            f' session, so the cost is paid up to `max_connections` times the'
+            f' buffer size{lib.base.state2str(STATE_WARN, prefix=" ")}.'
+        )
+        recommendations.append(
+            f'Lower `join_buffer_size` (currently'
+            f' {lib.human.bytes2human(join_buffer_size)}) closer to MySQLTuner\'s'
+            f' 4 MiB cutoff to reduce per-session memory reservation'
+        )
+
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
         )
 
     msg = '\n\n'.join(sections)
