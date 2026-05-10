@@ -16,20 +16,30 @@ import sys
 import lib.args
 import lib.base
 import lib.db_mysql
+import lib.db_sqlite
 import lib.human
+import lib.time
 import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041301'
+__version__ = '2026051001'
 
-DESCRIPTION = """Checks the rate of joins executed without indexes in MySQL/MariaDB. A high rate of
-full joins indicates missing indexes and can severely impact query performance.
-Alerts when the rate of joins without indexes is too high."""
+DESCRIPTION = """Checks the rate of joins executed without indexes in MySQL/MariaDB
+(`Select_range_check + Select_full_join`). A high rate (more than 250 such joins per day,
+matching MySQLTuner) indicates missing indexes and can severely impact query performance.
+Alerts when the rate exceeds the threshold."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_TIMEOUT = 3
+
+SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-joins.db'
+
+# Above this `join_buffer_size`, mysqltuner stops recommending raising it - the
+# bottleneck is then the query design, not the buffer (raising further hurts memory
+# usage without helping). Same threshold (4 MiB) we mirror.
+JOIN_BUFFER_SIZE_RECOMMEND_CEILING = 4 * 1024 * 1024
 
 
 def parse_args():
@@ -81,8 +91,6 @@ def parse_args():
 
 def get_vars(conn):
     # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
-    # Without the GLOBAL modifier, SHOW VARIABLES displays the values that are used for
-    # the current connection to MariaDB.
     sql = """
         show global variables
         where variable_name like 'join_buffer_size'
@@ -93,8 +101,6 @@ def get_vars(conn):
 
 def get_status(conn):
     # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
-    # Without the GLOBAL modifier, SHOW STATUS displays the values that are used for
-    # the current connection to MariaDB.
     sql = """
         show global status
         where variable_name like 'Select_full_join'
@@ -105,11 +111,87 @@ def get_status(conn):
     return lib.base.coe(lib.db_mysql.select(conn, sql))
 
 
+def per_second_deltas(select_full_join, select_range_check, joins_without_indexes):
+    """Persist the current cumulative `Select_full_join`, `Select_range_check` and the
+    derived `joins_without_indexes` counters in the local SQLite cache and return their
+    per-second deltas vs. the previous run. Returns `(full_join_per_s, range_check_per_s,
+    joins_per_s)`, or all-`None` when fewer than two samples are recorded yet or after a
+    counter reset (server restart, `FLUSH STATUS`).
+
+    Avoids `uom='c'` counters in perfdata (per CONTRIBUTING.md): we compute the rate here
+    once per run instead of forcing every Grafana panel to do `non_negative_difference()`.
+    """
+    sqlite_conn = lib.base.coe(lib.db_sqlite.connect(filename=SQLITE_DB))
+    definition = """
+        name                      TEXT NOT NULL,
+        timestamp                 INT NOT NULL,
+        select_full_join          INT NOT NULL,
+        select_range_check        INT NOT NULL,
+        joins_without_indexes     INT NOT NULL
+    """
+    lib.base.coe(
+        lib.db_sqlite.create_table(sqlite_conn, definition, drop_table_first=False),
+    )
+    lib.base.coe(lib.db_sqlite.create_index(sqlite_conn, 'name'))
+
+    lib.base.coe(
+        lib.db_sqlite.insert(
+            sqlite_conn,
+            {
+                'name': 'mysql-joins',
+                'timestamp': lib.time.now(),
+                'select_full_join': select_full_join,
+                'select_range_check': select_range_check,
+                'joins_without_indexes': joins_without_indexes,
+            },
+        )
+    )
+    lib.base.coe(lib.db_sqlite.cut(sqlite_conn, _max=2))
+    lib.base.coe(lib.db_sqlite.commit(sqlite_conn))
+
+    rows = lib.base.coe(
+        lib.db_sqlite.select(
+            sqlite_conn,
+            """
+            SELECT *
+            FROM perfdata
+            WHERE name = :name
+            ORDER BY timestamp DESC
+            """,
+            {'name': 'mysql-joins'},
+        )
+    )
+    lib.db_sqlite.close(sqlite_conn)
+
+    if len(rows) < 2:
+        return None, None, None
+    timestamp_diff = rows[0]['timestamp'] - rows[1]['timestamp']
+    if timestamp_diff <= 0:
+        return None, None, None
+    full_join_delta = rows[0]['select_full_join'] - rows[1]['select_full_join']
+    range_check_delta = (
+        rows[0]['select_range_check'] - rows[1]['select_range_check']
+    )
+    joins_delta = (
+        rows[0]['joins_without_indexes'] - rows[1]['joins_without_indexes']
+    )
+    if full_join_delta < 0 or range_check_delta < 0 or joins_delta < 0:
+        # counter reset (server restart, FLUSH STATUS)
+        return None, None, None
+    return (
+        int(full_join_delta / timestamp_diff),
+        int(range_check_delta / timestamp_diff),
+        int(joins_delta / timestamp_diff),
+    )
+
+
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:mysql_stats(), section # Joins, v1.9.8
-    # including variable names
+    # logic taken from mysqltuner.pl:mysql_stats(), section "Joins", verified in
+    # sync with MySQLTuner v2.8.41 (the > 250 joins-per-day threshold and the
+    # 4 MiB `join_buffer_size` ceiling above which mysqltuner stops recommending
+    # to raise it are unchanged upstream since the original port).
 
     # parse the command line
     try:
@@ -129,83 +211,99 @@ def main():
     mystat = lib.db_mysql.lod2dict(get_status(conn))
     lib.db_mysql.close(conn)
 
-    # init some vars
-    perfdata = ''
-
-    # calculations
-    mycalc = {}
-    mycalc['joins_without_indexes'] = int(mystat['Select_range_check']) + int(
-        mystat['Select_full_join']
-    )
-    # Clamp Uptime to a minimum of 1 second so the per-day rate is
-    # well-defined on a freshly booted server where
-    # `SHOW GLOBAL STATUS LIKE 'Uptime'` can legitimately return 0 in
-    # the first second after startup.
+    # cache int conversions
+    select_full_join = int(mystat['Select_full_join'])
+    select_range_check = int(mystat['Select_range_check'])
+    joins_without_indexes = select_full_join + select_range_check
+    join_buffer_size = int(myvar['join_buffer_size'])
+    # Clamp Uptime to a minimum of 1 second so the per-day rate is well-defined on a
+    # freshly booted server where `SHOW GLOBAL STATUS LIKE 'Uptime'` can legitimately
+    # return 0 in the first second after startup.
     uptime = max(int(mystat.get('Uptime') or 0), 1)
-    mycalc['joins_without_indexes_per_day'] = round(
-        mycalc['joins_without_indexes'] / (uptime / 86400), 1
+    joins_per_day = round(joins_without_indexes / (uptime / 86400), 1)
+
+    state = STATE_OK
+    sections = []
+
+    # Always show what was measured, even on OK - admins reading the service line
+    # benefit from seeing the actual count and breakdown rather than a bare
+    # "Everything is ok.".
+    facts = (
+        f'{lib.human.number2human(joins_without_indexes)}'
+        f' {lib.txt.pluralize("JOIN", joins_without_indexes)} without indexes'
+        f' in {lib.human.seconds2human(uptime)} of uptime'
+        f' (approx. {lib.human.number2human(joins_per_day)}/day;'
+        f' `Select_range_check` = {select_range_check},'
+        f' `Select_full_join` = {select_full_join})'
     )
 
-    # Joins
-    if mycalc['joins_without_indexes_per_day'] > 250:
-        state = STATE_WARN
-        msg = (
-            f'{lib.human.number2human(mycalc["joins_without_indexes"])}'
-            f' {lib.txt.pluralize("JOIN", mycalc["joins_without_indexes"])}'
-            f' without indexes while MySQL/MariaDB is'
-            f' {lib.human.seconds2human(int(mystat["Uptime"]))} up'
-            f' (approx.'
-            f' {lib.human.number2human(mycalc["joins_without_indexes_per_day"])}'
-            f' joins without indexes per day)'
-            f'{lib.base.state2str(state, prefix=" ")}'
-        )
+    if joins_per_day > 250:
+        state = lib.base.get_worst(state, STATE_WARN)
+        sections.append(f'{facts}{lib.base.state2str(STATE_WARN, prefix=" ")}.')
 
-        # build the message
-        msg += '\n\nRecommendations:\n'
-        msg += '* Use JOIN with indexes\n'
-        msg += (
-            f'* Otherwise set join_buffer_size >'
-            f' {lib.human.bytes2human(int(myvar["join_buffer_size"]))}\n'
+        # Recommendation depends on the current `join_buffer_size`. mysqltuner only
+        # suggests raising it when it is still below 4 MiB - above that the buffer
+        # is large enough and the bottleneck is the query design (missing indexes).
+        recs = ['Use JOINs with indexes wherever possible']
+        if join_buffer_size < JOIN_BUFFER_SIZE_RECOMMEND_CEILING:
+            recs.append(
+                f'Otherwise raise `join_buffer_size` >'
+                f' {lib.human.bytes2human(join_buffer_size)} (currently below'
+                f' the {lib.human.bytes2human(JOIN_BUFFER_SIZE_RECOMMEND_CEILING)}'
+                f' point above which raising it stops helping)'
+            )
+        else:
+            recs.append(
+                f'`join_buffer_size` is already'
+                f' {lib.human.bytes2human(join_buffer_size)} (above the 4.0MiB'
+                f' point); raising it further is unlikely to help, the bottleneck'
+                f' is the query design'
+            )
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recs)
         )
     else:
-        state = STATE_OK
-        msg = 'Everything is ok.'
+        sections.append(f'{facts}.')
 
+    msg = '\n\n'.join(sections)
+
+    # Per-CONTRIBUTING: counters as in-plugin per-second deltas, not `uom='c'`.
+    full_join_per_s, range_check_per_s, joins_per_s = per_second_deltas(
+        select_full_join, select_range_check, joins_without_indexes,
+    )
+
+    perfdata = ''
     perfdata += lib.base.get_perfdata(
         'mysql_join_buffer_size',
-        myvar['join_buffer_size'],
+        join_buffer_size,
         uom='B',
         _min=0,
     )
-
-    perfdata += lib.base.get_perfdata(
-        'mysql_select_full_join',
-        mystat['Select_full_join'],
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'mysql_select_range_check',
-        mystat['Select_range_check'],
-        uom='c',
-        _min=0,
-    )
+    if full_join_per_s is not None:
+        perfdata += lib.base.get_perfdata(
+            'mysql_select_full_join_per_second',
+            full_join_per_s,
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_select_range_check_per_second',
+            range_check_per_s,
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_joins_without_indexes_per_second',
+            joins_per_s,
+            _min=0,
+        )
     perfdata += lib.base.get_perfdata(
         'mysql_uptime',
-        mystat['Uptime'],
+        uptime,
         uom='s',
-        _min=0,
-    )
-
-    perfdata += lib.base.get_perfdata(
-        'mysql_joins_without_indexes',
-        mycalc['joins_without_indexes'],
-        uom='c',
         _min=0,
     )
     perfdata += lib.base.get_perfdata(
         'mysql_joins_without_indexes_per_day',
-        mycalc['joins_without_indexes_per_day'],
+        joins_per_day,
         _min=0,
     )
 

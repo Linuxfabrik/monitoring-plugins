@@ -1,0 +1,333 @@
+apiVersion: grizzly.grafana.com/v1alpha1
+kind: Dashboard
+metadata:
+  folder: linuxfabrik-monitoring-plugins
+  name: mysql-joins
+spec:
+  schemaVersion: 2023041201
+  tags:
+    - Linuxfabrik
+    - Grizzly
+    - static
+  time:
+    from: now-90d
+    to: now
+  timepicker:
+    hidden: false
+    refresh_intervals:
+    - 1m
+  timezone: browser
+  title: MySQL Joins
+  uid: linuxfabrik-monitoring-plugins-mysql-joins
+  editable: true
+  liveNow: true
+  refresh: 1m
+  templating:
+    list:
+    - label: Command
+      name: command
+      query: SHOW MEASUREMENTS WITH MEASUREMENT =~ /.*mysql-joins.*/
+      current:
+        text: cmd-check-mysql-joins
+        value: cmd-check-mysql-joins
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Hostname
+      name: hostname
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "hostname"
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Service
+      name: service
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "service" WHERE hostname = '$hostname'
+      refresh: 1
+      sort: 1
+      type: query
+
+  panels:
+
+  - title: MySQL Joins - Buffer Size
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 1
+        min: 0
+        unit: bytes
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_join_buffer_size
+        properties:
+        - id: displayName
+          value: join_buffer_size
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: mysql_join_buffer_size
+      refId: mysql_join_buffer_size
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_join_buffer_size
+
+
+  - title: MySQL Joins - Per-Second Counts
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        min: 0
+        unit: short
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_joins_without_indexes_per_second
+        properties:
+        - id: displayName
+          value: Joins without indexes per second
+      - matcher:
+          id: byName
+          options: mysql_select_full_join_per_second
+        properties:
+        - id: displayName
+          value: Select_full_join per second
+      - matcher:
+          id: byName
+          options: mysql_select_range_check_per_second
+        properties:
+        - id: displayName
+          value: Select_range_check per second
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: mysql_joins_without_indexes_per_second
+      refId: mysql_joins_without_indexes_per_second
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_joins_without_indexes_per_second
+
+    - alias: mysql_select_full_join_per_second
+      refId: mysql_select_full_join_per_second
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_select_full_join_per_second
+
+    - alias: mysql_select_range_check_per_second
+      refId: mysql_select_range_check_per_second
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_select_range_check_per_second
+
+
+  - title: MySQL Joins - Per-Day Lifetime Rate
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 8
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 1
+        min: 0
+        unit: short
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_joins_without_indexes_per_day
+        properties:
+        - id: displayName
+          value: Joins without indexes per day (target <= 250)
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: mysql_joins_without_indexes_per_day
+      refId: mysql_joins_without_indexes_per_day
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_joins_without_indexes_per_day
