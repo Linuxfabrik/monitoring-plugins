@@ -20,12 +20,13 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026051001'
 
-DESCRIPTION = """Checks if transactions in MySQL/MariaDB had to use a temporary disk cache because they
-exceeded the configured binary log cache size. A high disk cache usage rate indicates
-that binlog_cache_size should be increased.
-Alerts when the disk cache usage rate is too high."""
+DESCRIPTION = """Checks the memory-access rate for the MySQL/MariaDB binary log cache. A low rate
+(below 90%) means many transactions had to spill from the in-memory binlog cache to a
+temporary disk file because they exceeded `binlog_cache_size`, and the variable should be
+increased.
+Alerts when the memory-access rate drops below 90%."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
@@ -108,8 +109,11 @@ def get_status(conn):
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:mysql_stats(), section # Binlog cache, v1.9.8
-    # including variable names
+    # logic taken from mysqltuner.pl:mysql_stats(), section # Binlog cache,
+    # verified in sync with MySQLTuner v2.8.41 (the calc formula
+    # (Binlog_cache_use - Binlog_cache_disk_use) / Binlog_cache_use, the
+    # < 90% warn threshold and the "increase binlog_cache_size by 16M"
+    # recommendation are unchanged upstream since the original port).
 
     # parse the command line
     try:
@@ -131,54 +135,17 @@ def main():
 
     # init some vars
     state = STATE_OK
+
+    # perfdata is always emitted (even when binary logging is OFF or no traffic
+    # has been cached yet) so trending across the disabling/enabling boundary
+    # stays continuous.
     perfdata = ''
-
-    # calculations
-    mycalc = {}
-    if myvar['log_bin'] == 'OFF':
-        lib.base.cu('Binary logging is disabled.')
-
-    if int(mystat['Binlog_cache_use']) != 0:
-        mycalc['pct_binlog_cache'] = round(
-            (int(mystat['Binlog_cache_use']) - int(mystat['Binlog_cache_disk_use']))
-            / int(mystat['Binlog_cache_use'])
-            * 100,
-            1,
-        )
-    else:
-        mycalc['pct_binlog_cache'] = 0
-
-    # Binlog cache
-    binlog_mem = lib.human.number2human(
-        int(mystat['Binlog_cache_use']) - int(mystat['Binlog_cache_disk_use']),
-    )
-    binlog_total = lib.human.number2human(
-        mystat['Binlog_cache_use'],
-    )
-    msg = (
-        f'{mycalc["pct_binlog_cache"]}%'
-        f' binlog cache memory access'
-        f' ({binlog_mem} memory / {binlog_total} total)'
-    )
-    if mycalc['pct_binlog_cache'] < 90 and int(mystat['Binlog_cache_use']) > 0:
-        state = STATE_WARN
-        state_str = lib.base.state2str(state, prefix=' ')
-        new_size = lib.human.bytes2human(
-            int(myvar['binlog_cache_size']) + 16 * 1024 * 1024,
-        )
-
-        # build the message
-        msg += f'{state_str}. Set binlog_cache_size to {new_size}.'
-    else:
-        msg += '.'
-
     perfdata += lib.base.get_perfdata(
         'mysql_binlog_cache_size',
         myvar['binlog_cache_size'],
         uom='B',
         _min=0,
     )
-
     perfdata += lib.base.get_perfdata(
         'mysql_binlog_cache_disk_use',
         mystat['Binlog_cache_disk_use'],
@@ -192,13 +159,66 @@ def main():
         _min=0,
     )
 
+    # Binary logging disabled is a legitimate config (standalone server without
+    # replication); not UNKNOWN. mysqltuner emits the same as an infoprint.
+    if myvar['log_bin'] == 'OFF':
+        lib.base.oao(
+            'Binary logging is disabled.',
+            STATE_OK,
+            perfdata,
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # No binlog cache activity yet -> the percentage would be a misleading 0%.
+    # mysqltuner leaves pct_binlog_cache undefined in this case and skips the
+    # display; we mirror that with an explicit info line.
+    binlog_use = int(mystat['Binlog_cache_use'])
+    if binlog_use == 0:
+        lib.base.oao(
+            'Binary logging is enabled, no binlog cache activity yet.',
+            STATE_OK,
+            perfdata,
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # Binlog cache
+    binlog_disk_use = int(mystat['Binlog_cache_disk_use'])
+    pct_binlog_cache = round((binlog_use - binlog_disk_use) / binlog_use * 100, 1)
     perfdata += lib.base.get_perfdata(
         'mysql_pct_binlog_cache',
-        mycalc['pct_binlog_cache'],
+        pct_binlog_cache,
         uom='%',
         _min=0,
         _max=100,
     )
+
+    binlog_mem = lib.human.number2human(binlog_use - binlog_disk_use)
+    binlog_total = lib.human.number2human(binlog_use)
+    msg = (
+        f'{pct_binlog_cache}% binlog cache memory access'
+        f' ({binlog_mem} memory / {binlog_total} total)'
+    )
+
+    if pct_binlog_cache < 90:
+        state = STATE_WARN
+        new_size = lib.human.bytes2human(
+            int(myvar['binlog_cache_size']) + 16 * 1024 * 1024,
+        )
+        msg += (
+            f'{lib.base.state2str(state, prefix=" ")}.'
+            f' Set binlog_cache_size to {new_size}.'
+        )
+    else:
+        msg += '.'
+
+    # mysqltuner emits a debug-only "not enough data to validate" hint when
+    # Binlog_cache_use < 10. Surface it so the admin doesn't act on a hit
+    # rate built from a handful of transactions.
+    if binlog_use < 10:
+        msg += (
+            f' Note: only {binlog_use} transaction(s) cached so far,'
+            f' the hit rate may not yet be representative.'
+        )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

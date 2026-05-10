@@ -3,20 +3,21 @@
 
 ## Overview
 
-Checks whether transactions in MySQL/MariaDB had to use a temporary disk cache because they exceeded the configured binary log cache size (`binlog_cache_size`). A high disk cache usage rate indicates that `binlog_cache_size` should be increased.
+Checks the memory-access rate for the MySQL/MariaDB binary log cache. A low rate (below 90%) means many transactions had to spill from the in-memory binlog cache to a temporary disk file because they exceeded `binlog_cache_size`, and the variable should be increased.
 
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
-* If `log_bin` is set to `OFF`, the check exits with UNKNOWN because binary logging is disabled and this check makes no sense
-* Returns UNKNOWN if binary logging is disabled
+* When binary logging is disabled (`log_bin = OFF`), the plugin reports OK with an info message - that is a legitimate configuration on standalone servers without replication, not an error
+* When `Binlog_cache_use = 0` (binary logging is on, but no transaction has hit the binlog cache yet), the plugin reports OK with an info message instead of a misleading 0% memory-access rate
+* When `Binlog_cache_use < 10`, the plugin still emits the rate but appends a note that the sample is too small to act on
 
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `binlog_cache_size` and `log_bin`
 * Queries `SHOW GLOBAL STATUS` for `Binlog_cache_disk_use` and `Binlog_cache_use`
 * Calculates the percentage of transactions served from memory vs. disk
-* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8
+* Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats(), Binlog cache section, and has been verified in sync with MySQLTuner v2.8.41
 
 
 ## Fact Sheet
@@ -70,14 +71,28 @@ options:
 Output:
 
 ```text
-0% binlog cache memory access (0 memory / 0 total).
+99.7% binlog cache memory access (4.2K memory / 4.3K total).
+```
+
+When binary logging is off:
+
+```text
+Binary logging is disabled.
+```
+
+When binary logging is on but no transaction has hit the binlog cache yet:
+
+```text
+Binary logging is enabled, no binlog cache activity yet.
 ```
 
 
 ## States
 
-* WARN if more than 10% of all transactions using the binary log cache are read from disk.
-* UNKNOWN if binary logging is disabled (`log_bin = OFF`).
+* OK if the memory-access rate is 90% or higher.
+* OK if binary logging is disabled (`log_bin = OFF`); the plugin reports the fact and exits.
+* OK if binary logging is enabled but the binlog cache has not been used yet.
+* WARN if the memory-access rate drops below 90% (i.e. more than 10% of cached transactions had to spill to disk).
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
