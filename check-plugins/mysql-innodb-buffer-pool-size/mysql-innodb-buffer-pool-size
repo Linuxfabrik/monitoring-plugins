@@ -163,7 +163,7 @@ def main():
     # MariaDB: https://mariadb.com/kb/en/innodb-redo-log/
     # MySQL: https://dev.mysql.com/doc/refman/8.0/en/innodb-parameters.html#sysvar_innodb_redo_log_capacity
 
-    if not lib.base.X86_64 and int(myvar['innodb_buffer_pool_size']) > 4294967295:
+    if not lib.base.IS_64BIT and int(myvar['innodb_buffer_pool_size']) > 4294967295:
         local_state = STATE_WARN
         state = lib.base.get_worst(state, local_state)
 
@@ -176,7 +176,7 @@ def main():
             f' {lib.human.bytes2human(4294967295)}'
             f'{lib.base.state2str(local_state)}.'
         )
-    if lib.base.X86_64 and int(myvar['innodb_buffer_pool_size']) > 18446744073709551615:
+    if lib.base.IS_64BIT and int(myvar['innodb_buffer_pool_size']) > 18446744073709551615:
         local_state = STATE_WARN
         state = lib.base.get_worst(state, local_state)
         msg += (
