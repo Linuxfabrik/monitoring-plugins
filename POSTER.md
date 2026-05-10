@@ -53,7 +53,6 @@ Icinga Web 2. Click any thumbnail (or zoom your browser) to read the plugin outp
 <img alt="mysql-aria" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-aria.png" width="30%"/> &nbsp;
 <img alt="mysql-connections" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-connections.png" width="30%"/> &nbsp;
 <img alt="mysql-database-metrics" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-database-metrics.png" width="30%"/> &nbsp;
-<img alt="mysql-innodb-buffer-pool-instances" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-innodb-buffer-pool-instances.png" width="30%"/> &nbsp;
 <img alt="mysql-innodb-buffer-pool-size" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-innodb-buffer-pool-size.png" width="30%"/> &nbsp;
 <img alt="mysql-innodb-log-waits" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-innodb-log-waits.png" width="30%"/> &nbsp;
 <img alt="mysql-joins" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-joins.png" width="30%"/> &nbsp;

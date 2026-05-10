@@ -12,7 +12,6 @@ listings and the monitoring host's shell history.
 * `mysql-binlog-cache`: binlog cache hit/miss rate.
 * `mysql-connections`: current and max connections.
 * `mysql-database-metrics`: per-database size and object counts.
-* `mysql-innodb-buffer-pool-instances`: InnoDB buffer-pool instance count.
 * `mysql-innodb-buffer-pool-size`: InnoDB buffer-pool sizing vs. hit rate.
 * `mysql-innodb-log-waits`: InnoDB log wait rate.
 * `mysql-joins`: joins without indexes.

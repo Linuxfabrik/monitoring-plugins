@@ -42,6 +42,7 @@ Monitoring Plugins:
 Monitoring Plugins:
 
 * hin-status: removed, the HIN support status page no longer exists
+* mysql-innodb-buffer-pool-instances: removed. The underlying `innodb_buffer_pool_instances` system variable was removed in MariaDB 10.6 (the oldest still-supported MariaDB LTS, EOL July 2026). On MySQL the variable still exists but the recommended sizing model has shifted to chunk-based autosizing, making the per-instance check obsolete on either branch. The plugin had become a no-op or near-no-op on every supported MySQL/MariaDB version. Removed from the **MySQL InnoDB Service Set** and **MariaDB InnoDB Service Set** in the Director Basket; admins activating either set need not change anything (the basket simply ships one fewer service)
 
 
 ## [v4.1.0] - 2026-05-08
