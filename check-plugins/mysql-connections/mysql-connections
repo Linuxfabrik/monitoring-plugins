@@ -16,12 +16,16 @@ import sys
 import lib.args
 import lib.base
 import lib.db_mysql
+import lib.db_sqlite
 import lib.human
+import lib.time
 import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026051001'
+
+SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-connections.db'
 
 DESCRIPTION = """Checks the connection usage rate and the rate of aborted connections in MySQL/MariaDB.
 Also verifies whether name resolution is enabled for new connections, which can impact
@@ -121,11 +125,85 @@ def get_status(conn):
     return lib.base.coe(lib.db_mysql.select(conn, sql))
 
 
+def per_second_deltas(aborted_connects, connections):
+    """Persist the current cumulative `Aborted_connects` and `Connections` counters in
+    the local SQLite cache and return their per-second deltas vs. the previous run.
+    Returns `(aborted_per_s, connections_per_s)`, or `(None, None)` when fewer than two
+    samples are recorded yet or after a counter reset (server restart, `FLUSH STATUS`).
+
+    Avoids `uom='c'` counters in perfdata (per CONTRIBUTING.md): we compute the rate
+    here once per run instead of forcing every Grafana panel to do
+    `non_negative_difference()`.
+    """
+    sqlite_conn = lib.base.coe(lib.db_sqlite.connect(filename=SQLITE_DB))
+    definition = """
+        name              TEXT NOT NULL,
+        timestamp         INT NOT NULL,
+        aborted_connects  INT NOT NULL,
+        connections       INT NOT NULL
+    """
+    lib.base.coe(
+        lib.db_sqlite.create_table(sqlite_conn, definition, drop_table_first=False),
+    )
+    lib.base.coe(lib.db_sqlite.create_index(sqlite_conn, 'name'))
+
+    lib.base.coe(
+        lib.db_sqlite.insert(
+            sqlite_conn,
+            {
+                'name': 'mysql-connections',
+                'timestamp': lib.time.now(),
+                'aborted_connects': aborted_connects,
+                'connections': connections,
+            },
+        )
+    )
+    lib.base.coe(lib.db_sqlite.cut(sqlite_conn, _max=2))
+    lib.base.coe(lib.db_sqlite.commit(sqlite_conn))
+
+    rows = lib.base.coe(
+        lib.db_sqlite.select(
+            sqlite_conn,
+            """
+            SELECT *
+            FROM perfdata
+            WHERE name = :name
+            ORDER BY timestamp DESC
+            """,
+            {'name': 'mysql-connections'},
+        )
+    )
+    lib.db_sqlite.close(sqlite_conn)
+
+    if len(rows) < 2:
+        return None, None
+    timestamp_diff = rows[0]['timestamp'] - rows[1]['timestamp']
+    if timestamp_diff <= 0:
+        return None, None
+    aborted_delta = rows[0]['aborted_connects'] - rows[1]['aborted_connects']
+    conn_delta = rows[0]['connections'] - rows[1]['connections']
+    if aborted_delta < 0 or conn_delta < 0:
+        # counter reset (server restart, FLUSH STATUS)
+        return None, None
+    return int(aborted_delta / timestamp_diff), int(conn_delta / timestamp_diff)
+
+
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:mysql_stats(), section # Connections, v1.9.8
-    # including variable names
+    # logic taken from mysqltuner.pl:mysql_stats(), section # Connections,
+    # verified in sync with MySQLTuner v2.8.41 (the 3% aborted-connections
+    # threshold and the 85% connection-usage threshold are unchanged
+    # upstream since the original port).
+    #
+    # Intentional deviation: mysqltuner alerts only on the LIFETIME PEAK
+    # (Max_used_connections / max_connections > 85%), but for continuous
+    # monitoring that signal fires once and stays - it's not actionable.
+    # We instead alert on the CURRENT usage (Threads_connected /
+    # max_connections > 85%) so spikes show up while they're happening.
+    # The peak value is still computed and shown for context, and the
+    # corresponding ratio is emitted as the perfdata
+    # mysql_pct_max_connections_used so admins can graph both signals.
 
     # parse the command line
     try:
@@ -241,17 +319,27 @@ def main():
     )
     msg += f'interactive_timeout = {i_timeout}, wait_timeout = {w_timeout}; '
 
-    # name resolution
-    if not args.IGNORE_NAME_RESOLUTION and myvar.get('skip_name_resolve'):
-        if myvar['skip_name_resolve'] == 'OFF':
+    # name resolution: alert when MySQL/MariaDB does a reverse DNS lookup per connection.
+    # mysqltuner skips the test if `skip_networking == ON` (no TCP, so name resolution is
+    # moot) or if `skip_name_resolve` is undefined (very old MySQL). It also accepts both
+    # the textual `ON`/`OFF` and the numeric `1`/`0` forms that some versions return.
+    if not args.IGNORE_NAME_RESOLUTION:
+        skip_networking = myvar.get('skip_networking')
+        skip_name_resolve = myvar.get('skip_name_resolve')
+        if skip_networking in ('ON', '1'):
+            pass  # MySQL not on TCP, name resolution irrelevant
+        elif skip_name_resolve is None:
+            pass  # variable does not exist on this version
+        elif skip_name_resolve not in ('ON', '1'):
             name_resolution_state = STATE_WARN
             state = lib.base.get_worst(state, name_resolution_state)
-            nr_str = lib.base.state2str(
-                name_resolution_state,
-                prefix=' ',
-            )
+            nr_str = lib.base.state2str(name_resolution_state, prefix=' ')
             msg += f'Name resolution is active{nr_str}; '
-            recommendations += '* A reverse name resolution is made for each new connection and can reduce performance. Configure your accounts with ip or subnets only, then update your configuration with skip-name-resolve=ON.'
+            recommendations += (
+                '* A reverse name resolution is made for each new connection and can'
+                ' reduce performance. Configure your accounts with ip or subnets only,'
+                ' then update your configuration with `skip-name-resolve=ON`.'
+            )
 
     perfdata += lib.base.get_perfdata(
         'mysql_interactive_timeout',
@@ -271,18 +359,25 @@ def main():
         _min=0,
     )
 
-    perfdata += lib.base.get_perfdata(
-        'mysql_aborted_connects',
-        mystat['Aborted_connects'],
-        uom='c',
-        _min=0,
+    # Per-CONTRIBUTING: emit Aborted_connects and Connections as in-plugin per-second
+    # deltas (against a local SQLite cache) instead of cumulative `c` counters that
+    # force Grafana to do non_negative_difference() per panel.
+    aborted_per_s, conn_per_s = per_second_deltas(
+        int(mystat['Aborted_connects']),
+        int(mystat['Connections']),
     )
-    perfdata += lib.base.get_perfdata(
-        'mysql_connections',
-        mystat['Connections'],
-        uom='c',
-        _min=0,
-    )
+    if aborted_per_s is not None:
+        perfdata += lib.base.get_perfdata(
+            'mysql_aborted_connects_per_second',
+            aborted_per_s,
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_connections_per_second',
+            conn_per_s,
+            _min=0,
+        )
+
     perfdata += lib.base.get_perfdata(
         'mysql_max_used_connections',
         mystat['Max_used_connections'],
@@ -309,6 +404,13 @@ def main():
     perfdata += lib.base.get_perfdata(
         'mysql_pct_connections_used',
         mycalc['pct_connections_used'],
+        uom='%',
+        _min=0,
+        _max=100,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_pct_max_connections_used',
+        mycalc['pct_max_connections_used'],
         uom='%',
         _min=0,
         _max=100,

@@ -48,7 +48,7 @@ spec:
 
   panels:
 
-  - title: MySQL Connections
+  - title: MySQL Connections - Connection Counts
     type: timeseries
     gridPos:
       h: 8
@@ -68,7 +68,32 @@ spec:
           spanNulls: false
         decimals: 0
         min: 0
-        unit: none
+        unit: short
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_max_connections
+        properties:
+        - id: displayName
+          value: max_connections (configured ceiling)
+      - matcher:
+          id: byName
+          options: mysql_max_used_connections
+        properties:
+        - id: displayName
+          value: Max_used_connections (lifetime peak)
+      - matcher:
+          id: byName
+          options: mysql_threads_connected
+        properties:
+        - id: displayName
+          value: Threads_connected (current)
+      - matcher:
+          id: byName
+          options: mysql_threads_running
+        properties:
+        - id: displayName
+          value: Threads_running (current, executing)
     options:
       legend:
         calcs:
@@ -85,6 +110,60 @@ spec:
         sort: none
 
     targets:
+
+    - alias: mysql_max_connections
+      refId: mysql_max_connections
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_max_connections
+
+    - alias: mysql_max_used_connections
+      refId: mysql_max_used_connections
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_max_used_connections
 
     - alias: mysql_threads_connected
       refId: mysql_threads_connected
@@ -140,64 +219,8 @@ spec:
         operator: '='
         value: mysql_threads_running
 
-    - alias: mysql_aborted_connects
-      refId: mysql_aborted_connects
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-        - params: []
-          type: non_negative_difference
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: mysql_aborted_connects
 
-    - alias: mysql_max_connections
-      refId: mysql_max_connections
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: mysql_max_connections
-
-
-  - title: MySQL Connections - Percentages
+  - title: MySQL Connections - Per-Second Rates
     type: timeseries
     gridPos:
       h: 8
@@ -216,9 +239,134 @@ spec:
           showPoints: always
           spanNulls: false
         decimals: 0
+        min: 0
+        unit: short
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_connections_per_second
+        properties:
+        - id: displayName
+          value: New connections per second
+      - matcher:
+          id: byName
+          options: mysql_aborted_connects_per_second
+        properties:
+        - id: displayName
+          value: Aborted connection attempts per second
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: mysql_connections_per_second
+      refId: mysql_connections_per_second
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_connections_per_second
+
+    - alias: mysql_aborted_connects_per_second
+      refId: mysql_aborted_connects_per_second
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_aborted_connects_per_second
+
+
+  - title: MySQL Connections - Percentages
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 8
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 1
         max: 110
         min: 0
         unit: percent
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_pct_connections_aborted
+        properties:
+        - id: displayName
+          value: Aborted connections (%)
+      - matcher:
+          id: byName
+          options: mysql_pct_connections_used
+        properties:
+        - id: displayName
+          value: Current connection usage (%)
+      - matcher:
+          id: byName
+          options: mysql_pct_max_connections_used
+        properties:
+        - id: displayName
+          value: Lifetime peak connection usage (%)
     options:
       legend:
         calcs:
@@ -290,13 +438,40 @@ spec:
         operator: '='
         value: mysql_pct_connections_used
 
+    - alias: mysql_pct_max_connections_used
+      refId: mysql_pct_max_connections_used
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_pct_max_connections_used
+
 
   - title: MySQL Connections - Timeout System Variables
     type: timeseries
     gridPos:
       h: 8
       w: 12
-      x: 0
+      x: 12
       y: 8
     fieldConfig:
       defaults:
