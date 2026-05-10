@@ -41,10 +41,11 @@ usage: mysql-binlog-cache [-h] [-V] [--always-ok]
                           [--defaults-group DEFAULTS_GROUP]
                           [--timeout TIMEOUT]
 
-Checks if transactions in MySQL/MariaDB had to use a temporary disk cache
-because they exceeded the configured binary log cache size. A high disk cache
-usage rate indicates that binlog_cache_size should be increased. Alerts when
-the disk cache usage rate is too high.
+Checks the memory-access rate for the MySQL/MariaDB binary log cache. A low
+rate (below 90%) means many transactions had to spill from the in-memory
+binlog cache to a temporary disk file because they exceeded
+`binlog_cache_size`, and the variable should be increased. Alerts when the
+memory-access rate drops below 90%.
 
 options:
   -h, --help            show this help message and exit

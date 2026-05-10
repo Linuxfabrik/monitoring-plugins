@@ -40,9 +40,8 @@ Checks metrics of the Aria storage engine in MariaDB, including the page cache s
 usage: mysql-aria [-h] [-V] [--always-ok] [--defaults-file DEFAULTS_FILE]
                   [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
 
-Checks metrics of the Aria storage engine in MySQL/MariaDB, including page
-cache read and write hit rates. Alerts when cache efficiency drops below
-optimal levels.
+Checks metrics of the Aria storage engine in MySQL/MariaDB, including the
+page-cache hit rate. Alerts when cache efficiency drops below optimal levels.
 
 options:
   -h, --help            show this help message and exit
