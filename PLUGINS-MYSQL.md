@@ -169,14 +169,17 @@ The shipped basket slices MySQL monitoring into six Service Sets, each
 activated by its own tag on the host. Pick the subset that fits the server's
 role; activate several sets on the same host when appropriate.
 
-* **MySQL Service Set**: baseline health (connections, memory, uptime,
-  version). Activate for every monitored MySQL/MariaDB server.
+* **MySQL Service Set**: baseline health (uptime, version, binlog
+  cache). Activate for every monitored MySQL/MariaDB server. The binlog
+  cache check covers any server with binary logging enabled, including
+  standalone masters/sources, so it lives here rather than under
+  Replication.
 * **MySQL InnoDB Service Set**: InnoDB-specific counters (buffer pool, log
   waits). For servers using InnoDB as the main engine.
 * **MySQL Metrics Service Set**: query-level metrics (joins, sorts, slow
   queries, temp tables, thread and table caches).
-* **MySQL Replication Service Set**: replica health. Activate on asynchronous
-  replicas.
+* **MySQL Replication Service Set**: replica-specific health
+  (`mysql-replica-status`). Activate on asynchronous replicas.
 * **MySQL Schemas Service Set**: per-database size and index quality
   (database metrics, table indexes, table locks).
 * **MySQL Security Service Set**: account hygiene and the server-side error
