@@ -13,10 +13,11 @@ Checks index sizes, fragmentation, and consistent engine and collation usage acr
 
 **Data Collection:**
 
-* Queries `information_schema.schemata` for all non-system schemas
+* Queries `information_schema.schemata` for all non-system schemas. The system schemas `information_schema`, `mysql`, `percona`, `performance_schema`, and `sys` are skipped.
 * For each schema, queries `information_schema.tables` for row counts, data/index sizes, storage engine counts, and collation counts
 * Queries `information_schema.COLUMNS` for distinct character sets and collations per schema
-* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_databases(), v1.9.8
+* Empty schemas (no tables) are surfaced as an info note in the output but do not change the state - they are common in fresh installs and lazy-init applications.
+* Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_databases() and has been verified in sync with MySQLTuner v2.8.41. Intentional deviation: the index-vs-data-size check additionally requires one of the two sizes to exceed 10 MiB, otherwise tiny schemas (where indices proportionally dwarf data) generate constant noise.
 
 
 ## Fact Sheet
@@ -39,6 +40,7 @@ Checks index sizes, fragmentation, and consistent engine and collation usage acr
 usage: mysql-database-metrics [-h] [-V] [--always-ok]
                               [--defaults-file DEFAULTS_FILE]
                               [--defaults-group DEFAULTS_GROUP]
+                              [--ignore-tables IGNORE_TABLES]
                               [--timeout TIMEOUT]
 
 Checks index sizes, fragmentation, and consistent engine and collation usage
@@ -57,6 +59,14 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
+  --ignore-tables IGNORE_TABLES
+                        Regular expression matched against `TABLE_NAME` (case-
+                        sensitive). Tables whose name matches are excluded
+                        from every aggregate and every per-schema check.
+                        Useful for muting noisy temporary or backup tables
+                        that legitimately differ from the schema-wide
+                        engine/collation. Default: . Example: `--ignore-
+                        tables="^(tmp_|backup_)"`
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 
@@ -73,28 +83,38 @@ Output:
 There are warnings.
 
 * Index size is larger than data size: xca (11.4MiB / 5.4MiB)
-* Multi storage engines (use one storage engine for all tables): appldb (2x)
-* Multi collations (use one collation for all tables): accounting (2x), piwik (2x), wordpress-www (2x)
-* Multi table engines (use one engine for all tables): appldb (2x)
-* Multi charsets for text-like cols (use one charset for all cols if possible): accounting (2x), piwik (2x), django-mvc (2x), wordpress-www (2x), django-mvc-devel (2x)
-* Multi collations for text-like cols (use one charset for all cols if possible): accounting (3), piwik (2x), django-mvc (2x), wordpress-www (2x), django-mvc-devel (2x)
+* Mixed storage engines (use one engine for all tables in a schema): appldb (2x)
+* Mixed table collations (use one collation for all tables in a schema): accounting (2x), piwik (2x), wordpress-www (2x)
+* Mixed column charsets (use one charset for all text-like columns if possible): accounting (2x), piwik (2x), django-mvc (2x), wordpress-www (2x), django-mvc-devel (2x)
+* Mixed column collations (use one collation for all text-like columns if possible): accounting (3x), piwik (2x), django-mvc (2x), wordpress-www (2x), django-mvc-devel (2x)
+```
+
+When everything is clean:
+
+```text
+8 user schema(s) scanned, 246 table(s), 12.4M rows, 1.2GiB data, 384.0MiB indices. Everything is ok.
 ```
 
 
 ## States
 
-* WARN if the index size is larger than the data size (if at least one of them exceeds 10 MiB).
+* WARN if the index size is larger than the data size (and at least one of them exceeds 10 MiB).
 * WARN if more than one storage engine is used within a schema.
-* WARN if more than one collation is used within a schema.
-* WARN if more than one table engine is used within a schema.
-* WARN if more than one charset for text-like columns is used within a schema.
-* WARN if more than one collation for text-like columns is used within a schema.
+* WARN if more than one table collation is used within a schema.
+* WARN if more than one charset is used across the text-like columns of a schema.
+* WARN if more than one collation is used across the text-like columns of a schema.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-There is no perfdata.
+| Name | Type | Description |
+|----|----|----|
+| mysql_database_count | Number | Number of user schemas scanned (system schemas excluded). |
+| mysql_total_data_size | Bytes | Sum of `DATA_LENGTH` across all scanned tables. |
+| mysql_total_index_size | Bytes | Sum of `INDEX_LENGTH` across all scanned tables. |
+| mysql_total_rows | Number | Sum of `TABLE_ROWS` across all scanned tables. Note: for InnoDB this is an estimate, not an exact count. |
+| mysql_total_tables | Number | Total number of tables across all scanned schemas. |
 
 
 ## Credits, License

@@ -20,7 +20,7 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051001'
+__version__ = '2026051002'
 
 DESCRIPTION = """Checks index sizes, fragmentation, and consistent engine and collation usage across
 all schemas in MySQL/MariaDB. Alerts on mixed storage engines or collations within a
@@ -28,7 +28,13 @@ single schema."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
+DEFAULT_IGNORE_TABLES = ''
 DEFAULT_TIMEOUT = 3
+
+# System schemas: skipped during all aggregates and per-schema checks. mysqltuner v2.8.41
+# excludes the same set; `percona` is added because the Percona Server Toolkit installs a
+# `percona` schema for its own bookkeeping and it is not user data.
+SYSTEM_SCHEMAS = ('information_schema', 'mysql', 'percona', 'performance_schema', 'sys')
 
 
 def parse_args():
@@ -67,6 +73,18 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore-tables',
+        help='Regular expression matched against `TABLE_NAME` (case-sensitive). Tables '
+        'whose name matches are excluded from every aggregate and every per-schema check. '
+        'Useful for muting noisy temporary or backup tables that legitimately differ from '
+        'the schema-wide engine/collation. '
+        'Default: %(default)s. '
+        'Example: `--ignore-tables="^(tmp_|backup_)"`',
+        dest='IGNORE_TABLES',
+        default=DEFAULT_IGNORE_TABLES,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -81,8 +99,15 @@ def parse_args():
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:mysql_databases(), v1.9.8
-    # including variable names
+    # logic taken from mysqltuner.pl:mysql_databases(), verified in sync with
+    # MySQLTuner v2.8.41 (the per-database engine/collation/charset consistency
+    # checks and the index-vs-data-size check are unchanged upstream since the
+    # original port).
+    #
+    # Intentional deviation: the index-vs-data-size check additionally requires
+    # one of the two sizes to exceed 10 MB. Tiny schemas (under a few MB)
+    # routinely have proportionally larger indices than data, which is not
+    # actionable for an admin and would generate constant noise.
 
     # parse the command line
     try:
@@ -100,142 +125,185 @@ def main():
 
     # init some vars
     state = STATE_OK
+    perfdata = ''
+
+    # The --ignore-tables regex is interpolated into the SQL string. The value comes from
+    # the CLI (admin-controlled), and any embedded single quotes are escaped to keep the
+    # surrounding SQL literal valid. MySQL itself rejects malformed regex patterns at
+    # query time and `lib.base.coe()` surfaces the error.
+    ignore_tables_clause = ''
+    if args.IGNORE_TABLES:
+        safe_regex = args.IGNORE_TABLES.replace("'", "''")
+        ignore_tables_clause = f" and TABLE_NAME NOT REGEXP '{safe_regex}'"
 
     # SCHEMA_NAME and others must be uppercase due to MySQL 8+
-    sql = """
+    excluded = ', '.join(f'"{s}"' for s in SYSTEM_SCHEMAS)
+    sql = f'''
         select SCHEMA_NAME
         from information_schema.schemata
-        where SCHEMA_NAME not in (
-            "mysql", "information_schema", "performance_schema", "sys"
-        );
-    """
+        where SCHEMA_NAME not in ({excluded});
+    '''  # nosec B608
     dblist = lib.base.coe(lib.db_mysql.select(conn, sql))
 
     results = {
         'index': '',
-        'storengine': '',
+        'engine': '',
         'collation': '',
-        'tblengine': '',
         'colcharset': '',
         'colcollation': '',
     }
+    empty_schemas = []
+    total_data_size = 0
+    total_index_size = 0
+    total_rows = 0
+    total_tables = 0
 
-    # schema names come from MySQL itself (SHOW DATABASES), not from user input
+    # schema names come from MySQL itself (information_schema.schemata), not from user input
     for schema in dblist:
+        schema_name = schema['SCHEMA_NAME']
         sql = f'''
             select TABLE_SCHEMA,
                 sum(TABLE_ROWS) as sum_rows,
                 sum(DATA_LENGTH) as sum_data,
                 sum(INDEX_LENGTH) as sum_index,
                 sum(DATA_LENGTH+INDEX_LENGTH) as sum_data_index,
-                count(distinct ENGINE) as cnt_storengines,
+                count(distinct ENGINE) as cnt_engines,
                 count(TABLE_NAME) as cnt_tables,
-                count(distinct(TABLE_COLLATION)) as cnt_collations,
-                count(distinct(ENGINE)) as cnt_tableengines
+                count(distinct(TABLE_COLLATION)) as cnt_collations
             from information_schema.tables
-            where TABLE_SCHEMA="{schema['SCHEMA_NAME']}"
+            where TABLE_SCHEMA="{schema_name}"
+                {ignore_tables_clause}
             group by TABLE_SCHEMA
             order by TABLE_SCHEMA;
         '''  # nosec B608
         dbinfo = lib.base.coe(lib.db_mysql.select(conn, sql, fetchone=True))
         if dbinfo is None:
+            empty_schemas.append(schema_name)
             continue
 
-        if (
-            dbinfo['sum_data'] != 'NULL'
-            and dbinfo['sum_index'] != 'NULL'
-            and (
-                dbinfo['sum_data'] > 10 * 1024 * 1024
-                or dbinfo['sum_index'] > 10 * 1024 * 1024
-            )
-            and dbinfo['sum_data'] < dbinfo['sum_index']
-        ):
-            idx_h = lib.human.bytes2human(dbinfo['sum_index'])
-            data_h = lib.human.bytes2human(dbinfo['sum_data'])
-            results['index'] += f'{dbinfo["TABLE_SCHEMA"]} ({idx_h} / {data_h}), '
+        # MySQL returns SQL NULL as Python None (not the string "NULL"); use is/is not
+        # None for the guards.
+        sum_data = dbinfo['sum_data']
+        sum_index = dbinfo['sum_index']
+        sum_rows = dbinfo['sum_rows']
+        cnt_tables = dbinfo['cnt_tables']
 
-        if dbinfo['cnt_storengines'] != 1:
-            results['storengine'] += (
-                f'{dbinfo["TABLE_SCHEMA"]} ({dbinfo["cnt_storengines"]}x), '
-            )
+        total_data_size += int(sum_data or 0)
+        total_index_size += int(sum_index or 0)
+        total_rows += int(sum_rows or 0)
+        total_tables += int(cnt_tables or 0)
+
+        if (
+            sum_data is not None
+            and sum_index is not None
+            and (sum_data > 10 * 1024 * 1024 or sum_index > 10 * 1024 * 1024)
+            and sum_data < sum_index
+        ):
+            idx_h = lib.human.bytes2human(sum_index)
+            data_h = lib.human.bytes2human(sum_data)
+            results['index'] += f'{schema_name} ({idx_h} / {data_h}), '
+
+        if dbinfo['cnt_engines'] > 1:
+            results['engine'] += f'{schema_name} ({dbinfo["cnt_engines"]}x), '
 
         if dbinfo['cnt_collations'] > 1:
-            results['collation'] += (
-                f'{dbinfo["TABLE_SCHEMA"]} ({dbinfo["cnt_collations"]}x), '
-            )
-
-        if dbinfo['cnt_tableengines'] > 1:
-            results['tblengine'] += (
-                f'{dbinfo["TABLE_SCHEMA"]} ({dbinfo["cnt_tableengines"]}x), '
-            )
+            results['collation'] += f'{schema_name} ({dbinfo["cnt_collations"]}x), '
 
         sql = f'''
             select distinct(CHARACTER_SET_NAME)
             from information_schema.COLUMNS
             where CHARACTER_SET_NAME is not null
-                and TABLE_SCHEMA = "{schema['SCHEMA_NAME']}";
+                and TABLE_SCHEMA = "{schema_name}"
+                {ignore_tables_clause};
         '''  # nosec B608
         distinct_column_charset = lib.base.coe(lib.db_mysql.select(conn, sql))
         if len(distinct_column_charset) > 1:
             results['colcharset'] += (
-                f'{dbinfo["TABLE_SCHEMA"]} ({len(distinct_column_charset)}x), '
+                f'{schema_name} ({len(distinct_column_charset)}x), '
             )
 
         sql = f'''
             select distinct(COLLATION_NAME)
             from information_schema.COLUMNS
             where COLLATION_NAME is not null
-                and TABLE_SCHEMA = "{schema['SCHEMA_NAME']}";
+                and TABLE_SCHEMA = "{schema_name}"
+                {ignore_tables_clause};
         '''  # nosec B608
         distinct_column_collation = lib.base.coe(lib.db_mysql.select(conn, sql))
         if len(distinct_column_collation) > 1:
             results['colcollation'] += (
-                f'{dbinfo["TABLE_SCHEMA"]} ({len(distinct_column_collation)}x), '
+                f'{schema_name} ({len(distinct_column_collation)}x), '
             )
 
     lib.db_mysql.close(conn)
 
+    # Build the message
     msg = ''
     if results['index']:
-
-        # build the message
         msg += f'* Index size is larger than data size: {results["index"][:-2]}\n'
-    if results['storengine']:
+    if results['engine']:
         msg += (
-            f'* Multi storage engines (use one storage engine for '
-            f'all tables): {results["storengine"][:-2]}\n'
+            f'* Mixed storage engines (use one engine for all tables in a schema):'
+            f' {results["engine"][:-2]}\n'
         )
     if results['collation']:
         msg += (
-            f'* Multi collations (use one collation for all '
-            f'tables): {results["collation"][:-2]}\n'
-        )
-    if results['tblengine']:
-        msg += (
-            f'* Multi table engines (use one engine for all '
-            f'tables): {results["tblengine"][:-2]}\n'
+            f'* Mixed table collations (use one collation for all tables in a schema):'
+            f' {results["collation"][:-2]}\n'
         )
     if results['colcharset']:
         msg += (
-            f'* Multi charsets for text-like cols (use one charset '
-            f'for all cols if possible): '
-            f'{results["colcharset"][:-2]}\n'
+            f'* Mixed column charsets (use one charset for all text-like columns'
+            f' if possible): {results["colcharset"][:-2]}\n'
         )
     if results['colcollation']:
         msg += (
-            f'* Multi collations for text-like cols (use one '
-            f'charset for all cols if possible): '
-            f'{results["colcollation"][:-2]}\n'
+            f'* Mixed column collations (use one collation for all text-like columns'
+            f' if possible): {results["colcollation"][:-2]}\n'
         )
 
     if msg:
         state = STATE_WARN
         msg = 'There are warnings.\n\n' + msg
     else:
-        msg = 'Everything is ok.'
+        # Surface the scanned scope so the OK output is informative, not just
+        # "Everything is ok.". Format mirrors mysqltuner's per-database stats but
+        # condensed to a single line.
+        msg = (
+            f'{len(dblist)} user schema(s) scanned,'
+            f' {total_tables} table(s),'
+            f' {lib.human.number2human(total_rows)} rows,'
+            f' {lib.human.bytes2human(total_data_size)} data,'
+            f' {lib.human.bytes2human(total_index_size)} indices.'
+            f' Everything is ok.'
+        )
+    if empty_schemas:
+        # Empty schemas (no tables) are common (freshly created, lazy-init apps,
+        # migration leftovers) and not necessarily a problem; surface them as an info
+        # note without changing state. mysqltuner badprints them.
+        msg += (
+            f'\n\nNote: {len(empty_schemas)} empty schema(s) (no tables):'
+            f' {", ".join(empty_schemas)}.'
+        )
+
+    perfdata += lib.base.get_perfdata('mysql_database_count', len(dblist), _min=0)
+    perfdata += lib.base.get_perfdata(
+        'mysql_total_data_size',
+        total_data_size,
+        uom='B',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_total_index_size',
+        total_index_size,
+        uom='B',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata('mysql_total_rows', total_rows, _min=0)
+    perfdata += lib.base.get_perfdata('mysql_total_tables', total_tables, _min=0)
 
     # over and out
-    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
