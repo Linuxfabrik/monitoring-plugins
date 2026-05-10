@@ -40,7 +40,8 @@ Checks index sizes, fragmentation, and consistent engine and collation usage acr
 usage: mysql-database-metrics [-h] [-V] [--always-ok]
                               [--defaults-file DEFAULTS_FILE]
                               [--defaults-group DEFAULTS_GROUP]
-                              [--ignore-tables IGNORE_TABLES]
+                              [--ignore-schemas IGNORE_SCHEMAS]
+                              [--ignore-tables IGNORE_TABLES] [--lengthy]
                               [--timeout TIMEOUT]
 
 Checks index sizes, fragmentation, and consistent engine and collation usage
@@ -59,6 +60,17 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
+  --ignore-schemas IGNORE_SCHEMAS
+                        Regular expression matched against `SCHEMA_NAME`
+                        (case-sensitive). Schemas whose name matches are
+                        skipped entirely (no aggregate contribution, no
+                        checks). Useful for known-mixed schemas that the admin
+                        cannot or does not want to fix (common with Icinga
+                        Director / Icinga Web 2 / Icinga DB schemas, which mix
+                        utf8 / utf8mb4 collations by design). System schemas
+                        are skipped unconditionally. Default: . Example:
+                        `--ignore-
+                        schemas="^(icinga_director|icingaweb2|icingadb)$"`
   --ignore-tables IGNORE_TABLES
                         Regular expression matched against `TABLE_NAME` (case-
                         sensitive). Tables whose name matches are excluded
@@ -67,6 +79,7 @@ options:
                         that legitimately differ from the schema-wide
                         engine/collation. Default: . Example: `--ignore-
                         tables="^(tmp_|backup_)"`
+  --lengthy             Extended reporting. Default: False
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 

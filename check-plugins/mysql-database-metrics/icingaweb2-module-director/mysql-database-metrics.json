@@ -11,6 +11,15 @@
                 "--defaults-group": {
                     "value": "$mysql_database_metrics_defaults_group$"
                 },
+                "--ignore-schemas": {
+                    "value": "$mysql_database_metrics_ignore_schemas$"
+                },
+                "--ignore-tables": {
+                    "value": "$mysql_database_metrics_ignore_tables$"
+                },
+                "--lengthy": {
+                    "set_if": "$mysql_database_metrics_lengthy$"
+                },
                 "--timeout": {
                     "value": "$mysql_database_metrics_timeout$"
                 }
@@ -35,6 +44,21 @@
                 },
                 {
                     "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -94,6 +118,9 @@
                 "mysql_database_metrics_always_ok": false,
                 "mysql_database_metrics_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_database_metrics_defaults_group": "client",
+                "mysql_database_metrics_ignore_schemas": "^icinga",
+                "mysql_database_metrics_ignore_tables": "",
+                "mysql_database_metrics_lengthy": true,
                 "mysql_database_metrics_timeout": 3
             },
             "volatile": null,
@@ -134,6 +161,37 @@
             "uuid": "2f1c4268-09ec-4115-a93f-9353b86f8a78"
         },
         "4": {
+            "varname": "mysql_database_metrics_ignore_schemas",
+            "caption": "MySQL Database Metrics: Ignore Schemas",
+            "description": "Regular expression matched against `SCHEMA_NAME` (case-sensitive). Schemas whose name matches are skipped entirely (no aggregate contribution, no checks). Useful for known-mixed schemas that the admin cannot or does not want to fix (common with Icinga Director / Icinga Web 2 / Icinga DB schemas, which mix utf8 / utf8mb4 collations by design). System schemas are skipped unconditionally.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "e778a186-00a7-4e4e-a539-b1dc54056562"
+        },
+        "5": {
+            "varname": "mysql_database_metrics_ignore_tables",
+            "caption": "MySQL Database Metrics: Ignore Tables",
+            "description": "Regular expression matched against `TABLE_NAME` (case-sensitive). Tables whose name matches are excluded from every aggregate and every per-schema check. Useful for muting noisy temporary or backup tables that legitimately differ from the schema-wide engine/collation.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "5a203d24-0fb8-4fcf-afa2-c4d166284dd8"
+        },
+        "6": {
+            "varname": "mysql_database_metrics_lengthy",
+            "caption": "MySQL Database Metrics: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "2de8eb0b-b7c1-4d45-9f56-ec50fe0851eb"
+        },
+        "7": {
             "varname": "mysql_database_metrics_timeout",
             "caption": "MySQL Database Metrics: Timeout",
             "description": "Network timeout in seconds.",

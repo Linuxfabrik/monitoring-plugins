@@ -20,7 +20,7 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051002'
+__version__ = '2026051003'
 
 DESCRIPTION = """Checks index sizes, fragmentation, and consistent engine and collation usage across
 all schemas in MySQL/MariaDB. Alerts on mixed storage engines or collations within a
@@ -28,7 +28,9 @@ single schema."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
+DEFAULT_IGNORE_SCHEMAS = ''
 DEFAULT_IGNORE_TABLES = ''
+DEFAULT_LENGTHY = False
 DEFAULT_TIMEOUT = 3
 
 # System schemas: skipped during all aggregates and per-schema checks. mysqltuner v2.8.41
@@ -73,6 +75,19 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore-schemas',
+        help='Regular expression matched against `SCHEMA_NAME` (case-sensitive). Schemas '
+        'whose name matches are skipped entirely (no aggregate contribution, no checks). '
+        'Useful for known-mixed schemas that the admin cannot or does not want to fix '
+        '(common with Icinga Director / Icinga Web 2 / Icinga DB schemas, which mix '
+        'utf8 / utf8mb4 collations by design). System schemas are skipped unconditionally. '
+        'Default: %(default)s. '
+        'Example: `--ignore-schemas="^(icinga_director|icingaweb2|icingadb)$"`',
+        dest='IGNORE_SCHEMAS',
+        default=DEFAULT_IGNORE_SCHEMAS,
+    )
+
+    parser.add_argument(
         '--ignore-tables',
         help='Regular expression matched against `TABLE_NAME` (case-sensitive). Tables '
         'whose name matches are excluded from every aggregate and every per-schema check. '
@@ -82,6 +97,14 @@ def parse_args():
         'Example: `--ignore-tables="^(tmp_|backup_)"`',
         dest='IGNORE_TABLES',
         default=DEFAULT_IGNORE_TABLES,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy') + ' Default: %(default)s',
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
     )
 
     parser.add_argument(
@@ -127,21 +150,26 @@ def main():
     state = STATE_OK
     perfdata = ''
 
-    # The --ignore-tables regex is interpolated into the SQL string. The value comes from
-    # the CLI (admin-controlled), and any embedded single quotes are escaped to keep the
-    # surrounding SQL literal valid. MySQL itself rejects malformed regex patterns at
-    # query time and `lib.base.coe()` surfaces the error.
+    # The --ignore-tables and --ignore-schemas regexes are interpolated into the SQL
+    # string. The values come from the CLI (admin-controlled), and any embedded single
+    # quotes are escaped to keep the surrounding SQL literal valid. MySQL itself rejects
+    # malformed regex patterns at query time and `lib.base.coe()` surfaces the error.
     ignore_tables_clause = ''
     if args.IGNORE_TABLES:
         safe_regex = args.IGNORE_TABLES.replace("'", "''")
         ignore_tables_clause = f" and TABLE_NAME NOT REGEXP '{safe_regex}'"
+    ignore_schemas_clause = ''
+    if args.IGNORE_SCHEMAS:
+        safe_regex = args.IGNORE_SCHEMAS.replace("'", "''")
+        ignore_schemas_clause = f" and SCHEMA_NAME NOT REGEXP '{safe_regex}'"
 
     # SCHEMA_NAME and others must be uppercase due to MySQL 8+
     excluded = ', '.join(f'"{s}"' for s in SYSTEM_SCHEMAS)
     sql = f'''
         select SCHEMA_NAME
         from information_schema.schemata
-        where SCHEMA_NAME not in ({excluded});
+        where SCHEMA_NAME not in ({excluded})
+            {ignore_schemas_clause};
     '''  # nosec B608
     dblist = lib.base.coe(lib.db_mysql.select(conn, sql))
 
@@ -153,6 +181,7 @@ def main():
         'colcollation': '',
     }
     empty_schemas = []
+    per_schema_rows = []
     total_data_size = 0
     total_index_size = 0
     total_rows = 0
@@ -186,6 +215,7 @@ def main():
         sum_data = dbinfo['sum_data']
         sum_index = dbinfo['sum_index']
         sum_rows = dbinfo['sum_rows']
+        sum_total = dbinfo['sum_data_index']
         cnt_tables = dbinfo['cnt_tables']
 
         total_data_size += int(sum_data or 0)
@@ -234,6 +264,55 @@ def main():
             results['colcollation'] += (
                 f'{schema_name} ({len(distinct_column_collation)}x), '
             )
+
+        # Collect per-schema details for the optional --lengthy table.
+        sql = f'''
+            select distinct ENGINE
+            from information_schema.tables
+            where TABLE_SCHEMA="{schema_name}"
+                and ENGINE is not null
+                {ignore_tables_clause};
+        '''  # nosec B608
+        engine_rows = lib.base.coe(lib.db_mysql.select(conn, sql))
+        engines_list = sorted(r['ENGINE'] for r in engine_rows)
+
+        sql = f'''
+            select distinct TABLE_COLLATION
+            from information_schema.tables
+            where TABLE_SCHEMA="{schema_name}"
+                and TABLE_COLLATION is not null
+                {ignore_tables_clause};
+        '''  # nosec B608
+        tcoll_rows = lib.base.coe(lib.db_mysql.select(conn, sql))
+        tcoll_list = sorted(r['TABLE_COLLATION'] for r in tcoll_rows)
+
+        ccharset_list = sorted(r['CHARACTER_SET_NAME'] for r in distinct_column_charset)
+        ccoll_list = sorted(r['COLLATION_NAME'] for r in distinct_column_collation)
+
+        # Compact issue summary for the default (non-lengthy) table.
+        issues = []
+        if dbinfo['cnt_engines'] > 1:
+            issues.append(f'{dbinfo["cnt_engines"]} engines')
+        if len(tcoll_list) > 1:
+            issues.append(f'{len(tcoll_list)} table collations')
+        if len(ccharset_list) > 1:
+            issues.append(f'{len(ccharset_list)} column charsets')
+        if len(ccoll_list) > 1:
+            issues.append(f'{len(ccoll_list)} column collations')
+
+        per_schema_rows.append({
+            'schema': schema_name,
+            'tables': cnt_tables or 0,
+            'rows': sum_rows or 0,
+            'data': lib.human.bytes2human(sum_data or 0),
+            'index': lib.human.bytes2human(sum_index or 0),
+            'total': lib.human.bytes2human(sum_total or 0),
+            'engines': ', '.join(engines_list) or '-',
+            'table_coll': ', '.join(tcoll_list) or '-',
+            'col_charsets': ', '.join(ccharset_list) or '-',
+            'col_coll': ', '.join(ccoll_list) or '-',
+            'issues': ', '.join(issues) if issues else 'OK',
+        })
 
     lib.db_mysql.close(conn)
 
@@ -285,6 +364,25 @@ def main():
             f'\n\nNote: {len(empty_schemas)} empty schema(s) (no tables):'
             f' {", ".join(empty_schemas)}.'
         )
+
+    # Per-schema breakdown table. Without --lengthy: compact summary
+    # (Schema | Tables | Total Size | Issues). With --lengthy: full breakdown,
+    # mirroring the per-database information mysqltuner emits when invoked with
+    # `--dbstat`.
+    if per_schema_rows:
+        if args.LENGTHY:
+            keys = [
+                'schema', 'tables', 'rows', 'data', 'index', 'total',
+                'engines', 'table_coll', 'col_charsets', 'col_coll',
+            ]
+            headers = [
+                'Schema', 'Tables', 'Rows', 'Data', 'Index', 'Total',
+                'Engines', 'Table Collations', 'Column Charsets', 'Column Collations',
+            ]
+        else:
+            keys = ['schema', 'tables', 'total', 'issues']
+            headers = ['Schema', 'Tables', 'Size', 'Issues']
+        msg += '\n\n' + lib.base.get_table(per_schema_rows, keys, header=headers)
 
     perfdata += lib.base.get_perfdata('mysql_database_count', len(dblist), _min=0)
     perfdata += lib.base.get_perfdata(
