@@ -19,11 +19,18 @@ import lib.db_mysql
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026051001'
 
-DESCRIPTION = """Checks performance metrics and best practice configurations for MySQL/MariaDB,
-including query cache efficiency, key buffer usage, and other tuning indicators.
-Alerts on suboptimal configurations."""
+DESCRIPTION = """Checks two MySQL/MariaDB best-practice knobs that do not have a dedicated
+plugin: `innodb_stats_on_metadata` and `concurrent_insert`. Alerts when either is set
+to a value that slows down typical workloads.
+`innodb_stats_on_metadata`: when ON, InnoDB recalculates index statistics every time
+`information_schema` tables are queried. Most modern setups keep this OFF because
+applications and tooling query `information_schema` frequently.
+`concurrent_insert`: when set to `NEVER`/`0`, MyISAM tables can no longer serve SELECTs
+in parallel with INSERTs. The recommended value is `AUTO` (the modern default).
+The `innodb_file_per_table` knob is covered by the `mysql-innodb-buffer-pool-size`
+check; this plugin no longer duplicates it."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
@@ -78,13 +85,9 @@ def parse_args():
 
 
 def get_vars(conn):
-    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
-    # Without the GLOBAL modifier, SHOW VARIABLES displays the values that are used for
-    # the current connection to MariaDB.
     sql = """
         show global variables
         where variable_name like 'concurrent_insert'
-            or variable_name like 'innodb_file_per_table'
             or variable_name like 'innodb_stats_on_metadata'
             ;
           """
@@ -94,10 +97,10 @@ def get_vars(conn):
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:check_metadata_perf(), v1.9.8
-    # including variable names
+    # logic taken from mysqltuner.pl:check_metadata_perf() and the
+    # concurrent_insert check in mysql_stats(), verified in sync with
+    # MySQLTuner v2.8.41
 
-    # parse the command line
     try:
         args = parse_args()
     except SystemExit:
@@ -112,52 +115,101 @@ def main():
     lib.base.coe(lib.db_mysql.check_privileges(conn))
 
     myvar = lib.db_mysql.lod2dict(get_vars(conn))
-    engines = lib.db_mysql.get_engines(conn)
     lib.db_mysql.close(conn)
 
-    # init some vars
-    msg = ''
+    # Perfdata encoding for the two categorical knobs:
+    # - innodb_stats_on_metadata: 0 = OFF (good), 1 = ON (warn).
+    # - concurrent_insert: 0 = NEVER/0/OFF (warn), 1 = AUTO/1, 2 = ALWAYS/2.
+    # Numeric encoding lets Grafana plot config drift and Icinga's perfdata
+    # band thresholds (warn/crit) light up the bad value automatically.
+    concurrent_insert_map = {
+        'NEVER': 0, '0': 0, 'OFF': 0,
+        'AUTO': 1, '1': 1,
+        'ALWAYS': 2, '2': 2,
+    }
+
     state = STATE_OK
+    sections = []
+    facts = []
+    # All recommendations from all WARN paths land here and render once at the
+    # end as a `Recommendations:\n* ...` bulleted block, regardless of which
+    # combinations of WARN paths fire.
+    recommendations = []
+    perfdata = ''
 
-    # Performance Metrics
-    if myvar.get('innodb_stats_on_metadata', 0):
-        if myvar['innodb_stats_on_metadata'] == 'ON':
-            metastat_state = STATE_WARN
-            state = lib.base.get_worst(state, metastat_state)
-
-            # build the message
-            msg += (
-                f'Stat are updated during querying'
-                f' INFORMATION_SCHEMA'
-                f'{lib.base.state2str(metastat_state, prefix=" ")}.'
-                f' Set innodb_stats_on_metadata to OFF. '
+    # innodb_stats_on_metadata: ON triggers InnoDB stats updates whenever
+    # information_schema is queried, which is frequent on tooling-heavy hosts.
+    innodb_stats = myvar.get('innodb_stats_on_metadata')
+    if innodb_stats is not None:
+        if innodb_stats == 'ON':
+            state = lib.base.get_worst(state, STATE_WARN)
+            facts.append(
+                f'`innodb_stats_on_metadata` is `ON`'
+                f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
             )
-
-    if myvar['concurrent_insert'] == '0' or myvar['concurrent_insert'] == 'NEVER':
-        concins_state = STATE_WARN
-        state = lib.base.get_worst(state, concins_state)
-        msg += (
-            f'Concurrent INSERTs are off'
-            f'{lib.base.state2str(concins_state, prefix=" ")}.'
-            f' Set concurrent_insert to AUTO or ALWAYS. '
+            recommendations.append(
+                'Set `innodb_stats_on_metadata` = `OFF` so InnoDB stops'
+                ' refreshing index statistics on every `information_schema`'
+                ' query'
+            )
+        else:
+            facts.append(f'`innodb_stats_on_metadata` is `{innodb_stats}`')
+        perfdata += lib.base.get_perfdata(
+            'mysql_innodb_stats_on_metadata',
+            1 if innodb_stats == 'ON' else 0,
+            warn=1,
+            _min=0,
+            _max=1,
         )
 
-    if engines.get('have_innodb', ''):
-        if engines['have_innodb'] == 'YES':
-            if myvar['innodb_file_per_table'] != 'ON':
-                ifpt_state = STATE_WARN
-                state = lib.base.get_worst(state, ifpt_state)
-                msg += (
-                    f'InnoDB File per table is not activated'
-                    f'{lib.base.state2str(ifpt_state, prefix=" ")}.'
-                    f' Set innodb_file_per_table to ON. '
-                )
+    # concurrent_insert: NEVER / 0 disables parallel SELECT + INSERT on MyISAM
+    # tables. AUTO (the modern default) is recommended.
+    conc_ins = myvar.get('concurrent_insert')
+    if conc_ins is not None:
+        conc_ins_num = concurrent_insert_map.get(conc_ins.upper())
+        if conc_ins_num == 0:
+            state = lib.base.get_worst(state, STATE_WARN)
+            facts.append(
+                f'`concurrent_insert` is `{conc_ins}`'
+                f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
+            )
+            recommendations.append(
+                'Set `concurrent_insert` = `AUTO` (or `ALWAYS`) so MyISAM'
+                ' tables can serve SELECTs in parallel with INSERTs'
+            )
+        else:
+            facts.append(f'`concurrent_insert` is `{conc_ins}`')
+        if conc_ins_num is not None:
+            # Treat 0 (NEVER) as the warning band so Icinga colours perfdata
+            # graphs correctly. Min=0 / max=2 keeps the gauge to the documented
+            # enum range.
+            perfdata += lib.base.get_perfdata(
+                'mysql_concurrent_insert',
+                conc_ins_num,
+                warn='1:',
+                _min=0,
+                _max=2,
+            )
 
-    if not msg:
-        msg = 'Everything is ok.'
+    if state == STATE_OK:
+        # "Everything is ok." leads the OK message so the admin sees the
+        # verdict first; the verified facts follow.
+        if facts:
+            sections.append('Everything is ok. ' + '. '.join(facts) + '.')
+        else:
+            sections.append('Everything is ok.')
+    else:
+        sections.append('. '.join(facts) + '.')
+
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
+        )
+
+    msg = '\n\n'.join(sections)
 
     # over and out
-    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

@@ -17,8 +17,9 @@ an actual MariaDB server and let the plugin talk to it over TCP.
 
 Per CONTRIBUTING's "Combine container tests with fixtures" rule,
 this file holds only the happy-path integration test. A freshly
-booted, idle MariaDB reports near-zero counters and lands on
-"Everything is ok.".
+booted MariaDB ships sensible defaults for both checked variables
+(`innodb_stats_on_metadata=OFF`, `concurrent_insert=AUTO`), so the
+plugin reports both verifications and exits OK.
 
 Runs against the current MariaDB LTS releases
 (`lib.lftest.MARIADB_LTS_IMAGES`).
@@ -66,7 +67,14 @@ def _check_image(test, image_pair):
         print(f'Script output:\n{combined.strip()}', flush=True)
 
         test.assertEqual(result.returncode, STATE_OK)
-        test.assertIn('Everything is ok', combined)
+        # Both knobs ship safe defaults on a fresh MariaDB container;
+        # "Everything is ok." leads the OK output, followed by the
+        # verified values.
+        test.assertIn('Everything is ok.', combined)
+        test.assertIn('`innodb_stats_on_metadata` is `OFF`', combined)
+        test.assertIn('`concurrent_insert` is `AUTO`', combined)
+        # No WARNING markers should appear in the OK output.
+        test.assertNotIn('[WARNING]', combined)
 
 
 lib.lftest.attach_each(TestCheck, IMAGES, _check_image, id_func=lambda it: it[1])

@@ -3,18 +3,21 @@
 
 ## Overview
 
-Checks performance-related best practice configurations for MySQL/MariaDB, including whether InnoDB stats are updated during INFORMATION_SCHEMA queries, concurrent inserts are enabled, and InnoDB file-per-table is activated.
+Checks two MySQL/MariaDB best-practice knobs that do not have a dedicated plugin: `innodb_stats_on_metadata` and `concurrent_insert`. The OK output now lists both verified values so admins immediately see what was checked.
+
+* `innodb_stats_on_metadata`: when ON, InnoDB recalculates index statistics every time `information_schema` tables are queried. Most modern setups keep this OFF because applications and tooling query `information_schema` frequently.
+* `concurrent_insert`: when set to `NEVER`/`0`, MyISAM tables can no longer serve SELECTs in parallel with INSERTs. The recommended value is `AUTO` (the modern default).
+
+The `innodb_file_per_table` knob is covered by the `mysql-innodb-buffer-pool-size` check; this plugin no longer duplicates it.
 
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
-* Requires MySQL/MariaDB v5.5+
 
 **Data Collection:**
 
-* Queries `SHOW GLOBAL VARIABLES` for `concurrent_insert`, `innodb_file_per_table`, and `innodb_stats_on_metadata`
-* Checks the InnoDB storage engine availability
-* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):check_metadata_perf(), v1.9.8
+* Queries `SHOW GLOBAL VARIABLES` for `innodb_stats_on_metadata` and `concurrent_insert`.
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):check_metadata_perf() and the `concurrent_insert` check in `mysql_stats()`, verified in sync with v2.8.41.
 
 
 ## Fact Sheet
@@ -38,9 +41,16 @@ usage: mysql-perf-metrics [-h] [-V] [--always-ok]
                           [--defaults-group DEFAULTS_GROUP]
                           [--timeout TIMEOUT]
 
-Checks performance metrics and best practice configurations for MySQL/MariaDB,
-including query cache efficiency, key buffer usage, and other tuning
-indicators. Alerts on suboptimal configurations.
+Checks two MySQL/MariaDB best-practice knobs that do not have a dedicated
+plugin: `innodb_stats_on_metadata` and `concurrent_insert`. Alerts when either
+is set to a value that slows down typical workloads.
+`innodb_stats_on_metadata`: when ON, InnoDB recalculates index statistics
+every time `information_schema` tables are queried. Most modern setups keep
+this OFF because applications and tooling query `information_schema`
+frequently. `concurrent_insert`: when set to `NEVER`/`0`, MyISAM tables can no
+longer serve SELECTs in parallel with INSERTs. The recommended value is `AUTO`
+(the modern default). The `innodb_file_per_table` knob is covered by the
+`mysql-innodb-buffer-pool-size` check; this plugin no longer duplicates it.
 
 options:
   -h, --help            show this help message and exit
@@ -64,24 +74,38 @@ options:
 ./mysql-perf-metrics --defaults-file=/var/spool/icinga2/.my.cnf
 ```
 
-Output:
+Output (OK):
 
 ```text
-Stat are updated during querying INFORMATION_SCHEMA [WARNING]. Set innodb_stats_on_metadata to OFF. Concurrent INSERTs are off [WARNING]. Set concurrent_insert to AUTO or ALWAYS. InnoDB File per table is not activated [WARNING]. Set innodb_file_per_table to ON.
+Everything is ok. `innodb_stats_on_metadata` is `OFF`. `concurrent_insert` is `AUTO`.
+```
+
+Output (WARN):
+
+```text
+`innodb_stats_on_metadata` is `ON` [WARNING]. `concurrent_insert` is `NEVER` [WARNING].
+
+Recommendations:
+* Set `innodb_stats_on_metadata` = `OFF` so InnoDB stops refreshing index statistics on every `information_schema` query
+* Set `concurrent_insert` = `AUTO` (or `ALWAYS`) so MyISAM tables can serve SELECTs in parallel with INSERTs
 ```
 
 
 ## States
 
-* WARN if `concurrent_insert` is not set to AUTO or ALWAYS.
-* WARN if `innodb_file_per_table` is not set to ON (when InnoDB is enabled).
-* WARN if `innodb_stats_on_metadata` is not set to OFF.
+* WARN if `innodb_stats_on_metadata` is `ON`.
+* WARN if `concurrent_insert` is `NEVER` / `0` / `OFF`.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-There is no perfdata.
+Both knobs are emitted as numeric perfdata so config drift is visible in Grafana and Icinga's perfdata thresholds light up the bad value automatically. Encoding:
+
+| Name | Type | Description |
+|----|----|----|
+| mysql_concurrent_insert | Number | `0` = `NEVER` (warn), `1` = `AUTO`, `2` = `ALWAYS`. |
+| mysql_innodb_stats_on_metadata | Number | `0` = `OFF`, `1` = `ON` (warn). |
 
 
 ## Credits, License
