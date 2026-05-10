@@ -20,15 +20,24 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051001'
+__version__ = '2026051002'
 
 DESCRIPTION = """Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the
-configured size against the recommended size based on actual data and index sizes.
-Alerts if the buffer pool is significantly undersized."""
+configured `innodb_buffer_pool_size` against the actual InnoDB data and index sizes, and the
+ratio of `innodb_log_file_size * innodb_log_files_in_group` (or `innodb_redo_log_capacity` on
+MySQL 8.0.30+) vs. `innodb_buffer_pool_size` against the recommended 25%. Also flags
+`innodb_file_per_table = OFF` and architecture-related buffer-pool size limits.
+Alerts if the buffer pool is undersized relative to the data, or if the log-size ratio is
+outside the recommended 20-30% band."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_TIMEOUT = 3
+
+# 32-bit address space ceiling for innodb_buffer_pool_size (`2**32 - 1`).
+LIMIT_32BIT = 4294967295
+# 64-bit theoretical ceiling for innodb_buffer_pool_size (`2**64 - 1`).
+LIMIT_64BIT = 18446744073709551615
 
 
 def parse_args():
@@ -85,6 +94,7 @@ def get_vars(conn):
     sql = """
         show global variables
         where variable_name like 'innodb_buffer_pool_size'
+            or variable_name like 'innodb_file_per_table'
             or variable_name like 'innodb_log_file_size'
             or variable_name like 'innodb_log_files_in_group'
             or variable_name like 'innodb_redo_log_capacity'
@@ -96,19 +106,22 @@ def get_vars(conn):
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:mysql_innodb(), section # InnoDB Buffer Pool Size, v2.2.12
-    # including variable names
+    # logic taken from mysqltuner.pl:mysql_innodb(), section "InnoDB Buffer Pool
+    # Size", verified in sync with MySQLTuner v2.8.41 (the architecture limits,
+    # the buffer-pool-vs-data-size check, the 25% log-size-ratio target with the
+    # 20-30% acceptance band, and the MySQL 8.0.30+ `innodb_redo_log_capacity`
+    # path are unchanged upstream since the original port).
+    #
+    # Not implemented: the workload-based `innodb_redo_log_capacity` recommendation
+    # (mysqltuner derives one from `Innodb_os_log_written` / uptime, with RAM
+    # tiers). Adding that requires fetching status counters and physical memory
+    # and would warrant a dedicated plugin.
 
     # parse the command line
     try:
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
-
-    # init some vars
-    msg = ''
-    state = STATE_OK
-    perfdata = ''
 
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
@@ -119,19 +132,24 @@ def main():
     lib.base.coe(lib.db_mysql.check_privileges(conn, 'SELECT'))
 
     engines = lib.db_mysql.get_engines(conn)
-    if not engines.get('have_innodb', ''):
+    if (
+        not engines.get('have_innodb', '')
+        or engines['have_innodb'] != 'YES'
+    ):
         lib.db_mysql.close(conn)
-        lib.base.cu('InnoDB Storage Engine not available.')
-    if engines['have_innodb'] != 'YES':
-        lib.db_mysql.close(conn)
-        lib.base.cu('InnoDB Storage Engine is disabled.')
+        lib.base.oao(
+            'InnoDB Storage Engine not available or disabled.',
+            STATE_OK,
+            always_ok=args.ALWAYS_OK,
+        )
 
     myvar = lib.db_mysql.lod2dict(get_vars(conn))
+    # innodb_log_files_in_group was removed in MariaDB 10.6.0 and is missing on
+    # very old MySQL too. mysqltuner defaults to 1 in both cases.
     if (
-        myvar.get('innodb_log_files_in_group', None) is None
+        myvar.get('innodb_log_files_in_group') is None
         or myvar.get('innodb_log_files_in_group', 0) == 0
     ):
-        # innodb_log_files_in_group removed in MariaDB 10.6.0
         myvar['innodb_log_files_in_group'] = '1'
 
     sql = """
@@ -142,115 +160,152 @@ def main():
             and engine = "innodb";
     """
     enginestats = lib.base.coe(lib.db_mysql.select(conn, sql))
-    if enginestats[0]['InnoDB'] is None:
-        enginestats[0]['InnoDB'] = 0
+    innodb_data_size = int(enginestats[0]['InnoDB'] or 0)
 
     lib.db_mysql.close(conn)
 
-    # calculations
-    mycalc = {}
-    mycalc['innodb_log_size_pct'] = int(
-        int(myvar['innodb_log_file_size'])
-        * int(myvar['innodb_log_files_in_group'])
-        / int(myvar['innodb_buffer_pool_size'])
-        * 100
+    # cache int conversions
+    buffer_size = int(myvar['innodb_buffer_pool_size'])
+    log_file_size = int(myvar['innodb_log_file_size'])
+    log_files_in_group = int(myvar['innodb_log_files_in_group'])
+    redo_log_capacity_raw = myvar.get('innodb_redo_log_capacity')
+    redo_log_capacity = (
+        int(redo_log_capacity_raw)
+        if redo_log_capacity_raw is not None and int(redo_log_capacity_raw) > 0
+        else None
     )
+    file_per_table = myvar.get('innodb_file_per_table', '').upper()
 
-    # InnoDB Buffer Pool Size
-    # Output changed compared to MySQLTuner (to be more clear).
-
-    # handling innodb_redo_log_capacity is specific to MySQL only - not implemented here
-    # MariaDB: https://mariadb.com/kb/en/innodb-redo-log/
-    # MySQL: https://dev.mysql.com/doc/refman/8.0/en/innodb-parameters.html#sysvar_innodb_redo_log_capacity
-
-    if not lib.base.IS_64BIT and int(myvar['innodb_buffer_pool_size']) > 4294967295:
-        local_state = STATE_WARN
-        state = lib.base.get_worst(state, local_state)
-
-        # build the message
-        msg += (
-            f'InnoDB Buffer Pool size'
-            f' ({lib.human.bytes2human(int(myvar["innodb_buffer_pool_size"]))})'
-            f' limit reached for 32 bits architecture.'
-            f' Limit innodb_buffer_pool_size under'
-            f' {lib.human.bytes2human(4294967295)}'
-            f'{lib.base.state2str(local_state)}.'
-        )
-    if lib.base.IS_64BIT and int(myvar['innodb_buffer_pool_size']) > 18446744073709551615:
-        local_state = STATE_WARN
-        state = lib.base.get_worst(state, local_state)
-        msg += (
-            f'InnoDB Buffer Pool size'
-            f' ({lib.human.bytes2human(int(myvar["innodb_buffer_pool_size"]))})'
-            f' limit reached for 64 bits architecture.'
-            f' Limit innodb_buffer_pool_size under'
-            f' {lib.human.bytes2human(18446744073709551615)}'
-            f'{lib.base.state2str(local_state)}.'
+    # Log-size-ratio: prefer `innodb_redo_log_capacity` on MySQL 8.0.30+ where
+    # it replaced the old `innodb_log_file_size * innodb_log_files_in_group`
+    # combination as the single sizing knob.
+    if redo_log_capacity is not None:
+        log_size_pct = round(redo_log_capacity / buffer_size * 100, 1)
+    else:
+        log_size_pct = round(
+            log_file_size * log_files_in_group / buffer_size * 100, 1
         )
 
-    msg += (
-        f'Data size:'
-        f' {lib.human.bytes2human(int(enginestats[0]["InnoDB"]))}'
-        f', innodb_buffer_pool_size:'
-        f' {lib.human.bytes2human(int(myvar["innodb_buffer_pool_size"]))}'
-    )
-    if int(myvar['innodb_buffer_pool_size']) <= int(enginestats[0]['InnoDB']):
-        local_state = STATE_WARN
-        state = lib.base.get_worst(state, local_state)
-        msg += (
-            f" doesn't fit"
-            f' {lib.base.state2str(local_state)}.'
-            f' Set innodb_buffer_pool_size >='
-            f' {lib.human.bytes2human(int(enginestats[0]["InnoDB"]))}. '
+    state = STATE_OK
+    sections = []
+
+    # 1. Architecture cap (rarely violated; emit only on violation).
+    if not lib.base.IS_64BIT and buffer_size > LIMIT_32BIT:
+        state = lib.base.get_worst(state, STATE_WARN)
+        sections.append(
+            f'`innodb_buffer_pool_size` ({lib.human.bytes2human(buffer_size)})'
+            f' exceeds the 32-bit address space limit'
+            f' ({lib.human.bytes2human(LIMIT_32BIT)}); lower it'
+            f'{lib.base.state2str(STATE_WARN, prefix=" ")}.'
+        )
+    elif lib.base.IS_64BIT and buffer_size > LIMIT_64BIT:
+        state = lib.base.get_worst(state, STATE_WARN)
+        sections.append(
+            f'`innodb_buffer_pool_size` ({lib.human.bytes2human(buffer_size)})'
+            f' exceeds the 64-bit address space limit'
+            f' ({lib.human.bytes2human(LIMIT_64BIT)}); lower it'
+            f'{lib.base.state2str(STATE_WARN, prefix=" ")}.'
         )
 
-    msg += (
-        f'\nRatio innodb_log_file_size'
-        f' ({lib.human.bytes2human(int(myvar["innodb_log_file_size"]))})'
-        f' * innodb_log_files_in_group'
-        f' ({myvar["innodb_log_files_in_group"]})'
-        f' vs. innodb_buffer_pool_size'
-        f' ({lib.human.bytes2human(int(myvar["innodb_buffer_pool_size"]))})'
-        f': {mycalc["innodb_log_size_pct"]}% '
-    )
-
-    # badprint
-    if (
-        int(mycalc['innodb_log_size_pct']) < 20
-        or int(mycalc['innodb_log_size_pct']) > 30
-    ):
-        ratio_state = STATE_WARN
-        state = lib.base.get_worst(state, ratio_state)
-        msg += (
-            f'{lib.base.state2str(ratio_state, prefix=" ")}'
-            f' (should be 25% of innodb_buffer_pool_size). '
-        )
-        msg += (
-            f'Set innodb_log_file_size to'
-            f' {lib.human.bytes2human(int(myvar["innodb_buffer_pool_size"]) / int(myvar["innodb_log_files_in_group"]) / 4)}.'
+    # 2. innodb_file_per_table - off means everything lives in `ibdata1`, which
+    #    makes per-table maintenance (drop, optimize, rebuild) painful.
+    if file_per_table != 'ON':
+        state = lib.base.get_worst(state, STATE_WARN)
+        sections.append(
+            f'`innodb_file_per_table` is `{file_per_table or "unset"}`; set it to'
+            f' `ON` so each InnoDB table gets its own .ibd file'
+            f'{lib.base.state2str(STATE_WARN, prefix=" ")}.'
         )
 
+    # 3. Buffer pool vs data size. mysqltuner emits a goodprint here too when
+    #    buffer >= data; we mirror that so the OK output shows the comparison.
+    data_h = lib.human.bytes2human(innodb_data_size)
+    buffer_h = lib.human.bytes2human(buffer_size)
+    if buffer_size <= innodb_data_size and innodb_data_size > 0:
+        state = lib.base.get_worst(state, STATE_WARN)
+        sections.append(
+            f'`innodb_buffer_pool_size` ({buffer_h}) is smaller than the InnoDB'
+            f' data + index size ({data_h}); set'
+            f' `innodb_buffer_pool_size` >= {data_h} so the working set fits'
+            f' in memory{lib.base.state2str(STATE_WARN, prefix=" ")}.'
+        )
+    else:
+        sections.append(
+            f'`innodb_buffer_pool_size` ({buffer_h}) >= InnoDB data + index size'
+            f' ({data_h}).'
+        )
+
+    # 4. Log-size ratio: target 25% (band 20-30%). Recommendation references
+    #    whichever knob actually controls the log size on this server.
+    if redo_log_capacity is not None:
+        ratio_facts = (
+            f'`innodb_redo_log_capacity` ({lib.human.bytes2human(redo_log_capacity)})'
+            f' / `innodb_buffer_pool_size` ({buffer_h})'
+        )
+    else:
+        ratio_facts = (
+            f'`innodb_log_file_size` ({lib.human.bytes2human(log_file_size)})'
+            f' * `innodb_log_files_in_group` ({log_files_in_group})'
+            f' / `innodb_buffer_pool_size` ({buffer_h})'
+        )
+    ratio_msg = f'Log size ratio = {ratio_facts} = {log_size_pct}% (target: 25%)'
+    if log_size_pct < 20 or log_size_pct > 30:
+        state = lib.base.get_worst(state, STATE_WARN)
+        target_25 = int(buffer_size / 4)
+        if redo_log_capacity is not None:
+            rec = (
+                f'set `innodb_redo_log_capacity` ='
+                f' {lib.human.bytes2human(target_25)}'
+            )
+        else:
+            target_per_file = int(target_25 / log_files_in_group)
+            rec = (
+                f'set `innodb_log_file_size` ='
+                f' {lib.human.bytes2human(target_per_file)}'
+            )
+        sections.append(
+            f'{ratio_msg}{lib.base.state2str(STATE_WARN, prefix=" ")}.'
+            f' To reach 25%, {rec}.'
+        )
+    else:
+        sections.append(f'{ratio_msg}.')
+
+    msg = '\n\n'.join(sections)
+
+    perfdata = ''
     perfdata += lib.base.get_perfdata(
         'mysql_innodb_buffer_pool_size',
-        myvar['innodb_buffer_pool_size'],
+        buffer_size,
+        uom='B',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_innodb_data_size',
+        innodb_data_size,
         uom='B',
         _min=0,
     )
     perfdata += lib.base.get_perfdata(
         'mysql_innodb_log_file_size',
-        myvar['innodb_log_file_size'],
+        log_file_size,
         uom='B',
         _min=0,
     )
     perfdata += lib.base.get_perfdata(
         'mysql_innodb_log_files_in_group',
-        myvar['innodb_log_files_in_group'],
+        log_files_in_group,
         _min=0,
     )
-
+    if redo_log_capacity is not None:
+        perfdata += lib.base.get_perfdata(
+            'mysql_innodb_redo_log_capacity',
+            redo_log_capacity,
+            uom='B',
+            _min=0,
+        )
     perfdata += lib.base.get_perfdata(
         'mysql_innodb_log_size_pct',
-        mycalc['innodb_log_size_pct'],
+        log_size_pct,
         uom='%',
         _min=0,
         _max=100,

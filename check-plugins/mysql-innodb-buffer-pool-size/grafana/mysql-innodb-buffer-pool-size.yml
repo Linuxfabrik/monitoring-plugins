@@ -1,0 +1,294 @@
+apiVersion: grizzly.grafana.com/v1alpha1
+kind: Dashboard
+metadata:
+  folder: linuxfabrik-monitoring-plugins
+  name: mysql-innodb-buffer-pool-size
+spec:
+  schemaVersion: 2023041201
+  tags:
+    - Linuxfabrik
+    - Grizzly
+    - static
+  time:
+    from: now-90d
+    to: now
+  timepicker:
+    hidden: false
+    refresh_intervals:
+    - 1m
+  timezone: browser
+  title: MySQL InnoDB Buffer Pool Size
+  uid: linuxfabrik-monitoring-plugins-mysql-innodb-buffer-pool-size
+  editable: true
+  liveNow: true
+  refresh: 1m
+  templating:
+    list:
+    - label: Command
+      name: command
+      query: SHOW MEASUREMENTS WITH MEASUREMENT =~ /.*mysql-innodb-buffer-pool-size.*/
+      current:
+        text: cmd-check-mysql-innodb-buffer-pool-size
+        value: cmd-check-mysql-innodb-buffer-pool-size
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Hostname
+      name: hostname
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "hostname"
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Service
+      name: service
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "service" WHERE hostname = '$hostname'
+      refresh: 1
+      sort: 1
+      type: query
+
+  panels:
+
+  - title: MySQL InnoDB Buffer Pool - Sizes
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 1
+        min: 0
+        unit: bytes
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_innodb_buffer_pool_size
+        properties:
+        - id: displayName
+          value: innodb_buffer_pool_size
+      - matcher:
+          id: byName
+          options: mysql_innodb_data_size
+        properties:
+        - id: displayName
+          value: InnoDB data + index size (sum)
+      - matcher:
+          id: byName
+          options: mysql_innodb_log_file_size
+        properties:
+        - id: displayName
+          value: innodb_log_file_size (per file)
+      - matcher:
+          id: byName
+          options: mysql_innodb_redo_log_capacity
+        properties:
+        - id: displayName
+          value: innodb_redo_log_capacity (MySQL 8.0.30+)
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: mysql_innodb_buffer_pool_size
+      refId: mysql_innodb_buffer_pool_size
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_innodb_buffer_pool_size
+
+    - alias: mysql_innodb_data_size
+      refId: mysql_innodb_data_size
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_innodb_data_size
+
+    - alias: mysql_innodb_log_file_size
+      refId: mysql_innodb_log_file_size
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_innodb_log_file_size
+
+    - alias: mysql_innodb_redo_log_capacity
+      refId: mysql_innodb_redo_log_capacity
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_innodb_redo_log_capacity
+
+
+  - title: MySQL InnoDB Buffer Pool - Log Size Ratio
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 1
+        max: 100
+        min: 0
+        unit: percent
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_innodb_log_size_pct
+        properties:
+        - id: displayName
+          value: Log size ratio (target 25%)
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: mysql_innodb_log_size_pct
+      refId: mysql_innodb_log_size_pct
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_innodb_log_size_pct
