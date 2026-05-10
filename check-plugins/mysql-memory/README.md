@@ -98,40 +98,43 @@ Max used memory: 67.6% (21.1GiB of 31.3GiB physical) [WARNING]. Peak possible: 9
 Recommendations:
 * Reduce your overall MySQL memory footprint for system stability
 * Dedicate this server to MySQL/MariaDB: peak MySQL memory plus other-process memory would exceed physical RAM
+* Top contributors to peak memory (largest first):
+  - `max_allowed_packet` (16.0MiB) * `max_connections` (676) = 10.6GiB
+  - `innodb_buffer_pool_size` (8.0GiB)
+  - `sort_buffer_size` (2.0MiB) * `max_connections` (676) = 1.3GiB
+  - `aria_pagecache_buffer_size` (128.0MiB)
+  - `key_buffer_size` (128.0MiB)
 ```
+
+For per-thread buffers the line reads as `<var> (per-conn value) * max_connections (N) = total`; for server-wide buffers the value is shown inline in parens (no multiplier).
+
+When state is OK there are no recommendations and no top-contributors hint - the output stays compact. The top-5 list always reflects this specific server's settings; the ranking changes depending on whether `max_connections` is large enough for the per-thread buffers to overtake `innodb_buffer_pool_size`.
 
 Output (`--lengthy`, additionally):
 
 ```text
-Memory breakdown:
+Memory breakdown (sorted by contribution to peak memory):
 
-Server-wide buffers (allocated regardless of connections):
-  `key_buffer_size`                                   128.0MiB
-  `max_tmp_table_size` (min of `tmp_table_size` and `max_heap_table_size`)  16.0MiB
-  `innodb_buffer_pool_size`                            18.0GiB
-  `innodb_additional_mem_pool_size`                       0.0B
-  `innodb_log_buffer_size`                             16.0MiB
-  `query_cache_size`                                    1.0MiB
-  `aria_pagecache_buffer_size`                        128.0MiB
-  = server_buffers                                     18.3GiB
-
-Per-thread buffers (multiplied by connection count):
-  `read_buffer_size`                                  128.0KiB
-  `read_rnd_buffer_size`                              256.0KiB
-  `sort_buffer_size`                                    2.0MiB
-  `thread_stack`                                      292.0KiB
-  `max_allowed_packet`                                 16.0MiB
-  `join_buffer_size`                                  256.0KiB
-  = per_thread_buffers                                 18.9MiB
-
-Totals:
-  Performance Schema memory (ON)                       50.0MiB
-  per_thread_buffers * `Max_used_connections`=150       2.8GiB
-  per_thread_buffers * `max_connections`=676           12.8GiB
-  = max_used_memory (currently reached)                21.1GiB
-  = max_peak_memory (theoretical peak)                 31.1GiB
-  Physical RAM (host)                                  31.3GiB
-  Other process memory (host)                           5.2GiB
+  `max_allowed_packet` (16.0MiB) * `max_connections` (676) = 10.6GiB
+  `innodb_buffer_pool_size` (8.0GiB)
+  `sort_buffer_size` (2.0MiB) * `max_connections` (676) = 1.3GiB
+  `thread_stack` (292.0KiB) * `max_connections` (676) = 192.7MiB
+  `aria_pagecache_buffer_size` (128.0MiB)
+  `key_buffer_size` (128.0MiB)
+  `read_rnd_buffer_size` (256.0KiB) * `max_connections` (676) = 169.0MiB
+  `join_buffer_size` (256.0KiB) * `max_connections` (676) = 169.0MiB
+  `read_buffer_size` (128.0KiB) * `max_connections` (676) = 84.5MiB
+  Performance Schema memory (50.0MiB)
+  `innodb_log_buffer_size` (16.0MiB)
+  `max_tmp_table_size` (16.0MiB, min of `tmp_table_size` and `max_heap_table_size`)
+  `query_cache_size` (1.0MiB)
+  `innodb_additional_mem_pool_size`
+  Galera GCache (`gcache.size`)
+  ----------------------------------------------------------------------
+  max_peak_memory = 31.1GiB
+  max_used_memory (currently reached) = 21.1GiB
+  Physical RAM (host) = 31.3GiB
+  Other process memory (host) = 5.2GiB
 ```
 
 

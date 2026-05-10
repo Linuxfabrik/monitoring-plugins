@@ -235,90 +235,108 @@ def get_other_process_memory():
     return total
 
 
-def render_breakdown(myvar, mystat, mycalc):
-    """Render the verbose --lengthy memory-breakdown block (the same data the
-    short summary derives from, but per-buffer). Surface MySQL/MariaDB
-    variable names in backticks so admins can grep for them in their config.
+def build_contributions(myvar, mycalc):
+    """Return a list of (label, bytes, multiplied) tuples describing every
+    knob's contribution to `max_peak_memory`, sorted by bytes descending.
+    `multiplied` is True when the entry is a per-thread buffer multiplied by
+    `max_connections` (so the label already encodes the math and the total
+    bytes deserve an explicit `= total` on the right). Single-value entries
+    have `multiplied=False` and the label already carries the value, so the
+    renderer can omit the redundant `= value` tail.
+
+    Used both for the top-N hint in the Recommendations block and the full
+    `--lengthy` ranked breakdown.
     """
     bh = lib.human.bytes2human
-
-    def row(label, value):
-        return f'  {label:<48s}{bh(value):>12s}'
-
-    lines = ['Memory breakdown:']
-    lines.append('')
-    lines.append('Server-wide buffers (allocated regardless of connections):')
-    lines.append(row('`key_buffer_size`', int(myvar['key_buffer_size'])))
-    lines.append(row(
-        f'`max_tmp_table_size` (min of `tmp_table_size`'
-        f'={bh(int(myvar["tmp_table_size"]))} and `max_heap_table_size`'
-        f'={bh(int(myvar["max_heap_table_size"]))})',
-        mycalc['max_tmp_table_size'],
-    ))
-    lines.append(row(
-        '`innodb_buffer_pool_size`',
-        int(myvar.get('innodb_buffer_pool_size', 0)),
-    ))
-    lines.append(row(
-        '`innodb_additional_mem_pool_size`',
-        int(myvar.get('innodb_additional_mem_pool_size', 0)),
-    ))
-    lines.append(row(
-        '`innodb_log_buffer_size`',
-        int(myvar.get('innodb_log_buffer_size', 0)),
-    ))
-    lines.append(row(
-        '`query_cache_size`',
-        int(myvar.get('query_cache_size', 0)),
-    ))
-    lines.append(row(
-        '`aria_pagecache_buffer_size`',
-        int(myvar.get('aria_pagecache_buffer_size', 0)),
-    ))
-    lines.append(row('= server_buffers', mycalc['server_buffers']))
-
-    lines.append('')
-    lines.append('Per-thread buffers (multiplied by connection count):')
-    lines.append(row('`read_buffer_size`', int(myvar['read_buffer_size'])))
-    lines.append(row(
-        '`read_rnd_buffer_size`',
-        int(myvar['read_rnd_buffer_size']),
-    ))
-    lines.append(row('`sort_buffer_size`', int(myvar['sort_buffer_size'])))
-    lines.append(row('`thread_stack`', int(myvar['thread_stack'])))
-    lines.append(row(
-        '`max_allowed_packet`',
-        int(myvar['max_allowed_packet']),
-    ))
-    lines.append(row('`join_buffer_size`', int(myvar['join_buffer_size'])))
-    lines.append(row('= per_thread_buffers', mycalc['per_thread_buffers']))
-
-    max_used_conn = int(mystat['Max_used_connections'])
     max_conn = int(myvar['max_connections'])
-    lines.append('')
-    lines.append('Totals:')
-    lines.append(row(
-        f'Performance Schema memory'
-        f' ({"OFF" if myvar.get("performance_schema") != "ON" else "ON"})',
-        mycalc['pf_memory'],
-    ))
-    if mycalc['gcache_memory'] > 0:
-        lines.append(row('Galera GCache (`gcache.size`)', mycalc['gcache_memory']))
-    lines.append(row(
-        f'per_thread_buffers * `Max_used_connections`={max_used_conn}',
-        mycalc['max_total_per_thread_buffers'],
-    ))
-    lines.append(row(
-        f'per_thread_buffers * `max_connections`={max_conn}',
-        mycalc['total_per_thread_buffers'],
-    ))
-    lines.append(row(
-        '= max_used_memory (currently reached)',
-        mycalc['max_used_memory'],
-    ))
-    lines.append(row('= max_peak_memory (theoretical peak)', mycalc['max_peak_memory']))
-    lines.append(row('Physical RAM (host)', mycalc['physical_memory']))
-    lines.append(row('Other process memory (host)', mycalc['other_process_memory']))
+
+    def per_thread(varname):
+        size = int(myvar[varname])
+        return (
+            f'`{varname}` ({bh(size)}) * `max_connections` ({max_conn})',
+            size * max_conn,
+            True,
+        )
+
+    def server_wide(label, value):
+        if value == 0:
+            return (f'{label}', 0, False)
+        return (f'{label} ({bh(value)})', value, False)
+
+    contributions = [
+        server_wide(
+            '`innodb_buffer_pool_size`',
+            int(myvar.get('innodb_buffer_pool_size', 0)),
+        ),
+        per_thread('max_allowed_packet'),
+        per_thread('sort_buffer_size'),
+        per_thread('read_buffer_size'),
+        per_thread('read_rnd_buffer_size'),
+        per_thread('join_buffer_size'),
+        per_thread('thread_stack'),
+        server_wide('`key_buffer_size`', int(myvar['key_buffer_size'])),
+        server_wide(
+            '`aria_pagecache_buffer_size`',
+            int(myvar.get('aria_pagecache_buffer_size', 0)),
+        ),
+        server_wide(
+            '`innodb_log_buffer_size`',
+            int(myvar.get('innodb_log_buffer_size', 0)),
+        ),
+        server_wide(
+            '`innodb_additional_mem_pool_size`',
+            int(myvar.get('innodb_additional_mem_pool_size', 0)),
+        ),
+        server_wide(
+            '`query_cache_size`',
+            int(myvar.get('query_cache_size', 0)),
+        ),
+        (
+            f'`max_tmp_table_size` ({bh(mycalc["max_tmp_table_size"])},'
+            f' min of `tmp_table_size` and `max_heap_table_size`)',
+            mycalc['max_tmp_table_size'],
+            False,
+        ),
+        server_wide('Performance Schema memory', mycalc['pf_memory']),
+        server_wide('Galera GCache (`gcache.size`)', mycalc['gcache_memory']),
+    ]
+    contributions.sort(key=lambda item: -item[1])
+    return contributions
+
+
+def format_contribution(label, value, multiplied):
+    """One bullet line for a contribution entry. Multiplied entries get an
+    explicit `= total` because their label only shows the operands; single
+    values have the bytes already inline in the label, so a trailing total
+    would be redundant.
+    """
+    bh = lib.human.bytes2human
+    if multiplied:
+        return f'{label} = {bh(value)}'
+    return label
+
+
+def render_breakdown(myvar, mycalc):
+    """Render the verbose --lengthy memory-breakdown block: every knob and its
+    contribution to `max_peak_memory`, sorted by impact (largest first). The
+    sort lets admins immediately see which knob to focus on instead of having
+    to scan a categorical list.
+    """
+    bh = lib.human.bytes2human
+    contributions = build_contributions(myvar, mycalc)
+
+    lines = ['Memory breakdown (sorted by contribution to peak memory):', '']
+    for label, value, multiplied in contributions:
+        lines.append(f'  {format_contribution(label, value, multiplied)}')
+    lines.append('  ' + '-' * 70)
+    lines.append(f'  max_peak_memory = {bh(mycalc["max_peak_memory"])}')
+    lines.append(
+        f'  max_used_memory (currently reached) = {bh(mycalc["max_used_memory"])}'
+    )
+    lines.append(f'  Physical RAM (host) = {bh(mycalc["physical_memory"])}')
+    lines.append(
+        f'  Other process memory (host) = {bh(mycalc["other_process_memory"])}'
+    )
     return '\n'.join(lines)
 
 
@@ -477,12 +495,23 @@ def main():
     sections.append('. '.join(facts) + '.')
 
     if args.LENGTHY:
-        sections.append(render_breakdown(myvar, mystat, mycalc))
+        sections.append(render_breakdown(myvar, mycalc))
 
+    # When any memory-related recommendation fired, surface the top
+    # contributors to peak memory so admins immediately see which knobs to
+    # focus on instead of having to guess or re-run with --lengthy.
     if recommendations:
-        sections.append(
-            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
-        )
+        rec_lines = [f'* {r}' for r in recommendations]
+        top = [c for c in build_contributions(myvar, mycalc) if c[1] > 0][:5]
+        if top:
+            rec_lines.append(
+                '* Top contributors to peak memory (largest first):'
+            )
+            for label, value, multiplied in top:
+                rec_lines.append(
+                    f'  - {format_contribution(label, value, multiplied)}'
+                )
+        sections.append('Recommendations:\n' + '\n'.join(rec_lines))
 
     msg = '\n\n'.join(sections)
 

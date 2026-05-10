@@ -47,7 +47,7 @@ spec:
 
   panels:
 
-  - title: MySQL Memory - Buffer Sizes 1
+  - title: MySQL Memory - Headlines
     type: timeseries
     gridPos:
       h: 8
@@ -68,6 +68,31 @@ spec:
         decimals: 1
         min: 0
         unit: bytes
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_max_used_memory
+        properties:
+        - id: displayName
+          value: max_used_memory (currently reached)
+      - matcher:
+          id: byName
+          options: mysql_max_peak_memory
+        properties:
+        - id: displayName
+          value: max_peak_memory (theoretical peak)
+      - matcher:
+          id: byName
+          options: mysql_physical_memory
+        properties:
+        - id: displayName
+          value: Physical RAM (host)
+      - matcher:
+          id: byName
+          options: mysql_other_process_memory
+        properties:
+        - id: displayName
+          value: Other process memory (host)
     options:
       legend:
         calcs:
@@ -85,8 +110,8 @@ spec:
 
     targets:
 
-    - alias: mysql_aria_pagecache_buffer_size
-      refId: mysql_aria_pagecache_buffer_size
+    - alias: mysql_max_used_memory
+      refId: mysql_max_used_memory
       groupBy:
       - params:
         - $interval
@@ -113,10 +138,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_aria_pagecache_buffer_size
+        value: mysql_max_used_memory
 
-    - alias: mysql_innodb_log_buffer_size
-      refId: mysql_innodb_log_buffer_size
+    - alias: mysql_max_peak_memory
+      refId: mysql_max_peak_memory
       groupBy:
       - params:
         - $interval
@@ -143,10 +168,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_innodb_log_buffer_size
+        value: mysql_max_peak_memory
 
-    - alias: mysql_join_buffer_size
-      refId: mysql_join_buffer_size
+    - alias: mysql_physical_memory
+      refId: mysql_physical_memory
       groupBy:
       - params:
         - $interval
@@ -173,10 +198,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_join_buffer_size
+        value: mysql_physical_memory
 
-    - alias: mysql_key_buffer_size
-      refId: mysql_key_buffer_size
+    - alias: mysql_other_process_memory
+      refId: mysql_other_process_memory
       groupBy:
       - params:
         - $interval
@@ -203,160 +228,9 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_key_buffer_size
+        value: mysql_other_process_memory
 
-    - alias: mysql_max_heap_table_size
-      refId: mysql_max_heap_table_size
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: mysql_max_heap_table_size
-
-    - alias: mysql_max_tmp_table_size
-      refId: mysql_max_tmp_table_size
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: mysql_max_tmp_table_size
-
-    - alias: mysql_tmp_table_size
-      refId: mysql_tmp_table_size
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: mysql_tmp_table_size
-
-    - alias: mysql_max_allowed_packet
-      refId: mysql_max_allowed_packet
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: mysql_max_allowed_packet
-
-    - alias: mysql_query_cache_size
-      refId: mysql_query_cache_size
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: mysql_query_cache_size
-
-
-  - title: MySQL Memory - Buffer Sizes 2
+  - title: MySQL Memory - Percentages
     type: timeseries
     gridPos:
       h: 8
@@ -375,8 +249,22 @@ spec:
           showPoints: always
           spanNulls: false
         decimals: 1
+        max: 100
         min: 0
-        unit: bytes
+        unit: percent
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_pct_max_used_memory
+        properties:
+        - id: displayName
+          value: pct_max_used_memory (reached / physical)
+      - matcher:
+          id: byName
+          options: mysql_pct_max_physical_memory
+        properties:
+        - id: displayName
+          value: pct_max_physical_memory (peak / physical)
     options:
       legend:
         calcs:
@@ -394,8 +282,8 @@ spec:
 
     targets:
 
-    - alias: mysql_read_buffer_size
-      refId: mysql_read_buffer_size
+    - alias: mysql_pct_max_used_memory
+      refId: mysql_pct_max_used_memory
       groupBy:
       - params:
         - $interval
@@ -422,10 +310,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_read_buffer_size
+        value: mysql_pct_max_used_memory
 
-    - alias: mysql_read_rnd_buffer_size
-      refId: mysql_read_rnd_buffer_size
+    - alias: mysql_pct_max_physical_memory
+      refId: mysql_pct_max_physical_memory
       groupBy:
       - params:
         - $interval
@@ -452,144 +340,14 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_read_rnd_buffer_size
-
-    - alias: mysql_sort_buffer_size
-      refId: mysql_sort_buffer_size
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: mysql_sort_buffer_size
-
-    - alias: mysql_thread_stack
-      refId: mysql_thread_stack
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: mysql_thread_stack
-
-
-  - title: MySQL Memory - InnoDB Buffer Pool
-    type: timeseries
-    gridPos:
-      h: 8
-      w: 12
-      x: 0
-      y: 8
-    fieldConfig:
-      defaults:
-        color:
-          mode: palette-classic
-        custom:
-          drawStyle: line
-          lineInterpolation: smooth
-          lineWidth: 1
-          pointSize: 3
-          showPoints: always
-          spanNulls: false
-        decimals: 1
-        min: 0
-        unit: bytes
-    options:
-      legend:
-        calcs:
-        - first
-        - min
-        - mean
-        - max
-        - last
-        displayMode: table
-        placement: bottom
-        showLegend: true
-      tooltip:
-        mode: multi
-        sort: none
-
-    targets:
-
-    - alias: mysql_innodb_buffer_pool_size
-      refId: mysql_innodb_buffer_pool_size
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: mysql_innodb_buffer_pool_size
-
+        value: mysql_pct_max_physical_memory
 
   - title: MySQL Memory - Connections
     type: timeseries
     gridPos:
       h: 8
       w: 12
-      x: 12
+      x: 0
       y: 8
     fieldConfig:
       defaults:
@@ -604,7 +362,20 @@ spec:
           spanNulls: false
         decimals: 0
         min: 0
-        unit: none
+        unit: short
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_max_connections
+        properties:
+        - id: displayName
+          value: max_connections
+      - matcher:
+          id: byName
+          options: mysql_max_used_connections
+        properties:
+        - id: displayName
+          value: Max_used_connections (peak reached)
     options:
       legend:
         calcs:
@@ -682,8 +453,334 @@ spec:
         operator: '='
         value: mysql_max_used_connections
 
+  - title: MySQL Memory - Server-wide Buffers
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 8
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 1
+        min: 0
+        unit: bytes
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_innodb_buffer_pool_size
+        properties:
+        - id: displayName
+          value: innodb_buffer_pool_size
+      - matcher:
+          id: byName
+          options: mysql_key_buffer_size
+        properties:
+        - id: displayName
+          value: key_buffer_size
+      - matcher:
+          id: byName
+          options: mysql_aria_pagecache_buffer_size
+        properties:
+        - id: displayName
+          value: aria_pagecache_buffer_size
+      - matcher:
+          id: byName
+          options: mysql_innodb_log_buffer_size
+        properties:
+        - id: displayName
+          value: innodb_log_buffer_size
+      - matcher:
+          id: byName
+          options: mysql_query_cache_size
+        properties:
+        - id: displayName
+          value: query_cache_size
+      - matcher:
+          id: byName
+          options: mysql_max_tmp_table_size
+        properties:
+        - id: displayName
+          value: max_tmp_table_size (min of tmp/heap)
+      - matcher:
+          id: byName
+          options: mysql_tmp_table_size
+        properties:
+        - id: displayName
+          value: tmp_table_size
+      - matcher:
+          id: byName
+          options: mysql_max_heap_table_size
+        properties:
+        - id: displayName
+          value: max_heap_table_size
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
 
-  - title: MySQL Memory - Memory
+    targets:
+
+    - alias: mysql_innodb_buffer_pool_size
+      refId: mysql_innodb_buffer_pool_size
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_innodb_buffer_pool_size
+
+    - alias: mysql_key_buffer_size
+      refId: mysql_key_buffer_size
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_key_buffer_size
+
+    - alias: mysql_aria_pagecache_buffer_size
+      refId: mysql_aria_pagecache_buffer_size
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_aria_pagecache_buffer_size
+
+    - alias: mysql_innodb_log_buffer_size
+      refId: mysql_innodb_log_buffer_size
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_innodb_log_buffer_size
+
+    - alias: mysql_query_cache_size
+      refId: mysql_query_cache_size
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_query_cache_size
+
+    - alias: mysql_max_tmp_table_size
+      refId: mysql_max_tmp_table_size
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_max_tmp_table_size
+
+    - alias: mysql_tmp_table_size
+      refId: mysql_tmp_table_size
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_tmp_table_size
+
+    - alias: mysql_max_heap_table_size
+      refId: mysql_max_heap_table_size
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_max_heap_table_size
+
+  - title: MySQL Memory - Per-Thread Buffers
     type: timeseries
     gridPos:
       h: 8
@@ -704,6 +801,43 @@ spec:
         decimals: 1
         min: 0
         unit: bytes
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_max_allowed_packet
+        properties:
+        - id: displayName
+          value: max_allowed_packet
+      - matcher:
+          id: byName
+          options: mysql_sort_buffer_size
+        properties:
+        - id: displayName
+          value: sort_buffer_size
+      - matcher:
+          id: byName
+          options: mysql_read_buffer_size
+        properties:
+        - id: displayName
+          value: read_buffer_size
+      - matcher:
+          id: byName
+          options: mysql_read_rnd_buffer_size
+        properties:
+        - id: displayName
+          value: read_rnd_buffer_size
+      - matcher:
+          id: byName
+          options: mysql_join_buffer_size
+        properties:
+        - id: displayName
+          value: join_buffer_size
+      - matcher:
+          id: byName
+          options: mysql_thread_stack
+        properties:
+        - id: displayName
+          value: thread_stack
     options:
       legend:
         calcs:
@@ -721,8 +855,8 @@ spec:
 
     targets:
 
-    - alias: mysql_max_peak_memory
-      refId: mysql_max_peak_memory
+    - alias: mysql_max_allowed_packet
+      refId: mysql_max_allowed_packet
       groupBy:
       - params:
         - $interval
@@ -749,10 +883,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_max_peak_memory
+        value: mysql_max_allowed_packet
 
-    - alias: mysql_max_used_memory
-      refId: mysql_max_used_memory
+    - alias: mysql_sort_buffer_size
+      refId: mysql_sort_buffer_size
       groupBy:
       - params:
         - $interval
@@ -779,10 +913,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_max_used_memory
+        value: mysql_sort_buffer_size
 
-    - alias: mysql_physical_memory
-      refId: mysql_physical_memory
+    - alias: mysql_read_buffer_size
+      refId: mysql_read_buffer_size
       groupBy:
       - params:
         - $interval
@@ -809,7 +943,172 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_physical_memory
+        value: mysql_read_buffer_size
+
+    - alias: mysql_read_rnd_buffer_size
+      refId: mysql_read_rnd_buffer_size
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_read_rnd_buffer_size
+
+    - alias: mysql_join_buffer_size
+      refId: mysql_join_buffer_size
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_join_buffer_size
+
+    - alias: mysql_thread_stack
+      refId: mysql_thread_stack
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_thread_stack
+
+  - title: MySQL Memory - Computed Aggregates
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 16
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 1
+        min: 0
+        unit: bytes
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_server_buffers
+        properties:
+        - id: displayName
+          value: server_buffers (sum of server-wide)
+      - matcher:
+          id: byName
+          options: mysql_per_thread_buffers
+        properties:
+        - id: displayName
+          value: per_thread_buffers (sum per connection)
+      - matcher:
+          id: byName
+          options: mysql_total_per_thread_buffers
+        properties:
+        - id: displayName
+          value: total_per_thread_buffers (per_thread * max_connections)
+      - matcher:
+          id: byName
+          options: mysql_max_total_per_thread_buffers
+        properties:
+        - id: displayName
+          value: max_total_per_thread_buffers (per_thread * Max_used_connections)
+      - matcher:
+          id: byName
+          options: mysql_pf_memory
+        properties:
+        - id: displayName
+          value: Performance Schema memory
+      - matcher:
+          id: byName
+          options: mysql_gcache_memory
+        properties:
+        - id: displayName
+          value: Galera GCache (gcache.size)
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
 
     - alias: mysql_server_buffers
       refId: mysql_server_buffers
@@ -990,132 +1289,3 @@ spec:
         key: metric
         operator: '='
         value: mysql_gcache_memory
-
-    - alias: mysql_other_process_memory
-      refId: mysql_other_process_memory
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: mysql_other_process_memory
-
-
-  - title: MySQL Memory - Percentages
-    type: timeseries
-    gridPos:
-      h: 8
-      w: 12
-      x: 12
-      y: 16
-    fieldConfig:
-      defaults:
-        color:
-          mode: palette-classic
-        custom:
-          drawStyle: line
-          lineInterpolation: smooth
-          lineWidth: 1
-          pointSize: 3
-          showPoints: always
-          spanNulls: false
-        decimals: 0
-        min: 0
-        unit: percent
-    options:
-      legend:
-        calcs:
-        - first
-        - min
-        - mean
-        - max
-        - last
-        displayMode: table
-        placement: bottom
-        showLegend: true
-      tooltip:
-        mode: multi
-        sort: none
-
-    targets:
-
-    - alias: mysql_pct_max_physical_memory
-      refId: mysql_pct_max_physical_memory
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: mysql_pct_max_physical_memory
-
-    - alias: mysql_pct_max_used_memory
-      refId: mysql_pct_max_used_memory
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: mysql_pct_max_used_memory
