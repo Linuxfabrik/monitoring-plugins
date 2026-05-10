@@ -20,10 +20,10 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051001'
+__version__ = '2026051002'
 
 DESCRIPTION = """Checks the hit rate for open table cache lookups in MySQL/MariaDB. A low hit rate
-indicates that table_open_cache may need to be increased.
+indicates that `table_open_cache` may need to be increased.
 Alerts when the hit rate drops below acceptable levels."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
@@ -198,20 +198,20 @@ def main():
             # build the message
             msg += (
                 f'{lib.base.state2str(state, prefix=" ")}.'
-                f' Set table_open_cache >'
+                f' Set `table_open_cache` >'
                 f' {myvar["table_open_cache"]}. '
             )
             msg += (
-                f'Beware that open_files_limit'
+                f'Beware that `open_files_limit`'
                 f' ({myvar["open_files_limit"]})'
-                f' should be greater than table_open_cache'
+                f' should be greater than `table_open_cache`'
                 f' ({myvar["table_open_cache"]}). '
             )
             msg += (
-                'Increase table_open_cache gradually to avoid file descriptor limits. '
+                'Increase `table_open_cache` gradually to avoid file descriptor limits. '
             )
             msg += 'Make sure that your operating system can cope with the number of open file '
-            msg += 'descriptors required by the table_open_cache setting. If table_open_cache is '
+            msg += 'descriptors required by the `table_open_cache` setting. If `table_open_cache` is '
             msg += 'set too high, the DB may start to refuse connections as the operating system '
             msg += 'runs out of file descriptors. Also note that the MyISAM (and Aria?) storage '
             msg += 'engines need two file descriptors per open table.'

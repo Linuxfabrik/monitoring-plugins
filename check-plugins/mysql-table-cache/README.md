@@ -40,8 +40,8 @@ usage: mysql-table-cache [-h] [-V] [--always-ok]
                          [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
 
 Checks the hit rate for open table cache lookups in MySQL/MariaDB. A low hit
-rate indicates that table_open_cache may need to be increased. Alerts when the
-hit rate drops below acceptable levels.
+rate indicates that `table_open_cache` may need to be increased. Alerts when
+the hit rate drops below acceptable levels.
 
 options:
   -h, --help            show this help message and exit

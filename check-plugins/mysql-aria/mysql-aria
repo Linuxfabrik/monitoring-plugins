@@ -24,7 +24,7 @@ from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-aria.db'
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051005'
+__version__ = '2026051006'
 
 DESCRIPTION = """Checks metrics of the Aria storage engine in MySQL/MariaDB, including the page-cache
 hit rate. Alerts when cache efficiency drops below optimal levels."""
@@ -253,7 +253,7 @@ def main():
 
         # build the message
         msg += (
-            f' (adjust aria_pagecache_buffer_size'
+            f' (adjust `aria_pagecache_buffer_size`'
             f' > {total_aria_indexes}){aria_state_str}'
         )
     else:
@@ -313,9 +313,9 @@ def main():
             and int(myvar['aria_pagecache_buffer_size']) >= total_aria_indexes
         ):
             msg += (
-                f'. Note: aria_pagecache_buffer_size ({aria_cache}) already'
+                f'. Note: `aria_pagecache_buffer_size` ({aria_cache}) already'
                 f' exceeds the sum of all Aria index sizes ({aria_idx}), so'
-                f' growing aria_pagecache_buffer_size further would not help'
+                f' growing `aria_pagecache_buffer_size` further would not help'
                 f' the sub-95% hit rate.'
             )
         perfdata += lib.base.get_perfdata(

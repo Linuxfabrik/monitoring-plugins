@@ -74,7 +74,7 @@ Aria pagecache size / total Aria indexes: 128.0MiB/328.0KiB, 97.2% Aria pagecach
 When the hit rate dips below 95% but `aria_pagecache_buffer_size` is already larger than the sum of all Aria index sizes (so growing it would not help), the plugin stays OK and explains why:
 
 ```text
-Total Aria indexes: 352.0KiB, Aria pagecache size: 128.0MiB; 90.5% Aria pagecache hit rate (571.1K cached / 54.5K reads). Note: aria_pagecache_buffer_size (128.0MiB) already exceeds the sum of all Aria index sizes (352.0KiB), so growing aria_pagecache_buffer_size further would not help the sub-95% hit rate.
+Total Aria indexes: 352.0KiB, Aria pagecache size: 128.0MiB; 90.5% Aria pagecache hit rate (571.1K cached / 54.5K reads). Note: `aria_pagecache_buffer_size` (128.0MiB) already exceeds the sum of all Aria index sizes (352.0KiB), so growing `aria_pagecache_buffer_size` further would not help the sub-95% hit rate.
 ```
 
 

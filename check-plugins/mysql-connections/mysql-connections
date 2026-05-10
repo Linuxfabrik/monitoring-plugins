@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051002'
+__version__ = '2026051003'
 
 SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-connections.db'
 
@@ -268,9 +268,9 @@ def main():
         state = lib.base.get_worst(state, cur_connections_state)
         recommendations += (
             f'* Reduce or eliminate persistent connections to reduce connection'
-            f' usage (raise max_connections > {myvar["max_connections"]}, lower'
-            f' wait_timeout < {myvar["wait_timeout"]} and/or lower'
-            f' interactive_timeout < {myvar["interactive_timeout"]}).\n'
+            f' usage (raise `max_connections` > {myvar["max_connections"]},'
+            f' lower `wait_timeout` < {myvar["wait_timeout"]} and/or lower'
+            f' `interactive_timeout` < {myvar["interactive_timeout"]}).\n'
         )
     threads_plr = lib.txt.pluralize(
         'thread',
@@ -313,7 +313,7 @@ def main():
     w_timeout = lib.human.seconds2human(
         myvar['wait_timeout'],
     )
-    msg += f'interactive_timeout = {i_timeout}, wait_timeout = {w_timeout}; '
+    msg += f'`interactive_timeout` = {i_timeout}, `wait_timeout` = {w_timeout}; '
 
     # name resolution: alert when MySQL/MariaDB does a reverse DNS lookup per connection.
     # mysqltuner skips the test if `skip_networking == ON` (no TCP, so name resolution is

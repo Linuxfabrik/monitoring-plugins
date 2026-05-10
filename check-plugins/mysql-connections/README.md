@@ -73,10 +73,10 @@ options:
 Output:
 
 ```text
-0.0% aborted connections (0.0/3.1K); current 90% used (136/151, 5 threads running) [WARNING]; peak 93% used (140/151) at 2023-10-06 10:08:47; interactive_timeout = 8h, wait_timeout = 8h; Name resolution is active [WARNING]
+0.0% aborted connections (0.0/3.1K); current 90% used (136/151, 5 threads running) [WARNING]; peak 93% used (140/151) at 2023-10-06 10:08:47; `interactive_timeout` = 8h, `wait_timeout` = 8h; Name resolution is active [WARNING]
 
 Recommendations:
-* Reduce or eliminate persistent connections to reduce connection usage (raise max_connections > 151, lower wait_timeout < 28800 and/or lower interactive_timeout < 28800).
+* Reduce or eliminate persistent connections to reduce connection usage (raise `max_connections` > 151, lower `wait_timeout` < 28800 and/or lower `interactive_timeout` < 28800).
 * A reverse name resolution is made for each new connection and can reduce performance. Configure your accounts with ip or subnets only, then update your configuration with `skip-name-resolve=ON`.
 ```
 

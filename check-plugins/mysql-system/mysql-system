@@ -29,11 +29,12 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051005'
+__version__ = '2026051006'
 
 DESCRIPTION = """Checks Linux kernel parameters that affect MySQL/MariaDB stability and
-performance: vm.swappiness, the asynchronous-I/O event ceiling fs.aio-max-nr, the per-process
-file-handle ceiling fs.nr_open, and (on hosts that mount NFS) the sunrpc TCP slot-table size.
+performance: `vm.swappiness`, the asynchronous-I/O event ceiling `fs.aio-max-nr`, the
+per-process file-handle ceiling `fs.nr_open`, and (on hosts that mount NFS) the sunrpc
+TCP slot-table size (`sunrpc.tcp_slot_table_entries`).
 Optionally also flags hosts that listen on too many TCP ports.
 Alerts on misconfigured settings."""
 
@@ -155,12 +156,12 @@ def main():
         if int(result) > 10:
             state = STATE_WARN
             msg += (
-                f'vm.swappiness is {result}, should be <= 10'
+                f'`vm.swappiness` is {result}, should be <= 10'
                 f' (`echo 10 > /proc/sys/vm/swappiness`, or'
                 f' `vm.swappiness=10` in /etc/sysctl.conf for persistence). '
             )
         else:
-            msg += f'vm.swappiness is {fmt_value(result)}. '
+            msg += f'`vm.swappiness` is {fmt_value(result)}. '
         perfdata += lib.base.get_perfdata(
             'mysql_kernel_vm_swappiness',
             result,
@@ -176,14 +177,14 @@ def main():
                 if int(result) <= 100:
                     state = STATE_WARN
                     msg += (
-                        f'sunrpc.tcp_slot_table_entries is {result},'
+                        f'`sunrpc.tcp_slot_table_entries` is {result},'
                         f' should be > 100 (recommended: 128;'
                         f' `echo 128 > /proc/sys/sunrpc/tcp_slot_table_entries`,'
                         f' or `sunrpc.tcp_slot_table_entries=128` in'
                         f' /etc/sysctl.conf for persistence). '
                     )
                 else:
-                    msg += f'sunrpc.tcp_slot_table_entries is {fmt_value(result)}. '
+                    msg += f'`sunrpc.tcp_slot_table_entries` is {fmt_value(result)}. '
                 perfdata += lib.base.get_perfdata(
                     'mysql_kernel_sunrpc_tcp_slot_table_entries',
                     result,
@@ -197,13 +198,13 @@ def main():
                 if int(result) < 1000000:
                     state = STATE_WARN
                     msg += (
-                        f'fs.aio-max-nr is {result}, should be >= 1M'
+                        f'`fs.aio-max-nr` is {result}, should be >= 1M'
                         f' (`echo 1048576 > /proc/sys/fs/aio-max-nr`, or'
                         f' `fs.aio-max-nr=1048576` in /etc/sysctl.conf'
                         f' for persistence). '
                     )
                 else:
-                    msg += f'fs.aio-max-nr is {fmt_value(result)}. '
+                    msg += f'`fs.aio-max-nr` is {fmt_value(result)}. '
                 perfdata += lib.base.get_perfdata(
                     'mysql_kernel_fs_aio_max_nr',
                     result,
@@ -217,13 +218,13 @@ def main():
                 if int(result) < 1000000:
                     state = STATE_WARN
                     msg += (
-                        f'fs.nr_open is {result}, should be >= 1M'
+                        f'`fs.nr_open` is {result}, should be >= 1M'
                         f' (`echo 1048576 > /proc/sys/fs/nr_open`, or'
                         f' `fs.nr_open=1048576` in /etc/sysctl.conf'
                         f' for persistence). '
                     )
                 else:
-                    msg += f'fs.nr_open is {fmt_value(result)}. '
+                    msg += f'`fs.nr_open` is {fmt_value(result)}. '
                 perfdata += lib.base.get_perfdata(
                     'mysql_kernel_fs_nr_open',
                     result,
