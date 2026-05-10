@@ -1,0 +1,386 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import socket
+import ssl
+import sys
+import time
+import urllib.parse
+
+import lib.args
+import lib.base
+import lib.time
+from lib.globals import STATE_CRIT, STATE_UNKNOWN, STATE_WARN
+
+try:
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes
+except ImportError:
+    print('Python module "cryptography" is not installed.')
+    sys.exit(STATE_UNKNOWN)
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026051001'
+
+DESCRIPTION = """Inspects an X.509 server certificate from a TLS endpoint and alerts on days
+remaining until expiry, hostname mismatch, and chain verification failures. The chain is
+verified against the system trust store by default; pass --ca-file to override. Hostname
+mismatch and chain verification failures share one --severity (warn or crit). Expired
+certificates are unconditionally reported as CRIT. Pluggable via --source, currently only
+"url" is implemented; "file", "p12" and "jks" sources can be added later without renaming
+the plugin."""
+
+DEFAULT_CRIT = '5:'
+DEFAULT_LENGTHY = False
+DEFAULT_SEVERITY = 'warn'
+DEFAULT_TIMEOUT = 8
+DEFAULT_WARN = '14:'
+
+VALID_SEVERITIES = ('crit', 'warn')
+VALID_SOURCES = ('url',)
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--ca-file',
+        help='Path to a CA bundle in PEM format used for chain verification. '
+        'Default uses the system trust store.',
+        dest='CA_FILE',
+    )
+
+    parser.add_argument(
+        '--client-cert',
+        help='Path to a client certificate in PEM format for mutual TLS.',
+        dest='CLIENT_CERT',
+    )
+
+    parser.add_argument(
+        '--client-key',
+        help='Path to the client certificate private key in PEM format.',
+        dest='CLIENT_KEY',
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for days remaining until the certificate expires. '
+        'Supports Nagios ranges. '
+        'Example: `5:` (CRIT when below 5 days). '
+        'Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='Skip chain and hostname verification entirely. The certificate is still '
+        'fetched and inspected, but the chain verdict is reported as "verification skipped".',
+        dest='INSECURE',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--severity',
+        help='Severity assigned to hostname mismatch and chain verification failures. '
+        'Defaults to %(default)s so that operators running internal CAs are not paged '
+        'by trust issues that are expected in their environment. '
+        'Set to `crit` to enforce strict trust.',
+        dest='SEVERITY',
+        choices=VALID_SEVERITIES,
+        default=DEFAULT_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--sni-hostname',
+        help='SNI hostname sent during the TLS handshake and used for hostname verification. '
+        'Useful when --url points at an IP address or a load balancer that needs an explicit '
+        'SNI. Default uses the hostname from --url.',
+        dest='SNI_HOSTNAME',
+    )
+
+    parser.add_argument(
+        '--source',
+        help='Where the certificate is fetched from. Currently only "url" is implemented; '
+        '"file", "p12" and "jks" are reserved for future expansion. '
+        'Default: %(default)s',
+        dest='SOURCE',
+        choices=VALID_SOURCES,
+        default='url',
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='URL of the TLS endpoint to inspect. Required when --source=url. '
+        'Example: `https://www.example.com/`',
+        dest='URL',
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for days remaining until the certificate expires. '
+        'Supports Nagios ranges. '
+        'Example: `14:` (WARN when below 14 days). '
+        'Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_cert_from_url(args):
+    """Open a TLS connection, capture the peer certificate in DER form, the negotiated TLS
+    version and the wall-clock handshake time, and decide the chain/hostname verdict.
+
+    Returns (success, result). On success result is a dict with the keys consumed by main().
+    """
+    parsed = urllib.parse.urlsplit(args.URL)
+    host = parsed.hostname
+    if not host:
+        return False, f'Cannot parse a hostname from --url "{args.URL}"'
+    port = parsed.port or 443
+    server_hostname = args.SNI_HOSTNAME or host
+
+    chain_ok = True
+    chain_reason = ''
+
+    if not args.INSECURE:
+        try:
+            secure_ctx = ssl.create_default_context(cafile=args.CA_FILE)
+            if args.CLIENT_CERT:
+                secure_ctx.load_cert_chain(args.CLIENT_CERT, keyfile=args.CLIENT_KEY)
+            with (
+                socket.create_connection((host, port), timeout=args.TIMEOUT) as sock,
+                secure_ctx.wrap_socket(sock, server_hostname=server_hostname),
+            ):
+                pass
+        except ssl.SSLCertVerificationError as e:
+            chain_ok = False
+            chain_reason = e.verify_message or str(e)
+        except ssl.SSLError as e:
+            chain_ok = False
+            chain_reason = str(e)
+        except (socket.timeout, OSError) as e:
+            return False, f'Cannot connect to {host}:{port}: {e}'
+
+    insecure_ctx = ssl.create_default_context()
+    insecure_ctx.check_hostname = False
+    insecure_ctx.verify_mode = ssl.CERT_NONE
+    if args.CLIENT_CERT:
+        insecure_ctx.load_cert_chain(args.CLIENT_CERT, keyfile=args.CLIENT_KEY)
+
+    try:
+        t0 = time.monotonic()
+        with (
+            socket.create_connection((host, port), timeout=args.TIMEOUT) as sock,
+            insecure_ctx.wrap_socket(sock, server_hostname=server_hostname) as tls_sock,
+        ):
+            handshake_seconds = time.monotonic() - t0
+            cert_der = tls_sock.getpeercert(True)
+            tls_version = tls_sock.version()
+    except (socket.timeout, OSError) as e:
+        return False, f'Cannot connect to {host}:{port}: {e}'
+    except ssl.SSLError as e:
+        return False, f'TLS handshake failed for {host}:{port}: {e}'
+
+    if not cert_der:
+        return False, f'No server certificate received from {host}:{port}'
+
+    return True, {
+        'cert_der': cert_der,
+        'chain_ok': chain_ok,
+        'chain_reason': chain_reason,
+        'handshake_seconds': handshake_seconds,
+        'host': host,
+        'port': port,
+        'sni': server_hostname,
+        'tls_version': tls_version,
+    }
+
+
+def parse_cert(cert_der):
+    """Decode a DER-encoded X.509 certificate into a flat dict of human-readable fields."""
+    cert = x509.load_der_x509_certificate(cert_der)
+
+    def _cn(name):
+        attrs = name.get_attributes_for_oid(x509.NameOID.COMMON_NAME)
+        return attrs[0].value if attrs else ''
+
+    pub_key = cert.public_key()
+    key_type = type(pub_key).__name__.replace('PublicKey', '')
+    try:
+        key_size = pub_key.key_size
+    except AttributeError:
+        key_size = None
+
+    sans = []
+    try:
+        san_ext = cert.extensions.get_extension_for_oid(
+            x509.ExtensionOID.SUBJECT_ALTERNATIVE_NAME,
+        )
+        for name in san_ext.value:
+            try:
+                sans.append(str(name.value))
+            except AttributeError:
+                pass
+    except x509.ExtensionNotFound:
+        pass
+
+    # cryptography >=42 returns tz-aware UTC datetimes via *_utc; older releases (e.g. the
+    # one shipped on RHEL8) only have the naive variants. Strip tzinfo for downstream
+    # arithmetic against `lib.time.now(as_type='datetime')`, which is naive UTC.
+    if hasattr(cert, 'not_valid_after_utc'):
+        not_after = cert.not_valid_after_utc.replace(tzinfo=None)
+        not_before = cert.not_valid_before_utc.replace(tzinfo=None)
+    else:
+        not_after = cert.not_valid_after
+        not_before = cert.not_valid_before
+
+    return {
+        'issuer_cn': _cn(cert.issuer),
+        'key_size': key_size,
+        'key_type': key_type,
+        'not_after': not_after,
+        'not_before': not_before,
+        'sans': sans,
+        'serial_hex': f'{cert.serial_number:X}',
+        'sha256_fingerprint': cert.fingerprint(hashes.SHA256()).hex(':').upper(),
+        'sig_algorithm': cert.signature_algorithm_oid._name,
+        'subject_cn': _cn(cert.subject),
+    }
+
+
+def main():
+    """The main function. This is where the magic happens."""
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if args.SOURCE != 'url':
+        lib.base.cu(f'Source "{args.SOURCE}" is not implemented yet')
+    if not args.URL:
+        lib.base.cu('--url is required when --source=url')
+
+    info = lib.base.coe(get_cert_from_url(args))
+    cert = parse_cert(info['cert_der'])
+
+    now = lib.time.now(as_type='datetime')
+    delta = cert['not_after'] - now
+    days_left = delta.days
+
+    state = lib.base.get_state(days_left, args.WARN, args.CRIT, _operator='range')
+    if days_left < 0:
+        state = STATE_CRIT
+
+    severity_state = STATE_CRIT if args.SEVERITY == 'crit' else STATE_WARN
+    if args.INSECURE:
+        chain_verdict = 'verification skipped'
+    elif info['chain_ok']:
+        chain_verdict = 'verified'
+    else:
+        chain_verdict = f'unverified ({info["chain_reason"]})'
+        state = lib.base.get_worst(state, severity_state)
+
+    msg = (
+        f'{cert["subject_cn"] or "(no CN)"}'
+        f', {days_left}d left{lib.base.state2str(state, prefix=" ")}'
+        f', chain {chain_verdict}'
+    )
+
+    perfdata = lib.base.get_perfdata(
+        'cert_days_left',
+        days_left,
+        uom='d',
+        warn=args.WARN,
+        crit=args.CRIT,
+    )
+    perfdata += lib.base.get_perfdata(
+        'tls_handshake_time',
+        round(info['handshake_seconds'], 4),
+        uom='s',
+        _min=0,
+    )
+
+    if args.LENGTHY:
+        key_label = (
+            f'{cert["key_type"]} {cert["key_size"]}'
+            if cert['key_size']
+            else cert['key_type']
+        )
+        sans_label = ', '.join(cert['sans']) if cert['sans'] else '-'
+        table = [
+            {'k': 'Subject CN', 'v': cert['subject_cn'] or '(no CN)'},
+            {'k': 'Issuer CN', 'v': cert['issuer_cn'] or '(no CN)'},
+            {'k': 'Serial', 'v': cert['serial_hex']},
+            {'k': 'Signature Algorithm', 'v': cert['sig_algorithm']},
+            {'k': 'Public Key', 'v': key_label},
+            {'k': 'SANs', 'v': sans_label},
+            {'k': 'Not Before', 'v': cert['not_before'].isoformat() + 'Z'},
+            {'k': 'Not After', 'v': cert['not_after'].isoformat() + 'Z'},
+            {'k': 'SHA-256 Fingerprint', 'v': cert['sha256_fingerprint']},
+            {'k': 'TLS Version', 'v': info['tls_version']},
+            {'k': 'Chain', 'v': chain_verdict},
+        ]
+        msg += '\n\n' + lib.base.get_table(
+            table,
+            ['k', 'v'],
+            header=['Field', 'Value'],
+        )
+
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

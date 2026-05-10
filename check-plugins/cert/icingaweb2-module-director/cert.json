@@ -1,0 +1,357 @@
+{
+    "Command": {
+        "cmd-check-cert": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$cert_always_ok$"
+                },
+                "--ca-file": {
+                    "value": "$cert_ca_file$"
+                },
+                "--client-cert": {
+                    "value": "$cert_client_cert$"
+                },
+                "--client-key": {
+                    "value": "$cert_client_key$"
+                },
+                "--critical": {
+                    "value": "$cert_critical$"
+                },
+                "--insecure": {
+                    "set_if": "$cert_insecure$"
+                },
+                "--lengthy": {
+                    "set_if": "$cert_lengthy$"
+                },
+                "--severity": {
+                    "value": "$cert_severity$"
+                },
+                "--sni-hostname": {
+                    "value": "$cert_sni_hostname$"
+                },
+                "--source": {
+                    "value": "$cert_source$"
+                },
+                "--timeout": {
+                    "value": "$cert_timeout$"
+                },
+                "--url": {
+                    "value": "$cert_url$"
+                },
+                "--warning": {
+                    "value": "$cert_warning$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/cert",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-cert",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "749b8983-a1dc-4d7a-b91e-1afd95fe8147"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-cert": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-cert",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "cert.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Inspects an X.509 server certificate from a TLS endpoint and alerts on days remaining until expiry, hostname mismatch, and chain verification failures. The chain is verified against the system trust store by default; pass --ca-file to override. Hostname mismatch and chain verification failures share one --severity (warn or crit). Expired certificates are unconditionally reported as CRIT. Pluggable via --source, currently only \"url\" is implemented; \"file\", \"p12\" and \"jks\" sources can be added later without renaming the plugin.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cert/",
+            "object_name": "tpl-service-cert",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "cert_always_ok": false,
+                "cert_critical": "5:",
+                "cert_insecure": false,
+                "cert_lengthy": false,
+                "cert_severity": "warn",
+                "cert_source": "url",
+                "cert_timeout": 8,
+                "cert_warning": "14:"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "9789d0fc-7b5e-4414-a659-971184f964a3"
+        }
+    },
+    "DataList": {
+        "cert_severity_list": {
+            "list_name": "cert_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "374df43a-7c10-457d-bd82-5b0d3e7aa6f0"
+        },
+        "cert_source_list": {
+            "list_name": "cert_source_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "url",
+                    "entry_value": "URL",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "a00c4438-7685-4259-96e6-8a113ef2fd5c"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "cert_always_ok",
+            "caption": "Cert: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "edc792a7-73a2-40f3-aad6-31ad1fa7fcb2"
+        },
+        "2": {
+            "varname": "cert_ca_file",
+            "caption": "Cert: Ca File",
+            "description": "Path to a CA bundle in PEM format used for chain verification. Default uses the system trust store.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "3cf2e737-b701-4ef4-bc9d-9950e3babe5e"
+        },
+        "3": {
+            "varname": "cert_client_cert",
+            "caption": "Cert: Client Cert",
+            "description": "Path to a client certificate in PEM format for mutual TLS.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "c9d94b4a-add9-4e5f-aa9d-b705b5d5e535"
+        },
+        "4": {
+            "varname": "cert_client_key",
+            "caption": "Cert: Client Key",
+            "description": "Path to the client certificate private key in PEM format.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a25959e8-5532-472c-9625-33076f6ba58c"
+        },
+        "5": {
+            "varname": "cert_critical",
+            "caption": "Cert: Critical",
+            "description": "CRIT threshold for days remaining until the certificate expires. Supports Nagios ranges. Example: `5:` (CRIT when below 5 days).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "83b48df0-563f-439e-9d27-6f173425ff11"
+        },
+        "6": {
+            "varname": "cert_insecure",
+            "caption": "Cert: Insecure?",
+            "description": "Skip chain and hostname verification entirely. The certificate is still fetched and inspected, but the chain verdict is reported as \"verification skipped\".",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "ac42a964-355e-447c-a561-45042fc43fb0"
+        },
+        "7": {
+            "varname": "cert_lengthy",
+            "caption": "Cert: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "88039958-c0a9-40dc-a883-39561290428b"
+        },
+        "8": {
+            "varname": "cert_severity",
+            "caption": "Cert: Severity",
+            "description": "Severity assigned to hostname mismatch and chain verification failures. Defaults to %(default)s so that operators running internal CAs are not paged by trust issues that are expected in their environment. Set to `crit` to enforce strict trust.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "cert_severity_list"
+            },
+            "uuid": "809129db-9f3f-45ea-898c-e3d22787819a"
+        },
+        "9": {
+            "varname": "cert_sni_hostname",
+            "caption": "Cert: Sni Hostname",
+            "description": "SNI hostname sent during the TLS handshake and used for hostname verification. Useful when --url points at an IP address or a load balancer that needs an explicit SNI. Default uses the hostname from --url.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "621e0545-48cf-4ecc-8255-7597bbb32e3d"
+        },
+        "10": {
+            "varname": "cert_source",
+            "caption": "Cert: Source",
+            "description": "Where the certificate is fetched from. Currently only \"url\" is implemented; \"file\", \"p12\" and \"jks\" are reserved for future expansion.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "cert_source_list"
+            },
+            "uuid": "b5f71929-7c62-4741-93fe-723a6824a024"
+        },
+        "11": {
+            "varname": "cert_timeout",
+            "caption": "Cert: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "3fdfce3e-483f-48fd-91d1-0dd31fffad61"
+        },
+        "12": {
+            "varname": "cert_url",
+            "caption": "Cert: URL",
+            "description": "URL of the TLS endpoint to inspect. Required when --source=url. Example: `https://www.example.com/`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "180584f7-c6d9-4764-80f0-9ff92dcf1dad"
+        },
+        "13": {
+            "varname": "cert_warning",
+            "caption": "Cert: Warning",
+            "description": "WARN threshold for days remaining until the certificate expires. Supports Nagios ranges. Example: `14:` (WARN when below 14 days).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "74d38667-6c0d-437b-b914-b3759fd3d6b0"
+        }
+    }
+}

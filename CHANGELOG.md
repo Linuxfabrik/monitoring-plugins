@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Monitoring Plugins:
 
+* cert: inspect an X.509 server certificate from a TLS endpoint. Alerts on days remaining until expiry (Nagios ranges, default `14:` warn and `5:` crit), and on hostname mismatch and chain verification failures (one shared `--severity`, default WARN). Expired certificates are unconditionally CRIT. Supports custom `--ca-file`, mutual TLS via `--client-cert` and `--client-key`, and SNI override via `--sni-hostname`. Pluggable via `--source`; currently `url`, with `file`, `p12` and `jks` reserved for future expansion
 * ups-nut: monitor a UPS managed by Network UPS Tools (NUT). Reports battery, load, voltages, remaining runtime, temperature and the aggregated UPS status. Picks up the UPS automatically and uses the thresholds the UPS already knows
 
 
