@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051003'
+__version__ = '2026051004'
 
 DESCRIPTION = """Checks Linux kernel parameters that affect MySQL/MariaDB stability and
 performance: vm.swappiness, the asynchronous-I/O event ceiling fs.aio-max-nr, the per-process
@@ -125,10 +125,6 @@ def main():
     state = STATE_OK
     perfdata = ''
 
-    # NOTE: lib.base.oao() strips `<` and `>` from the printed message (HTML-injection
-    # mitigation), so threshold descriptions and shell-redirection examples are written in
-    # plain English instead of with comparison operators.
-
     # count distinct local TCP ports in LISTEN state
     listening = get_listening_ports()
     if listening is None:
@@ -151,16 +147,16 @@ def main():
 
     # get kernel settings on linux
     if lib.base.LINUX:
-        # vm.swappiness — should be 10 or below to keep MySQL pages out of swap
+        # vm.swappiness — should be <= 10 to keep MySQL pages out of swap
         result = get_sysctl('vm.swappiness')
         if result is None:
             lib.base.cu('Permission denied reading `vm.swappiness`')
         if int(result) > 10:
             state = STATE_WARN
             msg += (
-                f'vm.swappiness is {result}, should be 10 or below'
-                f' (set `vm.swappiness=10` in /etc/sysctl.conf or'
-                f' /etc/sysctl.d/, then `sysctl -p`). '
+                f'vm.swappiness is {result}, should be <= 10'
+                f' (`echo 10 > /proc/sys/vm/swappiness`, or'
+                f' `vm.swappiness=10` in /etc/sysctl.conf for persistence). '
             )
         else:
             msg += f'vm.swappiness is {fmt_value(result)}. '
@@ -180,9 +176,10 @@ def main():
                     state = STATE_WARN
                     msg += (
                         f'sunrpc.tcp_slot_table_entries is {result},'
-                        f' should be at least 128 (set'
-                        f' `sunrpc.tcp_slot_table_entries=128` in /etc/sysctl.conf'
-                        f' or /etc/sysctl.d/, then `sysctl -p`). '
+                        f' should be > 100 (recommended: 128;'
+                        f' `echo 128 > /proc/sys/sunrpc/tcp_slot_table_entries`,'
+                        f' or `sunrpc.tcp_slot_table_entries=128` in'
+                        f' /etc/sysctl.conf for persistence). '
                     )
                 else:
                     msg += f'sunrpc.tcp_slot_table_entries is {fmt_value(result)}. '
@@ -199,9 +196,10 @@ def main():
                 if int(result) < 1000000:
                     state = STATE_WARN
                     msg += (
-                        f'fs.aio-max-nr is {result}, should be at least 1M'
-                        f' (set `fs.aio-max-nr=1048576` in /etc/sysctl.conf or'
-                        f' /etc/sysctl.d/, then `sysctl -p`). '
+                        f'fs.aio-max-nr is {result}, should be >= 1M'
+                        f' (`echo 1048576 > /proc/sys/fs/aio-max-nr`, or'
+                        f' `fs.aio-max-nr=1048576` in /etc/sysctl.conf'
+                        f' for persistence). '
                     )
                 else:
                     msg += f'fs.aio-max-nr is {fmt_value(result)}. '
@@ -218,9 +216,10 @@ def main():
                 if int(result) < 1000000:
                     state = STATE_WARN
                     msg += (
-                        f'fs.nr_open is {result}, should be at least 1M'
-                        f' (set `fs.nr_open=1048576` in /etc/sysctl.conf or'
-                        f' /etc/sysctl.d/, then `sysctl -p`). '
+                        f'fs.nr_open is {result}, should be >= 1M'
+                        f' (`echo 1048576 > /proc/sys/fs/nr_open`, or'
+                        f' `fs.nr_open=1048576` in /etc/sysctl.conf'
+                        f' for persistence). '
                     )
                 else:
                     msg += f'fs.nr_open is {fmt_value(result)}. '
