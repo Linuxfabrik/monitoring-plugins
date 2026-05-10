@@ -16,20 +16,29 @@ import sys
 import lib.args
 import lib.base
 import lib.db_mysql
+import lib.db_sqlite
 import lib.human
+import lib.time
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026051001'
 
-DESCRIPTION = """Checks how often InnoDB had to wait for log writes to be flushed because the log
-buffer was too small in MySQL/MariaDB. Frequent waits indicate that
-innodb_log_buffer_size should be increased.
-Alerts when log waits occur too frequently."""
+DESCRIPTION = """Checks two related InnoDB log buffer metrics in MySQL/MariaDB:
+1. **Log waits** (`Innodb_log_waits` / `Innodb_log_writes`) - how often InnoDB had to wait for
+   log writes to be flushed because the log buffer was full. Anything above 0% indicates that
+   `innodb_log_buffer_size` should be increased.
+2. **Write log efficiency** ((`Innodb_log_write_requests` - `Innodb_log_writes`) /
+   `Innodb_log_write_requests` * 100) - how many log write requests were absorbed by the buffer
+   without needing a physical disk write. Below 90% indicates `innodb_log_buffer_size` is too
+   small for the write workload.
+Alerts on either condition."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_TIMEOUT = 3
+
+SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-innodb-log-waits.db'
 
 
 def parse_args():
@@ -81,8 +90,6 @@ def parse_args():
 
 def get_vars(conn):
     # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
-    # Without the GLOBAL modifier, SHOW VARIABLES displays the values that are used for
-    # the current connection to MariaDB.
     sql = """
         show global variables
         where variable_name like 'innodb_log_buffer_size'
@@ -93,33 +100,102 @@ def get_vars(conn):
 
 def get_status(conn):
     # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
-    # Without the GLOBAL modifier, SHOW STATUS displays the values that are used for
-    # the current connection to MariaDB.
     sql = """
         show global status
         where variable_name like 'Innodb_log_waits'
             or variable_name like 'Innodb_log_writes'
+            or variable_name like 'Innodb_log_write_requests'
             ;
           """
     return lib.base.coe(lib.db_mysql.select(conn, sql))
 
 
+def per_second_deltas(log_waits, log_writes, log_write_requests):
+    """Persist the current cumulative `Innodb_log_waits`, `Innodb_log_writes` and
+    `Innodb_log_write_requests` counters in the local SQLite cache and return their
+    per-second deltas vs. the previous run. Returns a 3-tuple of integers, or
+    `(None, None, None)` when fewer than two samples are recorded yet or after a
+    counter reset (server restart, `FLUSH STATUS`).
+
+    Avoids `uom='c'` counters in perfdata (per CONTRIBUTING.md): we compute the rate
+    here once per run instead of forcing every Grafana panel to do
+    `non_negative_difference()`.
+    """
+    sqlite_conn = lib.base.coe(lib.db_sqlite.connect(filename=SQLITE_DB))
+    definition = """
+        name                      TEXT NOT NULL,
+        timestamp                 INT NOT NULL,
+        innodb_log_waits          INT NOT NULL,
+        innodb_log_writes         INT NOT NULL,
+        innodb_log_write_requests INT NOT NULL
+    """
+    lib.base.coe(
+        lib.db_sqlite.create_table(sqlite_conn, definition, drop_table_first=False),
+    )
+    lib.base.coe(lib.db_sqlite.create_index(sqlite_conn, 'name'))
+
+    lib.base.coe(
+        lib.db_sqlite.insert(
+            sqlite_conn,
+            {
+                'name': 'mysql-innodb-log-waits',
+                'timestamp': lib.time.now(),
+                'innodb_log_waits': log_waits,
+                'innodb_log_writes': log_writes,
+                'innodb_log_write_requests': log_write_requests,
+            },
+        )
+    )
+    lib.base.coe(lib.db_sqlite.cut(sqlite_conn, _max=2))
+    lib.base.coe(lib.db_sqlite.commit(sqlite_conn))
+
+    rows = lib.base.coe(
+        lib.db_sqlite.select(
+            sqlite_conn,
+            """
+            SELECT *
+            FROM perfdata
+            WHERE name = :name
+            ORDER BY timestamp DESC
+            """,
+            {'name': 'mysql-innodb-log-waits'},
+        )
+    )
+    lib.db_sqlite.close(sqlite_conn)
+
+    if len(rows) < 2:
+        return None, None, None
+    timestamp_diff = rows[0]['timestamp'] - rows[1]['timestamp']
+    if timestamp_diff <= 0:
+        return None, None, None
+    waits_delta = rows[0]['innodb_log_waits'] - rows[1]['innodb_log_waits']
+    writes_delta = rows[0]['innodb_log_writes'] - rows[1]['innodb_log_writes']
+    requests_delta = (
+        rows[0]['innodb_log_write_requests'] - rows[1]['innodb_log_write_requests']
+    )
+    if waits_delta < 0 or writes_delta < 0 or requests_delta < 0:
+        # counter reset (server restart, FLUSH STATUS)
+        return None, None, None
+    return (
+        int(waits_delta / timestamp_diff),
+        int(writes_delta / timestamp_diff),
+        int(requests_delta / timestamp_diff),
+    )
+
+
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:mysql_innodb(), section # InnoDB Buffer Pool Size, v1.8.3
-    # including variable names
+    # logic taken from mysqltuner.pl:mysql_innodb(), sections "InnoDB Write Log
+    # efficiency" and "InnoDB Log Waits", verified in sync with MySQLTuner v2.8.41
+    # (the < 90% write-efficiency threshold and the "any waits at all" log-wait
+    # threshold are unchanged upstream since the original port).
 
     # parse the command line
     try:
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
-
-    # init some vars
-    msg = ''
-    state = STATE_OK
-    perfdata = ''
 
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
@@ -134,49 +210,137 @@ def main():
     engines = lib.db_mysql.get_engines(conn)
     lib.db_mysql.close(conn)
 
-    if not engines.get('have_innodb', ''):
-        lib.base.cu('InnoDB Storage Engine not available.')
-    if engines['have_innodb'] != 'YES':
-        lib.base.cu('InnoDB Storage Engine is disabled.')
+    # InnoDB engine availability. Mirror mysqltuner's `infoprint` semantic - missing or
+    # disabled engine is a config decision, not an unknown state.
+    if (
+        not engines.get('have_innodb', '')
+        or engines['have_innodb'] != 'YES'
+    ):
+        lib.base.oao(
+            'InnoDB Storage Engine not available or disabled.',
+            STATE_OK,
+            always_ok=args.ALWAYS_OK,
+        )
 
-    # InnoDB Log Waits
-    msg += (
-        f'{lib.human.number2human(mystat["Innodb_log_waits"])}'
-        f' InnoDB log buffer waits /'
-        f' {lib.human.number2human(mystat["Innodb_log_writes"])}'
-        f' writes'
+    # cache int conversions; older MySQL might not expose `Innodb_log_write_requests`
+    log_buffer_size = int(myvar['innodb_log_buffer_size'])
+    log_waits = int(mystat.get('Innodb_log_waits', 0))
+    log_writes = int(mystat.get('Innodb_log_writes', 0))
+    log_write_requests_raw = mystat.get('Innodb_log_write_requests')
+    log_write_requests = (
+        int(log_write_requests_raw) if log_write_requests_raw is not None else None
     )
-    if int(mystat['Innodb_log_waits']) > 0:
-        state = STATE_WARN
 
-        # build the message
-        msg += (
-            f'{lib.base.state2str(state, prefix=" ")}.'
-            f' Set innodb_log_buffer_size >'
-            f' {lib.human.bytes2human(int(myvar["innodb_log_buffer_size"]))}.'
+    state = STATE_OK
+    sections = []
+
+    # 1. InnoDB Log Waits: any wait at all earns a WARN. mysqltuner uses the same
+    #    "any wait" threshold (`> 0.000001` in their float math).
+    if log_writes > 0:
+        pct_log_waits = round(log_waits / log_writes * 100, 4)
+    else:
+        pct_log_waits = 0.0
+
+    log_waits_msg = (
+        f'InnoDB log waits: {pct_log_waits}%'
+        f' ({lib.human.number2human(log_waits)} waits /'
+        f' {lib.human.number2human(log_writes)} writes)'
+    )
+    if log_waits > 0:
+        state = lib.base.get_worst(state, STATE_WARN)
+        sections.append(
+            f'{log_waits_msg}{lib.base.state2str(STATE_WARN, prefix=" ")}.'
+            f' Set `innodb_log_buffer_size` >'
+            f' {lib.human.bytes2human(log_buffer_size)}.'
         )
     else:
-        msg += '.'
+        sections.append(f'{log_waits_msg}.')
 
+    # 2. InnoDB Write Log efficiency: only computable when the server exposes
+    #    `Innodb_log_write_requests` (older MySQL did not). mysqltuner emits a
+    #    "metrics not reliable" infoprint when `writes > write_requests` (which
+    #    cannot happen physically); we mirror that as an info line.
+    if log_write_requests is not None:
+        if log_write_requests == 0:
+            sections.append(
+                'InnoDB Write Log efficiency: no log write requests yet.'
+            )
+        elif log_writes > log_write_requests:
+            sections.append(
+                f'InnoDB Write Log efficiency: metrics are not reliable'
+                f' (Innodb_log_writes {log_writes} > Innodb_log_write_requests'
+                f' {log_write_requests}).'
+            )
+        else:
+            pct_write_eff = round(
+                (log_write_requests - log_writes) / log_write_requests * 100, 1
+            )
+            absorbed = log_write_requests - log_writes
+            eff_msg = (
+                f'InnoDB Write Log efficiency: {pct_write_eff}%'
+                f' ({lib.human.number2human(absorbed)} log buffer hits /'
+                f' {lib.human.number2human(log_write_requests)} total)'
+            )
+            if pct_write_eff < 90:
+                state = lib.base.get_worst(state, STATE_WARN)
+                sections.append(
+                    f'{eff_msg}{lib.base.state2str(STATE_WARN, prefix=" ")}.'
+                    f' Set `innodb_log_buffer_size` >'
+                    f' {lib.human.bytes2human(log_buffer_size)}.'
+                )
+            else:
+                sections.append(f'{eff_msg}.')
+
+    msg = '\n\n'.join(sections)
+
+    # Per-CONTRIBUTING: counters are emitted as in-plugin per-second deltas instead
+    # of `uom='c'`. The percentages above are ratios of cumulative values and stay
+    # correct even with the cumulative source readings.
+    waits_per_s, writes_per_s, requests_per_s = per_second_deltas(
+        log_waits, log_writes, log_write_requests or 0,
+    )
+
+    perfdata = ''
     perfdata += lib.base.get_perfdata(
         'mysql_innodb_log_buffer_size',
-        myvar['innodb_log_buffer_size'],
+        log_buffer_size,
         uom='B',
         _min=0,
     )
-
+    if waits_per_s is not None:
+        perfdata += lib.base.get_perfdata(
+            'mysql_innodb_log_waits_per_second',
+            waits_per_s,
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_innodb_log_writes_per_second',
+            writes_per_s,
+            _min=0,
+        )
+        if log_write_requests is not None:
+            perfdata += lib.base.get_perfdata(
+                'mysql_innodb_log_write_requests_per_second',
+                requests_per_s,
+                _min=0,
+            )
     perfdata += lib.base.get_perfdata(
-        'mysql_innodb_log_waits',
-        mystat['Innodb_log_waits'],
-        uom='c',
+        'mysql_innodb_log_waits_pct',
+        pct_log_waits,
+        uom='%',
         _min=0,
+        _max=100,
     )
-    perfdata += lib.base.get_perfdata(
-        'mysql_innodb_log_writes',
-        mystat['Innodb_log_writes'],
-        uom='c',
-        _min=0,
-    )
+    if log_write_requests is not None and log_write_requests > 0 and log_writes <= log_write_requests:
+        perfdata += lib.base.get_perfdata(
+            'mysql_innodb_write_log_efficiency_pct',
+            round(
+                (log_write_requests - log_writes) / log_write_requests * 100, 1
+            ),
+            uom='%',
+            _min=0,
+            _max=100,
+        )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
