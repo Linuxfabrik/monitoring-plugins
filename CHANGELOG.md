@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Monitoring Plugins:
 
-* nut-ups: monitor a UPS managed by Network UPS Tools (NUT). Reports battery, load, voltages, remaining runtime, temperature and the aggregated UPS status. Picks up the UPS automatically and uses the thresholds the UPS already knows
+* ups-nut: monitor a UPS managed by Network UPS Tools (NUT). Reports battery, load, voltages, remaining runtime, temperature and the aggregated UPS status. Picks up the UPS automatically and uses the thresholds the UPS already knows
 
 
 ### Removed

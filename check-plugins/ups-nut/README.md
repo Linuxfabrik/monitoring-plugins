@@ -1,4 +1,4 @@
-# Check nut-ups
+# Check ups-nut
 
 
 ## Overview
@@ -32,8 +32,8 @@ Highlights:
 
 | Fact | Value |
 |----|----|
-| Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nut-ups> |
-| Nagios/Icinga Check Name              | `check_nut_ups` |
+| Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ups-nut> |
+| Nagios/Icinga Check Name              | `check_ups_nut` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
@@ -44,7 +44,7 @@ Highlights:
 ## Help
 
 ```text
-usage: nut-ups [-h] [-V] [--always-ok] [--critical-charge CRITICAL_CHARGE]
+usage: ups-nut [-h] [-V] [--always-ok] [--critical-charge CRITICAL_CHARGE]
                [--critical-load CRITICAL_LOAD]
                [--critical-runtime CRITICAL_RUNTIME]
                [--critical-temperature CRITICAL_TEMPERATURE] [--device DEVICE]
@@ -132,7 +132,7 @@ options:
 Local upsd, default thresholds, auto-selected device (the typical single-UPS case):
 
 ```bash
-./nut-ups
+./ups-nut
 ```
 
 Output (default, OK):
@@ -163,7 +163,7 @@ Device `apc-ups`: On Battery, Low Battery (OB+LB), Discharging (DISCHRG), charge
 Remote upsd with authentication, extended output:
 
 ```bash
-./nut-ups --device apc-ups --hostname ups.example.com --username monitor \
+./ups-nut --device apc-ups --hostname ups.example.com --username monitor \
     --password s3cret --lengthy
 ```
 
@@ -230,29 +230,29 @@ The named entries below are the threshold-aware metrics that drive the plugin st
 
 ## For Maintainers
 
-The plugin ships ready-to-use Containerfiles for every supported distribution under [`unit-test/containerfiles/`](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nut-ups/unit-test/containerfiles) (`archlinux-vlatest`, `debian-v11/v12/v13`, `fedora-v43`, `rhel-v8/v9/v10`, `sles-v15/v16`, `ubuntu-v2004/v2204/v2404/v2604`). Each one installs `nut-server` with a dummy UPS profile, exposes upsd on TCP 3493 and configures an `admin` user with the password `linuxfabrik` for testing the auth path.
+The plugin ships ready-to-use Containerfiles for every supported distribution under [`unit-test/containerfiles/`](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ups-nut/unit-test/containerfiles) (`archlinux-vlatest`, `debian-v11/v12/v13`, `fedora-v43`, `rhel-v8/v9/v10`, `sles-v15/v16`, `ubuntu-v2004/v2204/v2404/v2604`). Each one installs `nut-server` with a dummy UPS profile, exposes upsd on TCP 3493 and configures an `admin` user with the password `linuxfabrik` for testing the auth path.
 
 Quick smoke test against one image, from the repository root:
 
 ```bash
 podman build \
-    --tag lfmp-nut-ups-fedora-v43 \
-    --file check-plugins/nut-ups/unit-test/containerfiles/fedora-v43 \
-    check-plugins/nut-ups/unit-test
+    --tag lfmp-ups-nut-fedora-v43 \
+    --file check-plugins/ups-nut/unit-test/containerfiles/fedora-v43 \
+    check-plugins/ups-nut/unit-test
 podman run \
     --detach --rm \
-    --name lfmp-nut-ups-test \
+    --name lfmp-ups-nut-test \
     --publish 3493:3493 \
-    lfmp-nut-ups-fedora-v43
+    lfmp-ups-nut-fedora-v43
 sleep 3
-check-plugins/nut-ups/nut-ups --device dummy
-check-plugins/nut-ups/nut-ups --device dummy --username admin --password linuxfabrik --lengthy
-podman stop lfmp-nut-ups-test
+check-plugins/ups-nut/ups-nut --device dummy
+check-plugins/ups-nut/ups-nut --device dummy --username admin --password linuxfabrik --lengthy
+podman stop lfmp-ups-nut-test
 ```
 
 To simulate a different UPS state, edit the `ups.status` value (or any other variable) in the Containerfile's `dummy.dev` block and rebuild. For example `ups.status: OB DISCHRG` exercises the on-battery WARN path and `ups.status: OB LB` exercises the CRIT combination.
 
-The full cross-distro matrix is exercised in one go by `python tools/run-unit-tests --only-container nut-ups`.
+The full cross-distro matrix is exercised in one go by `python tools/run-unit-tests --only-container ups-nut`.
 
 
 ## Credits, License
