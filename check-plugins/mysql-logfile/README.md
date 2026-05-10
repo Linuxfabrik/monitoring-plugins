@@ -3,21 +3,23 @@
 
 ## Overview
 
-Scans the MySQL/MariaDB error log for warnings, errors, startup, and shutdown events. Works even when the database is down by reading the log file directly. Uses a cache to remember the log file location in case the database becomes unavailable.
+Scans the MySQL/MariaDB error log for errors, warnings, startups and shutdowns. Works even when the database is down by reading the log file directly. Uses a cache to remember the log file location in case the database becomes unavailable.
 
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
-* Must be running locally on the MySQL/MariaDB server to read the log file. Requires root or sudo.
-* Depending on your site's policy, you could ignore lines matching patterns like "aborted connection" (happens frequently) or "access denied for user" (could be handled by Fail2ban)
+* Severity is detected from MySQL/MariaDB's bracketed log tags (`[ERROR]`, `[Warning]`); lines that only mention the words "error" / "warning" elsewhere are not counted.
+* When reading from an on-disk log file, the check usually needs root/sudo (typical log files are owned by `mysql:mysql`, mode `0640`). The `performance_schema.error_log` path needs only SELECT on that table.
+* Depending on your site's policy, you may want to silence noisy patterns like `aborted connection` or `access denied for user` via `--ignore-pattern` / `--ignore-regex`.
 
 **Data Collection:**
 
-* Tries to determine the log file location automatically via `SHOW GLOBAL VARIABLES` (`log_error`, `hostname`, `datadir`), falling back to several well-known paths
-* Supports reading from a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER`, or `systemd:UNITNAME`
-* Caches the log file location in a local SQLite database so the check can still work when the database is down
-* Lines can be filtered out using `--ignore-pattern` (simple string match) or `--ignore-regex` (Python regular expression)
-* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):log_file_recommendations(), v1.9.8
+* On MySQL 8.0.22+, the plugin prefers `performance_schema.error_log` when the table exists and is visible to this user. Works over the network without shell access to the log file.
+* Otherwise it determines the log file location automatically via `SHOW GLOBAL VARIABLES` (`log_error`, `hostname`, `datadir`), falling back to several well-known paths.
+* Supports reading from a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER`, or `systemd:UNITNAME`.
+* Caches the on-disk log file location in a local SQLite database so the check can still work briefly when the database is down.
+* Lines can be filtered out using `--ignore-pattern` (simple string match) or `--ignore-regex` (Python regular expression).
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):log_file_recommendations(), verified in sync with v2.8.41.
 
 
 ## Fact Sheet
@@ -44,10 +46,21 @@ usage: mysql-logfile [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
                      [--ignore-regex IGNORE_REGEX] [--port PORT]
                      [--server-log SERVER_LOG] [--timeout TIMEOUT]
 
-Scans the MySQL/MariaDB error log for warnings and errors, similar to how
-MySQLTuner analyzes the log. Works even when the database is down by reading
-the log file directly. Uses a cache to avoid re-reading already processed
-entries. Requires root or sudo.
+Scans the MySQL/MariaDB error log for errors, warnings, startups and
+shutdowns. On MySQL 8.0.22+ the plugin prefers the
+`performance_schema.error_log` table (reachable over the network, no shell
+access to the log file needed). Otherwise it reads the on-disk log file, or
+fetches recent log lines from a container (`docker:`/`podman:`/`kubectl:`) or
+systemd unit (`systemd:`). The on-disk file path is taken from MySQL/MariaDB's
+`log_error` variable, with common fallback locations probed when that variable
+is empty. The discovered path is cached so the check still works briefly when
+the database is down. Severity is detected from the bracketed log tags
+(`[ERROR]`, `[Warning]`), which matches MySQL/MariaDB output and avoids false
+positives on lines that merely mention "error" or "warning". Recommendations
+are grouped under a single block at the end of the output. Reading the on-disk
+log file usually requires root/sudo (typical mysql logs are owned by
+`mysql:mysql` mode `0640`). The `performance_schema.error_log` path needs
+SELECT on that table but no filesystem access.
 
 options:
   -h, --help            show this help message and exit
@@ -79,8 +92,9 @@ options:
                         Log source to read from. Accepts a file path,
                         `docker:CONTAINER`, `podman:CONTAINER`,
                         `kubectl:CONTAINER` or `systemd:UNITNAME`. If omitted,
-                        the check tries to fetch the logfile location
-                        automatically.
+                        the check first probes `performance_schema.error_log`
+                        (MySQL 8.0.22+) and then falls back to the file from
+                        `log_error`.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 
@@ -96,29 +110,37 @@ options:
 Output:
 
 ```text
-Src: Log file /var/log/mariadb/mariadb.log (size: 5.8KiB), 2 errors [CRITICAL] (last: 220503 11:21:43 [ERROR] Aborting), 1 warning [WARNING] (last: 220502 14:59:58 [Warning] Plugin 'FEEDBACK' is disabled.), 2 starts (last: 220503 11:24:54), 4 shutdowns (last: 220503 11:21:48)
+Source: `/var/log/mariadb/mariadb.log` (size: 5.8KiB < 32.0MiB). 2 errors found [CRITICAL] (last: 220503 11:21:43 [ERROR] Aborting). 1 warning found [WARNING] (last: 220502 14:59:58 [Warning] Plugin 'FEEDBACK' is disabled.). 2 startups detected (last: 220503 11:24:54). 4 shutdowns detected (last: 220503 11:21:48).
+
 Errors:
 * 220503 11:21:43 [ERROR] /usr/libexec/mysqld: unknown variable 'myvar2=myvalue2'
 * 220503 11:21:43 [ERROR] Aborting
+
 Warnings:
 * 220502 14:59:58 [Warning] Plugin 'FEEDBACK' is disabled.
-Starts:
+
+Startups:
 * 220503 11:07:38 [Note] /usr/libexec/mysqld: ready for connections.
 * 220503 11:24:54 [Note] /usr/libexec/mysqld: ready for connections.
+
 Shutdowns:
 * 220503 11:07:07 [Note] /usr/libexec/mysqld: Shutdown complete
 * 220503 11:07:12 [Note] /usr/libexec/mysqld: Shutdown complete
 * 220503 11:21:42 [Note] /usr/libexec/mysqld: Shutdown complete
 * 220503 11:21:48 [Note] /usr/libexec/mysqld: Shutdown complete
+
+Recommendations:
+* Check the errors in `/var/log/mariadb/mariadb.log`
+* Check the warning in `/var/log/mariadb/mariadb.log`
 ```
 
 
 ## States
 
-* CRIT if the log contains "error" lines.
-* WARN if the log contains "warning" lines.
+* CRIT if the log contains `[ERROR]`-tagged lines.
+* WARN if the log contains `[Warning]`-tagged lines.
 * WARN if a log file is configured but does not exist.
-* WARN if the log file size is >= 32 MiB.
+* WARN if an on-disk log file is `>= 32 MiB` (mysqltuner's cutoff; treat as a hint to set up log rotation).
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

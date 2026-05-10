@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the mysql-logfile check plugin.
+
+The plugin's parser (severity detection, ignore filters, output structure) can
+be exercised purely against static log fixtures via the `--server-log` flag, so
+these tests do not need a running MySQL/MariaDB server. The
+`performance_schema.error_log` path requires a real MySQL 8.0.22+ server and is
+not covered here; it should be tested with a container fixture instead, once
+testcontainers ships a suitable MySQL 8 image.
+"""
+
+import os
+import subprocess
+import sys
+import unittest
+
+sys.path.insert(0, '..')
+
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN  # noqa: E402
+
+
+FIXTURES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fixtures')
+PLUGIN = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'mysql-logfile')
+
+
+def fixture(name):
+    return os.path.join(FIXTURES_DIR, name)
+
+
+CASES = [
+    {
+        'id': 'ok-no-errors-no-warnings',
+        'fixture': 'sample-ok.txt',
+        'extra': [],
+        'retc': STATE_OK,
+        'assert_in': [
+            'No errors found',
+            'No warnings found',
+            '1 startup detected',
+            'No shutdowns detected',
+        ],
+        'assert_not_in': [
+            'Recommendations:',
+        ],
+    },
+    {
+        'id': 'warn-one-warning',
+        'fixture': 'sample-warning.txt',
+        'extra': [],
+        'retc': STATE_WARN,
+        'assert_in': [
+            '1 warning found',
+            '[WARNING]',
+            'Recommendations:',
+            'Check the warning in',
+        ],
+    },
+    {
+        'id': 'crit-one-error-one-warning',
+        'fixture': 'sample-error.txt',
+        'extra': [],
+        'retc': STATE_CRIT,
+        'assert_in': [
+            '1 error found',
+            '2 warnings found',
+            '[CRITICAL]',
+            'Errors:',
+            'Warnings:',
+            'Recommendations:',
+            'Check the error in',
+            'Check the warnings in',
+        ],
+    },
+    {
+        'id': 'ok-tracks-startups-and-shutdowns',
+        'fixture': 'sample-restarts.txt',
+        'extra': [],
+        'retc': STATE_OK,
+        'assert_in': [
+            'No errors found',
+            'No warnings found',
+            '3 startups detected',
+            '2 shutdowns detected',
+            'Startups:',
+            'Shutdowns:',
+        ],
+    },
+    {
+        'id': 'ok-bracket-tag-only-no-false-positives',
+        'fixture': 'sample-bracket-tag-only.txt',
+        'extra': [],
+        'retc': STATE_OK,
+        'assert_in': [
+            'No errors found',
+            'No warnings found',
+        ],
+        # The fixture contains the words "errors" / "warnings" in [Note] lines.
+        # Old substring-match would have flagged them; the bracket-tag match
+        # must not.
+        'assert_not_in': [
+            '[CRITICAL]',
+            '[WARNING]',
+        ],
+    },
+    {
+        'id': 'warn-ignore-pattern-suppresses-warning',
+        'fixture': 'sample-warning.txt',
+        'extra': ['--ignore-pattern', 'self signed'],
+        'retc': STATE_OK,
+        'assert_in': ['No warnings found'],
+    },
+    {
+        'id': 'warn-ignore-regex-suppresses-warning',
+        'fixture': 'sample-error.txt',
+        'extra': ['--ignore-regex', r'sha256_password'],
+        'retc': STATE_CRIT,  # error still present
+        'assert_in': ['1 warning found'],  # one of two warnings was filtered
+    },
+    {
+        'id': 'always-ok-masks-crit',
+        'fixture': 'sample-error.txt',
+        'extra': ['--always-ok'],
+        'retc': STATE_OK,
+        'assert_in': ['[CRITICAL]'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    pass
+
+
+def _make_test(case):
+    def _test(self):
+        cmd = [PLUGIN, f'--server-log={fixture(case["fixture"])}', *case['extra']]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        combined = result.stdout + result.stderr
+        self.assertEqual(
+            result.returncode,
+            case['retc'],
+            f'expected retc {case["retc"]}, got {result.returncode}.'
+            f'\nOutput: {combined}',
+        )
+        for needle in case.get('assert_in', []):
+            self.assertIn(needle, combined, f'{needle!r} not in output:\n{combined}')
+        for needle in case.get('assert_not_in', []):
+            self.assertNotIn(needle, combined, f'{needle!r} unexpectedly in output:\n{combined}')
+    return _test
+
+
+for _case in CASES:
+    _method = 'test_' + _case['id'].replace('-', '_')
+    setattr(TestCheck, _method, _make_test(_case))
+
+
+if __name__ == '__main__':
+    unittest.main()

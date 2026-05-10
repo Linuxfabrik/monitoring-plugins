@@ -130,7 +130,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Scans the MySQL/MariaDB error log for warnings and errors, similar to how MySQLTuner analyzes the log. Works even when the database is down by reading the log file directly. Uses a cache to avoid re-reading already processed entries. Requires root or sudo.",
+            "notes": "Scans the MySQL/MariaDB error log for errors, warnings, startups and shutdowns. On MySQL 8.0.22+ the plugin prefers the `performance_schema.error_log` table (reachable over the network, no shell access to the log file needed). Otherwise it reads the on-disk log file, or fetches recent log lines from a container (`docker:`/`podman:`/`kubectl:`) or systemd unit (`systemd:`). The on-disk file path is taken from MySQL/MariaDB's `log_error` variable, with common fallback locations probed when that variable is empty. The discovered path is cached so the check still works briefly when the database is down. Severity is detected from the bracketed log tags (`[ERROR]`, `[Warning]`), which matches MySQL/MariaDB output and avoids false positives on lines that merely mention \"error\" or \"warning\". Recommendations are grouped under a single block at the end of the output. Reading the on-disk log file usually requires root/sudo (typical mysql logs are owned by `mysql:mysql` mode `0640`). The `performance_schema.error_log` path needs SELECT on that table but no filesystem access.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-logfile/",
             "object_name": "tpl-service-mysql-logfile",
             "object_type": "template",
@@ -246,7 +246,7 @@
         "9": {
             "varname": "mysql_logfile_server_log",
             "caption": "MySQL Logfile: Server Log",
-            "description": "Log source to read from. Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER` or `systemd:UNITNAME`. If omitted, the check tries to fetch the logfile location automatically.",
+            "description": "Log source to read from. Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER` or `systemd:UNITNAME`. If omitted, the check first probes `performance_schema.error_log` (MySQL 8.0.22+) and then falls back to the file from `log_error`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

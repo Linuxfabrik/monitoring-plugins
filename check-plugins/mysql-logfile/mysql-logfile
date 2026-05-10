@@ -27,12 +27,23 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026050801'
+__version__ = '2026051001'
 
-DESCRIPTION = """Scans the MySQL/MariaDB error log for warnings and errors, similar to how MySQLTuner
-analyzes the log. Works even when the database is down by reading the log file
-directly. Uses a cache to avoid re-reading already processed entries.
-Requires root or sudo."""
+DESCRIPTION = """Scans the MySQL/MariaDB error log for errors, warnings, startups and
+shutdowns. On MySQL 8.0.22+ the plugin prefers the `performance_schema.error_log` table
+(reachable over the network, no shell access to the log file needed). Otherwise it
+reads the on-disk log file, or fetches recent log lines from a container
+(`docker:`/`podman:`/`kubectl:`) or systemd unit (`systemd:`).
+The on-disk file path is taken from MySQL/MariaDB's `log_error` variable, with
+common fallback locations probed when that variable is empty. The discovered path
+is cached so the check still works briefly when the database is down.
+Severity is detected from the bracketed log tags (`[ERROR]`, `[Warning]`), which
+matches MySQL/MariaDB output and avoids false positives on lines that merely
+mention "error" or "warning". Recommendations are grouped under a single block at
+the end of the output.
+Reading the on-disk log file usually requires root/sudo (typical mysql logs are
+owned by `mysql:mysql` mode `0640`). The `performance_schema.error_log` path needs
+SELECT on that table but no filesystem access."""
 
 DEFAULT_CACHE_EXPIRE = 5 * 24 * 60  # in minutes (= 5 days)
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
@@ -41,7 +52,8 @@ DEFAULT_HOSTNAME = '127.0.0.1'
 DEFAULT_PORT = '3306'
 DEFAULT_TIMEOUT = 3
 
-MAXLINES = 30000  # Maximum lines of log output to read from end
+LOGFILE_BIG_THRESHOLD = 32 * 1024 * 1024  # 32 MiB - matches mysqltuner's cutoff
+MAXLINES = 30000  # maximum log lines to consider from the end of the source
 
 
 def parse_args():
@@ -126,7 +138,8 @@ def parse_args():
         help='Log source to read from. '
         'Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, '
         '`kubectl:CONTAINER` or `systemd:UNITNAME`. '
-        'If omitted, the check tries to fetch the logfile location automatically.',
+        'If omitted, the check first probes `performance_schema.error_log` '
+        '(MySQL 8.0.22+) and then falls back to the file from `log_error`.',
         dest='SERVER_LOG',
     )
 
@@ -181,11 +194,79 @@ def get_log_file_real_path(file, hostname, datadir):
     return file
 
 
+def has_pfs_error_log(conn):
+    """True if `performance_schema.error_log` exists and is visible to this user.
+    information_schema.tables only lists tables the current user can access, so a
+    non-empty result implies the user has at least some privilege on it.
+    """
+    sql = (
+        "SELECT 1 FROM information_schema.tables"
+        " WHERE table_schema = 'performance_schema'"
+        " AND table_name = 'error_log' LIMIT 1;"
+    )
+    success, rows = lib.db_mysql.select(conn, sql)
+    return success and bool(rows)
+
+
+def read_pfs_error_log(conn):
+    """Pull the most recent rows from `performance_schema.error_log` and rebuild
+    text lines that look like ordinary MySQL/MariaDB log entries (so the
+    downstream bracket-tag parser does not need its own PFS branch). Returns the
+    joined log text on success or None on SQL failure (caller falls back to
+    file mode).
+    """
+    sql = (
+        'SELECT LOGGED, PRIO, ERROR_CODE, SUBSYSTEM, DATA'
+        ' FROM performance_schema.error_log'
+        f' ORDER BY LOGGED DESC LIMIT {MAXLINES};'
+    )
+    success, rows = lib.db_mysql.select(conn, sql)
+    if not success:
+        return None
+    lines = []
+    # Reverse to put oldest first, so "last: ..." in the summary points to the
+    # most recent row.
+    for row in reversed(rows or []):
+        ts = row.get('LOGGED', '')
+        prio = row.get('PRIO', '')
+        err_code = row.get('ERROR_CODE', '')
+        subsystem = row.get('SUBSYSTEM', '')
+        data = row.get('DATA', '')
+        lines.append(
+            f'{ts} 0 [{prio}] [{err_code}] [{subsystem}] {data}'
+        )
+    return '\n'.join(lines)
+
+
+def read_container_logs(prefix, target):
+    """Run `<prefix> logs --tail=<MAXLINES> <target>`; abort on non-zero exit."""
+    cmd = f"{prefix} logs --tail={MAXLINES} '{target}'"
+    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+    if retc != 0:
+        lib.base.cu(f'`{cmd}` exited with error ({retc}, {stderr.strip()}).')
+    return stdout
+
+
+def read_systemd_logs(unit):
+    cmd = f"journalctl --lines {MAXLINES} --boot --unit '{unit}'"
+    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+    if retc != 0:
+        lib.base.cu(f'`{cmd}` exited with error ({retc}, {stderr.strip()}).')
+    return stdout
+
+
+def shorten(items, head=5, tail=5):
+    """Collapse a list to head + ellipsis + tail when it is longer than head+tail."""
+    if len(items) > head + tail:
+        return [*items[:head], '...', *items[-tail:]]
+    return items
+
+
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:log_file_recommendations(), v2.2.8
-    # including variable names
+    # logic taken from mysqltuner.pl:log_file_recommendations(),
+    # verified in sync with MySQLTuner v2.8.41
 
     # parse the command line
     try:
@@ -193,211 +274,264 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # set default values for append parameters that were not specified
     if args.IGNORE_PATTERN is None:
         args.IGNORE_PATTERN = []
     if args.IGNORE_REGEX is None:
         args.IGNORE_REGEX = []
 
+    # === Determine source ===
+    # `source_label` always describes what the admin sees ("Source: ..."),
+    # `source_size` is set only for plain on-disk files (so we can emit the
+    # 32 MiB cutoff check and a perfdata series).
+    source_label = None
+    source_size = None
+    logfile = None
+    log_error = None
+    myvar = {}
+
     if args.SERVER_LOG:
-        # user told us to use this log source, so don't try to find anything else
         log_error = args.SERVER_LOG
     else:
-        # first ask the DB where to find the logfile
         mysql_connection = {
             'defaults_file': args.DEFAULTS_FILE,
             'defaults_group': args.DEFAULTS_GROUP,
             'timeout': args.TIMEOUT,
         }
         success, conn = lib.db_mysql.connect(mysql_connection)
-        if not success:
-            # DB seems to be down
-            # Try to get the "log_error" setting and save it to cache, so that we know
-            #  where to get the log info from in case the DB is down again.
-            myvar = {}
-            log_error = lib.cache.get(
-                f'{args.HOSTNAME}-{args.PORT}',
-                filename='linuxfabrik-monitoring-plugins-mysql-logfile.db',
-            )
-        else:
+        if success:
             lib.base.coe(lib.db_mysql.check_privileges(conn))
             myvar = lib.db_mysql.lod2dict(get_vars(conn))
+            # Prefer the structured PFS table on MySQL 8.0.22+ where it exists
+            # and is visible to this user. Avoids needing shell access to the
+            # error log file (works against remote DBs too).
+            if has_pfs_error_log(conn):
+                pfs_text = read_pfs_error_log(conn)
+                if pfs_text is not None:
+                    logfile = pfs_text
+                    log_error = 'performance_schema.error_log'
+                    source_label = '`performance_schema.error_log`'
             lib.db_mysql.close(conn)
-            log_error = myvar['log_error']
-        if not log_error:
-            log_error = get_log_file_real_path(
-                myvar.get('log_error', ''),
-                myvar.get('hostname', ''),
-                myvar.get('datadir', ''),
-            )
+        if log_error is None:
+            # DB unreachable or PFS not available: use the file path from the
+            # config, fall back to the cached value from a previous run.
+            log_error = myvar.get('log_error')
+            if not log_error:
+                log_error = lib.cache.get(
+                    f'{args.HOSTNAME}-{args.PORT}',
+                    filename='linuxfabrik-monitoring-plugins-mysql-logfile.db',
+                )
+            if log_error:
+                log_error = get_log_file_real_path(
+                    log_error,
+                    myvar.get('hostname', ''),
+                    myvar.get('datadir', ''),
+                )
         if not log_error:
             lib.base.cu(
-                "No log file set (set `log_error` in MySQL/MariaDB config or use the check's `--server-log` parameter)."
+                "No log file set (set `log_error` in MySQL/MariaDB config or "
+                "use the check's `--server-log` parameter)."
             )
 
-    lib.cache.set(
-        f'{args.HOSTNAME}-{args.PORT}',
-        log_error,
-        lib.time.now() + args.CACHE_EXPIRE * 60,
-        filename='linuxfabrik-monitoring-plugins-mysql-logfile.db',
-    )
+    # Cache the discovered on-disk path so the next run still has it when the
+    # DB is unreachable. PFS does not need caching (only works with a live conn).
+    if log_error and log_error != 'performance_schema.error_log':
+        lib.cache.set(
+            f'{args.HOSTNAME}-{args.PORT}',
+            log_error,
+            lib.time.now() + args.CACHE_EXPIRE * 60,
+            filename='linuxfabrik-monitoring-plugins-mysql-logfile.db',
+        )
 
-    # init some vars
-    msg, msg_body = '', ''
-    state = STATE_OK
-    perfdata = ''
-
-    if log_error == 'stderr':
-        lib.base.cu("log_error is set to STDERR, so this check can't read stderr.")
-
-    match = re.search(r'^(docker|podman|kubectl):(.*)', log_error)
-    if match:
-        cmd = f"{match.group(1).strip()} logs --tail={MAXLINES} '{match.group(2).strip()}'"
-        logfile, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
-        if retc != 0:
-            lib.base.cu(f'{cmd} exited with error ({retc}, {stderr.strip()}).')
-
-        # build the message
-        msg += f'Src: {log_error}, '
-
-    match = re.search(r'^systemd:(.*)', log_error)
-    if match:
-        cmd = f"journalctl --lines {MAXLINES} --boot --unit '{match.group(1).strip()}'"
-        logfile, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
-        if retc != 0:
-            lib.base.cu(f'`{cmd}` exited with error ({retc}, {stderr.strip()}).')
-        msg += f'Src: {log_error}, '
-    else:
-        # good old logfile
-        if not os.path.isabs(log_error):
-            log_error = os.path.join(myvar.get('datadir', ''), log_error)
-        if not os.path.isfile(log_error):
-            msg = f'Logging seems to be configured, but `{log_error}` does not seem to be an existing regular file. '
-            msg += 'Check the path and file permissions, or provide the `--server-log` parameter.'
-            lib.base.oao(msg, STATE_WARN)
-        size = os.path.getsize(log_error)
-        if size == 0:
-            if not args.SERVER_LOG:
-                lib.base.cu(
-                    f'Log file {log_error} is empty. Assuming log-rotation. Use `--server-log` for explicit file.'
-                )
-            else:
+    # === Read log content (unless PFS already provided it) ===
+    if logfile is None:
+        if log_error == 'stderr':
+            lib.base.cu(
+                "log_error is set to STDERR, so this check can't read stderr."
+            )
+        container = re.match(r'^(docker|podman|kubectl):(.*)$', log_error)
+        systemd_match = re.match(r'^systemd:(.*)$', log_error)
+        if container:
+            logfile = read_container_logs(
+                container.group(1).strip(),
+                container.group(2).strip(),
+            )
+            source_label = f'`{log_error}`'
+        elif systemd_match:
+            logfile = read_systemd_logs(systemd_match.group(1).strip())
+            source_label = f'`{log_error}`'
+        else:
+            # plain on-disk file
+            if not os.path.isabs(log_error):
+                log_error = os.path.join(myvar.get('datadir', ''), log_error)
+            if not os.path.isfile(log_error):
                 lib.base.oao(
-                    f'Log file {log_error} is empty. `--server-log` is set explicitely, so assuming log-rotation.',
-                    STATE_OK,
+                    f'Logging seems to be configured, but `{log_error}` does'
+                    f' not seem to be an existing regular file. Check the path'
+                    f' and file permissions, or provide the `--server-log`'
+                    f' parameter.',
+                    STATE_WARN,
                 )
-        msg += f'Src: Log file {log_error} (size: {lib.human.bytes2human(size)}), '
+            source_size = os.path.getsize(log_error)
+            if source_size == 0:
+                if not args.SERVER_LOG:
+                    lib.base.cu(
+                        f'Log file `{log_error}` is empty. Assuming'
+                        f' log-rotation. Use `--server-log` for explicit file.'
+                    )
+                else:
+                    lib.base.oao(
+                        f'Log file `{log_error}` is empty. `--server-log` is'
+                        f' set explicitly, so assuming log-rotation.',
+                        STATE_OK,
+                    )
+            logfile = lib.base.coe(lib.disk.read_file(log_error))
+            source_label = f'`{log_error}`'
+
+    # === Parse the log lines ===
+    last_errs, last_warns, last_shutdowns, last_starts = [], [], [], []
+    compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
+    for log_line in logfile.splitlines():
+        haystack = log_line.lower()
+        if any(
+            pattern.lower() in haystack for pattern in args.IGNORE_PATTERN
+        ) or any(item.search(haystack) for item in compiled_ignore_regex):
+            continue
+        # MySQL/MariaDB tag the severity in brackets like `[ERROR]` / `[Warning]`.
+        # Match the bracketed form so words like "errors" inside table names or
+        # paths do not falsely trip the count (mysqltuner uses the same regex).
+        if '[error]' in haystack:
+            last_errs.append(log_line)
+        if '[warning]' in haystack:
+            last_warns.append(log_line)
+        if 'shutdown complete' in haystack and 'innodb' not in haystack:
+            last_shutdowns.append(log_line)
+        if 'ready for connections' in log_line:
+            last_starts.append(log_line)
+
+    # === Build the output ===
+    state = STATE_OK
+    sections = []
+    facts = []
+    # All recommendations from all WARN/CRIT paths land here and render once at
+    # the end as a `Recommendations:\n* ...` bulleted block, regardless of
+    # which combinations of paths fire.
+    recommendations = []
+
+    if source_size is not None:
+        size_human = lib.human.bytes2human(source_size)
+        threshold_human = lib.human.bytes2human(LOGFILE_BIG_THRESHOLD)
+        if source_size >= LOGFILE_BIG_THRESHOLD:
+            state = lib.base.get_worst(state, STATE_WARN)
+            facts.append(
+                f'Source: {source_label} (size: {size_human} >'
+                f' {threshold_human})'
+                f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
+            )
+            recommendations.append(
+                f'Log file is > {threshold_human}; analyse why or set up log'
+                f' rotation (e.g. logrotate)'
+            )
+        else:
+            facts.append(
+                f'Source: {source_label} (size: {size_human} < {threshold_human})'
+            )
+    else:
+        facts.append(f'Source: {source_label}')
+
+    n_err = len(last_errs)
+    if n_err:
+        state = lib.base.get_worst(state, STATE_CRIT)
+        facts.append(
+            f'{n_err} {lib.txt.pluralize("error", n_err)} found'
+            f'{lib.base.state2str(STATE_CRIT, prefix=" ")}'
+            f' (last: {last_errs[-1]})'
+        )
+        recommendations.append(
+            f'Check the {lib.txt.pluralize("error", n_err)} in {source_label}'
+        )
+    else:
+        facts.append('No errors found')
+
+    n_warn = len(last_warns)
+    if n_warn:
+        state = lib.base.get_worst(state, STATE_WARN)
+        facts.append(
+            f'{n_warn} {lib.txt.pluralize("warning", n_warn)} found'
+            f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
+            f' (last: {last_warns[-1]})'
+        )
+        recommendations.append(
+            f'Check the {lib.txt.pluralize("warning", n_warn)} in {source_label}'
+        )
+    else:
+        facts.append('No warnings found')
+
+    n_start = len(last_starts)
+    if n_start:
+        facts.append(
+            f'{n_start} {lib.txt.pluralize("startup", n_start)} detected'
+            f' (last: {last_starts[-1]})'
+        )
+    else:
+        facts.append('No startups detected')
+
+    n_shut = len(last_shutdowns)
+    if n_shut:
+        facts.append(
+            f'{n_shut} {lib.txt.pluralize("shutdown", n_shut)} detected'
+            f' (last: {last_shutdowns[-1]})'
+        )
+    else:
+        facts.append('No shutdowns detected')
+
+    sections.append('. '.join(facts) + '.')
+
+    if last_errs:
+        sections.append(
+            'Errors:\n' + '\n'.join(f'* {line}' for line in shorten(last_errs))
+        )
+    if last_warns:
+        sections.append(
+            'Warnings:\n' + '\n'.join(
+                f'* {line}' for line in shorten(last_warns)
+            )
+        )
+    if last_starts:
+        sections.append(
+            'Startups:\n' + '\n'.join(
+                f'* {line}' for line in shorten(last_starts)
+            )
+        )
+    if last_shutdowns:
+        sections.append(
+            'Shutdowns:\n' + '\n'.join(
+                f'* {line}' for line in shorten(last_shutdowns)
+            )
+        )
+
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
+        )
+
+    msg = '\n\n'.join(sections)
+
+    # === Perfdata ===
+    perfdata = ''
+    if source_size is not None:
         perfdata += lib.base.get_perfdata(
             'mysql_logfile_size',
-            size,
+            source_size,
             uom='B',
             _min=0,
         )
-        if size >= 32 * 1024 * 1024:
-            size_state = STATE_WARN
-            state = lib.base.get_worst(state, size_state)
-            msg += (
-                f'bigger than 32 MiB'
-                f'{lib.base.state2str(size_state, prefix=" ")}'
-                f' (you should analyze why or implement a'
-                f' rotation log strategy such as logrotate), '
-            )
-        logfile = lib.base.coe(lib.disk.read_file(log_error))
-
-    # parse the log (slightly extended compared to MySQLTuner)
-    lastErrs, lastWarns, lastShutdowns, lastStarts = [], [], [], []
-    compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
-    for logLi in logfile.splitlines():
-        haystack = logLi.lower()
-        if any(
-            ignore_pattern.lower() in haystack for ignore_pattern in args.IGNORE_PATTERN
-        ) or any(item.search(haystack) for item in compiled_ignore_regex):
-            continue
-        if (
-            'error' in haystack
-            and 'logging to' not in haystack
-            and ' [warning] ' not in haystack
-        ):
-            lastErrs.append(logLi)
-        if 'warning' in haystack:
-            lastWarns.append(logLi)
-        if 'shutdown complete' in haystack and 'innodb' not in haystack:
-            lastShutdowns.append(logLi)
-        if 'ready for connections' in logLi:
-            lastStarts.append(logLi)
-
-    cnt = len(lastErrs)
-    if lastErrs:
-        errline_state = STATE_CRIT
-        state = lib.base.get_worst(state, errline_state)
-        msg += (
-            f'{cnt}'
-            f' {lib.txt.pluralize("error", len(lastErrs))}'
-            f'{lib.base.state2str(errline_state, prefix=" ")}'
-            f' (last: {lastErrs[-1]}), '
-        )
-        if cnt > 10:
-            # shorten the message
-            lastErrs = [*lastErrs[0:5], '...', *lastErrs[-5:]]
-        msg_body += '\nErrors:\n* ' + '\n* '.join(lastErrs) + '\n'
-    perfdata += lib.base.get_perfdata(
-        'mysql_error_lines',
-        cnt,
-        _min=0,
-    )
-
-    cnt = len(lastWarns)
-    if lastWarns:
-        warnline_state = STATE_WARN
-        state = lib.base.get_worst(state, warnline_state)
-        msg += (
-            f'{cnt}'
-            f' {lib.txt.pluralize("warning", len(lastWarns))}'
-            f'{lib.base.state2str(warnline_state, prefix=" ")}'
-            f' (last: {lastWarns[-1]}), '
-        )
-        if cnt > 10:
-            # shorten the message
-            lastWarns = [*lastWarns[0:5], '...', *lastWarns[-5:]]
-        msg_body += '\nWarnings:\n* ' + '\n* '.join(lastWarns) + '\n'
-    perfdata += lib.base.get_perfdata(
-        'mysql_warning_lines',
-        cnt,
-        _min=0,
-    )
-
-    cnt = len(lastStarts)
-    if lastStarts:
-        msg += f'{cnt} {lib.txt.pluralize("start", len(lastStarts))} (last: {lastStarts[-1]}), '
-        if cnt > 10:
-            # shorten the message
-            lastStarts = [*lastStarts[0:5], '...', *lastStarts[-5:]]
-        msg_body += '\nStarts:\n* ' + '\n* '.join(lastStarts) + '\n'
-    perfdata += lib.base.get_perfdata(
-        'mysql_startups',
-        cnt,
-        _min=0,
-    )
-
-    cnt = len(lastShutdowns)
-    if lastShutdowns:
-        msg += (
-            f'{cnt}'
-            f' {lib.txt.pluralize("shutdown", len(lastShutdowns))}'
-            f' (last: {lastShutdowns[-1]}), '
-        )
-        if cnt > 10:
-            # shorten the message
-            lastShutdowns = [*lastShutdowns[0:5], '...', *lastShutdowns[-5:]]
-        msg_body += '\nShutdowns:\n* ' + '\n* '.join(lastShutdowns) + '\n'
-    perfdata += lib.base.get_perfdata(
-        'mysql_shutdowns',
-        cnt,
-        _min=0,
-    )
+    perfdata += lib.base.get_perfdata('mysql_error_lines', n_err, _min=0)
+    perfdata += lib.base.get_perfdata('mysql_warning_lines', n_warn, _min=0)
+    perfdata += lib.base.get_perfdata('mysql_startups', n_start, _min=0)
+    perfdata += lib.base.get_perfdata('mysql_shutdowns', n_shut, _min=0)
 
     # over and out
-    lib.base.oao(f'{msg[:-2]}\n{msg_body}', state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

@@ -15,7 +15,7 @@ listings and the monitoring host's shell history.
 * `mysql-innodb-buffer-pool-size`: InnoDB buffer-pool sizing vs. hit rate.
 * `mysql-innodb-log-waits`: InnoDB log wait rate.
 * `mysql-joins`: joins without indexes.
-* `mysql-logfile`: grep-like pattern check against the MySQL error log.
+* `mysql-logfile`: bracket-tag check against the MySQL/MariaDB error log. Prefers `performance_schema.error_log` on MySQL 8.0.22+, falls back to the on-disk file (or `docker:`/`podman:`/`kubectl:`/`systemd:` source).
 * `mysql-memory`: server memory metrics.
 * `mysql-open-files`: open-files vs. `open_files_limit`.
 * `mysql-perf-metrics`: general performance counters.
@@ -150,6 +150,7 @@ minimum.
 | `mysql-aria`, `mysql-database-metrics`, `mysql-innodb-buffer-pool-size`, `mysql-storage-engines`, `mysql-table-definition-cache`, `mysql-table-indexes` | `GRANT SELECT ON *.*` (needed to see all rows in `information_schema`) |
 | `mysql-replica-status` | `GRANT REPLICATION CLIENT ON *.*` (MySQL and MariaDB <10.5). On MariaDB 10.5+, `SLAVE MONITOR` or `REPLICA MONITOR` is accepted as well |
 | `mysql-user-security` | `GRANT SELECT ON mysql.*` (queries `mysql.user` and `mysql.global_priv`) |
+| `mysql-logfile` | `GRANT USAGE ON *.*` is enough for on-disk / container / systemd sources. To additionally use `performance_schema.error_log` (MySQL 8.0.22+), `GRANT SELECT ON performance_schema.error_log` is needed; without it the plugin transparently falls back to file mode |
 | All other `mysql-*` plugins | `GRANT USAGE ON *.*` (login-only, no further privileges) |
 | `mysql-query` | depends entirely on the SQL passed via `--query` |
 
