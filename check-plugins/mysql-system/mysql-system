@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051006'
+__version__ = '2026051007'
 
 DESCRIPTION = """Checks Linux kernel parameters that affect MySQL/MariaDB stability and
 performance: `vm.swappiness`, the asynchronous-I/O event ceiling `fs.aio-max-nr`, the
@@ -122,25 +122,32 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # init some vars
-    msg = ''
     state = STATE_OK
     perfdata = ''
+    facts = ''
+    # All recommendations from all WARN paths land here and render once at the
+    # end as a `Recommendations:\n* ...` bulleted block. Keeps the structure
+    # consistent regardless of which combinations of WARN paths fire.
+    recommendations = []
 
     # count distinct local TCP ports in LISTEN state
     listening = get_listening_ports()
     if listening is None:
-        msg += 'No ports checked (psutil missing). '
+        facts += 'No ports checked (psutil missing). '
     else:
         if args.MAXPORTSALLOWED > 0 and listening > args.MAXPORTSALLOWED:
-            state = STATE_WARN
-            msg += (
+            state = lib.base.get_worst(state, STATE_WARN)
+            facts += (
                 f'{listening} listening TCP ports system-wide, exceeds'
-                f' `--maxportsallowed` limit of {args.MAXPORTSALLOWED}.'
-                f' Consider dedicating a server for your database installation'
-                f' with less services running on. '
+                f' `--maxportsallowed` limit of {args.MAXPORTSALLOWED}'
+                f'{lib.base.state2str(STATE_WARN, prefix=" ")}. '
+            )
+            recommendations.append(
+                'Consider dedicating a server for your database installation'
+                ' with less services running on'
             )
         else:
-            msg += f'{listening} listening TCP ports system-wide. '
+            facts += f'{listening} listening TCP ports system-wide. '
         perfdata += lib.base.get_perfdata(
             'mysql_listening_ports',
             listening,
@@ -154,14 +161,17 @@ def main():
         if result is None:
             lib.base.cu('Permission denied reading `vm.swappiness`')
         if int(result) > 10:
-            state = STATE_WARN
-            msg += (
+            state = lib.base.get_worst(state, STATE_WARN)
+            facts += (
                 f'`vm.swappiness` is {result}, should be <= 10'
-                f' (`echo 10 > /proc/sys/vm/swappiness`, or'
-                f' `vm.swappiness=10` in /etc/sysctl.conf for persistence). '
+                f'{lib.base.state2str(STATE_WARN, prefix=" ")}. '
+            )
+            recommendations.append(
+                '`echo 10 > /proc/sys/vm/swappiness`, or `vm.swappiness=10`'
+                ' in /etc/sysctl.conf for persistence'
             )
         else:
-            msg += f'`vm.swappiness` is {fmt_value(result)}. '
+            facts += f'`vm.swappiness` is {fmt_value(result)}. '
         perfdata += lib.base.get_perfdata(
             'mysql_kernel_vm_swappiness',
             result,
@@ -175,16 +185,18 @@ def main():
             result = get_sysctl('sunrpc.tcp_slot_table_entries')
             if result is not None:
                 if int(result) <= 100:
-                    state = STATE_WARN
-                    msg += (
-                        f'`sunrpc.tcp_slot_table_entries` is {result},'
-                        f' should be > 100 (recommended: 128;'
-                        f' `echo 128 > /proc/sys/sunrpc/tcp_slot_table_entries`,'
-                        f' or `sunrpc.tcp_slot_table_entries=128` in'
-                        f' /etc/sysctl.conf for persistence). '
+                    state = lib.base.get_worst(state, STATE_WARN)
+                    facts += (
+                        f'`sunrpc.tcp_slot_table_entries` is {result}, should be > 100'
+                        f'{lib.base.state2str(STATE_WARN, prefix=" ")}. '
+                    )
+                    recommendations.append(
+                        '`echo 128 > /proc/sys/sunrpc/tcp_slot_table_entries`,'
+                        ' or `sunrpc.tcp_slot_table_entries=128` in /etc/sysctl.conf'
+                        ' for persistence (recommended value: 128)'
                     )
                 else:
-                    msg += f'`sunrpc.tcp_slot_table_entries` is {fmt_value(result)}. '
+                    facts += f'`sunrpc.tcp_slot_table_entries` is {fmt_value(result)}. '
                 perfdata += lib.base.get_perfdata(
                     'mysql_kernel_sunrpc_tcp_slot_table_entries',
                     result,
@@ -196,15 +208,18 @@ def main():
             result = get_sysctl('fs.aio-max-nr')
             if result is not None:
                 if int(result) < 1000000:
-                    state = STATE_WARN
-                    msg += (
+                    state = lib.base.get_worst(state, STATE_WARN)
+                    facts += (
                         f'`fs.aio-max-nr` is {result}, should be >= 1M'
-                        f' (`echo 1048576 > /proc/sys/fs/aio-max-nr`, or'
-                        f' `fs.aio-max-nr=1048576` in /etc/sysctl.conf'
-                        f' for persistence). '
+                        f'{lib.base.state2str(STATE_WARN, prefix=" ")}. '
+                    )
+                    recommendations.append(
+                        '`echo 1048576 > /proc/sys/fs/aio-max-nr`,'
+                        ' or `fs.aio-max-nr=1048576` in /etc/sysctl.conf'
+                        ' for persistence'
                     )
                 else:
-                    msg += f'`fs.aio-max-nr` is {fmt_value(result)}. '
+                    facts += f'`fs.aio-max-nr` is {fmt_value(result)}. '
                 perfdata += lib.base.get_perfdata(
                     'mysql_kernel_fs_aio_max_nr',
                     result,
@@ -216,23 +231,30 @@ def main():
             result = get_sysctl('fs.nr_open')
             if result is not None:
                 if int(result) < 1000000:
-                    state = STATE_WARN
-                    msg += (
+                    state = lib.base.get_worst(state, STATE_WARN)
+                    facts += (
                         f'`fs.nr_open` is {result}, should be >= 1M'
-                        f' (`echo 1048576 > /proc/sys/fs/nr_open`, or'
-                        f' `fs.nr_open=1048576` in /etc/sysctl.conf'
-                        f' for persistence). '
+                        f'{lib.base.state2str(STATE_WARN, prefix=" ")}. '
+                    )
+                    recommendations.append(
+                        '`echo 1048576 > /proc/sys/fs/nr_open`,'
+                        ' or `fs.nr_open=1048576` in /etc/sysctl.conf'
+                        ' for persistence'
                     )
                 else:
-                    msg += f'`fs.nr_open` is {fmt_value(result)}. '
+                    facts += f'`fs.nr_open` is {fmt_value(result)}. '
                 perfdata += lib.base.get_perfdata(
                     'mysql_kernel_fs_nr_open',
                     result,
                     _min=0,
                 )
 
-    if not msg:
-        msg = 'Everything is ok.'
+    sections = [facts.rstrip() or 'Everything is ok.']
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
+        )
+    msg = '\n\n'.join(sections)
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

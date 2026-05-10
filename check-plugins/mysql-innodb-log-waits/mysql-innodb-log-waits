@@ -22,7 +22,7 @@ import lib.time
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051001'
+__version__ = '2026051002'
 
 DESCRIPTION = """Checks two related InnoDB log buffer metrics in MySQL/MariaDB:
 1. **Log waits** (`Innodb_log_waits` / `Innodb_log_writes`) - how often InnoDB had to wait for
@@ -233,6 +233,10 @@ def main():
 
     state = STATE_OK
     sections = []
+    # All recommendations from all WARN paths land here and render once at the
+    # end as a `Recommendations:\n* ...` bulleted block, regardless of which
+    # combinations of WARN paths fire.
+    recommendations = []
 
     # 1. InnoDB Log Waits: any wait at all earns a WARN. mysqltuner uses the same
     #    "any wait" threshold (`> 0.000001` in their float math).
@@ -250,8 +254,10 @@ def main():
         state = lib.base.get_worst(state, STATE_WARN)
         sections.append(
             f'{log_waits_msg}{lib.base.state2str(STATE_WARN, prefix=" ")}.'
-            f' Set `innodb_log_buffer_size` >'
-            f' {lib.human.bytes2human(log_buffer_size)}.'
+        )
+        recommendations.append(
+            f'Set `innodb_log_buffer_size` >'
+            f' {lib.human.bytes2human(log_buffer_size)}'
         )
     else:
         sections.append(f'{log_waits_msg}.')
@@ -285,11 +291,20 @@ def main():
                 state = lib.base.get_worst(state, STATE_WARN)
                 sections.append(
                     f'{eff_msg}{lib.base.state2str(STATE_WARN, prefix=" ")}.'
-                    f' Set `innodb_log_buffer_size` >'
-                    f' {lib.human.bytes2human(log_buffer_size)}.'
                 )
+                rec = (
+                    f'Set `innodb_log_buffer_size` >'
+                    f' {lib.human.bytes2human(log_buffer_size)}'
+                )
+                if rec not in recommendations:
+                    recommendations.append(rec)
             else:
                 sections.append(f'{eff_msg}.')
+
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
+        )
 
     msg = '\n\n'.join(sections)
 

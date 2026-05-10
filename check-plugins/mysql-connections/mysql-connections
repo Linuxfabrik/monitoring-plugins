@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051003'
+__version__ = '2026051004'
 
 SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-connections.db'
 
@@ -224,11 +224,16 @@ def main():
     lib.db_mysql.close(conn)
 
     # init some vars
-    msg = ''
-    recommendations = ''
     state = STATE_OK
     perfdata = ''
     mycalc = {}
+    # Short facts are accumulated as `; `-separated items and rendered on a
+    # single line; recommendations land in their own bulleted block at the end.
+    facts = []
+    # All recommendations from all WARN paths land here and render once at the
+    # end as a `Recommendations:\n* ...` bulleted block, regardless of which
+    # combinations of WARN paths fire.
+    recommendations = []
 
     # Aborted Connections
     aborted_connections_state = STATE_OK
@@ -238,21 +243,15 @@ def main():
     if mycalc['pct_connections_aborted'] > 3:
         aborted_connections_state = STATE_WARN
         state = lib.base.get_worst(state, aborted_connections_state)
-        recommendations += (
-            '* Reduce or eliminate unclosed connections and network issues.\n'
+        recommendations.append(
+            'Reduce or eliminate unclosed connections and network issues'
         )
     aborted = lib.human.number2human(mystat['Aborted_connects'])
     total_conn = lib.human.number2human(mystat['Connections'])
-    aborted_str = lib.base.state2str(
-        aborted_connections_state,
-        prefix=' ',
-    )
-
-    # build the message
-    msg += (
-        f'{mycalc["pct_connections_aborted"]}%'
-        f' aborted connections'
-        f' ({aborted}/{total_conn}){aborted_str}; '
+    aborted_str = lib.base.state2str(aborted_connections_state, prefix=' ')
+    facts.append(
+        f'{mycalc["pct_connections_aborted"]}% aborted connections'
+        f' ({aborted}/{total_conn}){aborted_str}'
     )
 
     # currently used Connections
@@ -266,26 +265,18 @@ def main():
     if mycalc['pct_connections_used'] > 85:
         cur_connections_state = STATE_WARN
         state = lib.base.get_worst(state, cur_connections_state)
-        recommendations += (
-            f'* Reduce or eliminate persistent connections to reduce connection'
+        recommendations.append(
+            f'Reduce or eliminate persistent connections to reduce connection'
             f' usage (raise `max_connections` > {myvar["max_connections"]},'
             f' lower `wait_timeout` < {myvar["wait_timeout"]} and/or lower'
-            f' `interactive_timeout` < {myvar["interactive_timeout"]}).\n'
+            f' `interactive_timeout` < {myvar["interactive_timeout"]})'
         )
-    threads_plr = lib.txt.pluralize(
-        'thread',
-        mystat['Threads_running'],
-    )
-    cur_str = lib.base.state2str(
-        cur_connections_state,
-        prefix=' ',
-    )
-    msg += (
-        f'current {mycalc["pct_connections_used"]}%'
-        f' used ({mystat["Threads_connected"]}'
-        f'/{myvar["max_connections"]},'
-        f' {mystat["Threads_running"]}'
-        f' {threads_plr} running){cur_str}; '
+    threads_plr = lib.txt.pluralize('thread', mystat['Threads_running'])
+    cur_str = lib.base.state2str(cur_connections_state, prefix=' ')
+    facts.append(
+        f'current {mycalc["pct_connections_used"]}% used'
+        f' ({mystat["Threads_connected"]}/{myvar["max_connections"]},'
+        f' {mystat["Threads_running"]} {threads_plr} running){cur_str}'
     )
 
     # Max. used Connections
@@ -300,20 +291,17 @@ def main():
         if mystat.get('Max_used_connections_time')
         else ''
     )
-    msg += (
-        f'peak {mycalc["pct_max_connections_used"]}%'
-        f' used ({mystat["Max_used_connections"]}'
-        f'/{myvar["max_connections"]})'
-        f'{peak_time}; '
+    facts.append(
+        f'peak {mycalc["pct_max_connections_used"]}% used'
+        f' ({mystat["Max_used_connections"]}/{myvar["max_connections"]})'
+        f'{peak_time}'
     )
 
-    i_timeout = lib.human.seconds2human(
-        myvar['interactive_timeout'],
+    i_timeout = lib.human.seconds2human(myvar['interactive_timeout'])
+    w_timeout = lib.human.seconds2human(myvar['wait_timeout'])
+    facts.append(
+        f'`interactive_timeout` = {i_timeout}, `wait_timeout` = {w_timeout}'
     )
-    w_timeout = lib.human.seconds2human(
-        myvar['wait_timeout'],
-    )
-    msg += f'`interactive_timeout` = {i_timeout}, `wait_timeout` = {w_timeout}; '
 
     # name resolution: alert when MySQL/MariaDB does a reverse DNS lookup per connection.
     # mysqltuner skips the test if `skip_networking == ON` (no TCP, so name resolution is
@@ -330,11 +318,12 @@ def main():
             name_resolution_state = STATE_WARN
             state = lib.base.get_worst(state, name_resolution_state)
             nr_str = lib.base.state2str(name_resolution_state, prefix=' ')
-            msg += f'Name resolution is active{nr_str}; '
-            recommendations += (
-                '* A reverse name resolution is made for each new connection and can'
-                ' reduce performance. Configure your accounts with ip or subnets only,'
-                ' then update your configuration with `skip-name-resolve=ON`.'
+            facts.append(f'Name resolution is active{nr_str}')
+            recommendations.append(
+                'A reverse name resolution is made for each new connection and'
+                ' can reduce performance. Configure your accounts with ip or'
+                ' subnets only, then update your configuration with'
+                ' `skip-name-resolve=ON`'
             )
 
     perfdata += lib.base.get_perfdata(
@@ -412,10 +401,12 @@ def main():
         _max=100,
     )
 
-    msg = msg[:-2]  # remove trailing "; "
+    sections = ['; '.join(facts)]
     if recommendations:
-        msg += '\n\nRecommendations:\n'
-        msg += recommendations
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
+        )
+    msg = '\n\n'.join(sections)
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

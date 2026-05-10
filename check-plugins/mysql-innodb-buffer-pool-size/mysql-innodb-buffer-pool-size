@@ -20,7 +20,7 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051002'
+__version__ = '2026051003'
 
 DESCRIPTION = """Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the
 configured `innodb_buffer_pool_size` against the actual InnoDB data and index sizes, and the
@@ -189,22 +189,35 @@ def main():
     state = STATE_OK
     sections = []
 
+    # All recommendations from all WARN paths land here and render once at the
+    # end as a `Recommendations:\n* ...` bulleted block, regardless of which
+    # combinations of WARN paths fire.
+    recommendations = []
+    data_h = lib.human.bytes2human(innodb_data_size)
+    buffer_h = lib.human.bytes2human(buffer_size)
+
     # 1. Architecture cap (rarely violated; emit only on violation).
     if not lib.base.IS_64BIT and buffer_size > LIMIT_32BIT:
         state = lib.base.get_worst(state, STATE_WARN)
         sections.append(
-            f'`innodb_buffer_pool_size` ({lib.human.bytes2human(buffer_size)})'
-            f' exceeds the 32-bit address space limit'
-            f' ({lib.human.bytes2human(LIMIT_32BIT)}); lower it'
+            f'`innodb_buffer_pool_size` ({buffer_h}) exceeds the 32-bit address'
+            f' space limit ({lib.human.bytes2human(LIMIT_32BIT)})'
             f'{lib.base.state2str(STATE_WARN, prefix=" ")}.'
+        )
+        recommendations.append(
+            f'Lower `innodb_buffer_pool_size` below'
+            f' {lib.human.bytes2human(LIMIT_32BIT)}'
         )
     elif lib.base.IS_64BIT and buffer_size > LIMIT_64BIT:
         state = lib.base.get_worst(state, STATE_WARN)
         sections.append(
-            f'`innodb_buffer_pool_size` ({lib.human.bytes2human(buffer_size)})'
-            f' exceeds the 64-bit address space limit'
-            f' ({lib.human.bytes2human(LIMIT_64BIT)}); lower it'
+            f'`innodb_buffer_pool_size` ({buffer_h}) exceeds the 64-bit address'
+            f' space limit ({lib.human.bytes2human(LIMIT_64BIT)})'
             f'{lib.base.state2str(STATE_WARN, prefix=" ")}.'
+        )
+        recommendations.append(
+            f'Lower `innodb_buffer_pool_size` below'
+            f' {lib.human.bytes2human(LIMIT_64BIT)}'
         )
 
     # 2. innodb_file_per_table - off means everything lives in `ibdata1`, which
@@ -212,22 +225,27 @@ def main():
     if file_per_table != 'ON':
         state = lib.base.get_worst(state, STATE_WARN)
         sections.append(
-            f'`innodb_file_per_table` is `{file_per_table or "unset"}`; set it to'
-            f' `ON` so each InnoDB table gets its own .ibd file'
+            f'`innodb_file_per_table` is `{file_per_table or "unset"}`'
             f'{lib.base.state2str(STATE_WARN, prefix=" ")}.'
+        )
+        recommendations.append(
+            'Set `innodb_file_per_table` = `ON` so each InnoDB table gets its'
+            ' own .ibd file (per-table maintenance is harder when everything'
+            ' lives in `ibdata1`)'
         )
 
     # 3. Buffer pool vs data size. mysqltuner emits a goodprint here too when
     #    buffer >= data; we mirror that so the OK output shows the comparison.
-    data_h = lib.human.bytes2human(innodb_data_size)
-    buffer_h = lib.human.bytes2human(buffer_size)
     if buffer_size <= innodb_data_size and innodb_data_size > 0:
         state = lib.base.get_worst(state, STATE_WARN)
         sections.append(
             f'`innodb_buffer_pool_size` ({buffer_h}) is smaller than the InnoDB'
-            f' data + index size ({data_h}); set'
-            f' `innodb_buffer_pool_size` >= {data_h} so the working set fits'
-            f' in memory{lib.base.state2str(STATE_WARN, prefix=" ")}.'
+            f' data + index size ({data_h})'
+            f'{lib.base.state2str(STATE_WARN, prefix=" ")}.'
+        )
+        recommendations.append(
+            f'Set `innodb_buffer_pool_size` >= {data_h} so the working set fits'
+            f' in memory'
         )
     else:
         sections.append(
@@ -253,22 +271,27 @@ def main():
         state = lib.base.get_worst(state, STATE_WARN)
         target_25 = int(buffer_size / 4)
         if redo_log_capacity is not None:
-            rec = (
-                f'set `innodb_redo_log_capacity` ='
-                f' {lib.human.bytes2human(target_25)}'
+            recommendations.append(
+                f'Set `innodb_redo_log_capacity` ='
+                f' {lib.human.bytes2human(target_25)} to reach the 25% target'
             )
         else:
             target_per_file = int(target_25 / log_files_in_group)
-            rec = (
-                f'set `innodb_log_file_size` ='
-                f' {lib.human.bytes2human(target_per_file)}'
+            recommendations.append(
+                f'Set `innodb_log_file_size` ='
+                f' {lib.human.bytes2human(target_per_file)} to reach the 25%'
+                f' target (per file in a group of {log_files_in_group})'
             )
         sections.append(
             f'{ratio_msg}{lib.base.state2str(STATE_WARN, prefix=" ")}.'
-            f' To reach 25%, {rec}.'
         )
     else:
         sections.append(f'{ratio_msg}.')
+
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
+        )
 
     msg = '\n\n'.join(sections)
 

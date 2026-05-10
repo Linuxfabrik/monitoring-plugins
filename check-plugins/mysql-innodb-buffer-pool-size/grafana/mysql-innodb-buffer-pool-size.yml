@@ -292,3 +292,76 @@ spec:
         key: metric
         operator: '='
         value: mysql_innodb_log_size_pct
+
+
+  - title: MySQL InnoDB Buffer Pool - Log File Count
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 8
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        min: 0
+        unit: short
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_innodb_log_files_in_group
+        properties:
+        - id: displayName
+          value: innodb_log_files_in_group (deprecated since MariaDB 10.5.2, defaulted to 1 from 10.6)
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: mysql_innodb_log_files_in_group
+      refId: mysql_innodb_log_files_in_group
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_innodb_log_files_in_group
