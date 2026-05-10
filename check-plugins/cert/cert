@@ -32,7 +32,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051006'
+__version__ = '2026051007'
 
 DESCRIPTION = """Inspects an X.509 certificate and alerts on days remaining until expiry,
 hostname mismatch and chain verification failures. Sources via --source: `url` fetches the
@@ -410,6 +410,12 @@ def parse_cert(cert_der):
         key_size = pub_key.key_size
     except AttributeError:
         key_size = None
+    # RSA only: extract the public exponent. Standard value is 65537; unusual values
+    # (3, 17) are a configuration smell.
+    try:
+        rsa_exponent = pub_key.public_numbers().e
+    except AttributeError:
+        rsa_exponent = None
 
     sans = []
     try:
@@ -421,6 +427,22 @@ def parse_cert(cert_der):
                 sans.append(str(name.value))
             except AttributeError:
                 pass
+    except x509.ExtensionNotFound:
+        pass
+
+    # OCSP Must-Staple per RFC 7633: TLS Feature extension (OID 1.3.6.1.5.5.7.1.24)
+    # carries feature codes; 5 = status_request (Must-Staple). cryptography exposes the
+    # codes as TLSFeatureType enum members; .value contains the integer.
+    must_staple = False
+    try:
+        tls_feature_ext = cert.extensions.get_extension_for_oid(
+            x509.ObjectIdentifier('1.3.6.1.5.5.7.1.24'),
+        )
+        for feature in tls_feature_ext.value:
+            code = getattr(feature, 'value', feature)
+            if code == 5:
+                must_staple = True
+                break
     except x509.ExtensionNotFound:
         pass
 
@@ -438,8 +460,10 @@ def parse_cert(cert_der):
         'issuer_cn': _cn(cert.issuer),
         'key_size': key_size,
         'key_type': key_type,
+        'must_staple': must_staple,
         'not_after': not_after,
         'not_before': not_before,
+        'rsa_exponent': rsa_exponent,
         'sans': sans,
         'serial_hex': f'{cert.serial_number:X}',
         'sha256_fingerprint': cert.fingerprint(hashes.SHA256()).hex(':').upper(),
@@ -483,6 +507,8 @@ def _build_lengthy_table(item, cert):
         if cert['key_size']
         else cert['key_type']
     )
+    if cert['rsa_exponent'] is not None:
+        key_label += f' (e={cert["rsa_exponent"]})'
     sans_label = ', '.join(cert['sans']) if cert['sans'] else '-'
     rows = [
         {'k': 'Subject CN', 'v': cert['subject_cn'] or '(no CN)'},
@@ -494,6 +520,7 @@ def _build_lengthy_table(item, cert):
         {'k': 'Not Before', 'v': cert['not_before'].isoformat() + 'Z'},
         {'k': 'Not After', 'v': cert['not_after'].isoformat() + 'Z'},
         {'k': 'SHA-256 Fingerprint', 'v': cert['sha256_fingerprint']},
+        {'k': 'OCSP Must-Staple', 'v': 'yes' if cert['must_staple'] else 'no'},
     ]
     if item['tls_version'] is not None:
         rows.append({'k': 'TLS Version', 'v': item['tls_version']})

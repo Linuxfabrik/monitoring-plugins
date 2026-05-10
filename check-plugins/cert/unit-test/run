@@ -50,10 +50,15 @@ def _make_key(key_type):
     raise ValueError(f'unsupported key_type: {key_type}')
 
 
-def make_cert(common_name, days_valid=365, days_offset=0, sans=None, key_type='rsa'):
+def make_cert(
+    common_name, days_valid=365, days_offset=0, sans=None, key_type='rsa',
+    with_must_staple=False,
+):
     """Build a self-signed certificate plus matching private key. `days_offset` shifts
     `notBefore` (negative for already-issued certs, positive for not-yet-valid certs).
-    `key_type` is one of `rsa`, `ecdsa` or `ed25519`.
+    `key_type` is one of `rsa`, `ecdsa` or `ed25519`. When `with_must_staple` is True,
+    the certificate carries the TLS Feature extension with status_request (5), which the
+    plugin reports as OCSP Must-Staple = yes.
     """
     key = _make_key(key_type)
     subject = issuer = x509.Name([
@@ -67,10 +72,7 @@ def make_cert(common_name, days_valid=365, days_offset=0, sans=None, key_type='r
     if sans:
         san_list.extend(x509.DNSName(s) for s in sans)
 
-    # Ed25519 carries its hash inside the algorithm; cryptography rejects an explicit
-    # hashes.SHA256() in that case
-    sign_hash = None if key_type == 'ed25519' else hashes.SHA256()
-    cert = (
+    builder = (
         x509.CertificateBuilder()
         .subject_name(subject)
         .issuer_name(issuer)
@@ -79,8 +81,17 @@ def make_cert(common_name, days_valid=365, days_offset=0, sans=None, key_type='r
         .not_valid_before(not_before)
         .not_valid_after(not_after)
         .add_extension(x509.SubjectAlternativeName(san_list), critical=False)
-        .sign(key, sign_hash)
     )
+    if with_must_staple:
+        builder = builder.add_extension(
+            x509.TLSFeature([x509.TLSFeatureType.status_request]),
+            critical=False,
+        )
+
+    # Ed25519 carries its hash inside the algorithm; cryptography rejects an explicit
+    # hashes.SHA256() in that case
+    sign_hash = None if key_type == 'ed25519' else hashes.SHA256()
+    cert = builder.sign(key, sign_hash)
 
     cert_pem = cert.public_bytes(serialization.Encoding.PEM)
     # PKCS8 works for every key type; TraditionalOpenSSL is rejected for Ed25519
@@ -263,10 +274,15 @@ class TestCheck(unittest.TestCase):
         for needle in (
             'Subject CN', 'Issuer CN', 'Serial', 'Signature Algorithm',
             'Public Key', 'SANs', 'Not Before', 'Not After',
-            'SHA-256 Fingerprint', 'TLS Version', 'Chain',
+            'SHA-256 Fingerprint', 'OCSP Must-Staple', 'TLS Version', 'Chain',
             'alt1.example.com',
         ):
             self.assertIn(needle, result.stdout, f'missing {needle}')
+        # RSA exponent must be exposed for RSA keys
+        self.assertIn('RSA', result.stdout)
+        self.assertIn('e=65537', result.stdout)
+        # default (no Must-Staple extension) should report 'no'
+        self.assertRegex(result.stdout, r'OCSP Must-Staple\s*!\s*no')
 
     def test_unknown_connection_refused(self):
         # bind a port, close it, the next connect attempt is refused
@@ -298,6 +314,8 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
         # cryptography exposes EC keys as ECPublicKey, so the plugin labels them "EC"
         self.assertIn('EC ', result.stdout)
+        # only RSA keys carry an exponent in the public key label
+        self.assertNotIn('e=', result.stdout)
 
     def test_lengthy_ed25519_key(self):
         cert_pem, key_pem = make_cert(
@@ -462,9 +480,24 @@ class TestFileSource(unittest.TestCase):
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
         self.assertIn('Subject CN', result.stdout)
         self.assertIn('SHA-256 Fingerprint', result.stdout)
+        self.assertIn('OCSP Must-Staple', result.stdout)
         # no TLS handshake happened, so these rows should be absent
         self.assertNotIn('TLS Version', result.stdout)
         self.assertNotIn('Chain', result.stdout)
+
+    def test_must_staple_yes(self):
+        # add the TLS Feature extension carrying status_request (5) so the parser sees
+        # OCSP Must-Staple set; cryptography exposes this via x509.TLSFeature
+        cert_pem, _ = make_cert(
+            'staple.example.com', days_valid=60, key_type='rsa',
+            with_must_staple=True,
+        )
+        path = self._write(cert_pem)
+        result = run_plugin(
+            '--source', 'file', '--filename', path, '--lengthy',
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        self.assertRegex(result.stdout, r'OCSP Must-Staple\s*!\s*yes')
 
 
 if __name__ == '__main__':
