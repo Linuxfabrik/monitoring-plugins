@@ -63,13 +63,13 @@ options:
 Output:
 
 ```text
-There are too many listening ports: 56 listening > 15 allowed (consider dedicating a server for your database installation with less services running on). vm.swappiness is 60, should be <= 10 (`echo 10 > /proc/sys/vm/swappiness`, or `vm.swappiness=10` in /etc/sysctl.conf for persistence). sunrpc.tcp_slot_table_entries is 2, should be > 100 (recommended: 128; `echo 128 > /proc/sys/sunrpc/tcp_slot_table_entries`, or `sunrpc.tcp_slot_table_entries=128` in /etc/sysctl.conf for persistence). fs.aio-max-nr is 1048576 (>= 1M). fs.nr_open is 2147483584 (>= 1M).
+There are too many listening ports: 56 listening, 15 allowed (consider dedicating a server for your database installation with less services running on). vm.swappiness is 60, should be 10 or below (set `vm.swappiness=10` in /etc/sysctl.conf or /etc/sysctl.d/, then `sysctl -p`). sunrpc.tcp_slot_table_entries is 2, should be at least 128 (set `sunrpc.tcp_slot_table_entries=128` in /etc/sysctl.conf or /etc/sysctl.d/, then `sysctl -p`). fs.aio-max-nr is 1048576 (1.0M). fs.nr_open is 2147483584 (2.1G).
 ```
 
-When the host is fully tuned, the OK output enumerates each verified setting:
+When the host is fully tuned, the OK output enumerates each verified setting. Large counters are also rendered with an SI suffix in parens:
 
 ```text
-16 listening TCP ports. vm.swappiness is 5 (<= 10). sunrpc.tcp_slot_table_entries is 128 (> 100). fs.aio-max-nr is 1048576 (>= 1M). fs.nr_open is 1048576 (>= 1M).
+16 listening TCP ports. vm.swappiness is 5. sunrpc.tcp_slot_table_entries is 128. fs.aio-max-nr is 1048576 (1.0M). fs.nr_open is 1073741816 (1.1G).
 ```
 
 
