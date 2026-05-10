@@ -71,10 +71,16 @@ Output:
 Aria pagecache size / total Aria indexes: 128.0MiB/328.0KiB, 97.2% Aria pagecache hit rate (1.1K cached / 30.0 reads)
 ```
 
+When the hit rate dips below 95% but the pagecache is already larger than the total Aria index size (so growing it would not help), the plugin stays OK and explains why:
+
+```text
+Total Aria indexes: 352.0KiB, Aria pagecache size: 128.0MiB; 90.5% Aria pagecache hit rate (571.1K cached / 54.5K reads). Note: hit rate is below 95% but the pagecache (128.0MiB) already exceeds the total Aria index size (352.0KiB); growing aria_pagecache_buffer_size further would not help.
+```
+
 
 ## States
 
-* WARN if `aria_pagecache_buffer_size` < total Aria indexes and the page cache hit rate is below 95%.
+* WARN if `aria_pagecache_buffer_size` < total Aria indexes **and** the page cache hit rate is below 95%. Either condition alone is informational. If the cache is already larger than the indexes, a sub-95% hit rate is not actionable (mysqltuner alerts on the standalone hit rate; we deliberately do not).
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

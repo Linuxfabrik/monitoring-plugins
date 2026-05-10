@@ -24,7 +24,7 @@ from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-aria.db'
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051003'
+__version__ = '2026051004'
 
 DESCRIPTION = """Checks metrics of the Aria storage engine in MySQL/MariaDB, including the page-cache
 hit rate. Alerts when cache efficiency drops below optimal levels."""
@@ -305,7 +305,18 @@ def main():
         # Standalone WARN at pct_aria_keys_from_mem < 95% (which mysqltuner emits)
         # is intentionally not raised here: the only fix is growing
         # aria_pagecache_buffer_size, which the buffer-vs-index check above
-        # already covers.
+        # already covers. When the hit rate is sub-95% but the buffer is
+        # already larger than the total Aria index size, surface a short note
+        # so the admin understands why we stayed OK rather than alerting.
+        if (
+            pct_aria_keys_from_mem < 95
+            and int(myvar['aria_pagecache_buffer_size']) >= total_aria_indexes
+        ):
+            msg += (
+                f'. Note: hit rate is below 95% but the pagecache ({aria_cache})'
+                f' already exceeds the total Aria index size ({aria_idx});'
+                f' growing aria_pagecache_buffer_size further would not help.'
+            )
         perfdata += lib.base.get_perfdata(
             'mysql_pct_aria_keys_from_mem',
             pct_aria_keys_from_mem,
