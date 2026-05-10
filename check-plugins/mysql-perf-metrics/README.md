@@ -3,12 +3,10 @@
 
 ## Overview
 
-Checks two MySQL/MariaDB best-practice knobs that do not have a dedicated plugin: `innodb_stats_on_metadata` and `concurrent_insert`. The OK output now lists both verified values so admins immediately see what was checked.
+Checks two MySQL/MariaDB best-practice knobs that do not have a dedicated plugin: `innodb_stats_on_metadata` and `concurrent_insert`. The OK output lists both verified values so admins immediately see what was checked.
 
 * `innodb_stats_on_metadata`: when ON, InnoDB recalculates index statistics every time `information_schema` tables are queried. Most modern setups keep this OFF because applications and tooling query `information_schema` frequently.
 * `concurrent_insert`: when set to `NEVER`/`0`, MyISAM tables can no longer serve SELECTs in parallel with INSERTs. The recommended value is `AUTO` (the modern default).
-
-The `innodb_file_per_table` knob is covered by the `mysql-innodb-buffer-pool-size` check; this plugin no longer duplicates it.
 
 **Important Notes:**
 
@@ -49,8 +47,7 @@ every time `information_schema` tables are queried. Most modern setups keep
 this OFF because applications and tooling query `information_schema`
 frequently. `concurrent_insert`: when set to `NEVER`/`0`, MyISAM tables can no
 longer serve SELECTs in parallel with INSERTs. The recommended value is `AUTO`
-(the modern default). The `innodb_file_per_table` knob is covered by the
-`mysql-innodb-buffer-pool-size` check; this plugin no longer duplicates it.
+(the modern default).
 
 options:
   -h, --help            show this help message and exit
