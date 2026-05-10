@@ -478,9 +478,14 @@ def main():
     overcommit_total = mycalc['max_peak_memory'] + mycalc['other_process_memory']
     if mycalc['physical_memory'] < overcommit_total:
         overcommit_state = STATE_WARN
+        # Show the actual sums so the admin doesn't have to mentally compute
+        # whether the numbers from the facts line above add up.
         recommendations.append(
-            'Dedicate this server to MySQL/MariaDB: peak MySQL memory plus'
-            ' other-process memory would exceed physical RAM'
+            f'Dedicate this server to MySQL/MariaDB: peak MySQL memory'
+            f' + other-process memory ({bh(mycalc["max_peak_memory"])}'
+            f' + {bh(mycalc["other_process_memory"])}'
+            f' = {bh(overcommit_total)}) exceeds physical RAM'
+            f' ({bh(mycalc["physical_memory"])})'
         )
     state = lib.base.get_worst(state, overcommit_state)
     facts.append(
