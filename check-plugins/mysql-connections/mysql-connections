@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051001'
+__version__ = '2026051002'
 
 SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-connections.db'
 
@@ -267,14 +267,10 @@ def main():
         cur_connections_state = STATE_WARN
         state = lib.base.get_worst(state, cur_connections_state)
         recommendations += (
-            f'* Reduce or eliminate persistent'
-            f' connections to reduce connection'
-            f' usage (set connections'
-            f' > {mystat["Connections"]},'
-            f' wait_timeout'
-            f' < {myvar["wait_timeout"]}'
-            f' and/or interactive_timeout'
-            f' < {myvar["interactive_timeout"]}).\n'
+            f'* Reduce or eliminate persistent connections to reduce connection'
+            f' usage (raise max_connections > {myvar["max_connections"]}, lower'
+            f' wait_timeout < {myvar["wait_timeout"]} and/or lower'
+            f' interactive_timeout < {myvar["interactive_timeout"]}).\n'
         )
     threads_plr = lib.txt.pluralize(
         'thread',
