@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051004'
+__version__ = '2026051005'
 
 DESCRIPTION = """Checks Linux kernel parameters that affect MySQL/MariaDB stability and
 performance: vm.swappiness, the asynchronous-I/O event ceiling fs.aio-max-nr, the per-process
@@ -133,12 +133,13 @@ def main():
         if args.MAXPORTSALLOWED > 0 and listening > args.MAXPORTSALLOWED:
             state = STATE_WARN
             msg += (
-                f'{listening} listening TCP ports, exceeds `--maxportsallowed`'
-                f' limit of {args.MAXPORTSALLOWED}. Consider dedicating a server'
-                f' for your database installation with less services running on. '
+                f'{listening} listening TCP ports system-wide, exceeds'
+                f' `--maxportsallowed` limit of {args.MAXPORTSALLOWED}.'
+                f' Consider dedicating a server for your database installation'
+                f' with less services running on. '
             )
         else:
-            msg += f'{listening} listening TCP ports. '
+            msg += f'{listening} listening TCP ports system-wide. '
         perfdata += lib.base.get_perfdata(
             'mysql_listening_ports',
             listening,
