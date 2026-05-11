@@ -48,7 +48,7 @@ Monitoring Plugins:
 * mysql-open-files, mysql-slow-queries, mysql-sorts, mysql-table-cache, mysql-table-definition-cache, mysql-table-locks, mysql-temp-tables, mysql-thread-cache, mysql-traffic: ship Grafana dashboards
 * mysql-perf-metrics: duplicate `innodb_file_per_table` check removed (lives in `mysql-innodb-buffer-pool-size`). Now emits numeric perfdata. Ships Grafana dashboard
 * mysql-perf-metrics: warn when a deprecated config variable was explicitly set via `my.cnf` or `SET GLOBAL` (compile-time defaults stay silent). New perfdata `mysql_deprecated_config_variables`
-* mysql-perf-metrics: container-test image matrix moved into per-plugin Containerfiles under `unit-test/containerfiles/` (pilot for the rest of the mysql-* plugins)
+* mysql-* plugins: container-test image matrix moved into per-plugin Containerfiles under `unit-test/containerfiles/`. Adding/retiring a MariaDB LTS is now a single-file change in each affected plugin
 * mysql-tls: rename finding text "Monitoring connection ..." to "Current connection ..." to match mysqltuner output verbatim
 * mysql-query!: align with the other mysql-* plugins. Breaking perfdata: `cnt_warn`/`cnt_crit` renamed to `mysql_query_warn_value`/`mysql_query_crit_value`
 * mysql-replica-status!: bug fix - lag detection fired on every server. Privilege narrowed to `SLAVE MONITOR` / `REPLICA MONITOR` on MariaDB 10.5+. New parameters and perfdata. Ships Grafana dashboard

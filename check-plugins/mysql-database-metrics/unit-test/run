@@ -21,8 +21,11 @@ and let it talk to the server over TCP.
 Per CONTRIBUTING's "Combine container tests with fixtures" rule,
 this file holds only the happy-path integration test.
 
-Runs against the current MariaDB LTS releases
-(`lib.lftest.MARIADB_LTS_IMAGES`).
+The test matrix is defined by the Containerfiles under
+`containerfiles/`. Each file is a Containerfile (typically a
+one-line `FROM`) and gets built once via testcontainers'
+DockerImage (cached across runs). Add a new MariaDB LTS by
+dropping in a new Containerfile; retire one by deleting the file.
 
 Requirements:
 - podman (or docker) with a reachable socket
@@ -41,18 +44,23 @@ sys.path.insert(0, '..')
 import lib.lftest
 from lib.globals import STATE_OK
 
-IMAGES = lib.lftest.MARIADB_LTS_IMAGES
+HERE = os.path.dirname(os.path.abspath(__file__))
+CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
+CONTAINERFILES = sorted(
+    name for name in os.listdir(CONTAINERFILES_DIR)
+    if os.path.isfile(os.path.join(CONTAINERFILES_DIR, name))
+)
 
 
 class TestCheck(unittest.TestCase):
     pass
 
 
-def _check_image(test, image_pair):
-    image, label = image_pair
-    print(f'\n=== Testing {label} ({image}) ===', flush=True)
-    with lib.lftest.run_mariadb(
-        image,
+def _check_image(test, containerfile):
+    path = os.path.join(CONTAINERFILES_DIR, containerfile)
+    print(f'\n=== Testing {containerfile} ===', flush=True)
+    with lib.lftest.run_mariadb_from_containerfile(
+        path,
         seed=(
             'CREATE TABLE countries ('
             'code CHAR(3) PRIMARY KEY, '
@@ -80,7 +88,7 @@ def _check_image(test, image_pair):
         test.assertIn('Everything is ok', combined)
 
 
-lib.lftest.attach_each(TestCheck, IMAGES, _check_image, id_func=lambda it: it[1])
+lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)
 
 
 if __name__ == '__main__':

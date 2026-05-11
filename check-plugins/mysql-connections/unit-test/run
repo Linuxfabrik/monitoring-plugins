@@ -40,17 +40,22 @@ sys.path.insert(0, '..')
 import lib.lftest
 from lib.globals import STATE_OK
 
-IMAGES = lib.lftest.MARIADB_LTS_IMAGES
+HERE = os.path.dirname(os.path.abspath(__file__))
+CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
+CONTAINERFILES = sorted(
+    name for name in os.listdir(CONTAINERFILES_DIR)
+    if os.path.isfile(os.path.join(CONTAINERFILES_DIR, name))
+)
 
 
 class TestCheck(unittest.TestCase):
     pass
 
 
-def _check_image(test, image_pair):
-    image, label = image_pair
-    print(f'\n=== Testing {label} ({image}) ===', flush=True)
-    with lib.lftest.run_mariadb(image) as (_container, defaults_file):
+def _check_image(test, containerfile):
+    path = os.path.join(CONTAINERFILES_DIR, containerfile)
+    print(f'\n=== Testing {containerfile} ===', flush=True)
+    with lib.lftest.run_mariadb_from_containerfile(path) as (_container, defaults_file):
         cmd = [
             'python3', '../mysql-connections',
             f'--defaults-file={defaults_file}',
@@ -71,7 +76,7 @@ def _check_image(test, image_pair):
         test.assertRegex(combined, r'peak \d+(\.\d+)?% used')
 
 
-lib.lftest.attach_each(TestCheck, IMAGES, _check_image, id_func=lambda it: it[1])
+lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)
 
 
 if __name__ == '__main__':
