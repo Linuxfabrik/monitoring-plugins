@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Integration tests for the mysql-health check plugin.
+
+The plugin opens a real `pymysql` connection and walks `SHOW GLOBAL STATUS`,
+`SHOW GLOBAL VARIABLES`, `SHOW REPLICA STATUS`, `information_schema.tables`
+and `mysql.user`, so a static fixture cannot drive it - we spin up an actual
+MariaDB server and let the plugin talk to it over TCP.
+
+Per CONTRIBUTING's "Combine container tests with fixtures" rule, this file
+holds only the happy-path integration test. A freshly booted MariaDB has
+no anonymous accounts, no empty-password users, no wildcard hosts beyond the
+default `root@%` (which the seed removes), no InnoDB tables without a
+PRIMARY KEY and no replication lag, so the score lands near 100 and the
+plugin returns STATE_OK.
+
+Runs against the current MariaDB LTS releases
+(`lib.lftest.MARIADB_LTS_IMAGES`).
+
+Requirements:
+- podman (or docker) with a reachable socket
+- `pip install testcontainers`
+- `tools/run-unit-tests` auto-sets `CONTAINER_HOST` and
+  `TESTCONTAINERS_RYUK_DISABLED`
+"""
+
+import os
+import subprocess
+import sys
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+from lib.globals import STATE_OK
+
+IMAGES = lib.lftest.MARIADB_LTS_IMAGES
+
+
+class TestCheck(unittest.TestCase):
+    pass
+
+
+def _check_image(test, image_pair):
+    image, label = image_pair
+    print(f'\n=== Testing {label} ({image}) ===', flush=True)
+    with lib.lftest.run_mariadb(image) as (container, defaults_file):
+        # mysql-health reads `mysql.user` (security findings) and
+        # `information_schema.tables` (metadata health). The default
+        # `test` user gets only the `test` database; grant `SELECT
+        # ON mysql.*` so the plugin can do its job. Mirrors the
+        # mysql-user-security unit test.
+        container.exec([
+            'sh', '-c',
+            'if command -v mariadb >/dev/null 2>&1; then C=mariadb; '
+            'else C=mysql; fi; '
+            'GRANT_SQL="GRANT SELECT ON mysql.* TO '
+            "'test'@'%'"
+            '"; '
+            '"$C" -uroot -e "$GRANT_SQL" 2>/dev/null '
+            '|| "$C" -uroot -ptest -e "$GRANT_SQL"',
+        ])
+
+        cmd = [
+            'python3', '../mysql-health',
+            f'--defaults-file={defaults_file}',
+        ]
+        print(f'Run plugin: {" ".join(cmd)}', flush=True)
+        result = subprocess.run(
+            cmd,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            capture_output=True,
+            text=True,
+        )
+        combined = result.stdout + result.stderr
+        print(f'Script output:\n{combined.strip()}', flush=True)
+
+        # `root@%` wildcard host is shipped by all MariaDB images by default
+        # and drops the security score by 5 (single security issue). That
+        # alone keeps the score above 80 so we expect STATE_OK.
+        test.assertEqual(result.returncode, STATE_OK)
+        test.assertRegex(combined, r'Health Score: \d+/100')
+
+
+lib.lftest.attach_each(TestCheck, IMAGES, _check_image, id_func=lambda it: it[1])
+
+
+if __name__ == '__main__':
+    unittest.main()

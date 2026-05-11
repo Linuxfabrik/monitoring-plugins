@@ -108,26 +108,6 @@ def parse_args():
     return args
 
 
-def has_is_role_column(conn):
-    """Return True if `mysql.user.IS_ROLE` exists (MariaDB 10.0.5+ roles).
-
-    When the column exists, role rows in `mysql.user` have `IS_ROLE = 'Y'`
-    and must be excluded from the anonymous-user / empty-password / username-
-    as-password checks because a role legitimately has no password and an
-    empty `host` column.
-    """
-    sql = """
-        select count(*) as cnt
-        from information_schema.columns
-        where TABLE_SCHEMA = 'mysql'
-            and TABLE_NAME = 'user'
-            and COLUMN_NAME = 'IS_ROLE'
-        ;
-    """
-    row = lib.base.coe(lib.db_mysql.select(conn, sql, fetchone=True))
-    return int(row['cnt']) > 0
-
-
 def validate_password_active(conn):
     """Return True if the `validate_password` plugin is loaded and active.
 
@@ -288,7 +268,7 @@ def main():
 
     # Role-filter fragment: when `IS_ROLE` exists, exclude rows representing
     # roles (MariaDB 10.0.5+). Otherwise the fragment is empty.
-    has_role_column = has_is_role_column(conn)
+    has_role_column = lib.db_mysql.has_is_role_column(conn)
     role_filter = "IS_ROLE = 'N' and " if has_role_column else ''
     skip_username_as_password = validate_password_active(conn)
 

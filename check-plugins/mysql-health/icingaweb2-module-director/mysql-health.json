@@ -1,0 +1,188 @@
+{
+    "Command": {
+        "cmd-check-mysql-health": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$mysql_health_always_ok$"
+                },
+                "--critical": {
+                    "value": "$mysql_health_critical$"
+                },
+                "--defaults-file": {
+                    "value": "$mysql_health_defaults_file$"
+                },
+                "--defaults-group": {
+                    "value": "$mysql_health_defaults_group$"
+                },
+                "--timeout": {
+                    "value": "$mysql_health_timeout$"
+                },
+                "--warning": {
+                    "value": "$mysql_health_warning$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/mysql-health",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-mysql-health",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "e1059f46-7d02-43b2-ac17-0cc3a4fe38e7"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-mysql-health": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-mysql-health",
+            "check_interval": 300,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "mysql-health.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Single-number health score for a MySQL/MariaDB server, modelled on mysqltuner v2.8.41's weighted KPI. Combines four performance metrics (buffer pool hit rate, temp tables on disk, thread cache hit rate, connection usage), a security count (anonymous accounts, empty passwords, wildcard hosts) and three resilience metrics (replication lag, redo-log sizing, schema metadata) into a 0-100 score. Useful as a top-level Icinga alert and Grafana KPI panel; the individual `mysql-*` plugins still own the detailed findings and fix advice.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-health/",
+            "object_name": "tpl-service-mysql-health",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "mysql_health_always_ok": false,
+                "mysql_health_critical": "50:",
+                "mysql_health_defaults_file": "/var/spool/icinga2/.my.cnf",
+                "mysql_health_defaults_group": "client",
+                "mysql_health_timeout": 3,
+                "mysql_health_warning": "70:"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "889647b3-c77c-408a-9434-e85396a16c02"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "mysql_health_always_ok",
+            "caption": "MySQL Health: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "655187a5-fddd-47dd-86ae-59466264a26f"
+        },
+        "2": {
+            "varname": "mysql_health_critical",
+            "caption": "MySQL Health: Critical",
+            "description": "CRIT threshold in percent. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "cf4e8031-36af-4940-aaf1-bf8744f0ded9"
+        },
+        "3": {
+            "varname": "mysql_health_defaults_file",
+            "caption": "MySQL Health: Defaults File",
+            "description": "MySQL/MariaDB cnf file to read user, host and password from. Example: `--defaults-file=/var/spool/icinga2/.my.cnf`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "4c4e7f72-c5d8-4eae-96ac-5f00a91a01bd"
+        },
+        "4": {
+            "varname": "mysql_health_defaults_group",
+            "caption": "MySQL Health: Defaults Group",
+            "description": "Group/section to read from in the cnf file.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a5d2b82d-c3d5-47e9-a32e-0c1289b53d96"
+        },
+        "5": {
+            "varname": "mysql_health_timeout",
+            "caption": "MySQL Health: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "005faff6-7b39-4e41-8f3d-272b40f59928"
+        },
+        "6": {
+            "varname": "mysql_health_warning",
+            "caption": "MySQL Health: Warning",
+            "description": "WARN threshold in percent. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "4028b8f0-4179-4276-a51e-d3cfa8231d5c"
+        }
+    }
+}

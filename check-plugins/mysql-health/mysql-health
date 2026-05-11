@@ -1,0 +1,453 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import sys
+
+import lib.args
+import lib.base
+import lib.db_mysql
+from lib.globals import STATE_OK, STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026051101'
+
+DESCRIPTION = """Single-number health score for a MySQL/MariaDB server, modelled on mysqltuner v2.8.41's
+weighted KPI. Combines four performance metrics (buffer pool hit rate, temp tables on disk,
+thread cache hit rate, connection usage), a security count (anonymous accounts, empty
+passwords, wildcard hosts) and three resilience metrics (replication lag, redo-log sizing,
+schema metadata) into a 0-100 score. Useful as a top-level Icinga alert and Grafana KPI
+panel; the individual `mysql-*` plugins still own the detailed findings and fix advice."""
+
+DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
+DEFAULT_DEFAULTS_GROUP = 'client'
+# mysqltuner v2.8.41 colours the score green > 80, yellow > 50, red otherwise.
+# We map that to WARN below 70 (yellow zone) and CRIT below 50 (red zone).
+# Nagios range form `N:` = OK is N to infinity; values strictly below N alert.
+DEFAULT_WARN = '70:'
+DEFAULT_CRIT = '50:'
+DEFAULT_TIMEOUT = 3
+
+# Schema names excluded from the metadata check (PRIMARY KEY missing). System
+# schemas legitimately have tables without user-defined primary keys.
+SYSTEM_SCHEMAS = ('information_schema', 'mysql', 'performance_schema', 'sys')
+
+# mysqltuner's cut-off between "log file size is too small" and "log file
+# size is large enough"; see `check-plugins/mysql-innodb-buffer-pool-size`
+# for the same constant. Used for the resilience log-safety component.
+LOG_SAFETY_THRESHOLD_BYTES = 256 * 1024 * 1024
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help=lib.args.help('--critical')
+        + ' Supports Nagios ranges. Default: %(default)s',
+        dest='CRITICAL',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--defaults-file',
+        help='MySQL/MariaDB cnf file to read user, host and password from. '
+        'Example: `--defaults-file=/var/spool/icinga2/.my.cnf`. '
+        'Default: %(default)s',
+        dest='DEFAULTS_FILE',
+        default=DEFAULT_DEFAULTS_FILE,
+    )
+
+    parser.add_argument(
+        '--defaults-group',
+        help=lib.args.help('--defaults-group') + ' Default: %(default)s',
+        dest='DEFAULTS_GROUP',
+        default=DEFAULT_DEFAULTS_GROUP,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help=lib.args.help('--warning')
+        + ' Supports Nagios ranges. Default: %(default)s',
+        dest='WARNING',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def count_security_issues(conn, has_role_column):
+    """Sum of anonymous accounts, empty-password accounts and wildcard-host
+    accounts. Mirrors the inputs to mysqltuner's `@secrec` list. We skip the
+    username-as-password test because it depends on `PASSWORD(...)` which was
+    removed in MySQL 8 and broken by `validate_password` on MySQL 5.7+.
+    """
+    role_filter = "IS_ROLE = 'N' and " if has_role_column else ''
+
+    sql_anonymous = f"""
+        select count(*) as cnt
+        from mysql.user
+        where {role_filter}(trim(user) = '' or user is null)
+        ;
+    """  # nosec B608
+    anonymous = int(
+        lib.base.coe(lib.db_mysql.select(conn, sql_anonymous, fetchone=True))['cnt']
+    )
+
+    # MariaDB 10.4+ stores password info in mysql.global_priv as JSON; older
+    # versions have a column on mysql.user. Try the modern path first, then
+    # fall through.
+    success, row = lib.db_mysql.select(
+        conn,
+        """
+            select count(*) as cnt
+            from mysql.global_priv
+            where user != ''
+                and user != 'mariadb.sys'
+                and user != 'mysql.sys'
+                and json_contains(priv, '"mysql_native_password"', '$.plugin')
+                and json_contains(priv, '""', '$.authentication_string')
+                and not json_contains(priv, '"true"', '$.account_locked')
+            ;
+        """,
+        fetchone=True,
+    )
+    if not success or row is None:
+        # Fall back to the column-name path. Use a single attempt; if the
+        # column does not exist either, we count zero (best-effort).
+        success, row = lib.db_mysql.select(
+            conn,
+            """
+                select count(*) as cnt
+                from mysql.user
+                where (authentication_string = '' or authentication_string is null)
+                    and user != ''
+                    and user != 'mariadb.sys'
+                    and user != 'mysql.sys'
+                ;
+            """,
+            fetchone=True,
+        )
+    empty_pw = int(row['cnt']) if success and row is not None else 0
+
+    sql_wildcard = """
+        select count(*) as cnt
+        from mysql.user
+        where host = '%'
+        ;
+    """
+    wildcard = int(
+        lib.base.coe(lib.db_mysql.select(conn, sql_wildcard, fetchone=True))['cnt']
+    )
+
+    return anonymous + empty_pw + wildcard
+
+
+def count_tables_without_pk(conn):
+    """Count InnoDB base tables (in user schemas) without a user-defined
+    `PRIMARY KEY`. Used as the metadata-health input to the score. Mirrors
+    the check from `mysql-table-indexes`.
+    """
+    excluded = ', '.join(f"'{s}'" for s in SYSTEM_SCHEMAS)
+    sql = f"""
+        select count(*) as cnt
+        from information_schema.tables t
+        where t.TABLE_SCHEMA not in ({excluded})
+            and t.TABLE_TYPE = 'BASE TABLE'
+            and t.ENGINE = 'InnoDB'
+            and not exists (
+                select 1
+                from information_schema.statistics s
+                where s.TABLE_SCHEMA = t.TABLE_SCHEMA
+                    and s.TABLE_NAME = t.TABLE_NAME
+                    and s.INDEX_NAME = 'PRIMARY'
+            )
+        ;
+    """  # nosec B608
+    row = lib.base.coe(lib.db_mysql.select(conn, sql, fetchone=True))
+    return int(row['cnt'])
+
+
+def score_perf_bp(mystat):
+    """Buffer pool read efficiency (10 pts)."""
+    bp_req = int(mystat.get('Innodb_buffer_pool_read_requests') or 0)
+    bp_reads = int(mystat.get('Innodb_buffer_pool_reads') or 0)
+    if bp_req + bp_reads == 0:
+        return 5, None  # no data; mysqltuner awards half
+    pct = bp_req / (bp_req + bp_reads) * 100
+    if pct > 99:
+        return 10, pct
+    if pct > 95:
+        return 5, pct
+    return 0, pct
+
+
+def score_perf_temp(mystat):
+    """Temp tables on disk (10 pts). Lower is better."""
+    created = int(mystat.get('Created_tmp_tables') or 0)
+    on_disk = int(mystat.get('Created_tmp_disk_tables') or 0)
+    if created == 0:
+        return 5, None
+    pct = on_disk / created * 100
+    if pct < 10:
+        return 10, pct
+    if pct < 25:
+        return 5, pct
+    return 0, pct
+
+
+def score_perf_thread(mystat):
+    """Thread cache hit rate (10 pts). Higher is better."""
+    threads_created = int(mystat.get('Threads_created') or 0)
+    connections = int(mystat.get('Connections') or 0)
+    if connections == 0:
+        return 5, None
+    pct = 100 - (threads_created / connections * 100)
+    if pct > 90:
+        return 10, pct
+    if pct > 50:
+        return 5, pct
+    return 0, pct
+
+
+def score_perf_conn(mystat, myvar):
+    """Connection-pool usage (10 pts). Lower is better."""
+    max_used = int(mystat.get('Max_used_connections') or 0)
+    max_conn = int(myvar.get('max_connections') or 0)
+    if max_conn == 0:
+        return 5, None
+    pct = min(max_used / max_conn * 100, 100)
+    if pct < 80:
+        return 10, pct
+    return 0, pct
+
+
+def score_sec(security_issues):
+    """Security score: starts at 30, drops 5 per finding, floored at 0."""
+    score = max(30 - 5 * security_issues, 0)
+    return score, security_issues
+
+
+def score_res_lag(replica_status):
+    """Replication lag (10 pts). 10 if not a replica."""
+    if replica_status is None:
+        return 10, None
+    lag = (
+        replica_status.get('Seconds_Behind_Source')
+        if 'Seconds_Behind_Source' in replica_status
+        else replica_status.get('Seconds_Behind_Master')
+    )
+    if lag is None:
+        # IO/SQL thread not running, or other reason; treat as worst.
+        return 0, None
+    lag = int(lag)
+    if lag < 1:
+        return 10, lag
+    if lag < 60:
+        return 5, lag
+    return 0, lag
+
+
+def score_res_logs(myvar):
+    """Redo-log sizing (10 pts). 5 if the configured cap is below the
+    mysqltuner cut-off (256 MiB).
+    """
+    # Prefer `innodb_redo_log_capacity` (MySQL 8.0.30+); fall back to
+    # `innodb_log_file_size`.
+    cap_raw = myvar.get('innodb_redo_log_capacity') or myvar.get('innodb_log_file_size')
+    if cap_raw is None:
+        return 10, None  # variable not exposed; assume OK
+    cap = int(cap_raw)
+    if cap < LOG_SAFETY_THRESHOLD_BYTES:
+        return 5, cap
+    return 10, cap
+
+
+def score_res_meta(missing_pk_count):
+    """Metadata health (10 pts). 5 if more than 5 tables miss a PRIMARY
+    KEY. Mirrors mysqltuner's `scalar(@modeling) > 5` cut-off.
+    """
+    if missing_pk_count > 5:
+        return 5, missing_pk_count
+    return 10, missing_pk_count
+
+
+def format_pct(value):
+    """Render a percentage value or `?` when no data was available."""
+    if value is None:
+        return '?'
+    return f'{value:.1f}%'
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # Score formula taken from mysqltuner.pl:calculate_health_score(),
+    # verified in sync with MySQLTuner v2.8.41. Four performance buckets
+    # (40 pts), security (30 pts), three resilience buckets (30 pts).
+    # Individual fix advice lives in the per-theme mysql-* plugins; this
+    # plugin produces only the aggregate score.
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    mysql_connection = {
+        'defaults_file': args.DEFAULTS_FILE,
+        'defaults_group': args.DEFAULTS_GROUP,
+        'timeout': args.TIMEOUT,
+    }
+    conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
+    lib.base.coe(lib.db_mysql.check_privileges(conn, 'SELECT'))
+
+    mystat = lib.db_mysql.get_all_status(conn)
+    myvar = lib.db_mysql.get_all_variables(conn)
+    replica_status = lib.db_mysql.get_replica_status(conn)
+    has_role_column = lib.db_mysql.has_is_role_column(conn)
+    security_issues = count_security_issues(conn, has_role_column)
+    missing_pk = count_tables_without_pk(conn)
+
+    lib.db_mysql.close(conn)
+
+    # init some vars
+    perfdata = ''
+
+    # analyze data
+    perf_bp_score, perf_bp_val = score_perf_bp(mystat)
+    perf_temp_score, perf_temp_val = score_perf_temp(mystat)
+    perf_thread_score, perf_thread_val = score_perf_thread(mystat)
+    perf_conn_score, perf_conn_val = score_perf_conn(mystat, myvar)
+    sec_score, sec_count = score_sec(security_issues)
+    res_lag_score, res_lag_val = score_res_lag(replica_status)
+    res_logs_score, res_logs_val = score_res_logs(myvar)
+    res_meta_score, res_meta_val = score_res_meta(missing_pk)
+
+    performance_total = (
+        perf_bp_score + perf_temp_score + perf_thread_score + perf_conn_score
+    )
+    resilience_total = res_lag_score + res_logs_score + res_meta_score
+    total_score = performance_total + sec_score + resilience_total
+
+    state = lib.base.get_state(
+        total_score,
+        args.WARNING,
+        args.CRITICAL,
+        _operator='range',
+    )
+
+    # build the message
+    summary = (
+        f'Health Score: {total_score}/100 '
+        f'(Performance {performance_total}/40, '
+        f'Security {sec_score}/30, '
+        f'Resilience {resilience_total}/30)'
+        f'{lib.base.state2str(state, prefix=" ")}'
+    )
+
+    if state == STATE_OK:
+        sections = ['Everything is ok. ' + summary + '.']
+    else:
+        sections = [summary + '.']
+
+    lag_display = 'n/a' if res_lag_val is None else f'{res_lag_val}s'
+    cap_display = (
+        'n/a' if res_logs_val is None else f'{res_logs_val // (1024 * 1024)}MiB'
+    )
+    breakdown_lines = [
+        'Component breakdown:',
+        f'* Buffer pool hit rate: {format_pct(perf_bp_val)} '
+        f'({perf_bp_score}/10) - aim for > 95%',
+        f'* Temp tables on disk: {format_pct(perf_temp_val)} '
+        f'({perf_temp_score}/10) - aim for < 10%',
+        f'* Thread cache hit rate: {format_pct(perf_thread_val)} '
+        f'({perf_thread_score}/10) - aim for > 90%',
+        f'* Connection usage: {format_pct(perf_conn_val)} '
+        f'({perf_conn_score}/10) - aim for < 80%',
+        f'* Security issues: {sec_count} ({sec_score}/30) - '
+        f'see `mysql-user-security` for fixes',
+        f'* Replication lag: {lag_display} ({res_lag_score}/10) - '
+        f'see `mysql-replica-status` for fixes',
+        f'* Log safety: redo cap {cap_display} ({res_logs_score}/10) - '
+        f'see `mysql-innodb-buffer-pool-size` for fixes',
+        f'* Metadata: {res_meta_val} InnoDB tables without `PRIMARY KEY` '
+        f'({res_meta_score}/10) - see `mysql-table-indexes` for fixes',
+    ]
+    sections.append('\n'.join(breakdown_lines))
+
+    msg = '\n\n'.join(sections)
+
+    perfdata += lib.base.get_perfdata(
+        'mysql_health_score',
+        total_score,
+        warn=args.WARNING,
+        crit=args.CRITICAL,
+        _min=0,
+        _max=100,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_health_performance',
+        performance_total,
+        _min=0,
+        _max=40,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_health_security',
+        sec_score,
+        _min=0,
+        _max=30,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_health_resilience',
+        resilience_total,
+        _min=0,
+        _max=30,
+    )
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

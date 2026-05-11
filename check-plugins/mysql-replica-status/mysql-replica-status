@@ -142,8 +142,7 @@ def get_vars(conn):
 def has_galera(myvar):
     """True when `wsrep_on = ON` and `wsrep_provider_options` carries any value."""
     return bool(
-        myvar.get('wsrep_provider_options', '')
-        and myvar.get('wsrep_on') != 'OFF'
+        myvar.get('wsrep_provider_options', '') and myvar.get('wsrep_on') != 'OFF'
     )
 
 
@@ -192,12 +191,10 @@ def main():
 
     myvar = lib.db_mysql.lod2dict(get_vars(conn))
 
-    # `SHOW REPLICA STATUS` is the MariaDB 10.5+ / MySQL 8.0.22+ wording;
-    # older servers only know `SHOW SLAVE STATUS`. Try the newer form first and
-    # fall back to slave_status without surfacing the error to the admin.
-    success, myrepl = lib.db_mysql.select(conn, 'show replica status;')
-    if not success:
-        myrepl = lib.base.coe(lib.db_mysql.select(conn, 'show slave status;'))
+    # Returns first row (a dict) or None when the server is not a replica.
+    # Tries `SHOW REPLICA STATUS` (MariaDB 10.5+ / MySQL 8.0.22+) and silently
+    # falls back to `SHOW SLAVE STATUS` on older servers.
+    myrepl = lib.db_mysql.get_replica_status(conn)
     myslaves = lib.base.coe(lib.db_mysql.select(conn, 'show slave hosts;'))
 
     lib.db_mysql.close(conn)
@@ -221,10 +218,15 @@ def main():
     sql_running = ''
     seconds_behind = None
     if myrepl:
-        row = myrepl[0]
-        io_running = either(row, 'Slave_IO_Running', 'Replica_IO_Running', default='')
-        sql_running = either(row, 'Slave_SQL_Running', 'Replica_SQL_Running', default='')
-        seconds_behind = either(row, 'Seconds_Behind_Master', 'Seconds_Behind_Source')
+        io_running = either(
+            myrepl, 'Slave_IO_Running', 'Replica_IO_Running', default=''
+        )
+        sql_running = either(
+            myrepl, 'Slave_SQL_Running', 'Replica_SQL_Running', default=''
+        )
+        seconds_behind = either(
+            myrepl, 'Seconds_Behind_Master', 'Seconds_Behind_Source'
+        )
 
     io_ok = io_running.lower() == 'yes'
     sql_ok = sql_running.lower() == 'yes'
@@ -237,32 +239,34 @@ def main():
             f' {lib.txt.pluralize("server", len(myslaves))}'
         )
     facts.append(f'`binlog_format` is `{myvar["binlog_format"]}`')
-    facts.append(
-        f'`innodb_support_xa` is `{myvar.get("innodb_support_xa", "ON")}`'
-    )
+    facts.append(f'`innodb_support_xa` is `{myvar.get("innodb_support_xa", "ON")}`')
 
     semi_master = either(
-        myvar, 'rpl_semi_sync_source_enabled', 'rpl_semi_sync_master_enabled',
+        myvar,
+        'rpl_semi_sync_source_enabled',
+        'rpl_semi_sync_master_enabled',
     )
     facts.append(
-        f'Semi-sync primary: `{semi_master}`' if semi_master else
-        'Semi-sync primary: not activated'
+        f'Semi-sync primary: `{semi_master}`'
+        if semi_master
+        else 'Semi-sync primary: not activated'
     )
     semi_replica = either(
-        myvar, 'rpl_semi_sync_replica_enabled', 'rpl_semi_sync_slave_enabled',
+        myvar,
+        'rpl_semi_sync_replica_enabled',
+        'rpl_semi_sync_slave_enabled',
     )
     facts.append(
-        f'Semi-sync replica: `{semi_replica}`' if semi_replica else
-        'Semi-sync replica: not activated'
+        f'Semi-sync replica: `{semi_replica}`'
+        if semi_replica
+        else 'Semi-sync replica: not activated'
     )
 
     # Standalone / non-replica fast paths. No replica-side checks apply.
     if not myrepl and not myslaves:
         facts.append('This is a standalone server')
     elif not myrepl:
-        facts.append(
-            'No replication setup for this server, or replication not started'
-        )
+        facts.append('No replication setup for this server, or replication not started')
     else:
         if not io_ok or not sql_ok:
             state = lib.base.get_worst(state, severity_state)
@@ -303,7 +307,10 @@ def main():
                 # only lag > LAG_WARN flips WARN, matching mysqltuner's
                 # "> 0.000001" intent. `None` LAG_CRIT is skipped by get_state.
                 lag_state = lib.base.get_state(
-                    lag, args.LAG_WARN, args.LAG_CRIT, _operator='gt',
+                    lag,
+                    args.LAG_WARN,
+                    args.LAG_CRIT,
+                    _operator='gt',
                 )
                 facts.append(
                     f'Replica lag: {lag}s behind primary'
@@ -330,7 +337,9 @@ def main():
         # MariaDB 11.x; mysqltuner reads the first defined name.
         if is_mariadb(myvar):
             parallel_threads_raw = either(
-                myvar, 'replica_parallel_threads', 'slave_parallel_threads',
+                myvar,
+                'replica_parallel_threads',
+                'slave_parallel_threads',
                 default='0',
             )
             try:
@@ -338,11 +347,11 @@ def main():
             except (TypeError, ValueError):
                 parallel_threads = 0
             if parallel_threads > 1:
-                facts.append(
-                    f'Parallel replication: {parallel_threads} threads'
-                )
+                facts.append(f'Parallel replication: {parallel_threads} threads')
                 parallel_mode = either(
-                    myvar, 'replica_parallel_mode', 'slave_parallel_mode',
+                    myvar,
+                    'replica_parallel_mode',
+                    'slave_parallel_mode',
                     default='',
                 )
                 if parallel_mode and parallel_mode != 'optimistic':
