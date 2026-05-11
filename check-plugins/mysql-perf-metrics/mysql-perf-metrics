@@ -99,11 +99,13 @@ def main():
     # concurrent_insert check in mysql_stats(), verified in sync with
     # MySQLTuner v2.8.41
 
+    # parse the command line
     try:
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -115,6 +117,7 @@ def main():
     myvar = lib.db_mysql.lod2dict(get_vars(conn))
     lib.db_mysql.close(conn)
 
+    # init some vars
     # Perfdata encoding for the two categorical knobs:
     # - innodb_stats_on_metadata: 0 = OFF (good), 1 = ON (warn).
     # - concurrent_insert: 0 = NEVER/0/OFF (warn), 1 = AUTO/1, 2 = ALWAYS/2.
@@ -125,7 +128,6 @@ def main():
         'AUTO': 1, '1': 1,
         'ALWAYS': 2, '2': 2,
     }
-
     state = STATE_OK
     sections = []
     facts = []
@@ -135,6 +137,7 @@ def main():
     recommendations = []
     perfdata = ''
 
+    # analyze data
     # innodb_stats_on_metadata: ON triggers InnoDB stats updates whenever
     # information_schema is queried, which is frequent on tooling-heavy hosts.
     innodb_stats = myvar.get('innodb_stats_on_metadata')
@@ -189,6 +192,7 @@ def main():
                 _max=2,
             )
 
+    # build the message
     if state == STATE_OK:
         # "Everything is ok." leads the OK message so the admin sees the
         # verdict first; the verified facts follow.

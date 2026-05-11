@@ -197,6 +197,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -222,6 +223,7 @@ def main():
             always_ok=args.ALWAYS_OK,
         )
 
+    # init some vars
     # cache int conversions; older MySQL might not expose `Innodb_log_write_requests`
     log_buffer_size = int(myvar['innodb_log_buffer_size'])
     log_waits = int(mystat.get('Innodb_log_waits', 0))
@@ -238,6 +240,7 @@ def main():
     # combinations of WARN paths fire.
     recommendations = []
 
+    # analyze data
     # 1. InnoDB Log Waits: any wait at all earns a WARN. mysqltuner uses the same
     #    "any wait" threshold (`> 0.000001` in their float math).
     if log_writes > 0:
@@ -301,6 +304,7 @@ def main():
             else:
                 sections.append(f'{eff_msg}.')
 
+    # build the message
     if recommendations:
         sections.append(
             'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)

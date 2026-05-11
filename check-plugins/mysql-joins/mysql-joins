@@ -201,6 +201,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -213,6 +214,7 @@ def main():
     mystat = lib.db_mysql.lod2dict(get_status(conn))
     lib.db_mysql.close(conn)
 
+    # init some vars
     # cache int conversions
     select_full_join = int(mystat['Select_full_join'])
     select_range_check = int(mystat['Select_range_check'])
@@ -222,11 +224,18 @@ def main():
     # freshly booted server where `SHOW GLOBAL STATUS LIKE 'Uptime'` can legitimately
     # return 0 in the first second after startup.
     uptime = max(int(mystat.get('Uptime') or 0), 1)
-    joins_per_day = round(joins_without_indexes / (uptime / 86400), 1)
 
     state = STATE_OK
     sections = []
+    # All recommendations from all WARN paths land here and render once at the
+    # end as a `Recommendations:\n* ...` bulleted block, regardless of which
+    # combinations of WARN paths fire.
+    recommendations = []
 
+    # analyze data
+    joins_per_day = round(joins_without_indexes / (uptime / 86400), 1)
+
+    # build the message
     # Always show what was measured, even on OK - admins reading the service line
     # benefit from seeing the actual count and breakdown rather than a bare
     # "Everything is ok.". Component breakdown is also human-formatted for symmetry
@@ -239,11 +248,6 @@ def main():
         f' `Select_range_check` = {lib.human.number2human(select_range_check)},'
         f' `Select_full_join` = {lib.human.number2human(select_full_join)})'
     )
-
-    # All recommendations from all WARN paths land here and render once at the
-    # end as a `Recommendations:\n* ...` bulleted block, regardless of which
-    # combinations of WARN paths fire.
-    recommendations = []
 
     if joins_per_day > 250:
         state = lib.base.get_worst(state, STATE_WARN)

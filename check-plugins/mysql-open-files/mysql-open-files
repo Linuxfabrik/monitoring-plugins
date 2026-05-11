@@ -142,6 +142,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -154,6 +155,15 @@ def main():
     mystat = lib.db_mysql.lod2dict(get_status(conn))
     lib.db_mysql.close(conn)
 
+    # init some vars
+    state = STATE_OK
+    sections = []
+    # All recommendations from all WARN/CRIT paths land here and render once at
+    # the end as a `Recommendations:\n* ...` bulleted block, regardless of
+    # which WARN paths fire.
+    recommendations = []
+
+    # analyze data
     open_files = int(mystat['Open_files'])
     open_files_limit = int(myvar['open_files_limit'])
     if open_files_limit > 0:
@@ -162,13 +172,6 @@ def main():
         # open_files_limit = 0 means "no limit configured" on this server;
         # a percentage is meaningless then, so we report 0% and skip the alert.
         pct_files_open = 0.0
-
-    state = STATE_OK
-    sections = []
-    # All recommendations from all WARN/CRIT paths land here and render once at
-    # the end as a `Recommendations:\n* ...` bulleted block, regardless of
-    # which WARN paths fire.
-    recommendations = []
 
     if pct_files_open >= args.CRITICAL:
         state = STATE_CRIT
@@ -180,6 +183,7 @@ def main():
             f' {lib.human.number2human(open_files_limit)})'
         )
 
+    # build the message
     sections.append(
         f'{pct_files_open}% of `open_files_limit` used'
         f' ({lib.human.number2human(open_files)}'

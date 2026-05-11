@@ -188,6 +188,7 @@ def render_result_table(rows, shortened):
 def main():
     """The main function. This is where the magic happens."""
 
+    # parse the command line
     try:
         args = parse_args()
     except SystemExit:
@@ -196,6 +197,7 @@ def main():
     if args.WARNING_QUERY is None and args.CRITICAL_QUERY is None:
         lib.base.cu('Nothing to check, no queries provided.')
 
+    # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -204,7 +206,13 @@ def main():
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
     lib.base.coe(lib.db_mysql.check_privileges(conn))
 
+    # init some vars
     state = STATE_OK
+    msg = ''
+    perfdata = ''
+    facts = []
+
+    # analyze data
     state_warn, value_warn, rows_warn, shortened_warn = evaluate_query(
         conn, args.WARNING_QUERY, args.WARN, 'warn',
     )
@@ -216,13 +224,17 @@ def main():
 
     lib.db_mysql.close(conn)
 
-    # Summary line: per-query "WARN query (`<sql>`) returned <value> [STATE]".
-    facts = []
+    # build the message
     if args.WARNING_QUERY:
         facts.append(
             f'WARN query (`{trunc_query(args.WARNING_QUERY)}`)'
             f' returned {value_warn}'
             f'{lib.base.state2str(state_warn, prefix=" ")}'
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_query_warn_value',
+            value_warn,
+            warn=args.WARN,
         )
     if args.CRITICAL_QUERY:
         facts.append(
@@ -230,7 +242,11 @@ def main():
             f' returned {value_crit}'
             f'{lib.base.state2str(state_crit, prefix=" ")}'
         )
-
+        perfdata += lib.base.get_perfdata(
+            'mysql_query_crit_value',
+            value_crit,
+            crit=args.CRIT,
+        )
     if state == STATE_OK:
         # "Everything is ok." leads the OK message so the admin sees the
         # verdict first; the facts follow.
@@ -238,22 +254,9 @@ def main():
     else:
         msg = '. '.join(facts) + '.'
 
+    # build table output
     msg += render_result_table(rows_warn, shortened_warn)
     msg += render_result_table(rows_crit, shortened_crit)
-
-    perfdata = ''
-    if args.WARNING_QUERY:
-        perfdata += lib.base.get_perfdata(
-            'mysql_query_warn_value',
-            value_warn,
-            warn=args.WARN,
-        )
-    if args.CRITICAL_QUERY:
-        perfdata += lib.base.get_perfdata(
-            'mysql_query_crit_value',
-            value_crit,
-            crit=args.CRIT,
-        )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

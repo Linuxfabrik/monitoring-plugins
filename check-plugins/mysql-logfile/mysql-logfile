@@ -279,7 +279,7 @@ def main():
     if args.IGNORE_REGEX is None:
         args.IGNORE_REGEX = []
 
-    # === Determine source ===
+    # fetch data
     # `source_label` always describes what the admin sees ("Source: ..."),
     # `source_size` is set only for plain on-disk files (so we can emit the
     # 32 MiB cutoff check and a perfdata series).
@@ -342,7 +342,7 @@ def main():
             filename='linuxfabrik-monitoring-plugins-mysql-logfile.db',
         )
 
-    # === Read log content (unless PFS already provided it) ===
+    # read log content (unless PFS already provided it)
     if logfile is None:
         if log_error == 'stderr':
             lib.base.cu(
@@ -387,9 +387,18 @@ def main():
             logfile = lib.base.coe(lib.disk.read_file(log_error))
             source_label = f'`{log_error}`'
 
-    # === Parse the log lines ===
+    # init some vars
+    state = STATE_OK
+    sections = []
+    facts = []
+    # All recommendations from all WARN/CRIT paths land here and render once at
+    # the end as a `Recommendations:\n* ...` bulleted block, regardless of
+    # which combinations of paths fire.
+    recommendations = []
     last_errs, last_warns, last_shutdowns, last_starts = [], [], [], []
     compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
+
+    # analyze data
     for log_line in logfile.splitlines():
         haystack = log_line.lower()
         if any(
@@ -408,14 +417,7 @@ def main():
         if 'ready for connections' in log_line:
             last_starts.append(log_line)
 
-    # === Build the output ===
-    state = STATE_OK
-    sections = []
-    facts = []
-    # All recommendations from all WARN/CRIT paths land here and render once at
-    # the end as a `Recommendations:\n* ...` bulleted block, regardless of
-    # which combinations of paths fire.
-    recommendations = []
+    # build the message
 
     if source_size is not None:
         size_human = lib.human.bytes2human(source_size)
@@ -516,7 +518,7 @@ def main():
 
     msg = '\n\n'.join(sections)
 
-    # === Perfdata ===
+    # perfdata
     perfdata = ''
     if source_size is not None:
         perfdata += lib.base.get_perfdata(

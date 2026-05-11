@@ -346,11 +346,13 @@ def main():
     # logic taken from mysqltuner.pl:mysql_stats(), section "Memory usage",
     # verified in sync with MySQLTuner v2.8.41
 
+    # parse the command line
     try:
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -362,6 +364,7 @@ def main():
     myvar = lib.db_mysql.lod2dict(get_vars(conn))
     mystat = lib.db_mysql.lod2dict(get_status(conn))
 
+    # init some vars
     state = STATE_OK
     sections = []
     facts = []
@@ -370,7 +373,7 @@ def main():
     # which combinations of WARN paths fire.
     recommendations = []
 
-    # Calculations
+    # analyze data
     mycalc = {}
     # The effective size of an internal in-memory temp table is the *minimum*
     # of these two settings (mysql docs:
@@ -426,9 +429,10 @@ def main():
 
     lib.db_mysql.close(conn)
 
+    # build the message
     bh = lib.human.bytes2human
 
-    # ---- Used memory (currently reached) ----
+    # used memory (currently reached)
     used_state = STATE_OK
     if not lib.base.IS_64BIT and mycalc['max_used_memory'] > ADDR_LIMIT_32BIT:
         used_state = STATE_WARN
@@ -454,7 +458,7 @@ def main():
         f'{lib.base.state2str(used_state, prefix=" ")}'
     )
 
-    # ---- Peak memory (theoretical) ----
+    # peak memory (theoretical)
     peak_state = STATE_OK
     if mycalc['pct_max_physical_memory'] >= args.CRITICAL:
         peak_state = STATE_CRIT
@@ -473,7 +477,7 @@ def main():
         f'{lib.base.state2str(peak_state, prefix=" ")}'
     )
 
-    # ---- Overcommit check (peak + other processes > physical) ----
+    # overcommit check (peak + other processes > physical)
     overcommit_state = STATE_OK
     overcommit_total = mycalc['max_peak_memory'] + mycalc['other_process_memory']
     if mycalc['physical_memory'] < overcommit_total:
@@ -493,7 +497,7 @@ def main():
         f'{lib.base.state2str(overcommit_state, prefix=" ")}'
     )
 
-    # ---- Performance Schema info note ----
+    # performance schema info note
     if myvar.get('performance_schema', 'OFF') != 'ON':
         facts.append('Performance Schema is OFF (pfs memory not counted)')
 
@@ -520,7 +524,7 @@ def main():
 
     msg = '\n\n'.join(sections)
 
-    # ---- Perfdata ----
+    # perfdata
     perfdata = ''
     perfdata += lib.base.get_perfdata(
         'mysql_aria_pagecache_buffer_size',

@@ -123,6 +123,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -164,6 +165,7 @@ def main():
 
     lib.db_mysql.close(conn)
 
+    # init some vars
     # cache int conversions
     buffer_size = int(myvar['innodb_buffer_pool_size'])
     log_file_size = int(myvar['innodb_log_file_size'])
@@ -176,6 +178,7 @@ def main():
     )
     file_per_table = myvar.get('innodb_file_per_table', '').upper()
 
+    # analyze data
     # Log-size-ratio: prefer `innodb_redo_log_capacity` on MySQL 8.0.30+ where
     # it replaced the old `innodb_log_file_size * innodb_log_files_in_group`
     # combination as the single sizing knob.
@@ -196,6 +199,7 @@ def main():
     data_h = lib.human.bytes2human(innodb_data_size)
     buffer_h = lib.human.bytes2human(buffer_size)
 
+    # build the message
     # 1. Architecture cap (rarely violated; emit only on violation).
     if not lib.base.IS_64BIT and buffer_size > LIMIT_32BIT:
         state = lib.base.get_worst(state, STATE_WARN)
