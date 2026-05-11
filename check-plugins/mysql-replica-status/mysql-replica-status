@@ -17,7 +17,7 @@ import lib.args
 import lib.base
 import lib.db_mysql
 import lib.txt
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026051101'
@@ -299,10 +299,12 @@ def main():
                 )
             else:
                 lag = int(seconds_behind)
-                if args.LAG_CRIT is not None and lag >= args.LAG_CRIT:
-                    lag_state = STATE_CRIT
-                elif lag > args.LAG_WARN:
-                    lag_state = STATE_WARN
+                # `gt` (strict >) so lag = LAG_WARN (default 0) stays OK and
+                # only lag > LAG_WARN flips WARN, matching mysqltuner's
+                # "> 0.000001" intent. `None` LAG_CRIT is skipped by get_state.
+                lag_state = lib.base.get_state(
+                    lag, args.LAG_WARN, args.LAG_CRIT, _operator='gt',
+                )
                 facts.append(
                     f'Replica lag: {lag}s behind primary'
                     f'{lib.base.state2str(lag_state, prefix=" ")}'
