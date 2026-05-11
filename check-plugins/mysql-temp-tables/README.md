@@ -3,17 +3,21 @@
 
 ## Overview
 
-Checks the ratio of on-disk versus in-memory temporary tables in MySQL/MariaDB. A high rate of disk-based temporary tables indicates that `tmp_table_size` or `max_heap_table_size` may need to be increased. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
+Checks the percentage of MySQL/MariaDB temporary tables that had to spill to disk. A high percentage means queries are materialising temporary tables larger than the smaller of `tmp_table_size` and `max_heap_table_size`, and the server falls back to a disk-based temporary table. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() and verified in sync with MySQLTuner v2.8.41.
 
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
+* The effective temp-table cap is `min(tmp_table_size, max_heap_table_size)`. Raising only one of the two has no effect; the recommendation always names both
+* Above mysqltuner's 256 MiB cut-off, raising the cap further does not help. The recommendation switches to "audit the queries" in that range (typically `SELECT DISTINCT` and `GROUP BY` without `LIMIT`)
+* If a server has not yet materialised a single temporary table (`Created_tmp_tables = 0`), the percentage is meaningless and the check skips with an info line (matches mysqltuner)
 
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `max_heap_table_size` and `tmp_table_size`
 * Queries `SHOW GLOBAL STATUS` for `Created_tmp_disk_tables` and `Created_tmp_tables`
-* Calculates the disk temporary table rate as `Created_tmp_disk_tables / Created_tmp_tables * 100`
+* Calculates the disk temporary table percentage as `Created_tmp_disk_tables / Created_tmp_tables * 100`
+* Cumulative counters are persisted in a local SQLite cache between runs so the dashboard can plot per-second rates instead of unbounded counters
 
 
 ## Fact Sheet
@@ -33,29 +37,38 @@ Checks the ratio of on-disk versus in-memory temporary tables in MySQL/MariaDB. 
 ## Help
 
 ```text
-usage: mysql-temp-tables [-h] [-V] [--always-ok]
+usage: mysql-temp-tables [-h] [-V] [--always-ok] [-c CRIT]
                          [--defaults-file DEFAULTS_FILE]
                          [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
+                         [-w WARN]
 
-Checks the ratio of on-disk versus in-memory temporary tables in
-MySQL/MariaDB. A high rate of disk-based temporary tables indicates that
-tmp_table_size or max_heap_table_size may need to be increased. Alerts when
-the disk-based temporary table rate is too high.
+Checks the percentage of MySQL/MariaDB temporary tables that had to spill to
+disk (`Created_tmp_disk_tables` divided by `Created_tmp_tables`). A high
+percentage means queries are materialising temporary tables larger than the
+smaller of `tmp_table_size` and `max_heap_table_size`, and the server falls
+back to a disk-based temporary table. Alerts when the percentage crosses
+`--warning` / `--critical`. Recommendations depend on whether the effective
+temp-table cap is already large (`>= 256 MiB`, mysqltuner's cut-off); in that
+case raising the cap further does not help and the underlying queries
+(typically `SELECT DISTINCT` without `LIMIT`) need attention.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
+                        Default: 50
   --defaults-file DEFAULTS_FILE
-                        MySQL/MariaDB cnf file to read parameters like user,
-                        host and password from (instead of specifying them on
-                        the command line). Example:
-                        `/var/spool/icinga2/.my.cnf`. Default:
+                        MySQL/MariaDB cnf file to read user, host and password
+                        from. Example: `--defaults-
+                        file=/var/spool/icinga2/.my.cnf`. Default:
                         /var/spool/icinga2/.my.cnf
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+  -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
+                        Default: 25
 ```
 
 
@@ -65,22 +78,28 @@ options:
 ./mysql-temp-tables --defaults-file=/var/spool/icinga2/.my.cnf
 ```
 
-Output:
+OK output:
 
 ```text
-34.6% temporary tables created on disk (540.0 on disk / 1.6K total) 
+Everything is ok. Temporary tables created on disk: 8.4% (134 on disk / 1.6K total). `tmp_table_size` = 128.0MiB, `max_heap_table_size` = 128.0MiB.
+```
+
+WARN output:
+
+```text
+Temporary tables created on disk: 34.6% (540 on disk / 1.6K total) [WARNING]. `tmp_table_size` = 16.0MiB, `max_heap_table_size` = 16.0MiB.
 
 Recommendations:
-* Set tmp_table_size > 128.0MiB and max_heap_table_size > 128.0MiB
-* When making adjustments, make tmp_table_size/max_heap_table_size equal
-* Reduce your SELECT DISTINCT queries which have no LIMIT clause
+* Raise `tmp_table_size` (currently 16.0MiB) and `max_heap_table_size` (currently 16.0MiB); keep them equal
+* Audit `SELECT DISTINCT` and `GROUP BY` queries that run without a `LIMIT` clause; those are the classic source of oversized temporary tables
 ```
 
 
 ## States
 
-* OK if the disk-based temporary table rate is 25% or lower, or if no temporary tables have been created.
-* WARN if more than 25% of temporary tables are created on disk.
+* WARN if the percentage of temporary tables created on disk is outside `--warning` (default: `25`, alerts above 25%).
+* CRIT if the percentage is outside `--critical` (default: `50`, alerts above 50%).
+* Both `--warning` and `--critical` accept Nagios range expressions, see [THRESHOLDS.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/THRESHOLDS.md).
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -88,12 +107,12 @@ Recommendations:
 
 | Name | Type | Description |
 |----|----|----|
-| mysql_created_tmp_disk_tables | Continuous Counter | Number of on-disk temporary tables created. |
-| mysql_created_tmp_tables | Continuous Counter | Number of in-memory temporary tables created. |
-| mysql_max_heap_table_size | Bytes | Maximum size in bytes for user-created MEMORY tables. |
-| mysql_max_tmp_table_size | Bytes | max(max_heap_table_size, tmp_table_size) |
-| mysql_pct_temp_disk | Percentage | Created_tmp_disk_tables / Created_tmp_tables \* 100 |
-| mysql_tmp_table_size | Bytes | The largest size for temporary tables in memory (not MEMORY tables) although if max_heap_table_size is smaller the lower limit will apply. |
+| mysql_created_tmp_disk_tables_per_second | Rate | Per-second rate of `Created_tmp_disk_tables` (cumulative counter delta against the local SQLite cache). Appears from the second run onwards. |
+| mysql_created_tmp_tables_per_second | Rate | Per-second rate of `Created_tmp_tables` (cumulative counter delta against the local SQLite cache). Appears from the second run onwards. |
+| mysql_max_heap_table_size | Bytes | Maximum size of user-created MEMORY tables (`max_heap_table_size`). |
+| mysql_max_tmp_table_size | Bytes | `max(tmp_table_size, max_heap_table_size)`. mysqltuner-compatible value; the actual MySQL cap is `min()` of the two. |
+| mysql_pct_temp_disk | Percentage | `Created_tmp_disk_tables / Created_tmp_tables * 100`. Pinned to `0.0` when `Created_tmp_tables = 0`. |
+| mysql_tmp_table_size | Bytes | Largest size for implicit temporary tables in memory; the lower of `tmp_table_size` and `max_heap_table_size` applies. |
 
 
 ## Credits, License

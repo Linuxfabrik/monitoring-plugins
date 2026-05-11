@@ -16,20 +16,36 @@ import sys
 import lib.args
 import lib.base
 import lib.db_mysql
+import lib.db_sqlite
 import lib.human
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026051101'
 
-DESCRIPTION = """Checks the ratio of on-disk versus in-memory temporary tables in MySQL/MariaDB. A
-high rate of disk-based temporary tables indicates that tmp_table_size or
-max_heap_table_size may need to be increased.
-Alerts when the disk-based temporary table rate is too high."""
+DESCRIPTION = """Checks the percentage of MySQL/MariaDB temporary tables that had to spill to disk
+(`Created_tmp_disk_tables` divided by `Created_tmp_tables`). A high percentage means queries are
+materialising temporary tables larger than the smaller of `tmp_table_size` and `max_heap_table_size`,
+and the server falls back to a disk-based temporary table. Alerts when the percentage crosses
+`--warning` / `--critical`. Recommendations depend on whether the effective temp-table cap is
+already large (`>= 256 MiB`, mysqltuner's cut-off); in that case raising the cap further does not
+help and the underlying queries (typically `SELECT DISTINCT` without `LIMIT`) need attention."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
+# mysqltuner v2.8.41 alerts when > 25% of temp tables spill to disk. We keep
+# that as WARN (Nagios range `25` = alert if value > 25) and add a CRIT
+# escalation at > 50% so the plugin state actually goes red when the workload
+# is severely temp-table-bound.
+DEFAULT_WARN = '25'
+DEFAULT_CRIT = '50'
 DEFAULT_TIMEOUT = 3
+
+# mysqltuner's cut-off: above this, raising `tmp_table_size` /
+# `max_heap_table_size` further is not the right action.
+TMP_TABLE_LARGE_THRESHOLD = 256 * 1024 * 1024
+
+SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-temp-tables.db'
 
 
 def parse_args():
@@ -52,9 +68,18 @@ def parse_args():
     )
 
     parser.add_argument(
+        '-c',
+        '--critical',
+        help=lib.args.help('--critical')
+        + ' Supports Nagios ranges. Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
         '--defaults-file',
-        help='MySQL/MariaDB cnf file to read parameters like user, host and password from (instead of specifying them on the command line). '
-        'Example: `/var/spool/icinga2/.my.cnf`. '
+        help='MySQL/MariaDB cnf file to read user, host and password from. '
+        'Example: `--defaults-file=/var/spool/icinga2/.my.cnf`. '
         'Default: %(default)s',
         dest='DEFAULTS_FILE',
         default=DEFAULT_DEFAULTS_FILE,
@@ -75,14 +100,20 @@ def parse_args():
         default=DEFAULT_TIMEOUT,
     )
 
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help=lib.args.help('--warning')
+        + ' Supports Nagios ranges. Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
 
 def get_vars(conn):
-    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
-    # Without the GLOBAL modifier, SHOW VARIABLES displays the values that are used for
-    # the current connection to MariaDB.
     sql = """
         show global variables
         where variable_name like 'max_heap_table_size'
@@ -93,9 +124,6 @@ def get_vars(conn):
 
 
 def get_status(conn):
-    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
-    # Without the GLOBAL modifier, SHOW STATUS displays the values that are used for
-    # the current connection to MariaDB.
     sql = """
         show global status
         where variable_name like 'Created_tmp_disk_tables'
@@ -108,8 +136,13 @@ def get_status(conn):
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:mysql_stats(), section # Temporary tables, v1.9.8
-    # including variable names
+    # logic taken from mysqltuner.pl:mysql_stats(), section "Temporary tables",
+    # verified in sync with MySQLTuner v2.8.41 (the > 25% threshold, the
+    # 256 MiB cut-off between "raise the cap" and "the cap is already large
+    # enough" recommendation paths, and the `max_tmp_table_size` formula are
+    # unchanged upstream since the original port). Our --warning default
+    # matches mysqltuner; --critical 50 is a Linuxfabrik addition so the
+    # plugin state actually goes red on severe temp-table churn.
 
     # parse the command line
     try:
@@ -117,6 +150,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -130,107 +164,147 @@ def main():
     lib.db_mysql.close(conn)
 
     # init some vars
-    msg = ''
     state = STATE_OK
+    sections = []
+    facts = []
+    # All recommendations from all WARN/CRIT paths land here and render once
+    # at the end as a `Recommendations:\n* ...` bulleted block.
+    recommendations = []
     perfdata = ''
 
-    # calculations
-    mycalc = {}
-    if int(mystat['Created_tmp_tables']) > 0:
-        if int(mystat['Created_tmp_disk_tables']) > 0:
-            mycalc['pct_temp_disk'] = round(
-                int(mystat['Created_tmp_disk_tables'])
-                / int(mystat['Created_tmp_tables'])
-                * 100,
-                1,
-            )
-        else:
-            mycalc['pct_temp_disk'] = 0
-    mycalc['max_tmp_table_size'] = max(
-        int(myvar['max_heap_table_size']), int(myvar['tmp_table_size'])
+    created_tmp_tables = int(mystat['Created_tmp_tables'])
+    created_tmp_disk_tables = int(mystat['Created_tmp_disk_tables'])
+    tmp_table_size = int(myvar['tmp_table_size'])
+    max_heap_table_size = int(myvar['max_heap_table_size'])
+    # mysqltuner uses max(tmp_table_size, max_heap_table_size) as the
+    # effective cap. The actual MySQL behaviour caps at the smaller of the
+    # two (mysql-memory implements that variant), but mysqltuner v2.8.41
+    # keeps the historical max() for this check, so we mirror it to stay
+    # consistent with the upstream comparison.
+    effective_cap = max(tmp_table_size, max_heap_table_size)
+
+    # analyze data
+    # On a freshly booted server with no traffic `Created_tmp_tables` can be
+    # zero; mysqltuner pins the percentage to 0 in that case to avoid the
+    # false-positive low-rate alert.
+    pct_temp_disk = (
+        round(created_tmp_disk_tables / created_tmp_tables * 100, 1)
+        if created_tmp_tables > 0
+        else 0.0
     )
 
-    # Temporary tables
-    if int(mystat['Created_tmp_tables']) > 0:
-
-        # build the message
-        msg += (
-            f'{mycalc["pct_temp_disk"]}% temporary tables'
-            f' created on disk'
-            f' ({lib.human.number2human(mystat["Created_tmp_disk_tables"])}'
-            f' on disk /'
-            f' {lib.human.number2human(mystat["Created_tmp_tables"])}'
-            f' total)'
+    # The `Created_tmp_tables > 0` guard mirrors mysqltuner: on a server that
+    # has not yet materialised a single temporary table the percentage is
+    # meaningless.
+    if created_tmp_tables > 0:
+        state = lib.base.get_state(
+            pct_temp_disk,
+            args.WARN,
+            args.CRIT,
+            _operator='range',
         )
-        if (
-            mycalc['pct_temp_disk'] > 25
-            and mycalc['max_tmp_table_size'] < 256 * 1024 * 1024
-        ):
-            state = STATE_WARN
-            msg += lib.base.state2str(state, prefix=' ')
-            msg += '\n\nRecommendations:\n'
-            msg += (
-                f'* Set tmp_table_size >'
-                f' {lib.human.bytes2human(int(myvar["tmp_table_size"]))}'
-                f' and max_heap_table_size >'
-                f' {lib.human.bytes2human(int(myvar["max_heap_table_size"]))}'
-                f'\n'
+        if state != STATE_OK:
+            if effective_cap < TMP_TABLE_LARGE_THRESHOLD:
+                recommendations.append(
+                    f'Raise `tmp_table_size` (currently '
+                    f'{lib.human.bytes2human(tmp_table_size)}) and '
+                    f'`max_heap_table_size` (currently '
+                    f'{lib.human.bytes2human(max_heap_table_size)}); keep '
+                    f'them equal'
+                )
+            else:
+                recommendations.append(
+                    f'The effective temp-table cap '
+                    f'({lib.human.bytes2human(effective_cap)}) is already '
+                    f'large (mysqltuner cut-off: 256 MiB). Raising it further '
+                    f'will not help; reduce the working set instead'
+                )
+            recommendations.append(
+                'Audit `SELECT DISTINCT` and `GROUP BY` queries that run '
+                'without a `LIMIT` clause; those are the classic source of '
+                'oversized temporary tables'
             )
-            msg += '* When making adjustments, make tmp_table_size/max_heap_table_size equal\n'
-            msg += '* Reduce your SELECT DISTINCT queries which have no LIMIT clause\n'
-        elif (
-            mycalc['pct_temp_disk'] > 25
-            and mycalc['max_tmp_table_size'] >= 256 * 1024 * 1024
-        ):
-            state = STATE_WARN
-            msg += lib.base.state2str(state, prefix=' ')
-            msg += '\n\nRecommendations:\n'
-            msg += '* Temporary table size is already large - reduce result set size\n'
-            msg += '* Reduce your SELECT DISTINCT queries which have no LIMIT clause\n'
-        else:
-            msg += '.'
+
+    # build the message
+    if created_tmp_tables > 0:
+        facts.append(
+            f'Temporary tables created on disk: {pct_temp_disk}% '
+            f'({lib.human.number2human(created_tmp_disk_tables)} on disk '
+            f'/ {lib.human.number2human(created_tmp_tables)} total)'
+            f'{lib.base.state2str(state, prefix=" ")}'
+        )
     else:
-        msg = 'Everything is ok.'
+        facts.append(
+            'no temporary tables created yet (`Created_tmp_tables` = 0); '
+            'percentage check skipped'
+        )
+    facts.append(
+        f'`tmp_table_size` = {lib.human.bytes2human(tmp_table_size)}, '
+        f'`max_heap_table_size` = '
+        f'{lib.human.bytes2human(max_heap_table_size)}'
+    )
+    facts_text = '. '.join(facts) + '.'
+    if state == STATE_OK:
+        sections.append('Everything is ok. ' + facts_text)
+    else:
+        sections.append(facts_text)
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
+        )
+    msg = '\n\n'.join(sections)
 
     perfdata += lib.base.get_perfdata(
         'mysql_max_heap_table_size',
-        myvar['max_heap_table_size'],
+        max_heap_table_size,
         uom='B',
         _min=0,
     )
     perfdata += lib.base.get_perfdata(
         'mysql_tmp_table_size',
-        myvar['tmp_table_size'],
+        tmp_table_size,
         uom='B',
         _min=0,
     )
-
-    perfdata += lib.base.get_perfdata(
-        'mysql_created_tmp_disk_tables',
-        mystat['Created_tmp_disk_tables'],
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'mysql_created_tmp_tables',
-        mystat['Created_tmp_tables'],
-        uom='c',
-        _min=0,
-    )
-
     perfdata += lib.base.get_perfdata(
         'mysql_max_tmp_table_size',
-        mycalc['max_tmp_table_size'],
+        effective_cap,
         uom='B',
         _min=0,
     )
     perfdata += lib.base.get_perfdata(
         'mysql_pct_temp_disk',
-        mycalc['pct_temp_disk'],
+        pct_temp_disk,
         uom='%',
+        warn=args.WARN,
+        crit=args.CRIT,
         _min=0,
         _max=100,
     )
+
+    # Per-CONTRIBUTING: emit the cumulative counters as per-second deltas
+    # (computed in-plugin against a local SQLite cache) instead of `uom='c'`
+    # continuous counters that force Grafana to do non_negative_difference()
+    # per panel.
+    rates = lib.db_sqlite.per_second_deltas(
+        SQLITE_DB,
+        'mysql-temp-tables',
+        {
+            'created_tmp_disk_tables': created_tmp_disk_tables,
+            'created_tmp_tables': created_tmp_tables,
+        },
+    )
+    if rates is not None:
+        perfdata += lib.base.get_perfdata(
+            'mysql_created_tmp_disk_tables_per_second',
+            round(rates['created_tmp_disk_tables'], 2),
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_created_tmp_tables_per_second',
+            round(rates['created_tmp_tables'], 2),
+            _min=0,
+        )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

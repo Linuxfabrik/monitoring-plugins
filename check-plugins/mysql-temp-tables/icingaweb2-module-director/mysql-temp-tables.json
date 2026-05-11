@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$mysql_temp_tables_always_ok$"
                 },
+                "--critical": {
+                    "value": "$mysql_temp_tables_critical$"
+                },
                 "--defaults-file": {
                     "value": "$mysql_temp_tables_defaults_file$"
                 },
@@ -13,6 +16,9 @@
                 },
                 "--timeout": {
                     "value": "$mysql_temp_tables_timeout$"
+                },
+                "--warning": {
+                    "value": "$mysql_temp_tables_warning$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/mysql-temp-tables",
@@ -35,6 +41,16 @@
                 },
                 {
                     "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -80,7 +96,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the ratio of on-disk versus in-memory temporary tables in MySQL/MariaDB. A high rate of disk-based temporary tables indicates that tmp_table_size or max_heap_table_size may need to be increased. Alerts when the disk-based temporary table rate is too high.",
+            "notes": "Checks the percentage of MySQL/MariaDB temporary tables that had to spill to disk (`Created_tmp_disk_tables` divided by `Created_tmp_tables`). A high percentage means queries are materialising temporary tables larger than the smaller of `tmp_table_size` and `max_heap_table_size`, and the server falls back to a disk-based temporary table. Alerts when the percentage crosses `--warning` / `--critical`. Recommendations depend on whether the effective temp-table cap is already large (`>= 256 MiB`, mysqltuner's cut-off); in that case raising the cap further does not help and the underlying queries (typically `SELECT DISTINCT` without `LIMIT`) need attention.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-temp-tables/",
             "object_name": "tpl-service-mysql-temp-tables",
             "object_type": "template",
@@ -92,9 +108,11 @@
             "vars": {
                 "criticality": "C",
                 "mysql_temp_tables_always_ok": false,
+                "mysql_temp_tables_critical": "50",
                 "mysql_temp_tables_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_temp_tables_defaults_group": "client",
-                "mysql_temp_tables_timeout": 3
+                "mysql_temp_tables_timeout": 3,
+                "mysql_temp_tables_warning": "25"
             },
             "volatile": null,
             "zone": null,
@@ -112,9 +130,20 @@
             "uuid": "d1420ef6-21a9-462a-885c-5c5859d2dfae"
         },
         "2": {
+            "varname": "mysql_temp_tables_critical",
+            "caption": "MySQL Temp Tables: Critical",
+            "description": "CRIT threshold in percent. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "7dcf4095-f9d6-4378-b841-b740c0fe4a86"
+        },
+        "3": {
             "varname": "mysql_temp_tables_defaults_file",
             "caption": "MySQL Temp Tables: Defaults File",
-            "description": "MySQL/MariaDB cnf file to read parameters like user, host and password from (instead of specifying them on the command line). Example: `/var/spool/icinga2/.my.cnf`.",
+            "description": "MySQL/MariaDB cnf file to read user, host and password from. Example: `--defaults-file=/var/spool/icinga2/.my.cnf`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -122,7 +151,7 @@
             },
             "uuid": "dd875ca6-290a-4034-9d83-59c67304707d"
         },
-        "3": {
+        "4": {
             "varname": "mysql_temp_tables_defaults_group",
             "caption": "MySQL Temp Tables: Defaults Group",
             "description": "Group/section to read from in the cnf file.",
@@ -133,7 +162,7 @@
             },
             "uuid": "8dc8bd78-6d93-40ae-ae7b-f555ad7d4754"
         },
-        "4": {
+        "5": {
             "varname": "mysql_temp_tables_timeout",
             "caption": "MySQL Temp Tables: Timeout",
             "description": "Network timeout in seconds.",
@@ -143,6 +172,17 @@
                 "visibility": "visible"
             },
             "uuid": "8fb139d8-280b-4a2a-8a19-5176361c39dd"
+        },
+        "6": {
+            "varname": "mysql_temp_tables_warning",
+            "caption": "MySQL Temp Tables: Warning",
+            "description": "WARN threshold in percent. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "0590cc0b-b7f1-49ea-9b3e-8da14891e486"
         }
     }
 }
