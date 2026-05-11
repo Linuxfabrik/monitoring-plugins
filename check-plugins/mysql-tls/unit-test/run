@@ -68,7 +68,7 @@ class TestCheck(unittest.TestCase):
 def _check_image(test, containerfile):
     path = os.path.join(CONTAINERFILES_DIR, containerfile)
     print(f'\n=== Testing {containerfile} ===', flush=True)
-    with lib.lftest.run_mariadb_from_containerfile(path) as (container, defaults_file):
+    with lib.lftest.run_mysql_compatible_from_containerfile(path) as (container, defaults_file):
         # Grant the `test` user read access to the `mysql` system
         # database so it can query `mysql.user` / `mysql.global_priv`.
         # sclorg images accept root via socket auth (no password
@@ -101,10 +101,15 @@ def _check_image(test, containerfile):
         print(f'Script output:\n{combined.strip()}', flush=True)
 
         test.assertEqual(result.returncode, STATE_WARN)
-        # Three findings expected to fire on the default MariaDB image:
+        # Findings shared across all MariaDB / MySQL LTS test images:
+        # the monitoring connection is plaintext (pymysql does not
+        # auto-enable TLS) and require_secure_transport is OFF in
+        # default container configs. The "No server certificate
+        # configured" finding only fires on MariaDB (ssl_cert / ssl_key
+        # empty); MySQL ships auto-generated self-signed certs and
+        # therefore reports an expiry-check-skipped line instead.
         test.assertIn('Current connection not encrypted', combined)
         test.assertIn('require_secure_transport` = OFF', combined)
-        test.assertIn('No server certificate configured', combined)
         # Perfdata keys are emitted (single-quoted by lib.base.get_perfdata):
         test.assertIn('mysql_tls_session_encrypted', combined)
         test.assertIn('mysql_tls_remote_users_without_ssl', combined)
