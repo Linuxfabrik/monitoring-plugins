@@ -10,7 +10,7 @@ Checks the rate of slow queries in MySQL/MariaDB (`Slow_queries` / `Questions`).
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * `Slow_queries` is a status counter; it increments for every query slower than `long_query_time` regardless of whether `slow_query_log` is on. The log determines only whether the slow queries are persisted to a file for postmortem analysis - it does not affect the counter the plugin reads.
 * When the ratio triggers a warning, the check recommends enabling the slow query log if disabled, so admins can investigate the offending queries.
-* If `long_query_time` is set higher than 10 seconds, the check recommends lowering it (mysqltuner cut-off: queries slower than 10 s are practically useless to capture).
+* MySQL/MariaDB ship `long_query_time` defaulted to 10 seconds, which catches only the worst outliers. 1 - 3 seconds gives meaningful slow-query coverage on a typical OLTP workload. The plugin nudges admins to lower it when it is set above 10 seconds.
 
 **Data Collection:**
 
@@ -46,9 +46,9 @@ usage: mysql-slow-queries [-h] [-V] [--always-ok] [-c CRITICAL]
 Checks the rate of slow queries in MySQL/MariaDB (`Slow_queries` /
 `Questions`). A high ratio means many queries are exceeding `long_query_time`
 and likely need optimisation. Alerts when the ratio crosses `--warning` /
-`--critical`. Also reports whether the slow query log is enabled and whether
-`long_query_time` is set to a value > 10 seconds (mysqltuner's "queries slower
-than 10 s are practically useless to capture" cut-off).
+`--critical`. Also reports whether the slow query log is enabled and nudges
+the admin to lower `long_query_time` to 1 - 3 seconds when it is set above 10
+(MySQL/MariaDB default is 10s, which only catches the worst outliers).
 
 options:
   -h, --help            show this help message and exit
@@ -87,11 +87,11 @@ Everything is ok. Slow queries: 0.5% (5.0 slow / 1.0K total). `long_query_time` 
 Output (WARN):
 
 ```text
-Slow queries: 7.0% (7.0 slow / 100.0 total) [WARNING]. `long_query_time` = 12.0s. `slow_query_log` is `OFF`.
+Slow queries: 7.0% (7.0 slow / 100.0 total) [WARNING]. `long_query_time` = 15.0s. `slow_query_log` is `OFF`.
 
 Recommendations:
 * Investigate the slow query log and optimise the 7 slow queries (out of 100 total)
-* Set `long_query_time` <= 10 (currently 12.0s); queries slower than 10s are practically useless to capture
+* Lower `long_query_time` (currently 15.0s) to 1 - 3 seconds for meaningful slow-query coverage; at the MySQL/MariaDB default of 10s only the worst outliers are captured
 * Enable `slow_query_log` to troubleshoot the slow queries
 ```
 
