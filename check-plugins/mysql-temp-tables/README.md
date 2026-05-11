@@ -90,7 +90,7 @@ WARN output:
 Temporary tables created on disk: 34.6% (540 on disk / 1.6K total) [WARNING]. `tmp_table_size` = 16.0MiB, `max_heap_table_size` = 16.0MiB.
 
 Recommendations:
-* Raise `tmp_table_size` (currently 16.0MiB) and `max_heap_table_size` (currently 16.0MiB); keep them equal
+* Raise both `tmp_table_size` (currently 16.0MiB) and `max_heap_table_size` (currently 16.0MiB) toward 256.0MiB (mysqltuner cut-off); keep them equal. Both are allocated per implicit temp table, not aggregate, so sizing is bounded by the largest single temp table the workload generates
 * Audit `SELECT DISTINCT` and `GROUP BY` queries that run without a `LIMIT` clause; those are the classic source of oversized temporary tables
 ```
 

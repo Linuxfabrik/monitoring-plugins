@@ -206,18 +206,23 @@ def main():
         if state != STATE_OK:
             if effective_cap < TMP_TABLE_LARGE_THRESHOLD:
                 recommendations.append(
-                    f'Raise `tmp_table_size` (currently '
+                    f'Raise both `tmp_table_size` (currently '
                     f'{lib.human.bytes2human(tmp_table_size)}) and '
                     f'`max_heap_table_size` (currently '
-                    f'{lib.human.bytes2human(max_heap_table_size)}); keep '
-                    f'them equal'
+                    f'{lib.human.bytes2human(max_heap_table_size)}) toward '
+                    f'{lib.human.bytes2human(TMP_TABLE_LARGE_THRESHOLD)} '
+                    f'(mysqltuner cut-off); keep them equal. Both are '
+                    f'allocated per implicit temp table, not aggregate, so '
+                    f'sizing is bounded by the largest single temp table the '
+                    f'workload generates'
                 )
             else:
                 recommendations.append(
                     f'The effective temp-table cap '
-                    f'({lib.human.bytes2human(effective_cap)}) is already '
-                    f'large (mysqltuner cut-off: 256 MiB). Raising it further '
-                    f'will not help; reduce the working set instead'
+                    f'({lib.human.bytes2human(effective_cap)}) is already at '
+                    f'or above the {lib.human.bytes2human(TMP_TABLE_LARGE_THRESHOLD)} '
+                    f'mysqltuner cut-off. Raising it further will not help; '
+                    f'reduce the working set of the queries instead'
                 )
             recommendations.append(
                 'Audit `SELECT DISTINCT` and `GROUP BY` queries that run '
