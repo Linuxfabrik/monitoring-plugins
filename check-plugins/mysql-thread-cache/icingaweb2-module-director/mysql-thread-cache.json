@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$mysql_thread_cache_always_ok$"
                 },
+                "--critical": {
+                    "value": "$mysql_thread_cache_critical$"
+                },
                 "--defaults-file": {
                     "value": "$mysql_thread_cache_defaults_file$"
                 },
@@ -13,6 +16,9 @@
                 },
                 "--timeout": {
                     "value": "$mysql_thread_cache_timeout$"
+                },
+                "--warning": {
+                    "value": "$mysql_thread_cache_warning$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/mysql-thread-cache",
@@ -35,6 +41,16 @@
                 },
                 {
                     "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -80,7 +96,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks how effectively MySQL/MariaDB caches threads for re-use. A low cache hit rate means the server frequently creates new threads, which is expensive. Alerts when the cache hit rate is too low.",
+            "notes": "Checks the MySQL/MariaDB thread cache hit rate (`100 - Threads_created / Connections * 100`). A low rate means the server keeps creating new threads instead of reusing cached ones, which is expensive. Alerts when the rate crosses `--warning` / `--critical`. The check is skipped when the server is running a thread pool (`have_threadpool = YES`); thread pools ignore `thread_cache_size` entirely. On freshly-booted servers (uptime < 1 hour) the hit-rate alert is suppressed because the cache has not had time to warm up.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-thread-cache/",
             "object_name": "tpl-service-mysql-thread-cache",
             "object_type": "template",
@@ -92,9 +108,11 @@
             "vars": {
                 "criticality": "C",
                 "mysql_thread_cache_always_ok": false,
+                "mysql_thread_cache_critical": "30:",
                 "mysql_thread_cache_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_thread_cache_defaults_group": "client",
-                "mysql_thread_cache_timeout": 3
+                "mysql_thread_cache_timeout": 3,
+                "mysql_thread_cache_warning": "50:"
             },
             "volatile": null,
             "zone": null,
@@ -112,9 +130,20 @@
             "uuid": "4e3c44b6-c2f3-4cbe-934f-047dcee9d306"
         },
         "2": {
+            "varname": "mysql_thread_cache_critical",
+            "caption": "MySQL Thread Cache: Critical",
+            "description": "CRIT threshold in percent. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6f0fe697-f5df-4051-a8d0-15ac12022c34"
+        },
+        "3": {
             "varname": "mysql_thread_cache_defaults_file",
             "caption": "MySQL Thread Cache: Defaults File",
-            "description": "MySQL/MariaDB cnf file to read parameters like user, host and password from (instead of specifying them on the command line). Example: `/var/spool/icinga2/.my.cnf`.",
+            "description": "MySQL/MariaDB cnf file to read user, host and password from. Example: `--defaults-file=/var/spool/icinga2/.my.cnf`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -122,7 +151,7 @@
             },
             "uuid": "47b07bba-3b2c-4ee8-b145-4f3484028a6f"
         },
-        "3": {
+        "4": {
             "varname": "mysql_thread_cache_defaults_group",
             "caption": "MySQL Thread Cache: Defaults Group",
             "description": "Group/section to read from in the cnf file.",
@@ -133,7 +162,7 @@
             },
             "uuid": "c2793088-5a87-4c03-9085-731e9e55582d"
         },
-        "4": {
+        "5": {
             "varname": "mysql_thread_cache_timeout",
             "caption": "MySQL Thread Cache: Timeout",
             "description": "Network timeout in seconds.",
@@ -143,6 +172,17 @@
                 "visibility": "visible"
             },
             "uuid": "bd2d9bbf-3d64-4621-a767-cc6e81a22140"
+        },
+        "6": {
+            "varname": "mysql_thread_cache_warning",
+            "caption": "MySQL Thread Cache: Warning",
+            "description": "WARN threshold in percent. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "20d8e816-5b01-4cd3-9d23-877920f492f3"
         }
     }
 }

@@ -16,19 +16,36 @@ import sys
 import lib.args
 import lib.base
 import lib.db_mysql
+import lib.db_sqlite
 import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026051101'
 
-DESCRIPTION = """Checks how effectively MySQL/MariaDB caches threads for re-use. A low cache hit rate
-means the server frequently creates new threads, which is expensive.
-Alerts when the cache hit rate is too low."""
+DESCRIPTION = """Checks the MySQL/MariaDB thread cache hit rate (`100 - Threads_created / Connections
+* 100`). A low rate means the server keeps creating new threads instead of reusing cached ones,
+which is expensive. Alerts when the rate crosses `--warning` / `--critical`. The check is
+skipped when the server is running a thread pool (`have_threadpool = YES`); thread pools
+ignore `thread_cache_size` entirely. On freshly-booted servers (uptime < 1 hour) the hit-rate
+alert is suppressed because the cache has not had time to warm up."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
+# mysqltuner v2.8.41 alerts at hit rate <= 50%. We keep that as WARN and add
+# CRIT at <= 30% so the plugin state actually goes red on severe churn.
+# Nagios range form `N:` = "OK range is N to infinity"; values below N trigger.
+DEFAULT_WARN = '50:'
+DEFAULT_CRIT = '30:'
 DEFAULT_TIMEOUT = 3
+
+# mysqltuner's starting value when `thread_cache_size = 0`.
+THREAD_CACHE_SIZE_START = 4
+# Cache warm-up window: below this uptime we skip the hit-rate alert because
+# the cache has not had time to fill up.
+WARMUP_UPTIME_SECONDS = 3600
+
+SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-thread-cache.db'
 
 
 def parse_args():
@@ -51,9 +68,18 @@ def parse_args():
     )
 
     parser.add_argument(
+        '-c',
+        '--critical',
+        help=lib.args.help('--critical')
+        + ' Supports Nagios ranges. Default: %(default)s',
+        dest='CRITICAL',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
         '--defaults-file',
-        help='MySQL/MariaDB cnf file to read parameters like user, host and password from (instead of specifying them on the command line). '
-        'Example: `/var/spool/icinga2/.my.cnf`. '
+        help='MySQL/MariaDB cnf file to read user, host and password from. '
+        'Example: `--defaults-file=/var/spool/icinga2/.my.cnf`. '
         'Default: %(default)s',
         dest='DEFAULTS_FILE',
         default=DEFAULT_DEFAULTS_FILE,
@@ -74,14 +100,20 @@ def parse_args():
         default=DEFAULT_TIMEOUT,
     )
 
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help=lib.args.help('--warning')
+        + ' Supports Nagios ranges. Default: %(default)s',
+        dest='WARNING',
+        default=DEFAULT_WARN,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
 
 def get_vars(conn):
-    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
-    # Without the GLOBAL modifier, SHOW VARIABLES displays the values that are used for
-    # the current connection to MariaDB.
     sql = """
         show global variables
         where variable_name like 'have_threadpool'
@@ -92,12 +124,10 @@ def get_vars(conn):
 
 
 def get_status(conn):
-    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
-    # Without the GLOBAL modifier, SHOW STATUS displays the values that are used for
-    # the current connection to MariaDB.
     sql = """
         show global status
         where variable_name like 'Connections'
+            or variable_name like 'Threads_cached'
             or variable_name like 'Threads_created'
             or variable_name like 'Uptime'
             ;
@@ -108,8 +138,14 @@ def get_status(conn):
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:mysql_stats(), section # Thread cache, v1.9.8
-    # including variable names
+    # logic taken from mysqltuner.pl:mysql_stats(), section "Thread cache",
+    # verified in sync with MySQLTuner v2.8.41 (the `have_threadpool` skip,
+    # the `thread_cache_size == 0` warn path, and the `hit_rate <= 50%` cutoff
+    # are unchanged upstream since the original port). Our --warning default
+    # matches mysqltuner; --critical 30% is a Linuxfabrik addition so the
+    # plugin state escalates to CRIT on severe thread churn. The cache
+    # warm-up suppression (uptime < 1 hour) is also a Linuxfabrik addition
+    # to avoid false positives right after a restart.
 
     # parse the command line
     try:
@@ -117,6 +153,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -130,82 +167,140 @@ def main():
     lib.db_mysql.close(conn)
 
     # init some vars
-    msg = ''
     state = STATE_OK
+    sections = []
+    facts = []
+    # All recommendations from all WARN/CRIT paths land here and render once
+    # at the end as a `Recommendations:\n* ...` bulleted block.
+    recommendations = []
     perfdata = ''
 
-    # calculations
-    mycalc = {}
-    mycalc['thread_cache_hit_rate'] = 100 - round(
-        (int(mystat['Threads_created']) / int(mystat['Connections'])) * 100, 1
+    have_threadpool = myvar.get('have_threadpool', '').upper() == 'YES'
+    thread_cache_size = int(myvar['thread_cache_size'])
+    threads_created = int(mystat['Threads_created'])
+    threads_cached = int(mystat.get('Threads_cached') or 0)
+    connections = int(mystat['Connections'])
+    uptime = int(mystat.get('Uptime') or 0)
+
+    # analyze data
+    hit_rate = (
+        round(100 - (threads_created / connections) * 100, 1)
+        if connections > 0
+        else 100.0
     )
 
-    # Thread cache
-    if myvar.get('have_threadpool', False) and myvar['have_threadpool'] == 'YES':
-        # https://www.percona.com/doc/percona-server/5.7/performance/threadpool.html#status-variables
-        # When thread pool is enabled, the value of the thread_cache_size variable
-        # is ignored. The Threads_cached status variable contains 0 in this case.
-        msg += 'Thread cache not used with thread pool enabled.'
+    if have_threadpool:
+        # Thread pool ignores `thread_cache_size`; nothing to alert on.
+        facts.append(
+            'Thread pool is enabled (`have_threadpool` = `YES`); '
+            '`thread_cache_size` is ignored, hit-rate check skipped'
+        )
+    elif thread_cache_size == 0:
+        state = lib.base.get_worst(state, STATE_WARN)
+        facts.append(
+            f'`thread_cache_size` is `0`, the thread cache is disabled'
+            f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
+        )
+        recommendations.append(
+            f'Set `thread_cache_size` to `{THREAD_CACHE_SIZE_START}` as a '
+            f'starting value (mysqltuner default). Raise it further if the '
+            f'hit rate stays low'
+        )
+    elif uptime < WARMUP_UPTIME_SECONDS:
+        # Suppress the alert; the cache has not had time to fill up. mysqltuner
+        # does not skip this case; we do because a cold cache routinely sits
+        # at 0% hit rate for the first minutes after a restart.
+        facts.append(
+            f'Thread cache hit rate: {hit_rate}% '
+            f'({lib.human.number2human(threads_created)} created / '
+            f'{lib.human.number2human(connections)} connections)'
+        )
+        facts.append(
+            f'cache is warming up (uptime '
+            f'{lib.human.seconds2human(uptime)} < 1 h); hit-rate alert '
+            f'suppressed'
+        )
     else:
-        if int(myvar['thread_cache_size']) == 0:
-            state = STATE_WARN
+        hit_rate_state = lib.base.get_state(
+            hit_rate,
+            args.WARNING,
+            args.CRITICAL,
+            _operator='range',
+        )
+        state = lib.base.get_worst(state, hit_rate_state)
+        facts.append(
+            f'Thread cache hit rate: {hit_rate}% '
+            f'({lib.human.number2human(threads_created)} created / '
+            f'{lib.human.number2human(connections)} connections)'
+            f'{lib.base.state2str(hit_rate_state, prefix=" ")}'
+        )
+        if hit_rate_state != STATE_OK:
+            recommendations.append(
+                f'Raise `thread_cache_size` (currently '
+                f'{thread_cache_size}); the server keeps creating new '
+                f'threads instead of reusing cached ones'
+            )
 
-            # build the message
-            msg += (
-                f'Thread cache is disabled'
-                f'{lib.base.state2str(state, prefix=" ")}'
-                f'. Set thread_cache_size to 4'
-                f' as a starting value.'
-            )
-        else:
-            msg += (
-                f'{mycalc["thread_cache_hit_rate"]}%'
-                f' thread cache hit rate'
-                f' ({lib.human.number2human(mystat["Threads_created"])}'
-                f' threads created /'
-                f' {lib.human.number2human(mystat["Connections"])}'
-                f' connections)'
-            )
-            if int(mystat['Uptime']) < 3600:
-                # only alert if cache is warmed up
-                msg += '. Cache is warming up.'
-            elif mycalc['thread_cache_hit_rate'] <= 50:
-                state = STATE_WARN
-                msg += (
-                    f'{lib.base.state2str(state, prefix=" ")}'
-                    f'. Set thread_cache_size >'
-                    f' {myvar["thread_cache_size"]}.'
-                )
-            else:
-                msg += '.'
+    facts.append(
+        f'`thread_cache_size` = {thread_cache_size}, '
+        f'`Threads_cached` = {threads_cached}'
+    )
+
+    # build the message
+    facts_text = '. '.join(facts) + '.'
+    if state == STATE_OK:
+        sections.append('Everything is ok. ' + facts_text)
+    else:
+        sections.append(facts_text)
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
+        )
+    msg = '\n\n'.join(sections)
 
     perfdata += lib.base.get_perfdata(
         'mysql_thread_cache_size',
-        myvar['thread_cache_size'],
-        uom='B',
-        _min=0,
-    )
-
-    perfdata += lib.base.get_perfdata(
-        'mysql_connections',
-        mystat['Connections'],
-        uom='c',
+        thread_cache_size,
         _min=0,
     )
     perfdata += lib.base.get_perfdata(
-        'mysql_threads_created',
-        mystat['Threads_created'],
-        uom='c',
+        'mysql_threads_cached',
+        threads_cached,
         _min=0,
     )
-
     perfdata += lib.base.get_perfdata(
         'mysql_thread_cache_hit_rate',
-        mycalc['thread_cache_hit_rate'],
+        hit_rate,
         uom='%',
+        warn=args.WARNING,
+        crit=args.CRITICAL,
         _min=0,
         _max=100,
     )
+
+    # Per-CONTRIBUTING: emit Connections / Threads_created as per-second
+    # deltas (computed in-plugin against a local SQLite cache) instead of
+    # cumulative `c` counters that force Grafana to do
+    # non_negative_difference() per panel.
+    rates = lib.db_sqlite.per_second_deltas(
+        SQLITE_DB,
+        'mysql-thread-cache',
+        {
+            'connections': connections,
+            'threads_created': threads_created,
+        },
+    )
+    if rates is not None:
+        perfdata += lib.base.get_perfdata(
+            'mysql_connections_per_second',
+            round(rates['connections'], 2),
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_threads_created_per_second',
+            round(rates['threads_created'], 2),
+            _min=0,
+        )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
