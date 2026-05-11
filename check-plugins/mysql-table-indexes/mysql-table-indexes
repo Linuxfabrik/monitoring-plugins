@@ -16,18 +16,34 @@ import sys
 import lib.args
 import lib.base
 import lib.db_mysql
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051001'
+__version__ = '2026051101'
 
-DESCRIPTION = """Checks for tables without primary keys or with duplicate indexes in MySQL/MariaDB.
-Missing primary keys can cause replication and performance issues.
-Alerts when tables without primary keys or with duplicate indexes are found."""
+DESCRIPTION = """Checks user schemas in MySQL/MariaDB for two replication- and performance-relevant
+defects: base tables with no index at all (mysqltuner v2.8.41's `mysql_tables()` check) and
+InnoDB base tables without a user-defined `PRIMARY KEY`. The second case is a documented
+hotspot for ROW-based replication: the replica has to materialise each row event against an
+internal hidden 6-byte index, which can degrade to a full table scan per row event. Alerts
+when either count crosses `--warning` / `--critical`."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_TIMEOUT = 3
+DEFAULT_LENGTHY = False
+
+# Default thresholds: the first defect already triggers WARN, an avalanche
+# (10+) escalates to CRIT.
+DEFAULT_WARN = 1
+DEFAULT_CRIT = 10
+
+SYSTEM_SCHEMAS = ('information_schema', 'mysql', 'performance_schema', 'sys')
+
+# How many bad tables to list inline without --lengthy. Above this the output
+# stays short and the admin uses --lengthy or the perfdata to dig further.
+LIST_LIMIT = 10
 
 
 def parse_args():
@@ -50,9 +66,20 @@ def parse_args():
     )
 
     parser.add_argument(
+        '-c',
+        '--critical',
+        help='Number of bad tables (per category: missing indexes / missing '
+        'primary key) at which the check flips to CRITICAL. '
+        'Default: %(default)s',
+        dest='CRITICAL',
+        type=int,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
         '--defaults-file',
-        help='MySQL/MariaDB cnf file to read parameters like user, host and password from (instead of specifying them on the command line). '
-        'Example: `/var/spool/icinga2/.my.cnf`. '
+        help='MySQL/MariaDB cnf file to read user, host and password from. '
+        'Example: `--defaults-file=/var/spool/icinga2/.my.cnf`. '
         'Default: %(default)s',
         dest='DEFAULTS_FILE',
         default=DEFAULT_DEFAULTS_FILE,
@@ -66,6 +93,34 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore-schemas',
+        help='Regex of schema names to exclude from the check. Evaluated by '
+        'MySQL via `NOT REGEXP`. '
+        'Example: `--ignore-schemas=^icinga`. '
+        'Default: <none>',
+        dest='IGNORE_SCHEMAS',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--ignore-tables',
+        help='Regex of table names to exclude from the check. Evaluated by '
+        'MySQL via `NOT REGEXP`. '
+        'Example: `--ignore-tables=^tmp_`. '
+        'Default: <none>',
+        dest='IGNORE_TABLES',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy') + ' Default: %(default)s',
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -73,15 +128,125 @@ def parse_args():
         default=DEFAULT_TIMEOUT,
     )
 
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='Number of bad tables (per category: missing indexes / missing '
+        'primary key) at which the check flips to WARNING. '
+        'Default: %(default)s',
+        dest='WARNING',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
     args, _ = parser.parse_known_args()
     return args
+
+
+def get_tables_without_any_index(
+    conn,
+    excluded,
+    ignore_schemas_clause,
+    ignore_tables_clause,
+):
+    # LEFT JOIN onto information_schema.statistics: a base table with no
+    # entries in statistics has no index at all. Single query, replaces the
+    # previous O(schemas * tables) round-trip storm.
+    sql = f"""
+        select t.TABLE_SCHEMA as table_schema,
+            t.TABLE_NAME as table_name,
+            t.ENGINE as engine
+        from information_schema.tables t
+        left join information_schema.statistics s
+            on t.TABLE_SCHEMA = s.TABLE_SCHEMA
+            and t.TABLE_NAME = s.TABLE_NAME
+        where t.TABLE_SCHEMA not in ({excluded})
+            and t.TABLE_TYPE = 'BASE TABLE'
+            and s.INDEX_NAME is null
+            {ignore_schemas_clause}
+            {ignore_tables_clause.replace('TABLE_NAME', 't.TABLE_NAME')}
+        order by t.TABLE_SCHEMA, t.TABLE_NAME
+        ;
+    """  # nosec B608
+    return lib.base.coe(lib.db_mysql.select(conn, sql))
+
+
+def get_innodb_tables_without_pk(
+    conn,
+    excluded,
+    ignore_schemas_clause,
+    ignore_tables_clause,
+):
+    # `NOT EXISTS` against statistics filtered to `INDEX_NAME = 'PRIMARY'`
+    # catches InnoDB base tables where the admin did not define a primary key.
+    # InnoDB synthesises a hidden 6-byte clustered index in that case, but
+    # ROW-based replication needs the user-defined PK to apply row events
+    # efficiently; without it the replica falls back to a full table scan
+    # per row event.
+    sql = f"""
+        select t.TABLE_SCHEMA as table_schema,
+            t.TABLE_NAME as table_name
+        from information_schema.tables t
+        where t.TABLE_SCHEMA not in ({excluded})
+            and t.TABLE_TYPE = 'BASE TABLE'
+            and t.ENGINE = 'InnoDB'
+            and not exists (
+                select 1
+                from information_schema.statistics s
+                where s.TABLE_SCHEMA = t.TABLE_SCHEMA
+                    and s.TABLE_NAME = t.TABLE_NAME
+                    and s.INDEX_NAME = 'PRIMARY'
+            )
+            {ignore_schemas_clause}
+            {ignore_tables_clause.replace('TABLE_NAME', 't.TABLE_NAME')}
+        order by t.TABLE_SCHEMA, t.TABLE_NAME
+        ;
+    """  # nosec B608
+    return lib.base.coe(lib.db_mysql.select(conn, sql))
+
+
+def get_total_tables(
+    conn,
+    excluded,
+    ignore_schemas_clause,
+    ignore_tables_clause,
+):
+    sql = f"""
+        select count(*) as cnt
+        from information_schema.tables
+        where TABLE_SCHEMA not in ({excluded})
+            and TABLE_TYPE = 'BASE TABLE'
+            {ignore_schemas_clause}
+            {ignore_tables_clause}
+        ;
+    """  # nosec B608
+    row = lib.base.coe(lib.db_mysql.select(conn, sql, fetchone=True))
+    return int(row['cnt'])
+
+
+def format_table_list(rows, lengthy):
+    """Render the per-table bullet list, truncated unless --lengthy."""
+    qualified = [f'`{row["table_schema"]}`.`{row["table_name"]}`' for row in rows]
+    if lengthy or len(qualified) <= LIST_LIMIT:
+        shown = qualified
+        suffix = ''
+    else:
+        shown = qualified[:LIST_LIMIT]
+        suffix = (
+            f'\n* ... and {len(qualified) - LIST_LIMIT} more'
+            f' (use `--lengthy` to see the full list)'
+        )
+    return '\n'.join(f'* {q}' for q in shown) + suffix
 
 
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:mysql_tables(), v1.9.8
-    # including variable names
+    # logic taken from mysqltuner.pl:mysql_tables(), verified in sync with
+    # MySQLTuner v2.8.41 for the "table has no index" check. The InnoDB
+    # "no PRIMARY KEY" check is a Linuxfabrik addition motivated by the
+    # well-documented ROW-based-replication performance hotspot and is not
+    # part of mysqltuner.
 
     # parse the command line
     try:
@@ -89,6 +254,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -97,60 +263,137 @@ def main():
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
     lib.base.coe(lib.db_mysql.check_privileges(conn, 'SELECT'))
 
-    # init some vars
-    msg = ''
-    state = STATE_OK
-    tables = []
+    # The `--ignore-tables` and `--ignore-schemas` regexes are interpolated
+    # into the SQL. Values come from the CLI (admin-controlled), embedded
+    # single quotes are escaped to keep the literal valid. MySQL rejects
+    # malformed regex patterns at query time and `lib.base.coe()` surfaces
+    # the error.
+    ignore_tables_clause = ''
+    if args.IGNORE_TABLES:
+        safe = args.IGNORE_TABLES.replace("'", "''")
+        ignore_tables_clause = f" and TABLE_NAME not regexp '{safe}'"
+    ignore_schemas_clause = ''
+    if args.IGNORE_SCHEMAS:
+        safe = args.IGNORE_SCHEMAS.replace("'", "''")
+        ignore_schemas_clause = f" and t.TABLE_SCHEMA not regexp '{safe}'"
 
-    # TABLE_SCHEMA and TABLE_NAME must be uppercase due to MySQL 8+
-    sql = """
-        select distinct TABLE_SCHEMA
-        from information_schema.tables
-        where TABLE_SCHEMA not in (
-            "mysql", "information_schema", "performance_schema", "percona", "sys"
-        );
-    """
-    user_dbs = lib.base.coe(lib.db_mysql.select(conn, sql))
+    excluded = ', '.join(f"'{s}'" for s in SYSTEM_SCHEMAS)
 
-    # schema and table names come from MySQL itself, not from user input
-    for schema in user_dbs:
-        sql = f'''
-            select TABLE_NAME
-            from information_schema.tables
-            where TABLE_SCHEMA="{schema['TABLE_SCHEMA']}"
-                and table_type="BASE TABLE"
-            order by TABLE_NAME;
-        '''  # nosec B608
-        user_tables = lib.base.coe(lib.db_mysql.select(conn, sql))
-
-        for table in user_tables:
-            sql = f'''
-                select index_name as idxname,
-                    group_concat(column_name order by seq_in_index) as cols,
-                    index_type as type
-                from information_schema.statistics
-                where index_schema="{schema['TABLE_SCHEMA']}"
-                    and TABLE_NAME="{table['TABLE_NAME']}"
-                group by idxname, type;
-            '''  # nosec B608
-            user_indexes = lib.base.coe(lib.db_mysql.select(conn, sql))
-            if len(user_indexes) == 0:
-                tables.append(f'{schema["TABLE_SCHEMA"]}.{table["TABLE_NAME"]}')
+    no_index_rows = get_tables_without_any_index(
+        conn,
+        excluded,
+        ignore_schemas_clause,
+        ignore_tables_clause,
+    )
+    no_pk_rows = get_innodb_tables_without_pk(
+        conn,
+        excluded,
+        ignore_schemas_clause,
+        ignore_tables_clause,
+    )
+    total_tables = get_total_tables(
+        conn,
+        excluded,
+        ignore_schemas_clause.replace('t.TABLE_SCHEMA', 'TABLE_SCHEMA'),
+        ignore_tables_clause,
+    )
 
     lib.db_mysql.close(conn)
 
-    if not tables:
-        msg = 'Everything is ok.'
+    # init some vars
+    state = STATE_OK
+    sections = []
+    # All recommendations from all WARN/CRIT paths land here and render once
+    # at the end as a `Recommendations:\n* ...` bulleted block.
+    recommendations = []
+    perfdata = ''
+
+    no_index_count = len(no_index_rows)
+    no_pk_count = len(no_pk_rows)
+
+    # analyze data
+    no_index_state = lib.base.get_state(
+        no_index_count,
+        args.WARNING,
+        args.CRITICAL,
+    )
+    no_pk_state = lib.base.get_state(
+        no_pk_count,
+        args.WARNING,
+        args.CRITICAL,
+    )
+    state = lib.base.get_worst(state, no_index_state, no_pk_state)
+
+    # build the message
+    facts = [
+        f'{total_tables} base'
+        f' {lib.txt.pluralize("table", total_tables)} across user schemas'
+    ]
+    if state == STATE_OK:
+        sections.append('Everything is ok. ' + '. '.join(facts) + '.')
     else:
-        state = STATE_WARN
-        msg = (
-            f'Tables without indexes '
-            f'{lib.base.state2str(state)}:\n'
-            f'* {chr(10) + "* ".join(tables)}'
+        sections.append('. '.join(facts) + '.')
+
+    if no_index_count > 0:
+        sections.append(
+            f'{no_index_count}'
+            f' {lib.txt.pluralize("table", no_index_count)}'
+            f' without any index'
+            f'{lib.base.state2str(no_index_state, prefix=" ")}:\n'
+            f'{format_table_list(no_index_rows, args.LENGTHY)}'
+        )
+        recommendations.append(
+            'Add at least a `PRIMARY KEY` (or any secondary index) on each '
+            'of the listed tables. A heap table without any index forces '
+            'every query against it into a full table scan'
         )
 
+    if no_pk_count > 0:
+        sections.append(
+            f'{no_pk_count} InnoDB'
+            f' {lib.txt.pluralize("table", no_pk_count)}'
+            f' without a user-defined `PRIMARY KEY`'
+            f'{lib.base.state2str(no_pk_state, prefix=" ")}:\n'
+            f'{format_table_list(no_pk_rows, args.LENGTHY)}'
+        )
+        recommendations.append(
+            'Add a `PRIMARY KEY` to each of the listed InnoDB tables. Without '
+            'a user-defined `PRIMARY KEY`, InnoDB falls back to a hidden '
+            '6-byte clustered index that ROW-based replication cannot use '
+            'efficiently (worst case: full table scan per row event on the '
+            'replica). Symptoms: replication lag, high CPU on replicas '
+            'during writes'
+        )
+
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
+        )
+
+    msg = '\n\n'.join(sections)
+
+    perfdata += lib.base.get_perfdata(
+        'mysql_total_tables',
+        total_tables,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_tables_without_index',
+        no_index_count,
+        warn=args.WARNING,
+        crit=args.CRITICAL,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_innodb_tables_without_primary_key',
+        no_pk_count,
+        warn=args.WARNING,
+        crit=args.CRITICAL,
+        _min=0,
+    )
+
     # over and out
-    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

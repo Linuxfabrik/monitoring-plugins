@@ -5,14 +5,29 @@
                 "--always-ok": {
                     "set_if": "$mysql_table_indexes_always_ok$"
                 },
+                "--critical": {
+                    "value": "$mysql_table_indexes_critical$"
+                },
                 "--defaults-file": {
                     "value": "$mysql_table_indexes_defaults_file$"
                 },
                 "--defaults-group": {
                     "value": "$mysql_table_indexes_defaults_group$"
                 },
+                "--ignore-schemas": {
+                    "value": "$mysql_table_indexes_ignore_schemas$"
+                },
+                "--ignore-tables": {
+                    "value": "$mysql_table_indexes_ignore_tables$"
+                },
+                "--lengthy": {
+                    "set_if": "$mysql_table_indexes_lengthy$"
+                },
                 "--timeout": {
                     "value": "$mysql_table_indexes_timeout$"
+                },
+                "--warning": {
+                    "value": "$mysql_table_indexes_warning$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/mysql-table-indexes",
@@ -35,6 +50,31 @@
                 },
                 {
                     "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -67,7 +107,7 @@
             "enable_flapping": null,
             "enable_notifications": true,
             "enable_passive_checks": null,
-            "enable_perfdata": false,
+            "enable_perfdata": true,
             "event_command": null,
             "fields": [],
             "flapping_threshold_high": null,
@@ -80,7 +120,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks for tables without primary keys or with duplicate indexes in MySQL/MariaDB. Missing primary keys can cause replication and performance issues. Alerts when tables without primary keys or with duplicate indexes are found.",
+            "notes": "Checks user schemas in MySQL/MariaDB for two replication- and performance-relevant defects: base tables with no index at all (mysqltuner v2.8.41's `mysql_tables()` check) and InnoDB base tables without a user-defined `PRIMARY KEY`. The second case is a documented hotspot for ROW-based replication: the replica has to materialise each row event against an internal hidden 6-byte index, which can degrade to a full table scan per row event. Alerts when either count crosses `--warning` / `--critical`.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-table-indexes/",
             "object_name": "tpl-service-mysql-table-indexes",
             "object_type": "template",
@@ -92,9 +132,12 @@
             "vars": {
                 "criticality": "C",
                 "mysql_table_indexes_always_ok": false,
+                "mysql_table_indexes_critical": 10,
                 "mysql_table_indexes_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_table_indexes_defaults_group": "client",
-                "mysql_table_indexes_timeout": 3
+                "mysql_table_indexes_lengthy": true,
+                "mysql_table_indexes_timeout": 3,
+                "mysql_table_indexes_warning": 1
             },
             "volatile": null,
             "zone": null,
@@ -112,9 +155,20 @@
             "uuid": "aa829cc6-7ed8-4fdb-897a-2a6ff4edab28"
         },
         "2": {
+            "varname": "mysql_table_indexes_critical",
+            "caption": "MySQL Table Indexes: Critical",
+            "description": "Number of bad tables (per category: missing indexes / missing primary key) at which the check flips to CRITICAL.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "f3eb9fe4-c287-44d8-89d0-a6356b6a5532"
+        },
+        "3": {
             "varname": "mysql_table_indexes_defaults_file",
             "caption": "MySQL Table Indexes: Defaults File",
-            "description": "MySQL/MariaDB cnf file to read parameters like user, host and password from (instead of specifying them on the command line). Example: `/var/spool/icinga2/.my.cnf`.",
+            "description": "MySQL/MariaDB cnf file to read user, host and password from. Example: `--defaults-file=/var/spool/icinga2/.my.cnf`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -122,7 +176,7 @@
             },
             "uuid": "7f56dd88-045c-4380-b096-057c912366fa"
         },
-        "3": {
+        "4": {
             "varname": "mysql_table_indexes_defaults_group",
             "caption": "MySQL Table Indexes: Defaults Group",
             "description": "Group/section to read from in the cnf file.",
@@ -133,7 +187,38 @@
             },
             "uuid": "0f4df9d4-300d-4b33-afa8-19b328999462"
         },
-        "4": {
+        "5": {
+            "varname": "mysql_table_indexes_ignore_schemas",
+            "caption": "MySQL Table Indexes: Ignore Schemas",
+            "description": "Regex of schema names to exclude from the check. Evaluated by MySQL via `NOT REGEXP`. Example: `--ignore-schemas=^icinga`. Default: <none>",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ac60a41d-27e4-46e9-b6ec-1ac0df77c1f3"
+        },
+        "6": {
+            "varname": "mysql_table_indexes_ignore_tables",
+            "caption": "MySQL Table Indexes: Ignore Tables",
+            "description": "Regex of table names to exclude from the check. Evaluated by MySQL via `NOT REGEXP`. Example: `--ignore-tables=^tmp_`. Default: <none>",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ecb8221c-5a69-4c6b-91b4-e137a3ec31aa"
+        },
+        "7": {
+            "varname": "mysql_table_indexes_lengthy",
+            "caption": "MySQL Table Indexes: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "bba3353d-8bb1-4578-95da-59ae56f7f0f5"
+        },
+        "8": {
             "varname": "mysql_table_indexes_timeout",
             "caption": "MySQL Table Indexes: Timeout",
             "description": "Network timeout in seconds.",
@@ -143,6 +228,17 @@
                 "visibility": "visible"
             },
             "uuid": "017c2536-9405-4bef-9af9-91d3c2b467eb"
+        },
+        "9": {
+            "varname": "mysql_table_indexes_warning",
+            "caption": "MySQL Table Indexes: Warning",
+            "description": "Number of bad tables (per category: missing indexes / missing primary key) at which the check flips to WARNING.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "93351ff7-9fe7-498b-8d73-4f88aaf4b54f"
         }
     }
 }

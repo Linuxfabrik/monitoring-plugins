@@ -1,0 +1,195 @@
+apiVersion: grizzly.grafana.com/v1alpha1
+kind: Dashboard
+metadata:
+  folder: linuxfabrik-monitoring-plugins
+  name: mysql-table-indexes
+spec:
+  schemaVersion: 42
+  tags:
+    - Linuxfabrik
+    - Grizzly
+    - static
+  time:
+    from: now-90d
+    to: now
+  timepicker:
+    hidden: false
+    refresh_intervals:
+    - 1m
+  timezone: browser
+  title: MySQL Table Indexes
+  editable: true
+  liveNow: true
+  refresh: 1m
+  templating:
+    list:
+    - label: Command
+      name: command
+      query: SHOW MEASUREMENTS WITH MEASUREMENT =~ /.*mysql-table-indexes.*/
+      current:
+        text: cmd-check-mysql-table-indexes
+        value: cmd-check-mysql-table-indexes
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Hostname
+      name: hostname
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "hostname"
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Service
+      name: service
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "service" WHERE hostname = '$hostname'
+      refresh: 1
+      sort: 1
+      type: query
+
+  panels:
+
+  - title: MySQL Table Indexes - Bad Tables vs. Total
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 24
+      x: 0
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        min: 0
+        unit: short
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_total_tables
+        properties:
+        - id: displayName
+          value: Total base tables (non-system schemas)
+      - matcher:
+          id: byName
+          options: mysql_tables_without_index
+        properties:
+        - id: displayName
+          value: Tables without any index
+      - matcher:
+          id: byName
+          options: mysql_innodb_tables_without_primary_key
+        properties:
+        - id: displayName
+          value: InnoDB tables without PRIMARY KEY
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: mysql_total_tables
+      refId: mysql_total_tables
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_total_tables
+
+    - alias: mysql_tables_without_index
+      refId: mysql_tables_without_index
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_tables_without_index
+
+    - alias: mysql_innodb_tables_without_primary_key
+      refId: mysql_innodb_tables_without_primary_key
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_innodb_tables_without_primary_key
