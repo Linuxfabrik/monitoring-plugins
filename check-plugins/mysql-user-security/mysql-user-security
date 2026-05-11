@@ -11,8 +11,6 @@
 """See the check's README for more details."""
 
 import argparse
-import random
-import string
 import sys
 
 import lib.args
@@ -22,16 +20,34 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051001'
+__version__ = '2026051101'
 
-DESCRIPTION = """Checks MySQL/MariaDB user security settings, including accounts with empty passwords,
-accounts accessible from any host, and accounts with excessive privileges.
-Alerts on insecure account configurations."""
+DESCRIPTION = """Checks MySQL/MariaDB user security: anonymous accounts (empty user name),
+accounts with empty passwords, accounts whose password matches the username (the classic
+`root/root` weak-password pattern), and accounts that accept connections from any host
+(`'%'` wildcard). Each finding maps to a copy-pasteable SQL recommendation."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
-DEFAULT_SERVERITY = 'warn'
+DEFAULT_SEVERITY = 'warn'
 DEFAULT_TIMEOUT = 3
+
+# Placeholder password in suggested SQL statements. Self-evidently not a real
+# value, so an admin who copies the SQL has to set their own password instead
+# of accidentally going live with whatever the plugin printed.
+PASSWORD_PLACEHOLDER = '<replace-with-strong-password>'
+
+# Hostname placeholder for the `RENAME USER ... TO ...` advice.
+HOST_PLACEHOLDER = 'LimitedIPRangeOrLocalhost'
+
+# Possible password column names across MySQL / MariaDB versions, tried in
+# order. The last entry handles the MySQL 5.6-era split where the column
+# depends on the auth plugin.
+PASS_COLUMN_NAMES = [
+    'password',
+    'authentication_string',
+    'IF(plugin="mysql_native_password", authentication_string, password)',
+]
 
 
 def parse_args():
@@ -55,8 +71,8 @@ def parse_args():
 
     parser.add_argument(
         '--defaults-file',
-        help='MySQL/MariaDB cnf file to read parameters like user, host and password from (instead of specifying them on the command line). '
-        'Example: `/var/spool/icinga2/.my.cnf`. '
+        help='MySQL/MariaDB cnf file to read user, host and password from. '
+        'Example: `--defaults-file=/var/spool/icinga2/.my.cnf`. '
         'Default: %(default)s',
         dest='DEFAULTS_FILE',
         default=DEFAULT_DEFAULTS_FILE,
@@ -71,10 +87,12 @@ def parse_args():
 
     parser.add_argument(
         '--severity',
-        help='Severity for alerts that do not depend on thresholds. One of "warn" or "crit". '
+        help='Severity for the threshold-less security findings (anonymous '
+        'accounts, empty passwords, weak passwords, wildcard hosts). '
+        'One of `warn` or `crit`. '
         'Default: %(default)s',
         dest='SEVERITY',
-        default=DEFAULT_SERVERITY,
+        default=DEFAULT_SEVERITY,
         choices=['warn', 'crit'],
     )
 
@@ -90,11 +108,166 @@ def parse_args():
     return args
 
 
+def has_is_role_column(conn):
+    """Return True if `mysql.user.IS_ROLE` exists (MariaDB 10.0.5+ roles).
+
+    When the column exists, role rows in `mysql.user` have `IS_ROLE = 'Y'`
+    and must be excluded from the anonymous-user / empty-password / username-
+    as-password checks because a role legitimately has no password and an
+    empty `host` column.
+    """
+    sql = """
+        select count(*) as cnt
+        from information_schema.columns
+        where TABLE_SCHEMA = 'mysql'
+            and TABLE_NAME = 'user'
+            and COLUMN_NAME = 'IS_ROLE'
+        ;
+    """
+    row = lib.base.coe(lib.db_mysql.select(conn, sql, fetchone=True))
+    return int(row['cnt']) > 0
+
+
+def validate_password_active(conn):
+    """Return True if the `validate_password` plugin is loaded and active.
+
+    On MySQL 5.7+ with `validate_password` enabled, comparing a column to
+    `PASSWORD(user)` from the plugin fails with an error (Bug #80860).
+    mysqltuner skips the username-as-password check in that case and we
+    mirror.
+    """
+    sql = """
+        select count(*) as cnt
+        from information_schema.plugins
+        where PLUGIN_NAME = 'validate_password'
+            and PLUGIN_STATUS = 'ACTIVE'
+        ;
+    """
+    success, row = lib.db_mysql.select(conn, sql, fetchone=True)
+    if not success or row is None:
+        return False
+    return int(row['cnt']) > 0
+
+
+def find_anonymous_users(conn, role_filter):
+    sql = f"""
+        select concat(quote(user), '@', quote(host)) as user
+        from mysql.user
+        where {role_filter}(trim(user) = '' or user is null)
+        ;
+    """  # nosec B608
+    return lib.base.coe(lib.db_mysql.select(conn, sql))
+
+
+def find_empty_password_users(conn):
+    # MariaDB 10.4+ stores priv data in `mysql.global_priv` as JSON. The
+    # mysql.user view's password column is no longer authoritative there.
+    sql = """
+        select concat(quote(user), '@', quote(host)) as user
+        from mysql.global_priv
+        where user != ''
+            and user != 'mariadb.sys'
+            and user != 'mysql.sys'
+            and json_contains(priv, '"mysql_native_password"', '$.plugin')
+            and json_contains(priv, '""', '$.authentication_string')
+            and not json_contains(priv, '"true"', '$.account_locked')
+        ;
+    """
+    success, users = lib.db_mysql.select(conn, sql)
+    if success:
+        return users
+    # Older MySQL / MariaDB: fall through the known password column names.
+    for pass_column in PASS_COLUMN_NAMES:
+        sql = f"""
+            select concat(quote(user), '@', quote(host)) as user
+            from mysql.user
+            where ({pass_column} = '' or {pass_column} is null)
+                and user != ''
+                and user != 'mariadb.sys'
+                and user != 'mysql.sys'
+                /*!50501 and plugin not in ('auth_socket', 'unix_socket',
+                                            'win_socket', 'auth_pam_compat') */
+                /*!80000 and account_locked = 'N' and password_expired = 'N' */
+            ;
+        """  # nosec B608
+        success, users = lib.db_mysql.select(conn, sql)
+        if success:
+            return users
+    return []
+
+
+def find_username_as_password_users(conn, role_filter):
+    # `PASSWORD(...)` was removed in MySQL 8.0 and this whole check no
+    # longer compiles there; the caller already guards by version. We try
+    # the known password column names in order and stop at the first that
+    # parses against the running server.
+    for pass_column in PASS_COLUMN_NAMES:
+        sql = f"""
+            select concat(quote(user), '@', quote(host)) as user
+            from mysql.user
+            where {role_filter}user != ''
+                and user != 'mariadb.sys'
+                and user != 'mysql.sys'
+                and (
+                    cast({pass_column} as binary) = password(user)
+                    or cast({pass_column} as binary) = password(upper(user))
+                    or cast({pass_column} as binary) = password(
+                        concat(upper(left(user, 1)),
+                               substring(user, 2, length(user)))
+                    )
+                )
+            ;
+        """  # nosec B608
+        success, users = lib.db_mysql.select(conn, sql)
+        if success:
+            return users
+    return []
+
+
+def find_wildcard_host_users(conn):
+    sql = """
+        select concat(quote(user), '@', quote(host)) as user
+        from mysql.user
+        where host = '%'
+        ;
+    """
+    return lib.base.coe(lib.db_mysql.select(conn, sql))
+
+
+def count_non_system_users(conn, role_filter):
+    """Total non-system user accounts. Excludes roles when `IS_ROLE` exists."""
+    sql = f"""
+        select count(*) as cnt
+        from mysql.user
+        where {role_filter}user not in ('mariadb.sys', 'mysql.sys')
+        ;
+    """  # nosec B608
+    row = lib.base.coe(lib.db_mysql.select(conn, sql, fetchone=True))
+    return int(row['cnt'])
+
+
+def count_roles(conn, has_role_column):
+    """Number of MariaDB roles. Returns 0 when the column does not exist."""
+    if not has_role_column:
+        return 0
+    sql = """
+        select count(*) as cnt
+        from mysql.user
+        where IS_ROLE = 'Y'
+        ;
+    """
+    row = lib.base.coe(lib.db_mysql.select(conn, sql, fetchone=True))
+    return int(row['cnt'])
+
+
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:security_recommendations(), v1.9.8
-    # including variable names
+    # logic taken from mysqltuner.pl:security_recommendations(), verified in
+    # sync with MySQLTuner v2.8.41. The basic password dictionary file check
+    # that mysqltuner runs after the SQL-level checks is intentionally not
+    # ported - it depends on a local password word-list and is not the kind
+    # of test that fits a recurring monitoring plugin.
 
     # parse the command line
     try:
@@ -102,6 +275,9 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    severity_state = lib.base.str2state(args.SEVERITY)
+
+    # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -110,154 +286,151 @@ def main():
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
     lib.base.coe(lib.db_mysql.check_privileges(conn, 'SELECT'))
 
-    # init some vars
-    msg_header, msg_body = '', ''
-    state = STATE_OK
+    # Role-filter fragment: when `IS_ROLE` exists, exclude rows representing
+    # roles (MariaDB 10.0.5+). Otherwise the fragment is empty.
+    has_role_column = has_is_role_column(conn)
+    role_filter = "IS_ROLE = 'N' and " if has_role_column else ''
+    skip_username_as_password = validate_password_active(conn)
 
-    # Looking for Anonymous users
-    sql = """
-        select concat(quote(user), "@", quote(host)) as user
-        from mysql.user
-        where trim(user) = ""
-            or user is null;
-    """
-    users = lib.base.coe(lib.db_mysql.select(conn, sql))
-    if len(users):
-        state = lib.base.str2state(args.SEVERITY)
-        msg_header += (
-            f'{len(users)} anonymous user'
-            f' {lib.txt.pluralize("account", len(users))}'
-            f'{lib.base.state2str(lib.base.str2state(args.SEVERITY), prefix=" ")}'
-            f'. '
-        )
-        msg_body += '\nRemove anonymous users:\n'
-        for user in users:
-            msg_body += f'* DROP USER {user["user"]};\n'
-
-    # possible password column names:
-    pass_column_names = [
-        'password',
-        'authentication_string',
-        'IF(plugin="mysql_native_password", authentication_string, password)',
-    ]
-
-    # Looking for users having empty passwords
-    # MariaDB 10.4+:
-    sql = """
-        select concat(quote(user), "@", quote(host)) as user
-        from mysql.global_priv
-        where user != ""
-            and user != "mariadb.sys"
-            and user != "mysql.sys"
-            and json_contains(priv, '"mysql_native_password"', "$.plugin")
-            and json_contains(priv, '""', "$.authentication_string")
-            and not json_contains(priv, '"true"', "$.account_locked");
-    """
-    success, users = lib.db_mysql.select(conn, sql)
-    if not success:
-        # all other versions:
-        # pass_column_name is from a hardcoded list of MySQL-version-specific column names
-        for pass_column_name in pass_column_names:
-            sql = f"""
-                select concat(quote(user), "@", quote(host)) as user
-                from mysql.user
-                where ({pass_column_name} = "" or {pass_column_name} is null)
-                    and user != ""
-                    and user != "mariadb.sys"
-                    and user != "mysql.sys"
-                    /*!50501 and plugin not in ("auth_socket", "unix_socket", "win_socket", "auth_pam_compat") */
-                    /*!80000 and account_locked = "N" and password_expired = "N" */;
-            """  # nosec B608
-            success, users = lib.db_mysql.select(conn, sql)
-            if success:
-                break
-    if success and len(users):
-        state = lib.base.str2state(args.SEVERITY)
-        msg_header += (
-            f'{len(users)}'
-            f' {lib.txt.pluralize("user", len(users))}'
-            f' without password'
-            f'{lib.base.state2str(state, prefix=" ")}'
-            f'. '
-        )
-        msg_body += '\nSet user passwords:\n'
-        for user in users:
-            random_pw = ''.join(
-                random.choice(string.ascii_letters + string.digits) for i in range(40)
-            )
-            msg_body += (
-                f'* SET PASSWORD FOR {user["user"]} = PASSWORD("{random_pw}");\n'
-            )
-
-    # Looking for users with user / uppercase / capitalise user as password
-    # does not work on MySQL 8
-    # pass_column_name is from a hardcoded list of MySQL-version-specific column names
-    for pass_column_name in pass_column_names:
-        sql = f"""
-            select concat(quote(user), "@", quote(host)) as user
-            from mysql.user
-            where user != ""
-                and user != "mariadb.sys"
-                and user != "mysql.sys"
-                and (
-                    cast({pass_column_name} as binary) = password(user)
-                    or cast({pass_column_name} as binary) = password(upper(user))
-                    or cast({pass_column_name} as binary) = password(concat(upper(left(user, 1)), substring(user, 2, length(user))))
-                );
-        """  # nosec B608
-        success, users = lib.db_mysql.select(conn, sql)
-        if success:
-            break
-    if success and len(users):
-        state = lib.base.str2state(args.SEVERITY)
-        msg_header += (
-            f'{len(users)}'
-            f' {lib.txt.pluralize("user", len(users))}'
-            f' with username as password'
-            f'{lib.base.state2str(state, prefix=" ")}'
-            f'. '
-        )
-        msg_body += '\nChange user passwords:\n'
-        for user in users:
-            random_pw = ''.join(
-                random.choice(string.ascii_letters + string.digits) for i in range(40)
-            )
-            msg_body += (
-                f'* SET PASSWORD FOR {user["user"]} = PASSWORD("{random_pw}");\n'
-            )
-
-    # Looking for users without hostname restriction
-    sql = """
-        select concat(quote(user), "@", quote(host)) as user
-        from mysql.user
-        where host = "%";
-    """
-    users = lib.base.coe(lib.db_mysql.select(conn, sql))
-    if len(users):
-        state = lib.base.str2state(args.SEVERITY)
-        msg_header += (
-            f'{len(users)}'
-            f' {lib.txt.pluralize("account", len(users))}'
-            f' without hostname restriction'
-            f'{lib.base.state2str(lib.base.str2state(args.SEVERITY), prefix=" ")}'
-            f'. '
-        )
-        msg_body += '\nRestrict users:\n'
-        for user in users:
-            renamed = user['user'].replace(
-                "'%",
-                "'LimitedIPRangeOrLocalhost",
-            )
-            msg_body += f'* RENAME USER {user["user"]} TO {renamed};\n'
+    anonymous_users = find_anonymous_users(conn, role_filter)
+    empty_password_users = find_empty_password_users(conn)
+    username_pw_users = (
+        []
+        if skip_username_as_password
+        else find_username_as_password_users(conn, role_filter)
+    )
+    wildcard_host_users = find_wildcard_host_users(conn)
+    user_count = count_non_system_users(conn, role_filter)
+    role_count = count_roles(conn, has_role_column)
 
     lib.db_mysql.close(conn)
 
-    msg = msg_header + '\n' + msg_body
-    if not msg.strip():
-        msg = 'Everything is ok.'
+    # init some vars
+    state = STATE_OK
+    sections = []
+    findings = []
+    # All recommendations land here and render once at the end as a
+    # `Recommendations:\n* ...` bulleted block, regardless of which findings
+    # fire. Copy-pasteable SQL statements are kept verbatim so the admin can
+    # apply them after substituting the placeholder.
+    recommendations = []
+    perfdata = ''
+
+    # analyze data
+    # Each check produces one facts line: "N <category>" with a state marker
+    # when N > 0, or "0 <category>" on a clean check.
+    if anonymous_users:
+        state = lib.base.get_worst(state, severity_state)
+        findings.append(
+            f'{len(anonymous_users)} anonymous '
+            f'{lib.txt.pluralize("account", len(anonymous_users))}'
+            f'{lib.base.state2str(severity_state, prefix=" ")}'
+        )
+        for u in anonymous_users:
+            recommendations.append(f'DROP USER {u["user"]};')
+    else:
+        findings.append('0 anonymous accounts')
+
+    if empty_password_users:
+        state = lib.base.get_worst(state, severity_state)
+        findings.append(
+            f'{len(empty_password_users)} '
+            f'{lib.txt.pluralize("user", len(empty_password_users))} '
+            f'without password'
+            f'{lib.base.state2str(severity_state, prefix=" ")}'
+        )
+        for u in empty_password_users:
+            recommendations.append(
+                f"SET PASSWORD FOR {u['user']} = PASSWORD('{PASSWORD_PLACEHOLDER}');"
+            )
+    else:
+        findings.append('0 users without password')
+
+    if skip_username_as_password:
+        findings.append(
+            'username-as-password check skipped '
+            '(`validate_password` plugin is active; MySQL Bug #80860)'
+        )
+    elif username_pw_users:
+        state = lib.base.get_worst(state, severity_state)
+        findings.append(
+            f'{len(username_pw_users)} '
+            f'{lib.txt.pluralize("user", len(username_pw_users))} '
+            f'with username as password'
+            f'{lib.base.state2str(severity_state, prefix=" ")}'
+        )
+        for u in username_pw_users:
+            recommendations.append(
+                f"SET PASSWORD FOR {u['user']} = PASSWORD('{PASSWORD_PLACEHOLDER}');"
+            )
+    else:
+        findings.append('0 users with username as password')
+
+    if wildcard_host_users:
+        state = lib.base.get_worst(state, severity_state)
+        findings.append(
+            f'{len(wildcard_host_users)} '
+            f'{lib.txt.pluralize("account", len(wildcard_host_users))} '
+            f'without hostname restriction'
+            f'{lib.base.state2str(severity_state, prefix=" ")}'
+        )
+        for u in wildcard_host_users:
+            renamed = u['user'].replace("'%'", f"'{HOST_PLACEHOLDER}'")
+            recommendations.append(f'RENAME USER {u["user"]} TO {renamed};')
+    else:
+        findings.append('0 accounts without hostname restriction')
+
+    # build the message
+    scope = f'{user_count} non-system user '
+    scope += lib.txt.pluralize('account', user_count)
+    if has_role_column:
+        scope += f', {role_count} {lib.txt.pluralize("role", role_count)}'
+    facts_text = scope + '. ' + '. '.join(findings) + '.'
+    if state == STATE_OK:
+        sections.append('Everything is ok. ' + facts_text)
+    else:
+        sections.append(facts_text)
+
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
+        )
+
+    msg = '\n\n'.join(sections)
+
+    perfdata += lib.base.get_perfdata(
+        'mysql_user_count',
+        user_count,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_role_count',
+        role_count,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_anonymous_users',
+        len(anonymous_users),
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_users_without_password',
+        len(empty_password_users),
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_users_with_username_as_password',
+        len(username_pw_users),
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_users_with_wildcard_host',
+        len(wildcard_host_users),
+        _min=0,
+    )
 
     # over and out
-    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

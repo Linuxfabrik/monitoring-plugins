@@ -3,16 +3,21 @@
 
 ## Overview
 
-Checks MySQL/MariaDB user security settings, including accounts with empty passwords, accounts accessible from any host, and accounts with excessive privileges. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):security_recommendations(), v1.9.8.
+Checks MySQL/MariaDB user security: anonymous accounts, empty passwords, accounts whose password matches the username (`root/root` weak-password pattern), and accounts accepting connections from any host (`'%'` wildcard). Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):security_recommendations() and verified in sync with MySQLTuner v2.8.41.
 
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
+* The username-as-password check is skipped when MySQL's `validate_password` plugin is active, because `PASSWORD(user)` calls inside the comparison fail in that case ([MySQL Bug #80860](https://bugs.mysql.com/bug.php?id=80860)). mysqltuner does the same
+* Roles (MariaDB 10.0.5+, `mysql.user.IS_ROLE = 'Y'`) are excluded from the anonymous-user and username-as-password checks because a role legitimately has no password and an empty `host`
+* The basic-password dictionary check that mysqltuner runs from a local word-list is intentionally not ported - it does not fit a recurring monitoring plugin
+* SQL recommendations show `<replace-with-strong-password>` as a placeholder. Substitute a strong password before running the statements; the literal placeholder is self-evidently not a usable value
 
 **Data Collection:**
 
 * Queries `mysql.user` and `mysql.global_priv` (on MariaDB 10.4+) to identify insecure accounts
 * The system users `mysql.sys` and `mariadb.sys` are excluded because they intentionally use invalid passwords as a security measure
+* `validate_password` plugin status is read from `information_schema.plugins` (skip the username-as-password check when active)
 
 
 ## Fact Sheet
@@ -37,26 +42,29 @@ usage: mysql-user-security [-h] [-V] [--always-ok]
                            [--defaults-group DEFAULTS_GROUP]
                            [--severity {warn,crit}] [--timeout TIMEOUT]
 
-Checks MySQL/MariaDB user security settings, including accounts with empty
-passwords, accounts accessible from any host, and accounts with excessive
-privileges. Alerts on insecure account configurations.
+Checks MySQL/MariaDB user security: anonymous accounts (empty user name),
+accounts with empty passwords, accounts whose password matches the username
+(the classic `root/root` weak-password pattern), and accounts that accept
+connections from any host (`'%'` wildcard). Each finding maps to a copy-
+pasteable SQL recommendation.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --defaults-file DEFAULTS_FILE
-                        MySQL/MariaDB cnf file to read parameters like user,
-                        host and password from (instead of specifying them on
-                        the command line). Example:
-                        `/var/spool/icinga2/.my.cnf`. Default:
+                        MySQL/MariaDB cnf file to read user, host and password
+                        from. Example: `--defaults-
+                        file=/var/spool/icinga2/.my.cnf`. Default:
                         /var/spool/icinga2/.my.cnf
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
   --severity {warn,crit}
-                        Severity for alerts that do not depend on thresholds.
-                        One of "warn" or "crit". Default: warn
+                        Severity for the threshold-less security findings
+                        (anonymous accounts, empty passwords, weak passwords,
+                        wildcard hosts). One of `warn` or `crit`. Default:
+                        warn
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 
@@ -67,35 +75,45 @@ options:
 ./mysql-user-security --defaults-file=/var/spool/icinga2/.my.cnf
 ```
 
-Output:
+OK output:
 
 ```text
-1 anonymous user account [WARNING]. 1 user with username as password [WARNING]. 1 account without hostname restriction [WARNING]. 
+Everything is ok. 12 non-system user accounts, 3 roles. 0 anonymous accounts. 0 users without password. 0 users with username as password. 0 accounts without hostname restriction.
+```
 
-Remove anonymous users:
-* DROP USER ''@'centos7.loc';
+WARN output:
 
-Change user passwords:
-* SET PASSWORD FOR 'root'@'localhost' = PASSWORD("I9n2eSGZ8u9MrScx0ckWYhGpQk6ouKh1yMn7Jnwj");
+```text
+6 non-system user accounts, 0 roles. 0 anonymous accounts. 0 users without password. 1 user with username as password [WARNING]. 2 accounts without hostname restriction [WARNING].
 
-Restrict users:
-* RENAME USER 'mariadb-admin'@'%' TO 'mariadb-admin'@'LimitedIPRangeOrLocalhost';
+Recommendations:
+* SET PASSWORD FOR 'test'@'%' = PASSWORD('<replace-with-strong-password>');
+* RENAME USER 'root'@'%' TO 'root'@'LimitedIPRangeOrLocalhost';
+* RENAME USER 'test'@'%' TO 'test'@'LimitedIPRangeOrLocalhost';
 ```
 
 
 ## States
 
 * OK if no insecure accounts are found.
-* WARN (default) or CRIT (via `--severity`) if anonymous users are found.
-* WARN (default) or CRIT (via `--severity`) if users having empty passwords are found.
-* WARN (default) or CRIT (via `--severity`) if users with user / uppercase / capitalise user as password are found (does not work on MySQL 8, ignored).
-* WARN (default) or CRIT (via `--severity`) if users without hostname restriction are found.
+* `--severity warn` (default) or `--severity crit` controls the state returned for each of the four findings:
+    * anonymous accounts (`user = ''`)
+    * accounts with empty passwords
+    * accounts whose password equals the username (skipped when the `validate_password` plugin is active)
+    * accounts with host `'%'` (no hostname restriction)
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-There is no perfdata.
+| Name | Type | Description |
+|----|----|----|
+| mysql_anonymous_users | Number | Count of accounts with an empty user name. |
+| mysql_role_count | Number | Count of MariaDB roles (`mysql.user.IS_ROLE = 'Y'`). Always 0 on MySQL and on MariaDB without the `IS_ROLE` column. |
+| mysql_user_count | Number | Total non-system user accounts. System users `mariadb.sys` and `mysql.sys` are excluded; roles are excluded when the `IS_ROLE` column is present. Useful for trending: a spike here means someone added (or, less likely, removed) accounts. |
+| mysql_users_with_username_as_password | Number | Count of accounts whose stored password equals the username, uppercase username, or capitalised username. Always 0 on MySQL 8+ and on servers with the `validate_password` plugin active. |
+| mysql_users_with_wildcard_host | Number | Count of accounts with `host = '%'`. |
+| mysql_users_without_password | Number | Count of accounts whose `authentication_string` is empty (and not locked or expired). |
 
 
 ## Credits, License

@@ -75,7 +75,7 @@
             "enable_flapping": null,
             "enable_notifications": true,
             "enable_passive_checks": null,
-            "enable_perfdata": false,
+            "enable_perfdata": true,
             "event_command": null,
             "fields": [],
             "flapping_threshold_high": null,
@@ -88,7 +88,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks MySQL/MariaDB user security settings, including accounts with empty passwords, accounts accessible from any host, and accounts with excessive privileges. Alerts on insecure account configurations.",
+            "notes": "Checks MySQL/MariaDB user security: anonymous accounts (empty user name), accounts with empty passwords, accounts whose password matches the username (the classic `root/root` weak-password pattern), and accounts that accept connections from any host (`'%'` wildcard). Each finding maps to a copy-pasteable SQL recommendation.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-user-security/",
             "object_name": "tpl-service-mysql-user-security",
             "object_type": "template",
@@ -144,7 +144,7 @@
         "2": {
             "varname": "mysql_user_security_defaults_file",
             "caption": "MySQL User Security: Defaults File",
-            "description": "MySQL/MariaDB cnf file to read parameters like user, host and password from (instead of specifying them on the command line). Example: `/var/spool/icinga2/.my.cnf`.",
+            "description": "MySQL/MariaDB cnf file to read user, host and password from. Example: `--defaults-file=/var/spool/icinga2/.my.cnf`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -166,7 +166,7 @@
         "4": {
             "varname": "mysql_user_security_severity",
             "caption": "MySQL User Security: Severity",
-            "description": "Severity for alerts that do not depend on thresholds. One of \"warn\" or \"crit\".",
+            "description": "Severity for the threshold-less security findings (anonymous accounts, empty passwords, weak passwords, wildcard hosts). One of `warn` or `crit`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
