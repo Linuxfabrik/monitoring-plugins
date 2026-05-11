@@ -16,19 +16,30 @@ import sys
 import lib.args
 import lib.base
 import lib.db_mysql
+import lib.db_sqlite
 import lib.human
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051002'
+__version__ = '2026051101'
 
-DESCRIPTION = """Checks the hit rate for open table cache lookups in MySQL/MariaDB. A low hit rate
-indicates that `table_open_cache` may need to be increased.
-Alerts when the hit rate drops below acceptable levels."""
+DESCRIPTION = """Checks the hit rate of the MySQL/MariaDB open table cache (`Table_open_cache_hits`
+divided by (`Table_open_cache_hits` + `Table_open_cache_misses`); on servers without
+`Table_open_cache_hits` it falls back to `Open_tables` / `Opened_tables`). A low hit rate means
+`table_open_cache` is too small for the workload and threads have to keep reopening tables.
+Alerts when the rate drops below `--warning` / `--critical`. Also reminds the admin that
+`open_files_limit` has to stay above `table_open_cache`."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
+# mysqltuner v2.8.41 alerts at < 20% hit rate; we keep that as WARN and add a
+# CRIT escalation at < 10% so the plugin state actually goes red when the
+# cache is severely undersized.
+DEFAULT_WARN = 20
+DEFAULT_CRIT = 10
 DEFAULT_TIMEOUT = 3
+
+SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-table-cache.db'
 
 
 def parse_args():
@@ -51,9 +62,19 @@ def parse_args():
     )
 
     parser.add_argument(
+        '-c',
+        '--critical',
+        help='Table cache hit rate (percent) at which the check flips to CRITICAL. '
+        'Default: %(default)s',
+        dest='CRITICAL',
+        type=float,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
         '--defaults-file',
-        help='MySQL/MariaDB cnf file to read parameters like user, host and password from (instead of specifying them on the command line). '
-        'Example: `/var/spool/icinga2/.my.cnf`. '
+        help='MySQL/MariaDB cnf file to read user, host and password from. '
+        'Example: `--defaults-file=/var/spool/icinga2/.my.cnf`. '
         'Default: %(default)s',
         dest='DEFAULTS_FILE',
         default=DEFAULT_DEFAULTS_FILE,
@@ -74,6 +95,16 @@ def parse_args():
         default=DEFAULT_TIMEOUT,
     )
 
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='Table cache hit rate (percent) at which the check flips to WARNING. '
+        'Default: %(default)s',
+        dest='WARNING',
+        type=float,
+        default=DEFAULT_WARN,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -92,9 +123,6 @@ def get_vars(conn):
 
 
 def get_status(conn):
-    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
-    # Without the GLOBAL modifier, SHOW STATUS displays the values that are used for
-    # the current connection to MariaDB.
     sql = """
         show global status
         where variable_name like 'Open_tables'
@@ -109,13 +137,14 @@ def get_status(conn):
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:mysql_stats(), section # Table cache,
+    # logic taken from mysqltuner.pl:mysql_stats(), section "Table cache",
     # verified in sync with MySQLTuner v2.8.41 (the hit-rate formula, the
     # `Opened_tables > 0` calc guard, the `Open_tables > 0` check guard,
-    # the `< 20%` warn threshold and the "Increase table_open_cache
-    # gradually" / "open_files_limit must be greater than
-    # table_open_cache" recommendation are unchanged upstream since the
-    # original port).
+    # and the "increase `table_open_cache` / keep `open_files_limit` above
+    # `table_open_cache`" recommendation are unchanged upstream since the
+    # original port). Our --warning default 20% matches mysqltuner; --critical
+    # 10% is a Linuxfabrik addition so the plugin state escalates to CRIT
+    # before the cache is essentially useless.
 
     # parse the command line
     try:
@@ -123,6 +152,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -137,116 +167,143 @@ def main():
 
     # init some vars
     state = STATE_OK
+    sections = []
+    facts = []
+    # All recommendations from all WARN/CRIT paths land here and render once
+    # at the end as a `Recommendations:\n* ...` bulleted block, regardless of
+    # which combinations of WARN/CRIT paths fire.
+    recommendations = []
     perfdata = ''
 
-    # calculations
-    mycalc = {}
-    if int(mystat['Opened_tables']) > 0:
-        if mystat.get('Table_open_cache_hits', None) is None:
-            mycalc['table_cache_hit_rate'] = round(
-                int(mystat['Open_tables']) / int(mystat['Opened_tables']) * 100, 1
-            )
-        else:
-            mycalc['table_cache_hit_rate'] = round(
-                int(mystat['Table_open_cache_hits'])
-                / (
-                    int(mystat['Table_open_cache_hits'])
-                    + int(mystat['Table_open_cache_misses'])
-                )
-                * 100,
-                1,
-            )
+    open_tables = int(mystat['Open_tables'])
+    opened_tables = int(mystat['Opened_tables'])
+    table_open_cache = int(myvar['table_open_cache'])
+    open_files_limit = int(myvar['open_files_limit'])
+    cache_hits_raw = mystat.get('Table_open_cache_hits')
+    has_modern_counters = cache_hits_raw is not None
+    cache_hits = int(cache_hits_raw) if has_modern_counters else 0
+    cache_misses = int(mystat.get('Table_open_cache_misses') or 0)
+
+    # analyze data
+    # On a freshly booted server with no traffic, `Opened_tables = 0` is the
+    # honest "no data yet" answer; mysqltuner pins the rate to 100 in that
+    # case to avoid the false-positive low-hit-rate alert. We do the same.
+    if opened_tables == 0:
+        hit_rate = 100.0
+        hits_for_msg = 0
+        requests_for_msg = 0
+    elif has_modern_counters:
+        total_requests = cache_hits + cache_misses
+        hit_rate = (
+            round(cache_hits / total_requests * 100, 1) if total_requests > 0 else 100.0
+        )
+        hits_for_msg = cache_hits
+        requests_for_msg = total_requests
     else:
-        mycalc['table_cache_hit_rate'] = 100
+        hit_rate = round(open_tables / opened_tables * 100, 1)
+        hits_for_msg = open_tables
+        requests_for_msg = opened_tables
 
-    # Table cache
-    if int(mystat['Open_tables']) > 0:
-        if mystat.get('Table_open_cache_hits', None) is None:
-            msg = (
-                f'{mycalc["table_cache_hit_rate"]}%'
-                f' table cache hit rate'
-                f' ({lib.human.number2human(mystat["Open_tables"])}'
-                f' hits /'
-                f' {lib.human.number2human(mystat["Opened_tables"])}'
-                f' requests)'
-            )
-        else:
-            msg = (
-                f'{mycalc["table_cache_hit_rate"]}%'
-                f' table cache hit rate'
-                f' ({lib.human.number2human(mystat["Table_open_cache_hits"])}'
-                f' hits /'
-                f' {lib.human.number2human(int(mystat["Table_open_cache_hits"]) + int(mystat["Table_open_cache_misses"]))}'
-                f' requests)'
-            )
-            perfdata += lib.base.get_perfdata(
-                'mysql_table_open_cache_hits',
-                mystat['Table_open_cache_hits'],
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'mysql_table_open_cache_misses',
-                mystat['Table_open_cache_misses'],
-                uom='c',
-                _min=0,
+    # The `Open_tables > 0` guard mirrors mysqltuner: on a server that has
+    # not yet opened a single table the hit rate is meaningless. On modern
+    # MySQL/MariaDB this is essentially always true outside of CI fixtures.
+    if open_tables > 0:
+        state = lib.base.get_state(
+            hit_rate,
+            args.WARNING,
+            args.CRITICAL,
+            _operator='le',
+        )
+        if state != STATE_OK:
+            recommendations.append(
+                f'Raise `table_open_cache` (currently {table_open_cache}) '
+                f'gradually; verify that `open_files_limit` '
+                f'({open_files_limit}) stays above it. '
+                f'On MyISAM-heavy workloads `table_open_cache` is the '
+                f'classic scalability bottleneck (`InnoDB` is not affected; '
+                f'see https://bugs.mysql.com/bug.php?id=49177, fixed in '
+                f'MySQL 5.7.9+)'
             )
 
-        if mycalc['table_cache_hit_rate'] < 20:
-            state = STATE_WARN
-
-            # build the message
-            msg += (
-                f'{lib.base.state2str(state, prefix=" ")}.'
-                f' Set `table_open_cache` >'
-                f' {myvar["table_open_cache"]}. '
-            )
-            msg += (
-                f'Beware that `open_files_limit`'
-                f' ({myvar["open_files_limit"]})'
-                f' should be greater than `table_open_cache`'
-                f' ({myvar["table_open_cache"]}). '
-            )
-            msg += (
-                'Increase `table_open_cache` gradually to avoid file descriptor limits. '
-            )
-            msg += 'Make sure that your operating system can cope with the number of open file '
-            msg += 'descriptors required by the `table_open_cache` setting. If `table_open_cache` is '
-            msg += 'set too high, the DB may start to refuse connections as the operating system '
-            msg += 'runs out of file descriptors. Also note that the MyISAM (and Aria?) storage '
-            msg += 'engines need two file descriptors per open table.'
+    # build the message
+    if open_tables > 0:
+        facts.append(
+            f'Table cache hit rate: {hit_rate}%'
+            f' ({lib.human.number2human(hits_for_msg)} hits'
+            f' / {lib.human.number2human(requests_for_msg)} requests)'
+            f'{lib.base.state2str(state, prefix=" ")}'
+        )
     else:
-        msg = 'Everything is ok.'
+        facts.append('no table opens yet (`Open_tables` = 0); hit-rate check skipped')
+    facts.append(
+        f'`table_open_cache` = {table_open_cache},'
+        f' `open_files_limit` = {open_files_limit}'
+    )
+    facts_text = '. '.join(facts) + '.'
+    if state == STATE_OK:
+        sections.append('Everything is ok. ' + facts_text)
+    else:
+        sections.append(facts_text)
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
+        )
+    msg = '\n\n'.join(sections)
 
     perfdata += lib.base.get_perfdata(
         'mysql_open_files_limit',
-        myvar['open_files_limit'],
+        open_files_limit,
         _min=0,
     )
     perfdata += lib.base.get_perfdata(
         'mysql_table_open_cache',
-        myvar['table_open_cache'],
+        table_open_cache,
         _min=0,
     )
-
     perfdata += lib.base.get_perfdata(
         'mysql_open_tables',
-        mystat['Open_tables'],
+        open_tables,
         _min=0,
     )
     perfdata += lib.base.get_perfdata(
         'mysql_opened_tables',
-        mystat['Opened_tables'],
+        opened_tables,
         _min=0,
     )
-
     perfdata += lib.base.get_perfdata(
         'mysql_table_cache_hit_rate',
-        mycalc['table_cache_hit_rate'],
+        hit_rate,
         uom='%',
+        warn=args.WARNING,
+        crit=args.CRITICAL,
         _min=0,
         _max=100,
     )
+
+    # Per-CONTRIBUTING: emit cache hits/misses as per-second deltas (computed
+    # in-plugin against a local SQLite cache) instead of cumulative `c`
+    # counters that force Grafana to do non_negative_difference() per panel.
+    # Only available when the server exposes the modern counters.
+    if has_modern_counters:
+        rates = lib.db_sqlite.per_second_deltas(
+            SQLITE_DB,
+            'mysql-table-cache',
+            {
+                'table_open_cache_hits': cache_hits,
+                'table_open_cache_misses': cache_misses,
+            },
+        )
+        if rates is not None:
+            perfdata += lib.base.get_perfdata(
+                'mysql_table_open_cache_hits_per_second',
+                round(rates['table_open_cache_hits'], 2),
+                _min=0,
+            )
+            perfdata += lib.base.get_perfdata(
+                'mysql_table_open_cache_misses_per_second',
+                round(rates['table_open_cache_misses'], 2),
+                _min=0,
+            )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

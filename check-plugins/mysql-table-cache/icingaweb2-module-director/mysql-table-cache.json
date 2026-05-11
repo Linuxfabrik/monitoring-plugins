@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$mysql_table_cache_always_ok$"
                 },
+                "--critical": {
+                    "value": "$mysql_table_cache_critical$"
+                },
                 "--defaults-file": {
                     "value": "$mysql_table_cache_defaults_file$"
                 },
@@ -13,6 +16,9 @@
                 },
                 "--timeout": {
                     "value": "$mysql_table_cache_timeout$"
+                },
+                "--warning": {
+                    "value": "$mysql_table_cache_warning$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/mysql-table-cache",
@@ -35,6 +41,16 @@
                 },
                 {
                     "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -80,7 +96,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the hit rate for open table cache lookups in MySQL/MariaDB. A low hit rate indicates that `table_open_cache` may need to be increased. Alerts when the hit rate drops below acceptable levels.",
+            "notes": "Checks the hit rate of the MySQL/MariaDB open table cache (`Table_open_cache_hits` divided by (`Table_open_cache_hits` + `Table_open_cache_misses`); on servers without `Table_open_cache_hits` it falls back to `Open_tables` / `Opened_tables`). A low hit rate means `table_open_cache` is too small for the workload and threads have to keep reopening tables. Alerts when the rate drops below `--warning` / `--critical`. Also reminds the admin that `open_files_limit` has to stay above `table_open_cache`.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-table-cache/",
             "object_name": "tpl-service-mysql-table-cache",
             "object_type": "template",
@@ -92,9 +108,11 @@
             "vars": {
                 "criticality": "C",
                 "mysql_table_cache_always_ok": false,
+                "mysql_table_cache_critical": 10,
                 "mysql_table_cache_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_table_cache_defaults_group": "client",
-                "mysql_table_cache_timeout": 3
+                "mysql_table_cache_timeout": 3,
+                "mysql_table_cache_warning": 20
             },
             "volatile": null,
             "zone": null,
@@ -112,9 +130,20 @@
             "uuid": "e9ea99e0-f27f-488c-8798-62f1b5e01664"
         },
         "2": {
+            "varname": "mysql_table_cache_critical",
+            "caption": "MySQL Table Cache: Critical",
+            "description": "Table cache hit rate (percent) at which the check flips to CRITICAL.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "e7cdb7af-cf2e-47d9-8dc2-331bcdf4b9f4"
+        },
+        "3": {
             "varname": "mysql_table_cache_defaults_file",
             "caption": "MySQL Table Cache: Defaults File",
-            "description": "MySQL/MariaDB cnf file to read parameters like user, host and password from (instead of specifying them on the command line). Example: `/var/spool/icinga2/.my.cnf`.",
+            "description": "MySQL/MariaDB cnf file to read user, host and password from. Example: `--defaults-file=/var/spool/icinga2/.my.cnf`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -122,7 +151,7 @@
             },
             "uuid": "5666cf39-5076-4f1f-9673-c409ff884acd"
         },
-        "3": {
+        "4": {
             "varname": "mysql_table_cache_defaults_group",
             "caption": "MySQL Table Cache: Defaults Group",
             "description": "Group/section to read from in the cnf file.",
@@ -133,7 +162,7 @@
             },
             "uuid": "8867296d-9a65-453d-be72-59e7ea4c2b38"
         },
-        "4": {
+        "5": {
             "varname": "mysql_table_cache_timeout",
             "caption": "MySQL Table Cache: Timeout",
             "description": "Network timeout in seconds.",
@@ -143,6 +172,17 @@
                 "visibility": "visible"
             },
             "uuid": "8603e7d9-fabd-4857-b036-a66446fb7d7d"
+        },
+        "6": {
+            "varname": "mysql_table_cache_warning",
+            "caption": "MySQL Table Cache: Warning",
+            "description": "Table cache hit rate (percent) at which the check flips to WARNING.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "64f9f07f-a01f-4d07-9d40-f63aa3ee4d57"
         }
     }
 }
