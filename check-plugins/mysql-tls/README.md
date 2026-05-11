@@ -3,12 +3,12 @@
 
 ## Overview
 
-Checks MySQL/MariaDB TLS/SSL posture: the monitoring connection itself, the server's TLS capability (`have_ssl`), enforcement (`require_secure_transport`), enabled TLS versions (no TLSv1.0/1.1, at least TLSv1.2 or TLSv1.3), the presence of a server certificate and key, the local expiry of `ssl_cert` and `ssl_ca` files (when readable on the same host), and any remote accounts that can still connect without `REQUIRE SSL`. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):ssl_tls_recommendations(), check_local_certificates() and check_remote_user_ssl(), verified in sync with MySQLTuner v2.8.41.
+Checks MySQL/MariaDB TLS/SSL posture: the current connection itself, the server's TLS capability (`have_ssl`), enforcement (`require_secure_transport`), enabled TLS versions (no TLSv1.0/1.1, at least TLSv1.2 or TLSv1.3), the presence of a server certificate and key, the local expiry of `ssl_cert` and `ssl_ca` files (when readable on the same host), and any remote accounts that can still connect without `REQUIRE SSL`. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):ssl_tls_recommendations(), check_local_certificates() and check_remote_user_ssl(), verified in sync with MySQLTuner v2.8.41.
 
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
-* The session-cipher check reflects the monitoring connection only. To verify it, configure SSL in the monitoring `.my.cnf` (for example `ssl=true` or `ssl-ca=/etc/pki/tls/certs/ca.crt`) so `pymysql` negotiates TLS
+* The session-cipher check reflects the current connection only. To verify it, configure SSL in the monitoring `.my.cnf` (for example `ssl=true` or `ssl-ca=/etc/pki/tls/certs/ca.crt`) so `pymysql` negotiates TLS
 * The local certificate expiry check is silently skipped when the file path is empty. When the path is set but the file is missing or unreadable (typical for a remote monitoring host), the plugin reports "expiry check skipped" without raising an alert
 * The local certificate expiry check requires the Python `cryptography` module; if it is not installed the check is skipped with a clear reason and no alert
 * mysqltuner's local-cert audit only checks `ssl_cert` and `ssl_ca` (not `ssl_key`); we follow the same scope - no key match, no CN/SAN check
@@ -17,7 +17,7 @@ Checks MySQL/MariaDB TLS/SSL posture: the monitoring connection itself, the serv
 **Data Collection:**
 
 * Reads `SHOW GLOBAL VARIABLES` once for `have_ssl`, `require_secure_transport`, `tls_version`, `ssl_cert`, `ssl_key`, `ssl_ca` and `version`
-* Reads `SHOW SESSION STATUS LIKE 'Ssl_cipher'` to detect whether the monitoring connection is encrypted
+* Reads `SHOW SESSION STATUS LIKE 'Ssl_cipher'` to detect whether the current connection is encrypted
 * Queries `mysql.user` (or `mysql.global_priv` on MariaDB 10.4+) for remote accounts without `REQUIRE SSL`
 * Reads the `ssl_cert` and `ssl_ca` files via the `cryptography` Python module to derive the days until expiry, when the files are locally readable
 
@@ -44,7 +44,7 @@ usage: mysql-tls [-h] [-V] [--always-ok] [-c CRIT]
                  [--defaults-group DEFAULTS_GROUP] [--severity {warn,crit}]
                  [--timeout TIMEOUT] [-w WARN]
 
-Checks MySQL/MariaDB TLS/SSL posture: the monitoring connection itself, the
+Checks MySQL/MariaDB TLS/SSL posture: the current connection itself, the
 server's TLS capability (`have_ssl`), enforcement
 (`require_secure_transport`), enabled TLS versions (no TLSv1.0/1.1, at least
 TLSv1.2 or TLSv1.3), the presence of a server certificate and key, the local
@@ -89,13 +89,13 @@ options:
 OK output:
 
 ```text
-Everything is ok. Monitoring connection encrypted (TLS_AES_256_GCM_SHA384). `have_ssl` enabled. `require_secure_transport` = ON. TLS versions: TLSv1.2, TLSv1.3. `ssl_cert` (/etc/mysql/ssl/server.pem) expires in 318d. `ssl_ca` (/etc/mysql/ssl/ca.pem) expires in 1825d. 0 remote users without `REQUIRE SSL`.
+Everything is ok. Current connection encrypted (TLS_AES_256_GCM_SHA384). `have_ssl` enabled. `require_secure_transport` = ON. TLS versions: TLSv1.2, TLSv1.3. `ssl_cert` (/etc/mysql/ssl/server.pem) expires in 318d. `ssl_ca` (/etc/mysql/ssl/ca.pem) expires in 1825d. 0 remote users without `REQUIRE SSL`.
 ```
 
 WARN output:
 
 ```text
-Monitoring connection not encrypted [WARNING]. `have_ssl` enabled. `require_secure_transport` = OFF [WARNING]. 1 insecure TLS version enabled (in `TLSv1.1, TLSv1.2, TLSv1.3`) [WARNING]. `ssl_cert` (/etc/mysql/ssl/server.pem) expires in 12d [WARNING]. `ssl_ca` (/etc/mysql/ssl/ca.pem) expiry check skipped (file not readable: /etc/mysql/ssl/ca.pem). 2 remote users without `REQUIRE SSL` [WARNING].
+Current connection not encrypted [WARNING]. `have_ssl` enabled. `require_secure_transport` = OFF [WARNING]. 1 insecure TLS version enabled (in `TLSv1.1, TLSv1.2, TLSv1.3`) [WARNING]. `ssl_cert` (/etc/mysql/ssl/server.pem) expires in 12d [WARNING]. `ssl_ca` (/etc/mysql/ssl/ca.pem) expiry check skipped (file not readable: /etc/mysql/ssl/ca.pem). 2 remote users without `REQUIRE SSL` [WARNING].
 
 Recommendations:
 * Add `ssl=true` (or `ssl-ca=...`) to the [client] section of the monitoring `.my.cnf`, and ensure the server is reachable over TLS.
@@ -124,7 +124,7 @@ Recommendations:
 | mysql_tls_modern_protocol_versions | Number | Count of modern TLS versions enabled in `tls_version` (0-2: TLSv1.2 and/or TLSv1.3). |
 | mysql_tls_remote_users_without_ssl | Number | Count of accounts on a non-localhost host that can connect without `REQUIRE SSL`. |
 | mysql_tls_required | Number (0/1) | `1` when `require_secure_transport` is `ON`. Always `0` on servers that do not expose the variable (very old MySQL/MariaDB). |
-| mysql_tls_session_encrypted | Number (0/1) | `1` when the monitoring connection itself uses TLS (non-empty `Ssl_cipher`). |
+| mysql_tls_session_encrypted | Number (0/1) | `1` when the current connection itself uses TLS (non-empty `Ssl_cipher`). |
 | mysql_tls_ssl_ca_days_until_expiry | Number (d) | Days until the local `ssl_ca` file expires. Omitted when no `ssl_ca` is configured or the file is not readable. |
 | mysql_tls_ssl_cert_days_until_expiry | Number (d) | Days until the local `ssl_cert` file expires. Omitted when no `ssl_cert` is configured or the file is not readable. |
 | mysql_tls_weak_protocol_versions | Number | Count of insecure TLS versions enabled in `tls_version` (0-2: TLSv1.0 and/or TLSv1.1). |

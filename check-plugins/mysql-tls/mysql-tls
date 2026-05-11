@@ -25,7 +25,7 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026051102'
 
-DESCRIPTION = """Checks MySQL/MariaDB TLS/SSL posture: the monitoring connection itself, the
+DESCRIPTION = """Checks MySQL/MariaDB TLS/SSL posture: the current connection itself, the
 server's TLS capability (`have_ssl`), enforcement (`require_secure_transport`), enabled TLS
 versions (no TLSv1.0/1.1, at least TLSv1.2 or TLSv1.3), the presence of a server certificate
 and key, the local expiry of `ssl_cert` and `ssl_ca` files (when readable on the same host),
@@ -125,7 +125,7 @@ def parse_args():
 
 
 def get_session_cipher(conn):
-    """Return the cipher of the monitoring connection. Empty string when the
+    """Return the cipher of the current connection. Empty string when the
     connection is not encrypted. Mirrors mysqltuner's `SHOW SESSION STATUS
     LIKE 'Ssl_cipher'` probe.
     """
@@ -293,11 +293,11 @@ def main():
     # comma-only). Computed once so finding lines stay readable.
     tls_versions_display = (myvar.get('tls_version') or '').replace(',', ', ')
 
-    # 1. Session cipher: is the monitoring connection itself encrypted?
+    # 1. Session cipher: is the current connection itself encrypted?
     if not session_cipher:
         state = lib.base.get_worst(state, severity_state)
         findings.append(
-            f'Monitoring connection not encrypted'
+            f'Current connection not encrypted'
             f'{lib.base.state2str(severity_state, prefix=" ")}'
         )
         recommendations.append(
@@ -305,7 +305,7 @@ def main():
             'monitoring `.my.cnf`, and ensure the server is reachable over TLS.'
         )
     else:
-        findings.append(f'Monitoring connection encrypted ({session_cipher})')
+        findings.append(f'Current connection encrypted ({session_cipher})')
 
     # 2. have_ssl
     if have_ssl == 'DISABLED':
