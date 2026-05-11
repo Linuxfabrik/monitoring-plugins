@@ -90,10 +90,10 @@ WARN output:
 6 non-system user accounts, 0 roles. 0 anonymous accounts. 0 users without password. 1 user with username as password [WARNING]. 2 accounts without hostname restriction [WARNING]. 1 user on a legacy authentication plugin [WARNING].
 
 Recommendations:
-* SET PASSWORD FOR 'test'@'%' = PASSWORD('<replace-with-strong-password>');
-* RENAME USER 'root'@'%' TO 'root'@'LimitedIPRangeOrLocalhost';
-* RENAME USER 'test'@'%' TO 'test'@'LimitedIPRangeOrLocalhost';
-* ALTER USER 'test'@'%' IDENTIFIED WITH caching_sha2_password BY '<replace-with-strong-password>';
+* `SET PASSWORD FOR 'test'@'%' = PASSWORD('<replace-with-strong-password>');`
+* `RENAME USER 'root'@'%' TO 'root'@'LimitedIPRangeOrLocalhost';`
+* `RENAME USER 'test'@'%' TO 'test'@'LimitedIPRangeOrLocalhost';`
+* `ALTER USER 'test'@'%' IDENTIFIED WITH caching_sha2_password BY '<replace-with-strong-password>';`
 ```
 
 

@@ -21,7 +21,7 @@ import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051102'
+__version__ = '2026051103'
 
 DESCRIPTION = """Checks MySQL/MariaDB user security: anonymous accounts (empty user name),
 accounts with empty passwords, accounts whose password matches the username (the classic
@@ -331,99 +331,89 @@ def main():
     # analyze data
     # Each check produces one facts line: "N <category>" with a state marker
     # when N > 0, or "0 <category>" on a clean check.
-    if anonymous_users:
+    n_anon = len(anonymous_users)
+    if n_anon:
         state = lib.base.get_worst(state, severity_state)
-        findings.append(
-            f'{len(anonymous_users)} anonymous '
-            f'{lib.txt.pluralize("account", len(anonymous_users))}'
-            f'{lib.base.state2str(severity_state, prefix=" ")}'
-        )
-        for u in anonymous_users:
-            recommendations.append(f'DROP USER {u["user"]};')
-    else:
-        findings.append('0 anonymous accounts')
+    findings.append(
+        f'{n_anon} anonymous {lib.txt.pluralize("account", n_anon)}'
+        f'{lib.base.state2str(severity_state, prefix=" ") if n_anon else ""}'
+    )
+    for u in anonymous_users:
+        recommendations.append(f'`DROP USER {u["user"]};`')
 
-    if empty_password_users:
+    n_empty = len(empty_password_users)
+    if n_empty:
         state = lib.base.get_worst(state, severity_state)
-        findings.append(
-            f'{len(empty_password_users)} '
-            f'{lib.txt.pluralize("user", len(empty_password_users))} '
-            f'without password'
-            f'{lib.base.state2str(severity_state, prefix=" ")}'
+    findings.append(
+        f'{n_empty} {lib.txt.pluralize("user", n_empty)} without password'
+        f'{lib.base.state2str(severity_state, prefix=" ") if n_empty else ""}'
+    )
+    for u in empty_password_users:
+        recommendations.append(
+            f"`SET PASSWORD FOR {u['user']} = PASSWORD('{PASSWORD_PLACEHOLDER}');`"
         )
-        for u in empty_password_users:
-            recommendations.append(
-                f"SET PASSWORD FOR {u['user']} = PASSWORD('{PASSWORD_PLACEHOLDER}');"
-            )
-    else:
-        findings.append('0 users without password')
 
     if skip_username_as_password:
         findings.append(
             'username-as-password check skipped '
             '(`validate_password` plugin is active; MySQL Bug #80860)'
         )
-    elif username_pw_users:
-        state = lib.base.get_worst(state, severity_state)
+    else:
+        n_uname = len(username_pw_users)
+        if n_uname:
+            state = lib.base.get_worst(state, severity_state)
         findings.append(
-            f'{len(username_pw_users)} '
-            f'{lib.txt.pluralize("user", len(username_pw_users))} '
+            f'{n_uname} {lib.txt.pluralize("user", n_uname)} '
             f'with username as password'
-            f'{lib.base.state2str(severity_state, prefix=" ")}'
+            f'{lib.base.state2str(severity_state, prefix=" ") if n_uname else ""}'
         )
         for u in username_pw_users:
             recommendations.append(
-                f"SET PASSWORD FOR {u['user']} = PASSWORD('{PASSWORD_PLACEHOLDER}');"
+                f"`SET PASSWORD FOR {u['user']} = PASSWORD('{PASSWORD_PLACEHOLDER}');`"
+            )
+
+    n_wildcard = len(wildcard_host_users)
+    if n_wildcard:
+        state = lib.base.get_worst(state, severity_state)
+    findings.append(
+        f'{n_wildcard} {lib.txt.pluralize("account", n_wildcard)} '
+        f'without hostname restriction'
+        f'{lib.base.state2str(severity_state, prefix=" ") if n_wildcard else ""}'
+    )
+    for u in wildcard_host_users:
+        renamed = u['user'].replace("'%'", f"'{HOST_PLACEHOLDER}'")
+        recommendations.append(f'`RENAME USER {u["user"]} TO {renamed};`')
+
+    n_legacy = len(legacy_auth_users)
+    if n_legacy:
+        state = lib.base.get_worst(state, severity_state)
+    findings.append(
+        f'{n_legacy} {lib.txt.pluralize("user", n_legacy)} '
+        f'on a legacy authentication plugin'
+        f'{lib.base.state2str(severity_state, prefix=" ") if n_legacy else ""}'
+    )
+    # Version-aware modern plugin: caching_sha2_password on MySQL 8.0+,
+    # ed25519 on MariaDB 10.4+. Older MySQL/MariaDB stay on
+    # mysql_native_password but we still flag it so an admin sees the
+    # SHA1 exposure.
+    if mysql_80_plus:
+        for u in legacy_auth_users:
+            recommendations.append(
+                f"`ALTER USER {u['user']} IDENTIFIED WITH caching_sha2_password "
+                f"BY '{PASSWORD_PLACEHOLDER}';`"
+            )
+    elif is_mariadb_10_4_plus:
+        for u in legacy_auth_users:
+            recommendations.append(
+                f"`ALTER USER {u['user']} IDENTIFIED VIA ed25519 "
+                f"USING PASSWORD('{PASSWORD_PLACEHOLDER}');`"
             )
     else:
-        findings.append('0 users with username as password')
-
-    if wildcard_host_users:
-        state = lib.base.get_worst(state, severity_state)
-        findings.append(
-            f'{len(wildcard_host_users)} '
-            f'{lib.txt.pluralize("account", len(wildcard_host_users))} '
-            f'without hostname restriction'
-            f'{lib.base.state2str(severity_state, prefix=" ")}'
-        )
-        for u in wildcard_host_users:
-            renamed = u['user'].replace("'%'", f"'{HOST_PLACEHOLDER}'")
-            recommendations.append(f'RENAME USER {u["user"]} TO {renamed};')
-    else:
-        findings.append('0 accounts without hostname restriction')
-
-    if legacy_auth_users:
-        state = lib.base.get_worst(state, severity_state)
-        findings.append(
-            f'{len(legacy_auth_users)} '
-            f'{lib.txt.pluralize("user", len(legacy_auth_users))} '
-            f'on a legacy authentication plugin'
-            f'{lib.base.state2str(severity_state, prefix=" ")}'
-        )
-        # Version-aware modern plugin: caching_sha2_password on MySQL 8.0+,
-        # ed25519 on MariaDB 10.4+. Older MySQL/MariaDB stay on
-        # mysql_native_password but we still flag it so an admin sees the
-        # SHA1 exposure.
-        if mysql_80_plus:
-            for u in legacy_auth_users:
-                recommendations.append(
-                    f"ALTER USER {u['user']} IDENTIFIED WITH caching_sha2_password "
-                    f"BY '{PASSWORD_PLACEHOLDER}';"
-                )
-        elif is_mariadb_10_4_plus:
-            for u in legacy_auth_users:
-                recommendations.append(
-                    f"ALTER USER {u['user']} IDENTIFIED VIA ed25519 "
-                    f"USING PASSWORD('{PASSWORD_PLACEHOLDER}');"
-                )
-        else:
-            for u in legacy_auth_users:
-                recommendations.append(
-                    f"-- {u['user']}: server version predates "
-                    f'caching_sha2_password / ed25519; upgrade the server first.'
-                )
-    else:
-        findings.append('0 users on a legacy authentication plugin')
+        for u in legacy_auth_users:
+            recommendations.append(
+                f"{u['user']}: server version predates "
+                f'`caching_sha2_password` / `ed25519`; upgrade the server first.'
+            )
 
     # build the message
     scope = f'{user_count} non-system user '
