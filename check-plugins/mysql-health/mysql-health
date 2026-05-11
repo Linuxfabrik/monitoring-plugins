@@ -16,10 +16,11 @@ import sys
 import lib.args
 import lib.base
 import lib.db_mysql
+import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051101'
+__version__ = '2026051102'
 
 DESCRIPTION = """Single-number health score for a MySQL/MariaDB server. Ports mysqltuner v2.8.41's
 `calculate_health_score()` weighting (Performance 40 / Security 30 / Resilience 30) and a
@@ -196,7 +197,7 @@ def check_auth_plugins(conn, has_role_column, myvar):
     """
     version = (myvar.get('version') or '').lower()
     is_mariadb = 'mariadb' in version
-    mysql_80_plus = (not is_mariadb) and _version_at_least(version, (8, 0))
+    mysql_80_plus = (not is_mariadb) and lib.version.version(version) >= (8, 0, 0)
 
     role_filter = "IS_ROLE = 'N' and " if has_role_column else ''
     sql_legacy = f"""
@@ -261,7 +262,7 @@ def check_remote_user_ssl(conn, myvar):
     match (not one per user).
     """
     version = (myvar.get('version') or '').lower()
-    is_mariadb_10_4_plus = 'mariadb' in version and _version_at_least(version, (10, 4))
+    is_mariadb_10_4_plus = 'mariadb' in version and lib.version.version(version) >= (10, 4, 0)
     if is_mariadb_10_4_plus:
         sql = """
             select count(*) as cnt
@@ -292,20 +293,6 @@ def count_secrec_findings(conn, has_role_column, myvar):
         + ssl_tls_recommendations(myvar)
         + check_remote_user_ssl(conn, myvar)
     )
-
-
-def _version_at_least(version_string, target):
-    """Return True if the lowercased `version_string` reports a numeric
-    server version `>= target` (a tuple like `(8, 0)`). Strips the
-    `-MariaDB` and other suffixes the server appends.
-    """
-    head = version_string.split('-')[0]
-    parts = head.split('.')
-    try:
-        nums = tuple(int(p) for p in parts[: len(target)])
-    except (ValueError, TypeError):
-        return False
-    return nums >= target
 
 
 def count_tables_without_pk(conn):
