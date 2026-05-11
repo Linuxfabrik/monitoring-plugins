@@ -80,7 +80,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the configured `innodb_buffer_pool_size` against the actual InnoDB data and index sizes, and the ratio of `innodb_log_file_size * innodb_log_files_in_group` (or `innodb_redo_log_capacity` on MySQL 8.0.30+) vs. `innodb_buffer_pool_size` against the recommended 25%. Also flags `innodb_file_per_table = OFF` and architecture-related buffer-pool size limits. Alerts if the buffer pool is undersized relative to the data, or if the log-size ratio is outside the recommended 20-30% band.",
+            "notes": "Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the configured `innodb_buffer_pool_size` against the actual InnoDB data and index sizes, and on MySQL 8.0.30+ derives a workload-based recommendation for `innodb_redo_log_capacity` from the per-hour `Innodb_os_log_written` write rate and the host's RAM tier (matches mysqltuner v2.8.41). Also flags `innodb_file_per_table = OFF` and architecture-related buffer-pool size limits. Alerts if the buffer pool is undersized relative to the data or if `innodb_redo_log_capacity` is smaller than the workload-based target. On older MySQL and on MariaDB (no `innodb_redo_log_capacity`), the redo-log size check is skipped; the redo-log file size is still emitted as perfdata for trending.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-innodb-buffer-pool-size/",
             "object_name": "tpl-service-mysql-innodb-buffer-pool-size",
             "object_type": "template",

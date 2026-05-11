@@ -231,7 +231,7 @@ spec:
         value: mysql_innodb_redo_log_capacity
 
 
-  - title: MySQL InnoDB Buffer Pool - Log Size Ratio
+  - title: MySQL InnoDB Buffer Pool - Redo Log Write Rate
     type: timeseries
     gridPos:
       h: 8
@@ -250,16 +250,21 @@ spec:
           showPoints: always
           spanNulls: false
         decimals: 1
-        max: 100
         min: 0
-        unit: percent
+        unit: bytes
       overrides:
       - matcher:
           id: byName
-          options: mysql_innodb_log_size_pct
+          options: mysql_innodb_os_log_written_per_hour
         properties:
         - id: displayName
-          value: Log size ratio (target 25%)
+          value: Innodb_os_log_written per hour (workload-based redo log sizing)
+      - matcher:
+          id: byName
+          options: mysql_innodb_redo_log_capacity_recommended
+        properties:
+        - id: displayName
+          value: Recommended innodb_redo_log_capacity (workload + RAM tier)
     options:
       legend:
         calcs:
@@ -277,8 +282,8 @@ spec:
 
     targets:
 
-    - alias: mysql_innodb_log_size_pct
-      refId: mysql_innodb_log_size_pct
+    - alias: mysql_innodb_os_log_written_per_hour
+      refId: mysql_innodb_os_log_written_per_hour
       groupBy:
       - params:
         - $interval
@@ -305,56 +310,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_innodb_log_size_pct
+        value: mysql_innodb_os_log_written_per_hour
 
-
-  - title: MySQL InnoDB Buffer Pool - Log File Count
-    type: timeseries
-    gridPos:
-      h: 8
-      w: 12
-      x: 0
-      y: 8
-    fieldConfig:
-      defaults:
-        color:
-          mode: palette-classic
-        custom:
-          drawStyle: line
-          lineInterpolation: smooth
-          lineWidth: 1
-          pointSize: 3
-          showPoints: always
-          spanNulls: false
-        decimals: 0
-        min: 0
-        unit: short
-      overrides:
-      - matcher:
-          id: byName
-          options: mysql_innodb_log_files_in_group
-        properties:
-        - id: displayName
-          value: innodb_log_files_in_group (deprecated since MariaDB 10.5.2, defaulted to 1 from 10.6)
-    options:
-      legend:
-        calcs:
-        - first
-        - min
-        - mean
-        - max
-        - last
-        displayMode: table
-        placement: bottom
-        showLegend: true
-      tooltip:
-        mode: multi
-        sort: none
-
-    targets:
-
-    - alias: mysql_innodb_log_files_in_group
-      refId: mysql_innodb_log_files_in_group
+    - alias: mysql_innodb_redo_log_capacity_recommended
+      refId: mysql_innodb_redo_log_capacity_recommended
       groupBy:
       - params:
         - $interval
@@ -381,4 +340,4 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_innodb_log_files_in_group
+        value: mysql_innodb_redo_log_capacity_recommended
