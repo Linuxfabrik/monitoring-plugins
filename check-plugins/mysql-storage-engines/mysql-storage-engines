@@ -21,16 +21,53 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051001'
+__version__ = '2026051101'
 
-DESCRIPTION = """Checks storage engine configuration in MySQL/MariaDB, including fragmented tables
-that may benefit from optimization and tables using non-default or deprecated storage
-engines.
-Alerts on fragmented tables or non-default engine usage."""
+DESCRIPTION = """Checks storage engine health in MySQL/MariaDB. Lists per-engine table counts and
+sizes, flags InnoDB-enabled-but-no-InnoDB-tables, hunts fragmented tables that benefit from
+`ALTER TABLE ... FORCE` (InnoDB) or `OPTIMIZE TABLE` (other engines), and warns when an
+`AUTO_INCREMENT` value approaches its column-type maximum. The fragmentation rule mirrors
+mysqltuner v2.8.41: only tables larger than 100 MiB with more than 10% `DATA_FREE` count.
+The `AUTO_INCREMENT` check goes beyond mysqltuner by comparing each column to its own type
+ceiling (`TINYINT` to `BIGINT`, signed/unsigned), so tables using `INT UNSIGNED` are caught
+long before they hit the duplicate-key error."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_TIMEOUT = 3
+DEFAULT_LENGTHY = False
+
+# Fragmentation thresholds (matches mysqltuner v2.8.41).
+DEFAULT_WARN_FRAG = 1
+DEFAULT_CRIT_FRAG = 5
+# AUTO_INCREMENT capacity thresholds (mysqltuner alerts at 75%; we add a CRIT
+# escalation so the plugin state actually goes red before the table cannot
+# accept new rows).
+DEFAULT_WARN_AI = 75
+DEFAULT_CRIT_AI = 90
+
+FRAG_MIN_TABLE_SIZE_MIB = 100
+FRAG_MIN_PCT = 10
+
+SYSTEM_SCHEMAS = ('information_schema', 'mysql', 'performance_schema', 'sys')
+
+# Column-type maxima for AUTO_INCREMENT. Keys: (DATA_TYPE, is_unsigned).
+# MEMORY tables have BIGINT-class AUTO_INCREMENT same as InnoDB. Anything not
+# in this table (DECIMAL, FLOAT, DOUBLE used as AUTO_INCREMENT in legacy
+# schemas) falls back to BIGINT UNSIGNED so the check still emits a percentage.
+INT_TYPE_MAX = {
+    ('tinyint', False): 127,
+    ('tinyint', True): 255,
+    ('smallint', False): 32767,
+    ('smallint', True): 65535,
+    ('mediumint', False): 8388607,
+    ('mediumint', True): 16777215,
+    ('int', False): 2147483647,
+    ('int', True): 4294967295,
+    ('bigint', False): 9223372036854775807,
+    ('bigint', True): 18446744073709551615,
+}
+BIGINT_UNSIGNED_MAX = INT_TYPE_MAX[('bigint', True)]
 
 
 def parse_args():
@@ -53,6 +90,25 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--critical-autoincrement-pct',
+        help='Percentage of the column-type maximum at which an `AUTO_INCREMENT` '
+        'value flips to CRITICAL. '
+        'Default: %(default)s',
+        dest='CRITICAL_AI',
+        type=float,
+        default=DEFAULT_CRIT_AI,
+    )
+
+    parser.add_argument(
+        '--critical-fragmented-tables',
+        help='Number of fragmented tables at which the check flips to CRITICAL. '
+        'Default: %(default)s',
+        dest='CRITICAL_FRAG',
+        type=int,
+        default=DEFAULT_CRIT_FRAG,
+    )
+
+    parser.add_argument(
         '--defaults-file',
         help='MySQL/MariaDB cnf file to read user, host and password from. '
         'Example: `--defaults-file=/var/spool/icinga2/.my.cnf`. '
@@ -69,6 +125,34 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore-schemas',
+        help='Regex of schema names to exclude from every check (no aggregate '
+        'contribution, no per-schema alerts). Evaluated by MySQL via `NOT REGEXP`. '
+        'Example: `--ignore-schemas=^icinga`. '
+        'Default: <none>',
+        dest='IGNORE_SCHEMAS',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--ignore-tables',
+        help='Regex of table names to exclude from every check. Evaluated by '
+        'MySQL via `NOT REGEXP`. '
+        'Example: `--ignore-tables=^tmp_`. '
+        'Default: <none>',
+        dest='IGNORE_TABLES',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy') + ' Default: %(default)s',
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -76,27 +160,147 @@ def parse_args():
         default=DEFAULT_TIMEOUT,
     )
 
+    parser.add_argument(
+        '--warning-autoincrement-pct',
+        help='Percentage of the column-type maximum at which an `AUTO_INCREMENT` '
+        'value flips to WARNING. '
+        'Default: %(default)s',
+        dest='WARNING_AI',
+        type=float,
+        default=DEFAULT_WARN_AI,
+    )
+
+    parser.add_argument(
+        '--warning-fragmented-tables',
+        help='Number of fragmented tables at which the check flips to WARNING. '
+        'Default: %(default)s',
+        dest='WARNING_FRAG',
+        type=int,
+        default=DEFAULT_WARN_FRAG,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
 
-def get_vars(conn):
-    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
-    # Without the GLOBAL modifier, SHOW VARIABLES displays the values that are used for
-    # the current connection to MariaDB.
+def get_innodb_file_per_table(conn):
     sql = """
         show global variables
         where variable_name like 'innodb_file_per_table'
             ;
           """
+    return lib.db_mysql.lod2dict(lib.base.coe(lib.db_mysql.select(conn, sql)))
+
+
+def get_engine_stats(conn, excluded, ignore_schemas_clause, ignore_tables_clause):
+    sql = f"""
+        select ENGINE as engine,
+            count(*) as table_count,
+            sum(DATA_LENGTH + INDEX_LENGTH) as total_size,
+            sum(DATA_LENGTH) as data_size,
+            sum(INDEX_LENGTH) as index_size
+        from information_schema.tables
+        where TABLE_SCHEMA not in ({excluded})
+            and ENGINE is not null
+            {ignore_schemas_clause}
+            {ignore_tables_clause}
+        group by ENGINE
+        order by ENGINE
+        ;
+    """  # nosec B608
     return lib.base.coe(lib.db_mysql.select(conn, sql))
+
+
+def get_fragmented_tables(
+    conn,
+    excluded,
+    ignore_schemas_clause,
+    ignore_tables_clause,
+    file_per_table_on,
+):
+    # mysqltuner v2.8.41 excludes InnoDB tables from the fragmentation hunt when
+    # `innodb_file_per_table = OFF` (everything in `ibdata1`, per-table
+    # OPTIMIZE is meaningless). We mirror that.
+    not_innodb = '' if file_per_table_on else "and ENGINE != 'InnoDB'"
+    sql = f"""
+        select TABLE_SCHEMA as table_schema,
+            TABLE_NAME as table_name,
+            ENGINE as engine,
+            cast(DATA_FREE as signed) as data_free
+        from information_schema.tables
+        where TABLE_SCHEMA not in ({excluded})
+            and DATA_LENGTH / 1024 / 1024 > {FRAG_MIN_TABLE_SIZE_MIB}
+            and cast(DATA_FREE as signed) * 100
+                / (DATA_LENGTH + INDEX_LENGTH + cast(DATA_FREE as signed))
+                > {FRAG_MIN_PCT}
+            and ENGINE != 'MEMORY'
+            {not_innodb}
+            {ignore_schemas_clause}
+            {ignore_tables_clause}
+        order by cast(DATA_FREE as signed) desc
+        ;
+    """  # nosec B608
+    return lib.base.coe(lib.db_mysql.select(conn, sql))
+
+
+def get_autoincrement_columns(
+    conn,
+    excluded,
+    ignore_schemas_clause,
+    ignore_tables_clause,
+):
+    # Join `information_schema.tables` (for the current AUTO_INCREMENT value)
+    # against `information_schema.columns` (for the column's data type and
+    # unsigned flag) so the percentage is computed against the column's actual
+    # ceiling, not always against BIGINT UNSIGNED.
+    ignore_t_col = ignore_tables_clause.replace('TABLE_NAME', 't.TABLE_NAME')
+    ignore_s_col = ignore_schemas_clause.replace('TABLE_SCHEMA', 't.TABLE_SCHEMA')
+    sql = f"""
+        select t.TABLE_SCHEMA as table_schema,
+            t.TABLE_NAME as table_name,
+            t.AUTO_INCREMENT as auto_increment,
+            c.DATA_TYPE as data_type,
+            c.COLUMN_TYPE as column_type
+        from information_schema.tables t
+        join information_schema.columns c
+            on c.TABLE_SCHEMA = t.TABLE_SCHEMA
+            and c.TABLE_NAME = t.TABLE_NAME
+        where t.TABLE_SCHEMA not in ({excluded})
+            and t.AUTO_INCREMENT is not null
+            and c.EXTRA like '%auto_increment%'
+            {ignore_s_col}
+            {ignore_t_col}
+        ;
+    """  # nosec B608
+    return lib.base.coe(lib.db_mysql.select(conn, sql))
+
+
+def column_max(data_type, column_type):
+    """Return the maximum AUTO_INCREMENT value for the given column type.
+
+    Falls back to `BIGINT UNSIGNED` for non-integer AUTO_INCREMENT columns
+    (legacy `DECIMAL`/`FLOAT` schemas) so the percentage stays meaningful.
+    """
+    is_unsigned = 'unsigned' in (column_type or '').lower()
+    return INT_TYPE_MAX.get((data_type.lower(), is_unsigned), BIGINT_UNSIGNED_MAX)
 
 
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:check_storage_engines(), v1.9.8
-    # including variable names
+    # logic taken from mysqltuner.pl:check_storage_engines(), verified in
+    # sync with MySQLTuner v2.8.41. Intentional deviations:
+    # - drop the `have_bdb` / `have_isam` branches: both variables were
+    #   removed from MySQL 5.0 / 5.1 (around 2008), so the branches are
+    #   dead on any supported server
+    # - drop mysqltuner's "Add skip-innodb to MySQL configuration"
+    #   recommendation: the `skip-innodb` option was removed in MySQL 5.7 /
+    #   MariaDB 10.1 and InnoDB is the modern default; the right advice is
+    #   to investigate why no InnoDB tables exist, not to disable InnoDB
+    # - compare AUTO_INCREMENT against the column's actual type ceiling
+    #   instead of always against BIGINT UNSIGNED; otherwise a table on
+    #   `INT UNSIGNED` near exhaustion never crosses 1% of `~0` and the
+    #   check is effectively dead code for the most common column types
 
     # parse the command line
     try:
@@ -104,6 +308,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -112,127 +317,235 @@ def main():
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
     lib.base.coe(lib.db_mysql.check_privileges(conn, 'SELECT'))
 
-    myvar = lib.db_mysql.lod2dict(get_vars(conn))
-    engines = lib.db_mysql.get_engines(conn)
+    # The `--ignore-tables` and `--ignore-schemas` regexes are interpolated
+    # into the SQL. The values come from the CLI (admin-controlled), and any
+    # embedded single quotes are escaped to keep the surrounding SQL literal
+    # valid. MySQL rejects malformed regex patterns at query time and
+    # `lib.base.coe()` surfaces the error.
+    ignore_tables_clause = ''
+    if args.IGNORE_TABLES:
+        safe = args.IGNORE_TABLES.replace("'", "''")
+        ignore_tables_clause = f" and TABLE_NAME not regexp '{safe}'"
+    ignore_schemas_clause = ''
+    if args.IGNORE_SCHEMAS:
+        safe = args.IGNORE_SCHEMAS.replace("'", "''")
+        ignore_schemas_clause = f" and TABLE_SCHEMA not regexp '{safe}'"
 
-    # init some vars
-    msg = ''
-    state = STATE_OK
+    excluded = ', '.join(f"'{s}'" for s in SYSTEM_SCHEMAS)
 
-    # MySQL 5.1.5+ servers can have table sizes calculated quickly from information schema
-    enginestats = {}
-    sql = """
-        select ENGINE as engine,
-            sum(DATA_LENGTH+INDEX_LENGTH) as size,
-            count(ENGINE) as count,
-            sum(DATA_LENGTH) as dsize,
-            sum(INDEX_LENGTH) as isize
-        from information_schema.tables
-        where TABLE_SCHEMA NOT IN ('information_schema', 'performance_schema', 'mysql')
-            and ENGINE is not null
-        group by ENGINE
-        order by ENGINE asc;
-    """
-    templist = lib.base.coe(lib.db_mysql.select(conn, sql))
-    for temp in templist:
-        if not temp:
-            continue
-        engine = temp['engine']
-        enginestats[engine] = temp.get('size', 0)
+    engines_available = lib.db_mysql.get_engines(conn)
+    myvar = get_innodb_file_per_table(conn)
+    file_per_table_on = myvar.get('innodb_file_per_table', '').upper() == 'ON'
 
-    # If the storage engine isn't being used, recommend it to be disabled
-    if (
-        enginestats.get('InnoDB') is None
-        and engines.get('have_innodb', '')
-        and engines['have_innodb'] == 'YES'
-    ):
-
-        # build the message
-        msg += "* InnoDB is enabled but isn't being used. Add skip-innodb to MySQL configuration to disable InnoDB\n"
-    if (
-        enginestats.get('BerkeleyDB') is None
-        and engines.get('have_bdb', '')
-        and engines['have_bdb'] == 'YES'
-    ):
-        msg += "* BDB is enabled but isn't being used. Add skip-bdb to MySQL configuration to disable BDB\n"
-    if (
-        enginestats.get('ISAM') is None
-        and engines.get('have_isam', '')
-        and engines['have_isam'] == 'YES'
-    ):
-        msg += "* MYISAM is enabled but isn't being used. Add skip-isam to MySQL configuration to disable ISAM (MySQL 4.1.0+)\n"
-
-    # Fragmented tables
-    # not_innodb is a hardcoded SQL fragment chosen from two constants, not user input
-    not_innodb = ''
-    if not myvar.get('innodb_file_per_table', '') or myvar['innodb_file_per_table'] == 'OFF':
-        not_innodb = 'and not ENGINE="InnoDB"'
-    sql = (
-        "select concat(concat(TABLE_SCHEMA, '.'),TABLE_NAME) as full_table_name, "  # nosec B608
-        'cast(DATA_FREE as signed) as data_free '
-        'from information_schema.tables '
-        "where TABLE_SCHEMA not in ('information_schema', 'performance_schema', 'mysql') "
-        'and DATA_LENGTH/1024/1024 > 100 '
-        'and cast(DATA_FREE as signed)*100/(DATA_LENGTH+INDEX_LENGTH+cast(DATA_FREE as signed)) > 10 '
-        "and not ENGINE='MEMORY' "
-        f'{not_innodb}'
+    engine_stats = get_engine_stats(
+        conn,
+        excluded,
+        ignore_schemas_clause,
+        ignore_tables_clause,
     )
-    fragtables = lib.base.coe(lib.db_mysql.select(conn, sql))
-    if len(fragtables) > 0:
-        msg += f'* {len(fragtables)} fragmented {lib.txt.pluralize("table", len(fragtables))}\n'
-        total_free = 0
-        for fragtable in fragtables:
-            table_schema, table_name = fragtable['full_table_name'].rsplit(
-                '.', 1
-            )  # my.schema.my_table
-            data_free = fragtable.get('data_free', 0)
-            total_free += data_free
-            msg += (
-                f'* OPTIMIZE TABLE `{table_schema}`.`{table_name}`;'
-                f' -- can free {lib.human.bytes2human(data_free)}\n'
-            )
-        msg += (
-            f'* Total freed space after all OPTIMIZE TABLEs:'
-            f' {lib.human.bytes2human(total_free)}\n'
-        )
-
-    # Auto increments
-    tblist = {}
-
-    # Find the maximum integer
-    sql = 'select ~0 as maxint;'
-    maxint = lib.base.coe(lib.db_mysql.select(conn, sql, fetchone=True))
-
-    sql = 'show databases;'
-    dblist = lib.base.coe(lib.db_mysql.select(conn, sql))
-
-    # Now we use a database list, and loop through it to get storage engine stats for tables
-    for db in dblist:
-        if db['Database'] == 'information_schema':
-            continue
-        sql = f'show table status from `{db["Database"]}`;'
-        tblist = lib.base.coe(lib.db_mysql.select(conn, sql))
-        for tbl in tblist:
-            if not tbl['Auto_increment']:
-                continue
-            percent = tbl['Auto_increment'] / maxint['maxint'] * 100
-            if percent >= 75:
-                msg += (
-                    f'* {db["Database"]}.{tbl["Name"]}'
-                    f' has an autoincrement value near'
-                    f' max capacity ({round(percent, 1)}%)\n'
-                )
+    frag_tables = get_fragmented_tables(
+        conn,
+        excluded,
+        ignore_schemas_clause,
+        ignore_tables_clause,
+        file_per_table_on,
+    )
+    ai_rows = get_autoincrement_columns(
+        conn,
+        excluded,
+        ignore_schemas_clause,
+        ignore_tables_clause,
+    )
 
     lib.db_mysql.close(conn)
 
-    if msg:
-        state = STATE_WARN
-        msg = 'There are warnings.\n\n' + msg
+    # init some vars
+    state = STATE_OK
+    sections = []
+    facts = []
+    # All recommendations from all WARN/CRIT paths land here and render once
+    # at the end as a `Recommendations:\n* ...` bulleted block, regardless of
+    # which combinations of WARN/CRIT paths fire.
+    recommendations = []
+    perfdata = ''
+
+    engines_used = {row['engine']: row for row in engine_stats}
+    total_tables = sum(int(row['table_count']) for row in engine_stats)
+    total_size = sum(int(row['total_size'] or 0) for row in engine_stats)
+
+    # analyze data
+    # 1. InnoDB enabled but unused
+    innodb_unused = (
+        'InnoDB' not in engines_used
+        and engines_available.get('have_innodb', '') == 'YES'
+    )
+    if innodb_unused:
+        state = lib.base.get_worst(state, STATE_WARN)
+        sections.append(
+            f'`InnoDB` is enabled but no `InnoDB` tables exist'
+            f'{lib.base.state2str(STATE_WARN, prefix=" ")}.'
+        )
+        recommendations.append(
+            'Verify whether `InnoDB` is needed on this server. If `InnoDB` '
+            'tables are expected, check the MySQL/MariaDB error log for '
+            'failed table creations. The historical `skip-innodb` workaround '
+            'was removed in MySQL 5.7 / MariaDB 10.1; on modern servers '
+            '`InnoDB` is the default engine and migrating tables to '
+            '`InnoDB` is usually the right action, not disabling it'
+        )
+
+    # 2. fragmented tables
+    frag_count = len(frag_tables)
+    frag_total_free = sum(int(row['data_free'] or 0) for row in frag_tables)
+    frag_state = lib.base.get_state(
+        frag_count,
+        args.WARNING_FRAG,
+        args.CRITICAL_FRAG,
+    )
+    state = lib.base.get_worst(state, frag_state)
+    if frag_count > 0:
+        sections.append(
+            f'{frag_count} fragmented {lib.txt.pluralize("table", frag_count)},'
+            f' {lib.human.bytes2human(frag_total_free)} reclaimable'
+            f'{lib.base.state2str(frag_state, prefix=" ")}.'
+        )
+        for row in frag_tables:
+            schema = row['table_schema']
+            table = row['table_name']
+            engine = row['engine']
+            free = int(row['data_free'] or 0)
+            # mysqltuner v2.8.41 emits `ALTER TABLE ... FORCE` for InnoDB and
+            # `OPTIMIZE TABLE` for everything else; we follow the same rule.
+            # On modern MySQL/MariaDB `OPTIMIZE TABLE` on InnoDB is internally
+            # mapped to `ALTER TABLE FORCE` anyway, but the explicit form
+            # avoids the "Table does not support optimize, doing recreate +
+            # analyze instead" warning that admins read as an error.
+            stmt = (
+                f'ALTER TABLE `{schema}`.`{table}` FORCE;'
+                if engine == 'InnoDB'
+                else f'OPTIMIZE TABLE `{schema}`.`{table}`;'
+            )
+            recommendations.append(f'{stmt} -- can free {lib.human.bytes2human(free)}')
+
+    # 3. AUTO_INCREMENT near max
+    ai_max_pct = 0.0
+    ai_max_row = None
+    for row in ai_rows:
+        ai = row['auto_increment']
+        if not ai:
+            continue
+        max_val = column_max(row['data_type'], row['column_type'])
+        pct = round(int(ai) / max_val * 100, 2)
+        row['pct'] = pct
+        row['column_max'] = max_val
+        if pct > ai_max_pct:
+            ai_max_pct = pct
+            ai_max_row = row
+
+    near_max = [
+        row for row in ai_rows if 'pct' in row and row['pct'] >= args.WARNING_AI
+    ]
+    for row in near_max:
+        ai_state = lib.base.get_state(
+            row['pct'],
+            args.WARNING_AI,
+            args.CRITICAL_AI,
+        )
+        state = lib.base.get_worst(state, ai_state)
+        sections.append(
+            f'`{row["table_schema"]}`.`{row["table_name"]}`'
+            f' `AUTO_INCREMENT` is at {row["pct"]}% of'
+            f' `{row["column_type"]}` capacity'
+            f'{lib.base.state2str(ai_state, prefix=" ")}.'
+        )
+        recommendations.append(
+            f'Migrate `{row["table_schema"]}`.`{row["table_name"]}` to a '
+            f'wider integer type (or archive old rows) before `AUTO_INCREMENT` '
+            f'exhausts the current `{row["column_type"]}` ceiling'
+        )
+
+    # build the message
+    facts.append(
+        f'{total_tables} {lib.txt.pluralize("table", total_tables)} across'
+        f' {len(engines_used)} '
+        f'{lib.txt.pluralize("engine", len(engines_used))}'
+        f' ({lib.human.bytes2human(total_size)} total)'
+    )
+    if ai_max_row is not None:
+        facts.append(
+            f'highest `AUTO_INCREMENT` usage:'
+            f' {ai_max_pct}% on'
+            f' `{ai_max_row["table_schema"]}`.`{ai_max_row["table_name"]}`'
+            f' (`{ai_max_row["column_type"]}`)'
+        )
+    facts_text = '. '.join(facts) + '.'
+    if state == STATE_OK:
+        sections.insert(0, 'Everything is ok. ' + facts_text)
     else:
-        msg = 'Everything is ok.'
+        sections.insert(0, facts_text)
+
+    if args.LENGTHY and engine_stats:
+        lengthy_rows = [
+            {
+                'engine': row['engine'],
+                'tables': str(row['table_count']),
+                'total': lib.human.bytes2human(int(row['total_size'] or 0)),
+                'data': lib.human.bytes2human(int(row['data_size'] or 0)),
+                'index': lib.human.bytes2human(int(row['index_size'] or 0)),
+            }
+            for row in engine_stats
+        ]
+        sections.append(
+            lib.base.get_table(
+                lengthy_rows,
+                ['engine', 'tables', 'total', 'data', 'index'],
+                header=['Engine', 'Tables', 'Total', 'Data', 'Index'],
+            )
+        )
+
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
+        )
+
+    msg = '\n\n'.join(sections)
+
+    perfdata += lib.base.get_perfdata(
+        'mysql_fragmented_tables',
+        frag_count,
+        warn=args.WARNING_FRAG,
+        crit=args.CRITICAL_FRAG,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_fragmented_data_free',
+        frag_total_free,
+        uom='B',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_autoincrement_max_pct',
+        ai_max_pct,
+        uom='%',
+        warn=args.WARNING_AI,
+        crit=args.CRITICAL_AI,
+        _min=0,
+        _max=100,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_table_count',
+        total_tables,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_total_size',
+        total_size,
+        uom='B',
+        _min=0,
+    )
 
     # over and out
-    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

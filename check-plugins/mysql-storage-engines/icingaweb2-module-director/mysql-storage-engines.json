@@ -5,14 +5,35 @@
                 "--always-ok": {
                     "set_if": "$mysql_storage_engines_always_ok$"
                 },
+                "--critical-autoincrement-pct": {
+                    "value": "$mysql_storage_engines_critical_autoincrement_pct$"
+                },
+                "--critical-fragmented-tables": {
+                    "value": "$mysql_storage_engines_critical_fragmented_tables$"
+                },
                 "--defaults-file": {
                     "value": "$mysql_storage_engines_defaults_file$"
                 },
                 "--defaults-group": {
                     "value": "$mysql_storage_engines_defaults_group$"
                 },
+                "--ignore-schemas": {
+                    "value": "$mysql_storage_engines_ignore_schemas$"
+                },
+                "--ignore-tables": {
+                    "value": "$mysql_storage_engines_ignore_tables$"
+                },
+                "--lengthy": {
+                    "set_if": "$mysql_storage_engines_lengthy$"
+                },
                 "--timeout": {
                     "value": "$mysql_storage_engines_timeout$"
+                },
+                "--warning-autoincrement-pct": {
+                    "value": "$mysql_storage_engines_warning_autoincrement_pct$"
+                },
+                "--warning-fragmented-tables": {
+                    "value": "$mysql_storage_engines_warning_fragmented_tables$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/mysql-storage-engines",
@@ -35,6 +56,41 @@
                 },
                 {
                     "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -67,7 +123,7 @@
             "enable_flapping": null,
             "enable_notifications": true,
             "enable_passive_checks": null,
-            "enable_perfdata": false,
+            "enable_perfdata": true,
             "event_command": null,
             "fields": [],
             "flapping_threshold_high": null,
@@ -80,7 +136,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks storage engine configuration in MySQL/MariaDB, including fragmented tables that may benefit from optimization and tables using non-default or deprecated storage engines. Alerts on fragmented tables or non-default engine usage.",
+            "notes": "Checks storage engine health in MySQL/MariaDB. Lists per-engine table counts and sizes, flags InnoDB-enabled-but-no-InnoDB-tables, hunts fragmented tables that benefit from `ALTER TABLE ... FORCE` (InnoDB) or `OPTIMIZE TABLE` (other engines), and warns when an `AUTO_INCREMENT` value approaches its column-type maximum. The fragmentation rule mirrors mysqltuner v2.8.41: only tables larger than 100 MiB with more than 10% `DATA_FREE` count. The `AUTO_INCREMENT` check goes beyond mysqltuner by comparing each column to its own type ceiling (`TINYINT` to `BIGINT`, signed/unsigned), so tables using `INT UNSIGNED` are caught long before they hit the duplicate-key error.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-storage-engines/",
             "object_name": "tpl-service-mysql-storage-engines",
             "object_type": "template",
@@ -92,9 +148,14 @@
             "vars": {
                 "criticality": "C",
                 "mysql_storage_engines_always_ok": false,
+                "mysql_storage_engines_critical_autoincrement_pct": 90,
+                "mysql_storage_engines_critical_fragmented_tables": 5,
                 "mysql_storage_engines_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_storage_engines_defaults_group": "client",
-                "mysql_storage_engines_timeout": 3
+                "mysql_storage_engines_lengthy": true,
+                "mysql_storage_engines_timeout": 3,
+                "mysql_storage_engines_warning_autoincrement_pct": 75,
+                "mysql_storage_engines_warning_fragmented_tables": 1
             },
             "volatile": null,
             "zone": null,
@@ -112,6 +173,28 @@
             "uuid": "7decf2b3-5e9b-4ffb-a1d3-0df2da33b403"
         },
         "2": {
+            "varname": "mysql_storage_engines_critical_autoincrement_pct",
+            "caption": "MySQL Storage Engines: Critical Autoincrement Pct",
+            "description": "Percentage of the column-type maximum at which an `AUTO_INCREMENT` value flips to CRITICAL.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2d6ffd73-a4be-4fce-8476-8f922a80f8e8"
+        },
+        "3": {
+            "varname": "mysql_storage_engines_critical_fragmented_tables",
+            "caption": "MySQL Storage Engines: Critical Fragmented Tables",
+            "description": "Number of fragmented tables at which the check flips to CRITICAL.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "37f7947d-f799-4a4a-bf29-9945a2bf6ed9"
+        },
+        "4": {
             "varname": "mysql_storage_engines_defaults_file",
             "caption": "MySQL Storage Engines: Defaults File",
             "description": "MySQL/MariaDB cnf file to read user, host and password from. Example: `--defaults-file=/var/spool/icinga2/.my.cnf`.",
@@ -122,7 +205,7 @@
             },
             "uuid": "4642987c-370b-45ad-9b28-cff4d60f6cb3"
         },
-        "3": {
+        "5": {
             "varname": "mysql_storage_engines_defaults_group",
             "caption": "MySQL Storage Engines: Defaults Group",
             "description": "Group/section to read from in the cnf file.",
@@ -133,7 +216,38 @@
             },
             "uuid": "5f5bf9dc-2db9-4534-80ee-5d8fe6d644b4"
         },
-        "4": {
+        "6": {
+            "varname": "mysql_storage_engines_ignore_schemas",
+            "caption": "MySQL Storage Engines: Ignore Schemas",
+            "description": "Regex of schema names to exclude from every check (no aggregate contribution, no per-schema alerts). Evaluated by MySQL via `NOT REGEXP`. Example: `--ignore-schemas=^icinga`. Default: <none>",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "9bd4513e-4d50-4934-8d50-251fb1ab37f7"
+        },
+        "7": {
+            "varname": "mysql_storage_engines_ignore_tables",
+            "caption": "MySQL Storage Engines: Ignore Tables",
+            "description": "Regex of table names to exclude from every check. Evaluated by MySQL via `NOT REGEXP`. Example: `--ignore-tables=^tmp_`. Default: <none>",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "091ecced-6907-4e93-bd9c-97acad493838"
+        },
+        "8": {
+            "varname": "mysql_storage_engines_lengthy",
+            "caption": "MySQL Storage Engines: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "850de6d6-8c1c-4a98-931f-5cd9e95437ab"
+        },
+        "9": {
             "varname": "mysql_storage_engines_timeout",
             "caption": "MySQL Storage Engines: Timeout",
             "description": "Network timeout in seconds.",
@@ -143,6 +257,28 @@
                 "visibility": "visible"
             },
             "uuid": "cd4ae009-6be7-4a46-b730-9d790ba98b5f"
+        },
+        "10": {
+            "varname": "mysql_storage_engines_warning_autoincrement_pct",
+            "caption": "MySQL Storage Engines: Warning Autoincrement Pct",
+            "description": "Percentage of the column-type maximum at which an `AUTO_INCREMENT` value flips to WARNING.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a2ee2ef0-119e-4b59-899b-dd64e90e4d23"
+        },
+        "11": {
+            "varname": "mysql_storage_engines_warning_fragmented_tables",
+            "caption": "MySQL Storage Engines: Warning Fragmented Tables",
+            "description": "Number of fragmented tables at which the check flips to WARNING.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a0763ca4-06bf-4ebb-bcfb-d6a654a39d73"
         }
     }
 }

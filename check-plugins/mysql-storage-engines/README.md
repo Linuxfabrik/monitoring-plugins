@@ -3,22 +3,25 @@
 
 ## Overview
 
-Checks storage engine configuration in MySQL/MariaDB, including fragmented tables that may benefit from `OPTIMIZE TABLE`, tables using enabled but unused storage engines, and tables with autoincrement values approaching their maximum capacity.
+Checks storage engine health in MySQL/MariaDB. Lists per-engine table counts and sizes, flags InnoDB being enabled but no `InnoDB` tables existing, hunts fragmented tables that benefit from `ALTER TABLE ... FORCE` (InnoDB) or `OPTIMIZE TABLE` (other engines), and warns when an `AUTO_INCREMENT` value approaches its column-type maximum. The fragmentation rule mirrors mysqltuner v2.8.41: only tables larger than 100 MiB with more than 10% `DATA_FREE` count.
 
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
+* The `AUTO_INCREMENT` check compares each column to its own type ceiling (`TINYINT`/`SMALLINT`/`MEDIUMINT`/`INT`/`BIGINT`, signed/unsigned), not always to `BIGINT UNSIGNED` like mysqltuner does. This is an intentional deviation, because mysqltuner's `BIGINT`-only comparison is effectively dead code for tables on `INT UNSIGNED` (4-byte) AUTO_INCREMENT columns, the single most common case in modern schemas: a table about to hit the 4.3 billion limit shows up as less than 1% of `BIGINT UNSIGNED` and never alerts
+* Fragmented `InnoDB` tables are only hunted when `innodb_file_per_table = ON`. When everything lives in `ibdata1` per-table `OPTIMIZE` is meaningless and the plugin skips that case (matches mysqltuner)
+* The fragmentation `OPTIMIZE TABLE` advice for non-InnoDB engines and `ALTER TABLE ... FORCE` advice for InnoDB are mysqltuner's recommendations. On modern MySQL/MariaDB, `OPTIMIZE TABLE` on InnoDB is internally mapped to `ALTER TABLE FORCE` anyway, but the explicit form avoids the misleading "Table does not support optimize, doing recreate + analyze instead" warning
 * User account requires access to INFORMATION_SCHEMA (user with no privileges is sufficient) and SELECT privileges on all schemas and tables to provide accurate results
 * [For most INFORMATION_SCHEMA tables, each MySQL user has the right to access them, but can see only the rows in the tables that correspond to objects for which the user has the proper access privileges.](https://dev.mysql.com/doc/refman/5.7/en/information-schema-introduction.html#information-schema-privileges) [So you can't grant permission to INFORMATION_SCHEMA directly, you have to grant SELECT permission to the tables on your own schemas, and as you do, those tables will start showing up in INFORMATION_SCHEMA queries.](https://stackoverflow.com/questions/60499772/cannot-grant-mysql-user-access-to-information-schema-database)
-* Requires MySQL/MariaDB v5.5+
 
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `innodb_file_per_table`
-* Queries `information_schema.tables` for per-engine statistics, fragmented tables, and table sizes
 * Queries `information_schema.engines` for available storage engines
-* Iterates over all databases to check autoincrement values against maximum integer capacity
-* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):check_storage_engines()
+* Queries `information_schema.tables` grouped by `ENGINE` for per-engine counts and data/index sizes
+* Queries `information_schema.tables` for fragmentation candidates (`DATA_LENGTH > 100 MiB` and `DATA_FREE / (DATA_LENGTH + INDEX_LENGTH + DATA_FREE) > 10%`)
+* Joins `information_schema.tables` against `information_schema.columns` (filtered by `EXTRA = 'auto_increment'`) so the `AUTO_INCREMENT` percentage can be computed against the actual column ceiling
+* Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):check_storage_engines() and verified in sync with MySQLTuner v2.8.41
 
 
 ## Fact Sheet
@@ -39,19 +42,36 @@ Checks storage engine configuration in MySQL/MariaDB, including fragmented table
 
 ```text
 usage: mysql-storage-engines [-h] [-V] [--always-ok]
+                             [--critical-autoincrement-pct CRITICAL_AI]
+                             [--critical-fragmented-tables CRITICAL_FRAG]
                              [--defaults-file DEFAULTS_FILE]
                              [--defaults-group DEFAULTS_GROUP]
+                             [--ignore-schemas IGNORE_SCHEMAS]
+                             [--ignore-tables IGNORE_TABLES] [--lengthy]
                              [--timeout TIMEOUT]
+                             [--warning-autoincrement-pct WARNING_AI]
+                             [--warning-fragmented-tables WARNING_FRAG]
 
-Checks storage engine configuration in MySQL/MariaDB, including fragmented
-tables that may benefit from optimization and tables using non-default or
-deprecated storage engines. Alerts on fragmented tables or non-default engine
-usage.
+Checks storage engine health in MySQL/MariaDB. Lists per-engine table counts
+and sizes, flags InnoDB-enabled-but-no-InnoDB-tables, hunts fragmented tables
+that benefit from `ALTER TABLE ... FORCE` (InnoDB) or `OPTIMIZE TABLE` (other
+engines), and warns when an `AUTO_INCREMENT` value approaches its column-type
+maximum. The fragmentation rule mirrors mysqltuner v2.8.41: only tables larger
+than 100 MiB with more than 10% `DATA_FREE` count. The `AUTO_INCREMENT` check
+goes beyond mysqltuner by comparing each column to its own type ceiling
+(`TINYINT` to `BIGINT`, signed/unsigned), so tables using `INT UNSIGNED` are
+caught long before they hit the duplicate-key error.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --critical-autoincrement-pct CRITICAL_AI
+                        Percentage of the column-type maximum at which an
+                        `AUTO_INCREMENT` value flips to CRITICAL. Default: 90
+  --critical-fragmented-tables CRITICAL_FRAG
+                        Number of fragmented tables at which the check flips
+                        to CRITICAL. Default: 5
   --defaults-file DEFAULTS_FILE
                         MySQL/MariaDB cnf file to read user, host and password
                         from. Example: `--defaults-
@@ -60,47 +80,77 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
+  --ignore-schemas IGNORE_SCHEMAS
+                        Regex of schema names to exclude from every check (no
+                        aggregate contribution, no per-schema alerts).
+                        Evaluated by MySQL via `NOT REGEXP`. Example:
+                        `--ignore-schemas=^icinga`. Default: <none>
+  --ignore-tables IGNORE_TABLES
+                        Regex of table names to exclude from every check.
+                        Evaluated by MySQL via `NOT REGEXP`. Example:
+                        `--ignore-tables=^tmp_`. Default: <none>
+  --lengthy             Extended reporting. Default: False
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+  --warning-autoincrement-pct WARNING_AI
+                        Percentage of the column-type maximum at which an
+                        `AUTO_INCREMENT` value flips to WARNING. Default: 75
+  --warning-fragmented-tables WARNING_FRAG
+                        Number of fragmented tables at which the check flips
+                        to WARNING. Default: 1
 ```
 
 
 ## Usage Examples
 
 ```bash
-./mysql-storage-engines --defaults-file=/var/spool/icinga2/.my.cnf
+./mysql-storage-engines --defaults-file=/var/spool/icinga2/.my.cnf --lengthy
 ```
 
-Output:
+OK output:
 
 ```text
-There are warnings.
+Everything is ok. 1042 tables across 2 engines (8.4GiB total). highest `AUTO_INCREMENT` usage: 12.3% on `accounting`.`contact` (`int(11) unsigned`).
 
-* 1 fragmented table
-* OPTIMIZE TABLE `backup20190815`.`docs`; -- can free 2.6GiB
-* Total freed space after all OPTIMIZE TABLEs: 2.6GiB
-* accounting.contact has an autoincrement value near max capacity (97.0%)
+Engine ! Tables ! Total  ! Data   ! Index
+-------+--------+--------+--------+-------
+InnoDB ! 1040   ! 8.4GiB ! 7.9GiB ! 491MiB
+MyISAM ! 2      ! 1.1MiB ! 1.0MiB ! 100KiB
+```
+
+WARN output:
+
+```text
+3 tables across 2 engines (2.6GiB total). highest `AUTO_INCREMENT` usage: 81.2% on `accounting`.`contact` (`int(11) unsigned`).
+
+3 fragmented tables, 2.6GiB reclaimable [WARNING].
+
+`accounting`.`contact` `AUTO_INCREMENT` is at 81.2% of `int(11) unsigned` capacity [WARNING].
+
+Recommendations:
+* ALTER TABLE `backup20190815`.`docs` FORCE; -- can free 2.6GiB
+* OPTIMIZE TABLE `legacy`.`audit_log`; -- can free 56.0MiB
+* OPTIMIZE TABLE `tmp`.`stage`; -- can free 12.0MiB
+* Migrate `accounting`.`contact` to a wider integer type (or archive old rows) before `AUTO_INCREMENT` exhausts the current `int(11) unsigned` ceiling
 ```
 
 
 ## States
 
-* WARN if InnoDB is enabled but not being used.
-* WARN if BDB is enabled but not being used.
-* WARN if MYISAM is enabled but not being used.
-* WARN if fragmented tables are found.
-* WARN if a table's autoincrement value is >= 75% of its maximum capacity.
+* WARN if `InnoDB` is enabled but no `InnoDB` tables exist.
+* WARN if the number of fragmented tables crosses `--warning-fragmented-tables` (default: 1). CRIT at `--critical-fragmented-tables` (default: 5).
+* WARN if any table's `AUTO_INCREMENT` value is at `--warning-autoincrement-pct` (default: 75%) or more of the column-type maximum. CRIT at `--critical-autoincrement-pct` (default: 90%).
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-There is no perfdata.
-
-
-## Troubleshooting
-
-`InnoDB is enabled but isn't being used. Add skip-innodb to MySQL configuration to disable InnoDB`
-But InnoDB is enabled? You must use a user with sufficiently high permissions to access the MySQL/MariaDB internals for this check to work properly.
+| Name | Type | Description |
+|----|----|----|
+| mysql_autoincrement_max_pct | Percentage | Highest `AUTO_INCREMENT` percentage across all tables, computed against each column's type ceiling. |
+| mysql_fragmented_data_free | Bytes | Total `DATA_FREE` across fragmented tables (reclaimable disk space). |
+| mysql_fragmented_tables | Number | Count of fragmented tables that pass the size and percentage cutoffs. |
+| mysql_table_count | Number | Total tables across all non-system schemas. |
+| mysql_total_size | Bytes | Sum of `DATA_LENGTH + INDEX_LENGTH` across all non-system tables. |
 
 
 ## Credits, License
