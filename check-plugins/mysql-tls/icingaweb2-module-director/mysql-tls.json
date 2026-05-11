@@ -1,0 +1,231 @@
+{
+    "Command": {
+        "cmd-check-mysql-tls": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$mysql_tls_always_ok$"
+                },
+                "--critical": {
+                    "value": "$mysql_tls_critical$"
+                },
+                "--defaults-file": {
+                    "value": "$mysql_tls_defaults_file$"
+                },
+                "--defaults-group": {
+                    "value": "$mysql_tls_defaults_group$"
+                },
+                "--severity": {
+                    "value": "$mysql_tls_severity$"
+                },
+                "--timeout": {
+                    "value": "$mysql_tls_timeout$"
+                },
+                "--warning": {
+                    "value": "$mysql_tls_warning$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/mysql-tls",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-mysql-tls",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "6b9a9bb3-f959-4ca7-a195-ad13e9bbbced"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-mysql-tls": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-mysql-tls",
+            "check_interval": 3600,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "mysql-tls.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks MySQL/MariaDB TLS/SSL posture: the monitoring connection itself, the server's TLS capability (`have_ssl`), enforcement (`require_secure_transport`), enabled TLS versions (no TLSv1.0/1.1, at least TLSv1.2 or TLSv1.3), the presence of a server certificate and key, the local expiry of `ssl_cert` and `ssl_ca` files (when readable on the same host), and any remote accounts that can still connect without `REQUIRE SSL`. Each finding maps to a copy-pasteable SQL or `openssl` recommendation.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-tls/",
+            "object_name": "tpl-service-mysql-tls",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "mysql_tls_always_ok": false,
+                "mysql_tls_critical": "7:",
+                "mysql_tls_defaults_file": "/var/spool/icinga2/.my.cnf",
+                "mysql_tls_defaults_group": "client",
+                "mysql_tls_severity": "warn",
+                "mysql_tls_timeout": 3,
+                "mysql_tls_warning": "30:"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "8e7002b0-0ff2-41ec-9b74-482aaff2fedf"
+        }
+    },
+    "DataList": {
+        "mysql_tls_severity_list": {
+            "list_name": "mysql_tls_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "392d71f2-2ab6-47be-84c4-43603a7b79cd"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "mysql_tls_always_ok",
+            "caption": "MySQL Tls: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "ff9020a7-5b24-4b97-a89f-c959e599451a"
+        },
+        "2": {
+            "varname": "mysql_tls_critical",
+            "caption": "MySQL Tls: Critical",
+            "description": "Days until local `ssl_cert` / `ssl_ca` expiry that trigger CRIT. Supports Nagios ranges. Example: `--critical=14:`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6c855617-7d17-4977-a1a2-94407c103dfb"
+        },
+        "3": {
+            "varname": "mysql_tls_defaults_file",
+            "caption": "MySQL Tls: Defaults File",
+            "description": "MySQL/MariaDB cnf file to read user, host and password from. Example: `--defaults-file=/var/spool/icinga2/.my.cnf`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "46d82a3c-1eb8-4595-9163-37bd0b34e4b3"
+        },
+        "4": {
+            "varname": "mysql_tls_defaults_group",
+            "caption": "MySQL Tls: Defaults Group",
+            "description": "Group/section to read from in the cnf file.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "dab3e19d-f997-4c9f-9358-24a19bde7cbd"
+        },
+        "5": {
+            "varname": "mysql_tls_severity",
+            "caption": "MySQL Tls: Severity",
+            "description": "Severity for the threshold-less TLS findings (session not encrypted, `have_ssl=DISABLED`, `require_secure_transport=OFF`, weak TLS versions, missing cert/key, remote users without `REQUIRE SSL`). One of `warn` or `crit`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "mysql_tls_severity_list"
+            },
+            "uuid": "ebf0c8a5-0299-4946-96f0-75eea2b85524"
+        },
+        "6": {
+            "varname": "mysql_tls_timeout",
+            "caption": "MySQL Tls: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2458aded-dee3-4d87-ae00-4010c97bcd14"
+        },
+        "7": {
+            "varname": "mysql_tls_warning",
+            "caption": "MySQL Tls: Warning",
+            "description": "Days until local `ssl_cert` / `ssl_ca` expiry that trigger WARN. Supports Nagios ranges. Example: `--warning=60:`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "0a549772-3a34-4def-abc9-1060dfd16542"
+        }
+    }
+}

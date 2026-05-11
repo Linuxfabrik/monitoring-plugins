@@ -46,14 +46,18 @@ usage: mysql-health [-h] [-V] [--always-ok] [-c CRITICAL]
                     [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
                     [-w WARNING]
 
-Single-number health score for a MySQL/MariaDB server, modelled on mysqltuner
-v2.8.41's weighted KPI. Combines four performance metrics (buffer pool hit
-rate, temp tables on disk, thread cache hit rate, connection usage), a
-security count (anonymous accounts, empty passwords, wildcard hosts) and
-three resilience metrics (replication lag, redo-log sizing, schema metadata)
-into a 0-100 score. Useful as a top-level Icinga alert and Grafana KPI panel;
-the individual `mysql-*` plugins still own the detailed findings and fix
-advice.
+Single-number health score for a MySQL/MariaDB server. Ports mysqltuner
+v2.8.41's `calculate_health_score()` weighting (Performance 40 / Security 30 /
+Resilience 30) and a useful subset of the supporting checks: anonymous
+accounts, empty passwords, wildcard hosts, legacy `mysql_native_password`
+users on MySQL 8.0+, TLS/SSL configuration, replication lag, redo-log sizing
+and InnoDB tables without a user-defined `PRIMARY KEY`. mysqltuner's broader
+schema-modelling checks (mixed collations, naming conventions, foreign key
+hygiene) are not ported, so on a heavily-flagged server our score can sit 5 to
+15 points above mysqltuner's; the four direct mysqltuner checks (security,
+perf hit rates, replication lag, log sizing) do match. Useful as a top-level
+Icinga alert and Grafana KPI panel; the individual `mysql-*` plugins still own
+the detailed findings and fix advice.
 
 options:
   -h, --help            show this help message and exit

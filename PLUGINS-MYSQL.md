@@ -31,6 +31,7 @@ listings and the monitoring host's shell history.
 * `mysql-table-locks`: table-lock waits.
 * `mysql-temp-tables`: on-disk vs. in-memory temp tables.
 * `mysql-thread-cache`: thread-cache hit rate.
+* `mysql-tls`: TLS/SSL posture (`have_ssl`, `require_secure_transport`, TLS versions, cert expiry, remote users without `REQUIRE SSL`).
 * `mysql-traffic`: bytes sent and received.
 * `mysql-user-security`: accounts without password, wildcard hosts, etc.
 * `mysql-version`: installed MySQL/MariaDB version, EOL check.
@@ -149,6 +150,7 @@ minimum.
 | **One shared monitoring user (covers all MySQL plugins)** | `GRANT USAGE, SELECT, REPLICATION CLIENT ON *.* TO 'monitoring'@'127.0.0.1'`. On MariaDB 10.5+, `SLAVE MONITOR` (or its MariaDB 11+ alias `REPLICA MONITOR`) also satisfies `mysql-replica-status` |
 | `mysql-aria`, `mysql-database-metrics`, `mysql-innodb-buffer-pool-size`, `mysql-storage-engines`, `mysql-table-definition-cache`, `mysql-table-indexes` | `GRANT SELECT ON *.*` (needed to see all rows in `information_schema`) |
 | `mysql-replica-status` | `GRANT REPLICATION CLIENT ON *.*` on MySQL and MariaDB <10.5. **On MariaDB 10.5+** plain `REPLICATION CLIENT` is no longer enough for `SHOW REPLICA STATUS` / `SHOW SLAVE STATUS`; grant `SLAVE MONITOR` (or its MariaDB 11+ alias `REPLICA MONITOR`) instead |
+| `mysql-tls` | `GRANT SELECT ON mysql.*` (queries `mysql.user` and `mysql.global_priv` for remote users without `REQUIRE SSL`). For the local certificate expiry check the OS user running the plugin must additionally be able to read `ssl_cert` / `ssl_ca` from disk |
 | `mysql-user-security` | `GRANT SELECT ON mysql.*` (queries `mysql.user` and `mysql.global_priv`) |
 | `mysql-logfile` | `GRANT USAGE ON *.*` is enough for on-disk / container / systemd sources. To additionally use `performance_schema.error_log` (MySQL 8.0.22+), `GRANT SELECT ON performance_schema.error_log` is needed; without it the plugin transparently falls back to file mode |
 | All other `mysql-*` plugins | `GRANT USAGE ON *.*` (login-only, no further privileges) |
@@ -182,5 +184,6 @@ role; activate several sets on the same host when appropriate.
   (`mysql-replica-status`). Activate on asynchronous replicas.
 * **MySQL Schemas Service Set**: per-database size and index quality
   (database metrics, table indexes, table locks).
-* **MySQL Security Service Set**: account hygiene and the server-side error
-  log (`mysql-user-security`, `mysql-logfile`).
+* **MySQL Security Service Set**: account hygiene, TLS posture and the
+  server-side error log (`mysql-user-security`, `mysql-tls`,
+  `mysql-logfile`).

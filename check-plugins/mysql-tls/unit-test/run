@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Integration tests for the mysql-tls check plugin.
+
+The plugin opens a real `pymysql` connection and reads `SHOW GLOBAL
+VARIABLES` plus `SHOW SESSION STATUS LIKE 'Ssl_cipher'` and queries
+`mysql.user` / `mysql.global_priv` for remote accounts without
+`REQUIRE SSL`. Reading the `mysql` system database requires elevated
+privileges, so the test grants the regular `test` user SELECT on
+`mysql.*` via `container.exec` as root before running the plugin.
+
+On a default-configured MariaDB image, the monitoring connection
+itself is not encrypted (pymysql does not auto-enable TLS),
+`require_secure_transport` is `OFF`, and no server certificate is
+installed (`ssl_cert` / `ssl_key` empty). The plugin therefore
+legitimately flags three findings; the test pins WARN so a future
+refactor cannot silently mask them.
+
+The "remote users without REQUIRE SSL" finding does not fire on the
+default image even though `test@%` has no SSL requirement, because
+MariaDB stores `ssl_type` only when explicitly set, and mysqltuner's
+`JSON_VALUE = ''` predicate (which we mirror) does not match the
+missing-key case.
+
+Runs against the current MariaDB LTS releases
+(`lib.lftest.MARIADB_LTS_IMAGES`).
+
+Requirements:
+- podman (or docker) with a reachable socket
+- `pip install testcontainers`
+- `tools/run-unit-tests` auto-sets `CONTAINER_HOST` and
+  `TESTCONTAINERS_RYUK_DISABLED`
+"""
+
+import os
+import subprocess
+import sys
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+from lib.globals import STATE_WARN
+
+IMAGES = lib.lftest.MARIADB_LTS_IMAGES
+
+
+class TestCheck(unittest.TestCase):
+    pass
+
+
+def _check_image(test, image_pair):
+    image, label = image_pair
+    print(f'\n=== Testing {label} ({image}) ===', flush=True)
+    with lib.lftest.run_mariadb(image) as (container, defaults_file):
+        # Grant the `test` user read access to the `mysql` system
+        # database so it can query `mysql.user` / `mysql.global_priv`.
+        # sclorg images accept root via socket auth (no password
+        # because the container runs as the mysql OS user); upstream
+        # images require the `-p` password. Try without password
+        # first, fall back to the password-auth variant.
+        container.exec([
+            'sh', '-c',
+            'if command -v mariadb >/dev/null 2>&1; then C=mariadb; '
+            'else C=mysql; fi; '
+            'GRANT_SQL="GRANT SELECT ON mysql.* TO '
+            "'test'@'%'"
+            '"; '
+            '"$C" -uroot -e "$GRANT_SQL" 2>/dev/null '
+            '|| "$C" -uroot -ptest -e "$GRANT_SQL"',
+        ])
+
+        cmd = [
+            'python3', '../mysql-tls',
+            f'--defaults-file={defaults_file}',
+        ]
+        print(f'Run plugin: {" ".join(cmd)}', flush=True)
+        result = subprocess.run(
+            cmd,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            capture_output=True,
+            text=True,
+        )
+        combined = result.stdout + result.stderr
+        print(f'Script output:\n{combined.strip()}', flush=True)
+
+        test.assertEqual(result.returncode, STATE_WARN)
+        # Three findings expected to fire on the default MariaDB image:
+        test.assertIn('Monitoring connection not encrypted', combined)
+        test.assertIn('require_secure_transport` = OFF', combined)
+        test.assertIn('No server certificate configured', combined)
+        # Perfdata keys are emitted (single-quoted by lib.base.get_perfdata):
+        test.assertIn('mysql_tls_session_encrypted', combined)
+        test.assertIn('mysql_tls_remote_users_without_ssl', combined)
+
+
+lib.lftest.attach_each(TestCheck, IMAGES, _check_image, id_func=lambda it: it[1])
+
+
+if __name__ == '__main__':
+    unittest.main()
