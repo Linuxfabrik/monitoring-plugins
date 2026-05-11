@@ -21,12 +21,16 @@ from lib.globals import STATE_OK, STATE_UNKNOWN
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026051101'
 
-DESCRIPTION = """Single-number health score for a MySQL/MariaDB server, modelled on mysqltuner v2.8.41's
-weighted KPI. Combines four performance metrics (buffer pool hit rate, temp tables on disk,
-thread cache hit rate, connection usage), a security count (anonymous accounts, empty
-passwords, wildcard hosts) and three resilience metrics (replication lag, redo-log sizing,
-schema metadata) into a 0-100 score. Useful as a top-level Icinga alert and Grafana KPI
-panel; the individual `mysql-*` plugins still own the detailed findings and fix advice."""
+DESCRIPTION = """Single-number health score for a MySQL/MariaDB server. Ports mysqltuner v2.8.41's
+`calculate_health_score()` weighting (Performance 40 / Security 30 / Resilience 30) and a
+useful subset of the supporting checks: anonymous accounts, empty passwords, wildcard hosts,
+legacy `mysql_native_password` users on MySQL 8.0+, TLS/SSL configuration, replication lag,
+redo-log sizing and InnoDB tables without a user-defined `PRIMARY KEY`. mysqltuner's broader
+schema-modelling checks (mixed collations, naming conventions, foreign key hygiene) are not
+ported, so on a heavily-flagged server our score can sit 5 to 15 points above mysqltuner's;
+the four direct mysqltuner checks (security, perf hit rates, replication lag, log sizing)
+do match. Useful as a top-level Icinga alert and Grafana KPI panel; the individual
+`mysql-*` plugins still own the detailed findings and fix advice."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
@@ -112,13 +116,28 @@ def parse_args():
     return args
 
 
-def count_security_issues(conn, has_role_column):
-    """Sum of anonymous accounts, empty-password accounts and wildcard-host
-    accounts. Mirrors the inputs to mysqltuner's `@secrec` list. We skip the
-    username-as-password test because it depends on `PASSWORD(...)` which was
-    removed in MySQL 8 and broken by `validate_password` on MySQL 5.7+.
+# The functions below port specific mysqltuner v2.8.41 subroutines that
+# populate `@secrec` via `push_recommendation('Security', ...)`. Each
+# returns the integer count this subroutine contributes to `@secrec`.
+# Functions in `@secrec` reflect what mysqltuner thinks counts towards
+# the Security health-score component, NOT every security-related output
+# line (e.g. wildcard-host findings go to `@generalrec` only and do not
+# affect the score - we mirror that).
+
+
+def security_recommendations(conn, has_role_column):
+    """Port of mysqltuner v2.8.41 security_recommendations(). Returns the
+    number of entries this subroutine pushes to `@secrec`:
+
+    - 1 if any anonymous accounts exist (one combined push, not per user)
+    - N for the N users with an empty password (one push per user)
+
+    Username-as-password and wildcard-host findings push to `@generalrec`
+    in mysqltuner, not `@secrec`, so they do NOT count here (mysqltuner's
+    health-score deliberately ignores them).
     """
     role_filter = "IS_ROLE = 'N' and " if has_role_column else ''
+    findings = 0
 
     sql_anonymous = f"""
         select count(*) as cnt
@@ -129,10 +148,12 @@ def count_security_issues(conn, has_role_column):
     anonymous = int(
         lib.base.coe(lib.db_mysql.select(conn, sql_anonymous, fetchone=True))['cnt']
     )
+    if anonymous > 0:
+        findings += 1
 
-    # MariaDB 10.4+ stores password info in mysql.global_priv as JSON; older
-    # versions have a column on mysql.user. Try the modern path first, then
-    # fall through.
+    # MariaDB 10.4+ stores password info in mysql.global_priv as JSON;
+    # older versions have a column on mysql.user. Try the modern path
+    # first, then fall through.
     success, row = lib.db_mysql.select(
         conn,
         """
@@ -149,8 +170,6 @@ def count_security_issues(conn, has_role_column):
         fetchone=True,
     )
     if not success or row is None:
-        # Fall back to the column-name path. Use a single attempt; if the
-        # column does not exist either, we count zero (best-effort).
         success, row = lib.db_mysql.select(
             conn,
             """
@@ -164,19 +183,129 @@ def count_security_issues(conn, has_role_column):
             """,
             fetchone=True,
         )
-    empty_pw = int(row['cnt']) if success and row is not None else 0
+    findings += int(row['cnt']) if success and row is not None else 0
 
-    sql_wildcard = """
+    return findings
+
+
+def check_auth_plugins(conn, has_role_column, myvar):
+    """Port of mysqltuner v2.8.41 check_auth_plugins(). Returns the
+    number of entries this subroutine pushes to `@secrec`: one per user
+    on the legacy `mysql_native_password` plugin (or `sha256_password`
+    on MySQL 8.0+, which mysqltuner also flags as DEPRECATED).
+    """
+    version = (myvar.get('version') or '').lower()
+    is_mariadb = 'mariadb' in version
+    mysql_80_plus = (not is_mariadb) and _version_at_least(version, (8, 0))
+
+    role_filter = "IS_ROLE = 'N' and " if has_role_column else ''
+    sql_legacy = f"""
         select count(*) as cnt
         from mysql.user
-        where host = '%'
+        where {role_filter}plugin = 'mysql_native_password'
+            and user not in ('mariadb.sys', 'mysql.sys')
         ;
+    """  # nosec B608
+    success, row = lib.db_mysql.select(conn, sql_legacy, fetchone=True)
+    legacy = int(row['cnt']) if success and row is not None else 0
+
+    sha256 = 0
+    if mysql_80_plus:
+        success, row = lib.db_mysql.select(
+            conn,
+            f"""
+                select count(*) as cnt
+                from mysql.user
+                where {role_filter}plugin = 'sha256_password'
+                    and user not in ('mariadb.sys', 'mysql.sys')
+                ;
+            """,  # nosec B608
+            fetchone=True,
+        )
+        sha256 = int(row['cnt']) if success and row is not None else 0
+
+    return legacy + sha256
+
+
+def ssl_tls_recommendations(myvar):
+    """Port of mysqltuner v2.8.41 ssl_tls_recommendations(). Returns the
+    number of entries this subroutine pushes to `@secrec`. Conditions:
+
+    - `have_ssl = DISABLED` -> 1
+    - `require_secure_transport = OFF` -> 1
+    - `tls_version` contains TLSv1.0 or TLSv1.1 -> 1
+    - `tls_version` lacks both TLSv1.2 and TLSv1.3 -> 1
+    - `ssl_cert` AND `ssl_key` both empty -> 1
     """
-    wildcard = int(
-        lib.base.coe(lib.db_mysql.select(conn, sql_wildcard, fetchone=True))['cnt']
+    findings = 0
+    if (myvar.get('have_ssl') or '').upper() == 'DISABLED':
+        findings += 1
+    if (myvar.get('require_secure_transport') or 'OFF').upper() == 'OFF':
+        findings += 1
+    tls_versions = (myvar.get('tls_version') or '').lower()
+    if tls_versions and ('tlsv1.0' in tls_versions or 'tlsv1.1' in tls_versions):
+        findings += 1
+    if tls_versions and 'tlsv1.2' not in tls_versions and 'tlsv1.3' not in tls_versions:
+        findings += 1
+    ssl_cert = myvar.get('ssl_cert') or ''
+    ssl_key = myvar.get('ssl_key') or ''
+    if ssl_cert == '' and ssl_key == '':
+        findings += 1
+    return findings
+
+
+def check_remote_user_ssl(conn, myvar):
+    """Port of mysqltuner v2.8.41 check_remote_user_ssl(). Returns 1 if any
+    user can connect from a non-localhost host without `REQUIRE SSL`, 0
+    otherwise. mysqltuner pushes one entry regardless of how many users
+    match (not one per user).
+    """
+    version = (myvar.get('version') or '').lower()
+    is_mariadb_10_4_plus = 'mariadb' in version and _version_at_least(version, (10, 4))
+    if is_mariadb_10_4_plus:
+        sql = """
+            select count(*) as cnt
+            from mysql.global_priv
+            where host not in ('localhost', '127.0.0.1', '::1')
+                and json_value(priv, '$.ssl_type') = ''
+            ;
+        """
+    else:
+        sql = """
+            select count(*) as cnt
+            from mysql.user
+            where host not in ('localhost', '127.0.0.1', '::1')
+                and (ssl_type = 'NONE' or ssl_type = '')
+            ;
+        """
+    success, row = lib.db_mysql.select(conn, sql, fetchone=True)
+    if not success or row is None:
+        return 0
+    return 1 if int(row['cnt']) > 0 else 0
+
+
+def count_secrec_findings(conn, has_role_column, myvar):
+    """Total `@secrec` count. Sums the per-subroutine ports."""
+    return (
+        security_recommendations(conn, has_role_column)
+        + check_auth_plugins(conn, has_role_column, myvar)
+        + ssl_tls_recommendations(myvar)
+        + check_remote_user_ssl(conn, myvar)
     )
 
-    return anonymous + empty_pw + wildcard
+
+def _version_at_least(version_string, target):
+    """Return True if the lowercased `version_string` reports a numeric
+    server version `>= target` (a tuple like `(8, 0)`). Strips the
+    `-MariaDB` and other suffixes the server appends.
+    """
+    head = version_string.split('-')[0]
+    parts = head.split('.')
+    try:
+        nums = tuple(int(p) for p in parts[: len(target)])
+    except (ValueError, TypeError):
+        return False
+    return nums >= target
 
 
 def count_tables_without_pk(conn):
@@ -348,7 +477,7 @@ def main():
     myvar = lib.db_mysql.get_all_variables(conn)
     replica_status = lib.db_mysql.get_replica_status(conn)
     has_role_column = lib.db_mysql.has_is_role_column(conn)
-    security_issues = count_security_issues(conn, has_role_column)
+    security_issues = count_secrec_findings(conn, has_role_column, myvar)
     missing_pk = count_tables_without_pk(conn)
 
     lib.db_mysql.close(conn)

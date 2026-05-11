@@ -40,7 +40,7 @@ import unittest
 sys.path.insert(0, '..')
 
 import lib.lftest
-from lib.globals import STATE_OK
+from lib.globals import STATE_WARN
 
 IMAGES = lib.lftest.MARIADB_LTS_IMAGES
 
@@ -83,10 +83,15 @@ def _check_image(test, image_pair):
         combined = result.stdout + result.stderr
         print(f'Script output:\n{combined.strip()}', flush=True)
 
-        # `root@%` wildcard host is shipped by all MariaDB images by default
-        # and drops the security score by 5 (single security issue). That
-        # alone keeps the score above 80 so we expect STATE_OK.
-        test.assertEqual(result.returncode, STATE_OK)
+        # All MariaDB images ship with `root@%` (wildcard host) and no TLS
+        # configuration (`require_secure_transport` off, `ssl_cert` / `ssl_key`
+        # / `ssl_ca` empty). The Security component thus loses 15 points (one
+        # finding per category) - score lands in the 70-80 band and the
+        # plugin flips to STATE_WARN. That is the right signal: a default-
+        # configured MariaDB really is not hardened. The test pins the WARN
+        # state so a regression that masks the security checks would fail
+        # here.
+        test.assertEqual(result.returncode, STATE_WARN)
         test.assertRegex(combined, r'Health Score: \d+/100')
 
 
