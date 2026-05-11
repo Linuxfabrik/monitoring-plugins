@@ -56,8 +56,8 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   -c, --critical CRITICAL
-                        Table cache hit rate (percent) at which the check
-                        flips to CRITICAL. Default: 10
+                        CRIT threshold in percent. Supports Nagios ranges.
+                        Default: 10:
   --defaults-file DEFAULTS_FILE
                         MySQL/MariaDB cnf file to read user, host and password
                         from. Example: `--defaults-
@@ -68,8 +68,8 @@ options:
                         client
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -w, --warning WARNING
-                        Table cache hit rate (percent) at which the check
-                        flips to WARNING. Default: 20
+                        WARN threshold in percent. Supports Nagios ranges.
+                        Default: 20:
 ```
 
 

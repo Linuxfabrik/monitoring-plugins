@@ -67,11 +67,12 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --critical-autoincrement-pct CRITICAL_AI
-                        Percentage of the column-type maximum at which an
-                        `AUTO_INCREMENT` value flips to CRITICAL. Default: 90
+                        CRIT threshold for the percentage of the column-type
+                        maximum an `AUTO_INCREMENT` value uses. Supports
+                        Nagios ranges. Default: 90
   --critical-fragmented-tables CRITICAL_FRAG
-                        Number of fragmented tables at which the check flips
-                        to CRITICAL. Default: 5
+                        CRIT threshold for the number of fragmented tables.
+                        Supports Nagios ranges. Default: 4
   --defaults-file DEFAULTS_FILE
                         MySQL/MariaDB cnf file to read user, host and password
                         from. Example: `--defaults-
@@ -92,11 +93,12 @@ options:
   --lengthy             Extended reporting. Default: False
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --warning-autoincrement-pct WARNING_AI
-                        Percentage of the column-type maximum at which an
-                        `AUTO_INCREMENT` value flips to WARNING. Default: 75
+                        WARN threshold for the percentage of the column-type
+                        maximum an `AUTO_INCREMENT` value uses. Supports
+                        Nagios ranges. Default: 75
   --warning-fragmented-tables WARNING_FRAG
-                        Number of fragmented tables at which the check flips
-                        to WARNING. Default: 1
+                        WARN threshold for the number of fragmented tables.
+                        Supports Nagios ranges. Default: 0
 ```
 
 

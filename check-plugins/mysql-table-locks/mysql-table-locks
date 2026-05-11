@@ -33,8 +33,9 @@ DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
 # mysqltuner v2.8.41 alerts at < 95%. We keep that as WARN and add CRIT at
 # < 85% so the plugin state actually goes red when contention is severe.
-DEFAULT_WARN = 95
-DEFAULT_CRIT = 85
+# Nagios range form `N:` = "OK range is N to infinity"; values below N trigger.
+DEFAULT_WARN = '95:'
+DEFAULT_CRIT = '85:'
 DEFAULT_TIMEOUT = 3
 
 SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-table-locks.db'
@@ -62,11 +63,9 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='Percentage of immediately acquired table locks at which the '
-        'check flips to CRITICAL. '
-        'Default: %(default)s',
+        help=lib.args.help('--critical')
+        + ' Supports Nagios ranges. Default: %(default)s',
         dest='CRITICAL',
-        type=float,
         default=DEFAULT_CRIT,
     )
 
@@ -97,11 +96,9 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='Percentage of immediately acquired table locks at which the '
-        'check flips to WARNING. '
-        'Default: %(default)s',
+        help=lib.args.help('--warning')
+        + ' Supports Nagios ranges. Default: %(default)s',
         dest='WARNING',
-        type=float,
         default=DEFAULT_WARN,
     )
 
@@ -177,7 +174,7 @@ def main():
             pct_immediate,
             args.WARNING,
             args.CRITICAL,
-            _operator='le',
+            _operator='range',
         )
         if state != STATE_OK:
             recommendations.append(

@@ -33,8 +33,8 @@ DEFAULT_DEFAULTS_GROUP = 'client'
 # Match mysqltuner's 10% cut-off, but expose a higher --critical so admins can
 # keep WARN for early notice and let the alert escalate when the ratio really
 # runs hot.
-DEFAULT_WARN = 10
-DEFAULT_CRIT = 20
+DEFAULT_WARN = '10'
+DEFAULT_CRIT = '20'
 DEFAULT_TIMEOUT = 3
 
 SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-sorts.db'
@@ -62,11 +62,9 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='Percentage of sorts that spilled to a temporary merge-sort'
-        ' file at which the ratio flips to CRITICAL. '
-        'Default: %(default)s',
+        help=lib.args.help('--critical')
+        + ' Supports Nagios ranges. Default: %(default)s',
         dest='CRITICAL',
-        type=float,
         default=DEFAULT_CRIT,
     )
 
@@ -97,11 +95,9 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='Percentage of sorts that spilled to a temporary merge-sort'
-        ' file at which the ratio flips to WARNING. '
-        'Default: %(default)s',
+        help=lib.args.help('--warning')
+        + ' Supports Nagios ranges. Default: %(default)s',
         dest='WARNING',
-        type=float,
         default=DEFAULT_WARN,
     )
 
@@ -184,7 +180,10 @@ def main():
 
     if total_sorts > 0:
         state = lib.base.get_state(
-            pct_temp_sort_table, args.WARNING, args.CRITICAL,
+            pct_temp_sort_table,
+            args.WARNING,
+            args.CRITICAL,
+            _operator='range',
         )
         if state != STATE_OK:
             recommendations.append(

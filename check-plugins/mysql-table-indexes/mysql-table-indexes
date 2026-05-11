@@ -35,9 +35,11 @@ DEFAULT_TIMEOUT = 3
 DEFAULT_LENGTHY = False
 
 # Default thresholds: the first defect already triggers WARN, an avalanche
-# (10+) escalates to CRIT.
-DEFAULT_WARN = 1
-DEFAULT_CRIT = 10
+# (10+) escalates to CRIT. Nagios range form `N` = "OK range is 0 to N";
+# values strictly above N trigger. So `0` alerts on the first occurrence
+# and `9` alerts at the tenth.
+DEFAULT_WARN = '0'
+DEFAULT_CRIT = '9'
 
 SYSTEM_SCHEMAS = ('information_schema', 'mysql', 'performance_schema', 'sys')
 
@@ -68,11 +70,11 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='Number of bad tables (per category: missing indexes / missing '
-        'primary key) at which the check flips to CRITICAL. '
+        help='CRIT threshold for the number of bad tables (per category: '
+        'missing indexes / missing primary key). '
+        'Supports Nagios ranges. '
         'Default: %(default)s',
         dest='CRITICAL',
-        type=int,
         default=DEFAULT_CRIT,
     )
 
@@ -131,11 +133,11 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='Number of bad tables (per category: missing indexes / missing '
-        'primary key) at which the check flips to WARNING. '
+        help='WARN threshold for the number of bad tables (per category: '
+        'missing indexes / missing primary key). '
+        'Supports Nagios ranges. '
         'Default: %(default)s',
         dest='WARNING',
-        type=int,
         default=DEFAULT_WARN,
     )
 
@@ -316,11 +318,13 @@ def main():
         no_index_count,
         args.WARNING,
         args.CRITICAL,
+        _operator='range',
     )
     no_pk_state = lib.base.get_state(
         no_pk_count,
         args.WARNING,
         args.CRITICAL,
+        _operator='range',
     )
     state = lib.base.get_worst(state, no_index_state, no_pk_state)
 

@@ -34,8 +34,8 @@ DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
 # Match mysqltuner's 5% cut-off, but expose a higher --critical so admins can keep
 # WARN for early notice and let the alert escalate when the ratio really runs hot.
-DEFAULT_WARN = 5
-DEFAULT_CRIT = 10
+DEFAULT_WARN = '5'
+DEFAULT_CRIT = '10'
 DEFAULT_TIMEOUT = 3
 
 SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-slow-queries.db'
@@ -63,11 +63,9 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='Percentage of `Slow_queries` / `Questions` at which the ratio'
-        ' flips to CRITICAL. '
-        'Default: %(default)s',
+        help=lib.args.help('--critical')
+        + ' Supports Nagios ranges. Default: %(default)s',
         dest='CRITICAL',
-        type=float,
         default=DEFAULT_CRIT,
     )
 
@@ -98,11 +96,9 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='Percentage of `Slow_queries` / `Questions` at which the ratio'
-        ' flips to WARNING. '
-        'Default: %(default)s',
+        help=lib.args.help('--warning')
+        + ' Supports Nagios ranges. Default: %(default)s',
         dest='WARNING',
-        type=float,
         default=DEFAULT_WARN,
     )
 
@@ -181,7 +177,12 @@ def main():
     else:
         pct_slow_queries = round(slow_queries / questions * 100, 2)
 
-    state = lib.base.get_state(pct_slow_queries, args.WARNING, args.CRITICAL)
+    state = lib.base.get_state(
+        pct_slow_queries,
+        args.WARNING,
+        args.CRITICAL,
+        _operator='range',
+    )
     if state != STATE_OK:
         recommendations.append(
             f'Investigate the slow query log and optimise the {slow_queries}'
@@ -254,9 +255,7 @@ def main():
         'mysql-slow-queries',
         {'slow_queries': slow_queries},
     )
-    slow_queries_per_s = (
-        round(rates['slow_queries'], 2) if rates is not None else None
-    )
+    slow_queries_per_s = round(rates['slow_queries'], 2) if rates is not None else None
     if slow_queries_per_s is not None:
         perfdata += lib.base.get_perfdata(
             'mysql_slow_queries_per_second',

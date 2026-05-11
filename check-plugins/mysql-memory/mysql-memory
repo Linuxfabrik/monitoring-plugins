@@ -47,8 +47,8 @@ DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_TIMEOUT = 3
 # % of physical RAM at which `pct_max_used_memory` (the currently-reached
 # footprint) turns WARN / CRIT. Default 85/95 matches mysqltuner v2.8.41.
-DEFAULT_WARN = 85
-DEFAULT_CRIT = 95
+DEFAULT_WARN = '85'
+DEFAULT_CRIT = '95'
 
 # MySQL/MariaDB allocates each buffer from the 32-bit address space (~4 GiB
 # practical limit; mysqltuner uses 2 GiB as the conservative threshold). On a
@@ -78,12 +78,13 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='Percentage of physical RAM at which the reached MySQL memory'
-        ' footprint (server_buffers + per_thread_buffers * Max_used_connections'
-        ' + Performance Schema + Galera GCache) flips to CRITICAL. '
+        help='CRIT threshold for the percentage of physical RAM consumed by '
+        'the reached MySQL memory footprint (server_buffers + '
+        'per_thread_buffers * Max_used_connections + Performance Schema + '
+        'Galera GCache). '
+        'Supports Nagios ranges. '
         'Default: %(default)s',
         dest='CRITICAL',
-        type=int,
         default=DEFAULT_CRIT,
     )
 
@@ -126,10 +127,11 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='Percentage of physical RAM at which the reached MySQL memory'
-        ' footprint flips to WARNING. Default: %(default)s',
+        help='WARN threshold for the percentage of physical RAM consumed by '
+        'the reached MySQL memory footprint. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
         dest='WARNING',
-        type=int,
         default=DEFAULT_WARN,
     )
 
@@ -441,7 +443,10 @@ def main():
         )
     else:
         used_state = lib.base.get_state(
-            mycalc['pct_max_used_memory'], args.WARNING, args.CRITICAL,
+            mycalc['pct_max_used_memory'],
+            args.WARNING,
+            args.CRITICAL,
+            _operator='range',
         )
         if used_state != STATE_OK:
             recommendations.append(
@@ -457,7 +462,10 @@ def main():
 
     # peak memory (theoretical)
     peak_state = lib.base.get_state(
-        mycalc['pct_max_physical_memory'], args.WARNING, args.CRITICAL,
+        mycalc['pct_max_physical_memory'],
+        args.WARNING,
+        args.CRITICAL,
+        _operator='range',
     )
     if peak_state != STATE_OK:
         rec = 'Reduce your overall MySQL memory footprint for system stability'
@@ -506,13 +514,9 @@ def main():
         rec_lines = [f'* {r}' for r in recommendations]
         top = [c for c in build_contributions(myvar, mycalc) if c[1] > 0][:5]
         if top:
-            rec_lines.append(
-                '* Top contributors to peak memory (largest first):'
-            )
+            rec_lines.append('* Top contributors to peak memory (largest first):')
             for label, value, multiplied in top:
-                rec_lines.append(
-                    f'  - {format_contribution(label, value, multiplied)}'
-                )
+                rec_lines.append(f'  - {format_contribution(label, value, multiplied)}')
         sections.append('Recommendations:\n' + '\n'.join(rec_lines))
 
     msg = '\n\n'.join(sections)

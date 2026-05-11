@@ -51,8 +51,7 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   -c, --critical CRITICAL
-                        Percentage of sorts that spilled to a temporary merge-
-                        sort file at which the ratio flips to CRITICAL.
+                        CRIT threshold in percent. Supports Nagios ranges.
                         Default: 20
   --defaults-file DEFAULTS_FILE
                         MySQL/MariaDB cnf file to read user, host and password
@@ -64,8 +63,7 @@ options:
                         client
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -w, --warning WARNING
-                        Percentage of sorts that spilled to a temporary merge-
-                        sort file at which the ratio flips to WARNING.
+                        WARN threshold in percent. Supports Nagios ranges.
                         Default: 10
 ```
 

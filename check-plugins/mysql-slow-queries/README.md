@@ -55,8 +55,8 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   -c, --critical CRITICAL
-                        Percentage of `Slow_queries` / `Questions` at which
-                        the ratio flips to CRITICAL. Default: 10
+                        CRIT threshold in percent. Supports Nagios ranges.
+                        Default: 10
   --defaults-file DEFAULTS_FILE
                         MySQL/MariaDB cnf file to read user, host and password
                         from. Example: `--defaults-
@@ -67,8 +67,8 @@ options:
                         client
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -w, --warning WARNING
-                        Percentage of `Slow_queries` / `Questions` at which
-                        the ratio flips to WARNING. Default: 5
+                        WARN threshold in percent. Supports Nagios ranges.
+                        Default: 5
 ```
 
 

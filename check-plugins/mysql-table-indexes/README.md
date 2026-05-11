@@ -59,9 +59,9 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   -c, --critical CRITICAL
-                        Number of bad tables (per category: missing indexes /
-                        missing primary key) at which the check flips to
-                        CRITICAL. Default: 10
+                        CRIT threshold for the number of bad tables (per
+                        category: missing indexes / missing primary key).
+                        Supports Nagios ranges. Default: 9
   --defaults-file DEFAULTS_FILE
                         MySQL/MariaDB cnf file to read user, host and password
                         from. Example: `--defaults-
@@ -81,9 +81,9 @@ options:
   --lengthy             Extended reporting. Default: False
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -w, --warning WARNING
-                        Number of bad tables (per category: missing indexes /
-                        missing primary key) at which the check flips to
-                        WARNING. Default: 1
+                        WARN threshold for the number of bad tables (per
+                        category: missing indexes / missing primary key).
+                        Supports Nagios ranges. Default: 0
 ```
 
 

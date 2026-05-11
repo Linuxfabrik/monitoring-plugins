@@ -34,9 +34,10 @@ DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
 # mysqltuner v2.8.41 alerts at < 20% hit rate; we keep that as WARN and add a
 # CRIT escalation at < 10% so the plugin state actually goes red when the
-# cache is severely undersized.
-DEFAULT_WARN = 20
-DEFAULT_CRIT = 10
+# cache is severely undersized. Nagios range form `N:` = "OK range is N to
+# infinity"; values below N trigger the threshold.
+DEFAULT_WARN = '20:'
+DEFAULT_CRIT = '10:'
 DEFAULT_TIMEOUT = 3
 
 SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-table-cache.db'
@@ -64,10 +65,9 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='Table cache hit rate (percent) at which the check flips to CRITICAL. '
-        'Default: %(default)s',
+        help=lib.args.help('--critical')
+        + ' Supports Nagios ranges. Default: %(default)s',
         dest='CRITICAL',
-        type=float,
         default=DEFAULT_CRIT,
     )
 
@@ -98,10 +98,9 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='Table cache hit rate (percent) at which the check flips to WARNING. '
-        'Default: %(default)s',
+        help=lib.args.help('--warning')
+        + ' Supports Nagios ranges. Default: %(default)s',
         dest='WARNING',
-        type=float,
         default=DEFAULT_WARN,
     )
 
@@ -212,7 +211,7 @@ def main():
             hit_rate,
             args.WARNING,
             args.CRITICAL,
-            _operator='le',
+            _operator='range',
         )
         if state != STATE_OK:
             recommendations.append(

@@ -37,14 +37,16 @@ DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_TIMEOUT = 3
 DEFAULT_LENGTHY = False
 
-# Fragmentation thresholds (matches mysqltuner v2.8.41).
-DEFAULT_WARN_FRAG = 1
-DEFAULT_CRIT_FRAG = 5
+# Fragmentation thresholds (matches mysqltuner v2.8.41). Nagios range form
+# `N` = "OK range is 0 to N"; values strictly above N trigger. So `0` alerts
+# on the first fragmented table and `4` alerts at the fifth.
+DEFAULT_WARN_FRAG = '0'
+DEFAULT_CRIT_FRAG = '4'
 # AUTO_INCREMENT capacity thresholds (mysqltuner alerts at 75%; we add a CRIT
 # escalation so the plugin state actually goes red before the table cannot
 # accept new rows).
-DEFAULT_WARN_AI = 75
-DEFAULT_CRIT_AI = 90
+DEFAULT_WARN_AI = '75'
+DEFAULT_CRIT_AI = '90'
 
 FRAG_MIN_TABLE_SIZE_MIB = 100
 FRAG_MIN_PCT = 10
@@ -91,20 +93,20 @@ def parse_args():
 
     parser.add_argument(
         '--critical-autoincrement-pct',
-        help='Percentage of the column-type maximum at which an `AUTO_INCREMENT` '
-        'value flips to CRITICAL. '
+        help='CRIT threshold for the percentage of the column-type maximum '
+        'an `AUTO_INCREMENT` value uses. '
+        'Supports Nagios ranges. '
         'Default: %(default)s',
         dest='CRITICAL_AI',
-        type=float,
         default=DEFAULT_CRIT_AI,
     )
 
     parser.add_argument(
         '--critical-fragmented-tables',
-        help='Number of fragmented tables at which the check flips to CRITICAL. '
+        help='CRIT threshold for the number of fragmented tables. '
+        'Supports Nagios ranges. '
         'Default: %(default)s',
         dest='CRITICAL_FRAG',
-        type=int,
         default=DEFAULT_CRIT_FRAG,
     )
 
@@ -162,20 +164,20 @@ def parse_args():
 
     parser.add_argument(
         '--warning-autoincrement-pct',
-        help='Percentage of the column-type maximum at which an `AUTO_INCREMENT` '
-        'value flips to WARNING. '
+        help='WARN threshold for the percentage of the column-type maximum '
+        'an `AUTO_INCREMENT` value uses. '
+        'Supports Nagios ranges. '
         'Default: %(default)s',
         dest='WARNING_AI',
-        type=float,
         default=DEFAULT_WARN_AI,
     )
 
     parser.add_argument(
         '--warning-fragmented-tables',
-        help='Number of fragmented tables at which the check flips to WARNING. '
+        help='WARN threshold for the number of fragmented tables. '
+        'Supports Nagios ranges. '
         'Default: %(default)s',
         dest='WARNING_FRAG',
-        type=int,
         default=DEFAULT_WARN_FRAG,
     )
 
@@ -401,6 +403,7 @@ def main():
         frag_count,
         args.WARNING_FRAG,
         args.CRITICAL_FRAG,
+        _operator='range',
     )
     state = lib.base.get_worst(state, frag_state)
     if frag_count > 0:
@@ -442,15 +445,23 @@ def main():
             ai_max_pct = pct
             ai_max_row = row
 
-    near_max = [
-        row for row in ai_rows if 'pct' in row and row['pct'] >= args.WARNING_AI
-    ]
-    for row in near_max:
+    # Filter to rows that breach the threshold via get_state (rather than a
+    # direct numeric compare, since args.WARNING_AI / CRITICAL_AI are now
+    # Nagios range strings like '75' / '90:30').
+    near_max = []
+    for row in ai_rows:
+        if 'pct' not in row:
+            continue
         ai_state = lib.base.get_state(
             row['pct'],
             args.WARNING_AI,
             args.CRITICAL_AI,
+            _operator='range',
         )
+        if ai_state != STATE_OK:
+            near_max.append((row, ai_state))
+
+    for row, ai_state in near_max:
         state = lib.base.get_worst(state, ai_state)
         sections.append(
             f'`{row["table_schema"]}`.`{row["table_name"]}`'

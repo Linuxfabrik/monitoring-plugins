@@ -33,8 +33,8 @@ DEFAULT_TIMEOUT = 3
 # Default thresholds match mysqltuner v2.8.41's single 85% cutoff. We also
 # expose a higher --critical so admins can keep WARN for early notice and let
 # the alert escalate when the ratio really runs hot.
-DEFAULT_WARN = 85
-DEFAULT_CRIT = 95
+DEFAULT_WARN = '85'
+DEFAULT_CRIT = '95'
 
 
 def parse_args():
@@ -59,11 +59,9 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='Percentage of `open_files_limit` at which the open-files ratio'
-        ' flips to CRITICAL. '
-        'Default: %(default)s',
+        help=lib.args.help('--critical')
+        + ' Supports Nagios ranges. Default: %(default)s',
         dest='CRITICAL',
-        type=int,
         default=DEFAULT_CRIT,
     )
 
@@ -94,11 +92,9 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='Percentage of `open_files_limit` at which the open-files ratio'
-        ' flips to WARNING. '
-        'Default: %(default)s',
+        help=lib.args.help('--warning')
+        + ' Supports Nagios ranges. Default: %(default)s',
         dest='WARNING',
-        type=int,
         default=DEFAULT_WARN,
     )
 
@@ -173,7 +169,12 @@ def main():
         # a percentage is meaningless then, so we report 0% and skip the alert.
         pct_files_open = 0.0
 
-    state = lib.base.get_state(pct_files_open, args.WARNING, args.CRITICAL)
+    state = lib.base.get_state(
+        pct_files_open,
+        args.WARNING,
+        args.CRITICAL,
+        _operator='range',
+    )
     if state != STATE_OK:
         recommendations.append(
             f'Raise `open_files_limit` (currently'

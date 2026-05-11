@@ -59,10 +59,11 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   -c, --critical CRITICAL
-                        Percentage of physical RAM at which the reached MySQL
-                        memory footprint (server_buffers + per_thread_buffers
-                        * Max_used_connections + Performance Schema + Galera
-                        GCache) flips to CRITICAL. Default: 95
+                        CRIT threshold for the percentage of physical RAM
+                        consumed by the reached MySQL memory footprint
+                        (server_buffers + per_thread_buffers *
+                        Max_used_connections + Performance Schema + Galera
+                        GCache). Supports Nagios ranges. Default: 95
   --defaults-file DEFAULTS_FILE
                         MySQL/MariaDB cnf file to read user, host and password
                         from. Example: `--defaults-
@@ -79,8 +80,9 @@ options:
                         buffer dominates the footprint.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -w, --warning WARNING
-                        Percentage of physical RAM at which the reached MySQL
-                        memory footprint flips to WARNING. Default: 85
+                        WARN threshold for the percentage of physical RAM
+                        consumed by the reached MySQL memory footprint.
+                        Supports Nagios ranges. Default: 85
 ```
 
 
