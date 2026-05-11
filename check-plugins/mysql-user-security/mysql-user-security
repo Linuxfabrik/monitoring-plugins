@@ -17,15 +17,18 @@ import lib.args
 import lib.base
 import lib.db_mysql
 import lib.txt
+import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051101'
+__version__ = '2026051102'
 
 DESCRIPTION = """Checks MySQL/MariaDB user security: anonymous accounts (empty user name),
 accounts with empty passwords, accounts whose password matches the username (the classic
-`root/root` weak-password pattern), and accounts that accept connections from any host
-(`'%'` wildcard). Each finding maps to a copy-pasteable SQL recommendation."""
+`root/root` weak-password pattern), accounts that accept connections from any host (`'%'`
+wildcard) and accounts still on the legacy SHA1-based `mysql_native_password` (or
+`sha256_password` on MySQL 8.0+) authentication plugin. Each finding maps to a copy-pasteable
+SQL recommendation."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
@@ -204,6 +207,28 @@ def find_username_as_password_users(conn, role_filter):
     return []
 
 
+def find_legacy_auth_plugin_users(conn, role_filter, mysql_80_plus):
+    """Port of mysqltuner v2.8.41 check_auth_plugins(). Returns the list
+    of users on the legacy SHA1-based `mysql_native_password` plugin (and
+    on `sha256_password` on MySQL 8.0+, which Oracle marked DEPRECATED
+    too). MySQL 8.0+ recommends `caching_sha2_password`; MariaDB 10.4+
+    recommends `ed25519` or `unix_socket`.
+    """
+    plugins = "'mysql_native_password'"
+    if mysql_80_plus:
+        plugins += ", 'sha256_password'"
+    sql = f"""
+        select concat(quote(user), '@', quote(host)) as user,
+            plugin
+        from mysql.user
+        where {role_filter}plugin in ({plugins})
+            and user not in ('mariadb.sys', 'mysql.sys')
+        ;
+    """  # nosec B608
+    success, users = lib.db_mysql.select(conn, sql)
+    return users if success else []
+
+
 def find_wildcard_host_users(conn):
     sql = """
         select concat(quote(user), '@', quote(host)) as user
@@ -272,6 +297,12 @@ def main():
     role_filter = "IS_ROLE = 'N' and " if has_role_column else ''
     skip_username_as_password = validate_password_active(conn)
 
+    myvar = lib.db_mysql.get_all_variables(conn)
+    version = (myvar.get('version') or '').lower()
+    is_mariadb = 'mariadb' in version
+    mysql_80_plus = (not is_mariadb) and lib.version.version(version) >= (8, 0, 0)
+    is_mariadb_10_4_plus = is_mariadb and lib.version.version(version) >= (10, 4, 0)
+
     anonymous_users = find_anonymous_users(conn, role_filter)
     empty_password_users = find_empty_password_users(conn)
     username_pw_users = (
@@ -280,6 +311,7 @@ def main():
         else find_username_as_password_users(conn, role_filter)
     )
     wildcard_host_users = find_wildcard_host_users(conn)
+    legacy_auth_users = find_legacy_auth_plugin_users(conn, role_filter, mysql_80_plus)
     user_count = count_non_system_users(conn, role_filter)
     role_count = count_roles(conn, has_role_column)
 
@@ -360,6 +392,39 @@ def main():
     else:
         findings.append('0 accounts without hostname restriction')
 
+    if legacy_auth_users:
+        state = lib.base.get_worst(state, severity_state)
+        findings.append(
+            f'{len(legacy_auth_users)} '
+            f'{lib.txt.pluralize("user", len(legacy_auth_users))} '
+            f'on a legacy authentication plugin'
+            f'{lib.base.state2str(severity_state, prefix=" ")}'
+        )
+        # Version-aware modern plugin: caching_sha2_password on MySQL 8.0+,
+        # ed25519 on MariaDB 10.4+. Older MySQL/MariaDB stay on
+        # mysql_native_password but we still flag it so an admin sees the
+        # SHA1 exposure.
+        if mysql_80_plus:
+            for u in legacy_auth_users:
+                recommendations.append(
+                    f"ALTER USER {u['user']} IDENTIFIED WITH caching_sha2_password "
+                    f"BY '{PASSWORD_PLACEHOLDER}';"
+                )
+        elif is_mariadb_10_4_plus:
+            for u in legacy_auth_users:
+                recommendations.append(
+                    f"ALTER USER {u['user']} IDENTIFIED VIA ed25519 "
+                    f"USING PASSWORD('{PASSWORD_PLACEHOLDER}');"
+                )
+        else:
+            for u in legacy_auth_users:
+                recommendations.append(
+                    f"-- {u['user']}: server version predates "
+                    f'caching_sha2_password / ed25519; upgrade the server first.'
+                )
+    else:
+        findings.append('0 users on a legacy authentication plugin')
+
     # build the message
     scope = f'{user_count} non-system user '
     scope += lib.txt.pluralize('account', user_count)
@@ -406,6 +471,11 @@ def main():
     perfdata += lib.base.get_perfdata(
         'mysql_users_with_wildcard_host',
         len(wildcard_host_users),
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_users_on_legacy_auth_plugin',
+        len(legacy_auth_users),
         _min=0,
     )
 
