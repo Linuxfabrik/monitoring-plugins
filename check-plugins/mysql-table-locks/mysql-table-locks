@@ -16,19 +16,28 @@ import sys
 import lib.args
 import lib.base
 import lib.db_mysql
+import lib.db_sqlite
 import lib.human
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041201'
+__version__ = '2026051101'
 
-DESCRIPTION = """Checks the rate of table locks that had to wait in MySQL/MariaDB. A high wait rate
-indicates contention between concurrent queries.
-Alerts when the lock wait rate is too high."""
+DESCRIPTION = """Checks the percentage of MySQL/MariaDB table locks that were acquired immediately
+(`Table_locks_immediate` divided by (`Table_locks_immediate` + `Table_locks_waited`)). A low
+percentage means concurrent queries are blocking each other on the same MyISAM/Aria/MEMORY
+table; InnoDB row-level locks do not contribute to these counters. Alerts when the percentage
+drops below `--warning` / `--critical`."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
+# mysqltuner v2.8.41 alerts at < 95%. We keep that as WARN and add CRIT at
+# < 85% so the plugin state actually goes red when contention is severe.
+DEFAULT_WARN = 95
+DEFAULT_CRIT = 85
 DEFAULT_TIMEOUT = 3
+
+SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-table-locks.db'
 
 
 def parse_args():
@@ -51,9 +60,20 @@ def parse_args():
     )
 
     parser.add_argument(
+        '-c',
+        '--critical',
+        help='Percentage of immediately acquired table locks at which the '
+        'check flips to CRITICAL. '
+        'Default: %(default)s',
+        dest='CRITICAL',
+        type=float,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
         '--defaults-file',
-        help='MySQL/MariaDB cnf file to read parameters like user, host and password from (instead of specifying them on the command line). '
-        'Example: `/var/spool/icinga2/.my.cnf`. '
+        help='MySQL/MariaDB cnf file to read user, host and password from. '
+        'Example: `--defaults-file=/var/spool/icinga2/.my.cnf`. '
         'Default: %(default)s',
         dest='DEFAULTS_FILE',
         default=DEFAULT_DEFAULTS_FILE,
@@ -74,14 +94,22 @@ def parse_args():
         default=DEFAULT_TIMEOUT,
     )
 
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='Percentage of immediately acquired table locks at which the '
+        'check flips to WARNING. '
+        'Default: %(default)s',
+        dest='WARNING',
+        type=float,
+        default=DEFAULT_WARN,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
 
 def get_status(conn):
-    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
-    # Without the GLOBAL modifier, SHOW STATUS displays the values that are used for
-    # the current connection to MariaDB.
     sql = """
         show global status
         where variable_name like 'Table_locks_immediate'
@@ -94,8 +122,13 @@ def get_status(conn):
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:mysql_stats(), section # Table locks, v1.9.8
-    # including variable names
+    # logic taken from mysqltuner.pl:mysql_stats(), section "Table locks",
+    # verified in sync with MySQLTuner v2.8.41 (the percentage formula and
+    # the "< 95%" cutoff plus the "Optimize queries and/or use InnoDB to
+    # reduce lock wait" recommendation are unchanged upstream since the
+    # original port). Our --warning default 95% matches mysqltuner;
+    # --critical 85% is a Linuxfabrik addition so the plugin state escalates
+    # to CRIT when contention is severe.
 
     # parse the command line
     try:
@@ -103,6 +136,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -116,68 +150,102 @@ def main():
 
     # init some vars
     state = STATE_OK
+    sections = []
+    facts = []
+    # All recommendations from all WARN/CRIT paths land here and render once
+    # at the end as a `Recommendations:\n* ...` bulleted block.
+    recommendations = []
     perfdata = ''
 
-    # calculations
-    mycalc = {}
-    if int(mystat['Table_locks_immediate']) > 0:
-        if int(mystat['Table_locks_waited']) == 0:
-            mycalc['pct_table_locks_immediate'] = 100
-        else:
-            mycalc['pct_table_locks_immediate'] = round(
-                int(mystat['Table_locks_immediate'])
-                / (
-                    int(mystat['Table_locks_waited'])
-                    + int(mystat['Table_locks_immediate'])
-                )
-                * 100,
-                1,
+    immediate = int(mystat['Table_locks_immediate'])
+    waited = int(mystat['Table_locks_waited'])
+    total = immediate + waited
+
+    # analyze data
+    # On a freshly booted server with no traffic both counters can be zero,
+    # and even later `Table_locks_waited` can stay at 0 on a contention-free
+    # workload. mysqltuner pins the percentage to 100 in both cases to avoid
+    # the false-positive low-percentage alert. We do the same.
+    pct_immediate = 100.0 if waited == 0 else round(immediate / total * 100, 1)
+
+    # The `Table_locks_immediate > 0` guard mirrors mysqltuner: on a server
+    # that has not yet taken a single table lock the percentage is
+    # meaningless. On modern MySQL/MariaDB this is essentially always true
+    # outside of CI fixtures.
+    if immediate > 0:
+        state = lib.base.get_state(
+            pct_immediate,
+            args.WARNING,
+            args.CRITICAL,
+            _operator='le',
+        )
+        if state != STATE_OK:
+            recommendations.append(
+                'Optimize queries and/or migrate the affected tables to '
+                '`InnoDB` to reduce lock wait. `InnoDB` uses row-level locks '
+                'and does not contribute to `Table_locks_waited`. The '
+                'classic culprits are MyISAM/Aria tables with long-running '
+                'SELECTs blocking INSERTs (table-level read/write lock '
+                'contention)'
             )
-    else:
-        mycalc['pct_table_locks_immediate'] = 0
 
-    # Table locks
-    total_locks = int(mystat['Table_locks_immediate']) + int(mystat['Table_locks_waited'])
-    msg = (
-        f'{mycalc["pct_table_locks_immediate"]}% table locks'
-        f' acquired immediately'
-        f' ({lib.human.number2human(mystat["Table_locks_immediate"])}'
-        f' immediate /'
-        f' {lib.human.number2human(total_locks)}'
-        f' locks)'
-    )
-    if mycalc['pct_table_locks_immediate'] < 95:
-        state = STATE_WARN
-
-        # build the message
-        msg += (
+    # build the message
+    if immediate > 0:
+        facts.append(
+            f'Table locks acquired immediately: {pct_immediate}%'
+            f' ({lib.human.number2human(immediate)} immediate'
+            f' / {lib.human.number2human(total)} locks)'
             f'{lib.base.state2str(state, prefix=" ")}'
-            f'. Optimize queries and/or use InnoDB'
-            f' to reduce lock wait.'
         )
     else:
-        msg += '.'
-
-    perfdata += lib.base.get_perfdata(
-        'mysql_table_locks_immediate',
-        mystat['Table_locks_immediate'],
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'mysql_table_locks_waited',
-        mystat['Table_locks_waited'],
-        uom='c',
-        _min=0,
-    )
+        facts.append(
+            'no table locks taken yet (`Table_locks_immediate` = 0);'
+            ' percentage check skipped'
+        )
+    facts_text = '. '.join(facts) + '.'
+    if state == STATE_OK:
+        sections.append('Everything is ok. ' + facts_text)
+    else:
+        sections.append(facts_text)
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
+        )
+    msg = '\n\n'.join(sections)
 
     perfdata += lib.base.get_perfdata(
         'mysql_pct_table_locks_immediate',
-        mycalc['pct_table_locks_immediate'],
+        pct_immediate,
         uom='%',
+        warn=args.WARNING,
+        crit=args.CRITICAL,
         _min=0,
         _max=100,
     )
+
+    # Per-CONTRIBUTING: emit Table_locks_immediate / Table_locks_waited as
+    # per-second deltas (computed in-plugin against a local SQLite cache)
+    # instead of cumulative `c` counters that force Grafana to do
+    # non_negative_difference() per panel.
+    rates = lib.db_sqlite.per_second_deltas(
+        SQLITE_DB,
+        'mysql-table-locks',
+        {
+            'table_locks_immediate': immediate,
+            'table_locks_waited': waited,
+        },
+    )
+    if rates is not None:
+        perfdata += lib.base.get_perfdata(
+            'mysql_table_locks_immediate_per_second',
+            round(rates['table_locks_immediate'], 2),
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_table_locks_waited_per_second',
+            round(rates['table_locks_waited'], 2),
+            _min=0,
+        )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

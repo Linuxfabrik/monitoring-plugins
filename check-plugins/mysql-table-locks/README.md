@@ -3,16 +3,19 @@
 
 ## Overview
 
-Checks the rate of table locks that had to wait in MySQL/MariaDB. A high wait rate indicates contention between concurrent queries. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
+Checks the percentage of MySQL/MariaDB table locks that were acquired immediately. A low percentage means concurrent queries are blocking each other on the same MyISAM/Aria/MEMORY table; `InnoDB` row-level locks do not contribute to these counters. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() and verified in sync with MySQLTuner v2.8.41.
 
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
+* `Table_locks_waited` only counts table-level locks. Modern workloads built on `InnoDB` never bump this counter; if every table in a database is `InnoDB`, the percentage stays at 100% indefinitely. The check is informative on servers still running MyISAM or Aria tables (typical: legacy schemas, `mysql.*` system tables on older MariaDB, full-text-indexed Aria tables on MariaDB)
+* If a server has not yet taken a single table lock (`Table_locks_immediate = 0`) the percentage is meaningless; the check skips with an info line in that case (matches mysqltuner)
 
 **Data Collection:**
 
 * Queries `SHOW GLOBAL STATUS` for `Table_locks_immediate` and `Table_locks_waited`
-* Calculates the immediate lock rate as `Table_locks_immediate / (Table_locks_waited + Table_locks_immediate) * 100`
+* Calculates the immediate-lock percentage as `Table_locks_immediate / (Table_locks_immediate + Table_locks_waited) * 100`
+* Cumulative counters are persisted in a local SQLite cache between runs so the dashboard can plot per-second rates instead of unbounded counters
 
 
 ## Fact Sheet
@@ -32,28 +35,37 @@ Checks the rate of table locks that had to wait in MySQL/MariaDB. A high wait ra
 ## Help
 
 ```text
-usage: mysql-table-locks [-h] [-V] [--always-ok]
+usage: mysql-table-locks [-h] [-V] [--always-ok] [-c CRITICAL]
                          [--defaults-file DEFAULTS_FILE]
                          [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
+                         [-w WARNING]
 
-Checks the rate of table locks that had to wait in MySQL/MariaDB. A high wait
-rate indicates contention between concurrent queries. Alerts when the lock
-wait rate is too high.
+Checks the percentage of MySQL/MariaDB table locks that were acquired
+immediately (`Table_locks_immediate` divided by (`Table_locks_immediate` +
+`Table_locks_waited`)). A low percentage means concurrent queries are blocking
+each other on the same MyISAM/Aria/MEMORY table; InnoDB row-level locks do not
+contribute to these counters. Alerts when the percentage drops below
+`--warning` / `--critical`.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  -c, --critical CRITICAL
+                        Percentage of immediately acquired table locks at
+                        which the check flips to CRITICAL. Default: 85
   --defaults-file DEFAULTS_FILE
-                        MySQL/MariaDB cnf file to read parameters like user,
-                        host and password from (instead of specifying them on
-                        the command line). Example:
-                        `/var/spool/icinga2/.my.cnf`. Default:
+                        MySQL/MariaDB cnf file to read user, host and password
+                        from. Example: `--defaults-
+                        file=/var/spool/icinga2/.my.cnf`. Default:
                         /var/spool/icinga2/.my.cnf
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+  -w, --warning WARNING
+                        Percentage of immediately acquired table locks at
+                        which the check flips to WARNING. Default: 95
 ```
 
 
@@ -63,17 +75,26 @@ options:
 ./mysql-table-locks --defaults-file=/var/spool/icinga2/.my.cnf
 ```
 
-Output:
+OK output:
 
 ```text
-100% table locks acquired immediately (2.6K immediate / 2.6K locks).
+Everything is ok. Table locks acquired immediately: 100.0% (2.6K immediate / 2.6K locks).
+```
+
+WARN output:
+
+```text
+Table locks acquired immediately: 87.4% (87K immediate / 100K locks) [WARNING].
+
+Recommendations:
+* Optimize queries and/or migrate the affected tables to `InnoDB` to reduce lock wait. `InnoDB` uses row-level locks and does not contribute to `Table_locks_waited`. The classic culprits are MyISAM/Aria tables with long-running SELECTs blocking INSERTs (table-level read/write lock contention)
 ```
 
 
 ## States
 
-* OK if 95% or more of table locks were acquired immediately.
-* WARN if less than 95% of table locks were acquired immediately.
+* WARN if the percentage of immediately acquired table locks is at or below `--warning` (default: 95%).
+* CRIT if the percentage is at or below `--critical` (default: 85%).
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -81,9 +102,9 @@ Output:
 
 | Name | Type | Description |
 |----|----|----|
-| mysql_pct_table_locks_immediate | Percentage | Table_locks_immediate / (Table_locks_waited + Table_locks_immediate) \* 100 |
-| mysql_table_locks_immediate | Continuous Counter | Number of table locks which were completed immediately. |
-| mysql_table_locks_waited | Continuous Counter | Number of table locks which had to wait. Indicates table lock contention. |
+| mysql_pct_table_locks_immediate | Percentage | `Table_locks_immediate / (Table_locks_immediate + Table_locks_waited) * 100`. Pinned to `100.0` when `Table_locks_waited = 0` (no contention) so the metric stays meaningful on contention-free workloads. |
+| mysql_table_locks_immediate_per_second | Rate | Per-second rate of `Table_locks_immediate` (cumulative counter delta against the local SQLite cache). Appears from the second run onwards. |
+| mysql_table_locks_waited_per_second | Rate | Per-second rate of `Table_locks_waited` (cumulative counter delta against the local SQLite cache). Appears from the second run onwards. |
 
 
 ## Credits, License
