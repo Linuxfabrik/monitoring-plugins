@@ -158,7 +158,7 @@ spec:
         operator: '='
         value: mysql_read_rnd_buffer_size
 
-  - title: MySQL Sorts - Sort Counters (lifetime)
+  - title: MySQL Sorts - Per-Second Rates
     type: timeseries
     gridPos:
       h: 8
@@ -176,34 +176,34 @@ spec:
           pointSize: 3
           showPoints: always
           spanNulls: false
-        decimals: 0
+        decimals: 2
         min: 0
         unit: short
       overrides:
       - matcher:
           id: byName
-          options: mysql_total_sorts
+          options: mysql_total_sorts_per_second
         properties:
         - id: displayName
-          value: Sort_scan + Sort_range
+          value: Sort_scan + Sort_range per second
       - matcher:
           id: byName
-          options: mysql_sort_scan
+          options: mysql_sort_scan_per_second
         properties:
         - id: displayName
-          value: Sort_scan
+          value: Sort_scan per second
       - matcher:
           id: byName
-          options: mysql_sort_range
+          options: mysql_sort_range_per_second
         properties:
         - id: displayName
-          value: Sort_range
+          value: Sort_range per second
       - matcher:
           id: byName
-          options: mysql_sort_merge_passes
+          options: mysql_sort_merge_passes_per_second
         properties:
         - id: displayName
-          value: Sort_merge_passes
+          value: Sort_merge_passes per second
     options:
       legend:
         calcs:
@@ -221,8 +221,8 @@ spec:
 
     targets:
 
-    - alias: mysql_total_sorts
-      refId: mysql_total_sorts
+    - alias: mysql_total_sorts_per_second
+      refId: mysql_total_sorts_per_second
       groupBy:
       - params:
         - $interval
@@ -249,10 +249,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_total_sorts
+        value: mysql_total_sorts_per_second
 
-    - alias: mysql_sort_scan
-      refId: mysql_sort_scan
+    - alias: mysql_sort_scan_per_second
+      refId: mysql_sort_scan_per_second
       groupBy:
       - params:
         - $interval
@@ -279,10 +279,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_sort_scan
+        value: mysql_sort_scan_per_second
 
-    - alias: mysql_sort_range
-      refId: mysql_sort_range
+    - alias: mysql_sort_range_per_second
+      refId: mysql_sort_range_per_second
       groupBy:
       - params:
         - $interval
@@ -309,10 +309,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_sort_range
+        value: mysql_sort_range_per_second
 
-    - alias: mysql_sort_merge_passes
-      refId: mysql_sort_merge_passes
+    - alias: mysql_sort_merge_passes_per_second
+      refId: mysql_sort_merge_passes_per_second
       groupBy:
       - params:
         - $interval
@@ -339,7 +339,7 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_sort_merge_passes
+        value: mysql_sort_merge_passes_per_second
 
   - title: MySQL Sorts - Percentage
     type: timeseries

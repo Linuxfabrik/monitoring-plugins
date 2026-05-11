@@ -8,7 +8,8 @@ Checks the rate of slow queries in MySQL/MariaDB (`Slow_queries` / `Questions`).
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
-* When the ratio triggers a warning, the check recommends enabling the slow query log if disabled, so admins can troubleshoot the offending queries.
+* `Slow_queries` is a status counter; it increments for every query slower than `long_query_time` regardless of whether `slow_query_log` is on. The log determines only whether the slow queries are persisted to a file for postmortem analysis - it does not affect the counter the plugin reads.
+* When the ratio triggers a warning, the check recommends enabling the slow query log if disabled, so admins can investigate the offending queries.
 * If `long_query_time` is set higher than 10 seconds, the check recommends lowering it (mysqltuner cut-off: queries slower than 10 s are practically useless to capture).
 
 **Data Collection:**

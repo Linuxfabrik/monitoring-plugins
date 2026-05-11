@@ -16,20 +16,29 @@ import sys
 import lib.args
 import lib.base
 import lib.db_mysql
+import lib.db_sqlite
 import lib.human
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.time
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026051101'
 
-DESCRIPTION = """Checks sort operations in MySQL/MariaDB, including the rate of sort merge passes that
-required temporary disk files. A high rate indicates that sort_buffer_size may need to
-be increased.
-Alerts when the disk-based sort rate is too high."""
+DESCRIPTION = """Checks how often MySQL/MariaDB sorts have to spill from memory to a temporary
+merge-sort file (`Sort_merge_passes` / (`Sort_scan` + `Sort_range`)). A high ratio
+means `sort_buffer_size` and/or `read_rnd_buffer_size` are too small for the
+workload's typical sort. Alerts when the ratio crosses `--warning` / `--critical`."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
+# Match mysqltuner's 10% cut-off, but expose a higher --critical so admins can
+# keep WARN for early notice and let the alert escalate when the ratio really
+# runs hot.
+DEFAULT_WARN = 10
+DEFAULT_CRIT = 20
 DEFAULT_TIMEOUT = 3
+
+SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-sorts.db'
 
 
 def parse_args():
@@ -49,6 +58,17 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='Percentage of sorts that spilled to a temporary merge-sort'
+        ' file at which the ratio flips to CRITICAL. '
+        'Default: %(default)s',
+        dest='CRITICAL',
+        type=float,
+        default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
@@ -75,6 +95,17 @@ def parse_args():
         default=DEFAULT_TIMEOUT,
     )
 
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='Percentage of sorts that spilled to a temporary merge-sort'
+        ' file at which the ratio flips to WARNING. '
+        'Default: %(default)s',
+        dest='WARNING',
+        type=float,
+        default=DEFAULT_WARN,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -93,9 +124,6 @@ def get_vars(conn):
 
 
 def get_status(conn):
-    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
-    # Without the GLOBAL modifier, SHOW STATUS displays the values that are used for
-    # the current connection to MariaDB.
     sql = """
         show global status
         where variable_name like 'Sort_merge_passes'
@@ -106,11 +134,84 @@ def get_status(conn):
     return lib.base.coe(lib.db_mysql.select(conn, sql))
 
 
+def per_second_deltas(sort_scan, sort_range, sort_merge_passes):
+    """Persist the cumulative `Sort_scan` / `Sort_range` / `Sort_merge_passes`
+    counters in the local SQLite cache and return their per-second deltas vs.
+    the previous run. Returns
+    `(sort_scan_per_s, sort_range_per_s, sort_merge_passes_per_s,
+       total_sorts_per_s)`, or four `None` values when fewer than two samples
+    are recorded yet or after a counter reset (server restart, `FLUSH STATUS`).
+
+    Avoids `uom='c'` counters in perfdata (per CONTRIBUTING.md): we compute the
+    rates here once per run instead of forcing every Grafana panel to do
+    `non_negative_difference()`.
+    """
+    sqlite_conn = lib.base.coe(lib.db_sqlite.connect(filename=SQLITE_DB))
+    definition = """
+        name              TEXT NOT NULL,
+        timestamp         INT NOT NULL,
+        sort_scan         INT NOT NULL,
+        sort_range        INT NOT NULL,
+        sort_merge_passes INT NOT NULL
+    """
+    lib.base.coe(
+        lib.db_sqlite.create_table(sqlite_conn, definition, drop_table_first=False),
+    )
+    lib.base.coe(lib.db_sqlite.create_index(sqlite_conn, 'name'))
+
+    lib.base.coe(
+        lib.db_sqlite.insert(
+            sqlite_conn,
+            {
+                'name': 'mysql-sorts',
+                'timestamp': lib.time.now(),
+                'sort_scan': sort_scan,
+                'sort_range': sort_range,
+                'sort_merge_passes': sort_merge_passes,
+            },
+        )
+    )
+    lib.base.coe(lib.db_sqlite.cut(sqlite_conn, _max=2))
+    lib.base.coe(lib.db_sqlite.commit(sqlite_conn))
+
+    rows = lib.base.coe(
+        lib.db_sqlite.select(
+            sqlite_conn,
+            """
+            SELECT *
+            FROM perfdata
+            WHERE name = :name
+            ORDER BY timestamp DESC
+            """,
+            {'name': 'mysql-sorts'},
+        )
+    )
+    lib.db_sqlite.close(sqlite_conn)
+
+    if len(rows) < 2:
+        return None, None, None, None
+    timestamp_diff = rows[0]['timestamp'] - rows[1]['timestamp']
+    if timestamp_diff <= 0:
+        return None, None, None, None
+    scan_delta = rows[0]['sort_scan'] - rows[1]['sort_scan']
+    range_delta = rows[0]['sort_range'] - rows[1]['sort_range']
+    merge_delta = rows[0]['sort_merge_passes'] - rows[1]['sort_merge_passes']
+    if scan_delta < 0 or range_delta < 0 or merge_delta < 0:
+        # counter reset (server restart, FLUSH STATUS)
+        return None, None, None, None
+    return (
+        round(scan_delta / timestamp_diff, 2),
+        round(range_delta / timestamp_diff, 2),
+        round(merge_delta / timestamp_diff, 2),
+        round((scan_delta + range_delta) / timestamp_diff, 2),
+    )
+
+
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:mysql_stats(), section # Sorting, v1.9.8
-    # including variable names
+    # logic taken from mysqltuner.pl:mysql_stats(), section "Sorting",
+    # verified in sync with MySQLTuner v2.8.41
 
     # parse the command line
     try:
@@ -118,6 +219,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -131,94 +233,126 @@ def main():
     lib.db_mysql.close(conn)
 
     # init some vars
-    msg = ''
     state = STATE_OK
+    sections = []
+    facts = []
+    # All recommendations from all WARN/CRIT paths land here and render once at
+    # the end as a `Recommendations:\n* ...` bulleted block, regardless of
+    # which combinations of WARN paths fire.
+    recommendations = []
     perfdata = ''
+    sort_scan = int(mystat['Sort_scan'])
+    sort_range = int(mystat['Sort_range'])
+    sort_merge_passes = int(mystat['Sort_merge_passes'])
+    sort_buffer_size = int(myvar['sort_buffer_size'])
+    read_rnd_buffer_size = int(myvar['read_rnd_buffer_size'])
 
-    # calculations
-    mycalc = {}
-    mycalc['total_sorts'] = int(mystat['Sort_scan']) + int(mystat['Sort_range'])
-    if mycalc['total_sorts'] > 0:
-        mycalc['pct_temp_sort_table'] = round(
-            int(mystat['Sort_merge_passes']) / int(mycalc['total_sorts']) * 100
-        )
+    # analyze data
+    total_sorts = sort_scan + sort_range
+    # Guard the division locally; an idle server can legitimately have zero
+    # sorts so far.
+    if total_sorts > 0:
+        pct_temp_sort_table = round(sort_merge_passes / total_sorts * 100, 1)
     else:
-        mycalc['pct_temp_sort_table'] = 0
+        pct_temp_sort_table = 0.0
 
-    # Sorting
-    msg += (
-        f'{lib.human.number2human(mystat["Sort_scan"])} sorts used a full table scan. '
-    )
-    if mycalc['total_sorts'] == 0:
-
-        # build the message
-        msg += 'No sort required temporary tables.'
-    else:
-        msg += (
-            f'Sorts requiring temporary tables:'
-            f' {mycalc["pct_temp_sort_table"]}%'
-            f' ({lib.human.number2human(mystat["Sort_merge_passes"])}'
-            f' temp sorts /'
-            f' {lib.human.number2human(mycalc["total_sorts"])} sorts)'
-        )
-        if mycalc['pct_temp_sort_table'] > 10:
-            sort_state = STATE_WARN
-            state = lib.base.get_worst(state, sort_state)
-            msg += (
-                f'{lib.base.state2str(state, prefix=" ")}.'
-                f' Set sort_buffer_size >'
-                f' {myvar["sort_buffer_size"]}'
-                f' and/or read_rnd_buffer_size >'
-                f' {myvar["read_rnd_buffer_size"]}.'
+    if total_sorts > 0:
+        if pct_temp_sort_table >= args.CRITICAL:
+            state = STATE_CRIT
+        elif pct_temp_sort_table >= args.WARNING:
+            state = STATE_WARN
+        if state != STATE_OK:
+            recommendations.append(
+                f'Raise `sort_buffer_size` >'
+                f' {lib.human.bytes2human(sort_buffer_size)}'
+                f' and/or `read_rnd_buffer_size` >'
+                f' {lib.human.bytes2human(read_rnd_buffer_size)} so fewer'
+                f' sorts have to spill to a temporary merge-sort file'
             )
-        else:
-            msg += '.'
 
-    perfdata += lib.base.get_perfdata(
-        'mysql_read_rnd_buffer_size',
-        myvar['read_rnd_buffer_size'],
-        uom='B',
-        _min=0,
-    )
+    # build the message
+    if total_sorts == 0:
+        facts.append(
+            f'No sorts yet ({lib.human.number2human(sort_scan)} full-scan,'
+            f' {lib.human.number2human(sort_range)} range)'
+        )
+    else:
+        facts.append(
+            f'Sorts requiring a temporary merge-sort file:'
+            f' {pct_temp_sort_table}%'
+            f' ({lib.human.number2human(sort_merge_passes)} temp sorts'
+            f' / {lib.human.number2human(total_sorts)} sorts)'
+            f'{lib.base.state2str(state, prefix=" ")}'
+        )
+        facts.append(
+            f'Components: `Sort_scan` ='
+            f' {lib.human.number2human(sort_scan)},'
+            f' `Sort_range` = {lib.human.number2human(sort_range)}'
+        )
+
+    facts_text = '. '.join(facts) + '.'
+    if state == STATE_OK:
+        # "Everything is ok." leads the OK message so the admin sees the
+        # verdict first; the facts follow.
+        sections.append('Everything is ok. ' + facts_text)
+    else:
+        sections.append(facts_text)
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
+        )
+    msg = '\n\n'.join(sections)
+
     perfdata += lib.base.get_perfdata(
         'mysql_sort_buffer_size',
-        myvar['sort_buffer_size'],
+        sort_buffer_size,
         uom='B',
         _min=0,
     )
-
     perfdata += lib.base.get_perfdata(
-        'mysql_sort_merge_passes',
-        mystat['Sort_merge_passes'],
-        uom='c',
+        'mysql_read_rnd_buffer_size',
+        read_rnd_buffer_size,
+        uom='B',
         _min=0,
     )
-    perfdata += lib.base.get_perfdata(
-        'mysql_sort_range',
-        mystat['Sort_range'],
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'mysql_sort_scan',
-        mystat['Sort_scan'],
-        uom='c',
-        _min=0,
-    )
-
     perfdata += lib.base.get_perfdata(
         'mysql_pct_temp_sort_table',
-        mycalc['pct_temp_sort_table'],
+        pct_temp_sort_table,
         uom='%',
+        warn=args.WARNING,
+        crit=args.CRITICAL,
         _min=0,
         _max=100,
     )
-    perfdata += lib.base.get_perfdata(
-        'mysql_total_sorts',
-        mycalc['total_sorts'],
-        uom='c',
-        _min=0,
+
+    # Per-CONTRIBUTING: emit Sort_scan / Sort_range / Sort_merge_passes (and the
+    # derived total) as per-second deltas (computed in-plugin against a local
+    # SQLite cache) instead of cumulative `c` counters that force Grafana to do
+    # non_negative_difference() per panel.
+    scan_per_s, range_per_s, merge_per_s, total_per_s = per_second_deltas(
+        sort_scan, sort_range, sort_merge_passes,
     )
+    if scan_per_s is not None:
+        perfdata += lib.base.get_perfdata(
+            'mysql_sort_scan_per_second',
+            scan_per_s,
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_sort_range_per_second',
+            range_per_s,
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_sort_merge_passes_per_second',
+            merge_per_s,
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_total_sorts_per_second',
+            total_per_s,
+            _min=0,
+        )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

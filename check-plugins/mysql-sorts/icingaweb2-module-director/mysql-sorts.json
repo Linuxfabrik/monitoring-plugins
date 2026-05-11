@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$mysql_sorts_always_ok$"
                 },
+                "--critical": {
+                    "value": "$mysql_sorts_critical$"
+                },
                 "--defaults-file": {
                     "value": "$mysql_sorts_defaults_file$"
                 },
@@ -13,6 +16,9 @@
                 },
                 "--timeout": {
                     "value": "$mysql_sorts_timeout$"
+                },
+                "--warning": {
+                    "value": "$mysql_sorts_warning$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/mysql-sorts",
@@ -35,6 +41,16 @@
                 },
                 {
                     "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -80,7 +96,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks sort operations in MySQL/MariaDB, including the rate of sort merge passes that required temporary disk files. A high rate indicates that sort_buffer_size may need to be increased. Alerts when the disk-based sort rate is too high.",
+            "notes": "Checks how often MySQL/MariaDB sorts have to spill from memory to a temporary merge-sort file (`Sort_merge_passes` / (`Sort_scan` + `Sort_range`)). A high ratio means `sort_buffer_size` and/or `read_rnd_buffer_size` are too small for the workload's typical sort. Alerts when the ratio crosses `--warning` / `--critical`.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-sorts/",
             "object_name": "tpl-service-mysql-sorts",
             "object_type": "template",
@@ -92,9 +108,11 @@
             "vars": {
                 "criticality": "C",
                 "mysql_sorts_always_ok": false,
+                "mysql_sorts_critical": 20,
                 "mysql_sorts_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_sorts_defaults_group": "client",
-                "mysql_sorts_timeout": 3
+                "mysql_sorts_timeout": 3,
+                "mysql_sorts_warning": 10
             },
             "volatile": null,
             "zone": null,
@@ -112,6 +130,17 @@
             "uuid": "f4d9bab7-3c69-478f-810f-5852381e9474"
         },
         "2": {
+            "varname": "mysql_sorts_critical",
+            "caption": "MySQL Sorts: Critical",
+            "description": "Percentage of sorts that spilled to a temporary merge-sort file at which the ratio flips to CRITICAL.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "60fcfa8d-2775-4a5a-b753-c591ab373d56"
+        },
+        "3": {
             "varname": "mysql_sorts_defaults_file",
             "caption": "MySQL Sorts: Defaults File",
             "description": "MySQL/MariaDB cnf file to read user, host and password from. Example: `--defaults-file=/var/spool/icinga2/.my.cnf`.",
@@ -122,7 +151,7 @@
             },
             "uuid": "2f766485-4a0b-4c8a-bd13-5c1f9259caee"
         },
-        "3": {
+        "4": {
             "varname": "mysql_sorts_defaults_group",
             "caption": "MySQL Sorts: Defaults Group",
             "description": "Group/section to read from in the cnf file.",
@@ -133,7 +162,7 @@
             },
             "uuid": "51e1bec5-99ee-4ef6-969f-77300b952a45"
         },
-        "4": {
+        "5": {
             "varname": "mysql_sorts_timeout",
             "caption": "MySQL Sorts: Timeout",
             "description": "Network timeout in seconds.",
@@ -143,6 +172,17 @@
                 "visibility": "visible"
             },
             "uuid": "40aca3cf-6dea-45f6-a653-4aa4fee6cb9d"
+        },
+        "6": {
+            "varname": "mysql_sorts_warning",
+            "caption": "MySQL Sorts: Warning",
+            "description": "Percentage of sorts that spilled to a temporary merge-sort file at which the ratio flips to WARNING.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6cd508a0-ddae-4815-976b-93d6b20a8ab0"
         }
     }
 }
