@@ -51,6 +51,13 @@ Monitoring Plugins:
 * Icinga Web Grafana module: fix dashboard title typo `dashboard = "MySQL Memory"` -> `dashboard = "MySQL Logfile"` in the `mysql-logfile` per-plugin INI (copy-paste leftover from when the dashboard was forked off `mysql-memory`)
 
 
+### Fixed
+
+Monitoring Plugins:
+
+* Grafana dashboards: `schemaVersion` in every Grizzly dashboard YAML changed from a date-encoded value (`2023041201` or `2024101801`) to a valid Grafana schema version (`42`, current as of Grafana 12). Grafana 12 was failing to import the affected dashboards with `schema migration from version 2023041201 to 42 failed`, leaving the dashboards unrendered in the Icinga Web 2 Grafana module. The same fix is applied to the default template under `assets/grafana/`, so any newly built dashboard inherits the working value
+
+
 ### Removed
 
 Monitoring Plugins:
