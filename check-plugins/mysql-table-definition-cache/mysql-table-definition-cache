@@ -16,14 +16,17 @@ import sys
 import lib.args
 import lib.base
 import lib.db_mysql
-import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051001'
+__version__ = '2026051101'
 
-DESCRIPTION = """Checks the table definition cache size in MySQL/MariaDB. Alerts if the cache is too
-small to hold definitions for all tables, causing repeated disk reads."""
+DESCRIPTION = """Checks the table definition cache size in MySQL/MariaDB against the current total
+number of tables in `information_schema.tables`. When `table_definition_cache` is smaller than
+the table count, definitions get evicted and re-read on each access, which costs `.frm` parses
+on disk-heavy workloads. Alerts when `table_definition_cache` is below the total table count.
+On MySQL 5.6+ / MariaDB 10.0+ `table_definition_cache = -1` enables autosizing; the plugin
+reports that as informational, state OK."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
@@ -51,8 +54,8 @@ def parse_args():
 
     parser.add_argument(
         '--defaults-file',
-        help='MySQL/MariaDB cnf file to read parameters like user, host and password from (instead of specifying them on the command line). '
-        'Example: `/var/spool/icinga2/.my.cnf`. '
+        help='MySQL/MariaDB cnf file to read user, host and password from. '
+        'Example: `--defaults-file=/var/spool/icinga2/.my.cnf`. '
         'Default: %(default)s',
         dest='DEFAULTS_FILE',
         default=DEFAULT_DEFAULTS_FILE,
@@ -78,9 +81,6 @@ def parse_args():
 
 
 def get_vars(conn):
-    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
-    # Without the GLOBAL modifier, SHOW VARIABLES displays the values that are used for
-    # the current connection to MariaDB.
     sql = """
         show global variables
         where variable_name like 'table_definition_cache'
@@ -92,8 +92,11 @@ def get_vars(conn):
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:mysql_stats(), section # Table definition cache, v1.9.8
-    # including variable names
+    # logic taken from mysqltuner.pl:mysql_stats(), section "Table definition
+    # cache", verified in sync with MySQLTuner v2.8.41 (the
+    # `table_definition_cache < total_tables` warn rule, the autosizing
+    # info path, and the "no variable found" fallback are unchanged
+    # upstream since the original port).
 
     # parse the command line
     try:
@@ -101,6 +104,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -110,60 +114,74 @@ def main():
     lib.base.coe(lib.db_mysql.check_privileges(conn, 'SELECT'))
 
     myvar = lib.db_mysql.lod2dict(get_vars(conn))
+    sql = 'select count(*) as cnt from information_schema.tables'
+    nbtables = lib.base.coe(lib.db_mysql.select(conn, sql, fetchone=True))
+    lib.db_mysql.close(conn)
 
     # init some vars
     state = STATE_OK
+    sections = []
+    # All recommendations from all WARN paths land here and render once at the
+    # end as a `Recommendations:\n* ...` bulleted block, regardless of which
+    # combinations of WARN paths fire.
+    recommendations = []
     perfdata = ''
 
-    # calculations
-    mycalc = {}
-    sql = 'select count(*) as cnt from information_schema.tables'
-    nbtables = lib.base.coe(lib.db_mysql.select(conn, sql))
-    lib.db_mysql.close(conn)
-    mycalc['total_tables'] = nbtables[0]['cnt']
+    total_tables = int(nbtables['cnt'])
+    cache_raw = myvar.get('table_definition_cache')
+    cache_value = int(cache_raw) if cache_raw is not None else None
 
-    # Table definition cache
-    if myvar.get('table_definition_cache', None) is not None:
-        if int(myvar['table_definition_cache']) == -1:
-            msg = (
-                f'table_definition_cache'
-                f' ({myvar["table_definition_cache"]})'
-                f' is in autosizing mode.'
-            )
-        elif int(myvar['table_definition_cache']) < int(mycalc['total_tables']):
-            state = STATE_WARN
-            msg = (
-                f'table_definition_cache'
-                f' ({myvar["table_definition_cache"]})'
-                f' is lower than number of tables'
-                f' ({mycalc["total_tables"]})'
-                f'{lib.base.state2str(state, prefix=" ")}. '
-            )
-
-            # build the message
-            msg += (
-                f'Set table_definition_cache >'
-                f' {mycalc["total_tables"]}'
-                f' or to -1 (autosizing if supported).'
-            )
-        else:
-            msg = (
-                f'Everything is ok. table_definition_cache'
-                f' ({myvar["table_definition_cache"]})'
-                f' is upper than number of tables'
-                f' ({mycalc["total_tables"]}).'
-            )
+    # analyze data + build the message
+    if cache_value is None:
+        # `table_definition_cache` was introduced in MySQL 5.1 / MariaDB 5.1
+        # and exists on every supported server. mysqltuner keeps a "variable
+        # not found" infoprint and we mirror it for parity, even though the
+        # branch is essentially unreachable on a modern server.
+        sections.append(
+            'Everything is ok. `table_definition_cache` variable not exposed'
+            f' by this server. {total_tables} tables in'
+            ' `information_schema.tables`.'
+        )
+    elif cache_value == -1:
+        sections.append(
+            'Everything is ok. `table_definition_cache` is in autosizing mode'
+            f' (-1). {total_tables} tables in `information_schema.tables`.'
+        )
+    elif cache_value < total_tables:
+        state = STATE_WARN
+        sections.append(
+            f'`table_definition_cache` ({cache_value}) is less than the number'
+            f' of tables ({total_tables})'
+            f'{lib.base.state2str(state, prefix=" ")}.'
+        )
+        recommendations.append(
+            f'Raise `table_definition_cache` above {total_tables}, or set it'
+            f' to `-1` to let the server autosize the cache (MySQL 5.6+ /'
+            f' MariaDB 10.0+)'
+        )
     else:
-        msg = 'Everything is ok.'
+        sections.append(
+            f'Everything is ok. `table_definition_cache` ({cache_value}) is'
+            f' greater than the number of tables ({total_tables}).'
+        )
 
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
+        )
+    msg = '\n\n'.join(sections)
+
+    # Encode the autosizing sentinel (-1) as 0 in perfdata so the panel scale
+    # is meaningful (a -1 vertical jump would dominate any positive value).
+    # The OK message and the README explain the meaning.
     perfdata += lib.base.get_perfdata(
         'mysql_table_definition_cache',
-        myvar['table_definition_cache'],
+        max(cache_value, 0) if cache_value is not None else 0,
         _min=0,
     )
     perfdata += lib.base.get_perfdata(
         'mysql_total_tables',
-        mycalc['total_tables'],
+        total_tables,
         _min=0,
     )
 
