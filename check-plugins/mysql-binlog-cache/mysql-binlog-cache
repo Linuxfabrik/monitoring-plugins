@@ -18,7 +18,6 @@ import lib.base
 import lib.db_mysql
 import lib.db_sqlite
 import lib.human
-import lib.time
 import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
@@ -111,69 +110,6 @@ def get_status(conn):
     return lib.base.coe(lib.db_mysql.select(conn, sql))
 
 
-def per_second_deltas(binlog_use, binlog_disk_use):
-    """Persist the current cumulative `Binlog_cache_use` / `Binlog_cache_disk_use` counters
-    in the local SQLite cache and return their per-second deltas vs. the previous run.
-    Returns `(use_per_s, disk_use_per_s)`, or `(None, None)` when fewer than two samples
-    are recorded yet or after a counter reset (server restart, `FLUSH STATUS`).
-
-    Avoids `uom='c'` counters in perfdata (per CONTRIBUTING.md): we compute the rate here
-    once per run instead of forcing every Grafana panel to do `non_negative_difference()`.
-    """
-    sqlite_conn = lib.base.coe(lib.db_sqlite.connect(filename=SQLITE_DB))
-    definition = """
-        name                  TEXT NOT NULL,
-        timestamp             INT NOT NULL,
-        binlog_cache_use      INT NOT NULL,
-        binlog_cache_disk_use INT NOT NULL
-    """
-    lib.base.coe(
-        lib.db_sqlite.create_table(sqlite_conn, definition, drop_table_first=False),
-    )
-    lib.base.coe(lib.db_sqlite.create_index(sqlite_conn, 'name'))
-
-    lib.base.coe(
-        lib.db_sqlite.insert(
-            sqlite_conn,
-            {
-                'name': 'mysql-binlog-cache',
-                'timestamp': lib.time.now(),
-                'binlog_cache_use': binlog_use,
-                'binlog_cache_disk_use': binlog_disk_use,
-            },
-        )
-    )
-    lib.base.coe(lib.db_sqlite.cut(sqlite_conn, _max=2))
-    lib.base.coe(lib.db_sqlite.commit(sqlite_conn))
-
-    rows = lib.base.coe(
-        lib.db_sqlite.select(
-            sqlite_conn,
-            """
-            SELECT *
-            FROM perfdata
-            WHERE name = :name
-            ORDER BY timestamp DESC
-            """,
-            {'name': 'mysql-binlog-cache'},
-        )
-    )
-    lib.db_sqlite.close(sqlite_conn)
-
-    if len(rows) < 2:
-        # first run after a fresh install or after the cache db was wiped
-        return None, None
-    timestamp_diff = rows[0]['timestamp'] - rows[1]['timestamp']
-    if timestamp_diff <= 0:
-        return None, None
-    use_delta = rows[0]['binlog_cache_use'] - rows[1]['binlog_cache_use']
-    disk_delta = rows[0]['binlog_cache_disk_use'] - rows[1]['binlog_cache_disk_use']
-    if use_delta < 0 or disk_delta < 0:
-        # counter reset (server restart, FLUSH STATUS)
-        return None, None
-    return int(use_delta / timestamp_diff), int(disk_delta / timestamp_diff)
-
-
 def main():
     """The main function. This is where the magic happens."""
 
@@ -228,7 +164,13 @@ def main():
     # `c` counters that force Grafana to do non_negative_difference() per panel.
     binlog_use = int(mystat['Binlog_cache_use'])
     binlog_disk_use = int(mystat['Binlog_cache_disk_use'])
-    use_per_s, disk_use_per_s = per_second_deltas(binlog_use, binlog_disk_use)
+    rates = lib.db_sqlite.per_second_deltas(
+        SQLITE_DB,
+        'mysql-binlog-cache',
+        {'binlog_cache_use': binlog_use, 'binlog_cache_disk_use': binlog_disk_use},
+    )
+    use_per_s = int(rates['binlog_cache_use']) if rates is not None else None
+    disk_use_per_s = int(rates['binlog_cache_disk_use']) if rates is not None else None
     if use_per_s is not None:
         perfdata += lib.base.get_perfdata(
             'mysql_binlog_cache_use_per_second',

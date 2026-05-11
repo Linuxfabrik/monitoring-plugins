@@ -18,7 +18,6 @@ import lib.base
 import lib.db_mysql
 import lib.db_sqlite
 import lib.human
-import lib.time
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -132,79 +131,6 @@ def get_status(conn):
             ;
           """
     return lib.base.coe(lib.db_mysql.select(conn, sql))
-
-
-def per_second_deltas(sort_scan, sort_range, sort_merge_passes):
-    """Persist the cumulative `Sort_scan` / `Sort_range` / `Sort_merge_passes`
-    counters in the local SQLite cache and return their per-second deltas vs.
-    the previous run. Returns
-    `(sort_scan_per_s, sort_range_per_s, sort_merge_passes_per_s,
-       total_sorts_per_s)`, or four `None` values when fewer than two samples
-    are recorded yet or after a counter reset (server restart, `FLUSH STATUS`).
-
-    Avoids `uom='c'` counters in perfdata (per CONTRIBUTING.md): we compute the
-    rates here once per run instead of forcing every Grafana panel to do
-    `non_negative_difference()`.
-    """
-    sqlite_conn = lib.base.coe(lib.db_sqlite.connect(filename=SQLITE_DB))
-    definition = """
-        name              TEXT NOT NULL,
-        timestamp         INT NOT NULL,
-        sort_scan         INT NOT NULL,
-        sort_range        INT NOT NULL,
-        sort_merge_passes INT NOT NULL
-    """
-    lib.base.coe(
-        lib.db_sqlite.create_table(sqlite_conn, definition, drop_table_first=False),
-    )
-    lib.base.coe(lib.db_sqlite.create_index(sqlite_conn, 'name'))
-
-    lib.base.coe(
-        lib.db_sqlite.insert(
-            sqlite_conn,
-            {
-                'name': 'mysql-sorts',
-                'timestamp': lib.time.now(),
-                'sort_scan': sort_scan,
-                'sort_range': sort_range,
-                'sort_merge_passes': sort_merge_passes,
-            },
-        )
-    )
-    lib.base.coe(lib.db_sqlite.cut(sqlite_conn, _max=2))
-    lib.base.coe(lib.db_sqlite.commit(sqlite_conn))
-
-    rows = lib.base.coe(
-        lib.db_sqlite.select(
-            sqlite_conn,
-            """
-            SELECT *
-            FROM perfdata
-            WHERE name = :name
-            ORDER BY timestamp DESC
-            """,
-            {'name': 'mysql-sorts'},
-        )
-    )
-    lib.db_sqlite.close(sqlite_conn)
-
-    if len(rows) < 2:
-        return None, None, None, None
-    timestamp_diff = rows[0]['timestamp'] - rows[1]['timestamp']
-    if timestamp_diff <= 0:
-        return None, None, None, None
-    scan_delta = rows[0]['sort_scan'] - rows[1]['sort_scan']
-    range_delta = rows[0]['sort_range'] - rows[1]['sort_range']
-    merge_delta = rows[0]['sort_merge_passes'] - rows[1]['sort_merge_passes']
-    if scan_delta < 0 or range_delta < 0 or merge_delta < 0:
-        # counter reset (server restart, FLUSH STATUS)
-        return None, None, None, None
-    return (
-        round(scan_delta / timestamp_diff, 2),
-        round(range_delta / timestamp_diff, 2),
-        round(merge_delta / timestamp_diff, 2),
-        round((scan_delta + range_delta) / timestamp_diff, 2),
-    )
 
 
 def main():
@@ -332,28 +258,34 @@ def main():
     # derived total) as per-second deltas (computed in-plugin against a local
     # SQLite cache) instead of cumulative `c` counters that force Grafana to do
     # non_negative_difference() per panel.
-    scan_per_s, range_per_s, merge_per_s, total_per_s = per_second_deltas(
-        sort_scan, sort_range, sort_merge_passes,
+    rates = lib.db_sqlite.per_second_deltas(
+        SQLITE_DB,
+        'mysql-sorts',
+        {
+            'sort_scan': sort_scan,
+            'sort_range': sort_range,
+            'sort_merge_passes': sort_merge_passes,
+        },
     )
-    if scan_per_s is not None:
+    if rates is not None:
         perfdata += lib.base.get_perfdata(
             'mysql_sort_scan_per_second',
-            scan_per_s,
+            round(rates['sort_scan'], 2),
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
             'mysql_sort_range_per_second',
-            range_per_s,
+            round(rates['sort_range'], 2),
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
             'mysql_sort_merge_passes_per_second',
-            merge_per_s,
+            round(rates['sort_merge_passes'], 2),
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
             'mysql_total_sorts_per_second',
-            total_per_s,
+            round(rates['sort_scan'] + rates['sort_range'], 2),
             _min=0,
         )
 

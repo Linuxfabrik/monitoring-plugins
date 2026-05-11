@@ -18,7 +18,6 @@ import lib.base
 import lib.db_mysql
 import lib.db_sqlite
 import lib.human
-import lib.time
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -134,76 +133,6 @@ def get_status(conn):
     return lib.base.coe(lib.db_mysql.select(conn, sql))
 
 
-def per_second_delta(questions, slow_queries):
-    """Persist the cumulative `Questions` / `Slow_queries` counters in the
-    local SQLite cache and return the per-second delta of `Slow_queries` vs.
-    the previous run, or `None` when fewer than two samples are recorded yet
-    or after a counter reset (server restart, `FLUSH STATUS`).
-
-    `Questions` is persisted too, even though we no longer emit it as perfdata,
-    so the schema stays compatible with caches written by earlier plugin
-    versions (an in-place NOT NULL column removal would otherwise produce a
-    sticky `IntegrityError` until the admin wipes the cache file by hand).
-
-    Avoids `uom='c'` counters in perfdata (per CONTRIBUTING.md): we compute the
-    rate here once per run instead of forcing every Grafana panel to do
-    `non_negative_difference()`. `Questions` per second is intentionally not
-    exposed here; admins who want that metric have it in `mysql-traffic`
-    already.
-    """
-    sqlite_conn = lib.base.coe(lib.db_sqlite.connect(filename=SQLITE_DB))
-    definition = """
-        name         TEXT NOT NULL,
-        timestamp    INT NOT NULL,
-        questions    INT NOT NULL,
-        slow_queries INT NOT NULL
-    """
-    lib.base.coe(
-        lib.db_sqlite.create_table(sqlite_conn, definition, drop_table_first=False),
-    )
-    lib.base.coe(lib.db_sqlite.create_index(sqlite_conn, 'name'))
-
-    lib.base.coe(
-        lib.db_sqlite.insert(
-            sqlite_conn,
-            {
-                'name': 'mysql-slow-queries',
-                'timestamp': lib.time.now(),
-                'questions': questions,
-                'slow_queries': slow_queries,
-            },
-        )
-    )
-    lib.base.coe(lib.db_sqlite.cut(sqlite_conn, _max=2))
-    lib.base.coe(lib.db_sqlite.commit(sqlite_conn))
-
-    rows = lib.base.coe(
-        lib.db_sqlite.select(
-            sqlite_conn,
-            """
-            SELECT *
-            FROM perfdata
-            WHERE name = :name
-            ORDER BY timestamp DESC
-            """,
-            {'name': 'mysql-slow-queries'},
-        )
-    )
-    lib.db_sqlite.close(sqlite_conn)
-
-    if len(rows) < 2:
-        # first run after a fresh install or after the cache db was wiped
-        return None
-    timestamp_diff = rows[0]['timestamp'] - rows[1]['timestamp']
-    if timestamp_diff <= 0:
-        return None
-    slow_delta = rows[0]['slow_queries'] - rows[1]['slow_queries']
-    if slow_delta < 0:
-        # counter reset (server restart, FLUSH STATUS)
-        return None
-    return round(slow_delta / timestamp_diff, 2)
-
-
 def main():
     """The main function. This is where the magic happens."""
 
@@ -317,7 +246,17 @@ def main():
     # counter that forces Grafana to do non_negative_difference() per panel.
     # `Questions` per second is intentionally not emitted here; admins who
     # want that metric have it in mysql-traffic already.
-    slow_queries_per_s = per_second_delta(questions, slow_queries)
+    # `Questions` per second is intentionally not exposed here; admins who want
+    # that metric have it in mysql-traffic already. The helper auto-rebuilds
+    # the cache table if an upgrade from a previous schema is detected.
+    rates = lib.db_sqlite.per_second_deltas(
+        SQLITE_DB,
+        'mysql-slow-queries',
+        {'slow_queries': slow_queries},
+    )
+    slow_queries_per_s = (
+        round(rates['slow_queries'], 2) if rates is not None else None
+    )
     if slow_queries_per_s is not None:
         perfdata += lib.base.get_perfdata(
             'mysql_slow_queries_per_second',

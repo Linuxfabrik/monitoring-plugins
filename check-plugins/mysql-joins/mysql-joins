@@ -18,7 +18,6 @@ import lib.base
 import lib.db_mysql
 import lib.db_sqlite
 import lib.human
-import lib.time
 import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
@@ -111,80 +110,6 @@ def get_status(conn):
             ;
           """
     return lib.base.coe(lib.db_mysql.select(conn, sql))
-
-
-def per_second_deltas(select_full_join, select_range_check, joins_without_indexes):
-    """Persist the current cumulative `Select_full_join`, `Select_range_check` and the
-    derived `joins_without_indexes` counters in the local SQLite cache and return their
-    per-second deltas vs. the previous run. Returns `(full_join_per_s, range_check_per_s,
-    joins_per_s)`, or all-`None` when fewer than two samples are recorded yet or after a
-    counter reset (server restart, `FLUSH STATUS`).
-
-    Avoids `uom='c'` counters in perfdata (per CONTRIBUTING.md): we compute the rate here
-    once per run instead of forcing every Grafana panel to do `non_negative_difference()`.
-    """
-    sqlite_conn = lib.base.coe(lib.db_sqlite.connect(filename=SQLITE_DB))
-    definition = """
-        name                      TEXT NOT NULL,
-        timestamp                 INT NOT NULL,
-        select_full_join          INT NOT NULL,
-        select_range_check        INT NOT NULL,
-        joins_without_indexes     INT NOT NULL
-    """
-    lib.base.coe(
-        lib.db_sqlite.create_table(sqlite_conn, definition, drop_table_first=False),
-    )
-    lib.base.coe(lib.db_sqlite.create_index(sqlite_conn, 'name'))
-
-    lib.base.coe(
-        lib.db_sqlite.insert(
-            sqlite_conn,
-            {
-                'name': 'mysql-joins',
-                'timestamp': lib.time.now(),
-                'select_full_join': select_full_join,
-                'select_range_check': select_range_check,
-                'joins_without_indexes': joins_without_indexes,
-            },
-        )
-    )
-    lib.base.coe(lib.db_sqlite.cut(sqlite_conn, _max=2))
-    lib.base.coe(lib.db_sqlite.commit(sqlite_conn))
-
-    rows = lib.base.coe(
-        lib.db_sqlite.select(
-            sqlite_conn,
-            """
-            SELECT *
-            FROM perfdata
-            WHERE name = :name
-            ORDER BY timestamp DESC
-            """,
-            {'name': 'mysql-joins'},
-        )
-    )
-    lib.db_sqlite.close(sqlite_conn)
-
-    if len(rows) < 2:
-        return None, None, None
-    timestamp_diff = rows[0]['timestamp'] - rows[1]['timestamp']
-    if timestamp_diff <= 0:
-        return None, None, None
-    full_join_delta = rows[0]['select_full_join'] - rows[1]['select_full_join']
-    range_check_delta = (
-        rows[0]['select_range_check'] - rows[1]['select_range_check']
-    )
-    joins_delta = (
-        rows[0]['joins_without_indexes'] - rows[1]['joins_without_indexes']
-    )
-    if full_join_delta < 0 or range_check_delta < 0 or joins_delta < 0:
-        # counter reset (server restart, FLUSH STATUS)
-        return None, None, None
-    return (
-        int(full_join_delta / timestamp_diff),
-        int(range_check_delta / timestamp_diff),
-        int(joins_delta / timestamp_diff),
-    )
 
 
 def main():
@@ -296,8 +221,14 @@ def main():
     msg = '\n\n'.join(sections)
 
     # Per-CONTRIBUTING: counters as in-plugin per-second deltas, not `uom='c'`.
-    full_join_per_s, range_check_per_s, joins_per_s = per_second_deltas(
-        select_full_join, select_range_check, joins_without_indexes,
+    rates = lib.db_sqlite.per_second_deltas(
+        SQLITE_DB,
+        'mysql-joins',
+        {
+            'select_full_join': select_full_join,
+            'select_range_check': select_range_check,
+            'joins_without_indexes': joins_without_indexes,
+        },
     )
 
     perfdata = ''
@@ -307,20 +238,20 @@ def main():
         uom='B',
         _min=0,
     )
-    if full_join_per_s is not None:
+    if rates is not None:
         perfdata += lib.base.get_perfdata(
             'mysql_select_full_join_per_second',
-            full_join_per_s,
+            int(rates['select_full_join']),
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
             'mysql_select_range_check_per_second',
-            range_check_per_s,
+            int(rates['select_range_check']),
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
             'mysql_joins_without_indexes_per_second',
-            joins_per_s,
+            int(rates['joins_without_indexes']),
             _min=0,
         )
     perfdata += lib.base.get_perfdata(
