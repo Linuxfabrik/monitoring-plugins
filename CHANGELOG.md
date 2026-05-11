@@ -12,9 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Monitoring Plugins:
 
-* cert: inspect X.509 certificates from a TLS endpoint or from local files. `--source url` connects to an endpoint, captures the server certificate and reports the chain and hostname verdict. `--source file` reads one or many local cert files (PEM or DER) with glob and recursive-glob expansion, so a single check can cover a whole `/etc/letsencrypt/live/**` tree. Alerts on days remaining until expiry (Nagios ranges, default `14:` warn and `5:` crit). Expired certificates are unconditionally CRIT, with a clear "expired N days ago" wording in the output. With `--source url`, hostname mismatch and chain verification failures share one `--severity` (default WARN). Supports custom `--ca-file`, mutual TLS via `--client-cert` and `--client-key`, and SNI override via `--sni-hostname`. With `--source file` and a glob match, the worst state across all files drives the plugin state. `--lengthy` exposes Subject CN, Issuer CN, Serial, Signature Algorithm, Public Key (with RSA exponent for RSA keys, e.g. `RSA 4096 (e=65537)`), SANs, notBefore, notAfter, SHA-256 Fingerprint, OCSP Must-Staple flag, plus negotiated TLS Version and chain verdict for URL sources. `p12` and `jks` sources are reserved for future expansion
+* cert: inspect X.509 certificates from a TLS endpoint (`--source url`) or local PEM/DER files (`--source file`, glob/recursive). Alerts on days until expiry (Nagios ranges, default `14:` warn / `5:` crit). Optional `--lengthy` for full cert details, custom CA, mutual TLS, SNI override
 * mysql-health: single-number 0-100 health score for a MySQL/MariaDB server, modelled on mysqltuner v2.8.41. Top-level Icinga alert and Grafana KPI; the individual `mysql-*` plugins still own the detailed findings
-* ups-nut: monitor a UPS managed by Network UPS Tools (NUT). Reports battery, load, voltages, remaining runtime, temperature and the aggregated UPS status. Picks up the UPS automatically and uses the thresholds the UPS already knows
+* ups-nut: monitor a UPS managed by Network UPS Tools (NUT). Reports battery, load, voltages, remaining runtime, temperature and aggregated status. Picks up the UPS automatically and uses the thresholds the UPS already knows
 
 
 ### Changed

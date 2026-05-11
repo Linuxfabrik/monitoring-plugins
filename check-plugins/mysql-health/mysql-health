@@ -285,14 +285,19 @@ def score_res_lag(replica_status):
 
 
 def score_res_logs(myvar):
-    """Redo-log sizing (10 pts). 5 if the configured cap is below the
-    mysqltuner cut-off (256 MiB).
+    """Redo-log sizing (10 pts). 5 if `innodb_redo_log_capacity` is exposed
+    (MySQL 8.0.30+) AND configured below mysqltuner's 256 MiB cut-off.
+    Otherwise 10. Servers without `innodb_redo_log_capacity` (MariaDB,
+    MySQL < 8.0.30) award full points, matching `mysql-innodb-buffer-pool-size`'s
+    "redo-log sizing check skipped" behaviour and avoiding the contradictory
+    "this looks bad" / "we do not check this" pairing in the output of the
+    two plugins. mysqltuner's old 25% log-size-ratio rule on
+    `innodb_log_file_size` is intentionally not ported here, same as in
+    `mysql-innodb-buffer-pool-size`.
     """
-    # Prefer `innodb_redo_log_capacity` (MySQL 8.0.30+); fall back to
-    # `innodb_log_file_size`.
-    cap_raw = myvar.get('innodb_redo_log_capacity') or myvar.get('innodb_log_file_size')
+    cap_raw = myvar.get('innodb_redo_log_capacity')
     if cap_raw is None:
-        return 10, None  # variable not exposed; assume OK
+        return 10, None
     cap = int(cap_raw)
     if cap < LOG_SAFETY_THRESHOLD_BYTES:
         return 5, cap
@@ -389,27 +394,75 @@ def main():
         sections = [summary + '.']
 
     lag_display = 'n/a' if res_lag_val is None else f'{res_lag_val}s'
-    cap_display = (
-        'n/a' if res_logs_val is None else f'{res_logs_val // (1024 * 1024)}MiB'
+    log_safety_line = (
+        'check skipped (server does not expose `innodb_redo_log_capacity`)'
+        if res_logs_val is None
+        else f'redo cap {res_logs_val // (1024 * 1024)}MiB'
     )
+
+    def _line(label, value_text, score, max_score, hint):
+        """Append the fix hint only when the component is below its max."""
+        base = f'* {label}: {value_text} ({score}/{max_score})'
+        return f'{base} - {hint}' if score < max_score else base
+
     breakdown_lines = [
         'Component breakdown:',
-        f'* Buffer pool hit rate: {format_pct(perf_bp_val)} '
-        f'({perf_bp_score}/10) - aim for > 95%',
-        f'* Temp tables on disk: {format_pct(perf_temp_val)} '
-        f'({perf_temp_score}/10) - aim for < 10%',
-        f'* Thread cache hit rate: {format_pct(perf_thread_val)} '
-        f'({perf_thread_score}/10) - aim for > 90%',
-        f'* Connection usage: {format_pct(perf_conn_val)} '
-        f'({perf_conn_score}/10) - aim for < 80%',
-        f'* Security issues: {sec_count} ({sec_score}/30) - '
-        f'see `mysql-user-security` for fixes',
-        f'* Replication lag: {lag_display} ({res_lag_score}/10) - '
-        f'see `mysql-replica-status` for fixes',
-        f'* Log safety: redo cap {cap_display} ({res_logs_score}/10) - '
-        f'see `mysql-innodb-buffer-pool-size` for fixes',
-        f'* Metadata: {res_meta_val} InnoDB tables without `PRIMARY KEY` '
-        f'({res_meta_score}/10) - see `mysql-table-indexes` for fixes',
+        _line(
+            'Buffer pool hit rate',
+            format_pct(perf_bp_val),
+            perf_bp_score,
+            10,
+            'aim for > 95%; see `mysql-innodb-buffer-pool-size` for fixes',
+        ),
+        _line(
+            'Temp tables on disk',
+            format_pct(perf_temp_val),
+            perf_temp_score,
+            10,
+            'aim for < 10%; see `mysql-temp-tables` for fixes',
+        ),
+        _line(
+            'Thread cache hit rate',
+            format_pct(perf_thread_val),
+            perf_thread_score,
+            10,
+            'aim for > 90%; see `mysql-thread-cache` for fixes',
+        ),
+        _line(
+            'Connection usage',
+            format_pct(perf_conn_val),
+            perf_conn_score,
+            10,
+            'aim for < 80%; see `mysql-connections` for fixes',
+        ),
+        _line(
+            'Security issues',
+            str(sec_count),
+            sec_score,
+            30,
+            'see `mysql-user-security` for fixes',
+        ),
+        _line(
+            'Replication lag',
+            lag_display,
+            res_lag_score,
+            10,
+            'see `mysql-replica-status` for fixes',
+        ),
+        _line(
+            'Log safety',
+            log_safety_line,
+            res_logs_score,
+            10,
+            'see `mysql-innodb-buffer-pool-size` for fixes',
+        ),
+        _line(
+            'Metadata',
+            f'{res_meta_val} InnoDB tables without `PRIMARY KEY`',
+            res_meta_score,
+            10,
+            'see `mysql-table-indexes` for fixes',
+        ),
     ]
     sections.append('\n'.join(breakdown_lines))
 

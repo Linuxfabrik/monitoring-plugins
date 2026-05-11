@@ -88,14 +88,14 @@ OK output:
 Everything is ok. Health Score: 95/100 (Performance 40/40, Security 25/30, Resilience 30/30).
 
 Component breakdown:
-* Buffer pool hit rate: 99.4% (10/10) - aim for > 95%
-* Temp tables on disk: 4.2% (10/10) - aim for < 10%
-* Thread cache hit rate: 98.7% (10/10) - aim for > 90%
-* Connection usage: 22.0% (10/10) - aim for < 80%
+* Buffer pool hit rate: 99.4% (10/10)
+* Temp tables on disk: 4.2% (10/10)
+* Thread cache hit rate: 98.7% (10/10)
+* Connection usage: 22.0% (10/10)
 * Security issues: 1 (25/30) - see `mysql-user-security` for fixes
-* Replication lag: n/a (10/10) - see `mysql-replica-status` for fixes
-* Log safety: redo cap 1024MiB (10/10) - see `mysql-innodb-buffer-pool-size` for fixes
-* Metadata: 0 InnoDB tables without `PRIMARY KEY` (10/10) - see `mysql-table-indexes` for fixes
+* Replication lag: n/a (10/10)
+* Log safety: redo cap 1024MiB (10/10)
+* Metadata: 0 InnoDB tables without `PRIMARY KEY` (10/10)
 ```
 
 WARN output:
@@ -104,10 +104,10 @@ WARN output:
 Health Score: 60/100 (Performance 25/40, Security 25/30, Resilience 10/30) [WARNING].
 
 Component breakdown:
-* Buffer pool hit rate: 92.3% (5/10) - aim for > 95%
-* Temp tables on disk: 38.5% (0/10) - aim for < 10%
-* Thread cache hit rate: 88.0% (5/10) - aim for > 90%
-* Connection usage: 45.0% (10/10) - aim for < 80%
+* Buffer pool hit rate: 92.3% (5/10) - aim for > 95%; see `mysql-innodb-buffer-pool-size` for fixes
+* Temp tables on disk: 38.5% (0/10) - aim for < 10%; see `mysql-temp-tables` for fixes
+* Thread cache hit rate: 88.0% (5/10) - aim for > 90%; see `mysql-thread-cache` for fixes
+* Connection usage: 45.0% (10/10)
 * Security issues: 1 (25/30) - see `mysql-user-security` for fixes
 * Replication lag: 180s (0/10) - see `mysql-replica-status` for fixes
 * Log safety: redo cap 128MiB (5/10) - see `mysql-innodb-buffer-pool-size` for fixes
