@@ -16,20 +16,35 @@ import sys
 import lib.args
 import lib.base
 import lib.db_mysql
-import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026051101'
 
-DESCRIPTION = """Connects to a MySQL/MariaDB database and runs configurable SQL queries for warning
-and critical conditions. The query result - either a row count or a specific value -
-is checked against Nagios range expressions. Useful for custom application-level
-monitoring."""
+DESCRIPTION = """Runs up to two admin-supplied SQL SELECT statements against MySQL/MariaDB
+and checks each result against a Nagios range expression. One statement is paired
+with `--warning` and triggers WARN; the second with `--critical` and triggers CRIT.
+A query returning one row with one column is checked as a single value (useful for
+`SELECT COUNT(*) ...`, `SELECT MAX(timestamp) ...`, etc.); any other shape is checked
+by its row count. Useful for custom application-level monitoring: queue depth, stale
+rows, replication lag tables, total user count, daily order count, failed-job count,
+inventory below threshold, expiring licences, anything an application stores in a
+table."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_TIMEOUT = 3
+
+# Maximum rows shown in the result table appended to the plugin output. Beyond
+# this we keep only the first and last few rows; the full result is still
+# evaluated for state, just not echoed back.
+MAX_RESULT_ROWS = 10
+RESULT_HEAD = 5
+RESULT_TAIL = 5
+
+# Maximum displayed length of the SQL statement in the output line. Long
+# queries get an ellipsis so the summary stays one readable line.
+MAX_QUERY_DISPLAY = 80
 
 
 def parse_args():
@@ -60,8 +75,8 @@ def parse_args():
 
     parser.add_argument(
         '--critical-query',
-        help='`SELECT` statement to evaluate for CRIT. '
-        'If the result contains more than one column, the row count is checked against `--critical`. '
+        help='`SELECT` statement whose result is checked against `--critical`. '
+        'If the result contains more than one column, the row count is used. '
         'Otherwise the single returned value is used.',
         dest='CRITICAL_QUERY',
     )
@@ -99,8 +114,8 @@ def parse_args():
 
     parser.add_argument(
         '--warning-query',
-        help='`SELECT` statement to evaluate for WARN. '
-        'If the result contains more than one column, the row count is checked against `--warning`. '
+        help='`SELECT` statement whose result is checked against `--warning`. '
+        'If the result contains more than one column, the row count is used. '
         'Otherwise the single returned value is used.',
         dest='WARNING_QUERY',
     )
@@ -109,42 +124,70 @@ def parse_args():
     return args
 
 
-def get_state_and_value(conn, query, threshold, _type):
-    """Execute SQL query, get the value and check against the threshold.
-    * One row, one column: Check this single value.
-    * x rows: Check the number of rows against the threshold.
+def trunc_query(query):
+    """Single-line, ellipsised version of `query` for the summary line."""
+    one_line = ' '.join(query.split())
+    if len(one_line) > MAX_QUERY_DISPLAY:
+        return one_line[: MAX_QUERY_DISPLAY - 3] + '...'
+    return one_line
+
+
+def evaluate_query(conn, query, threshold, kind):
+    """Run `query`, derive its value (single cell or row count) and grade it
+    against `threshold` for the given `kind` ('warn' or 'crit'). Returns a
+    tuple of (state, value, rows, shortened).
     """
     state = STATE_OK
     value = 0
-    result = []
+    rows = []
     shortened = False
-    if query:
-        result = lib.base.coe(lib.db_mysql.select(conn, query))
-        if result:
-            if len(result) == 1 and len(result[0]) == 1:
-                # one row, one column: could be a "select count(*) from ..." result
-                value = next(iter(result[0].values()))
-            else:
-                # a bunch of rows (at least one) with multiple columns, so count them
-                value = len(result)
-                # shorten the result if there are too many rows
-                if len(result) > 10:
-                    # shorten the result
-                    result = result[0:5] + result[-5:]
-                    shortened = True
+    if not query:
+        return state, value, rows, shortened
 
-            if _type == 'warn':
-                state = lib.base.get_state(value, threshold, None, _operator='range')
-            else:
-                state = lib.base.get_state(value, None, threshold, _operator='range')
+    rows = lib.base.coe(lib.db_mysql.select(conn, query))
+    if not rows:
+        return state, value, rows, shortened
 
-    return state, value, result, shortened
+    if len(rows) == 1 and len(rows[0]) == 1:
+        # Single-cell result: e.g. `SELECT COUNT(*) FROM ...` or
+        # `SELECT MAX(updated_at) FROM ...`. Use the cell's value directly.
+        value = next(iter(rows[0].values()))
+    else:
+        # Multiple rows, or multi-column row: grade by row count, but still
+        # echo head + tail of the rows so admins can investigate.
+        value = len(rows)
+        if len(rows) > MAX_RESULT_ROWS:
+            rows = rows[:RESULT_HEAD] + rows[-RESULT_TAIL:]
+            shortened = True
+
+    if kind == 'warn':
+        state = lib.base.get_state(value, threshold, None, _operator='range')
+    else:
+        state = lib.base.get_state(value, None, threshold, _operator='range')
+    return state, value, rows, shortened
+
+
+def render_result_table(rows, shortened):
+    """Build the optional `head ... tail` table appended below the summary."""
+    if not rows:
+        return ''
+    parts = []
+    if shortened:
+        parts.append(
+            f'\nAttention: Table below is truncated, showing the'
+            f' {RESULT_HEAD} first and the {RESULT_TAIL} last rows.'
+        )
+    try:
+        keys = rows[0].keys()
+        parts.append('\n' + lib.base.get_table(rows, keys, header=keys))
+    except (AttributeError, IndexError):
+        return ''
+    return ''.join(parts)
 
 
 def main():
     """The main function. This is where the magic happens."""
 
-    # parse the command line
     try:
         args = parse_args()
     except SystemExit:
@@ -152,11 +195,6 @@ def main():
 
     if args.WARNING_QUERY is None and args.CRITICAL_QUERY is None:
         lib.base.cu('Nothing to check, no queries provided.')
-
-    # init some vars
-    msg = ''
-    state = STATE_OK
-    perfdata = ''
 
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
@@ -166,73 +204,56 @@ def main():
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
     lib.base.coe(lib.db_mysql.check_privileges(conn))
 
-    # analyze data
-    state_warn, cnt_warn, result_warn, shortened_warn = get_state_and_value(
-        conn,
-        args.WARNING_QUERY,
-        args.WARN,
-        'warn',
+    state = STATE_OK
+    state_warn, value_warn, rows_warn, shortened_warn = evaluate_query(
+        conn, args.WARNING_QUERY, args.WARN, 'warn',
     )
     state = lib.base.get_worst(state, state_warn)
-    state_crit, cnt_crit, result_crit, shortened_crit = get_state_and_value(
-        conn,
-        args.CRITICAL_QUERY,
-        args.CRIT,
-        'crit',
+    state_crit, value_crit, rows_crit, shortened_crit = evaluate_query(
+        conn, args.CRITICAL_QUERY, args.CRIT, 'crit',
     )
     state = lib.base.get_worst(state, state_crit)
 
     lib.db_mysql.close(conn)
 
-    # build the message
+    # Summary line: per-query "WARN query (`<sql>`) returned <value> [STATE]".
+    facts = []
     if args.WARNING_QUERY:
-        msg = (
-            f'{cnt_warn}'
-            f' {lib.txt.pluralize("result", cnt_warn)}'
-            f' from warning query `{args.WARNING_QUERY}`'
+        facts.append(
+            f'WARN query (`{trunc_query(args.WARNING_QUERY)}`)'
+            f' returned {value_warn}'
             f'{lib.base.state2str(state_warn, prefix=" ")}'
         )
-    if args.WARNING_QUERY and args.CRITICAL_QUERY:
-        msg += ' and '
     if args.CRITICAL_QUERY:
-        msg += (
-            f'{cnt_crit}'
-            f' {lib.txt.pluralize("result", cnt_crit)}'
-            f' from critical query `{args.CRITICAL_QUERY}`'
+        facts.append(
+            f'CRIT query (`{trunc_query(args.CRITICAL_QUERY)}`)'
+            f' returned {value_crit}'
             f'{lib.base.state2str(state_crit, prefix=" ")}'
         )
-    msg += '\n'
 
-    if shortened_warn:
-        msg += '\nAttention: Table below is truncated, showing the 5 first and the 5 last items.\n'
-    try:
-        keys = result_warn[0].keys()
-        headers = keys
-        msg += '\n' + lib.base.get_table(result_warn, keys, header=headers)
-    except Exception:
-        # no results
-        pass
+    if state == STATE_OK:
+        # "Everything is ok." leads the OK message so the admin sees the
+        # verdict first; the facts follow.
+        msg = 'Everything is ok. ' + '. '.join(facts) + '.'
+    else:
+        msg = '. '.join(facts) + '.'
 
-    if shortened_crit:
-        msg += '\nAttention: Table below is truncated, showing the 5 first and the 5 last items.\n'
-    try:
-        keys = result_crit[0].keys()
-        headers = keys
-        msg += '\n' + lib.base.get_table(result_crit, keys, header=headers)
-    except Exception:
-        # no results
-        pass
+    msg += render_result_table(rows_warn, shortened_warn)
+    msg += render_result_table(rows_crit, shortened_crit)
 
-    perfdata += lib.base.get_perfdata(
-        'cnt_warn',
-        cnt_warn,
-        warn=args.WARN,
-    )
-    perfdata += lib.base.get_perfdata(
-        'cnt_crit',
-        cnt_crit,
-        crit=args.CRIT,
-    )
+    perfdata = ''
+    if args.WARNING_QUERY:
+        perfdata += lib.base.get_perfdata(
+            'mysql_query_warn_value',
+            value_warn,
+            warn=args.WARN,
+        )
+    if args.CRITICAL_QUERY:
+        perfdata += lib.base.get_perfdata(
+            'mysql_query_crit_value',
+            value_crit,
+            crit=args.CRIT,
+        )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

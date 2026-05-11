@@ -112,7 +112,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Connects to a MySQL/MariaDB database and runs configurable SQL queries for warning and critical conditions. The query result - either a row count or a specific value - is checked against Nagios range expressions. Useful for custom application-level monitoring.",
+            "notes": "Runs up to two admin-supplied SQL SELECT statements against MySQL/MariaDB and checks each result against a Nagios range expression. One statement is paired with `--warning` and triggers WARN; the second with `--critical` and triggers CRIT. A query returning one row with one column is checked as a single value (useful for `SELECT COUNT(*) ...`, `SELECT MAX(timestamp) ...`, etc.); any other shape is checked by its row count. Useful for custom application-level monitoring: queue depth, stale rows, replication lag tables, total user count, daily order count, failed-job count, inventory below threshold, expiring licences, anything an application stores in a table.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-query/",
             "object_name": "tpl-service-mysql-query",
             "object_type": "template",
@@ -202,7 +202,7 @@
         "3": {
             "varname": "mysql_query_critical_query",
             "caption": "MySQL Query: Critical Query",
-            "description": "`SELECT` statement to evaluate for CRIT. If the result contains more than one column, the row count is checked against `--critical`. Otherwise the single returned value is used.",
+            "description": "`SELECT` statement whose result is checked against `--critical`. If the result contains more than one column, the row count is used. Otherwise the single returned value is used.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -257,7 +257,7 @@
         "8": {
             "varname": "mysql_query_warning_query",
             "caption": "MySQL Query: Warning Query",
-            "description": "`SELECT` statement to evaluate for WARN. If the result contains more than one column, the row count is checked against `--warning`. Otherwise the single returned value is used.",
+            "description": "`SELECT` statement whose result is checked against `--warning`. If the result contains more than one column, the row count is used. Otherwise the single returned value is used.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

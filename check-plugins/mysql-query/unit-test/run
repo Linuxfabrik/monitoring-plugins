@@ -69,7 +69,16 @@ def _check_image(test, image_pair):
         print(f'Script output:\n{combined.strip()}', flush=True)
 
         test.assertEqual(result.returncode, STATE_OK)
-        test.assertRegex(combined, r'1\s+result\s+from\s+critical\s+query')
+        # Single-cell `SELECT 1` returns the cell value 1; the plugin's
+        # OK output now leads with "Everything is ok." and describes the
+        # query result via "CRIT query (`...`) returned <value>".
+        test.assertIn('Everything is ok.', combined)
+        test.assertRegex(
+            combined, r'CRIT query \(`SELECT 1`\) returned 1',
+        )
+        # Perfdata uses the mysql_-prefixed name for consistency with the
+        # other mysql-* plugins.
+        test.assertIn("'mysql_query_crit_value'=1", combined)
 
 
 lib.lftest.attach_each(TestCheck, IMAGES, _check_image, id_func=lambda it: it[1])

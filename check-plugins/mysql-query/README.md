@@ -3,19 +3,22 @@
 
 ## Overview
 
-Connects to a MySQL/MariaDB database and runs configurable SQL queries for warning and critical conditions. The query result - either a row count or a specific value - is checked against Nagios range expressions. This is useful for custom application-level monitoring where standard MySQL checks do not apply.
+Runs up to two admin-supplied `SELECT` statements against MySQL/MariaDB and checks each result against a Nagios range expression. One statement pairs with `--warning` and triggers WARN; the second with `--critical` and triggers CRIT.
+
+A query returning one row with one column is checked as a single value (useful for `SELECT COUNT(*) ...`, `SELECT MAX(timestamp) ...`, etc.); any other shape is checked by its row count. Useful for custom application-level monitoring: queue depth, stale rows, replication lag tables, total user count, daily order count, failed-job count, inventory below threshold, expiring licences, anything an application stores in a table.
 
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
-* At least one of `--warning-query` or `--critical-query` must be provided
-* Thresholds use [Nagios range expressions](https://linuxfabrik.github.io/monitoring-plugins/contributing/#threshold-and-ranges)
+* At least one of `--warning-query` or `--critical-query` must be provided.
+* Thresholds use [Nagios range expressions](https://linuxfabrik.github.io/monitoring-plugins/contributing/#threshold-and-ranges).
 
 **Data Collection:**
 
-* Connects to the MySQL/MariaDB server using the provided credentials
-* Executes the `SELECT` statement(s) provided via `--warning-query` and/or `--critical-query`
-* Result tables are shown in the output (truncated to the first 5 and last 5 rows if more than 10 rows are returned)
+* Connects to the MySQL/MariaDB server using the provided credentials.
+* Executes the `SELECT` statement(s) provided via `--warning-query` and/or `--critical-query`.
+* Result tables are shown in the output (truncated to the first 5 and last 5 rows if more than 10 rows are returned).
+* Long queries are truncated to 80 characters with an ellipsis in the summary line; the full query still runs and is graded.
 
 
 ## Fact Sheet
@@ -40,10 +43,15 @@ usage: mysql-query [-h] [-V] [--always-ok] [-c CRIT]
                    [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
                    [-w WARN] [--warning-query WARNING_QUERY]
 
-Connects to a MySQL/MariaDB database and runs configurable SQL queries for
-warning and critical conditions. The query result - either a row count or a
-specific value - is checked against Nagios range expressions. Useful for
-custom application-level monitoring.
+Runs up to two admin-supplied SQL SELECT statements against MySQL/MariaDB and
+checks each result against a Nagios range expression. One statement is paired
+with `--warning` and triggers WARN; the second with `--critical` and triggers
+CRIT. A query returning one row with one column is checked as a single value
+(useful for `SELECT COUNT(*) ...`, `SELECT MAX(timestamp) ...`, etc.); any
+other shape is checked by its row count. Useful for custom application-level
+monitoring: queue depth, stale rows, replication lag tables, total user count,
+daily order count, failed-job count, inventory below threshold, expiring
+licences, anything an application stores in a table.
 
 options:
   -h, --help            show this help message and exit
@@ -51,9 +59,9 @@ options:
   --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold as a Nagios range expression.
   --critical-query CRITICAL_QUERY
-                        `SELECT` statement to evaluate for CRIT. If the result
-                        contains more than one column, the row count is
-                        checked against `--critical`. Otherwise the single
+                        `SELECT` statement whose result is checked against
+                        `--critical`. If the result contains more than one
+                        column, the row count is used. Otherwise the single
                         returned value is used.
   --defaults-file DEFAULTS_FILE
                         MySQL/MariaDB cnf file to read user, host and password
@@ -66,9 +74,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -w, --warning WARN    WARN threshold as a Nagios range expression.
   --warning-query WARNING_QUERY
-                        `SELECT` statement to evaluate for WARN. If the result
-                        contains more than one column, the row count is
-                        checked against `--warning`. Otherwise the single
+                        `SELECT` statement whose result is checked against
+                        `--warning`. If the result contains more than one
+                        column, the row count is used. Otherwise the single
                         returned value is used.
 ```
 
@@ -119,22 +127,22 @@ WARN if more than 6 hosts in network A have more than 3 waiting updates, and CRI
 Output:
 
 ```text
-7 results from warning query `select * from data where network = "A" and waitingupdates > 3` [WARNING] and 3 results from critical query `select * from data where network <> "A" and waitingupdates > 4` [CRITICAL]
+WARN query (`select * from data where network = "A" and waitingupdates > 3`) returned 7 [WARNING]. CRIT query (`select * from data where network <> "A" and waitingupdates > 4`) returned 3 [CRITICAL].
 
-date       ! network ! hostname ! waitingupdates 
+date       ! network ! hostname ! waitingupdates
 -----------+---------+----------+----------------
-2023-01-01 ! A       ! erin     ! 4              
-2023-01-01 ! A       ! faythe   ! 5              
-2023-01-01 ! A       ! frank    ! 6              
-2023-01-01 ! A       ! grace    ! 7              
-2023-01-01 ! A       ! heidi    ! 8              
-2023-01-01 ! A       ! ivan     ! 9              
-2023-01-01 ! A       ! judy     ! 10             
+2023-01-01 ! A       ! erin     ! 4
+2023-01-01 ! A       ! faythe   ! 5
+2023-01-01 ! A       ! frank    ! 6
+2023-01-01 ! A       ! grace    ! 7
+2023-01-01 ! A       ! heidi    ! 8
+2023-01-01 ! A       ! ivan     ! 9
+2023-01-01 ! A       ! judy     ! 10
 
-date       ! network ! hostname ! waitingupdates 
+date       ! network ! hostname ! waitingupdates
 -----------+---------+----------+----------------
-2023-01-01 ! B       ! peggy    ! 5              
-2023-01-01 ! B       ! rupert   ! 6              
+2023-01-01 ! B       ! peggy    ! 5
+2023-01-01 ! B       ! rupert   ! 6
 2023-01-01 ! B       ! sybil    ! 7
 ```
 
@@ -151,8 +159,8 @@ date       ! network ! hostname ! waitingupdates
 
 | Name | Type | Description |
 |----|----|----|
-| cnt_crit | Number | Number of rows or single value returned by `--critical-query`. |
-| cnt_warn | Number | Number of rows or single value returned by `--warning-query`. |
+| mysql_query_crit_value | Number | Number of rows or single value returned by `--critical-query`. |
+| mysql_query_warn_value | Number | Number of rows or single value returned by `--warning-query`. |
 
 
 ## Credits, License
