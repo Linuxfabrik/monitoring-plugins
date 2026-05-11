@@ -3,19 +3,19 @@
 
 ## Overview
 
-Checks the replication status of a MySQL/MariaDB replica, including I/O thread state, SQL thread state, seconds behind master, and replication errors. Can also be run against standalone servers (reports that no replication is configured). Reports Galera synchronous replication state, binlog format, semi-synchronous replication configuration, and XA support.
+Checks the replication status of a MySQL/MariaDB replica: I/O thread state, SQL thread state, replication lag (`Seconds_Behind_Master` / `Seconds_Behind_Source`), `read_only` mode, semi-synchronous replication mode and (on MariaDB 10.5+) parallel replication settings. Also reports whether this server is a Galera node and how many downstream replicas it is feeding. Can safely be run against standalone servers; it reports "This is a standalone server."
 
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
-* User account requires `REPLICATION CLIENT`. On MariaDB 10.5+ this privilege has been split, so `SLAVE MONITOR` (or its MariaDB 11+ alias `REPLICA MONITOR`) is also accepted
-* Can safely be run against standalone servers; it will report "This is a standalone server."
+* On MariaDB 10.5+, `REPLICATION CLIENT` was split. `SHOW REPLICA STATUS` / `SHOW SLAVE STATUS` requires `SLAVE MONITOR` (or its MariaDB 11+ alias `REPLICA MONITOR`); plain `REPLICATION CLIENT` alone is not enough on those versions. Grant `SLAVE MONITOR` (or `REPLICA MONITOR`) to be safe.
 
 **Data Collection:**
 
-* Queries `SHOW GLOBAL VARIABLES` for replication-related settings (`binlog_format`, `read_only`, `rpl_semi_sync_*`, `wsrep_on`, `wsrep_provider_options`, etc.)
-* Executes `SHOW REPLICA STATUS` (or `SHOW SLAVE STATUS` on older versions) and `SHOW SLAVE HOSTS`
-* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):get_replication_status(), v1.9.8
+* Queries `SHOW GLOBAL VARIABLES` for replication-related settings (`binlog_format`, `read_only`, `rpl_semi_sync_*`, `slave_parallel_threads` / `replica_parallel_threads`, `slave_parallel_mode` / `replica_parallel_mode`, `wsrep_on`, `wsrep_provider_options`).
+* Executes `SHOW REPLICA STATUS` (or `SHOW SLAVE STATUS` on older versions) and `SHOW SLAVE HOSTS`.
+* The IO/SQL thread state, lag, parallel-replication and semi-sync checks use the MariaDB 10.5+ field names first (`Replica_*`, `replica_parallel_*`, `rpl_semi_sync_source_enabled`, etc.) and fall back to the legacy `Slave_*` / `*master*` names. Whichever the server exposes is used.
+* Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):get_replication_status(), verified in sync with v2.8.41.
 
 
 ## Fact Sheet
@@ -38,11 +38,16 @@ Checks the replication status of a MySQL/MariaDB replica, including I/O thread s
 usage: mysql-replica-status [-h] [-V] [--always-ok]
                             [--defaults-file DEFAULTS_FILE]
                             [--defaults-group DEFAULTS_GROUP]
+                            [--lag-warning LAG_WARN] [--lag-critical LAG_CRIT]
                             [--severity {warn,crit}] [--timeout TIMEOUT]
 
-Checks the replication status of a MySQL/MariaDB replica, including I/O thread
-state, SQL thread state, seconds behind master, and replication errors. Alerts
-when replication is broken or lagging.
+Checks the replication status of a MySQL/MariaDB replica: I/O thread state,
+SQL thread state, replication lag (`Seconds_Behind_Master` /
+`Seconds_Behind_Source`), `read_only` mode, semi-synchronous replication mode
+and (on MariaDB 10.5+) parallel replication settings. Also reports whether
+this server is a Galera node and how many downstream replicas it is feeding.
+Alerts when replication is broken, configured but not running, or lagging
+behind.
 
 options:
   -h, --help            show this help message and exit
@@ -56,9 +61,17 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
+  --lag-warning LAG_WARN
+                        Seconds of replication lag at which the WARN flag is
+                        raised. A value of 0 means any lag (the historic
+                        default; matches the mysqltuner cut-off). Default: 0
+  --lag-critical LAG_CRIT
+                        Seconds of replication lag at which the CRIT flag is
+                        raised. If omitted, lag never escalates to CRIT.
   --severity {warn,crit}
-                        Severity for alerts that do not depend on thresholds.
-                        One of "warn" or "crit". Default: warn
+                        Severity for alerts that do not depend on thresholds
+                        (IO/SQL thread not running, `read_only` disabled). One
+                        of `warn` or `crit`. Default: warn
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 
@@ -69,24 +82,43 @@ options:
 ./mysql-replica-status --defaults-file=/var/spool/icinga2/.my.cnf
 ```
 
-Output:
+Output (OK, standalone server):
 
 ```text
-Galera Synchronous replication: NO. Binlog format: ROW, XA support enabled: ON. Semi synchronous Primary: Not Activated. Semi synchronous Replica: Not Activated. This Replica is not running but seems to be configured [WARNING].
+Everything is ok. Galera synchronous replication: NO. `binlog_format` is `ROW`. `innodb_support_xa` is `ON`. Semi-sync primary: not activated. Semi-sync replica: not activated. This is a standalone server.
+```
+
+Output (WARN, replica not running):
+
+```text
+Galera synchronous replication: NO. `binlog_format` is `ROW`. `innodb_support_xa` is `ON`. Semi-sync primary: not activated. Semi-sync replica: not activated. Replica is not running but seems to be configured (IO: `No`, SQL: `Yes`) [WARNING]. Parallel replication: disabled.
+
+Recommendations:
+* Investigate the IO/SQL thread errors via `SHOW REPLICA STATUS` (look at `Last_IO_Error`, `Last_SQL_Error`)
+* Set `replica_parallel_threads` to the number of vCPUs to enable parallel replication
 ```
 
 
 ## States
 
-* WARN or CRIT (depending on `--severity`) if the replica is not running but seems to be configured.
-* WARN or CRIT (depending on `--severity`) if the replica is running with `read_only` disabled.
-* WARN or CRIT (depending on `--severity`) if the replica is lagging behind the primary.
+* WARN or CRIT (per `--severity`) if the replica is configured but the IO or SQL thread is not running.
+* WARN or CRIT (per `--severity`) if the replica is running with `read_only` = `OFF`.
+* Lag (`Seconds_Behind_Master` / `Seconds_Behind_Source`):
+    * WARN when lag > `--lag-warning` seconds (default 0, i.e. any lag).
+    * CRIT when lag >= `--lag-critical` seconds (no default; lag never escalates to CRIT unless this is set).
+    * WARN when both `Seconds_Behind_Master` and `Seconds_Behind_Source` are NULL (replication thread reports unknown lag, usually a sign of recovery).
+* WARN or CRIT (per `--severity`) on MariaDB 10.5+ if parallel replication is enabled with a non-`optimistic` mode.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-There is no perfdata.
+| Name | Type | Description |
+|----|----|----|
+| mysql_replication_io_running | Number | `1` if the IO thread is running, `0` otherwise (also `0` on standalone servers). |
+| mysql_replication_seconds_behind | Seconds | Replication lag from `Seconds_Behind_Master` / `Seconds_Behind_Source`. Only emitted when a replica is configured and reports a numeric value. |
+| mysql_replication_slave_count | Number | Number of downstream replicas reading from this server (from `SHOW SLAVE HOSTS`). |
+| mysql_replication_sql_running | Number | `1` if the SQL thread is running, `0` otherwise (also `0` on standalone servers). |
 
 
 ## Credits, License

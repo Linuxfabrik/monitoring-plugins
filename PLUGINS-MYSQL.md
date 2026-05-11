@@ -148,7 +148,7 @@ minimum.
 |----|----|
 | **One shared monitoring user (covers all MySQL plugins)** | `GRANT USAGE, SELECT, REPLICATION CLIENT ON *.* TO 'monitoring'@'127.0.0.1'`. On MariaDB 10.5+, `SLAVE MONITOR` (or its MariaDB 11+ alias `REPLICA MONITOR`) also satisfies `mysql-replica-status` |
 | `mysql-aria`, `mysql-database-metrics`, `mysql-innodb-buffer-pool-size`, `mysql-storage-engines`, `mysql-table-definition-cache`, `mysql-table-indexes` | `GRANT SELECT ON *.*` (needed to see all rows in `information_schema`) |
-| `mysql-replica-status` | `GRANT REPLICATION CLIENT ON *.*` (MySQL and MariaDB <10.5). On MariaDB 10.5+, `SLAVE MONITOR` or `REPLICA MONITOR` is accepted as well |
+| `mysql-replica-status` | `GRANT REPLICATION CLIENT ON *.*` on MySQL and MariaDB <10.5. **On MariaDB 10.5+** plain `REPLICATION CLIENT` is no longer enough for `SHOW REPLICA STATUS` / `SHOW SLAVE STATUS`; grant `SLAVE MONITOR` (or its MariaDB 11+ alias `REPLICA MONITOR`) instead |
 | `mysql-user-security` | `GRANT SELECT ON mysql.*` (queries `mysql.user` and `mysql.global_priv`) |
 | `mysql-logfile` | `GRANT USAGE ON *.*` is enough for on-disk / container / systemd sources. To additionally use `performance_schema.error_log` (MySQL 8.0.22+), `GRANT SELECT ON performance_schema.error_log` is needed; without it the plugin transparently falls back to file mode |
 | All other `mysql-*` plugins | `GRANT USAGE ON *.*` (login-only, no further privileges) |

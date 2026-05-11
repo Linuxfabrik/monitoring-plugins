@@ -11,6 +11,12 @@
                 "--defaults-group": {
                     "value": "$mysql_replica_status_defaults_group$"
                 },
+                "--lag-warning": {
+                    "value": "$mysql_replica_status_lag_warning$"
+                },
+                "--lag-critical": {
+                    "value": "$mysql_replica_status_lag_critical$"
+                },
                 "--severity": {
                     "value": "$mysql_replica_status_severity$"
                 },
@@ -43,6 +49,16 @@
                 },
                 {
                     "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -88,7 +104,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the replication status of a MySQL/MariaDB replica, including I/O thread state, SQL thread state, seconds behind master, and replication errors. Alerts when replication is broken or lagging.",
+            "notes": "Checks the replication status of a MySQL/MariaDB replica: I/O thread state, SQL thread state, replication lag (`Seconds_Behind_Master` / `Seconds_Behind_Source`), `read_only` mode, semi-synchronous replication mode and (on MariaDB 10.5+) parallel replication settings. Also reports whether this server is a Galera node and how many downstream replicas it is feeding. Alerts when replication is broken, configured but not running, or lagging behind.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-replica-status/",
             "object_name": "tpl-service-mysql-replica-status",
             "object_type": "template",
@@ -102,6 +118,7 @@
                 "mysql_replica_status_always_ok": false,
                 "mysql_replica_status_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_replica_status_defaults_group": "client",
+                "mysql_replica_status_lag_warning": 0,
                 "mysql_replica_status_severity": "warn",
                 "mysql_replica_status_timeout": 3
             },
@@ -164,9 +181,31 @@
             "uuid": "8ad41feb-dd49-4118-a4db-7e87cd441c5a"
         },
         "4": {
+            "varname": "mysql_replica_status_lag_warning",
+            "caption": "MySQL Replica Status: Lag Warning",
+            "description": "Seconds of replication lag at which the WARN flag is raised. A value of 0 means any lag (the historic default; matches the mysqltuner cut-off).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "90e591bf-765a-496a-a887-7cfa0a858a13"
+        },
+        "5": {
+            "varname": "mysql_replica_status_lag_critical",
+            "caption": "MySQL Replica Status: Lag Critical",
+            "description": "Seconds of replication lag at which the CRIT flag is raised. If omitted, lag never escalates to CRIT.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "4f598eb4-4c3f-457b-8583-90d075f98a04"
+        },
+        "6": {
             "varname": "mysql_replica_status_severity",
             "caption": "MySQL Replica Status: Severity",
-            "description": "Severity for alerts that do not depend on thresholds. One of \"warn\" or \"crit\".",
+            "description": "Severity for alerts that do not depend on thresholds (IO/SQL thread not running, `read_only` disabled). One of `warn` or `crit`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -176,7 +215,7 @@
             },
             "uuid": "3485cc0b-4fe0-4598-b318-d99575b40b33"
         },
-        "5": {
+        "7": {
             "varname": "mysql_replica_status_timeout",
             "caption": "MySQL Replica Status: Timeout",
             "description": "Network timeout in seconds.",
