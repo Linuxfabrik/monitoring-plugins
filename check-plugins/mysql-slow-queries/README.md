@@ -104,13 +104,12 @@ Recommendations:
 
 ## Perfdata / Metrics
 
-The two cumulative counters (`Questions`, `Slow_queries`) are emitted as in-plugin-computed per-second rates instead of `uom='c'` continuous counters; the deltas appear from the second check run onwards (the first run needs a baseline in the local SQLite cache).
+The `Slow_queries` counter is emitted as an in-plugin-computed per-second rate instead of a `uom='c'` continuous counter; the delta appears from the second check run onwards (the first run needs a baseline in the local SQLite cache). `Questions` per second is intentionally not exposed here — it is already covered by `mysql-traffic`, and a plot of both metrics is unreadable because `Slow_queries` is normally orders of magnitude smaller than `Questions`.
 
 | Name | Type | Description |
 |----|----|----|
 | mysql_long_query_time | Seconds | If a query takes longer than this many seconds to execute, the `Slow_queries` status variable is incremented and, if enabled, the query is logged to the slow query log. |
 | mysql_pct_slow_queries | Percentage | `Slow_queries / Questions * 100`. |
-| mysql_questions_per_second | Number | Per-second rate of `Questions` since the previous check run. |
 | mysql_slow_queries_per_second | Number | Per-second rate of `Slow_queries` since the previous check run. |
 
 

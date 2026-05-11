@@ -17,7 +17,7 @@ import lib.args
 import lib.base
 import lib.db_mysql
 import lib.human
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026051001'
@@ -173,10 +173,7 @@ def main():
         # a percentage is meaningless then, so we report 0% and skip the alert.
         pct_files_open = 0.0
 
-    if pct_files_open >= args.CRITICAL:
-        state = STATE_CRIT
-    elif pct_files_open >= args.WARNING:
-        state = STATE_WARN
+    state = lib.base.get_state(pct_files_open, args.WARNING, args.CRITICAL)
     if state != STATE_OK:
         recommendations.append(
             f'Raise `open_files_limit` (currently'

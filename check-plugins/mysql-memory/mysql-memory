@@ -19,7 +19,7 @@ import lib.args
 import lib.base
 import lib.db_mysql
 import lib.human
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 try:
     import psutil
@@ -433,23 +433,20 @@ def main():
     bh = lib.human.bytes2human
 
     # used memory (currently reached)
-    used_state = STATE_OK
     if not lib.base.IS_64BIT and mycalc['max_used_memory'] > ADDR_LIMIT_32BIT:
         used_state = STATE_WARN
         recommendations.append(
             f'Reduce MySQL buffer sizes: > {bh(ADDR_LIMIT_32BIT)} of allocations'
             f' on a 32-bit binary can cause instability'
         )
-    elif mycalc['pct_max_used_memory'] >= args.CRITICAL:
-        used_state = STATE_CRIT
-        recommendations.append(
-            'Reduce your overall MySQL memory footprint for system stability'
+    else:
+        used_state = lib.base.get_state(
+            mycalc['pct_max_used_memory'], args.WARNING, args.CRITICAL,
         )
-    elif mycalc['pct_max_used_memory'] >= args.WARNING:
-        used_state = STATE_WARN
-        recommendations.append(
-            'Reduce your overall MySQL memory footprint for system stability'
-        )
+        if used_state != STATE_OK:
+            recommendations.append(
+                'Reduce your overall MySQL memory footprint for system stability'
+            )
     state = lib.base.get_worst(state, used_state)
     facts.append(
         f'Max used memory: {mycalc["pct_max_used_memory"]}%'
@@ -459,14 +456,10 @@ def main():
     )
 
     # peak memory (theoretical)
-    peak_state = STATE_OK
-    if mycalc['pct_max_physical_memory'] >= args.CRITICAL:
-        peak_state = STATE_CRIT
-        rec = 'Reduce your overall MySQL memory footprint for system stability'
-        if rec not in recommendations:
-            recommendations.append(rec)
-    elif mycalc['pct_max_physical_memory'] >= args.WARNING:
-        peak_state = STATE_WARN
+    peak_state = lib.base.get_state(
+        mycalc['pct_max_physical_memory'], args.WARNING, args.CRITICAL,
+    )
+    if peak_state != STATE_OK:
         rec = 'Reduce your overall MySQL memory footprint for system stability'
         if rec not in recommendations:
             recommendations.append(rec)

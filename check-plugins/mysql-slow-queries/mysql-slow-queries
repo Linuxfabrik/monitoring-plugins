@@ -19,7 +19,7 @@ import lib.db_mysql
 import lib.db_sqlite
 import lib.human
 import lib.time
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026051101'
@@ -134,16 +134,22 @@ def get_status(conn):
     return lib.base.coe(lib.db_mysql.select(conn, sql))
 
 
-def per_second_deltas(questions, slow_queries):
-    """Persist the current cumulative `Questions` / `Slow_queries` counters in the
-    local SQLite cache and return their per-second deltas vs. the previous run.
-    Returns `(questions_per_s, slow_queries_per_s)`, or `(None, None)` when fewer
-    than two samples are recorded yet or after a counter reset (server restart,
-    `FLUSH STATUS`).
+def per_second_delta(questions, slow_queries):
+    """Persist the cumulative `Questions` / `Slow_queries` counters in the
+    local SQLite cache and return the per-second delta of `Slow_queries` vs.
+    the previous run, or `None` when fewer than two samples are recorded yet
+    or after a counter reset (server restart, `FLUSH STATUS`).
+
+    `Questions` is persisted too, even though we no longer emit it as perfdata,
+    so the schema stays compatible with caches written by earlier plugin
+    versions (an in-place NOT NULL column removal would otherwise produce a
+    sticky `IntegrityError` until the admin wipes the cache file by hand).
 
     Avoids `uom='c'` counters in perfdata (per CONTRIBUTING.md): we compute the
     rate here once per run instead of forcing every Grafana panel to do
-    `non_negative_difference()`.
+    `non_negative_difference()`. `Questions` per second is intentionally not
+    exposed here; admins who want that metric have it in `mysql-traffic`
+    already.
     """
     sqlite_conn = lib.base.coe(lib.db_sqlite.connect(filename=SQLITE_DB))
     definition = """
@@ -187,19 +193,15 @@ def per_second_deltas(questions, slow_queries):
 
     if len(rows) < 2:
         # first run after a fresh install or after the cache db was wiped
-        return None, None
+        return None
     timestamp_diff = rows[0]['timestamp'] - rows[1]['timestamp']
     if timestamp_diff <= 0:
-        return None, None
-    questions_delta = rows[0]['questions'] - rows[1]['questions']
+        return None
     slow_delta = rows[0]['slow_queries'] - rows[1]['slow_queries']
-    if questions_delta < 0 or slow_delta < 0:
+    if slow_delta < 0:
         # counter reset (server restart, FLUSH STATUS)
-        return None, None
-    return (
-        round(questions_delta / timestamp_diff, 2),
-        round(slow_delta / timestamp_diff, 2),
-    )
+        return None
+    return round(slow_delta / timestamp_diff, 2)
 
 
 def main():
@@ -250,10 +252,7 @@ def main():
     else:
         pct_slow_queries = round(slow_queries / questions * 100, 2)
 
-    if pct_slow_queries >= args.CRITICAL:
-        state = STATE_CRIT
-    elif pct_slow_queries >= args.WARNING:
-        state = STATE_WARN
+    state = lib.base.get_state(pct_slow_queries, args.WARNING, args.CRITICAL)
     if state != STATE_OK:
         recommendations.append(
             f'Investigate the slow query log and optimise the {slow_queries}'
@@ -313,16 +312,13 @@ def main():
         _max=100,
     )
 
-    # Per-CONTRIBUTING: emit `Questions` and `Slow_queries` as per-second deltas
-    # (computed in-plugin against a local SQLite cache) instead of cumulative
-    # `c` counters that force Grafana to do non_negative_difference() per panel.
-    questions_per_s, slow_queries_per_s = per_second_deltas(questions, slow_queries)
-    if questions_per_s is not None:
-        perfdata += lib.base.get_perfdata(
-            'mysql_questions_per_second',
-            questions_per_s,
-            _min=0,
-        )
+    # Per-CONTRIBUTING: emit `Slow_queries` as a per-second delta (computed
+    # in-plugin against a local SQLite cache) instead of a cumulative `c`
+    # counter that forces Grafana to do non_negative_difference() per panel.
+    # `Questions` per second is intentionally not emitted here; admins who
+    # want that metric have it in mysql-traffic already.
+    slow_queries_per_s = per_second_delta(questions, slow_queries)
+    if slow_queries_per_s is not None:
         perfdata += lib.base.get_perfdata(
             'mysql_slow_queries_per_second',
             slow_queries_per_s,

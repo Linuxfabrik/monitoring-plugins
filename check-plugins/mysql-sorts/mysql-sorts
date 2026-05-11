@@ -19,7 +19,7 @@ import lib.db_mysql
 import lib.db_sqlite
 import lib.human
 import lib.time
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026051101'
@@ -257,17 +257,20 @@ def main():
         pct_temp_sort_table = 0.0
 
     if total_sorts > 0:
-        if pct_temp_sort_table >= args.CRITICAL:
-            state = STATE_CRIT
-        elif pct_temp_sort_table >= args.WARNING:
-            state = STATE_WARN
+        state = lib.base.get_state(
+            pct_temp_sort_table, args.WARNING, args.CRITICAL,
+        )
         if state != STATE_OK:
             recommendations.append(
-                f'Raise `sort_buffer_size` >'
-                f' {lib.human.bytes2human(sort_buffer_size)}'
-                f' and/or `read_rnd_buffer_size` >'
-                f' {lib.human.bytes2human(read_rnd_buffer_size)} so fewer'
-                f' sorts have to spill to a temporary merge-sort file'
+                f'Raise `sort_buffer_size` (currently'
+                f' {lib.human.bytes2human(sort_buffer_size)}) to 2 - 8 MiB'
+                f' and/or `read_rnd_buffer_size` (currently'
+                f' {lib.human.bytes2human(read_rnd_buffer_size)}) to 1 - 4'
+                f' MiB so fewer sorts have to spill to a temporary'
+                f' merge-sort file. Note: both buffers are allocated per'
+                f' session, so raising them globally raises per-thread'
+                f' memory. For one-off large sorts, tune per session'
+                f' instead (`SET SESSION sort_buffer_size = ...`)'
             )
 
     # build the message
