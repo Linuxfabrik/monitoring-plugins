@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$mysql_slow_queries_always_ok$"
                 },
+                "--critical": {
+                    "value": "$mysql_slow_queries_critical$"
+                },
                 "--defaults-file": {
                     "value": "$mysql_slow_queries_defaults_file$"
                 },
@@ -13,6 +16,9 @@
                 },
                 "--timeout": {
                     "value": "$mysql_slow_queries_timeout$"
+                },
+                "--warning": {
+                    "value": "$mysql_slow_queries_warning$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/mysql-slow-queries",
@@ -35,6 +41,16 @@
                 },
                 {
                     "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -80,7 +96,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the rate of slow queries in MySQL/MariaDB. A high slow query rate indicates queries that may need optimization. Also verifies that the slow query log is enabled. Alerts when the slow query rate is too high.",
+            "notes": "Checks the rate of slow queries in MySQL/MariaDB (`Slow_queries` / `Questions`). A high ratio means many queries are exceeding `long_query_time` and likely need optimisation. Alerts when the ratio crosses `--warning` / `--critical`. Also reports whether the slow query log is enabled and whether `long_query_time` is set to a value > 10 seconds (mysqltuner's \"queries slower than 10 s are practically useless to capture\" cut-off).",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-slow-queries/",
             "object_name": "tpl-service-mysql-slow-queries",
             "object_type": "template",
@@ -92,9 +108,11 @@
             "vars": {
                 "criticality": "C",
                 "mysql_slow_queries_always_ok": false,
+                "mysql_slow_queries_critical": 10,
                 "mysql_slow_queries_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_slow_queries_defaults_group": "client",
-                "mysql_slow_queries_timeout": 3
+                "mysql_slow_queries_timeout": 3,
+                "mysql_slow_queries_warning": 5
             },
             "volatile": null,
             "zone": null,
@@ -112,6 +130,17 @@
             "uuid": "6c4b8916-d307-456f-8302-23f81843478f"
         },
         "2": {
+            "varname": "mysql_slow_queries_critical",
+            "caption": "MySQL Slow Queries: Critical",
+            "description": "Percentage of `Slow_queries` / `Questions` at which the ratio flips to CRITICAL.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "bf096875-eb52-4aa9-b13c-2edc68e244f7"
+        },
+        "3": {
             "varname": "mysql_slow_queries_defaults_file",
             "caption": "MySQL Slow Queries: Defaults File",
             "description": "MySQL/MariaDB cnf file to read user, host and password from. Example: `--defaults-file=/var/spool/icinga2/.my.cnf`.",
@@ -122,7 +151,7 @@
             },
             "uuid": "ee014f3e-3905-4e98-920a-5df3ed790526"
         },
-        "3": {
+        "4": {
             "varname": "mysql_slow_queries_defaults_group",
             "caption": "MySQL Slow Queries: Defaults Group",
             "description": "Group/section to read from in the cnf file.",
@@ -133,7 +162,7 @@
             },
             "uuid": "458e792a-3ec6-4375-93b6-483a7f565b1e"
         },
-        "4": {
+        "5": {
             "varname": "mysql_slow_queries_timeout",
             "caption": "MySQL Slow Queries: Timeout",
             "description": "Network timeout in seconds.",
@@ -143,6 +172,17 @@
                 "visibility": "visible"
             },
             "uuid": "339679bc-a12c-4849-a1b7-7092278ddbd8"
+        },
+        "6": {
+            "varname": "mysql_slow_queries_warning",
+            "caption": "MySQL Slow Queries: Warning",
+            "description": "Percentage of `Slow_queries` / `Questions` at which the ratio flips to WARNING.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6a2110c8-7241-496d-9210-1468e25a54a9"
         }
     }
 }

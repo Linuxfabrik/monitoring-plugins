@@ -122,7 +122,7 @@ spec:
         operator: '='
         value: mysql_long_query_time
 
-  - title: MySQL Slow Queries - Cumulative Counters
+  - title: MySQL Slow Queries - Per-Second Rates
     type: timeseries
     gridPos:
       h: 8
@@ -140,22 +140,22 @@ spec:
           pointSize: 3
           showPoints: always
           spanNulls: false
-        decimals: 0
+        decimals: 2
         min: 0
         unit: short
       overrides:
       - matcher:
           id: byName
-          options: mysql_questions
+          options: mysql_questions_per_second
         properties:
         - id: displayName
-          value: Questions (lifetime)
+          value: Questions per second
       - matcher:
           id: byName
-          options: mysql_slow_queries
+          options: mysql_slow_queries_per_second
         properties:
         - id: displayName
-          value: Slow_queries (lifetime)
+          value: Slow_queries per second
     options:
       legend:
         calcs:
@@ -173,8 +173,8 @@ spec:
 
     targets:
 
-    - alias: mysql_questions
-      refId: mysql_questions
+    - alias: mysql_questions_per_second
+      refId: mysql_questions_per_second
       groupBy:
       - params:
         - $interval
@@ -201,10 +201,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_questions
+        value: mysql_questions_per_second
 
-    - alias: mysql_slow_queries
-      refId: mysql_slow_queries
+    - alias: mysql_slow_queries_per_second
+      refId: mysql_slow_queries_per_second
       groupBy:
       - params:
         - $interval
@@ -231,7 +231,7 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_slow_queries
+        value: mysql_slow_queries_per_second
 
   - title: MySQL Slow Queries - Percentage
     type: timeseries

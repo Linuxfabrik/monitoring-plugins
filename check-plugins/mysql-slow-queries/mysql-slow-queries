@@ -16,19 +16,30 @@ import sys
 import lib.args
 import lib.base
 import lib.db_mysql
+import lib.db_sqlite
 import lib.human
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.time
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026051101'
 
-DESCRIPTION = """Checks the rate of slow queries in MySQL/MariaDB. A high slow query rate indicates
-queries that may need optimization. Also verifies that the slow query log is enabled.
-Alerts when the slow query rate is too high."""
+DESCRIPTION = """Checks the rate of slow queries in MySQL/MariaDB (`Slow_queries` /
+`Questions`). A high ratio means many queries are exceeding `long_query_time` and
+likely need optimisation. Alerts when the ratio crosses `--warning` / `--critical`.
+Also reports whether the slow query log is enabled and whether `long_query_time` is
+set to a value > 10 seconds (mysqltuner's "queries slower than 10 s are practically
+useless to capture" cut-off)."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
+# Match mysqltuner's 5% cut-off, but expose a higher --critical so admins can keep
+# WARN for early notice and let the alert escalate when the ratio really runs hot.
+DEFAULT_WARN = 5
+DEFAULT_CRIT = 10
 DEFAULT_TIMEOUT = 3
+
+SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-slow-queries.db'
 
 
 def parse_args():
@@ -48,6 +59,17 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='Percentage of `Slow_queries` / `Questions` at which the ratio'
+        ' flips to CRITICAL. '
+        'Default: %(default)s',
+        dest='CRITICAL',
+        type=float,
+        default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
@@ -74,6 +96,17 @@ def parse_args():
         default=DEFAULT_TIMEOUT,
     )
 
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='Percentage of `Slow_queries` / `Questions` at which the ratio'
+        ' flips to WARNING. '
+        'Default: %(default)s',
+        dest='WARNING',
+        type=float,
+        default=DEFAULT_WARN,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -92,9 +125,6 @@ def get_vars(conn):
 
 
 def get_status(conn):
-    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
-    # Without the GLOBAL modifier, SHOW STATUS displays the values that are used for
-    # the current connection to MariaDB.
     sql = """
         show global status
         where variable_name like 'Questions'
@@ -104,11 +134,79 @@ def get_status(conn):
     return lib.base.coe(lib.db_mysql.select(conn, sql))
 
 
+def per_second_deltas(questions, slow_queries):
+    """Persist the current cumulative `Questions` / `Slow_queries` counters in the
+    local SQLite cache and return their per-second deltas vs. the previous run.
+    Returns `(questions_per_s, slow_queries_per_s)`, or `(None, None)` when fewer
+    than two samples are recorded yet or after a counter reset (server restart,
+    `FLUSH STATUS`).
+
+    Avoids `uom='c'` counters in perfdata (per CONTRIBUTING.md): we compute the
+    rate here once per run instead of forcing every Grafana panel to do
+    `non_negative_difference()`.
+    """
+    sqlite_conn = lib.base.coe(lib.db_sqlite.connect(filename=SQLITE_DB))
+    definition = """
+        name         TEXT NOT NULL,
+        timestamp    INT NOT NULL,
+        questions    INT NOT NULL,
+        slow_queries INT NOT NULL
+    """
+    lib.base.coe(
+        lib.db_sqlite.create_table(sqlite_conn, definition, drop_table_first=False),
+    )
+    lib.base.coe(lib.db_sqlite.create_index(sqlite_conn, 'name'))
+
+    lib.base.coe(
+        lib.db_sqlite.insert(
+            sqlite_conn,
+            {
+                'name': 'mysql-slow-queries',
+                'timestamp': lib.time.now(),
+                'questions': questions,
+                'slow_queries': slow_queries,
+            },
+        )
+    )
+    lib.base.coe(lib.db_sqlite.cut(sqlite_conn, _max=2))
+    lib.base.coe(lib.db_sqlite.commit(sqlite_conn))
+
+    rows = lib.base.coe(
+        lib.db_sqlite.select(
+            sqlite_conn,
+            """
+            SELECT *
+            FROM perfdata
+            WHERE name = :name
+            ORDER BY timestamp DESC
+            """,
+            {'name': 'mysql-slow-queries'},
+        )
+    )
+    lib.db_sqlite.close(sqlite_conn)
+
+    if len(rows) < 2:
+        # first run after a fresh install or after the cache db was wiped
+        return None, None
+    timestamp_diff = rows[0]['timestamp'] - rows[1]['timestamp']
+    if timestamp_diff <= 0:
+        return None, None
+    questions_delta = rows[0]['questions'] - rows[1]['questions']
+    slow_delta = rows[0]['slow_queries'] - rows[1]['slow_queries']
+    if questions_delta < 0 or slow_delta < 0:
+        # counter reset (server restart, FLUSH STATUS)
+        return None, None
+    return (
+        round(questions_delta / timestamp_diff, 2),
+        round(slow_delta / timestamp_diff, 2),
+    )
+
+
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:mysql_stats(), section # Slow queries, v1.9.8
-    # including variable names
+    # logic taken from mysqltuner.pl:mysql_stats(), section "Slow queries",
+    # verified in sync with MySQLTuner v2.8.41
 
     # parse the command line
     try:
@@ -116,6 +214,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -129,66 +228,104 @@ def main():
     lib.db_mysql.close(conn)
 
     # init some vars
-    msg = ''
     state = STATE_OK
+    sections = []
+    facts = []
+    # All recommendations from all WARN/CRIT paths land here and render once at
+    # the end as a `Recommendations:\n* ...` bulleted block, regardless of
+    # which combinations of WARN paths fire.
+    recommendations = []
     perfdata = ''
+    questions = int(mystat['Questions'])
+    slow_queries = int(mystat['Slow_queries'])
+    long_query_time = float(myvar['long_query_time'])
+    slow_query_log = myvar.get('slow_query_log')
 
-    # calculations
-    mycalc = {}
-    if mystat['Questions'] == 0:
-        mystat['Questions'] = 1
-    mycalc['pct_slow_queries'] = round(
-        float(mystat['Slow_queries']) / float(mystat['Questions']) * 100, 1
-    )
+    # analyze data
+    # A freshly-booted server with no traffic can legitimately report
+    # `Questions = 0`. Guard the division locally rather than mutating
+    # `mystat`, otherwise the perfdata below would also lie about Questions.
+    if questions == 0:
+        pct_slow_queries = 0.0
+    else:
+        pct_slow_queries = round(slow_queries / questions * 100, 2)
 
-    # Slow queries
-    if int(mycalc['pct_slow_queries']) > 5:
+    if pct_slow_queries >= args.CRITICAL:
+        state = STATE_CRIT
+    elif pct_slow_queries >= args.WARNING:
         state = STATE_WARN
+    if state != STATE_OK:
+        recommendations.append(
+            f'Investigate the slow query log and optimise the {slow_queries}'
+            f' slow queries (out of {questions} total)'
+        )
 
     # build the message
-    msg += (
-        f'Slow queries: {mycalc["pct_slow_queries"]}%'
-        f' ({lib.human.number2human(mystat["Slow_queries"])} slow queries'
-        f'/{lib.human.number2human(mystat["Questions"])} questions)'
-        f'{lib.base.state2str(state, prefix=" ")}. '
+    facts.append(
+        f'Slow queries: {pct_slow_queries}%'
+        f' ({lib.human.number2human(slow_queries)} slow'
+        f' / {lib.human.number2human(questions)} total)'
+        f'{lib.base.state2str(state, prefix=" ")}'
     )
+    facts.append(f'`long_query_time` = {long_query_time}s')
+    if long_query_time > 10:
+        recommendations.append(
+            f'Set `long_query_time` <= 10 (currently {long_query_time}s);'
+            f' queries slower than 10s are practically useless to capture'
+        )
+    if slow_query_log == 'OFF':
+        facts.append('`slow_query_log` is `OFF`')
+        if state != STATE_OK:
+            recommendations.append(
+                'Enable `slow_query_log` to troubleshoot the slow queries'
+            )
+    elif slow_query_log == 'ON':
+        facts.append('`slow_query_log` is `ON`')
 
-    if float(myvar['long_query_time']) > 10:
-        msg += 'Set long_query_time <= 10. '
-    if (
-        state == STATE_WARN
-        and myvar.get('slow_query_log')
-        and myvar['slow_query_log'] == 'OFF'
-    ):
-        msg += 'Enable the slow_query_log to troubleshoot bad queries. '
+    facts_text = '. '.join(facts) + '.'
+    if state == STATE_OK:
+        # "Everything is ok." leads the OK message so the admin sees the
+        # verdict first; the facts follow.
+        sections.append('Everything is ok. ' + facts_text)
+    else:
+        sections.append(facts_text)
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
+        )
+    msg = '\n\n'.join(sections)
 
     perfdata += lib.base.get_perfdata(
         'mysql_long_query_time',
-        myvar['long_query_time'],
+        long_query_time,
         uom='s',
         _min=0,
     )
-
-    perfdata += lib.base.get_perfdata(
-        'mysql_questions',
-        mystat['Questions'],
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'mysql_slow_queries',
-        mystat['Slow_queries'],
-        uom='c',
-        _min=0,
-    )
-
     perfdata += lib.base.get_perfdata(
         'mysql_pct_slow_queries',
-        mycalc['pct_slow_queries'],
+        pct_slow_queries,
         uom='%',
+        warn=args.WARNING,
+        crit=args.CRITICAL,
         _min=0,
         _max=100,
     )
+
+    # Per-CONTRIBUTING: emit `Questions` and `Slow_queries` as per-second deltas
+    # (computed in-plugin against a local SQLite cache) instead of cumulative
+    # `c` counters that force Grafana to do non_negative_difference() per panel.
+    questions_per_s, slow_queries_per_s = per_second_deltas(questions, slow_queries)
+    if questions_per_s is not None:
+        perfdata += lib.base.get_perfdata(
+            'mysql_questions_per_second',
+            questions_per_s,
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_slow_queries_per_second',
+            slow_queries_per_s,
+            _min=0,
+        )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
