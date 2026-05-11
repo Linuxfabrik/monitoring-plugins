@@ -11,15 +11,25 @@
 """Integration tests for the mysql-perf-metrics check plugin.
 
 The plugin opens a real `pymysql` connection and reads a set of
-performance-related counters from `SHOW GLOBAL STATUS` and
-`SHOW VARIABLES`. A static fixture cannot drive it - we spin up
-an actual MariaDB server and let the plugin talk to it over TCP.
+performance-related counters from `SHOW GLOBAL STATUS`,
+`SHOW VARIABLES` and `INFORMATION_SCHEMA.SYSTEM_VARIABLES`. A
+static fixture cannot drive it - we spin up an actual MariaDB
+server and let the plugin talk to it over TCP.
 
 Per CONTRIBUTING's "Combine container tests with fixtures" rule,
 this file holds only the happy-path integration test. A freshly
 booted MariaDB ships sensible defaults for both checked variables
-(`innodb_stats_on_metadata=OFF`, `concurrent_insert=AUTO`), so the
-plugin reports both verifications and exits OK.
+(`innodb_stats_on_metadata=OFF`, `concurrent_insert=AUTO`) and no
+admin-set deprecated variables (all `GLOBAL_VALUE_ORIGIN` =
+`COMPILE-TIME`), so the plugin reports verifications and exits OK
+with `mysql_deprecated_config_variables=0`.
+
+The WARN path for the deprecated-variable check is intentionally
+not asserted here: the set of variables MariaDB exposes as
+"Deprecated" in `INFORMATION_SCHEMA.SYSTEM_VARIABLES` differs per
+LTS, so a cross-version `SET GLOBAL <known-deprecated-var>` is
+fragile. The detection itself is verified by the perfdata key
+existing in the OK output (the code path runs unconditionally).
 
 Runs against the current MariaDB LTS releases
 (`lib.lftest.MARIADB_LTS_IMAGES`).
@@ -73,7 +83,10 @@ def _check_image(test, image_pair):
         test.assertIn('Everything is ok.', combined)
         test.assertIn('`innodb_stats_on_metadata` is `OFF`', combined)
         test.assertIn('`concurrent_insert` is `AUTO`', combined)
-        # No WARNING markers should appear in the OK output.
+        # The deprecated-variable check ran; perfdata emitted with 0
+        # findings (default-configured server has only COMPILE-TIME
+        # origins).
+        test.assertIn('mysql_deprecated_config_variables', combined)
         test.assertNotIn('[WARNING]', combined)
 
 

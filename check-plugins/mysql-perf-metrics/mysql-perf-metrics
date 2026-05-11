@@ -16,19 +16,94 @@ import sys
 import lib.args
 import lib.base
 import lib.db_mysql
+import lib.txt
+import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051001'
+__version__ = '2026051102'
 
-DESCRIPTION = """Checks two MySQL/MariaDB best-practice knobs that do not have a dedicated
-plugin: `innodb_stats_on_metadata` and `concurrent_insert`. Alerts when either is set
-to a value that slows down typical workloads.
+DESCRIPTION = """Checks MySQL/MariaDB best-practice knobs that do not have a dedicated
+plugin: `innodb_stats_on_metadata`, `concurrent_insert`, and any deprecated configuration
+variables that the admin has explicitly set via `my.cnf` or `SET GLOBAL`.
 `innodb_stats_on_metadata`: when ON, InnoDB recalculates index statistics every time
 `information_schema` tables are queried. Most modern setups keep this OFF because
 applications and tooling query `information_schema` frequently.
 `concurrent_insert`: when set to `NEVER`/`0`, MyISAM tables can no longer serve SELECTs
-in parallel with INSERTs. The recommended value is `AUTO` (the modern default)."""
+in parallel with INSERTs. The recommended value is `AUTO` (the modern default).
+Deprecated variables: MariaDB exposes its own deprecation flag at runtime
+(`INFORMATION_SCHEMA.SYSTEM_VARIABLES.VARIABLE_COMMENT` + `GLOBAL_VALUE_ORIGIN`); MySQL
+does not, so a static list ported from MySQLTuner v2.8.41 is used and filtered through
+`performance_schema.variables_info.VARIABLE_SOURCE` to skip compile-time defaults. The
+check only fires when the variable's value did NOT come from `COMPILE-TIME`, so a fresh
+installation stays quiet and only real `my.cnf` leftovers and explicit `SET GLOBAL`
+changes are surfaced."""
+
+# Variables MySQL has removed or kept as a no-op. Port of mysqltuner.pl v2.8.41
+# check_removed_innodb_variables (MySQL branch). Used only on the MySQL path;
+# MariaDB has its own runtime deprecation flag and needs no static list.
+REMOVED_VARS_MYSQL = [
+    {
+        'name': 'innodb_file_format',
+        'removed_in': (8, 0, 0),
+        'note': 'Barracuda is the only supported format.',
+    },
+    {
+        'name': 'innodb_file_format_check',
+        'removed_in': (8, 0, 0),
+        'note': 'Barracuda is the only supported format.',
+    },
+    {
+        'name': 'innodb_file_format_max',
+        'removed_in': (8, 0, 0),
+        'note': 'Barracuda is the only supported format.',
+    },
+    {
+        'name': 'innodb_large_prefix',
+        'removed_in': (8, 0, 0),
+        'note': 'Always enabled for Barracuda.',
+    },
+    {
+        'name': 'innodb_locks_unsafe_for_binlog',
+        'removed_in': (8, 0, 0),
+        'note': 'Use READ COMMITTED isolation level instead.',
+    },
+    {
+        'name': 'innodb_support_xa',
+        'removed_in': (8, 0, 0),
+        'note': 'XA support is now always enabled.',
+    },
+    {
+        'name': 'innodb_undo_logs',
+        'removed_in': (8, 0, 0),
+        'note': 'Replaced by `innodb_rollback_segments`.',
+    },
+    {
+        'name': 'tx_isolation',
+        'removed_in': (8, 0, 0),
+        'note': 'Use `transaction_isolation` instead.',
+    },
+    {
+        'name': 'tx_read_only',
+        'removed_in': (8, 0, 0),
+        'note': 'Use `transaction_read_only` instead.',
+    },
+    {
+        'name': 'innodb_log_file_size',
+        'removed_in': (9, 0, 0),
+        'note': 'Replaced by `innodb_redo_log_capacity`.',
+    },
+    {
+        'name': 'innodb_log_files_in_group',
+        'removed_in': (9, 0, 0),
+        'note': 'Replaced by `innodb_redo_log_capacity`.',
+    },
+    {
+        'name': 'innodb_undo_tablespaces',
+        'removed_in': (9, 0, 0),
+        'note': 'Managed automatically now.',
+    },
+]
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
@@ -82,21 +157,88 @@ def parse_args():
     return args
 
 
-def get_vars(conn):
+def find_deprecated_variables_mariadb(conn):
+    """Return the list of deprecated variables that the admin has
+    explicitly set (in `my.cnf` or via `SET GLOBAL`). MariaDB itself
+    flags deprecated entries via `VARIABLE_COMMENT LIKE '%deprecated%'`
+    in `INFORMATION_SCHEMA.SYSTEM_VARIABLES`. `GLOBAL_VALUE_ORIGIN` tells
+    us where the value came from; `COMPILE-TIME` means default (silent),
+    `CONFIG` / `SQL` means the admin set it (alert). Per the MariaDB
+    feature-deprecation policy, deprecated startup variables stay
+    visible as no-ops for the full LTS support window (5+ years) so this
+    runtime check catches stray `/etc/my.cnf.d/*.cnf` entries left over
+    from previous distros.
+    """
     sql = """
-        show global variables
-        where variable_name like 'concurrent_insert'
-            or variable_name like 'innodb_stats_on_metadata'
-            ;
-          """
-    return lib.base.coe(lib.db_mysql.select(conn, sql))
+        select VARIABLE_NAME as name,
+            GLOBAL_VALUE as value,
+            GLOBAL_VALUE_ORIGIN as origin,
+            VARIABLE_COMMENT as note
+        from INFORMATION_SCHEMA.SYSTEM_VARIABLES
+        where (
+            VARIABLE_COMMENT like 'Deprecated%'
+            or VARIABLE_COMMENT like '%deprecated%'
+        )
+        and GLOBAL_VALUE_ORIGIN in ('CONFIG', 'SQL')
+        ;
+    """
+    success, rows = lib.db_mysql.select(conn, sql)
+    return rows if success else []
+
+
+def find_deprecated_variables_mysql(conn, myvar):
+    """Return the list of removed/deprecated MySQL variables that the
+    admin has explicitly set. MySQL does not expose a deprecation flag at
+    runtime, so we walk a static list ported from MySQLTuner v2.8.41 and
+    filter through `performance_schema.variables_info.VARIABLE_SOURCE` to
+    skip compile-time defaults. On MySQL releases without
+    `variables_info` (pre-8.0) we fall back to plain presence in
+    `SHOW VARIABLES`, which matches mysqltuner's original behaviour.
+    The `removed_in` version on each entry gates the finding so a still-
+    valid pre-removal release (e.g. `innodb_file_format` on MySQL 5.7)
+    does not produce a false positive.
+    """
+    running = lib.version.version((myvar.get('version') or '').lower())
+
+    sources = {}
+    success, rows = lib.db_mysql.select(
+        conn,
+        'select VARIABLE_NAME as name, VARIABLE_SOURCE as source '
+        'from performance_schema.variables_info',
+    )
+    if success:
+        sources = {r['name'].lower(): r['source'] for r in rows}
+
+    findings = []
+    for entry in REMOVED_VARS_MYSQL:
+        if entry['name'] not in myvar:
+            continue
+        if running < entry['removed_in']:
+            # Variable still exists in the running MySQL version and may
+            # be a legitimate knob; mysqltuner-aligned skip.
+            continue
+        source = sources.get(entry['name'].lower())
+        # If variables_info is available and the source is COMPILED, the
+        # variable is at its compile-time default - silent. If
+        # variables_info is unavailable (MySQL < 8.0), report on presence
+        # alone (mysqltuner-aligned).
+        if source == 'COMPILED':
+            continue
+        findings.append({
+            'name': entry['name'],
+            'value': myvar[entry['name']],
+            'origin': source or 'unknown',
+            'note': entry['note'],
+        })
+    return findings
 
 
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:check_metadata_perf() and the
-    # concurrent_insert check in mysql_stats(), verified in sync with
+    # logic taken from mysqltuner.pl:check_metadata_perf(), the
+    # concurrent_insert check in mysql_stats() and
+    # check_removed_innodb_variables(), verified in sync with
     # MySQLTuner v2.8.41
 
     # parse the command line
@@ -114,7 +256,12 @@ def main():
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
     lib.base.coe(lib.db_mysql.check_privileges(conn))
 
-    myvar = lib.db_mysql.lod2dict(get_vars(conn))
+    myvar = lib.db_mysql.get_all_variables(conn)
+    is_mariadb = 'mariadb' in (myvar.get('version') or '').lower()
+    if is_mariadb:
+        removed_vars = find_deprecated_variables_mariadb(conn)
+    else:
+        removed_vars = find_deprecated_variables_mysql(conn, myvar)
     lib.db_mysql.close(conn)
 
     # init some vars
@@ -191,6 +338,38 @@ def main():
                 _min=0,
                 _max=2,
             )
+
+    # removed/deprecated variables that the server still exposes - typically
+    # stray entries in /etc/my.cnf.d/*.cnf left over from a previous distro
+    # version that the server tolerates as a no-op.
+    if removed_vars:
+        state = lib.base.get_worst(state, STATE_WARN)
+        names = ', '.join(f'`{v["name"].lower()}`' for v in removed_vars)
+        facts.append(
+            f'{len(removed_vars)} deprecated config '
+            f'{lib.txt.pluralize("variable", len(removed_vars))} '
+            f'explicitly set ({names})'
+            f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
+        )
+        for v in removed_vars:
+            origin = v.get('origin') or 'unknown'
+            note = (v.get('note') or '').strip()
+            # Skip the trailing note entirely when the upstream
+            # VARIABLE_COMMENT is empty, so we do not leave a dangling
+            # semicolon in the output.
+            detail = f'source `{origin}`'
+            if note:
+                detail = f'{detail}; {note}'
+            recommendations.append(
+                f'Remove `{v["name"].lower()}` from your `/etc/my.cnf.d/*.cnf` '
+                f'({detail})'
+            )
+    perfdata += lib.base.get_perfdata(
+        'mysql_deprecated_config_variables',
+        len(removed_vars),
+        warn='0',
+        _min=0,
+    )
 
     # build the message
     if state == STATE_OK:
