@@ -16,18 +16,24 @@ import sys
 import lib.args
 import lib.base
 import lib.db_mysql
+import lib.db_sqlite
 import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041302'
+__version__ = '2026051101'
 
-DESCRIPTION = """Reports MySQL/MariaDB traffic statistics including uptime, queries per second,
-connection rates, and bytes sent and received."""
+DESCRIPTION = """Reports MySQL/MariaDB traffic statistics: uptime, queries per second, total
+connections, bytes transferred, and the SELECT-vs-write ratio. Purely informational; the plugin
+always returns OK. Cumulative counters (`Bytes_received`, `Bytes_sent`, `Connections`,
+`Questions`, `Com_*`) are emitted as in-plugin-computed per-second rates so the Grafana
+dashboard plots them without `non_negative_difference()` workarounds."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_TIMEOUT = 3
+
+SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-traffic.db'
 
 
 def parse_args():
@@ -43,8 +49,8 @@ def parse_args():
 
     parser.add_argument(
         '--defaults-file',
-        help='MySQL/MariaDB cnf file to read parameters like user, host and password from (instead of specifying them on the command line). '
-        'Example: `/var/spool/icinga2/.my.cnf`. '
+        help='MySQL/MariaDB cnf file to read user, host and password from. '
+        'Example: `--defaults-file=/var/spool/icinga2/.my.cnf`. '
         'Default: %(default)s',
         dest='DEFAULTS_FILE',
         default=DEFAULT_DEFAULTS_FILE,
@@ -70,9 +76,6 @@ def parse_args():
 
 
 def get_status(conn):
-    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
-    # Without the GLOBAL modifier, SHOW STATUS displays the values that are used for
-    # the current connection to MariaDB.
     sql = """
         show global status
         where variable_name like 'Bytes_received'
@@ -93,8 +96,11 @@ def get_status(conn):
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:mariadb_stats(), v1.9.8
-    # including variable names
+    # Informational summary plugin, modelled on mysqltuner.pl's
+    # "MySQL Server Statistics" section (verified in sync with MySQLTuner
+    # v2.8.41). No thresholds: an admin uses this to see traffic and the
+    # read/write mix at a glance. The shipped Grafana dashboard plots the
+    # per-second rates over time.
 
     # parse the command line
     try:
@@ -102,6 +108,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -114,128 +121,140 @@ def main():
     lib.db_mysql.close(conn)
 
     # init some vars
-    msg = ''
     state = STATE_OK
     perfdata = ''
 
-    # calculations
-    mycalc = {}
-    # Clamp Uptime to a minimum of 1 second so qps is well-defined on
-    # a freshly booted server where `SHOW GLOBAL STATUS LIKE 'Uptime'`
-    # can legitimately return 0 in the first second after startup.
+    bytes_received = int(mystat['Bytes_received'])
+    bytes_sent = int(mystat['Bytes_sent'])
+    com_delete = int(mystat['Com_delete'])
+    com_insert = int(mystat['Com_insert'])
+    com_replace = int(mystat['Com_replace'])
+    com_select = int(mystat['Com_select'])
+    com_update = int(mystat['Com_update'])
+    connections = int(mystat['Connections'])
+    questions = int(mystat['Questions'])
+    # Clamp Uptime to a minimum of 1 second so qps is well-defined on a
+    # freshly booted server where `SHOW GLOBAL STATUS LIKE 'Uptime'` can
+    # legitimately return 0 in the first second after startup.
     uptime = max(int(mystat.get('Uptime') or 0), 1)
-    qps = round(float(mystat['Questions']) / uptime, 1)
-    mycalc['total_reads'] = int(mystat['Com_select'])
-    mycalc['total_writes'] = (
-        int(mystat['Com_delete'])
-        + int(mystat['Com_insert'])
-        + int(mystat['Com_update'])
-        + int(mystat['Com_replace'])
-    )
-    if mycalc['total_reads'] == 0:
-        mycalc['pct_reads'] = 0
-        mycalc['pct_writes'] = 100
+
+    # analyze data
+    qps = round(questions / uptime, 1)
+    total_reads = com_select
+    total_writes = com_delete + com_insert + com_update + com_replace
+    if total_reads == 0 and total_writes == 0:
+        # Freshly booted server with no traffic yet; mysqltuner shows 0%/0%
+        # in that case rather than flipping to 0%/100%.
+        pct_reads = 0.0
+        pct_writes = 0.0
     else:
-        mycalc['pct_reads'] = (
-            mycalc['total_reads']
-            / (mycalc['total_reads'] + mycalc['total_writes'])
-            * 100
-        )
-        mycalc['pct_writes'] = 100 - mycalc['pct_reads']
+        pct_reads = round(total_reads / (total_reads + total_writes) * 100, 1)
+        pct_writes = round(100 - pct_reads, 1)
 
     # build the message
-    msg += (
-        f'Up {lib.human.seconds2human(int(mystat["Uptime"]))}'
-        f' ({lib.human.number2human(int(mystat["Questions"]))} q'
-        f' [{lib.human.number2human(qps)} qps],'
-        f' {lib.human.number2human(int(mystat["Connections"]))} conn,'
-        f' TX: {lib.human.number2human(int(mystat["Bytes_sent"]))},'
-        f' RX: {lib.human.number2human(int(mystat["Bytes_received"]))}'
-        f'); Read/Write:'
-        f' {round(mycalc["pct_reads"], 1)}%'
-        f'/{round(mycalc["pct_writes"], 1)}%'
+    msg = (
+        f'Up {lib.human.seconds2human(uptime)} '
+        f'({lib.human.number2human(questions)} q '
+        f'[{lib.human.number2human(qps)} qps], '
+        f'{lib.human.number2human(connections)} conn, '
+        f'TX: {lib.human.bytes2human(bytes_sent)}, '
+        f'RX: {lib.human.bytes2human(bytes_received)}); '
+        f'Read/Write: {pct_reads}%/{pct_writes}%'
     )
 
-    perfdata += lib.base.get_perfdata(
-        'mysql_bytes_received',
-        mystat['Bytes_received'],
-        uom='B',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'mysql_bytes_sent',
-        mystat['Bytes_sent'],
-        uom='B',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'mysql_com_delete',
-        mystat['Com_delete'],
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'mysql_com_insert',
-        mystat['Com_insert'],
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'mysql_com_replace',
-        mystat['Com_replace'],
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'mysql_com_select',
-        mystat['Com_select'],
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'mysql_com_update',
-        mystat['Com_update'],
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'mysql_connections',
-        mystat['Connections'],
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'mysql_questions',
-        mystat['Questions'],
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'mysql_uptime',
-        mystat['Uptime'],
-        uom='s',
-        _min=0,
-    )
-
-    perfdata += lib.base.get_perfdata(
-        'mysql_qps',
-        qps,
-        _min=0,
-    )
     perfdata += lib.base.get_perfdata(
         'mysql_pct_reads',
-        mycalc['pct_reads'],
+        pct_reads,
         uom='%',
         _min=0,
         _max=100,
     )
     perfdata += lib.base.get_perfdata(
         'mysql_pct_writes',
-        mycalc['pct_writes'],
+        pct_writes,
         uom='%',
         _min=0,
         _max=100,
     )
+    perfdata += lib.base.get_perfdata(
+        'mysql_qps',
+        qps,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_uptime',
+        uptime,
+        uom='s',
+        _min=0,
+    )
+
+    # Per-CONTRIBUTING: emit cumulative counters as in-plugin per-second
+    # deltas (computed against a local SQLite cache) instead of cumulative
+    # `c` counters that force Grafana to do non_negative_difference() per
+    # panel. The deltas appear from the second check run onwards.
+    rates = lib.db_sqlite.per_second_deltas(
+        SQLITE_DB,
+        'mysql-traffic',
+        {
+            'bytes_received': bytes_received,
+            'bytes_sent': bytes_sent,
+            'com_delete': com_delete,
+            'com_insert': com_insert,
+            'com_replace': com_replace,
+            'com_select': com_select,
+            'com_update': com_update,
+            'connections': connections,
+            'questions': questions,
+        },
+    )
+    if rates is not None:
+        perfdata += lib.base.get_perfdata(
+            'mysql_bytes_received_per_second',
+            round(rates['bytes_received'], 2),
+            uom='B',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_bytes_sent_per_second',
+            round(rates['bytes_sent'], 2),
+            uom='B',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_com_delete_per_second',
+            round(rates['com_delete'], 2),
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_com_insert_per_second',
+            round(rates['com_insert'], 2),
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_com_replace_per_second',
+            round(rates['com_replace'], 2),
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_com_select_per_second',
+            round(rates['com_select'], 2),
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_com_update_per_second',
+            round(rates['com_update'], 2),
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_connections_per_second',
+            round(rates['connections'], 2),
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_questions_per_second',
+            round(rates['questions'], 2),
+            _min=0,
+        )
 
     # over and out
     lib.base.oao(msg, state, perfdata)

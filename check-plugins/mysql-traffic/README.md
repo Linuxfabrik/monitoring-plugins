@@ -3,18 +3,20 @@
 
 ## Overview
 
-Reports MySQL/MariaDB traffic statistics including uptime, queries per second, connection rates, and bytes sent and received. Also calculates the read/write ratio based on SELECT, INSERT, UPDATE, DELETE, and REPLACE commands. Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):mysql_stats(), v1.9.8.
+Reports MySQL/MariaDB traffic statistics including uptime, queries per second, total connections, bytes transferred, and the read/write ratio based on `SELECT`, `INSERT`, `UPDATE`, `DELETE`, and `REPLACE`. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() and verified in sync with MySQLTuner v2.8.41.
 
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
-* This plugin always returns OK and is purely informational
+* This plugin is purely informational and always returns OK
+* The single-line summary shows lifetime totals (since `Uptime`) for human reading. Trends are best inspected on the Grafana dashboard, which plots the per-second rates persisted in the local SQLite cache
 
 **Data Collection:**
 
 * Queries `SHOW GLOBAL STATUS` for `Bytes_received`, `Bytes_sent`, `Com_delete`, `Com_insert`, `Com_replace`, `Com_select`, `Com_update`, `Connections`, `Questions`, and `Uptime`
 * Calculates queries per second as `Questions / Uptime`
-* Calculates the read/write ratio from SELECT (reads) and INSERT + UPDATE + DELETE + REPLACE (writes)
+* Calculates the read/write ratio from `SELECT` (reads) and `INSERT` + `UPDATE` + `DELETE` + `REPLACE` (writes)
+* Cumulative counters are persisted in a local SQLite cache between runs so the dashboard plots per-second rates without `non_negative_difference()` workarounds
 
 
 ## Fact Sheet
@@ -37,17 +39,20 @@ Reports MySQL/MariaDB traffic statistics including uptime, queries per second, c
 usage: mysql-traffic [-h] [-V] [--defaults-file DEFAULTS_FILE]
                      [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
 
-Reports MySQL/MariaDB traffic statistics including uptime, queries per second,
-connection rates, and bytes sent and received.
+Reports MySQL/MariaDB traffic statistics: uptime, queries per second, total
+connections, bytes transferred, and the SELECT-vs-write ratio. Purely
+informational; the plugin always returns OK. Cumulative counters
+(`Bytes_received`, `Bytes_sent`, `Connections`, `Questions`, `Com_*`) are
+emitted as in-plugin-computed per-second rates so the Grafana dashboard plots
+them without `non_negative_difference()` workarounds.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --defaults-file DEFAULTS_FILE
-                        MySQL/MariaDB cnf file to read parameters like user,
-                        host and password from (instead of specifying them on
-                        the command line). Example:
-                        `/var/spool/icinga2/.my.cnf`. Default:
+                        MySQL/MariaDB cnf file to read user, host and password
+                        from. Example: `--defaults-
+                        file=/var/spool/icinga2/.my.cnf`. Default:
                         /var/spool/icinga2/.my.cnf
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
@@ -78,19 +83,19 @@ Up 1W 3D (907.7K q [1.0 qps], 470.0 conn, TX: 560.2M, RX: 96.4M); Read/Write: 65
 
 | Name | Type | Description |
 |----|----|----|
-| mysql_bytes_received | Bytes | Total bytes received from all clients. |
-| mysql_bytes_sent | Bytes | Total bytes sent to all clients. |
-| mysql_com_delete | Continuous Counter | Number of DELETE commands executed. |
-| mysql_com_insert | Continuous Counter | Number of INSERT commands executed. |
-| mysql_com_replace | Continuous Counter | Number of REPLACE commands executed. |
-| mysql_com_select | Continuous Counter | Number of SELECT commands executed. Also includes queries that make use of the query cache. |
-| mysql_com_update | Continuous Counter | Number of UPDATE commands executed. |
-| mysql_connections | Continuous Counter | Number of connection attempts (both successful and unsuccessful). |
-| mysql_pct_reads | Percentage | total_reads / (total_reads + total_writes) \* 100 |
-| mysql_pct_writes | Percentage | 100 - pct_reads |
-| mysql_qps | Number | Queries per second. |
-| mysql_questions | Continuous Counter | Number of statements executed by the server, excluding COM_PING, COM_STATISTICS, COM_STMT_PREPARE, COM_STMT_CLOSE, and COM_STMT_RESET statements. |
-| mysql_uptime | Seconds | Number of seconds the server has been running. |
+| mysql_bytes_received_per_second | Rate | Per-second rate of `Bytes_received` (cumulative counter delta against the local SQLite cache). Appears from the second run onwards. |
+| mysql_bytes_sent_per_second | Rate | Per-second rate of `Bytes_sent`. Appears from the second run onwards. |
+| mysql_com_delete_per_second | Rate | Per-second rate of `Com_delete`. Appears from the second run onwards. |
+| mysql_com_insert_per_second | Rate | Per-second rate of `Com_insert`. Appears from the second run onwards. |
+| mysql_com_replace_per_second | Rate | Per-second rate of `Com_replace`. Appears from the second run onwards. |
+| mysql_com_select_per_second | Rate | Per-second rate of `Com_select` (includes queries served from the query cache). Appears from the second run onwards. |
+| mysql_com_update_per_second | Rate | Per-second rate of `Com_update`. Appears from the second run onwards. |
+| mysql_connections_per_second | Rate | Per-second rate of `Connections` (successful and failed connection attempts). Appears from the second run onwards. |
+| mysql_pct_reads | Percentage | `total_reads / (total_reads + total_writes) * 100`. Lifetime ratio, not a per-interval value. |
+| mysql_pct_writes | Percentage | `100 - pct_reads`. Lifetime ratio. |
+| mysql_qps | Number | Lifetime queries per second (`Questions / Uptime`). |
+| mysql_questions_per_second | Rate | Per-second rate of `Questions`. Appears from the second run onwards. |
+| mysql_uptime | Seconds | `Uptime` of the server. |
 
 
 ## Credits, License
