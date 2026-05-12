@@ -3,7 +3,7 @@
 
 ## Overview
 
-Produces a single 0-100 health score for a MySQL/MariaDB server, modelled on mysqltuner v2.8.41's weighted KPI. Useful as a top-level Icinga alert ("is the database healthy overall?") and as a Grafana KPI panel. The individual `mysql-*` plugins still own the detailed findings and fix advice; `mysql-health` only aggregates.
+Produces a single 0-100 health score for a MySQL/MariaDB server, modelled on mysqltuner's weighted KPI. Useful as a top-level Icinga alert ("is the database healthy overall?") and as a Grafana KPI panel. The individual `mysql-*` plugins still own the detailed findings and fix advice; `mysql-health` only aggregates.
 
 **Important Notes:**
 
@@ -21,7 +21,7 @@ Produces a single 0-100 health score for a MySQL/MariaDB server, modelled on mys
 * `SHOW REPLICA STATUS` (or the legacy `SHOW SLAVE STATUS`) for replication lag (via `lib.db_mysql.get_replica_status()`)
 * `mysql.user` for security findings (anonymous accounts, empty passwords, wildcard hosts), with role-aware filtering on MariaDB 10.0.5+
 * `information_schema.tables` joined to `information_schema.statistics` for the metadata health component (InnoDB tables without a user-defined `PRIMARY KEY`)
-* Logic for the weighted score is ported from [MySQLTuner](https://github.com/major/MySQLTuner-perl):calculate_health_score() and verified in sync with MySQLTuner v2.8.41
+* Logic for the weighted score is ported from [MySQLTuner](https://github.com/major/MySQLTuner-perl):calculate_health_score() and verified in sync with MySQLTuner
 
 
 ## Fact Sheet
@@ -46,8 +46,8 @@ usage: mysql-health [-h] [-V] [--always-ok] [-c CRITICAL]
                     [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
                     [-w WARNING]
 
-Single-number health score for a MySQL/MariaDB server. Ports mysqltuner
-v2.8.41's `calculate_health_score()` weighting (Performance 40 / Security 30 /
+Single-number health score for a MySQL/MariaDB server. Ports mysqltuner's
+`calculate_health_score()` weighting (Performance 40 / Security 30 /
 Resilience 30) and a useful subset of the supporting checks: anonymous
 accounts, empty passwords, wildcard hosts, legacy `mysql_native_password`
 users on MySQL 8.0+, TLS/SSL configuration, replication lag, redo-log sizing
@@ -124,7 +124,7 @@ Component breakdown:
 
 * WARN if the overall health score is at or below `--warning` (default: `70:`, alerts below 70).
 * CRIT if the score is at or below `--critical` (default: `50:`, alerts below 50).
-* Defaults match mysqltuner v2.8.41's colour-coding (yellow zone below 80, red zone below 50; we use 70 as WARN to surface degradation slightly earlier).
+* Defaults match mysqltuner's colour-coding (yellow zone below 80, red zone below 50; we use 70 as WARN to surface degradation slightly earlier).
 * Both `--warning` and `--critical` accept Nagios range expressions, see [THRESHOLDS.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/THRESHOLDS.md).
 * `--always-ok` suppresses all alerts and always returns OK.
 

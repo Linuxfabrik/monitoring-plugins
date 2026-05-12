@@ -33,7 +33,7 @@ help and the underlying queries (typically `SELECT DISTINCT` without `LIMIT`) ne
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
-# mysqltuner v2.8.41 alerts when > 25% of temp tables spill to disk. We keep
+# mysqltuner alerts when > 25% of temp tables spill to disk. We keep
 # that as WARN (Nagios range `25` = alert if value > 25) and add a CRIT
 # escalation at > 50% so the plugin state actually goes red when the workload
 # is severely temp-table-bound.
@@ -137,7 +137,7 @@ def main():
     """The main function. This is where the magic happens."""
 
     # logic taken from mysqltuner.pl:mysql_stats(), section "Temporary tables",
-    # verified in sync with MySQLTuner v2.8.41 (the > 25% threshold, the
+    # verified in sync with MySQLTuner (the > 25% threshold, the
     # 256 MiB cut-off between "raise the cap" and "the cap is already large
     # enough" recommendation paths, and the `max_tmp_table_size` formula are
     # unchanged upstream since the original port). Our --warning default
@@ -178,7 +178,7 @@ def main():
     max_heap_table_size = int(myvar['max_heap_table_size'])
     # mysqltuner uses max(tmp_table_size, max_heap_table_size) as the
     # effective cap. The actual MySQL behaviour caps at the smaller of the
-    # two (mysql-memory implements that variant), but mysqltuner v2.8.41
+    # two (mysql-memory implements that variant), but mysqltuner
     # keeps the historical max() for this check, so we mirror it to stay
     # consistent with the upstream comparison.
     effective_cap = max(tmp_table_size, max_heap_table_size)

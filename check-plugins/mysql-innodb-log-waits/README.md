@@ -19,7 +19,7 @@ Checks two related InnoDB log buffer health metrics in MySQL/MariaDB:
 
 * Queries `SHOW GLOBAL VARIABLES` for `innodb_log_buffer_size`
 * Queries `SHOW GLOBAL STATUS` for `Innodb_log_waits`, `Innodb_log_writes` and `Innodb_log_write_requests`
-* Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_innodb() (sections "InnoDB Log Waits" and "InnoDB Write Log efficiency") and has been verified in sync with MySQLTuner v2.8.41
+* Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_innodb() (sections "InnoDB Log Waits" and "InnoDB Write Log efficiency") and has been verified in sync with MySQLTuner
 
 
 ## Fact Sheet

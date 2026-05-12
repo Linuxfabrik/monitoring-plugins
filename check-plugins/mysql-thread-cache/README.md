@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks how effectively MySQL/MariaDB caches threads for re-use. A low hit rate means the server frequently creates new threads instead of reusing cached ones, which is expensive. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() and verified in sync with MySQLTuner v2.8.41.
+Checks how effectively MySQL/MariaDB caches threads for re-use. A low hit rate means the server frequently creates new threads instead of reusing cached ones, which is expensive. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() and verified in sync with MySQLTuner.
 
 **Important Notes:**
 

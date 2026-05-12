@@ -22,7 +22,7 @@ from lib.globals import STATE_OK, STATE_UNKNOWN
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026051102'
 
-DESCRIPTION = """Single-number health score for a MySQL/MariaDB server. Ports mysqltuner v2.8.41's
+DESCRIPTION = """Single-number health score for a MySQL/MariaDB server. Ports mysqltuner's
 `calculate_health_score()` weighting (Performance 40 / Security 30 / Resilience 30) and a
 useful subset of the supporting checks: anonymous accounts, empty passwords, wildcard hosts,
 legacy `mysql_native_password` users on MySQL 8.0+, TLS/SSL configuration, replication lag,
@@ -35,7 +35,7 @@ do match. Useful as a top-level Icinga alert and Grafana KPI panel; the individu
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
-# mysqltuner v2.8.41 colours the score green > 80, yellow > 50, red otherwise.
+# mysqltuner colours the score green > 80, yellow > 50, red otherwise.
 # We map that to WARN below 70 (yellow zone) and CRIT below 50 (red zone).
 # Nagios range form `N:` = OK is N to infinity; values strictly below N alert.
 DEFAULT_WARN = '70:'
@@ -117,7 +117,7 @@ def parse_args():
     return args
 
 
-# The functions below port specific mysqltuner v2.8.41 subroutines that
+# The functions below port specific mysqltuner subroutines that
 # populate `@secrec` via `push_recommendation('Security', ...)`. Each
 # returns the integer count this subroutine contributes to `@secrec`.
 # Functions in `@secrec` reflect what mysqltuner thinks counts towards
@@ -127,7 +127,7 @@ def parse_args():
 
 
 def security_recommendations(conn, has_role_column):
-    """Port of mysqltuner v2.8.41 security_recommendations(). Returns the
+    """Port of mysqltuner security_recommendations(). Returns the
     number of entries this subroutine pushes to `@secrec`:
 
     - 1 if any anonymous accounts exist (one combined push, not per user)
@@ -190,7 +190,7 @@ def security_recommendations(conn, has_role_column):
 
 
 def check_auth_plugins(conn, has_role_column, myvar):
-    """Port of mysqltuner v2.8.41 check_auth_plugins(). Returns the
+    """Port of mysqltuner check_auth_plugins(). Returns the
     number of entries this subroutine pushes to `@secrec`: one per user
     on the legacy `mysql_native_password` plugin (or `sha256_password`
     on MySQL 8.0+, which mysqltuner also flags as DEPRECATED).
@@ -229,7 +229,7 @@ def check_auth_plugins(conn, has_role_column, myvar):
 
 
 def ssl_tls_recommendations(myvar):
-    """Port of mysqltuner v2.8.41 ssl_tls_recommendations(). Returns the
+    """Port of mysqltuner ssl_tls_recommendations(). Returns the
     number of entries this subroutine pushes to `@secrec`. Conditions:
 
     - `have_ssl = DISABLED` -> 1
@@ -256,7 +256,7 @@ def ssl_tls_recommendations(myvar):
 
 
 def check_remote_user_ssl(conn, myvar):
-    """Port of mysqltuner v2.8.41 check_remote_user_ssl(). Returns 1 if any
+    """Port of mysqltuner check_remote_user_ssl(). Returns 1 if any
     user can connect from a non-localhost host without `REQUIRE SSL`, 0
     otherwise. mysqltuner pushes one entry regardless of how many users
     match (not one per user).
@@ -440,7 +440,7 @@ def main():
     """The main function. This is where the magic happens."""
 
     # Score formula taken from mysqltuner.pl:calculate_health_score(),
-    # verified in sync with MySQLTuner v2.8.41. Four performance buckets
+    # verified in sync with MySQLTuner. Four performance buckets
     # (40 pts), security (30 pts), three resilience buckets (30 pts).
     # Individual fix advice lives in the per-theme mysql-* plugins; this
     # plugin produces only the aggregate score.

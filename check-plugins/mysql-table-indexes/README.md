@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks user schemas in MySQL/MariaDB for two replication- and performance-relevant defects: base tables with no index at all, and InnoDB base tables without a user-defined `PRIMARY KEY`. The first check mirrors mysqltuner v2.8.41's `mysql_tables()`. The second is a Linuxfabrik addition motivated by a well-documented ROW-based-replication hotspot.
+Checks user schemas in MySQL/MariaDB for two replication- and performance-relevant defects: base tables with no index at all, and InnoDB base tables without a user-defined `PRIMARY KEY`. The first check mirrors mysqltuner's `mysql_tables()`. The second is a Linuxfabrik addition motivated by a well-documented ROW-based-replication hotspot.
 
 **Important Notes:**
 
@@ -19,7 +19,7 @@ Checks user schemas in MySQL/MariaDB for two replication- and performance-releva
 * Single `LEFT JOIN` query against `information_schema.tables` and `information_schema.statistics` to find base tables with zero entries in `statistics` (no index at all). Replaces the previous O(schemas * tables) per-table query storm
 * Single `NOT EXISTS` query against `information_schema.statistics` filtered on `INDEX_NAME = 'PRIMARY'` to find InnoDB base tables without a user-defined `PRIMARY KEY`
 * `count(*)` against `information_schema.tables` for the total base-table count emitted as perfdata
-* Logic for the "no indexes" check taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_tables() and verified in sync with MySQLTuner v2.8.41. The InnoDB-without-`PRIMARY KEY` check is a Linuxfabrik addition
+* Logic for the "no indexes" check taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_tables() and verified in sync with MySQLTuner. The InnoDB-without-`PRIMARY KEY` check is a Linuxfabrik addition
 
 
 ## Fact Sheet
@@ -47,7 +47,7 @@ usage: mysql-table-indexes [-h] [-V] [--always-ok] [-c CRITICAL]
                            [--timeout TIMEOUT] [-w WARNING]
 
 Checks user schemas in MySQL/MariaDB for two replication- and performance-
-relevant defects: base tables with no index at all (mysqltuner v2.8.41's
+relevant defects: base tables with no index at all (mysqltuner's
 `mysql_tables()` check) and InnoDB base tables without a user-defined `PRIMARY
 KEY`. The second case is a documented hotspot for ROW-based replication: the
 replica has to materialise each row event against an internal hidden 6-byte

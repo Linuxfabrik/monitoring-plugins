@@ -33,7 +33,7 @@ applications and tooling query `information_schema` frequently.
 in parallel with INSERTs. The recommended value is `AUTO` (the modern default).
 Deprecated variables: MariaDB exposes its own deprecation flag at runtime
 (`INFORMATION_SCHEMA.SYSTEM_VARIABLES.VARIABLE_COMMENT` + `GLOBAL_VALUE_ORIGIN`); MySQL
-does not, so a static list ported from MySQLTuner v2.8.41 is used and filtered through
+does not, so a static list ported from MySQLTuner is used and filtered through
 `performance_schema.variables_info.VARIABLE_SOURCE` to skip compile-time defaults. The
 check only fires when the variable's value did NOT come from `COMPILE-TIME`, so a fresh
 installation stays quiet and only real `my.cnf` leftovers and explicit `SET GLOBAL`
@@ -189,7 +189,7 @@ def find_deprecated_variables_mariadb(conn):
 def find_deprecated_variables_mysql(conn, myvar):
     """Return the list of removed/deprecated MySQL variables that the
     admin has explicitly set. MySQL does not expose a deprecation flag at
-    runtime, so we walk a static list ported from MySQLTuner v2.8.41 and
+    runtime, so we walk a static list ported from MySQLTuner and
     filter through `performance_schema.variables_info.VARIABLE_SOURCE` to
     skip compile-time defaults. On MySQL releases without
     `variables_info` (pre-8.0) we fall back to plain presence in
@@ -239,7 +239,7 @@ def main():
     # logic taken from mysqltuner.pl:check_metadata_perf(), the
     # concurrent_insert check in mysql_stats() and
     # check_removed_innodb_variables(), verified in sync with
-    # MySQLTuner v2.8.41
+    # MySQLTuner
 
     # parse the command line
     try:

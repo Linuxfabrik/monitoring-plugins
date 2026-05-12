@@ -17,7 +17,7 @@ Checks the memory-access rate for the MySQL/MariaDB binary log cache. A low rate
 * Queries `SHOW GLOBAL VARIABLES` for `binlog_cache_size` and `log_bin`
 * Queries `SHOW GLOBAL STATUS` for `Binlog_cache_disk_use` and `Binlog_cache_use`
 * Calculates the percentage of transactions served from memory vs. disk
-* Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats(), Binlog cache section, and has been verified in sync with MySQLTuner v2.8.41
+* Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats(), Binlog cache section, and has been verified in sync with MySQLTuner
 
 
 ## Fact Sheet

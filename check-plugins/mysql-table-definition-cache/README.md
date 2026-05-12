@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the table definition cache size in MySQL/MariaDB against the current total number of tables in `information_schema.tables`. When `table_definition_cache` is smaller than the table count, definitions get evicted and re-read on each access, which costs `.frm` parses on disk-heavy workloads. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() and verified in sync with MySQLTuner v2.8.41.
+Checks the table definition cache size in MySQL/MariaDB against the current total number of tables in `information_schema.tables`. When `table_definition_cache` is smaller than the table count, definitions get evicted and re-read on each access, which costs `.frm` parses on disk-heavy workloads. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() and verified in sync with MySQLTuner.
 
 **Important Notes:**
 

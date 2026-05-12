@@ -27,7 +27,7 @@ DESCRIPTION = """Checks storage engine health in MySQL/MariaDB. Lists per-engine
 sizes, flags InnoDB-enabled-but-no-InnoDB-tables, hunts fragmented tables that benefit from
 `ALTER TABLE ... FORCE` (InnoDB) or `OPTIMIZE TABLE` (other engines), and warns when an
 `AUTO_INCREMENT` value approaches its column-type maximum. The fragmentation rule mirrors
-mysqltuner v2.8.41: only tables larger than 100 MiB with more than 10% `DATA_FREE` count.
+mysqltuner: only tables larger than 100 MiB with more than 10% `DATA_FREE` count.
 The `AUTO_INCREMENT` check goes beyond mysqltuner by comparing each column to its own type
 ceiling (`TINYINT` to `BIGINT`, signed/unsigned), so tables using `INT UNSIGNED` are caught
 long before they hit the duplicate-key error."""
@@ -37,7 +37,7 @@ DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_TIMEOUT = 3
 DEFAULT_LENGTHY = False
 
-# Fragmentation thresholds (matches mysqltuner v2.8.41). Nagios range form
+# Fragmentation thresholds (matches mysqltuner). Nagios range form
 # `N` = "OK range is 0 to N"; values strictly above N trigger. So `0` alerts
 # on the first fragmented table and `4` alerts at the fifth.
 DEFAULT_WARN_FRAG = '0'
@@ -220,7 +220,7 @@ def get_fragmented_tables(
     ignore_tables_clause,
     file_per_table_on,
 ):
-    # mysqltuner v2.8.41 excludes InnoDB tables from the fragmentation hunt when
+    # mysqltuner excludes InnoDB tables from the fragmentation hunt when
     # `innodb_file_per_table = OFF` (everything in `ibdata1`, per-table
     # OPTIMIZE is meaningless). We mirror that.
     not_innodb = '' if file_per_table_on else "and ENGINE != 'InnoDB'"
@@ -291,7 +291,7 @@ def main():
     """The main function. This is where the magic happens."""
 
     # logic taken from mysqltuner.pl:check_storage_engines(), verified in
-    # sync with MySQLTuner v2.8.41. Intentional deviations:
+    # sync with MySQLTuner. Intentional deviations:
     # - drop the `have_bdb` / `have_isam` branches: both variables were
     #   removed from MySQL 5.0 / 5.1 (around 2008), so the branches are
     #   dead on any supported server
@@ -417,7 +417,7 @@ def main():
             table = row['table_name']
             engine = row['engine']
             free = int(row['data_free'] or 0)
-            # mysqltuner v2.8.41 emits `ALTER TABLE ... FORCE` for InnoDB and
+            # mysqltuner emits `ALTER TABLE ... FORCE` for InnoDB and
             # `OPTIMIZE TABLE` for everything else; we follow the same rule.
             # On modern MySQL/MariaDB `OPTIMIZE TABLE` on InnoDB is internally
             # mapped to `ALTER TABLE FORCE` anyway, but the explicit form

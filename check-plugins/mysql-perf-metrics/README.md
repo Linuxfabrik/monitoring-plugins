@@ -7,7 +7,7 @@ Checks MySQL/MariaDB best-practice knobs that do not have a dedicated plugin: `i
 
 * `innodb_stats_on_metadata`: when ON, InnoDB recalculates index statistics every time `information_schema` tables are queried. Most modern setups keep this OFF because applications and tooling query `information_schema` frequently.
 * `concurrent_insert`: when set to `NEVER`/`0`, MyISAM tables can no longer serve SELECTs in parallel with INSERTs. The recommended value is `AUTO` (the modern default).
-* Deprecated configuration variables: MariaDB keeps deprecated startup variables in `SHOW VARIABLES` as no-ops for the full LTS support window (5+ years) per its [feature deprecation policy](https://mariadb.com/docs/release-notes/community-server/about/feature-deprecation-policy). The plugin alerts only when such a variable was explicitly set via `my.cnf` or `SET GLOBAL` (`GLOBAL_VALUE_ORIGIN` in `INFORMATION_SCHEMA.SYSTEM_VARIABLES` not equal to `COMPILE-TIME`). Compile-time defaults stay silent. On MySQL, the plugin walks a list of known removed variables (ported from MySQLTuner v2.8.41) and filters them through `performance_schema.variables_info.VARIABLE_SOURCE` so only non-`COMPILED` values surface.
+* Deprecated configuration variables: MariaDB keeps deprecated startup variables in `SHOW VARIABLES` as no-ops for the full LTS support window (5+ years) per its [feature deprecation policy](https://mariadb.com/docs/release-notes/community-server/about/feature-deprecation-policy). The plugin alerts only when such a variable was explicitly set via `my.cnf` or `SET GLOBAL` (`GLOBAL_VALUE_ORIGIN` in `INFORMATION_SCHEMA.SYSTEM_VARIABLES` not equal to `COMPILE-TIME`). Compile-time defaults stay silent. On MySQL, the plugin walks a list of known removed variables (ported from MySQLTuner) and filters them through `performance_schema.variables_info.VARIABLE_SOURCE` so only non-`COMPILED` values surface.
 
 **Important Notes:**
 
@@ -54,7 +54,7 @@ recommended value is `AUTO` (the modern default). Deprecated variables:
 MariaDB exposes its own deprecation flag at runtime
 (`INFORMATION_SCHEMA.SYSTEM_VARIABLES.VARIABLE_COMMENT` +
 `GLOBAL_VALUE_ORIGIN`); MySQL does not, so a static list ported from
-MySQLTuner v2.8.41 is used and filtered through
+MySQLTuner is used and filtered through
 `performance_schema.variables_info.VARIABLE_SOURCE` to skip compile-time
 defaults. The check only fires when the variable's value did NOT come from
 `COMPILE-TIME`, so a fresh installation stays quiet and only real `my.cnf`

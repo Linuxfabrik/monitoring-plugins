@@ -3,7 +3,7 @@
 
 ## Overview
 
-Reports MySQL/MariaDB traffic statistics including uptime, queries per second, total connections, bytes transferred, and the read/write ratio based on `SELECT`, `INSERT`, `UPDATE`, `DELETE`, and `REPLACE`. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() and verified in sync with MySQLTuner v2.8.41.
+Reports MySQL/MariaDB traffic statistics including uptime, queries per second, total connections, bytes transferred, and the read/write ratio based on `SELECT`, `INSERT`, `UPDATE`, `DELETE`, and `REPLACE`. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() and verified in sync with MySQLTuner.
 
 **Important Notes:**
 

@@ -17,7 +17,7 @@ Checks index sizes, fragmentation, and consistent engine and collation usage acr
 * For each schema, queries `information_schema.tables` for row counts, data/index sizes, storage engine counts, and collation counts
 * Queries `information_schema.COLUMNS` for distinct character sets and collations per schema
 * Empty schemas (no tables) are surfaced as an info note in the output but do not change the state - they are common in fresh installs and lazy-init applications.
-* Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_databases() and has been verified in sync with MySQLTuner v2.8.41. Intentional deviation: the index-vs-data-size check additionally requires one of the two sizes to exceed 10 MiB, otherwise tiny schemas (where indices proportionally dwarf data) generate constant noise.
+* Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_databases() and has been verified in sync with MySQLTuner. Intentional deviation: the index-vs-data-size check additionally requires one of the two sizes to exceed 10 MiB, otherwise tiny schemas (where indices proportionally dwarf data) generate constant noise.
 
 
 ## Fact Sheet

@@ -3,14 +3,14 @@
 
 ## Overview
 
-Checks the hit rate of the MySQL/MariaDB open table cache. A low hit rate means `table_open_cache` is too small for the workload and threads have to keep reopening tables. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() and verified in sync with MySQLTuner v2.8.41.
+Checks the hit rate of the MySQL/MariaDB open table cache. A low hit rate means `table_open_cache` is too small for the workload and threads have to keep reopening tables. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() and verified in sync with MySQLTuner.
 
 **Important Notes:**
 
 * Requires MySQL/MariaDB v5.1+
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * On a freshly booted server the hit rate is often near zero because the cache is empty and the first few accesses are all misses. Expect a transient WARN/CRIT immediately after a restart; the rate climbs as the workload reopens the same tables. Schedule restarts during quiet windows or use `--always-ok` for the first few minutes
-* `Table_open_cache_overflows` is intentionally not tracked. The MySQL reference manual describes it as "the number of times, after a table is opened or closed, a cache instance has an unused entry and the size of the instance is larger than `table_open_cache / table_open_cache_instances`" ([MySQL Server Status Variables](https://docs.oracle.com/cd/E17952_01/mysql-5.7-en/server-status-variables.html)). In other words, it is a routine cache-housekeeping counter that increments whenever MySQL temporarily extends a per-instance cache bucket above its allocated share, so a non-zero value is not by itself a problem. A [MySQL 5.6 benchmark by Dimitri Kravtchuk](https://planet.mysql.com/entry/?id=34237) shows healthy servers running with non-zero overflows for hours. The hit-rate threshold already covers the "table_open_cache is too small" signal and matches the same heuristic MySQLTuner v2.8.41 still uses. See [MariaDB KB: Optimizing table_open_cache](https://mariadb.com/kb/en/library/optimizing-table_open_cache/) for further tuning guidance
+* `Table_open_cache_overflows` is intentionally not tracked. The MySQL reference manual describes it as "the number of times, after a table is opened or closed, a cache instance has an unused entry and the size of the instance is larger than `table_open_cache / table_open_cache_instances`" ([MySQL Server Status Variables](https://docs.oracle.com/cd/E17952_01/mysql-5.7-en/server-status-variables.html)). In other words, it is a routine cache-housekeeping counter that increments whenever MySQL temporarily extends a per-instance cache bucket above its allocated share, so a non-zero value is not by itself a problem. A [MySQL 5.6 benchmark by Dimitri Kravtchuk](https://planet.mysql.com/entry/?id=34237) shows healthy servers running with non-zero overflows for hours. The hit-rate threshold already covers the "table_open_cache is too small" signal and matches the same heuristic MySQLTuner still uses. See [MariaDB KB: Optimizing table_open_cache](https://mariadb.com/kb/en/library/optimizing-table_open_cache/) for further tuning guidance
 
 **Data Collection:**
 

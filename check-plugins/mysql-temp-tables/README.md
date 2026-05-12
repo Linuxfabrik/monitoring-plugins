@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the percentage of MySQL/MariaDB temporary tables that had to spill to disk. A high percentage means queries are materialising temporary tables larger than the smaller of `tmp_table_size` and `max_heap_table_size`, and the server falls back to a disk-based temporary table. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() and verified in sync with MySQLTuner v2.8.41.
+Checks the percentage of MySQL/MariaDB temporary tables that had to spill to disk. A high percentage means queries are materialising temporary tables larger than the smaller of `tmp_table_size` and `max_heap_table_size`, and the server falls back to a disk-based temporary table. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() and verified in sync with MySQLTuner.
 
 **Important Notes:**
 

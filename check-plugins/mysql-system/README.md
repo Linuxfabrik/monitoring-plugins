@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks Linux kernel parameters that affect MySQL/MariaDB stability and performance: `vm.swappiness`, the asynchronous-I/O event ceiling `fs.aio-max-nr`, the per-process file-handle ceiling `fs.nr_open`, and (on hosts that mount NFS) the sunrpc TCP slot-table size. Optionally also flags hosts that listen on too many TCP ports. Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):get_kernel_info() and has been verified in sync with MySQLTuner v2.8.41.
+Checks Linux kernel parameters that affect MySQL/MariaDB stability and performance: `vm.swappiness`, the asynchronous-I/O event ceiling `fs.aio-max-nr`, the per-process file-handle ceiling `fs.nr_open`, and (on hosts that mount NFS) the sunrpc TCP slot-table size. Optionally also flags hosts that listen on too many TCP ports. Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):get_kernel_info() and has been verified in sync with MySQLTuner.
 
 **Important Notes:**
 

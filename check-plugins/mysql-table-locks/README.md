@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the percentage of MySQL/MariaDB table locks that were acquired immediately. A low percentage means concurrent queries are blocking each other on the same MyISAM/Aria/MEMORY table; `InnoDB` row-level locks do not contribute to these counters. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() and verified in sync with MySQLTuner v2.8.41.
+Checks the percentage of MySQL/MariaDB table locks that were acquired immediately. A low percentage means concurrent queries are blocking each other on the same MyISAM/Aria/MEMORY table; `InnoDB` row-level locks do not contribute to these counters. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() and verified in sync with MySQLTuner.
 
 **Important Notes:**
 

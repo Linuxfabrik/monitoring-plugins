@@ -17,7 +17,7 @@ Checks metrics of the Aria storage engine in MariaDB, including the page cache s
 * Queries `SHOW GLOBAL VARIABLES` for `aria_pagecache_buffer_size`
 * Queries `SHOW GLOBAL STATUS` for `Aria_pagecache_reads` and `Aria_pagecache_read_requests`
 * Queries `information_schema.tables` to sum all Aria index sizes
-* Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mariadb_aria() and has been verified in sync with MySQLTuner v2.8.41
+* Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mariadb_aria() and has been verified in sync with MySQLTuner
 
 
 ## Fact Sheet

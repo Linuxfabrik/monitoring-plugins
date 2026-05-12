@@ -16,7 +16,7 @@ Checks the rate of joins executed without indexes in MySQL/MariaDB (`Select_rang
 * Queries `SHOW GLOBAL VARIABLES` for `join_buffer_size`
 * Queries `SHOW GLOBAL STATUS` for `Select_full_join`, `Select_range_check`, and `Uptime`
 * Uptime is clamped to a minimum of 1 second so the per-day rate is well-defined on a freshly booted server
-* Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() (Joins section) and has been verified in sync with MySQLTuner v2.8.41
+* Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_stats() (Joins section) and has been verified in sync with MySQLTuner
 
 
 ## Fact Sheet

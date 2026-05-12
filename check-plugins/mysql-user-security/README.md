@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks MySQL/MariaDB user security: anonymous accounts, empty passwords, accounts whose password matches the username (`root/root` weak-password pattern), accounts accepting connections from any host (`'%'` wildcard), and accounts still on the legacy SHA1-based `mysql_native_password` (or `sha256_password` on MySQL 8.0+) authentication plugin. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):security_recommendations() and check_auth_plugins(), verified in sync with MySQLTuner v2.8.41.
+Checks MySQL/MariaDB user security: anonymous accounts, empty passwords, accounts whose password matches the username (`root/root` weak-password pattern), accounts accepting connections from any host (`'%'` wildcard), and accounts still on the legacy SHA1-based `mysql_native_password` (or `sha256_password` on MySQL 8.0+) authentication plugin. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):security_recommendations() and check_auth_plugins(), verified in sync with MySQLTuner.
 
 **Important Notes:**
 

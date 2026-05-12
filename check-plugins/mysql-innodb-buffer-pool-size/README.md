@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the configured `innodb_buffer_pool_size` against the actual data and index sizes of all InnoDB tables to determine if the buffer pool is large enough. On MySQL 8.0.30+ it additionally derives a workload-based recommendation for `innodb_redo_log_capacity` from the per-hour `Innodb_os_log_written` write rate and the host's RAM tier (rounding rules match mysqltuner v2.8.41).
+Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the configured `innodb_buffer_pool_size` against the actual data and index sizes of all InnoDB tables to determine if the buffer pool is large enough. On MySQL 8.0.30+ it additionally derives a workload-based recommendation for `innodb_redo_log_capacity` from the per-hour `Innodb_os_log_written` write rate and the host's RAM tier (rounding rules match mysqltuner).
 
 **Important Notes:**
 
@@ -22,7 +22,7 @@ Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the 
 * Queries `SHOW GLOBAL STATUS` for `Innodb_os_log_written` and `Uptime`
 * Queries `information_schema.tables` to sum all InnoDB data and index sizes
 * Reads the host's physical RAM via `sysconf(SC_PAGE_SIZE) * sysconf(SC_PHYS_PAGES)` to pick the right RAM tier for the rounding rule
-* Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_innodb() and verified in sync with MySQLTuner v2.8.41 (architecture limits, buffer-pool-vs-data-size check, and the workload-based `innodb_redo_log_capacity` recommendation for MySQL 8.0.30+)
+* Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_innodb() and verified in sync with MySQLTuner (architecture limits, buffer-pool-vs-data-size check, and the workload-based `innodb_redo_log_capacity` recommendation for MySQL 8.0.30+)
 
 
 ## Fact Sheet
@@ -51,7 +51,7 @@ Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares
 the configured `innodb_buffer_pool_size` against the actual InnoDB data and
 index sizes, and on MySQL 8.0.30+ derives a workload-based recommendation for
 `innodb_redo_log_capacity` from the per-hour `Innodb_os_log_written` write
-rate and the host's RAM tier (matches mysqltuner v2.8.41). Also flags
+rate and the host's RAM tier (matches mysqltuner). Also flags
 `innodb_file_per_table = OFF` and architecture-related buffer-pool size
 limits. Alerts if the buffer pool is undersized relative to the data or if
 `innodb_redo_log_capacity` is smaller than the workload-based target. On older
@@ -132,7 +132,7 @@ Recommendations:
 | mysql_innodb_log_file_size | Bytes | Size of each InnoDB redo log file. Always emitted, even on servers exposing `innodb_redo_log_capacity`, for trending across the MySQL 8.0.30 cutover. |
 | mysql_innodb_os_log_written_per_hour | Bytes | Hourly InnoDB redo log write rate, derived as `Innodb_os_log_written / (Uptime / 3600)`. Only emitted on MySQL 8.0.30+ with at least 1 hour of uptime. |
 | mysql_innodb_redo_log_capacity | Bytes | Configured `innodb_redo_log_capacity` (MySQL 8.0.30+ only). |
-| mysql_innodb_redo_log_capacity_recommended | Bytes | Workload-based recommendation for `innodb_redo_log_capacity`, derived from the hourly write rate and rounded into the host's RAM tier (matches mysqltuner v2.8.41). Only emitted on MySQL 8.0.30+ with at least 1 hour of uptime. |
+| mysql_innodb_redo_log_capacity_recommended | Bytes | Workload-based recommendation for `innodb_redo_log_capacity`, derived from the hourly write rate and rounded into the host's RAM tier (matches mysqltuner). Only emitted on MySQL 8.0.30+ with at least 1 hour of uptime. |
 
 
 ## Credits, License

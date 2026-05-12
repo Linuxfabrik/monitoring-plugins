@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks MySQL/MariaDB TLS/SSL posture: the current connection itself, the server's TLS capability (`have_ssl`), enforcement (`require_secure_transport`), enabled TLS versions (no TLSv1.0/1.1, at least TLSv1.2 or TLSv1.3), the presence of a server certificate and key, the local expiry of `ssl_cert` and `ssl_ca` files (when readable on the same host), and any remote accounts that can still connect without `REQUIRE SSL`. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):ssl_tls_recommendations(), check_local_certificates() and check_remote_user_ssl(), verified in sync with MySQLTuner v2.8.41.
+Checks MySQL/MariaDB TLS/SSL posture: the current connection itself, the server's TLS capability (`have_ssl`), enforcement (`require_secure_transport`), enabled TLS versions (no TLSv1.0/1.1, at least TLSv1.2 or TLSv1.3), the presence of a server certificate and key, the local expiry of `ssl_cert` and `ssl_ca` files (when readable on the same host), and any remote accounts that can still connect without `REQUIRE SSL`. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):ssl_tls_recommendations(), check_local_certificates() and check_remote_user_ssl(), verified in sync with MySQLTuner.
 
 **Important Notes:**
 

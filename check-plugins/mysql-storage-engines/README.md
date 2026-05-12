@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks storage engine health in MySQL/MariaDB. Lists per-engine table counts and sizes, flags InnoDB being enabled but no `InnoDB` tables existing, hunts fragmented tables that benefit from `ALTER TABLE ... FORCE` (InnoDB) or `OPTIMIZE TABLE` (other engines), and warns when an `AUTO_INCREMENT` value approaches its column-type maximum. The fragmentation rule mirrors mysqltuner v2.8.41: only tables larger than 100 MiB with more than 10% `DATA_FREE` count.
+Checks storage engine health in MySQL/MariaDB. Lists per-engine table counts and sizes, flags InnoDB being enabled but no `InnoDB` tables existing, hunts fragmented tables that benefit from `ALTER TABLE ... FORCE` (InnoDB) or `OPTIMIZE TABLE` (other engines), and warns when an `AUTO_INCREMENT` value approaches its column-type maximum. The fragmentation rule mirrors mysqltuner: only tables larger than 100 MiB with more than 10% `DATA_FREE` count.
 
 **Important Notes:**
 
@@ -21,7 +21,7 @@ Checks storage engine health in MySQL/MariaDB. Lists per-engine table counts and
 * Queries `information_schema.tables` grouped by `ENGINE` for per-engine counts and data/index sizes
 * Queries `information_schema.tables` for fragmentation candidates (`DATA_LENGTH > 100 MiB` and `DATA_FREE / (DATA_LENGTH + INDEX_LENGTH + DATA_FREE) > 10%`)
 * Joins `information_schema.tables` against `information_schema.columns` (filtered by `EXTRA = 'auto_increment'`) so the `AUTO_INCREMENT` percentage can be computed against the actual column ceiling
-* Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):check_storage_engines() and verified in sync with MySQLTuner v2.8.41
+* Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):check_storage_engines() and verified in sync with MySQLTuner
 
 
 ## Fact Sheet
@@ -56,11 +56,11 @@ Checks storage engine health in MySQL/MariaDB. Lists per-engine table counts
 and sizes, flags InnoDB-enabled-but-no-InnoDB-tables, hunts fragmented tables
 that benefit from `ALTER TABLE ... FORCE` (InnoDB) or `OPTIMIZE TABLE` (other
 engines), and warns when an `AUTO_INCREMENT` value approaches its column-type
-maximum. The fragmentation rule mirrors mysqltuner v2.8.41: only tables larger
-than 100 MiB with more than 10% `DATA_FREE` count. The `AUTO_INCREMENT` check
-goes beyond mysqltuner by comparing each column to its own type ceiling
-(`TINYINT` to `BIGINT`, signed/unsigned), so tables using `INT UNSIGNED` are
-caught long before they hit the duplicate-key error.
+maximum. The fragmentation rule mirrors mysqltuner: only tables larger than
+100 MiB with more than 10% `DATA_FREE` count. The `AUTO_INCREMENT` check goes
+beyond mysqltuner by comparing each column to its own type ceiling (`TINYINT`
+to `BIGINT`, signed/unsigned), so tables using `INT UNSIGNED` are caught long
+before they hit the duplicate-key error.
 
 options:
   -h, --help            show this help message and exit

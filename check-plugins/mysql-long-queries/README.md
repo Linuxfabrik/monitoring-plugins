@@ -46,7 +46,7 @@ the historical ratio of finished slow queries), this plugin shows queries that
 are *currently* executing right now, with their session ID, user, database,
 runtime and a truncated copy of the statement so the admin can `KILL <id>`
 directly. Sleeping sessions and replication threads are ignored. Logic taken
-from MySQLTuner v2.8.41 `mysql_pfs()`, but the data source is
+from MySQLTuner `mysql_pfs()`, but the data source is
 `information_schema.processlist` so the check works on every MySQL/MariaDB
 release without requiring Performance Schema to be enabled. Without `PROCESS`
 privilege, the monitoring user only sees its own sessions; grant `PROCESS` on

@@ -26,9 +26,9 @@ __version__ = '2026051101'
 DESCRIPTION = """Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the
 configured `innodb_buffer_pool_size` against the actual InnoDB data and index sizes, and on
 MySQL 8.0.30+ derives a workload-based recommendation for `innodb_redo_log_capacity` from
-the per-hour `Innodb_os_log_written` write rate and the host's RAM tier (matches mysqltuner
-v2.8.41). Also flags `innodb_file_per_table = OFF` and architecture-related buffer-pool
-size limits.
+the per-hour `Innodb_os_log_written` write rate and the host's RAM tier (matches
+mysqltuner). Also flags `innodb_file_per_table = OFF` and architecture-related
+buffer-pool size limits.
 Alerts if the buffer pool is undersized relative to the data or if `innodb_redo_log_capacity`
 is smaller than the workload-based target. On older MySQL and on MariaDB (no
 `innodb_redo_log_capacity`), the redo-log size check is skipped; the redo-log file size is
@@ -43,7 +43,7 @@ LIMIT_32BIT = 4294967295
 # 64-bit theoretical ceiling for innodb_buffer_pool_size (`2**64 - 1`).
 LIMIT_64BIT = 18446744073709551615
 
-# Workload-based redo log capacity check (matches mysqltuner v2.8.41):
+# Workload-based redo log capacity check (matches mysqltuner):
 # - need at least 1 h of uptime for the hourly rate to be meaningful
 # - alert when the current capacity is more than 10% below the recommendation
 REDO_LOG_MIN_UPTIME = 3600
@@ -134,7 +134,7 @@ def get_physical_memory():
 
 def recommended_redo_log_capacity(hourly_rate, physical_memory):
     """Return the recommended `innodb_redo_log_capacity` for this server,
-    matching mysqltuner v2.8.41's RAM-tier rounding:
+    matching mysqltuner's RAM-tier rounding:
 
     - < 2 GiB RAM: at least 100 MiB, rounded up to the next 100 MiB
     - < 8 GiB RAM: at least 100 MiB, rounded up to the next 100 MiB, capped at 1 GiB
@@ -162,7 +162,7 @@ def main():
     """The main function. This is where the magic happens."""
 
     # logic taken from mysqltuner.pl:mysql_innodb(), section "InnoDB Buffer Pool
-    # Size", verified in sync with MySQLTuner v2.8.41 (architecture limits,
+    # Size", verified in sync with MySQLTuner (architecture limits,
     # buffer-pool-vs-data-size check, and the workload-based
     # `innodb_redo_log_capacity` recommendation for MySQL 8.0.30+). The older
     # 25% log-size-ratio rule that mysqltuner used pre-8.0.30 is intentionally
