@@ -35,6 +35,7 @@ from cryptography.x509.oid import NameOID
 
 sys.path.insert(0, '..')
 
+import lib.time
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 PLUGIN = '../cert'
@@ -64,7 +65,7 @@ def make_cert(
     subject = issuer = x509.Name([
         x509.NameAttribute(NameOID.COMMON_NAME, common_name),
     ])
-    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    now = lib.time.now(as_type='utc')
     not_before = now + datetime.timedelta(days=days_offset)
     not_after = not_before + datetime.timedelta(days=days_valid)
 
