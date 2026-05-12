@@ -7,10 +7,11 @@ Reports CPU and memory usage for all running Podman containers. CPU usage is nor
 
 **Important Notes:**
 
-* Podman runs rootless by default. Without `sudo`, the check only sees containers of the executing user. To monitor containers across all users, run the check via `sudo` (the Icinga Director basket and sudoers file are pre-configured for this).
-* Plugin execution may take up to 10 seconds.
-* Since `podman stats` only returns byte-level data in a human-readable format (e.g. *221.2kB*), calculating network I/O and block I/O is imprecise. Therefore, these values are only reported as aggregate perfdata.
 * Memory usage is relative to the container's memory limit if one is set, otherwise relative to the total host memory.
+* Per-container CPU and memory perfdata are most useful for long-lived containers with stable names (e.g. `traefik_traefik.2`, named systemd-managed services). For ever-changing workloads (e.g. GitLab runner jobs, CI builders), the per-container labels churn between check runs and are useless for trending. The aggregate perfdata is the right signal there.
+* Plugin execution may take up to 10 seconds.
+* Podman runs rootless by default. Without `sudo`, the check only sees containers of the executing user. To monitor containers across all users, run the check via `sudo` (the Icinga Director basket and sudoers file are pre-configured for this).
+* Since `podman stats` only returns byte-level data in a human-readable format (e.g. *221.2kB*), calculating network I/O and block I/O is imprecise. Therefore, these values are only reported as aggregate perfdata.
 
 **Data Collection:**
 
@@ -109,7 +110,7 @@ myconti_ds_1              ! 0.0   ! 11.42
 
 ## Perfdata / Metrics
 
-The plugin emits one CPU and one memory metric per container so individual workloads can be plotted long-term. Because container names appear and disappear as workloads come and go, the time-series backend (Graphite, InfluxDB, ...) will keep stale entries until they are pruned.
+One CPU and one memory metric is emitted per running container, plus the aggregate metrics below. See the Important Notes for when per-container metrics are and aren't useful.
 
 | Name | Type | Description |
 |----|----|----|

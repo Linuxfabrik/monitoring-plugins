@@ -7,8 +7,9 @@ Reports CPU and memory usage for all running Docker containers. CPU usage is nor
 
 **Important Notes:**
 
-* Plugin execution may take up to 10 seconds due to `docker stats --no-stream`
 * Container names are shortened after the replica number by default (e.g. `traefik_traefik.2`). Use `--full-name` to show the full container name
+* Per-container CPU and memory perfdata are most useful for long-lived containers with stable names (e.g. `traefik_traefik.2`, named systemd-managed services). For ever-changing workloads (e.g. GitLab runner jobs, CI builders), the per-container labels churn between check runs and are useless for trending. The aggregate perfdata is the right signal there
+* Plugin execution may take up to 10 seconds due to `docker stats --no-stream`
 
 **Data Collection:**
 
@@ -108,7 +109,7 @@ myconti_ds_1              ! 0.0   ! 11.42
 
 ## Perfdata / Metrics
 
-The plugin emits one CPU and one memory metric per container so individual workloads can be plotted long-term. Because container names appear and disappear as workloads come and go, the time-series backend (Graphite, InfluxDB, ...) will keep stale entries until they are pruned.
+One CPU and one memory metric is emitted per running container, plus the aggregate metrics below. See the Important Notes for when per-container metrics are and aren't useful.
 
 | Name | Type | Description |
 |----|----|----|
