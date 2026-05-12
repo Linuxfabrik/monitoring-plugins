@@ -17,9 +17,26 @@ jobs:
       - uses: 'dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98' # v3.1.0
         id: 'meta'
 
+      # Block bumps against the py39 lockfile. Python 3.9 has been
+      # dropped by most upstream packages over 2025/2026, and
+      # Dependabot does not honour `Requires-Python` when proposing
+      # versions. Dependabot security updates also ignore the
+      # `directory:` allowlist in `.github/dependabot.yml`, so the
+      # freeze has to be enforced here. The py39 lockfile is
+      # maintained manually via `pip-compile` on a Python 3.9 host.
+      - if: "startsWith(steps.meta.outputs.directory, '/lockfiles/py39')"
+        run: |
+          gh pr close "$PR_URL" \
+            --comment 'Auto-closed: `lockfiles/py39` is frozen because Python 3.9 is dropped by most upstream packages. Lockfile is maintained manually via pip-compile when an actual fix lands that still supports 3.9.' \
+            --delete-branch
+        env:
+          PR_URL: '${{ github.event.pull_request.html_url }}'
+          GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+
       - if: >-
-          steps.meta.outputs.update-type == 'version-update:semver-patch'
-          || steps.meta.outputs.update-type == 'version-update:semver-minor'
+          !startsWith(steps.meta.outputs.directory, '/lockfiles/py39')
+          && (steps.meta.outputs.update-type == 'version-update:semver-patch'
+              || steps.meta.outputs.update-type == 'version-update:semver-minor')
         run: 'gh pr merge --auto --squash "$PR_URL"'
         env:
           PR_URL: '${{ github.event.pull_request.html_url }}'
