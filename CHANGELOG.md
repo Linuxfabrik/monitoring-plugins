@@ -14,6 +14,7 @@ Monitoring Plugins:
 
 * cert: inspect X.509 certificates from a TLS endpoint or local PEM/DER files. Alerts on days until expiry
 * mysql-health: single-number 0-100 health score for a MySQL/MariaDB server. Top-level Icinga alert and Grafana KPI
+* mysql-index-health: trip-wire for unused and redundant indexes (`sys.schema_unused_indexes`, `sys.schema_redundant_indexes`). When it alerts, run `mysqltuner --pfstat` on the host for the full analysis with `ALTER TABLE ... DROP INDEX` statements. Performance Schema must be enabled; UNKNOWN when it is OFF (MariaDB default)
 * mysql-long-queries: alert on in-flight queries running longer than `--warning` / `--critical` seconds. Shows session ID, user, DB and statement so the admin can `KILL <id>` directly
 * mysql-tls: TLS/SSL posture (have_ssl, require_secure_transport, TLS versions, cert expiry, remote users without REQUIRE SSL)
 * ups-nut: monitor a UPS managed by Network UPS Tools (NUT). Battery, load, voltages, runtime, temperature and status

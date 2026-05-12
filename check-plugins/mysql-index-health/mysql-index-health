@@ -1,0 +1,471 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import sys
+
+import lib.args
+import lib.base
+import lib.db_mysql
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026051201'
+
+DESCRIPTION = """Reports the two index-housekeeping findings that MySQLTuner v2.8.41
+flags inside its `mysql_pfs()` block: unused indexes (never read since the last server
+start, listed in `sys.schema_unused_indexes`) and redundant indexes (a narrower index
+fully covered by a wider one, listed in `sys.schema_redundant_indexes`). Both views are
+populated by the Performance Schema; the plugin reports STATE_UNKNOWN with a clear hint
+when `performance_schema = OFF` (the MariaDB default). The check is meant as a
+trip-wire only: when it alerts, run `mysqltuner --pfstat` on the host for the full
+analysis with remediation hints and ready-to-run `ALTER TABLE ... DROP INDEX` statements.
+System schemas (`mysql`, `information_schema`, `performance_schema`, `sys`) are excluded.
+Counters are cumulative since server start; restarting the server resets them, so the
+plugin stays silent (STATE_OK with a wait hint) until server uptime crosses
+`--min-uptime-hours` (default 24h). This avoids the false-clean signal right after a
+restart and the false-positive "unused" signal that would fire before weekly or monthly
+jobs have had a chance to touch their indexes. Index housekeeping is never a
+wake-up-at-night finding, so the plugin only emits WARN (and the implicit OK), never
+CRIT."""
+
+DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
+DEFAULT_DEFAULTS_GROUP = 'client'
+DEFAULT_LENGTHY = False
+DEFAULT_MIN_UPTIME_HOURS = 24
+DEFAULT_TIMEOUT = 3
+DEFAULT_WARN_REDUNDANT = '0'
+DEFAULT_WARN_UNUSED = '0'
+
+# Schemas that the server itself manages and that the admin never gets
+# rid of. Mirrors mysqltuner.pl mysql_pfs() WHERE clause.
+SYSTEM_SCHEMAS = ('information_schema', 'mysql', 'performance_schema', 'sys')
+
+# Truncate the rendered SQL DROP INDEX statement so a long redundant-
+# index list still fits a readable monitoring output. --lengthy switches
+# to the full statement when an admin is investigating.
+DROP_STATEMENT_PREVIEW_CHARS = 80
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--defaults-file',
+        help='MySQL/MariaDB cnf file to read user, host and password from. '
+        'Example: `--defaults-file=/var/spool/icinga2/.my.cnf`. '
+        'Default: %(default)s',
+        dest='DEFAULTS_FILE',
+        default=DEFAULT_DEFAULTS_FILE,
+    )
+
+    parser.add_argument(
+        '--defaults-group',
+        help=lib.args.help('--defaults-group') + ' Default: %(default)s',
+        dest='DEFAULTS_GROUP',
+        default=DEFAULT_DEFAULTS_GROUP,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--min-uptime-hours',
+        help='Minimum server uptime (in hours) before the plugin starts '
+        'evaluating findings. Performance Schema counters reset on every '
+        'server restart, so a freshly booted server has no record of which '
+        'indexes are read or unused; alerting on that data would produce '
+        'false positives. Below the threshold the plugin reports OK with '
+        'an info hint. '
+        'Example: `--min-uptime-hours=48`. '
+        'Default: %(default)s',
+        dest='MIN_UPTIME_HOURS',
+        type=int,
+        default=DEFAULT_MIN_UPTIME_HOURS,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--warning-redundant',
+        help=lib.args.help('--warning-count') + ' Applies to redundant indexes. '
+        'Supports Nagios ranges. '
+        'Example: `--warning-redundant=10`. '
+        'Default: %(default)s',
+        dest='WARN_REDUNDANT',
+        default=DEFAULT_WARN_REDUNDANT,
+    )
+
+    parser.add_argument(
+        '--warning-unused',
+        help=lib.args.help('--warning-count') + ' Applies to unused indexes. '
+        'Supports Nagios ranges. '
+        'Example: `--warning-unused=10`. '
+        'Default: %(default)s',
+        dest='WARN_UNUSED',
+        default=DEFAULT_WARN_UNUSED,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def fetch_perf_schema_state(conn):
+    """Return 'ON' or 'OFF' for the `performance_schema` server variable.
+    `sys.schema_unused_indexes` and `sys.schema_redundant_indexes` are
+    populated by P_S, so the plugin must surface its state up front; the
+    views silently return zero rows when P_S is OFF, which would
+    otherwise look like a clean bill of health.
+    """
+    success, rows = lib.db_mysql.select(
+        conn,
+        "show global variables like 'performance_schema'",
+    )
+    if not success or not rows:
+        return 'OFF'
+    return (rows[0].get('Value') or 'OFF').upper()
+
+
+def fetch_uptime_seconds(conn):
+    """Return server uptime in seconds. `SHOW GLOBAL STATUS LIKE 'Uptime'`
+    works on both MySQL and MariaDB across every supported LTS. Returns
+    0 if the row is missing (treated as "not warmed up yet" upstream).
+    """
+    success, rows = lib.db_mysql.select(
+        conn,
+        "show global status like 'Uptime'",
+    )
+    if not success or not rows:
+        return 0
+    try:
+        return int(rows[0].get('Value') or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def fetch_unused_indexes(conn):
+    """Return the rows from `sys.schema_unused_indexes` minus the
+    server-managed schemas. Same WHERE clause as mysqltuner.pl
+    mysql_pfs().
+    """
+    placeholders = ', '.join(f"'{s}'" for s in SYSTEM_SCHEMAS)
+    sql = f"""
+        select object_schema as schema_name,
+            object_name as table_name,
+            index_name
+        from sys.schema_unused_indexes
+        where object_schema not in ({placeholders})
+        order by object_schema, object_name, index_name
+        ;
+    """  # nosec B608
+    return lib.base.coe(lib.db_mysql.select(conn, sql))
+
+
+def fetch_redundant_indexes(conn):
+    """Return the rows from `sys.schema_redundant_indexes`. The view
+    already excludes server-managed schemas internally, so no extra
+    filter is needed. `sql_drop_index` is taken straight from the view
+    so the admin can copy/paste a ready-to-run `ALTER TABLE` statement.
+    """
+    sql = """
+        select table_schema as schema_name,
+            table_name,
+            redundant_index_name as redundant_name,
+            dominant_index_name as dominant_name,
+            sql_drop_index
+        from sys.schema_redundant_indexes
+        order by table_schema, table_name, redundant_index_name
+        ;
+    """
+    return lib.base.coe(lib.db_mysql.select(conn, sql))
+
+
+def truncate(text, lengthy, limit):
+    """Render a long text for the output table. Full text in `--lengthy`
+    mode, ellipsised preview otherwise.
+    """
+    if text is None:
+        return ''
+    if lengthy or len(text) <= limit:
+        return text
+    return text[: limit - 3] + '...'
+
+
+def _drop_index_sql(schema, table, index):
+    """Synthesise an `ALTER TABLE ... DROP INDEX` statement for an
+    unused index. Mirrors the format that `sys.schema_redundant_indexes
+    .sql_drop_index` ships, so the unused-index column reads the same
+    way (copy/paste-ready). Backtick-quotes schema/table/index names
+    to stay safe with reserved keywords or hyphens.
+    """
+    if not schema or not table or not index:
+        return ''
+    return f'ALTER TABLE `{schema}`.`{table}` DROP INDEX `{index}`;'
+
+
+def _top_schema(unused_rows, redundant_rows):
+    """Return a one-line "where to start" hint pointing at the schema
+    that contributes the most findings, or `None` if there is nothing
+    to report. Aggregates by `schema_name` across both unused and
+    redundant rows. The point is to give the admin a starting target
+    when the absolute count is high (e.g. 274 unused) but the cleanup
+    is actually concentrated in one or two schemas.
+    """
+    counts = {}
+    for row in unused_rows:
+        schema = row.get('schema_name') or ''
+        counts[schema] = counts.get(schema, 0) + 1
+    for row in redundant_rows:
+        schema = row.get('schema_name') or ''
+        counts[schema] = counts.get(schema, 0) + 1
+    if not counts:
+        return None
+    top_schema, top_count = max(counts.items(), key=lambda kv: kv[1])
+    total = sum(counts.values())
+    if not top_schema or total <= 0:
+        return None
+    pct = round(top_count * 100 / total)
+    return (
+        f'{pct}% of findings concentrate in schema `{top_schema}` '
+        f'({top_count} of {total}); start the cleanup there.'
+    )
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # logic taken from mysqltuner.pl:mysql_pfs(), the two badprint
+    # blocks: "Performance schema: Top 15 most read indexes" (unused
+    # indexes via sys.schema_unused_indexes) and the redundant-indexes
+    # walk via sys.schema_redundant_indexes. Both views are populated
+    # by the Performance Schema; the plugin surfaces that dependency
+    # explicitly instead of silently reporting OK on an unobservable
+    # server.
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    mysql_connection = {
+        'defaults_file': args.DEFAULTS_FILE,
+        'defaults_group': args.DEFAULTS_GROUP,
+        'timeout': args.TIMEOUT,
+    }
+    conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
+    # `sys.schema_unused_indexes` and `sys.schema_redundant_indexes` read
+    # the underlying `performance_schema.table_io_waits_summary_*` tables
+    # by definition. SELECT on `*.*` is the simplest cover for both the
+    # `sys` views themselves and their P_S dependencies. Without it,
+    # the sys view queries fail with `(1142) SELECT command denied for
+    # table 'schema_unused_indexes'`.
+    lib.base.coe(lib.db_mysql.check_privileges(conn, 'SELECT'))
+
+    pfs_state = fetch_perf_schema_state(conn)
+    if pfs_state != 'ON':
+        lib.db_mysql.close(conn)
+        lib.base.oao(
+            'Performance Schema is OFF, index-health views are unobservable. '
+            'Enable with `performance_schema = ON` in `my.cnf` and restart '
+            'the server, or set `--always-ok` if the host is intentionally '
+            'left without Performance Schema.',
+            STATE_UNKNOWN,
+        )
+
+    # Performance Schema counters reset on every server restart. A
+    # freshly booted server has no record of which indexes are read or
+    # unused, so alerting on the empty view would produce false
+    # positives (and freshly observed "unused" indexes need at least
+    # one full business cycle to be trusted). Below the warmup
+    # threshold the plugin stays OK and reports the wait.
+    uptime_seconds = fetch_uptime_seconds(conn)
+    warmup_seconds = args.MIN_UPTIME_HOURS * 3600
+    if uptime_seconds < warmup_seconds:
+        lib.db_mysql.close(conn)
+        uptime_hours = uptime_seconds // 3600
+        remaining_hours = max(args.MIN_UPTIME_HOURS - uptime_hours, 1)
+        lib.base.oao(
+            f'Server uptime is {uptime_hours}h, below the {args.MIN_UPTIME_HOURS}h '
+            f'warmup threshold. Performance Schema index counters reset on '
+            f'every restart; re-checking in ~{remaining_hours}h '
+            f'when the counters have settled.',
+            STATE_OK,
+            always_ok=args.ALWAYS_OK,
+        )
+
+    unused_rows = fetch_unused_indexes(conn)
+    redundant_rows = fetch_redundant_indexes(conn)
+
+    lib.db_mysql.close(conn)
+
+    # init some vars
+    sections = []
+    perfdata = ''
+    unused_count = len(unused_rows)
+    redundant_count = len(redundant_rows)
+
+    # analyze data. Index housekeeping is never a wake-up-at-night
+    # finding, so the plugin only knows WARN (and the implicit OK).
+    # CRIT is reserved for "react immediately" per CONTRIBUTING.md.
+    unused_state = lib.base.get_state(
+        unused_count, args.WARN_UNUSED, None, _operator='range',
+    )
+    redundant_state = lib.base.get_state(
+        redundant_count, args.WARN_REDUNDANT, None, _operator='range',
+    )
+    state = lib.base.get_worst(unused_state, redundant_state)
+
+    # build the message
+    unused_label = lib.txt.pluralize('unused index', unused_count, suffix=',es')
+    redundant_label = lib.txt.pluralize(
+        'redundant index', redundant_count, suffix=',es',
+    )
+    summary = (
+        f'{unused_count} {unused_label}'
+        f'{lib.base.state2str(unused_state, prefix=" ")}, '
+        f'{redundant_count} {redundant_label}'
+        f'{lib.base.state2str(redundant_state, prefix=" ")}'
+    )
+    if state == STATE_OK:
+        sections.append('Everything is ok. ' + summary + '.')
+    else:
+        sections.append(summary + '.')
+        # Where to start? Surface the schema that contributes the most
+        # findings so the admin can scope the cleanup before pulling out
+        # the full mysqltuner report.
+        hotspot = _top_schema(unused_rows, redundant_rows)
+        if hotspot:
+            sections.append(hotspot)
+        sections.append(
+            'Run `mysqltuner --pfstat` on the host for the full list with '
+            'remediation hints.'
+        )
+
+    if redundant_rows:
+        redundant_table = [
+            {
+                'schema': r.get('schema_name') or '',
+                'table': r.get('table_name') or '',
+                'redundant': r.get('redundant_name') or '',
+                'dominant': r.get('dominant_name') or '',
+                'drop': truncate(
+                    r.get('sql_drop_index'),
+                    args.LENGTHY,
+                    DROP_STATEMENT_PREVIEW_CHARS,
+                ),
+            }
+            for r in redundant_rows
+        ]
+        sections.append(
+            'Redundant indexes (safe to drop; the dominant index already '
+            'covers the same query patterns):'
+        )
+        sections.append(
+            lib.base.get_table(
+                redundant_table,
+                ['schema', 'table', 'redundant', 'dominant', 'drop'],
+                header=[
+                    'Schema',
+                    'Table',
+                    'Redundant Index',
+                    'Dominant Index',
+                    'SQL Drop',
+                ],
+            )
+        )
+
+    if unused_rows:
+        unused_table = [
+            {
+                'schema': r.get('schema_name') or '',
+                'table': r.get('table_name') or '',
+                'index': r.get('index_name') or '',
+                'drop': truncate(
+                    _drop_index_sql(
+                        r.get('schema_name'),
+                        r.get('table_name'),
+                        r.get('index_name'),
+                    ),
+                    args.LENGTHY,
+                    DROP_STATEMENT_PREVIEW_CHARS,
+                ),
+            }
+            for r in unused_rows
+        ]
+        sections.append(
+            'Unused indexes (verify before dropping: "unused since last '
+            'server start" can miss weekly or monthly jobs, recently '
+            'restarted servers, and indexes that back foreign-key '
+            'constraints; wait at least one full business cycle, then drop):'
+        )
+        sections.append(
+            lib.base.get_table(
+                unused_table,
+                ['schema', 'table', 'index', 'drop'],
+                header=['Schema', 'Table', 'Index', 'SQL Drop'],
+            )
+        )
+
+    msg = '\n\n'.join(sections)
+
+    perfdata += lib.base.get_perfdata(
+        'mysql_unused_indexes',
+        unused_count,
+        warn=args.WARN_UNUSED,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_redundant_indexes',
+        redundant_count,
+        warn=args.WARN_REDUNDANT,
+        _min=0,
+    )
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

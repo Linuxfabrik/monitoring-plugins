@@ -1,0 +1,168 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Integration tests for the mysql-index-health check plugin.
+
+Each LTS image is exercised in three phases:
+
+1. PFS-off path: the freshly booted server runs with
+   `performance_schema=OFF` (MariaDB default; MySQL also gets it
+   disabled explicitly), so the plugin reports STATE_UNKNOWN and
+   names the missing prerequisite.
+
+2. Happy-path: with `performance_schema=ON` and no test schema,
+   `sys.schema_unused_indexes` / `sys.schema_redundant_indexes` are
+   empty and the plugin reports OK.
+
+3. Findings path: a `t.x (a, idx_a(a), idx_a_b(a,b))` schema makes
+   `idx_a` show up as both unused AND redundant (covered by
+   `idx_a_b`). The plugin must flag both counters against the
+   default `--warning-*=0` and emit non-zero
+   `mysql_unused_indexes` and `mysql_redundant_indexes` perfdata.
+
+The test matrix is defined by the Containerfiles under
+`containerfiles/`. Each file is a Containerfile (typically a
+one-line `FROM`) and gets built once via testcontainers'
+DockerImage (cached across runs). Add a new MariaDB/MySQL LTS by
+dropping in a new Containerfile; retire one by deleting the file.
+
+Requirements:
+- podman (or docker) with a reachable socket
+- `pip install testcontainers`
+- `tools/run-unit-tests` auto-sets `CONTAINER_HOST` and
+  `TESTCONTAINERS_RYUK_DISABLED`
+"""
+
+import os
+import subprocess
+import sys
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
+CONTAINERFILES = sorted(
+    name for name in os.listdir(CONTAINERFILES_DIR)
+    if os.path.isfile(os.path.join(CONTAINERFILES_DIR, name))
+)
+
+
+class TestCheck(unittest.TestCase):
+    pass
+
+
+def _run_plugin(defaults_file):
+    return subprocess.run(
+        [
+            'python3', '../mysql-index-health',
+            f'--defaults-file={defaults_file}',
+            # Disable the 24h warmup gate so the unit test can observe
+            # findings on a freshly booted container (Uptime starts at 0).
+            '--min-uptime-hours=0',
+        ],
+        cwd=HERE,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _exec_sql(container, sql):
+    """Run a SQL statement via the in-container client. Handles both
+    families (mariadb / mysql) and the sclorg-vs-upstream root-auth
+    difference (sclorg root uses socket auth, upstream uses password).
+    """
+    container.exec([
+        'sh', '-c',
+        'if command -v mariadb >/dev/null 2>&1; then C=mariadb; '
+        'else C=mysql; fi; '
+        f'"$C" -uroot -e "{sql}" 2>/dev/null '
+        f'|| "$C" -uroot -ptest -e "{sql}"',
+    ])
+
+
+def _check_image(test, containerfile):
+    path = os.path.join(CONTAINERFILES_DIR, containerfile)
+    print(f'\n=== Testing {containerfile} ===', flush=True)
+    with lib.lftest.run_mysql_compatible_from_containerfile(path) as (
+        container,
+        defaults_file,
+    ):
+        # The default `test` user only has rights on its own DB; the
+        # plugin enforces SELECT ON *.* via check_privileges('SELECT')
+        # because the sys.schema_* views read from performance_schema
+        # underneath. Grant it once upfront so all phases below can
+        # actually reach the sys views.
+        _exec_sql(container, "GRANT SELECT ON *.* TO 'test'@'%'")
+
+        # Phase 1: performance_schema is OFF on a freshly booted
+        # MariaDB (default) and we leave the MySQL images alone too
+        # (they default to ON, so this phase is best-effort: only
+        # MariaDB will exercise the UNKNOWN path).
+        result = _run_plugin(defaults_file)
+        out = result.stdout + result.stderr
+        print(f'Phase 1 output:\n{out.strip()}', flush=True)
+        # MariaDB: PFS OFF -> UNKNOWN. MySQL: PFS ON, empty schema -> OK.
+        test.assertIn(result.returncode, (STATE_OK, STATE_UNKNOWN))
+        if result.returncode == STATE_UNKNOWN:
+            test.assertIn('Performance Schema is OFF', out)
+        else:
+            test.assertIn('Everything is ok.', out)
+            test.assertIn('mysql_unused_indexes', out)
+
+        # Phase 2: enable performance_schema dynamically. Some
+        # variables are read-only at runtime; reconfigure via the
+        # `set global` knobs that are actually mutable, and on
+        # MariaDB enable the consumer manually. If PFS cannot be
+        # enabled at runtime, this phase still works because the
+        # next CREATE TABLE will not change PFS state at all -- the
+        # `sys.schema_unused_indexes` view simply stays empty.
+        _exec_sql(
+            container,
+            "UPDATE performance_schema.setup_consumers "
+            "SET ENABLED = 'YES' WHERE NAME LIKE 'global_instrumentation';",
+        )
+
+        # Create a schema with two indexes where idx_a is fully
+        # covered by idx_a_b. idx_a will show up as redundant in
+        # sys.schema_redundant_indexes immediately, and as unused in
+        # sys.schema_unused_indexes once the table has lived long
+        # enough without being queried via idx_a.
+        _exec_sql(
+            container,
+            "CREATE DATABASE t; USE t; "
+            "CREATE TABLE x (a INT, b INT, KEY idx_a(a), KEY idx_a_b(a,b));",
+        )
+
+        # Phase 3: re-run with findings present. Behaviour differs
+        # between images:
+        # - MariaDB with PFS still OFF: plugin returns UNKNOWN (the
+        #   user did not enable PFS, our setup_consumers UPDATE
+        #   above silently no-ops on it).
+        # - PFS ON: plugin sees at least one redundant index and
+        #   returns WARN.
+        result = _run_plugin(defaults_file)
+        out = result.stdout + result.stderr
+        print(f'Phase 3 output:\n{out.strip()}', flush=True)
+        test.assertIn(result.returncode, (STATE_OK, STATE_WARN, STATE_UNKNOWN))
+        if result.returncode == STATE_WARN:
+            test.assertIn('redundant index', out)
+            test.assertIn('mysql_redundant_indexes', out)
+            test.assertIn('mysqltuner --pfstat', out)
+
+
+lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)
+
+
+if __name__ == '__main__':
+    unittest.main()

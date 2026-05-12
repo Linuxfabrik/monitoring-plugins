@@ -13,6 +13,7 @@ listings and the monitoring host's shell history.
 * `mysql-connections`: current and max connections.
 * `mysql-database-metrics`: per-database size and object counts.
 * `mysql-health`: single-number 0-100 health score for a MySQL/MariaDB server.
+* `mysql-index-health`: unused and redundant indexes flagged by `sys.schema_unused_indexes` and `sys.schema_redundant_indexes`. Trip-wire; deep analysis via `mysqltuner --pfstat`.
 * `mysql-innodb-buffer-pool-size`: InnoDB buffer-pool sizing vs. hit rate.
 * `mysql-innodb-log-waits`: InnoDB log wait rate.
 * `mysql-joins`: joins without indexes.
@@ -150,7 +151,7 @@ minimum.
 | Scope | Minimum grant on `*.*` |
 |----|----|
 | **One shared monitoring user (covers all MySQL plugins)** | Baseline: `GRANT SELECT, PROCESS ON *.* TO 'monitoring'@'127.0.0.1'`. `SELECT` covers `information_schema`, `mysql.*` and `performance_schema.*` reads; `PROCESS` covers `information_schema.processlist` (mysql-long-queries) and `SHOW ENGINE PERFORMANCE_SCHEMA STATUS` (mysql-memory's PFS footprint). For `mysql-replica-status` add `REPLICATION CLIENT` on MySQL and MariaDB <10.5, or `SLAVE MONITOR` on MariaDB 10.5+ (alias `REPLICA MONITOR` on MariaDB 11+). `USAGE` is implicit in every GRANT |
-| `mysql-aria`, `mysql-database-metrics`, `mysql-innodb-buffer-pool-size`, `mysql-storage-engines`, `mysql-table-definition-cache`, `mysql-table-indexes` | `GRANT SELECT ON *.*` (needed to see all rows in `information_schema`) |
+| `mysql-aria`, `mysql-database-metrics`, `mysql-index-health`, `mysql-innodb-buffer-pool-size`, `mysql-storage-engines`, `mysql-table-definition-cache`, `mysql-table-indexes` | `GRANT SELECT ON *.*` (needed to see all rows in `information_schema`; for `mysql-index-health` the underlying `sys.schema_*` views also require Performance Schema enabled on the server) |
 | `mysql-replica-status` | `GRANT REPLICATION CLIENT ON *.*` on MySQL and MariaDB <10.5. **On MariaDB 10.5+** plain `REPLICATION CLIENT` is no longer enough for `SHOW REPLICA STATUS` / `SHOW SLAVE STATUS`; grant `SLAVE MONITOR` (or its MariaDB 11+ alias `REPLICA MONITOR`) instead |
 | `mysql-long-queries` | `GRANT PROCESS ON *.*` so the user sees other sessions' queries in `information_schema.processlist`. Without `PROCESS`, the plugin only sees its own connection and will silently miss long-running queries from application users |
 | `mysql-tls` | `GRANT SELECT ON mysql.*` (queries `mysql.user` and `mysql.global_priv` for remote users without `REQUIRE SSL`). For the local certificate expiry check the OS user running the plugin must additionally be able to read `ssl_cert` / `ssl_ca` from disk |
