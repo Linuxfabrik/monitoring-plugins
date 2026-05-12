@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051001'
+__version__ = '2026051201'
 
 DESCRIPTION = """Scans the MySQL/MariaDB error log for errors, warnings, startups and
 shutdowns. On MySQL 8.0.22+ the plugin prefers the `performance_schema.error_log` table
@@ -373,17 +373,14 @@ def main():
                 )
             source_size = os.path.getsize(log_error)
             if source_size == 0:
-                if not args.SERVER_LOG:
-                    lib.base.cu(
-                        f'Log file `{log_error}` is empty. Assuming'
-                        f' log-rotation. Use `--server-log` for explicit file.'
-                    )
-                else:
-                    lib.base.oao(
-                        f'Log file `{log_error}` is empty. `--server-log` is'
-                        f' set explicitly, so assuming log-rotation.',
-                        STATE_OK,
-                    )
+                # An empty log file is a deterministic "no errors / warnings
+                # observed" state, not an unknown one - typical right after
+                # logrotate fires. Both the auto-detected and the explicit
+                # --server-log code paths land here.
+                lib.base.oao(
+                    f'Log file `{log_error}` is empty. Assuming log-rotation.',
+                    STATE_OK,
+                )
             logfile = lib.base.coe(lib.disk.read_file(log_error))
             source_label = f'`{log_error}`'
 
