@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051201'
+__version__ = '2026051202'
 
 DESCRIPTION = """Checks for in-flight MySQL/MariaDB queries that have been running longer
 than `--warning` / `--critical` seconds. Unlike `mysql-slow-queries` (which trends the
@@ -262,10 +262,9 @@ def main():
             'id': row.get('id') or '',
             'user': row.get('user') or '',
             'db': row.get('db') or '',
-            'runtime': (
-                f'{runtime}s{lib.base.state2str(item_state, prefix=" ")}'
-            ),
+            'runtime': f'{runtime}s',
             'statement': truncate_statement(row.get('statement'), args.LENGTHY),
+            'state': lib.base.state2str(item_state),
         })
 
     # build the message
@@ -283,8 +282,8 @@ def main():
         sections.append(summary + '.')
 
     if table_data:
-        headers = ['ID', 'User', 'DB', 'Runtime', 'Statement']
-        keys = ['id', 'user', 'db', 'runtime', 'statement']
+        headers = ['ID', 'User', 'DB', 'Runtime', 'Statement', 'State']
+        keys = ['id', 'user', 'db', 'runtime', 'statement', 'state']
         sections.append(lib.base.get_table(table_data, keys, header=headers))
 
     msg = '\n\n'.join(sections)

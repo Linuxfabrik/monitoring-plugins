@@ -95,10 +95,10 @@ WARN output:
 ```text
 1 query over threshold (of 2 in-flight queries), longest 47s.
 
-! ID    ! User ! DB      ! Runtime         ! Statement                                                                                                                  !
-! ----- ! ---- ! ------- ! --------------- ! -------------------------------------------------------------------------------------------------------------------------- !
-! 12345 ! app  ! orders  ! 47s [WARNING]   ! SELECT o.* FROM orders o JOIN customers c ON o.cust_id=c.id WHERE c.region='EU' AND o.created_at > '2026-01-01' ORDER ...   !
-! 12346 ! app  ! orders  ! 2s              ! SELECT COUNT(*) FROM orders WHERE status='pending'                                                                          !
+! ID    ! User ! DB      ! Runtime ! Statement                                                                                                                  ! State     !
+! ----- ! ---- ! ------- ! ------- ! -------------------------------------------------------------------------------------------------------------------------- ! --------- !
+! 12345 ! app  ! orders  ! 47s     ! SELECT o.* FROM orders o JOIN customers c ON o.cust_id=c.id WHERE c.region='EU' AND o.created_at > '2026-01-01' ORDER ...   ! [WARNING] !
+! 12346 ! app  ! orders  ! 2s      ! SELECT COUNT(*) FROM orders WHERE status='pending'                                                                          !           !
 ```
 
 
