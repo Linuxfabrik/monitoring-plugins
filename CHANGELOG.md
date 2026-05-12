@@ -24,6 +24,7 @@ Build, CI/CD:
 * requirements: one hash-pinned lockfile per supported Python LTS, each in its own `lockfiles/pyXX/` subdirectory (`py39` to `py314`). Replaces the single `requirements.txt`. Windows uses `lockfiles/py313-windows/requirements.txt`
 * requirements: build scripts auto-detect the Python version and pick the matching file. urllib3 lands at 2.7.0 on Python 3.10+, closing two of the four Dependabot advisories
 * requirements: `lockfiles/py39/` is excluded from Dependabot. Most upstream packages dropped Python 3.9 over 2025/2026, so automated bumps would break `pip install --require-hashes` on RHEL 8 / Debian 11. The py39 lockfile is regenerated manually as needed
+* INSTALL.md: documents how source-tarball installs on RHEL 8 can opt out of the frozen py39 lockfile by installing AppStream `python3.12` and running the plugins against `lockfiles/py312/requirements.txt`. RPM users on RHEL 8 stay on Python 3.9; Debian 11 has no comparable escape hatch
 
 
 ### Changed

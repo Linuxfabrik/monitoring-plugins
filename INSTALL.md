@@ -137,6 +137,42 @@ sudo -u icinga python3 -m pip install --user \
     --requirement /usr/lib64/nagios/plugins/lockfiles/${PY_TAG}/requirements.txt --require-hashes
 ```
 
+#### Escaping the py39 freeze
+
+The `lockfiles/py39/requirements.txt` is frozen on package versions that still support
+Python 3.9 (RHEL 8, Debian 11). Over 2025/2026, most upstream packages dropped Python
+3.9, so security-relevant updates for `urllib3`, `requests` and friends only ship in
+versions that require Python >= 3.10.
+
+This freeze only affects the source-tarball and Git-checkout paths described above. The
+**RPM package on RHEL 8 is built against Python 3.9 by design** (`BuildRequires:
+python39`, `Requires: python39`) and stays on the frozen py39 lockfile regardless of
+what else is installed on the host.
+
+##### RHEL 8
+
+The AppStream offers `python3.11` and `python3.12` as regular RPMs alongside the system
+`python3.9`. A source-tarball install can run the plugins against the newer interpreter
+and pick the matching lockfile, getting all upstream security updates:
+
+```bash
+sudo dnf install python3.12 python3.12-pip
+sudo -u icinga python3.12 -m pip install --user --upgrade pip
+sudo -u icinga python3.12 -m pip install --user \
+    --requirement /usr/lib64/nagios/plugins/lockfiles/py312/requirements.txt --require-hashes
+```
+
+Point the Icinga 2 agent at `python3.12` instead of `python3` when launching the
+plugins (for example via a wrapper, or by editing the shebang of installed plugins to
+`#!/usr/bin/env python3.12`).
+
+##### Debian 11
+
+No comparable escape hatch. `bullseye-backports` is archived since the LTS transition,
+so no newer Python ships through official channels. The only routes off Python 3.9
+are an in-place upgrade to Debian 12 (Python 3.11) or Debian 13 (Python 3.13), or a
+self-compiled Python (pyenv) without distro package support.
+
 
 ### From Git (Development)
 
