@@ -45,11 +45,12 @@ usage: mysql-user-security [-h] [-V] [--always-ok]
 
 Checks MySQL/MariaDB user security: anonymous accounts (empty user name),
 accounts with empty passwords, accounts whose password matches the username
-(the classic `root/root` weak-password pattern), accounts that accept
-connections from any host (`'%'` wildcard) and accounts still on the legacy
-SHA1-based `mysql_native_password` (or `sha256_password` on MySQL 8.0+)
-authentication plugin. Each finding maps to a copy-pasteable SQL
-recommendation.
+(the classic `root/root` weak-password pattern), accounts whose password
+matches a small dictionary of common defaults (`password`, `admin`, `root`,
+`letmein`, ...), accounts that accept connections from any host (`'%'`
+wildcard), and accounts still on the legacy SHA1-based `mysql_native_password`
+(or `sha256_password` on MySQL 8.0+) authentication plugin. Each finding maps
+to a copy-pasteable SQL recommendation.
 
 options:
   -h, --help            show this help message and exit

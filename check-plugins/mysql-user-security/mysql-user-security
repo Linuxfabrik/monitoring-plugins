@@ -21,14 +21,15 @@ import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051103'
+__version__ = '2026051204'
 
 DESCRIPTION = """Checks MySQL/MariaDB user security: anonymous accounts (empty user name),
 accounts with empty passwords, accounts whose password matches the username (the classic
-`root/root` weak-password pattern), accounts that accept connections from any host (`'%'`
-wildcard) and accounts still on the legacy SHA1-based `mysql_native_password` (or
-`sha256_password` on MySQL 8.0+) authentication plugin. Each finding maps to a copy-pasteable
-SQL recommendation."""
+`root/root` weak-password pattern), accounts whose password matches a small dictionary of
+common defaults (`password`, `admin`, `root`, `letmein`, ...), accounts that accept
+connections from any host (`'%'` wildcard), and accounts still on the legacy SHA1-based
+`mysql_native_password` (or `sha256_password` on MySQL 8.0+) authentication plugin. Each
+finding maps to a copy-pasteable SQL recommendation."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
@@ -51,6 +52,132 @@ PASS_COLUMN_NAMES = [
     'authentication_string',
     'IF(plugin="mysql_native_password", authentication_string, password)',
 ]
+
+# Dictionary of common default / weak passwords. Merged from two sources
+# and kept alphabetical:
+# - SecLists xato-net-10-million-passwords-100 (real-world breach corpus,
+#   https://github.com/danielmiessler/SecLists), filtered to drop empty
+#   entries and any candidate containing an apostrophe.
+# - A small set of MySQL/MariaDB-specific defaults that ship with
+#   packaged stacks (`admin`, `changeme`, `default`, `mariadb`, `mysql`,
+#   `root`, `welcome`, ...).
+# Compared at server side via the `PASSWORD()` function, so the
+# candidates never leave the database. `PASSWORD()` was removed in MySQL
+# 8.0; the check returns [] silently there (caller does not need to
+# special-case the version).
+WEAK_PASSWORDS = (
+    '000000',
+    '1111',
+    '111111',
+    '11111111',
+    '112233',
+    '121212',
+    '123123',
+    '123321',
+    '1234',
+    '12345',
+    '123456',
+    '1234567',
+    '12345678',
+    '123456789',
+    '1234567890',
+    '123qwe',
+    '131313',
+    '159753',
+    '1qaz2wsx',
+    '2000',
+    '555555',
+    '654321',
+    '666666',
+    '6969',
+    '696969',
+    '777777',
+    '7777777',
+    '987654321',
+    'aaaaaa',
+    'abc123',
+    'access',
+    'admin',
+    'amanda',
+    'andrew',
+    'asdfgh',
+    'ashley',
+    'asshole',
+    'austin',
+    'baseball',
+    'batman',
+    'biteme',
+    'buster',
+    'changeme',
+    'charlie',
+    'cheese',
+    'chelsea',
+    'computer',
+    'dallas',
+    'daniel',
+    'default',
+    'dragon',
+    'football',
+    'freedom',
+    'fuck',
+    'fuckme',
+    'fuckyou',
+    'george',
+    'ginger',
+    'guest',
+    'harley',
+    'hockey',
+    'hunter',
+    'iloveyou',
+    'jennifer',
+    'jessica',
+    'jordan',
+    'joshua',
+    'killer',
+    'klaster',
+    'letmein',
+    'love',
+    'maggie',
+    'mariadb',
+    'master',
+    'matthew',
+    'michael',
+    'michelle',
+    'monkey',
+    'mustang',
+    'mysql',
+    'nicole',
+    'pass',
+    'password',
+    'pepper',
+    'princess',
+    'pussy',
+    'qazwsx',
+    'qwerty',
+    'qwertyuiop',
+    'qwertzuiop',
+    'ranger',
+    'robert',
+    'root',
+    'secret',
+    'shadow',
+    'soccer',
+    'starwars',
+    'summer',
+    'sunshine',
+    'superman',
+    'taylor',
+    'test',
+    'thomas',
+    'thunder',
+    'tigger',
+    'trustno1',
+    'user',
+    'welcome',
+    'yankees',
+    'zxcvbn',
+    'zxcvbnm',
+)
 
 
 def parse_args():
@@ -207,6 +334,40 @@ def find_username_as_password_users(conn, role_filter):
     return []
 
 
+def find_weak_password_users(conn, role_filter):
+    """Match each user's stored password hash against the WEAK_PASSWORDS
+    dictionary. Comparison runs server-side via `cast(<col> as binary) =
+    password('<candidate>')`, so candidates and hashes never leave the
+    database and the existing pass-column detection ladder is reused.
+    `PASSWORD()` was removed in MySQL 8.0, so on those servers every
+    candidate query errors out and the function returns []. Returns a
+    list of `{'user': '...', 'password': '<weak-value>'}` dicts.
+    """
+    # Build the candidate set as a SQL UNION once per column attempt so
+    # the join below stays a single round-trip per column.
+    candidates_union = ' union all '.join(
+        f"select '{p}' as password"
+        for p in WEAK_PASSWORDS
+    )
+    for pass_column in PASS_COLUMN_NAMES:
+        sql = f"""
+            select concat(quote(u.user), '@', quote(u.host)) as user,
+                w.password as password
+            from mysql.user u
+            join ({candidates_union}) w
+                on cast(u.{pass_column} as binary) = password(w.password)
+            where {role_filter}u.user != ''
+                and u.user != 'mariadb.sys'
+                and u.user != 'mysql.sys'
+            order by u.user, u.host, w.password
+            ;
+        """  # nosec B608
+        success, rows = lib.db_mysql.select(conn, sql)
+        if success:
+            return rows
+    return []
+
+
 def find_legacy_auth_plugin_users(conn, role_filter, mysql_80_plus):
     """Port of mysqltuner check_auth_plugins(). Returns the list
     of users on the legacy SHA1-based `mysql_native_password` plugin (and
@@ -310,6 +471,14 @@ def main():
         if skip_username_as_password
         else find_username_as_password_users(conn, role_filter)
     )
+    # Same `validate_password`-plugin caveat applies to the weak-password
+    # dictionary check (MySQL Bug #80860 makes the comparison fail when
+    # the plugin is active).
+    weak_password_users = (
+        []
+        if skip_username_as_password
+        else find_weak_password_users(conn, role_filter)
+    )
     wildcard_host_users = find_wildcard_host_users(conn)
     legacy_auth_users = find_legacy_auth_plugin_users(conn, role_filter, mysql_80_plus)
     user_count = count_non_system_users(conn, role_filter)
@@ -355,7 +524,7 @@ def main():
 
     if skip_username_as_password:
         findings.append(
-            'username-as-password check skipped '
+            'username-as-password and weak-password checks skipped '
             '(`validate_password` plugin is active; MySQL Bug #80860)'
         )
     else:
@@ -369,6 +538,20 @@ def main():
         )
         for u in username_pw_users:
             recommendations.append(
+                f"`SET PASSWORD FOR {u['user']} = PASSWORD('{PASSWORD_PLACEHOLDER}');`"
+            )
+
+        n_weak = len(weak_password_users)
+        if n_weak:
+            state = lib.base.get_worst(state, severity_state)
+        findings.append(
+            f'{n_weak} {lib.txt.pluralize("user", n_weak)} '
+            f'with a weak default password'
+            f'{lib.base.state2str(severity_state, prefix=" ") if n_weak else ""}'
+        )
+        for u in weak_password_users:
+            recommendations.append(
+                f"{u['user']}: password is `{u['password']}` (well-known default); "
                 f"`SET PASSWORD FOR {u['user']} = PASSWORD('{PASSWORD_PLACEHOLDER}');`"
             )
 
@@ -456,6 +639,11 @@ def main():
     perfdata += lib.base.get_perfdata(
         'mysql_users_with_username_as_password',
         len(username_pw_users),
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_users_with_weak_password',
+        len(weak_password_users),
         _min=0,
     )
     perfdata += lib.base.get_perfdata(

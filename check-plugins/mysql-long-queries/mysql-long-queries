@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051202'
+__version__ = '2026051204'
 
 DESCRIPTION = """Checks for in-flight MySQL/MariaDB queries that have been running longer
 than `--warning` / `--critical` seconds. Unlike `mysql-slow-queries` (which trends the
@@ -171,6 +171,25 @@ def fetch_long_queries(conn):
     return lib.base.coe(lib.db_mysql.select(conn, sql))
 
 
+def fetch_active_transactions(conn):
+    """Return the number of active InnoDB transactions. Counts every
+    row in `information_schema.innodb_trx`, which includes every
+    transaction the InnoDB engine is currently tracking - both running
+    and locked. Reported as perfdata only, so a Grafana panel can
+    trend background contention even when no single query is in the
+    long-running band yet. The `innodb_trx` view requires PROCESS,
+    which the plugin already enforces upstream.
+    """
+    sql = 'select count(*) as cnt from information_schema.innodb_trx'
+    success, rows = lib.db_mysql.select(conn, sql)
+    if not success or not rows:
+        return 0
+    try:
+        return int(rows[0].get('cnt') or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
 def apply_ignore_filter(rows, ignore_regexes):
     """Drop rows whose `statement` matches any of the user-supplied
     `--ignore` regexes. The match is case-insensitive and uses
@@ -231,6 +250,7 @@ def main():
 
     rows = fetch_long_queries(conn)
     rows = apply_ignore_filter(rows, args.IGNORE)
+    active_transactions = fetch_active_transactions(conn)
 
     lib.db_mysql.close(conn)
 
@@ -305,6 +325,11 @@ def main():
         uom='s',
         warn=args.WARN,
         crit=args.CRIT,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_active_transactions',
+        active_transactions,
         _min=0,
     )
 

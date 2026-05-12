@@ -80,6 +80,8 @@ Monitoring Plugins:
 * mysql-user-security: documented privilege broadened to `SELECT on mysql.*` (was `mysql.user`)
 * mysql-user-security: skip username-as-password check when `validate_password` is active. MariaDB roles excluded. New perfdata. Basket `enable_perfdata = true`
 * mysql-user-security: flag accounts on legacy `mysql_native_password` (and `sha256_password` on MySQL 8.0+). Version-aware recommendation. New perfdata: `mysql_users_on_legacy_auth_plugin`
+* mysql-user-security: weak-password dictionary check (~110 common defaults from SecLists + MySQL/MariaDB-specific entries). Per-user finding names the matched password. Skipped on MySQL 8.0+ (`PASSWORD()` removed) and when the `validate_password` plugin is active. New perfdata: `mysql_users_with_weak_password`
+* mysql-long-queries: new perfdata `mysql_active_transactions` from `information_schema.innodb_trx`. Trends background InnoDB transaction contention even when no single query is over the long-running threshold
 
 
 ### Fixed
