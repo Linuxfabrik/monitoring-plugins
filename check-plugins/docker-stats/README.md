@@ -108,8 +108,12 @@ myconti_ds_1              ! 0.0   ! 11.42
 
 ## Perfdata / Metrics
 
+The plugin emits one CPU and one memory metric per container so individual workloads can be plotted long-term. Because container names appear and disappear as workloads come and go, the time-series backend (Graphite, InfluxDB, ...) will keep stale entries until they are pruned.
+
 | Name | Type | Description |
 |----|----|----|
+| `<container>_cpu_usage` | Percentage | Per-container CPU usage, normalized by host CPU count. |
+| `<container>_mem_usage` | Percentage | Per-container memory usage, relative to the container memory limit or host memory. |
 | containers_running | Number | Number of running containers. |
 | cpu | Number | Number of host CPUs. |
 

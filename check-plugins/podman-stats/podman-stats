@@ -22,7 +22,7 @@ import lib.shell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041002'
+__version__ = '2026051201'
 
 DESCRIPTION = """Reports CPU and memory usage for all running Podman containers. CPU usage is
 normalized by dividing by the number of available host CPU cores. CPU alerts only
@@ -231,6 +231,26 @@ def main():
         # divide by number of cores (got by podman info)
         cpu_usage = round(float(container.get('CPU', 0)) / host_cpus, 1)
         mem_usage = round(float(container.get('MemPerc', 0)), 1)
+
+        # per-container perfdata for long-term trending of individual workloads
+        perfdata += lib.base.get_perfdata(
+            f'{name}_cpu_usage',
+            cpu_usage,
+            uom='%',
+            warn=args.WARN_CPU,
+            crit=args.CRIT_CPU,
+            _min=0,
+            _max=100,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{name}_mem_usage',
+            mem_usage,
+            uom='%',
+            warn=args.WARN_MEM,
+            crit=args.CRIT_MEM,
+            _min=0,
+            _max=100,
+        )
 
         # accumulate totals for aggregate perfdata
         total_block_input += int(container.get('BlockInput', 0))

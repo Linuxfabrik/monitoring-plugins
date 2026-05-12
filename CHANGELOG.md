@@ -85,6 +85,11 @@ Grafana:
 * `schemaVersion` fixed to `42`; Grafana 12 was failing to import the date-encoded value
 
 
+Monitoring Plugins:
+
+* docker-stats, podman-stats: per-container CPU and memory perfdata restored. The previous release reported only aggregate values, breaking long-term trending of individual containers ([#1104](https://github.com/Linuxfabrik/monitoring-plugins/issues/1104))
+
+
 ### Removed
 
 Monitoring Plugins:
