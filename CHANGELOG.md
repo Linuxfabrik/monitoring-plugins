@@ -19,6 +19,12 @@ Monitoring Plugins:
 * ups-nut: monitor a UPS managed by Network UPS Tools (NUT). Battery, load, voltages, runtime, temperature and status
 
 
+Build, CI/CD:
+
+* requirements-windows.in: trimmed to only what `.windows` plugins use. Dropped `smbprotocol`, added `pypsrp` and `pywinrm` for `dhcp-scope-usage`. urllib3 lands at 2.7.0 on the Windows binary, closing two Dependabot advisories
+* requirements.txt: urllib3 stays on 2.6.x because 2.7.0 needs Python 3.10+ and we keep RHEL 8 / Python 3.9 compatible. The two open advisories are accepted risk for the Linux source install
+
+
 ### Changed
 
 Grafana:
@@ -55,7 +61,7 @@ Monitoring Plugins:
 * mysql-tls: rename finding text "Monitoring connection ..." to "Current connection ..." to match mysqltuner output verbatim
 * mysql-query!: align with the other mysql-* plugins. Breaking perfdata: `cnt_warn`/`cnt_crit` renamed to `mysql_query_warn_value`/`mysql_query_crit_value`
 * mysql-replica-status!: bug fix - lag detection fired on every server. Privilege narrowed to `SLAVE MONITOR` / `REPLICA MONITOR` on MariaDB 10.5+. New parameters and perfdata. Ships Grafana dashboard
-* mysql-slow-queries: README clarifies that `Slow_queries` is a counter independent of `slow_query_log`
+* mysql-slow-queries: README clarifies that `Slow_queries` is a counter independent of `slow_query_log`, and that the `slow_query_log` / `long_query_time` findings only surface as recommendations alongside a slow-query-ratio WARN/CRIT (no standalone alert)
 * mysql-slow-queries!: bug fix - 5.x% never alerted (now float). New `--warning` (5%) / `--critical` (10%). Breaking perfdata: cumulative counters replaced by per-second rates
 * mysql-sorts!: new `--warning` (10%) / `--critical` (20%). Output reworded ("merge-sort file"). Breaking perfdata: cumulative counters replaced by per-second rates
 * mysql-storage-engines!: AUTO_INCREMENT check uses each column's own type ceiling (was always BIGINT UNSIGNED). New parameters. Now emits perfdata. Ships Grafana dashboard
