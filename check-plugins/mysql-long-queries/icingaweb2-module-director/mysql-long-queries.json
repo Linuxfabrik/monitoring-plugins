@@ -1,0 +1,227 @@
+{
+    "Command": {
+        "cmd-check-mysql-long-queries": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$mysql_long_queries_always_ok$"
+                },
+                "--critical": {
+                    "value": "$mysql_long_queries_critical$"
+                },
+                "--defaults-file": {
+                    "value": "$mysql_long_queries_defaults_file$"
+                },
+                "--defaults-group": {
+                    "value": "$mysql_long_queries_defaults_group$"
+                },
+                "--ignore": {
+                    "value": "$mysql_long_queries_ignore$",
+                    "repeat_key": true
+                },
+                "--lengthy": {
+                    "set_if": "$mysql_long_queries_lengthy$"
+                },
+                "--timeout": {
+                    "value": "$mysql_long_queries_timeout$"
+                },
+                "--warning": {
+                    "value": "$mysql_long_queries_warning$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/mysql-long-queries",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-mysql-long-queries",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "45c90ca2-e949-4c59-a422-7f0e26ae0fb1"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-mysql-long-queries": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-mysql-long-queries",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "mysql-long-queries.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks for in-flight MySQL/MariaDB queries that have been running longer than `--warning` / `--critical` seconds. Unlike `mysql-slow-queries` (which trends the historical ratio of finished slow queries), this plugin shows queries that are *currently* executing right now, with their session ID, user, database, runtime and a truncated copy of the statement so the admin can `KILL <id>` directly. Sleeping sessions and replication threads are ignored. Logic taken from MySQLTuner v2.8.41 `mysql_pfs()`, but the data source is `information_schema.processlist` so the check works on every MySQL/MariaDB release without requiring Performance Schema to be enabled. Without `PROCESS` privilege, the monitoring user only sees its own sessions; grant `PROCESS` on `*.*` to see queries across all sessions.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-long-queries/",
+            "object_name": "tpl-service-mysql-long-queries",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "mysql_long_queries_always_ok": false,
+                "mysql_long_queries_critical": "300",
+                "mysql_long_queries_defaults_file": "/var/spool/icinga2/.my.cnf",
+                "mysql_long_queries_defaults_group": "client",
+                "mysql_long_queries_ignore": [],
+                "mysql_long_queries_lengthy": false,
+                "mysql_long_queries_timeout": 3,
+                "mysql_long_queries_warning": "30"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "da8bdf08-b3da-4512-b277-adfcf32d36eb"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "mysql_long_queries_always_ok",
+            "caption": "MySQL Long Queries: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "9d36be7a-68a4-401a-aeaf-206797eb0bd4"
+        },
+        "2": {
+            "varname": "mysql_long_queries_critical",
+            "caption": "MySQL Long Queries: Critical",
+            "description": "Query runtime in seconds that triggers CRIT. Supports Nagios ranges. Example: `--critical=60`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "47c6d643-9bf6-44ad-8f99-1bfcdfd1de97"
+        },
+        "3": {
+            "varname": "mysql_long_queries_defaults_file",
+            "caption": "MySQL Long Queries: Defaults File",
+            "description": "MySQL/MariaDB cnf file to read user, host and password from. Example: `--defaults-file=/var/spool/icinga2/.my.cnf`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "034a4eb5-ade1-4334-83fa-eb39bfe2bd87"
+        },
+        "4": {
+            "varname": "mysql_long_queries_defaults_group",
+            "caption": "MySQL Long Queries: Defaults Group",
+            "description": "Group/section to read from in the cnf file.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "55701559-2ca2-4838-a3f6-804dd3c327de"
+        },
+        "5": {
+            "varname": "mysql_long_queries_ignore",
+            "caption": "MySQL Long Queries: Ignore",
+            "description": "Regex applied to the running statement. Matching queries are ignored (e.g. `--ignore=^mysqldump` to exclude backup runs). Repeat the flag for multiple patterns. Example: `--ignore=ANALYZE --ignore=^mysqldump`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "e714b357-ccb2-4ba2-b5a6-30b21335c415"
+        },
+        "6": {
+            "varname": "mysql_long_queries_lengthy",
+            "caption": "MySQL Long Queries: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "1d3d0fee-d9bc-41f0-bf48-bcb50493138e"
+        },
+        "7": {
+            "varname": "mysql_long_queries_timeout",
+            "caption": "MySQL Long Queries: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "99cf127b-a182-474a-8859-3d5d423be8d3"
+        },
+        "8": {
+            "varname": "mysql_long_queries_warning",
+            "caption": "MySQL Long Queries: Warning",
+            "description": "Query runtime in seconds that triggers WARN. Supports Nagios ranges. Example: `--warning=15`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "c8907efe-2cf9-481c-b498-c60b3b7cbb3d"
+        }
+    }
+}

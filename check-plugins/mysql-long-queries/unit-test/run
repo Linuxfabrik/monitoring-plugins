@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Integration tests for the mysql-long-queries check plugin.
+
+Each LTS image is exercised in two phases:
+
+1. Happy-path: a freshly booted MariaDB/MySQL has no long-running
+   queries, so the plugin reports OK with `mysql_long_queries_total=0`.
+
+2. Long-query path: a background SLEEP(60) is launched as the `test`
+   user; once it has been running for >5s, the plugin must see it,
+   flag it against `--warning=5:`, and emit a non-zero
+   `mysql_long_queries_over_warn` perfdata.
+
+`PROCESS` is granted to the `test` user before phase 2 so the plugin
+sees other sessions' queries (without it, the plugin would only see
+its own connection).
+
+The test matrix is defined by the Containerfiles under
+`containerfiles/`. Each file is a Containerfile (typically a
+one-line `FROM`) and gets built once via testcontainers'
+DockerImage (cached across runs). Add a new MariaDB LTS by
+dropping in a new Containerfile; retire one by deleting the file.
+
+Requirements:
+- podman (or docker) with a reachable socket
+- `pip install testcontainers`
+- `tools/run-unit-tests` auto-sets `CONTAINER_HOST` and
+  `TESTCONTAINERS_RYUK_DISABLED`
+"""
+
+import os
+import subprocess
+import sys
+import time
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+from lib.globals import STATE_OK, STATE_WARN
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
+CONTAINERFILES = sorted(
+    name for name in os.listdir(CONTAINERFILES_DIR)
+    if os.path.isfile(os.path.join(CONTAINERFILES_DIR, name))
+)
+
+
+class TestCheck(unittest.TestCase):
+    pass
+
+
+def _run_plugin(defaults_file, warning='30', critical='300'):
+    return subprocess.run(
+        [
+            'python3', '../mysql-long-queries',
+            f'--defaults-file={defaults_file}',
+            f'--warning={warning}',
+            f'--critical={critical}',
+        ],
+        cwd=HERE,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _check_image(test, containerfile):
+    path = os.path.join(CONTAINERFILES_DIR, containerfile)
+    print(f'\n=== Testing {containerfile} ===', flush=True)
+    with lib.lftest.run_mysql_compatible_from_containerfile(path) as (
+        container,
+        defaults_file,
+    ):
+        # The plugin requires PROCESS for both phases (it enforces the
+        # privilege via check_privileges()). The default MYSQL_USER
+        # from lib.lftest only has rights on its own DB; grant
+        # PROCESS upfront so both phases can run.
+        container.exec([
+            'sh', '-c',
+            'if command -v mariadb >/dev/null 2>&1; then C=mariadb; '
+            'else C=mysql; fi; '
+            'GRANTS="GRANT PROCESS ON *.* TO '
+            "'test'@'%'"
+            '"; '
+            '"$C" -uroot -e "$GRANTS" 2>/dev/null '
+            '|| "$C" -uroot -ptest -e "$GRANTS"',
+        ])
+
+        # Phase 1: no long queries on a freshly booted server.
+        result = _run_plugin(defaults_file)
+        out = result.stdout + result.stderr
+        print(f'Phase 1 output:\n{out.strip()}', flush=True)
+        test.assertEqual(result.returncode, STATE_OK)
+        test.assertIn('Everything is ok.', out)
+        test.assertIn('mysql_long_queries_total', out)
+
+        # Phase 2: launch a SLEEP(60) in the background and wait 7s
+        # so it crosses the `--warning=5` threshold (Nagios range
+        # `5` = alert when value > 5).
+        # Launch SLEEP(60) detached as the `test` user (PASSWORD=test
+        # for both image families) so the exec call returns immediately;
+        # the session keeps running inside the container. Using `test`
+        # instead of `root` avoids the sclorg-vs-upstream root-auth
+        # difference (sclorg root authenticates via unix socket without
+        # a password, upstream root requires the configured one).
+        wrapped = container.get_wrapped_container()
+        wrapped.exec_run(
+            [
+                'sh', '-c',
+                'if command -v mariadb >/dev/null 2>&1; then C=mariadb; '
+                'else C=mysql; fi; '
+                '"$C" -utest -ptest -e "SELECT SLEEP(60);"',
+            ],
+            detach=True,
+        )
+        time.sleep(7)
+
+        result = _run_plugin(defaults_file, warning='5', critical='300')
+        out = result.stdout + result.stderr
+        print(f'Phase 2 output:\n{out.strip()}', flush=True)
+        test.assertEqual(result.returncode, STATE_WARN)
+        test.assertIn('SLEEP(60)', out)
+        test.assertIn('mysql_long_queries_over_warn', out)
+
+
+lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)
+
+
+if __name__ == '__main__':
+    unittest.main()

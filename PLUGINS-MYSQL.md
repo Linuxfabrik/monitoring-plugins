@@ -12,13 +12,15 @@ listings and the monitoring host's shell history.
 * `mysql-binlog-cache`: binlog cache hit/miss rate.
 * `mysql-connections`: current and max connections.
 * `mysql-database-metrics`: per-database size and object counts.
+* `mysql-health`: single-number 0-100 health score for a MySQL/MariaDB server.
 * `mysql-innodb-buffer-pool-size`: InnoDB buffer-pool sizing vs. hit rate.
 * `mysql-innodb-log-waits`: InnoDB log wait rate.
 * `mysql-joins`: joins without indexes.
 * `mysql-logfile`: bracket-tag check against the MySQL/MariaDB error log. Prefers `performance_schema.error_log` on MySQL 8.0.22+, falls back to the on-disk file (or `docker:`/`podman:`/`kubectl:`/`systemd:` source).
+* `mysql-long-queries`: in-flight queries that have been running longer than the configured threshold.
 * `mysql-memory`: server memory metrics.
 * `mysql-open-files`: open-files vs. `open_files_limit`.
-* `mysql-perf-metrics`: general performance counters.
+* `mysql-perf-metrics`: general performance counters and explicitly-set deprecated config variables.
 * `mysql-query`: run an arbitrary SQL query and alert on the returned value.
 * `mysql-replica-status`: replica status for asynchronous replication.
 * `mysql-slow-queries`: slow-query counter and rate.
@@ -147,18 +149,20 @@ minimum.
 
 | Scope | Minimum grant on `*.*` |
 |----|----|
-| **One shared monitoring user (covers all MySQL plugins)** | `GRANT USAGE, SELECT, REPLICATION CLIENT ON *.* TO 'monitoring'@'127.0.0.1'`. On MariaDB 10.5+, `SLAVE MONITOR` (or its MariaDB 11+ alias `REPLICA MONITOR`) also satisfies `mysql-replica-status` |
+| **One shared monitoring user (covers all MySQL plugins)** | Baseline: `GRANT SELECT, PROCESS ON *.* TO 'monitoring'@'127.0.0.1'`. `SELECT` covers `information_schema`, `mysql.*` and `performance_schema.*` reads; `PROCESS` covers `information_schema.processlist` (mysql-long-queries) and `SHOW ENGINE PERFORMANCE_SCHEMA STATUS` (mysql-memory's PFS footprint). For `mysql-replica-status` add `REPLICATION CLIENT` on MySQL and MariaDB <10.5, or `SLAVE MONITOR` on MariaDB 10.5+ (alias `REPLICA MONITOR` on MariaDB 11+). `USAGE` is implicit in every GRANT |
 | `mysql-aria`, `mysql-database-metrics`, `mysql-innodb-buffer-pool-size`, `mysql-storage-engines`, `mysql-table-definition-cache`, `mysql-table-indexes` | `GRANT SELECT ON *.*` (needed to see all rows in `information_schema`) |
 | `mysql-replica-status` | `GRANT REPLICATION CLIENT ON *.*` on MySQL and MariaDB <10.5. **On MariaDB 10.5+** plain `REPLICATION CLIENT` is no longer enough for `SHOW REPLICA STATUS` / `SHOW SLAVE STATUS`; grant `SLAVE MONITOR` (or its MariaDB 11+ alias `REPLICA MONITOR`) instead |
+| `mysql-long-queries` | `GRANT PROCESS ON *.*` so the user sees other sessions' queries in `information_schema.processlist`. Without `PROCESS`, the plugin only sees its own connection and will silently miss long-running queries from application users |
 | `mysql-tls` | `GRANT SELECT ON mysql.*` (queries `mysql.user` and `mysql.global_priv` for remote users without `REQUIRE SSL`). For the local certificate expiry check the OS user running the plugin must additionally be able to read `ssl_cert` / `ssl_ca` from disk |
 | `mysql-user-security` | `GRANT SELECT ON mysql.*` (queries `mysql.user` and `mysql.global_priv`) |
 | `mysql-logfile` | `GRANT USAGE ON *.*` is enough for on-disk / container / systemd sources. To additionally use `performance_schema.error_log` (MySQL 8.0.22+), `GRANT SELECT ON performance_schema.error_log` is needed; without it the plugin transparently falls back to file mode |
 | All other `mysql-*` plugins | `GRANT USAGE ON *.*` (login-only, no further privileges) |
 | `mysql-query` | depends entirely on the SQL passed via `--query` |
 
-Each plugin verifies the grants up front via `SHOW GRANTS FOR CURRENT_USER()`
-and exits `UNKNOWN` with a message that names the missing privilege if a
-grant is absent. `ALL PRIVILEGES` and `SUPER` short-circuit the check.
+Every MySQL plugin that opens a database connection verifies the grants
+up front via `SHOW GRANTS FOR CURRENT_USER()` and exits `UNKNOWN` with a
+message that names the missing privilege if a grant is absent. `ALL
+PRIVILEGES` and `SUPER` short-circuit the check.
 
 `mysql-system` and `mysql-version` open no database connection and therefore
 need no grants; they read uptime and package-version facts from the operating
@@ -178,12 +182,15 @@ role; activate several sets on the same host when appropriate.
   Replication.
 * **MySQL InnoDB Service Set**: InnoDB-specific counters (buffer pool, log
   waits). For servers using InnoDB as the main engine.
-* **MySQL Metrics Service Set**: query-level metrics (joins, sorts, slow
-  queries, temp tables, thread and table caches).
+* **MySQL Metrics Service Set**: server-wide metrics (connections,
+  memory, open files, perf metrics, storage engines, traffic, logfile,
+  thread cache).
 * **MySQL Replication Service Set**: replica-specific health
   (`mysql-replica-status`). Activate on asynchronous replicas.
-* **MySQL Schemas Service Set**: per-database size and index quality
-  (database metrics, table indexes, table locks).
+* **MySQL Schemas Service Set**: per-database / per-query metrics
+  (database metrics, joins, long-running queries, slow queries, sorts,
+  table cache, table definition cache, table indexes, table locks,
+  temp tables).
 * **MySQL Security Service Set**: account hygiene, TLS posture and the
   server-side error log (`mysql-user-security`, `mysql-tls`,
   `mysql-logfile`).

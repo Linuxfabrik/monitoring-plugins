@@ -42,15 +42,23 @@ usage: mysql-perf-metrics [-h] [-V] [--always-ok]
                           [--defaults-group DEFAULTS_GROUP]
                           [--timeout TIMEOUT]
 
-Checks two MySQL/MariaDB best-practice knobs that do not have a dedicated
-plugin: `innodb_stats_on_metadata` and `concurrent_insert`. Alerts when either
-is set to a value that slows down typical workloads.
-`innodb_stats_on_metadata`: when ON, InnoDB recalculates index statistics
-every time `information_schema` tables are queried. Most modern setups keep
-this OFF because applications and tooling query `information_schema`
-frequently. `concurrent_insert`: when set to `NEVER`/`0`, MyISAM tables can no
-longer serve SELECTs in parallel with INSERTs. The recommended value is `AUTO`
-(the modern default).
+Checks MySQL/MariaDB best-practice knobs that do not have a dedicated plugin:
+`innodb_stats_on_metadata`, `concurrent_insert`, and any deprecated
+configuration variables that the admin has explicitly set via `my.cnf` or `SET
+GLOBAL`. `innodb_stats_on_metadata`: when ON, InnoDB recalculates index
+statistics every time `information_schema` tables are queried. Most modern
+setups keep this OFF because applications and tooling query
+`information_schema` frequently. `concurrent_insert`: when set to `NEVER`/`0`,
+MyISAM tables can no longer serve SELECTs in parallel with INSERTs. The
+recommended value is `AUTO` (the modern default). Deprecated variables:
+MariaDB exposes its own deprecation flag at runtime
+(`INFORMATION_SCHEMA.SYSTEM_VARIABLES.VARIABLE_COMMENT` +
+`GLOBAL_VALUE_ORIGIN`); MySQL does not, so a static list ported from
+MySQLTuner v2.8.41 is used and filtered through
+`performance_schema.variables_info.VARIABLE_SOURCE` to skip compile-time
+defaults. The check only fires when the variable's value did NOT come from
+`COMPILE-TIME`, so a fresh installation stays quiet and only real `my.cnf`
+leftovers and explicit `SET GLOBAL` changes are surfaced.
 
 options:
   -h, --help            show this help message and exit

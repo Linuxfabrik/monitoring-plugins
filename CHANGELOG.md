@@ -14,6 +14,7 @@ Monitoring Plugins:
 
 * cert: inspect X.509 certificates from a TLS endpoint or local PEM/DER files. Alerts on days until expiry
 * mysql-health: single-number 0-100 health score for a MySQL/MariaDB server. Top-level Icinga alert and Grafana KPI
+* mysql-long-queries: alert on in-flight queries running longer than `--warning` / `--critical` seconds. Shows session ID, user, DB and statement so the admin can `KILL <id>` directly
 * mysql-tls: TLS/SSL posture (have_ssl, require_secure_transport, TLS versions, cert expiry, remote users without REQUIRE SSL)
 * ups-nut: monitor a UPS managed by Network UPS Tools (NUT). Battery, load, voltages, runtime, temperature and status
 
@@ -42,6 +43,7 @@ Monitoring Plugins:
 * mysql-innodb-log-waits: scope broadened to "Write Log efficiency" (alerts below 90%). Absent/disabled InnoDB no longer UNKNOWN. Breaking perfdata. Ships Grafana dashboard
 * mysql-joins: ship Grafana dashboard. Recommendation only suggests raising `join_buffer_size` below 4 MiB. Breaking perfdata
 * mysql-logfile: prefers `performance_schema.error_log` on MySQL 8.0.22+ (works remote). Bug fix: docker/podman/kubectl sources read container logs. Severity matched via `[ERROR]`/`[Warning]` tags
+* mysql-logfile: empty log file is now consistently STATE_OK regardless of whether `--server-log` was set (was STATE_UNKNOWN in auto-detect mode). Typical right after logrotate fires
 * mysql-memory: bug fix on `max_tmp_table_size`. Galera GCache counted on cluster nodes. New `--warning` (85%) / `--critical` (95%). `--lengthy` shows full breakdown. New perfdata
 * mysql-memory and several other mysql-* plugins: thresholds now accept Nagios ranges. Boundary semantic shifts from `>=N` to `>N`
 * mysql-open-files: new `--warning` (85%) / `--critical` (95%) replace the hardcoded 85% WARN-only
