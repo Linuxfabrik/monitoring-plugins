@@ -11,6 +11,8 @@
 """See the check's README for more details."""
 
 import argparse
+import glob
+import os
 import sys
 
 import lib.args
@@ -21,23 +23,43 @@ import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051102'
+__version__ = '2026051203'
 
-DESCRIPTION = """Checks MySQL/MariaDB best-practice knobs that do not have a dedicated
-plugin: `innodb_stats_on_metadata`, `concurrent_insert`, and any deprecated configuration
-variables that the admin has explicitly set via `my.cnf` or `SET GLOBAL`.
-`innodb_stats_on_metadata`: when ON, InnoDB recalculates index statistics every time
-`information_schema` tables are queried. Most modern setups keep this OFF because
-applications and tooling query `information_schema` frequently.
-`concurrent_insert`: when set to `NEVER`/`0`, MyISAM tables can no longer serve SELECTs
-in parallel with INSERTs. The recommended value is `AUTO` (the modern default).
-Deprecated variables: MariaDB exposes its own deprecation flag at runtime
-(`INFORMATION_SCHEMA.SYSTEM_VARIABLES.VARIABLE_COMMENT` + `GLOBAL_VALUE_ORIGIN`); MySQL
-does not, so a static list ported from MySQLTuner is used and filtered through
-`performance_schema.variables_info.VARIABLE_SOURCE` to skip compile-time defaults. The
-check only fires when the variable's value did NOT come from `COMPILE-TIME`, so a fresh
-installation stays quiet and only real `my.cnf` leftovers and explicit `SET GLOBAL`
-changes are surfaced."""
+DESCRIPTION = """Audits MySQL/MariaDB configuration knobs that have a measurable impact
+on performance or correctness but no metric of their own. Highlights settings that
+silently waste work on tooling-heavy hosts, drop a transaction-isolation guarantee an
+admin probably expected, are tuned for the wrong storage class, or hang on as no-op
+leftovers in `my.cnf` until the next major upgrade refuses to start with them.
+
+What gets checked:
+- `innodb_stats_on_metadata`: when ON, InnoDB refreshes index statistics on every
+  `information_schema` query. Hosts with frequent dashboard, backup and
+  monitoring queries pay a noticeable CPU cost for this. Recommended OFF.
+- `concurrent_insert`: when set to `NEVER` / `0`, MyISAM tables can no longer serve
+  SELECTs in parallel with INSERTs. `AUTO` (the modern default) is recommended.
+- `innodb_snapshot_isolation` (MariaDB only): under `REPEATABLE-READ`, OFF lets a
+  transaction see writes other transactions commit during its lifetime, breaking the
+  stable-snapshot guarantee the name `REPEATABLE-READ` implies. ON makes the
+  snapshot stable. Default flipped to ON in MariaDB 11.8; before that, the admin had
+  to opt in. Other isolation levels and non-MariaDB servers skip this check.
+- `innodb_flush_neighbors`: HDD wins from grouping seek-adjacent dirty-page flushes,
+  SSD/NVMe pays in extra writes for no latency benefit. Recommended `0` on SSD/NVMe,
+  `1` (or `2`) on HDD.
+- `innodb_io_capacity`: caps InnoDB's background flushing rate. Default `200` is
+  sized for HDD; SSD/NVMe deployments should raise this to `2000` or more so InnoDB
+  can flush closer to the disk's IOPS budget.
+- Deprecated configuration variables explicitly set via `my.cnf` or `SET GLOBAL`.
+  The server tolerates these as no-ops, so they hide easily until the next major
+  upgrade ships without them. Compile-time defaults are silent. MariaDB exposes a
+  runtime deprecation flag; on MySQL a static list filtered through
+  `performance_schema.variables_info.VARIABLE_SOURCE` catches the same cases.
+
+The two storage-aware checks (`innodb_flush_neighbors`, `innodb_io_capacity`) need
+to know the disk type. Auto-detection reads `/sys/block/*/queue/rotational` on the
+same host the plugin runs on; when run from a remote monitoring host via TCP the
+auto-detect cannot see the database server's storage, so pass `--storage-type=ssd`
+or `--storage-type=hdd` explicitly, or `--storage-type=skip` to disable those two
+checks entirely."""
 
 # Variables MySQL has removed or kept as a no-op. Port of mysqltuner.pl v2.8.41
 # check_removed_innodb_variables (MySQL branch). Used only on the MySQL path;
@@ -107,7 +129,13 @@ REMOVED_VARS_MYSQL = [
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
+DEFAULT_STORAGE_TYPE = 'auto'
 DEFAULT_TIMEOUT = 3
+
+# Block devices that do not represent persistent storage and would
+# either return rotational=0 (incorrect for SSD) or skew Mixed
+# detection. Mirrors the skip list in mysqltuner.pl.
+_TRANSIENT_BLOCK_PREFIXES = ('loop', 'ram', 'nbd', 'zram')
 
 
 def parse_args():
@@ -146,6 +174,21 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--storage-type',
+        help='Storage type of the MySQL data directory. Drives the '
+        '`innodb_flush_neighbors` and `innodb_io_capacity` checks. '
+        '`auto` reads `/sys/block/*/queue/rotational` on the same host; '
+        '`ssd` or `hdd` overrides the detection (use when running from a '
+        'remote monitoring host via TCP); `skip` disables both storage-type '
+        'checks entirely. '
+        'Example: `--storage-type=ssd`. '
+        'Default: %(default)s',
+        dest='STORAGE_TYPE',
+        choices=('auto', 'ssd', 'hdd', 'skip'),
+        default=DEFAULT_STORAGE_TYPE,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -155,6 +198,50 @@ def parse_args():
 
     args, _ = parser.parse_known_args()
     return args
+
+
+def detect_storage_type(override):
+    """Return one of ('ssd', 'hdd', 'mixed', 'unknown') describing the
+    block-device class behind the host's data directory. `override` is
+    the CLI argument value: 'ssd' / 'hdd' force the answer, 'skip'
+    short-circuits to 'unknown', 'auto' walks `/sys/block`.
+    Auto-detection only works on Linux when the plugin runs on the
+    MySQL host itself (typically via a local monitoring agent). When
+    `/sys/block` is not readable - remote check via TCP, Windows,
+    container without `/sys/block` mounted - the result is 'unknown'
+    and the downstream storage-aware checks are skipped silently.
+    Logic mirrors mysqltuner.
+    """
+    if override in ('ssd', 'hdd'):
+        return override
+    if override == 'skip':
+        return 'unknown'
+    # 'auto' from here on.
+    if not os.path.isdir('/sys/block'):
+        return 'unknown'
+    has_ssd = False
+    has_hdd = False
+    for block in glob.glob('/sys/block/*'):
+        name = os.path.basename(block)
+        if name.startswith(_TRANSIENT_BLOCK_PREFIXES):
+            continue
+        rotational_path = os.path.join(block, 'queue', 'rotational')
+        try:
+            with open(rotational_path, 'r', encoding='ascii') as f:
+                rotational = f.read().strip()
+        except (OSError, ValueError):
+            continue
+        if rotational == '0':
+            has_ssd = True
+        elif rotational == '1':
+            has_hdd = True
+    if has_ssd and not has_hdd:
+        return 'ssd'
+    if has_hdd and not has_ssd:
+        return 'hdd'
+    if has_ssd and has_hdd:
+        return 'mixed'
+    return 'unknown'
 
 
 def find_deprecated_variables_mariadb(conn):
@@ -264,6 +351,10 @@ def main():
         removed_vars = find_deprecated_variables_mysql(conn, myvar)
     lib.db_mysql.close(conn)
 
+    # Block-device class behind the data directory. Drives the two
+    # SSD-aware checks below. Detected once outside the SQL session.
+    storage_type = detect_storage_type(args.STORAGE_TYPE)
+
     # init some vars
     # Perfdata encoding for the two categorical knobs:
     # - innodb_stats_on_metadata: 0 = OFF (good), 1 = ON (warn).
@@ -337,6 +428,96 @@ def main():
                 warn='1:',
                 _min=0,
                 _max=2,
+            )
+
+    # innodb_snapshot_isolation (MariaDB 11.x): with the variable OFF and
+    # the global isolation level set to REPEATABLE-READ, transactions can
+    # see other transactions' commits during their lifetime. mysqltuner
+    # only flags this combination; other isolation levels and servers
+    # without the variable (MySQL, older MariaDB) skip silently.
+    snapshot_iso = myvar.get('innodb_snapshot_isolation')
+    if snapshot_iso is not None:
+        transaction_iso = (
+            myvar.get('transaction_isolation')
+            or myvar.get('tx_isolation')
+            or ''
+        )
+        if (
+            snapshot_iso == 'OFF'
+            and transaction_iso == 'REPEATABLE-READ'
+        ):
+            state = lib.base.get_worst(state, STATE_WARN)
+            facts.append(
+                '`innodb_snapshot_isolation` is `OFF` with '
+                '`REPEATABLE-READ`'
+                f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
+            )
+            recommendations.append(
+                'Set `innodb_snapshot_isolation = ON` so `REPEATABLE-READ` '
+                'transactions get a stable snapshot independent of concurrent '
+                'commits'
+            )
+        else:
+            facts.append(
+                f'`innodb_snapshot_isolation` is `{snapshot_iso}` '
+                f'(isolation `{transaction_iso}`)'
+            )
+
+    # innodb_flush_neighbors: 0 is right for SSD/NVMe (no seek savings),
+    # 1 or 2 is right for HDD (group adjacent dirty-page flushes). Skip
+    # silently on 'mixed' / 'unknown' storage and when the variable is
+    # not exposed by the server.
+    flush_neighbors = myvar.get('innodb_flush_neighbors')
+    if flush_neighbors is not None and storage_type in ('ssd', 'hdd'):
+        try:
+            flush_val = int(flush_neighbors)
+        except (TypeError, ValueError):
+            flush_val = None
+        if flush_val is not None:
+            if storage_type == 'ssd' and flush_val != 0:
+                state = lib.base.get_worst(state, STATE_WARN)
+                facts.append(
+                    f'`innodb_flush_neighbors` is `{flush_val}` on SSD/NVMe'
+                    f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
+                )
+                recommendations.append(
+                    'Set `innodb_flush_neighbors = 0` (recommended for SSD/NVMe)'
+                )
+            elif storage_type == 'hdd' and flush_val == 0:
+                state = lib.base.get_worst(state, STATE_WARN)
+                facts.append(
+                    '`innodb_flush_neighbors` is `0` on HDD'
+                    f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
+                )
+                recommendations.append(
+                    'Set `innodb_flush_neighbors = 1` or `2` (recommended for HDD)'
+                )
+            else:
+                facts.append(
+                    f'`innodb_flush_neighbors` is `{flush_val}` on '
+                    f'{storage_type.upper() if storage_type == "ssd" else "HDD"}'
+                )
+
+    # innodb_io_capacity: default 200 is HDD-sized; SSD/NVMe should
+    # usually be 2000 or more so InnoDB does not under-utilise the disk.
+    io_capacity = myvar.get('innodb_io_capacity')
+    if io_capacity is not None and storage_type == 'ssd':
+        try:
+            io_val = int(io_capacity)
+        except (TypeError, ValueError):
+            io_val = None
+        if io_val is not None and io_val <= 200:
+            state = lib.base.get_worst(state, STATE_WARN)
+            facts.append(
+                f'`innodb_io_capacity` is `{io_val}` on SSD/NVMe'
+                f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
+            )
+            recommendations.append(
+                'Set `innodb_io_capacity >= 2000` (recommended for SSD/NVMe)'
+            )
+        elif io_val is not None:
+            facts.append(
+                f'`innodb_io_capacity` is `{io_val}` on SSD/NVMe'
             )
 
     # removed/deprecated variables that the server still exposes - typically

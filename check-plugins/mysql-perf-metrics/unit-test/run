@@ -53,7 +53,7 @@ import unittest
 sys.path.insert(0, '..')
 
 import lib.lftest
-from lib.globals import STATE_OK
+from lib.globals import STATE_OK, STATE_WARN
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
@@ -71,9 +71,13 @@ def _check_image(test, containerfile):
     path = os.path.join(CONTAINERFILES_DIR, containerfile)
     print(f'\n=== Testing {containerfile} ===', flush=True)
     with lib.lftest.run_mysql_compatible_from_containerfile(path) as (_container, defaults_file):
+        # `--storage-type=skip` so the SSD/HDD-aware checks do not
+        # leak the controller host's storage into the assertions;
+        # they are exercised separately on real images.
         cmd = [
             'python3', '../mysql-perf-metrics',
             f'--defaults-file={defaults_file}',
+            '--storage-type=skip',
         ]
         print(f'Run plugin: {" ".join(cmd)}', flush=True)
         result = subprocess.run(
@@ -85,18 +89,32 @@ def _check_image(test, containerfile):
         combined = result.stdout + result.stderr
         print(f'Script output:\n{combined.strip()}', flush=True)
 
-        test.assertEqual(result.returncode, STATE_OK)
-        # Both knobs ship safe defaults on a fresh MariaDB container;
-        # "Everything is ok." leads the OK output, followed by the
-        # verified values.
-        test.assertIn('Everything is ok.', combined)
+        # Two safe knobs (`innodb_stats_on_metadata`, `concurrent_insert`)
+        # and the deprecated-config check run on every image; the latter
+        # emits perfdata even when zero deprecated variables are set.
         test.assertIn('`innodb_stats_on_metadata` is `OFF`', combined)
         test.assertIn('`concurrent_insert` is `AUTO`', combined)
-        # The deprecated-variable check ran; perfdata emitted with 0
-        # findings (default-configured server has only COMPILE-TIME
-        # origins).
         test.assertIn('mysql_deprecated_config_variables', combined)
-        test.assertNotIn('[WARNING]', combined)
+
+        # MariaDB exposes `innodb_snapshot_isolation` already on 10.6.
+        # Up to and including 11.4 the default is OFF; combined with the
+        # also-default `transaction_isolation=REPEATABLE-READ`, the
+        # plugin mirrors mysqltuner's badprint and goes WARN. MariaDB
+        # 11.8 flipped the default to ON, so the WARN no longer fires
+        # there. MySQL never had the variable and stays OK on every LTS.
+        warns_on_snapshot = containerfile in (
+            'mariadb-v106', 'mariadb-v1011', 'mariadb-v114',
+        )
+        if warns_on_snapshot:
+            test.assertEqual(result.returncode, STATE_WARN)
+            test.assertIn(
+                '`innodb_snapshot_isolation` is `OFF` with `REPEATABLE-READ`',
+                combined,
+            )
+        else:
+            test.assertEqual(result.returncode, STATE_OK)
+            test.assertIn('Everything is ok.', combined)
+            test.assertNotIn('[WARNING]', combined)
 
 
 lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)

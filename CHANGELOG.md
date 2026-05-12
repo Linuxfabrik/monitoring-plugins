@@ -59,6 +59,7 @@ Monitoring Plugins:
 * mysql-open-files, mysql-slow-queries, mysql-sorts, mysql-table-cache, mysql-table-definition-cache, mysql-table-locks, mysql-temp-tables, mysql-thread-cache, mysql-traffic: ship Grafana dashboards
 * mysql-perf-metrics: duplicate `innodb_file_per_table` check removed (lives in `mysql-innodb-buffer-pool-size`). Now emits numeric perfdata. Ships Grafana dashboard
 * mysql-perf-metrics: warn when a deprecated config variable was explicitly set via `my.cnf` or `SET GLOBAL` (compile-time defaults stay silent). New perfdata `mysql_deprecated_config_variables`
+* mysql-perf-metrics: also check `innodb_snapshot_isolation` (MariaDB), and the two storage-type-aware InnoDB knobs `innodb_flush_neighbors` and `innodb_io_capacity`. New `--storage-type=auto|ssd|hdd|skip` parameter (auto reads `/sys/block` when the plugin runs on the database host)
 * mysql-* plugins: container-test image matrix moved into per-plugin Containerfiles under `unit-test/containerfiles/`. Adding/retiring a MariaDB LTS is now a single-file change in each affected plugin
 * mysql-* plugins: container tests now also cover MySQL 8.0 and 8.4 LTS upstream images (`mysql-v80`, `mysql-v84` Containerfiles per plugin)
 * mysql-tls: rename finding text "Monitoring connection ..." to "Current connection ..." to match mysqltuner output verbatim
