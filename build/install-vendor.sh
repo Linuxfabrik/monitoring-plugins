@@ -18,7 +18,7 @@ $LFMP_VENV_PIP install \
 # during vendor-install we are working *inside* the target venv.
 LFMP_VENV_PYTHON="$(dirname "$LFMP_VENV_PIP")/python"
 PY_TAG="py$($LFMP_VENV_PYTHON -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')"
-REQS="requirements-${PY_TAG}.txt"
+REQS="lockfiles/${PY_TAG}/requirements.txt"
 if [ ! -f "$REQS" ]; then
     echo "❌ No requirements file for Python ${PY_TAG} at $REQS" >&2
     exit 1

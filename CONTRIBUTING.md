@@ -158,7 +158,7 @@ When creating a new plugin, make sure to deliver:
 * README file explaining "How?" and "Why?"
 * A free, monochrome, transparent SVG icon from <https://simpleicons.org> or <https://fontawesome.com/search?ic=free>, placed in the `icon` directory.
 * Optional: `unit-test/run` - the unittest file (see [Unit Tests](#unit-tests))
-* Optional: extend the repo-root `requirements.in` with new Python deps; the per-Python lockfiles `requirements-pyXX.txt` are regenerated from it
+* Optional: extend the repo-root `requirements.in` with new Python deps; the per-Python lockfiles under `lockfiles/pyXX/requirements.txt` are regenerated from it
 * If providing performance data: Grafana dashboard (see [GRAFANA.md](GRAFANA.md)) and `.ini` file for the Icinga Web 2 Grafana Module
 * Icinga Director Basket Config for the check plugin (`build-basket`)
 * Icinga Service Set in `all-the-rest.json` if appropriate (see [Service Set vs. Service Template](#service-set-vs-service-template))
@@ -1040,7 +1040,7 @@ The canonical distro matrix is the cpu-usage `CONTAINERFILES` list. **Where poss
 
 Rules and tips:
 
-* **Reuse cpu-usage's `containerfiles/`** as a starting point for a new plugin - the per-distro bootstrap (pacman / apt / dnf / zypper + venv + `pip install -r requirements-pyXX.txt --require-hashes`, where `pyXX` matches the distro's Python LTS) is identical, only the bind-mount path for the plugin script changes.
+* **Reuse cpu-usage's `containerfiles/`** as a starting point for a new plugin - the per-distro bootstrap (pacman / apt / dnf / zypper + venv + `pip install -r lockfiles/pyXX/requirements.txt --require-hashes`, where `pyXX` matches the distro's Python LTS) is identical, only the bind-mount path for the plugin script changes.
 * **`clean_up=False` on `DockerImage`**. Testcontainers' default cleans up the built image and prunes dangling parent layers on exit, which turns every run into a full rebuild. `clean_up=False` keeps the image around so subsequent runs hit podman's layer cache and finish in seconds.
 * **`,Z` on bind mounts**. On SELinux-enforcing hosts (RHEL, Fedora, Rocky) unrelabelled bind mounts are denied by the container runtime. `mode='ro,Z'` relabels the source so the container can read it; without the `Z` flag the plugin inside the container sees "Permission denied" on `import lib`.
 * **Rootless podman caveats** - same as for the service-container pattern: `TESTCONTAINERS_RYUK_DISABLED=true` must be set, `CONTAINER_HOST` / `DOCKER_HOST` must point at the rootless socket. `tools/run-unit-tests` does this automatically.

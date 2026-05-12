@@ -1,23 +1,28 @@
 # Linux source-install dependencies. Generates one
-# `requirements-pyXX.txt` per supported Python LTS so each distro can
-# pin against its native interpreter and pip can install with
-# `--require-hashes` without any version markers in the lockfile.
+# `lockfiles/pyXX/requirements.txt` per supported Python LTS so each
+# distro can pin against its native interpreter and pip can install
+# with `--require-hashes` without any version markers in the lockfile.
+# Each subdirectory under `lockfiles/` is a separate Dependabot
+# watchpoint, so the py39 entry can carry a permanent
+# `ignore: urllib3 >= 2.7.0` rule (urllib3 2.7.0 requires Python
+# >= 3.10) without affecting the other interpreters.
 #
 # To regenerate all of them (run from a Linux host with all listed
-# Python versions installed; the helper script `tools/compile-reqs`
-# wraps the loop):
+# Python versions installed):
 #
 #   for v in 3.9 3.10 3.11 3.12 3.13 3.14; do
 #     python${v} -m venv .venv-py${v//.}
 #     ./.venv-py${v//.}/bin/python -m pip install 'pip<25.1' pip-tools
+#     mkdir -p lockfiles/py${v//.}
 #     ./.venv-py${v//.}/bin/python -m piptools compile --generate-hashes \
-#         --output-file=requirements-py${v//.}.txt requirements.in
+#         --output-file=lockfiles/py${v//.}/requirements.txt requirements.in
 #   done
 #
 # Build pipeline picks the lockfile that matches the target distro's
-# Python (e.g. RHEL 8 / Debian 11 -> requirements-py39.txt; RHEL 9
-# default -> requirements-py39.txt; Debian 12 -> requirements-py311.txt;
-# Debian 13 / RHEL 10 -> requirements-py313.txt).
+# Python (e.g. RHEL 8 / Debian 11 -> lockfiles/py39/requirements.txt;
+# RHEL 9 default -> lockfiles/py39/requirements.txt; Debian 12 ->
+# lockfiles/py311/requirements.txt; Debian 13 / RHEL 10 ->
+# lockfiles/py312/requirements.txt).
 
 beautifulsoup4
 linuxfabrik-lib

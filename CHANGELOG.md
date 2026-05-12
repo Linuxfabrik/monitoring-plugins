@@ -21,8 +21,8 @@ Monitoring Plugins:
 
 Build, CI/CD:
 
-* requirements: one hash-pinned lockfile per supported Python LTS (`requirements-py39.txt` to `-py314.txt`) replaces the single `requirements.txt`. Windows uses `requirements-py313-windows.txt`
-* requirements: build scripts auto-detect the Python version and pick the matching file. urllib3 lands at 2.7.0 on Python 3.10+, closing two of the four Dependabot advisories
+* requirements: one hash-pinned lockfile per supported Python LTS, each in its own `lockfiles/pyXX/` subdirectory (`py39` to `py314`). Replaces the single `requirements.txt`. Windows uses `lockfiles/py313-windows/requirements.txt`
+* requirements: build scripts auto-detect the Python version and pick the matching file. urllib3 lands at 2.7.0 on Python 3.10+, closing two of the four Dependabot advisories; the `py39` lockfile pins urllib3 to 2.6.x via Dependabot ignore (urllib3 2.7.0 requires Python 3.10+)
 
 
 ### Changed

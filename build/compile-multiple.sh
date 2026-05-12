@@ -17,7 +17,7 @@ if ! uname -a | grep -q "_NT"; then
     # We are in a container.
     source /opt/venv/bin/activate
     PY_TAG="py$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')"
-    REQS="$REPO_DIR/monitoring-plugins/requirements-${PY_TAG}.txt"
+    REQS="$REPO_DIR/monitoring-plugins/lockfiles/${PY_TAG}/requirements.txt"
     if [ ! -f "$REQS" ]; then
         echo "❌ No requirements file for Python ${PY_TAG} at $REQS" >&2
         exit 1

@@ -176,9 +176,10 @@ Prerequisites:
 * **Visual Studio 2022 Build Tools** (supplies MSVC, required by Nuitka
   `--msvc=latest`).
 * `python3 -m pip install --upgrade ordered-set Nuitka`.
-* `python3 -m pip install --require-hashes --requirement requirements-py313-windows.txt`
-  from the monitoring-plugins repository root. The `pyXX` in the filename
-  matches the Python version the Windows build is pinned to (3.13 today).
+* `python3 -m pip install --require-hashes --requirement lockfiles/py313-windows/requirements.txt`
+  from the monitoring-plugins repository root. The `pyXX` directory under
+  `lockfiles/` matches the Python version the Windows build is pinned to
+  (3.13 today).
 * The plugin must carry a `.windows` marker file. Plugins without it are
   skipped by `compile-one.sh`.
 
