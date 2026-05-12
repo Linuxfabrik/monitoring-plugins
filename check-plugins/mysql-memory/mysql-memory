@@ -30,7 +30,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051001'
+__version__ = '2026051101'
 
 DESCRIPTION = """Estimates MySQL/MariaDB memory consumption and compares it to the host's
 physical RAM. Reports the currently-reached usage (server-wide buffers + per-thread
@@ -178,14 +178,20 @@ def get_status(conn):
 
 
 def get_pf_memory(conn, myvar):
-    """Return Performance Schema memory usage in bytes, or 0 when PFS is OFF
-    / unavailable. PFS reports its own footprint as the `memory` row of
-    `SHOW ENGINE PERFORMANCE_SCHEMA STATUS`.
+    """Return Performance Schema memory usage in bytes, or 0 when PFS is
+    OFF / unavailable. PFS reports its own footprint as the `memory`
+    row of `SHOW ENGINE PERFORMANCE_SCHEMA STATUS`. MySQL requires the
+    `PROCESS` privilege for `SHOW ENGINE`; without it the query fails
+    with a 1227 access-denied error. The monitoring user usually only
+    has `SELECT`, so we treat that as a soft skip and report PFS
+    memory as 0 rather than UNKNOWN-ing the whole plugin.
     """
     if myvar.get('performance_schema', 'OFF') != 'ON':
         return 0
     sql = 'show engine performance_schema status;'
-    rows = lib.base.coe(lib.db_mysql.select(conn, sql))
+    success, rows = lib.db_mysql.select(conn, sql)
+    if not success:
+        return 0
     for item in rows or []:
         if item['Type'] == 'performance_schema' and item['Name'].startswith('memory'):
             return int(item['Status'])

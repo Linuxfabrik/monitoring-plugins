@@ -78,7 +78,13 @@ def _check_image(test, containerfile):
         print(f'Script output:\n{combined.strip()}', flush=True)
 
         test.assertEqual(result.returncode, STATE_OK)
-        test.assertRegex(combined, r'Aria (indexes|pagecache)')
+        # MariaDB ships Aria; MySQL does not. The plugin reports the
+        # pagecache stats on MariaDB and "Aria Storage Engine not
+        # available." on MySQL - both are OK paths.
+        test.assertRegex(
+            combined,
+            r'Aria (indexes|pagecache|Storage Engine not available)',
+        )
 
 
 lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)
