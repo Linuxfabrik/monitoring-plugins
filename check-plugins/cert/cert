@@ -32,7 +32,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051007'
+__version__ = '2026051201'
 
 DESCRIPTION = """Inspects an X.509 certificate and alerts on days remaining until expiry,
 hostname mismatch and chain verification failures. Sources via --source: `url` fetches the
@@ -221,6 +221,7 @@ def get_cert_from_url(args):
     if not args.INSECURE:
         try:
             secure_ctx = ssl.create_default_context(cafile=args.CA_FILE)
+            secure_ctx.minimum_version = ssl.TLSVersion.TLSv1_2
             if args.CLIENT_CERT:
                 secure_ctx.load_cert_chain(args.CLIENT_CERT, keyfile=args.CLIENT_KEY)
             with (
@@ -238,6 +239,7 @@ def get_cert_from_url(args):
             return False, f'Cannot connect to {host}:{port}: {e}'
 
     insecure_ctx = ssl.create_default_context()
+    insecure_ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     insecure_ctx.check_hostname = False
     insecure_ctx.verify_mode = ssl.CERT_NONE
     if args.CLIENT_CERT:
