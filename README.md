@@ -15,6 +15,7 @@
 <div align="center" markdown>
 
 ![GitHub Stars](https://img.shields.io/github/stars/linuxfabrik/monitoring-plugins)
+[![Star History Chart](https://api.star-history.com/svg?repos=Linuxfabrik/monitoring-plugins&type=Date)](https://star-history.com/#Linuxfabrik/monitoring-plugins&Date)
 ![GitHub](https://img.shields.io/github/license/linuxfabrik/monitoring-plugins)
 ![Version](https://img.shields.io/github/v/release/linuxfabrik/monitoring-plugins?sort=semver)
 ![Python](https://img.shields.io/badge/Python-3.9+-3776ab)
@@ -33,6 +34,8 @@
 # The Linuxfabrik Monitoring Plugins Collection
 
 Nagios-compatible check plugins for Icinga, Naemon, Nagios and any other monitoring system that speaks the Nagios plugin API. Each plugin is a stand-alone CLI that reports one type of check: fast, consistent across platforms, minimal dependencies, reasonable defaults so WARN and CRIT only fire when it really matters.
+
+> If these plugins help you monitoring your datacenter, your VMs or your applications, please give it a star.
 
 Written in Python, released into the public domain under the [UNLICENSE](https://unlicense.org/). Runs on any platform with Python 3.9+ (Linux, Windows, macOS, FreeBSD). For Windows we also ship pre-compiled binaries, so Python is not required on the target.
 
