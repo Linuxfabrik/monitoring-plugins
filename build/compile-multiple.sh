@@ -16,7 +16,13 @@ fi
 if ! uname -a | grep -q "_NT"; then
     # We are in a container.
     source /opt/venv/bin/activate
-    python3 -m pip install --requirement="$REPO_DIR/monitoring-plugins/requirements.txt" --require-hashes
+    PY_TAG="py$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')"
+    REQS="$REPO_DIR/monitoring-plugins/requirements-${PY_TAG}.txt"
+    if [ ! -f "$REQS" ]; then
+        echo "❌ No requirements file for Python ${PY_TAG} at $REQS" >&2
+        exit 1
+    fi
+    python3 -m pip install --requirement="$REQS" --require-hashes
 fi
 python3 --version
 

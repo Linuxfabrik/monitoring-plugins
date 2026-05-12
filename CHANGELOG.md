@@ -21,8 +21,8 @@ Monitoring Plugins:
 
 Build, CI/CD:
 
-* requirements-windows.in: trimmed to only what `.windows` plugins use. Dropped `smbprotocol`, added `pypsrp` and `pywinrm` for `dhcp-scope-usage`. urllib3 lands at 2.7.0 on the Windows binary, closing two Dependabot advisories
-* requirements.txt: urllib3 stays on 2.6.x because 2.7.0 needs Python 3.10+ and we keep RHEL 8 / Python 3.9 compatible. The two open advisories are accepted risk for the Linux source install
+* requirements: one hash-pinned lockfile per supported Python LTS (`requirements-py39.txt` to `-py314.txt`) replaces the single `requirements.txt`. Windows uses `requirements-py313-windows.txt`
+* requirements: build scripts auto-detect the Python version and pick the matching file. urllib3 lands at 2.7.0 on Python 3.10+, closing two of the four Dependabot advisories
 
 
 ### Changed

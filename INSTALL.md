@@ -125,14 +125,16 @@ and Icinga Director command definitions portable (see
 
 Unlike the RPM and DEB packages (which ship a pre-built venv under
 `/usr/lib64/linuxfabrik-monitoring-plugins/venv/`), the source zip only carries source
-files. The `requirements.txt` at the root of the extracted tree pins all Python
-dependencies; you still have to run `pip` against it once, as the user that will run
-the plugins (`icinga` on RHEL, `nagios` on Debian/Ubuntu):
+files. The repository ships one hash-pinned lockfile per supported Python LTS
+(`requirements-py39.txt` ... `requirements-py314.txt`). Pick the file that matches the
+Python on the target host and run `pip` against it once, as the user that will run the
+plugins (`icinga` on RHEL, `nagios` on Debian/Ubuntu):
 
 ```bash
+PY_TAG="py$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')"
 sudo -u icinga python3 -m pip install --user --upgrade pip
 sudo -u icinga python3 -m pip install --user \
-    --requirement /usr/lib64/nagios/plugins/requirements.txt --require-hashes
+    --requirement /usr/lib64/nagios/plugins/requirements-${PY_TAG}.txt --require-hashes
 ```
 
 
@@ -168,7 +170,7 @@ for dir in $(find "${plugin_source_dir}" -maxdepth 1 -type d); do
         "${dir}/${file}" \
         "${remote_user}@${remote_host}:${remote_target_dir}/${file}"
 done
-scp "${plugin_source_dir}/../requirements.txt" "${remote_user}@${remote_host}:/tmp"
+scp "${plugin_source_dir}/../requirements-py"*.txt "${remote_user}@${remote_host}:/tmp"
 ```
 
 Once complete, the remote directory looks like this:
@@ -183,12 +185,13 @@ Once complete, the remote directory looks like this:
 ```
 
 Install the Python dependencies for the user that runs the plugins (`icinga` on RHEL,
-`nagios` on Debian/Ubuntu):
+`nagios` on Debian/Ubuntu). Pick the lockfile that matches the host's Python LTS:
 
 ```bash
+PY_TAG="py$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')"
 sudo -u icinga python3 -m pip install --user --upgrade pip
 sudo -u icinga python3 -m pip install --user \
-    --requirement /tmp/requirements.txt --require-hashes
+    --requirement /tmp/requirements-${PY_TAG}.txt --require-hashes
 ```
 
 
@@ -269,16 +272,17 @@ installation is required.
 
 ### From Source (Python 3.9+)
 
-On Windows, running the `.py` files directly requires a local Python 3.9 or newer
-installation and the dependencies from `requirements-windows.txt`. Clone the repository
-and point the Icinga 2 agent at the `.py` files:
+On Windows, running the `.py` files directly requires a local Python 3.13
+installation and the dependencies from `requirements-py313-windows.txt` (the lockfile
+matches the version the Windows binary build is pinned to; see `BUILD.md`). Clone the
+repository and point the Icinga 2 agent at the `.py` files:
 
 ```powershell
 git clone https://github.com/Linuxfabrik/monitoring-plugins.git `
     "C:\Program Files\ICINGA2\sbin\linuxfabrik"
 python -m pip install --upgrade pip
 python -m pip install --requirement `
-    "C:\Program Files\ICINGA2\sbin\linuxfabrik\requirements-windows.txt" --require-hashes
+    "C:\Program Files\ICINGA2\sbin\linuxfabrik\requirements-py313-windows.txt" --require-hashes
 ```
 
 

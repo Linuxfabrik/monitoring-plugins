@@ -1,11 +1,23 @@
-# On RHEL8:
-#   sudo dnf -y install python39-pip
-#   python3.9 -m pip install --user --upgrade pip
-#   python3.9 -m pip install --user pip-tools
-#   python3.9 -m piptools compile --generate-hashes requirements.in
+# Linux source-install dependencies. Generates one
+# `requirements-pyXX.txt` per supported Python LTS so each distro can
+# pin against its native interpreter and pip can install with
+# `--require-hashes` without any version markers in the lockfile.
 #
-# If you get `AttributeError: 'function' object has no attribute 'cache_clear':
-#   python3.9 -m pip install 'pip<25.1'
+# To regenerate all of them (run from a Linux host with all listed
+# Python versions installed; the helper script `tools/compile-reqs`
+# wraps the loop):
+#
+#   for v in 3.9 3.10 3.11 3.12 3.13 3.14; do
+#     python${v} -m venv .venv-py${v//.}
+#     ./.venv-py${v//.}/bin/python -m pip install 'pip<25.1' pip-tools
+#     ./.venv-py${v//.}/bin/python -m piptools compile --generate-hashes \
+#         --output-file=requirements-py${v//.}.txt requirements.in
+#   done
+#
+# Build pipeline picks the lockfile that matches the target distro's
+# Python (e.g. RHEL 8 / Debian 11 -> requirements-py39.txt; RHEL 9
+# default -> requirements-py39.txt; Debian 12 -> requirements-py311.txt;
+# Debian 13 / RHEL 10 -> requirements-py313.txt).
 
 beautifulsoup4
 linuxfabrik-lib
