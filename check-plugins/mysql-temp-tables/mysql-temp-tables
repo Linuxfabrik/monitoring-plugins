@@ -21,7 +21,7 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051101'
+__version__ = '2026051301'
 
 DESCRIPTION = """Checks the percentage of MySQL/MariaDB temporary tables that had to spill to disk
 (`Created_tmp_disk_tables` divided by `Created_tmp_tables`). A high percentage means queries are
@@ -176,12 +176,13 @@ def main():
     created_tmp_disk_tables = int(mystat['Created_tmp_disk_tables'])
     tmp_table_size = int(myvar['tmp_table_size'])
     max_heap_table_size = int(myvar['max_heap_table_size'])
-    # mysqltuner uses max(tmp_table_size, max_heap_table_size) as the
-    # effective cap. The actual MySQL behaviour caps at the smaller of the
-    # two (mysql-memory implements that variant), but mysqltuner
-    # keeps the historical max() for this check, so we mirror it to stay
-    # consistent with the upstream comparison.
-    effective_cap = max(tmp_table_size, max_heap_table_size)
+    # The effective in-memory limit for an internal temp table is the
+    # smaller of `tmp_table_size` and `max_heap_table_size`; once a single
+    # temp table exceeds it, MySQL/MariaDB spills the table to disk
+    # (MySQL Reference Manual on `tmp_table_size`; MariaDB Knowledge Base
+    # on `tmp_table_size`). mysqltuner's `max_tmp_table_size` calculation
+    # in `mysqltuner.pl:mysql_stats()` mirrors that with `MIN(...)`.
+    effective_cap = min(tmp_table_size, max_heap_table_size)
 
     # analyze data
     # On a freshly booted server with no traffic `Created_tmp_tables` can be
@@ -211,10 +212,19 @@ def main():
                     f'`max_heap_table_size` (currently '
                     f'{lib.human.bytes2human(max_heap_table_size)}) toward '
                     f'{lib.human.bytes2human(TMP_TABLE_LARGE_THRESHOLD)} '
-                    f'(mysqltuner cut-off); keep them equal. Both are '
-                    f'allocated per implicit temp table, not aggregate, so '
-                    f'sizing is bounded by the largest single temp table the '
-                    f'workload generates'
+                    f'(mysqltuner cut-off); keep them equal because the '
+                    f'effective per-table cap is the smaller of the two'
+                )
+                recommendations.append(
+                    'These limits apply per implicit temp table, not as a '
+                    'shared pool. Size them just above the largest single '
+                    'temp table your workload actually generates; going '
+                    'higher does not help. Plan RAM headroom for that limit '
+                    'multiplied by the number of concurrent sessions '
+                    'building temp tables, so the server does not run out '
+                    'of memory under load. Use the slow log or '
+                    '`sys.x$statements_with_temp_tables` in '
+                    '`performance_schema` to find typical temp-table sizes'
                 )
             else:
                 recommendations.append(

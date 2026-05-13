@@ -90,7 +90,8 @@ WARN output:
 Temporary tables created on disk: 34.6% (540 on disk / 1.6K total) [WARNING]. `tmp_table_size` = 16.0MiB, `max_heap_table_size` = 16.0MiB.
 
 Recommendations:
-* Raise both `tmp_table_size` (currently 16.0MiB) and `max_heap_table_size` (currently 16.0MiB) toward 256.0MiB (mysqltuner cut-off); keep them equal. Both are allocated per implicit temp table, not aggregate, so sizing is bounded by the largest single temp table the workload generates
+* Raise both `tmp_table_size` (currently 16.0MiB) and `max_heap_table_size` (currently 16.0MiB) toward 256.0MiB (mysqltuner cut-off); keep them equal because the effective per-table cap is the smaller of the two
+* These limits apply per implicit temp table, not as a shared pool. Size them just above the largest single temp table your workload actually generates; going higher does not help. Plan RAM headroom for that limit multiplied by the number of concurrent sessions building temp tables, so the server does not run out of memory under load. Use the slow log or `sys.x$statements_with_temp_tables` in `performance_schema` to find typical temp-table sizes
 * Audit `SELECT DISTINCT` and `GROUP BY` queries that run without a `LIMIT` clause; those are the classic source of oversized temporary tables
 ```
 
@@ -110,7 +111,7 @@ Recommendations:
 | mysql_created_tmp_disk_tables_per_second | Rate | Per-second rate of `Created_tmp_disk_tables` (cumulative counter delta against the local SQLite cache). Appears from the second run onwards. |
 | mysql_created_tmp_tables_per_second | Rate | Per-second rate of `Created_tmp_tables` (cumulative counter delta against the local SQLite cache). Appears from the second run onwards. |
 | mysql_max_heap_table_size | Bytes | Maximum size of user-created MEMORY tables (`max_heap_table_size`). |
-| mysql_max_tmp_table_size | Bytes | `max(tmp_table_size, max_heap_table_size)`. mysqltuner-compatible value; the actual MySQL cap is `min()` of the two. |
+| mysql_max_tmp_table_size | Bytes | Effective per-table cap, `min(tmp_table_size, max_heap_table_size)`. Matches MySQL/MariaDB behaviour and mysqltuner's `max_tmp_table_size`. |
 | mysql_pct_temp_disk | Percentage | `Created_tmp_disk_tables / Created_tmp_tables * 100`. Pinned to `0.0` when `Created_tmp_tables = 0`. |
 | mysql_tmp_table_size | Bytes | Largest size for implicit temporary tables in memory; the lower of `tmp_table_size` and `max_heap_table_size` applies. |
 

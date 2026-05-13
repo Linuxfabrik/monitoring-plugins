@@ -74,7 +74,7 @@ Monitoring Plugins:
 * mysql-table-definition-cache: OK output shows the verified value and table count. `-1` autosizing sentinel encoded as `0` in perfdata
 * mysql-table-indexes!: rewritten with two single-shot queries. New check: InnoDB base tables without a user-defined `PRIMARY KEY`. New parameters and perfdata. Ships Grafana dashboard
 * mysql-table-locks!: new `--warning` (95%) / `--critical` (85%). Breaking perfdata: cumulative counters replaced by per-second rates
-* mysql-temp-tables!: new `--warning` / `--critical` (25/50). Bug fix: `KeyError` crash on idle servers. Breaking perfdata: cumulative counters replaced by per-second rates
+* mysql-temp-tables!: new `--warning` / `--critical` (25/50). Bug fix: `KeyError` crash on idle servers. Bug fix: effective temp-table cap now correctly reported as the smaller of `tmp_table_size` and `max_heap_table_size` (was wrongly the larger), preventing a false "cap is already large enough" verdict on asymmetric configurations. Recommendation rewritten to explain per-table allocation, RAM impact under concurrency, and how to size from `performance_schema`. Breaking perfdata: cumulative counters replaced by per-second rates
 * mysql-thread-cache!: new `--warning` / `--critical` (50/30). Bug fix: `mysql_thread_cache_size` perfdata uom. Breaking perfdata
 * mysql-traffic!: bug fix - "100% writes" on idle servers. Breaking perfdata: cumulative counters replaced by per-second rates
 * mysql-user-security: documented privilege broadened to `SELECT on mysql.*` (was `mysql.user`)
