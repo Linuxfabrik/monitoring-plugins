@@ -24,7 +24,7 @@ import lib.veeam
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026051301'
 
 DESCRIPTION = """Monitors Veeam Backup & Replication via PowerShell, checking for failed VMs and jobs,
 jobs running longer than expected, and backup repository usage. Also reports backup
@@ -47,16 +47,18 @@ DEFAULT_WARNINGS_JOB_RUNS = 0
 def _normalize_keys(obj):
     """Recursively convert all dict keys to PascalCase.
 
-    Veeam Enterprise Manager v13 changed JSON key serialization from
-    PascalCase (``BackedUpVms``) to camelCase (``backedUpVms``).
-    Normalizing to PascalCase keeps the rest of the code working with
-    both v12 and v13 responses.
+    Veeam Enterprise Manager v13 ships JSON keys in camelCase
+    ('backedUpVms') instead of the v12 PascalCase ('BackedUpVms')
+    because the .NET migration switched the default JSON serializer.
+    Upper-casing the first character is idempotent and keeps the rest
+    of the plugin working against both v12 and v13 responses.
     """
     if isinstance(obj, dict):
         return {k[:1].upper() + k[1:]: _normalize_keys(v) for k, v in obj.items()}
     if isinstance(obj, list):
         return [_normalize_keys(item) for item in obj]
     return obj
+
 
 def parse_args():
     """Parse command line arguments using argparse."""
@@ -276,8 +278,8 @@ def main():
         stdout, _stderr, _retc = lib.lftest.test(args.TEST)
         result = json.loads(stdout)
 
-    # Normalize JSON keys to PascalCase for Veeam v13 compatibility (fix #1001).
-    # Veeam Enterprise Manager v13 returns camelCase keys instead of PascalCase.
+    # Normalize per-endpoint payloads only; the outer keys
+    # (overview, job_statistics, ...) are set above by the plugin itself.
     for key in result:
         result[key] = _normalize_keys(result[key])
 

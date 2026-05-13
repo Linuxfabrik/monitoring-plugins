@@ -94,6 +94,7 @@ Grafana:
 Monitoring Plugins:
 
 * docker-stats, podman-stats: per-container CPU and memory perfdata restored. The previous release reported only aggregate values, breaking long-term trending of individual containers ([#1104](https://github.com/Linuxfabrik/monitoring-plugins/issues/1104))
+* veeam-status: works again against Veeam Enterprise Manager v13, which serialises REST-API JSON keys in camelCase after its .NET migration ([#1001](https://github.com/Linuxfabrik/monitoring-plugins/issues/1001))
 
 
 ### Removed
