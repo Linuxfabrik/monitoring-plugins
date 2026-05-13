@@ -44,6 +44,19 @@ DEFAULT_WARN = 80
 DEFAULT_WARNING_VM_LASTEST_STATES = 0
 DEFAULT_WARNINGS_JOB_RUNS = 0
 
+def _normalize_keys(obj):
+    """Recursively convert all dict keys to PascalCase.
+
+    Veeam Enterprise Manager v13 changed JSON key serialization from
+    PascalCase (``BackedUpVms``) to camelCase (``backedUpVms``).
+    Normalizing to PascalCase keeps the rest of the code working with
+    both v12 and v13 responses.
+    """
+    if isinstance(obj, dict):
+        return {k[:1].upper() + k[1:]: _normalize_keys(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_normalize_keys(item) for item in obj]
+    return obj
 
 def parse_args():
     """Parse command line arguments using argparse."""
@@ -262,6 +275,11 @@ def main():
         # do not call the command, put in test data
         stdout, _stderr, _retc = lib.lftest.test(args.TEST)
         result = json.loads(stdout)
+
+    # Normalize JSON keys to PascalCase for Veeam v13 compatibility (fix #1001).
+    # Veeam Enterprise Manager v13 returns camelCase keys instead of PascalCase.
+    for key in result:
+        result[key] = _normalize_keys(result[key])
 
     # init some vars
     msg = ''
