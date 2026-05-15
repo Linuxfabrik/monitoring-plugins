@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+tbd
+
+
+## [v5.0.0] - 2026-05-15
+
 ### Added
 
 Monitoring Plugins:
@@ -15,8 +20,8 @@ Monitoring Plugins:
 * cert: inspect X.509 certificates from a TLS endpoint or local PEM/DER files. Alerts on days until expiry
 * mysql-health: single-number 0-100 health score for a MySQL/MariaDB server. Top-level Icinga alert and Grafana KPI
 * mysql-index-health: trip-wire for unused and redundant indexes (`sys.schema_unused_indexes`, `sys.schema_redundant_indexes`). When it alerts, run `mysqltuner --pfstat` on the host for the full analysis with `ALTER TABLE ... DROP INDEX` statements. Performance Schema must be enabled; UNKNOWN when it is OFF (MariaDB default)
-* mysql-long-queries: alert on in-flight queries running longer than `--warning` / `--critical` seconds. Shows session ID, user, DB and statement so the admin can `KILL <id>` directly
-* mysql-tls: TLS/SSL posture (have_ssl, require_secure_transport, TLS versions, cert expiry, remote users without REQUIRE SSL)
+* mysql-long-queries: alert on in-flight queries running longer than `--warning` / `--critical` seconds. Shows session ID, user, DB and statement so the admin can `KILL <id>` directly. New perfdata `mysql_active_transactions` from `information_schema.innodb_trx` trends background InnoDB transaction contention even when no single query is over the long-running threshold
+* mysql-tls: TLS/SSL posture (have_ssl, require_secure_transport, TLS versions, cert expiry, remote users without REQUIRE SSL). Finding text "Current connection ..." matches mysqltuner output verbatim
 * ups-nut: monitor a UPS managed by Network UPS Tools (NUT). Battery, load, voltages, runtime, temperature and status
 
 
@@ -62,7 +67,6 @@ Monitoring Plugins:
 * mysql-perf-metrics: also check `innodb_snapshot_isolation` (MariaDB), and the two storage-type-aware InnoDB knobs `innodb_flush_neighbors` and `innodb_io_capacity`. New `--storage-type=auto|ssd|hdd|skip` parameter (auto reads `/sys/block` when the plugin runs on the database host)
 * mysql-* plugins: container-test image matrix moved into per-plugin Containerfiles under `unit-test/containerfiles/`. Adding/retiring a MariaDB LTS is now a single-file change in each affected plugin
 * mysql-* plugins: container tests now also cover MySQL 8.0 and 8.4 LTS upstream images (`mysql-v80`, `mysql-v84` Containerfiles per plugin)
-* mysql-tls: rename finding text "Monitoring connection ..." to "Current connection ..." to match mysqltuner output verbatim
 * mysql-query!: align with the other mysql-* plugins. Breaking perfdata: `cnt_warn`/`cnt_crit` renamed to `mysql_query_warn_value`/`mysql_query_crit_value`
 * mysql-replica-status!: bug fix - lag detection fired on every server. Privilege narrowed to `SLAVE MONITOR` / `REPLICA MONITOR` on MariaDB 10.5+. New parameters and perfdata. Ships Grafana dashboard
 * mysql-slow-queries: README clarifies that `Slow_queries` is a counter independent of `slow_query_log`, and that the `slow_query_log` / `long_query_time` findings only surface as recommendations alongside a slow-query-ratio WARN/CRIT (no standalone alert)
@@ -81,7 +85,6 @@ Monitoring Plugins:
 * mysql-user-security: skip username-as-password check when `validate_password` is active. MariaDB roles excluded. New perfdata. Basket `enable_perfdata = true`
 * mysql-user-security: flag accounts on legacy `mysql_native_password` (and `sha256_password` on MySQL 8.0+). Version-aware recommendation. New perfdata: `mysql_users_on_legacy_auth_plugin`
 * mysql-user-security: weak-password dictionary check (~110 common defaults from SecLists + MySQL/MariaDB-specific entries). Per-user finding names the matched password. Skipped on MySQL 8.0+ (`PASSWORD()` removed) and when the `validate_password` plugin is active. New perfdata: `mysql_users_with_weak_password`
-* mysql-long-queries: new perfdata `mysql_active_transactions` from `information_schema.innodb_trx`. Trends background InnoDB transaction contention even when no single query is over the long-running threshold
 
 
 ### Fixed
@@ -2314,7 +2317,8 @@ Monitoring Plugins:
 Initial release for the general public.
 
 
-[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v4.1.0...HEAD
+[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v5.0.0...HEAD
+[v5.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v4.1.0...v5.0.0
 [v4.1.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v4.0.0...v4.1.0
 [v4.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v3.0.0...v4.0.0
 [v3.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.2.1...v3.0.0
