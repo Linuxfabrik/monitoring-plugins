@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+Monitoring Plugins:
+
+* about-me: `--tags` now detects Podman hosts
+
 ### Fixed
 
 Monitoring Plugins:

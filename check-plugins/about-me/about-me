@@ -37,7 +37,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051501 / v5.0.0'
+__version__ = '2026051801 / v5.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -719,6 +719,16 @@ def get_lftags(distro):
             'sw': 'pip',
             'package': ['pip3', 'pip2', 'python3-pip', 'python2-pip'],
             'expr': [],
+        },
+        {
+            'sw': 'Podman',
+            'package': ['podman'],
+            'expr': [
+                run_cmd('systemctl is-enabled podman.socket', ignore_output=True),
+                run_cmd(
+                    'systemctl is-enabled podman-auto-update.timer', ignore_output=True
+                ),
+            ],
         },
         {
             'sw': 'Postfix MTA',
