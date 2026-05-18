@@ -37,7 +37,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051801 / v5.0.0'
+__version__ = '2026051809 / v5.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -728,6 +728,9 @@ def get_lftags(distro):
                 run_cmd(
                     'systemctl is-enabled podman-auto-update.timer', ignore_output=True
                 ),
+                run_cmd(
+                    'systemctl is-enabled podman-restart.service', ignore_output=True
+                ),
             ],
         },
         {
@@ -880,22 +883,37 @@ def get_lftags(distro):
         },
         # {'sw': 'XFS', 'package': [], 'expr': []},
     ]
-    success, result = lib.shell.shell_exec(
-        'dnf repoquery --userinstalled --queryformat "%{name}"'
-    )
-    if success:
-        # for the moment focusing on rhel-compatible package managers
-        userinstalled_software, _, _ = result
-        userinstalled_software = userinstalled_software.splitlines()
+    # determine explicitly installed packages (admin intent), distro-agnostically.
+    # rules out transitive deps to avoid false-positive tags like IPMI on a
+    # workstation that only has `ipmitool` as an indirect dependency.
+    os_family = distro.get('os_family', '')
+    if os_family == 'RedHat':
+        pkg_query = 'dnf repoquery --userinstalled --queryformat "%{name}\\n"'
+    elif os_family == 'Debian':
+        pkg_query = 'apt-mark showmanual'
+    elif os_family == 'Archlinux':
+        pkg_query = 'pacman --query --explicit --quiet'
+    elif os_family == 'Alpine':
+        # apk has no admin-intent query; alpine's lean dep model makes the
+        # presence/intent distinction less noisy in practice
+        pkg_query = 'apk info'
+    elif os_family == 'Suse':
+        # zypper/rpm offer no clean admin-intent equivalent; accept the
+        # broader presence semantic and the resulting false-positive risk
+        pkg_query = 'rpm --query --all --queryformat "%{NAME}\\n"'
     else:
-        userinstalled_software = []
+        pkg_query = ''
+    installed_packages = set()
+    if pkg_query:
+        success, result = lib.shell.shell_exec(pkg_query)
+        if success:
+            stdout, _, _ = result
+            installed_packages = set(stdout.splitlines())
 
     output = ''
     for item in lftags:
         # if any of the listed software packages is installed, we have a match
-        if any(i in item['package'] for i in userinstalled_software) or any(
-            item['expr']
-        ):
+        if any(p in installed_packages for p in item['package']) or any(item['expr']):
             output += f'* {item["sw"]}\n'
     if output:
         return f"Linuxfabrik's Icinga Director Tags:\n{output}\n"
@@ -944,9 +962,9 @@ def get_listening_ports():
     return ''
 
 
-def get_nondefault_software():
+def get_userinstalled_software():
     success, result = lib.shell.shell_exec(
-        'dnf repoquery --userinstalled --queryformat "%{name};%{version};%{from_repo};%{installtime}"'
+        'dnf repoquery --userinstalled --queryformat "%{name};%{version};%{from_repo};%{installtime}\\n"'
     )
     if not success:
         return ''
@@ -954,6 +972,10 @@ def get_nondefault_software():
     table_data = []
     header = ['name', 'version', 'from_repo', 'installtime']
     for line in stdout.splitlines():
+        # dnf 4 appends an extra newline per record on top of the \n in
+        # --queryformat, so splitlines() yields blanks between records
+        if not line.strip():
+            continue
         data = dict(zip(header, line.split(';')))
         table_data.append(data)
     table_data.sort(key=lambda r: _natural_key(r['name']))
@@ -963,7 +985,7 @@ def get_nondefault_software():
         header=header,
     )
     if output:
-        return f'Non-default Software (ordered by name):\n{output}\n'
+        return f'User-Installed Software (ordered by name):\n{output}\n'
     return ''
 
 
@@ -1425,7 +1447,7 @@ def main():
         msg += get_hw_info()
     msg += get_interfaces()
     msg += get_listening_ports()
-    msg += get_nondefault_software()
+    msg += get_userinstalled_software()
     msg += get_software_found()
     msg += get_nondefault_users()
     msg += get_systemd_default_target()
