@@ -23,7 +23,7 @@ import lib.version
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051801'
+__version__ = '2026051802'
 
 DESCRIPTION = """Checks MySQL/MariaDB TLS/SSL posture: the current connection itself, the
 server's TLS capability (`have_ssl`), enforcement (`require_secure_transport`), enabled TLS
@@ -147,18 +147,11 @@ def find_remote_users_without_ssl(conn, is_mariadb_10_4_plus):
     earlier versions and MySQL read `mysql.user.ssl_type`.
     """
     if is_mariadb_10_4_plus:
-        # `length(json_value(...)) = 0` instead of mysqltuner's literal
-        # `json_value(...) = ''` to dodge ER 1267 ("Illegal mix of
-        # collations") when `collation_connection` differs from the
-        # function-result collation. mysqltuner doesn't hit this in
-        # practice because Perl DBD::mysql inherits the server's default
-        # collation on connect; PyMySQL forces its own and exposes the
-        # latent bug.
         sql = """
             select concat(quote(user), '@', quote(host)) as user
             from mysql.global_priv
             where host not in ('localhost', '127.0.0.1', '::1')
-                and length(json_value(priv, '$.ssl_type')) = 0
+                and json_value(priv, '$.ssl_type') = ''
             ;
         """
     else:

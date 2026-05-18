@@ -21,7 +21,7 @@ import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051801'
+__version__ = '2026051802'
 
 DESCRIPTION = """Checks MySQL/MariaDB user security: anonymous accounts (empty user name),
 accounts with empty passwords, accounts whose password matches the username (the classic
@@ -260,16 +260,10 @@ def validate_password_active(conn):
 
 
 def find_anonymous_users(conn, role_filter):
-    # `length(trim(user)) = 0` instead of mysqltuner's literal
-    # `trim(user) = ''` to dodge ER 1267 ("Illegal mix of collations")
-    # when `collation_connection` differs from `mysql.user`'s column
-    # collation. mysqltuner doesn't hit this in practice because Perl
-    # DBD::mysql inherits the server's default collation on connect;
-    # PyMySQL forces its own and exposes the latent bug.
     sql = f"""
         select concat(quote(user), '@', quote(host)) as user
         from mysql.user
-        where {role_filter}(length(trim(user)) = 0 or user is null)
+        where {role_filter}(trim(user) = '' or user is null)
         ;
     """  # nosec B608
     return lib.base.coe(lib.db_mysql.select(conn, sql))

@@ -12,9 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Monitoring Plugins:
 
-* mysql-health: queries no longer abort with "Illegal mix of collations" when the connection collation differs from `mysql.user`'s column collation ([#1139](https://github.com/Linuxfabrik/monitoring-plugins/issues/1139))
-* mysql-tls: remote-users-without-SSL query no longer aborts with "Illegal mix of collations" when the connection collation differs from `mysql.global_priv`'s column collation ([#1139](https://github.com/Linuxfabrik/monitoring-plugins/issues/1139))
-* mysql-user-security: anonymous-accounts query no longer aborts with "Illegal mix of collations" when the connection collation differs from `mysql.user`'s column collation ([#1139](https://github.com/Linuxfabrik/monitoring-plugins/issues/1139))
+* all plugins: importing `lib.url` on RHEL 8's default `python3` (3.6) no longer aborts with `AttributeError: module 'ssl' has no attribute 'TLSVersion'`. Plugins that don't use TLS version pinning keep working; calls that pin TLS get a clearer error. Officially supported minimum stays Python 3.9 (fix shipped via `linuxfabrik-lib` 4.0.2)
+* mysql-*: queries against `mysql.user` and `mysql.global_priv` no longer abort with "Illegal mix of collations" when the server's connection-collation default differs from the system tables' column collations. Fix lives in `linuxfabrik-lib` 4.0.2, which now aligns the session collation with the `mysql` schema right after connect ([#1139](https://github.com/Linuxfabrik/monitoring-plugins/issues/1139))
 
 
 ## [v5.0.0] - 2026-05-15
