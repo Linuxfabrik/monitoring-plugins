@@ -18,6 +18,7 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
+* about-me: `--tags` now correctly distinguishes MariaDB from MySQL hosts (Fedora and RHEL hosts running MariaDB were tagged as MySQL because `mysql.service` is aliased to `mariadb.service`)
 * about-me: `--tags` package-based detection now works on Debian, Ubuntu, SUSE, Arch, Alpine, and is fixed on Red Hat family
 * about-me: "User-Installed Software" table (renamed from the misleading "Non-default Software") now lists every package instead of just the first one
 * all plugins: importing `lib.url` on RHEL 8's default `python3` (3.6) no longer aborts with `AttributeError: module 'ssl' has no attribute 'TLSVersion'`. Plugins that don't use TLS version pinning keep working; calls that pin TLS get a clearer error. Officially supported minimum stays Python 3.9 (fix shipped via `linuxfabrik-lib` 4.0.2)
