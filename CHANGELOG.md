@@ -8,7 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-tbd
+### Fixed
+
+Monitoring Plugins:
+
+* mysql-health: queries no longer abort with "Illegal mix of collations" when the connection collation differs from `mysql.user`'s column collation ([#1139](https://github.com/Linuxfabrik/monitoring-plugins/issues/1139))
+* mysql-tls: remote-users-without-SSL query no longer aborts with "Illegal mix of collations" when the connection collation differs from `mysql.global_priv`'s column collation ([#1139](https://github.com/Linuxfabrik/monitoring-plugins/issues/1139))
+* mysql-user-security: anonymous-accounts query no longer aborts with "Illegal mix of collations" when the connection collation differs from `mysql.user`'s column collation ([#1139](https://github.com/Linuxfabrik/monitoring-plugins/issues/1139))
 
 
 ## [v5.0.0] - 2026-05-15

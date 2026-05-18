@@ -20,7 +20,7 @@ import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051102'
+__version__ = '2026051801'
 
 DESCRIPTION = """Single-number health score for a MySQL/MariaDB server. Ports mysqltuner's
 `calculate_health_score()` weighting (Performance 40 / Security 30 / Resilience 30) and a
@@ -140,10 +140,20 @@ def security_recommendations(conn, has_role_column):
     role_filter = "IS_ROLE = 'N' and " if has_role_column else ''
     findings = 0
 
+    # mysqltuner.pl uses `TRIM(USER) = ''` here. We compare lengths
+    # instead: `trim()` is a function and its result is COERCIBLE, not
+    # IMPLICIT. If `collation_connection` differs from `mysql.user`'s
+    # column collation (e.g. session `utf8mb4_unicode_ci` vs column
+    # `utf8mb4_general_ci`), the string comparison aborts with
+    # "Illegal mix of collations ... for operation '='" (ER 1267).
+    # mysqltuner avoids this in practice because Perl DBD::mysql opens
+    # the connection with the server's default character set, so both
+    # sides end up in the same collation; PyMySQL forces `utf8mb4` with
+    # its own default collation, which exposes the latent bug.
     sql_anonymous = f"""
         select count(*) as cnt
         from mysql.user
-        where {role_filter}(trim(user) = '' or user is null)
+        where {role_filter}(length(trim(user)) = 0 or user is null)
         ;
     """  # nosec B608
     anonymous = int(
@@ -264,11 +274,15 @@ def check_remote_user_ssl(conn, myvar):
     version = (myvar.get('version') or '').lower()
     is_mariadb_10_4_plus = 'mariadb' in version and lib.version.version(version) >= (10, 4, 0)
     if is_mariadb_10_4_plus:
+        # `length(json_value(...)) = 0` instead of `json_value(...) = ''`
+        # to dodge ER 1267 when `collation_connection` differs from the
+        # function-result collation. Same root cause as the `trim(user)`
+        # workaround above.
         sql = """
             select count(*) as cnt
             from mysql.global_priv
             where host not in ('localhost', '127.0.0.1', '::1')
-                and json_value(priv, '$.ssl_type') = ''
+                and length(json_value(priv, '$.ssl_type')) = 0
             ;
         """
     else:
