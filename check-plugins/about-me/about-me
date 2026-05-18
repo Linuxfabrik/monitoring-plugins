@@ -37,7 +37,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051809 / v5.0.0'
+__version__ = '2026051810 / v5.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -290,14 +290,42 @@ def get_interfaces():
 
 
 def get_lftags(distro):
-    """Try to automatically detect as many Linuxfabrik tags for Icinga Director as possible.
-    Tags that are disabled here can't be detected on the system running this plugin, but are present
-    in all-the-rest.json. So keep this function in sync with all-the-rest.json.
-    Also, if you need to add software here that isn't installed by a package manager and therefore
-    can only be guessed, put it in get_software_found() as well.
+    """Detect Linuxfabrik tags for Icinga Director that apply to this host.
+
+    The canonical tag catalog lives in
+    `assets/icingaweb2-module-director/all-the-rest.json` under
+    `DataList.tag_list.entries`. Every entry has:
+
+      - `entry_name`:  lowercase slug used in Icinga `host.vars.tags`
+                       (e.g. `strongswan`)
+      - `entry_value`: human-readable display name (e.g. `strongSwan IPSec`)
+
+    The `sw` field of each lftag below MUST equal the corresponding
+    `entry_value` 1:1 so that `about-me --tags` output matches the Director
+    tag picker. This sync is maintained manually. Tags that exist in the JSON
+    but can't be detected from the host running this plugin (Windows-only
+    software, remote-monitored appliances like Huawei Dorado or KEMP,
+    SaaS endpoints) stay as commented-out placeholders.
+
+    Detection per entry, any truthy signal triggers the tag:
+
+      - `package`: list of distro package names. A tag fires when at least
+        one of them is in the admin-installed set (via `dnf repoquery
+        --userinstalled`, `apt-mark showmanual`, `pacman --query --explicit`,
+        ...). Admin-intent semantics avoids false positives from transitive
+        dependencies.
+      - `expr`:    list of expressions evaluated at function call time
+        (truthy/falsy). Typical: `run_cmd('systemctl is-enabled <unit>',
+        ignore_output=True)` or `os.path.isfile(...)` /  `os.path.isdir(...)`.
+
+    If you add software that no package manager tracks and you only spot
+    it via a directory or binary, mirror it in `get_software_found()` so
+    it still surfaces in the operator-facing summary.
     """
     lftags = [
-        # {'sw': 'LF Tag Name', 'package': ['pname1', 'pname2'], 'expr': [stmnt1, stmnt2, ...]},
+        # template: {'sw': '<entry_value from all-the-rest.json tag_list>',
+        #            'package': ['<pkg1>', '<pkg2>'],   # admin-installed → tag fires
+        #            'expr':    [<stmnt1>, <stmnt2>]},  # any truthy → tag fires
         {
             'sw': 'acme.sh',
             'package': [],
@@ -323,7 +351,6 @@ def get_lftags(distro):
             'package': [],
             'expr': [run_cmd('systemctl is-enabled solr.service', ignore_output=True)],
         },
-        # {'sw': 'Axenita', 'package': [], 'expr': []},
         {
             'sw': 'BIND',
             'package': [],
@@ -514,7 +541,6 @@ def get_lftags(distro):
                 run_cmd('systemctl is-enabled jcagent.service', ignore_output=True)
             ],
         },
-        # {'sw': 'KEMP', 'package': [], 'expr': []},
         {
             'sw': 'Keycloak',
             'package': [],
@@ -598,7 +624,6 @@ def get_lftags(distro):
                 os.path.isdir('/var/www/wiki'),
             ],
         },
-        {'sw': 'Metabase', 'package': [], 'expr': [os.path.isdir('/opt/metabase')]},
         {
             'sw': 'mod_qos',
             'package': ['mod_qos'],
@@ -784,7 +809,6 @@ def get_lftags(distro):
                 run_cmd('systemctl is-enabled rsyncd.service', ignore_output=True)
             ],
         },
-        # {'sw': 'SafeNet HSM', 'package': [], 'expr': []},
         {
             'sw': 'rsyslog',
             'package': [],
@@ -811,7 +835,6 @@ def get_lftags(distro):
             ],
         },
         # {'sw': 'Starface PBX', 'package': [], 'expr': []},
-        # {'sw': 'Statuspal', 'package': [], 'expr': []},
         {
             'sw': 'strongSwan IPSec',
             'package': [],
@@ -870,7 +893,6 @@ def get_lftags(distro):
                 run_cmd('systemctl is-enabled vsftpd.service', ignore_output=True)
             ],
         },
-        {'sw': 'WHMCS', 'package': [], 'expr': [os.path.isdir('/home/whmcs')]},
         {'sw': 'Wildfly', 'package': [], 'expr': [os.path.isdir('/opt/wildfly')]},
         {
             'sw': 'Wordpress',
