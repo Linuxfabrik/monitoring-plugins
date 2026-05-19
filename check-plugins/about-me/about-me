@@ -38,7 +38,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051811 / v5.0.0'
+__version__ = '2026051901 / v5.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -323,8 +323,9 @@ def get_lftags(distro):
     it via a directory or binary, mirror it in `get_software_found()` so
     it still surfaces in the operator-facing summary.
     """
-    # probe once to keep the MariaDB and MySQL entries below cheap
+    # cache values referenced by lftag expressions below
     db_flavor = lib.db_mysql.get_flavor()
+    os_family = distro['os_family']
     lftags = [
         # template: {'sw': '<entry_value from all-the-rest.json tag_list>',
         #            'package': ['<pkg1>', '<pkg2>'],   # admin-installed → tag fires
@@ -536,7 +537,13 @@ def get_lftags(distro):
             'package': [],
             'expr': [run_cmd('systemctl is-enabled iscsi.service', ignore_output=True)],
         },
-        # {'sw': 'Jitsi', 'package': [], 'expr': []},
+        {
+            'sw': 'Jitsi',
+            'package': ['jitsi-videobridge2'],
+            'expr': [
+                run_cmd('systemctl is-enabled jitsi-videobridge2.service', ignore_output=True)
+            ],
+        },
         {
             'sw': 'JumpCloud Agent',
             'package': [],
@@ -585,11 +592,14 @@ def get_lftags(distro):
                 run_cmd('systemctl is-enabled mariadb-dump.timer', ignore_output=True)
             ],
         },
-        # {'sw': 'MariaDB InnoDB', 'package': [], 'expr': []},
-        # {'sw': 'MariaDB Metrics', 'package': [], 'expr': []},
-        # {'sw': 'MariaDB Replication', 'package': [], 'expr': []},
-        # {'sw': 'MariaDB Schemas', 'package': [], 'expr': []},
-        # {'sw': 'MariaDB Security', 'package': [], 'expr': []},
+        # MariaDB-* variants below are facets of the same server; we cannot
+        # tell from the host which service sets the admin wants applied, so
+        # we emit them all whenever MariaDB is detected
+        {'sw': 'MariaDB InnoDB', 'package': [], 'expr': [db_flavor == 'mariadb']},
+        {'sw': 'MariaDB Metrics', 'package': [], 'expr': [db_flavor == 'mariadb']},
+        {'sw': 'MariaDB Replication', 'package': [], 'expr': [db_flavor == 'mariadb']},
+        {'sw': 'MariaDB Schemas', 'package': [], 'expr': [db_flavor == 'mariadb']},
+        {'sw': 'MariaDB Security', 'package': [], 'expr': [db_flavor == 'mariadb']},
         {
             'sw': 'Mastodon',
             'package': [],
@@ -671,11 +681,17 @@ def get_lftags(distro):
             'package': [],
             'expr': [db_flavor == 'mysql'],
         },
-        # {'sw': 'MySQL InnoDB', 'package': [], 'expr': []},
-        # {'sw': 'MySQL Metrics', 'package': [], 'expr': []},
-        # {'sw': 'MySQL Replication', 'package': [], 'expr': []},
-        # {'sw': 'MySQL Schemas', 'package': [], 'expr': []},
-        # {'sw': 'MySQL Security', 'package': [], 'expr': []},
+        # MySQL-* variants below: see note above on MariaDB-* variants
+        {'sw': 'MySQL InnoDB', 'package': [], 'expr': [db_flavor == 'mysql']},
+        {'sw': 'MySQL Metrics', 'package': [], 'expr': [db_flavor == 'mysql']},
+        {'sw': 'MySQL Replication', 'package': [], 'expr': [db_flavor == 'mysql']},
+        {'sw': 'MySQL Schemas', 'package': [], 'expr': [db_flavor == 'mysql']},
+        {'sw': 'MySQL Security', 'package': [], 'expr': [db_flavor == 'mysql']},
+        {
+            'sw': 'Needs Restarting',
+            'package': ['dnf-utils', 'yum-utils'],
+            'expr': [os.path.isfile('/usr/bin/needs-restarting')],
+        },
         {
             'sw': 'networking.service',
             'package': [],
@@ -729,7 +745,7 @@ def get_lftags(distro):
             ],
         },
         {
-            'sw': f'OS - {distro.get("os_info")}, family "{distro.get("os_family")}"',
+            'sw': f'OS - {distro.get("os_info")}, family "{os_family}"',
             'package': [],
             'expr': [True],  # always check this
         },
@@ -773,7 +789,7 @@ def get_lftags(distro):
                 run_cmd('systemctl is-enabled postgresql.service', ignore_output=True)
             ],
         },
-        # {'sw': 'Proxmox', 'package': [], 'expr': []},
+        {'sw': 'Proxmox', 'package': [], 'expr': [os.path.isdir('/etc/pve')]},
         {'sw': 'Python', 'package': ['python3', 'python2'], 'expr': []},
         # {'sw': 'QNAP QTS', 'package': [], 'expr': []},
         {
@@ -803,6 +819,7 @@ def get_lftags(distro):
                 run_cmd('systemctl is-enabled rocketchat.service', ignore_output=True)
             ],
         },
+        # {'sw': 'RPM Updates', 'package': [], 'expr': []},
         {
             'sw': 'rsyncd',
             'package': [],
@@ -909,7 +926,6 @@ def get_lftags(distro):
     # determine explicitly installed packages (admin intent), distro-agnostically.
     # rules out transitive deps to avoid false-positive tags like IPMI on a
     # workstation that only has `ipmitool` as an indirect dependency.
-    os_family = distro.get('os_family', '')
     if os_family == 'RedHat':
         pkg_query = 'dnf repoquery --userinstalled --queryformat "%{name}\\n"'
     elif os_family == 'Debian':
