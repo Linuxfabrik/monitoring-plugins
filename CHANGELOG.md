@@ -25,6 +25,7 @@ Monitoring Plugins:
 * about-me: "User-Installed Software" table (renamed from the misleading "Non-default Software") now lists every package instead of just the first one
 * all plugins: importing `lib.url` on RHEL 8's default `python3` (3.6) no longer aborts with `AttributeError: module 'ssl' has no attribute 'TLSVersion'`. Plugins that don't use TLS version pinning keep working; calls that pin TLS get a clearer error. Officially supported minimum stays Python 3.9 (fix shipped via `linuxfabrik-lib` 4.0.2)
 * mysql-*: queries against `mysql.user` and `mysql.global_priv` no longer abort with "Illegal mix of collations" when the server's connection-collation default differs from the system tables' column collations. Fix lives in `linuxfabrik-lib` 4.0.2, which now aligns the session collation with the `mysql` schema right after connect ([#1139](https://github.com/Linuxfabrik/monitoring-plugins/issues/1139))
+* mysql-table-definition-cache: dropped the incorrect advice to set `table_definition_cache = -1`. Assigning `-1` does not enable autosizing (MySQL clamps it to the 400 minimum and documents it as a do-not-assign value, MariaDB refuses to start); autosizing only happens when the variable is left unset. The recommendation now points to a concrete value above the table count
 
 
 ## [v5.0.0] - 2026-05-15

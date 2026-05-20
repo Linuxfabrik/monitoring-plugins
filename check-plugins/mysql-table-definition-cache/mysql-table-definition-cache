@@ -19,14 +19,12 @@ import lib.db_mysql
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051101'
+__version__ = '2026052001'
 
 DESCRIPTION = """Checks the table definition cache size in MySQL/MariaDB against the current total
 number of tables in `information_schema.tables`. When `table_definition_cache` is smaller than
 the table count, definitions get evicted and re-read on each access, which costs `.frm` parses
-on disk-heavy workloads. Alerts when `table_definition_cache` is below the total table count.
-On MySQL 5.6+ / MariaDB 10.0+ `table_definition_cache = -1` enables autosizing; the plugin
-reports that as informational, state OK."""
+on disk-heavy workloads. Alerts when `table_definition_cache` is below the total table count."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
@@ -93,10 +91,15 @@ def main():
     """The main function. This is where the magic happens."""
 
     # logic taken from mysqltuner.pl:mysql_stats(), section "Table definition
-    # cache", verified in sync with MySQLTuner (the
-    # `table_definition_cache < total_tables` warn rule, the autosizing
-    # info path, and the "no variable found" fallback are unchanged
-    # upstream since the original port).
+    # cache": warn when `table_definition_cache` is below the total table
+    # count, plus a "no variable found" fallback. Autosizing happens only when
+    # the variable is left unset: MySQL then sizes it up to 2000, MariaDB
+    # always lands on 400. There is deliberately no `-1` branch: MySQL uses -1
+    # internally as the autosizing default sentinel and documents it as
+    # "do not assign this literal value" (assigning it clamps to the 400
+    # minimum); MariaDB has no such concept and refuses to start with -1. So a
+    # server never reports -1 in steady state, and the actionable fix is always
+    # a concrete value above the table count.
 
     # parse the command line
     try:
@@ -142,11 +145,6 @@ def main():
             f' by this server. {total_tables} tables in'
             ' `information_schema.tables`.'
         )
-    elif cache_value == -1:
-        sections.append(
-            'Everything is ok. `table_definition_cache` is in autosizing mode'
-            f' (-1). {total_tables} tables in `information_schema.tables`.'
-        )
     elif cache_value < total_tables:
         state = STATE_WARN
         sections.append(
@@ -155,9 +153,7 @@ def main():
             f'{lib.base.state2str(state, prefix=" ")}.'
         )
         recommendations.append(
-            f'Raise `table_definition_cache` above {total_tables}, or set it'
-            f' to `-1` to let the server autosize the cache (MySQL 5.6+ /'
-            f' MariaDB 10.0+)'
+            f'Raise `table_definition_cache` above {total_tables}.'
         )
     else:
         sections.append(
@@ -171,9 +167,8 @@ def main():
         )
     msg = '\n\n'.join(sections)
 
-    # Encode the autosizing sentinel (-1) as 0 in perfdata so the panel scale
-    # is meaningful (a -1 vertical jump would dominate any positive value).
-    # The OK message and the README explain the meaning.
+    # `table_definition_cache` is always >= 0 in practice; clamp any negative
+    # reading to 0 so the panel scale stays on a meaningful 0-based axis.
     perfdata += lib.base.get_perfdata(
         'mysql_table_definition_cache',
         max(cache_value, 0) if cache_value is not None else 0,
