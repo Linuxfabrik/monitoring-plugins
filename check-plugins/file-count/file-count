@@ -92,6 +92,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--no-early-break',
+        help='Disable early break optimization and count all matching files.',
+        dest='NO_EARLY_BREAK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '--password',
         help='Password for SMB authentication.',
         dest='PASSWORD',
@@ -202,7 +210,10 @@ def main():
     exceeded_threshold = False
 
     # Determine if we can break early for performance
-    early_break_at = get_early_break_threshold(args.WARN, args.CRIT)
+    if args.NO_EARLY_BREAK:
+        early_break_at = None
+    else:
+        early_break_at = get_early_break_threshold(args.WARN, args.CRIT)
 
     if args.FILENAME:
         path = Path(args.FILENAME)
@@ -293,7 +304,8 @@ def main():
         display_count = file_count - 1
         msg = (
             f'Found more than {display_count} matching '
-            f'{lib.txt.pluralize("file", display_count)} (thresholds {args.WARN}/{args.CRIT})'
+            f'{lib.txt.pluralize("file", display_count)} '
+            f'(thresholds {args.WARN}/{args.CRIT}, early-break active)'
         )
     else:
         msg = (
