@@ -8,6 +8,9 @@
                 "--critical": {
                     "value": "$swap_usage_critical$"
                 },
+                "--severity-no-swap": {
+                    "value": "$swap_usage_severity_no_swap$"
+                },
                 "--top": {
                     "value": "$swap_usage_top$"
                 },
@@ -37,6 +40,11 @@
                     "datafield_id": 4,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -57,6 +65,9 @@
                 "--critical": {
                     "value": "$swap_usage_windows_critical$"
                 },
+                "--severity-no-swap": {
+                    "value": "$swap_usage_windows_severity_no_swap$"
+                },
                 "--top": {
                     "value": "$swap_usage_windows_top$"
                 },
@@ -67,11 +78,6 @@
             "command": "C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\swap-usage.exe",
             "disabled": false,
             "fields": [
-                {
-                    "datafield_id": 5,
-                    "is_required": "n",
-                    "var_filter": null
-                },
                 {
                     "datafield_id": 6,
                     "is_required": "n",
@@ -84,6 +90,16 @@
                 },
                 {
                     "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -146,7 +162,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Monitors swap space usage as a percentage of total swap. Optionally lists the top processes consuming the most swap to help identify the source of high usage. Alerts when usage exceeds the configured thresholds.",
+            "notes": "Monitors swap space usage as a percentage of total swap. Optionally lists the top processes consuming the most swap to help identify the source of high usage. Alerts when usage exceeds the configured thresholds. Returns a configurable severity when no swap is configured at all, which helps detect a swap partition that was inadvertently disabled.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/swap-usage/",
             "object_name": "tpl-service-swap-usage",
             "object_type": "template",
@@ -159,6 +175,7 @@
                 "criticality": "C",
                 "swap_usage_always_ok": false,
                 "swap_usage_critical": 90,
+                "swap_usage_severity_no_swap": "unknown",
                 "swap_usage_top": 5,
                 "swap_usage_warning": 70
             },
@@ -195,7 +212,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Monitors swap space usage as a percentage of total swap. Optionally lists the top processes consuming the most swap to help identify the source of high usage. Alerts when usage exceeds the configured thresholds.",
+            "notes": "Monitors swap space usage as a percentage of total swap. Optionally lists the top processes consuming the most swap to help identify the source of high usage. Alerts when usage exceeds the configured thresholds. Returns a configurable severity when no swap is configured at all, which helps detect a swap partition that was inadvertently disabled.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/swap-usage/",
             "object_name": "tpl-service-swap-usage-windows",
             "object_type": "template",
@@ -208,12 +225,77 @@
                 "criticality": "C",
                 "swap_usage_windows_always_ok": false,
                 "swap_usage_windows_critical": 90,
+                "swap_usage_windows_severity_no_swap": "unknown",
                 "swap_usage_windows_top": 5,
                 "swap_usage_windows_warning": 70
             },
             "volatile": null,
             "zone": null,
             "uuid": "94eda839-0fb2-4eb1-b738-042a2cc11578"
+        }
+    },
+    "DataList": {
+        "swap_usage_severity_no_swap_list": {
+            "list_name": "swap_usage_severity_no_swap_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "b1062230-bc23-42df-8171-fccf83c36ecc"
+        },
+        "swap_usage_windows_severity_no_swap_list": {
+            "list_name": "swap_usage_windows_severity_no_swap_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "d026655f-1770-4118-9b97-c16bd627bdca"
         }
     },
     "Datafield": {
@@ -238,6 +320,19 @@
             "uuid": "06ff088c-6a20-4d7c-a2cd-e853740d4d7a"
         },
         "3": {
+            "varname": "swap_usage_severity_no_swap",
+            "caption": "Swap Usage: Severity No Swap",
+            "description": "Severity for alerting if no swap is configured.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "swap_usage_severity_no_swap_list"
+            },
+            "uuid": "a3d33372-e998-48f1-b594-d0604df219f1"
+        },
+        "4": {
             "varname": "swap_usage_top",
             "caption": "Swap Usage: Top",
             "description": "Number of top processes consuming the most swap space to list (not available on Windows).",
@@ -248,7 +343,7 @@
             },
             "uuid": "e310bfe0-6eee-41c1-8d53-7044e4f128fc"
         },
-        "4": {
+        "5": {
             "varname": "swap_usage_warning",
             "caption": "Swap Usage: Warning",
             "description": "Threshold for swap usage, in percent.",
@@ -259,7 +354,7 @@
             },
             "uuid": "dd0c4593-8faf-4ebc-901b-6c7025483143"
         },
-        "5": {
+        "6": {
             "varname": "swap_usage_windows_always_ok",
             "caption": "Swap Usage: Always OK?",
             "description": "Always returns OK.",
@@ -268,7 +363,7 @@
             "settings": {},
             "uuid": "31890764-645c-4a8f-9de7-0086e31e66f7"
         },
-        "6": {
+        "7": {
             "varname": "swap_usage_windows_critical",
             "caption": "Swap Usage: Critical",
             "description": "Threshold for swap usage, in percent.",
@@ -279,7 +374,20 @@
             },
             "uuid": "6876e2d9-8cf4-4511-be68-9f7dfc7aa273"
         },
-        "7": {
+        "8": {
+            "varname": "swap_usage_windows_severity_no_swap",
+            "caption": "Swap Usage: Severity No Swap",
+            "description": "Severity for alerting if no swap is configured.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "swap_usage_windows_severity_no_swap_list"
+            },
+            "uuid": "169c202a-99d0-4290-97d0-e0f11939ee74"
+        },
+        "9": {
             "varname": "swap_usage_windows_top",
             "caption": "Swap Usage: Top",
             "description": "Number of top processes consuming the most swap space to list (not available on Windows).",
@@ -290,7 +398,7 @@
             },
             "uuid": "3f02a0e9-7453-4d56-bc9e-4c29e1ad6879"
         },
-        "8": {
+        "10": {
             "varname": "swap_usage_windows_warning",
             "caption": "Swap Usage: Warning",
             "description": "Threshold for swap usage, in percent.",
