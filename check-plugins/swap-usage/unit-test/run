@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 # The swap-usage plugin normally calls `psutil.swap_memory()` and
 # walks `/proc/<pid>/status` for its top-processes table. Its
@@ -65,6 +65,42 @@ TESTS = [
         'params': '--warning=30 --critical=40',
         'assert-retc': STATE_CRIT,
         'assert-in': ['50.0%'],
+    },
+    # No swap configured at all: the severity defaults to unknown and can
+    # be overridden per --severity-no-swap.
+    {
+        'id': 'unknown-no-swap-configured-default',
+        'test': 'stdout/swap-disabled,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['No swap configured.'],
+    },
+    {
+        'id': 'ok-no-swap-configured-severity-ok',
+        'test': 'stdout/swap-disabled,,0',
+        'params': '--severity-no-swap=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No swap configured.'],
+    },
+    {
+        'id': 'warn-no-swap-configured-severity-warn',
+        'test': 'stdout/swap-disabled,,0',
+        'params': '--severity-no-swap=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['No swap configured.'],
+    },
+    {
+        'id': 'crit-no-swap-configured-severity-crit',
+        'test': 'stdout/swap-disabled,,0',
+        'params': '--severity-no-swap=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['No swap configured.'],
+    },
+    {
+        'id': 'ok-no-swap-configured-always-ok-masks-severity',
+        'test': 'stdout/swap-disabled,,0',
+        'params': '--severity-no-swap=crit --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No swap configured.'],
     },
 ]
 

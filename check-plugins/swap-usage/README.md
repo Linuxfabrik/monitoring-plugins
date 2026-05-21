@@ -28,23 +28,29 @@ Monitors swap space usage as a percentage of total swap. On Linux, optionally li
 ## Help
 
 ```text
-usage: swap-usage [-h] [-V] [--always-ok] [-c CRIT] [--top TOP] [--test TEST]
-                  [-w WARN]
+usage: swap-usage [-h] [-V] [--always-ok] [-c CRIT]
+                  [--severity-no-swap {ok,warn,crit,unknown}] [--top TOP]
+                  [--test TEST] [-w WARN]
 
 Monitors swap space usage as a percentage of total swap. Optionally lists the
 top processes consuming the most swap to help identify the source of high
-usage. Alerts when usage exceeds the configured thresholds.
+usage. Alerts when usage exceeds the configured thresholds. Returns a
+configurable severity when no swap is configured at all, which helps detect a
+swap partition that was inadvertently disabled.
 
 options:
-  -h, --help           show this help message and exit
-  -V, --version        show program's version number and exit
-  --always-ok          Always returns OK.
-  -c, --critical CRIT  Threshold for swap usage, in percent. Default: 90
-  --top TOP            Number of top processes consuming the most swap space
-                       to list (not available on Windows). Default: 5
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
-  -w, --warning WARN   Threshold for swap usage, in percent. Default: 70
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
+  -c, --critical CRIT   Threshold for swap usage, in percent. Default: 90
+  --severity-no-swap {ok,warn,crit,unknown}
+                        Severity for alerting if no swap is configured.
+                        Default: unknown
+  --top TOP             Number of top processes consuming the most swap space
+                        to list (not available on Windows). Default: 5
+  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                        stderr-file,expected-retc".
+  -w, --warning WARN    Threshold for swap usage, in percent. Default: 70
 ```
 
 
@@ -72,6 +78,7 @@ Top 3 processes that use the most swap space:
 * OK if swap usage is below the warning threshold.
 * WARN if swap usage is >= `--warning` (default: 70%).
 * CRIT if swap usage is >= `--critical` (default: 90%).
+* If no swap is configured at all (total swap is 0 bytes), reports `No swap configured.` and returns the state given by `--severity-no-swap` (default: UNKNOWN). This helps detect a swap partition that was inadvertently disabled. Set `--severity-no-swap=ok` if running without swap is intentional on the host.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

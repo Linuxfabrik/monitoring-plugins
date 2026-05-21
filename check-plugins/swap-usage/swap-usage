@@ -30,13 +30,16 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041301'
+__version__ = '2026052001'
 
 DESCRIPTION = """Monitors swap space usage as a percentage of total swap. Optionally lists the top
 processes consuming the most swap to help identify the source of high usage. Alerts
-when usage exceeds the configured thresholds."""
+when usage exceeds the configured thresholds. Returns a configurable severity when no
+swap is configured at all, which helps detect a swap partition that was inadvertently
+disabled."""
 
 DEFAULT_CRIT = 90  # %
+DEFAULT_NO_SWAP = 'unknown'
 DEFAULT_TOP = 5
 DEFAULT_WARN = 70  # %
 
@@ -67,6 +70,14 @@ def parse_args():
         dest='CRIT',
         help='Threshold for swap usage, in percent. Default: %(default)s',
         type=int,
+    )
+
+    parser.add_argument(
+        '--severity-no-swap',
+        help='Severity for alerting if no swap is configured. Default: %(default)s',
+        dest='SEVERITY_NO_SWAP',
+        default=DEFAULT_NO_SWAP,
+        choices=['ok', 'warn', 'crit', 'unknown'],
     )
 
     parser.add_argument(
@@ -242,6 +253,16 @@ def main():
     # walking the real /proc tree)
     if args.TEST is None and not lib.base.WINDOWS and swap_usage_percent > 0:
         msg_body += '\n' + top(args.TOP)
+
+    # no swap configured at all: report with the configured severity so an
+    # inadvertently disabled swap partition does not silently pass as OK
+    if swap.total == 0:
+        lib.base.oao(
+            'No swap configured.',
+            lib.base.str2state(args.SEVERITY_NO_SWAP),
+            perfdata,
+            always_ok=args.ALWAYS_OK,
+        )
 
     # calculating the final check state
     state = lib.base.get_state(swap_usage_percent, args.WARN, args.CRIT)
