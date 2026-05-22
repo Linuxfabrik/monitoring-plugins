@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks for in-flight MySQL/MariaDB queries that have been running longer than `--warning` / `--critical` seconds. Unlike `mysql-slow-queries` (which trends the historical ratio of finished slow queries), this plugin shows queries that are *currently* executing right now, with their session ID, user, database, runtime and a truncated copy of the statement so the admin can `KILL <id>` directly. Sleeping sessions and replication threads are ignored. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_pfs(), but the data source is `information_schema.processlist` so the check works on every MySQL/MariaDB release without requiring Performance Schema to be enabled.
+Checks for in-flight MySQL/MariaDB queries that have been running longer than `--warning` / `--critical` seconds. Unlike `mysql-slow-queries` (which trends the historical ratio of finished slow queries), this plugin shows queries that are *currently* executing right now, with their session ID, user, database, runtime and a truncated copy of the statement. Sleeping sessions and replication threads are ignored. Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_pfs(), but the data source is `information_schema.processlist` so the check works on every MySQL/MariaDB release without requiring Performance Schema to be enabled.
 
 **Important Notes:**
 
@@ -44,13 +44,12 @@ Checks for in-flight MySQL/MariaDB queries that have been running longer than
 `--warning` / `--critical` seconds. Unlike `mysql-slow-queries` (which trends
 the historical ratio of finished slow queries), this plugin shows queries that
 are *currently* executing right now, with their session ID, user, database,
-runtime and a truncated copy of the statement so the admin can `KILL <id>`
-directly. Sleeping sessions and replication threads are ignored. Logic taken
-from MySQLTuner `mysql_pfs()`, but the data source is
-`information_schema.processlist` so the check works on every MySQL/MariaDB
-release without requiring Performance Schema to be enabled. Without `PROCESS`
-privilege, the monitoring user only sees its own sessions; grant `PROCESS` on
-`*.*` to see queries across all sessions.
+runtime and a truncated copy of the statement. Sleeping sessions and
+replication threads are ignored. Logic taken from MySQLTuner `mysql_pfs()`,
+but the data source is `information_schema.processlist` so the check works on
+every MySQL/MariaDB release without requiring Performance Schema to be
+enabled. Without `PROCESS` privilege, the monitoring user only sees its own
+sessions; grant `PROCESS` on `*.*` to see queries across all sessions.
 
 options:
   -h, --help            show this help message and exit

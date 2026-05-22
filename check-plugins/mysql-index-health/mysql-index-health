@@ -20,7 +20,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051201'
+__version__ = '2026052201'
 
 DESCRIPTION = """Reports the two index-housekeeping findings that MySQLTuner
 flags inside its `mysql_pfs()` block: unused indexes (never read since the last server
@@ -28,8 +28,7 @@ start, listed in `sys.schema_unused_indexes`) and redundant indexes (a narrower 
 fully covered by a wider one, listed in `sys.schema_redundant_indexes`). Both views are
 populated by the Performance Schema; the plugin reports STATE_UNKNOWN with a clear hint
 when `performance_schema = OFF` (the MariaDB default). The check is meant as a
-trip-wire only: when it alerts, run `mysqltuner --pfstat` on the host for the full
-analysis with remediation hints and ready-to-run `ALTER TABLE ... DROP INDEX` statements.
+trip-wire only: it surfaces the findings, not the full per-index analysis.
 System schemas (`mysql`, `information_schema`, `performance_schema`, `sys`) are excluded.
 Counters are cumulative since server start; restarting the server resets them, so the
 plugin stays silent (STATE_OK with a wait hint) until server uptime crosses

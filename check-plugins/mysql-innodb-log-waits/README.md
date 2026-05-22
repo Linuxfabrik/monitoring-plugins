@@ -5,7 +5,7 @@
 
 Checks two related InnoDB log buffer health metrics in MySQL/MariaDB:
 
-1. **Log waits** (`Innodb_log_waits` / `Innodb_log_writes`) - how often InnoDB had to wait for log writes to be flushed because the log buffer was full. Anything above 0% indicates that `innodb_log_buffer_size` should be increased.
+1. **Log waits** (`Innodb_log_waits` / `Innodb_log_writes`) - how often InnoDB had to wait for log writes to be flushed because the log buffer was full. Anything above 0% indicates that `innodb_log_buffer_size` is too small for the write workload.
 2. **Write log efficiency** (`(Innodb_log_write_requests - Innodb_log_writes) / Innodb_log_write_requests * 100`) - how many log write requests were absorbed by the buffer without needing a physical disk write. Below 90% indicates `innodb_log_buffer_size` is too small for the write workload.
 
 **Important Notes:**
@@ -46,12 +46,12 @@ usage: mysql-innodb-log-waits [-h] [-V] [--always-ok]
 Checks two related InnoDB log buffer metrics in MySQL/MariaDB: 1. **Log
 waits** (`Innodb_log_waits` / `Innodb_log_writes`) - how often InnoDB had to
 wait for log writes to be flushed because the log buffer was full. Anything
-above 0% indicates that `innodb_log_buffer_size` should be increased. 2.
-**Write log efficiency** ((`Innodb_log_write_requests` - `Innodb_log_writes`)
-/ `Innodb_log_write_requests` * 100) - how many log write requests were
-absorbed by the buffer without needing a physical disk write. Below 90%
-indicates `innodb_log_buffer_size` is too small for the write workload. Alerts
-on either condition.
+above 0% indicates that `innodb_log_buffer_size` is too small for the write
+workload. 2. **Write log efficiency** ((`Innodb_log_write_requests` -
+`Innodb_log_writes`) / `Innodb_log_write_requests` * 100) - how many log write
+requests were absorbed by the buffer without needing a physical disk write.
+Below 90% indicates `innodb_log_buffer_size` is too small for the write
+workload. Alerts on either condition.
 
 options:
   -h, --help            show this help message and exit

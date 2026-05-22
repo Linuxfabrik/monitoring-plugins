@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks storage engine health in MySQL/MariaDB. Lists per-engine table counts and sizes, flags InnoDB being enabled but no `InnoDB` tables existing, hunts fragmented tables that benefit from `ALTER TABLE ... FORCE` (InnoDB) or `OPTIMIZE TABLE` (other engines), and warns when an `AUTO_INCREMENT` value approaches its column-type maximum. The fragmentation rule mirrors mysqltuner: only tables larger than 100 MiB with more than 10% `DATA_FREE` count.
+Checks storage engine health in MySQL/MariaDB. Lists per-engine table counts and sizes, flags InnoDB being enabled but no `InnoDB` tables existing, hunts fragmented tables, and warns when an `AUTO_INCREMENT` value approaches its column-type maximum. The fragmentation rule mirrors mysqltuner: only tables larger than 100 MiB with more than 10% `DATA_FREE` count.
 
 **Important Notes:**
 
@@ -53,13 +53,12 @@ usage: mysql-storage-engines [-h] [-V] [--always-ok]
                              [--warning-fragmented-tables WARNING_FRAG]
 
 Checks storage engine health in MySQL/MariaDB. Lists per-engine table counts
-and sizes, flags InnoDB-enabled-but-no-InnoDB-tables, hunts fragmented tables
-that benefit from `ALTER TABLE ... FORCE` (InnoDB) or `OPTIMIZE TABLE` (other
-engines), and warns when an `AUTO_INCREMENT` value approaches its column-type
-maximum. The fragmentation rule mirrors mysqltuner: only tables larger than
-100 MiB with more than 10% `DATA_FREE` count. The `AUTO_INCREMENT` check goes
-beyond mysqltuner by comparing each column to its own type ceiling (`TINYINT`
-to `BIGINT`, signed/unsigned), so tables using `INT UNSIGNED` are caught long
+and sizes, flags InnoDB-enabled-but-no-InnoDB-tables, hunts fragmented tables,
+and warns when an `AUTO_INCREMENT` value approaches its column-type maximum.
+The fragmentation rule mirrors mysqltuner: only tables larger than 100 MiB
+with more than 10% `DATA_FREE` count. The `AUTO_INCREMENT` check goes beyond
+mysqltuner by comparing each column to its own type ceiling (`TINYINT` to
+`BIGINT`, signed/unsigned), so tables using `INT UNSIGNED` are caught long
 before they hit the duplicate-key error.
 
 options:
