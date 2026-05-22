@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Monitoring Plugins:
 
+* mysql-long-queries: output now suggests `KILL <id>` to terminate a runaway query
 * swap-usage: `--severity-no-swap` alerts when a host has no swap configured at all, helping detect a swap partition that was inadvertently disabled ([#1142](https://github.com/Linuxfabrik/monitoring-plugins/issues/1142))
 
 ### Changed
@@ -21,6 +22,7 @@ Monitoring Plugins:
 * about-me: `--tags` covers Jitsi, Needs Restarting, and Proxmox
 * about-me: `--tags` emits all `MariaDB *` or `MySQL *` variant tags so all relevant service sets are offered
 * about-me: `--tags` now detects Podman hosts
+* mysql-*: tuning advice now appears only in the plugin output where a problem is flagged, no longer duplicated in the plugin description
 
 ### Fixed
 
@@ -31,6 +33,7 @@ Monitoring Plugins:
 * about-me: "User-Installed Software" table (renamed from the misleading "Non-default Software") now lists every package instead of just the first one
 * all plugins: importing `lib.url` on RHEL 8's default `python3` (3.6) no longer aborts with `AttributeError: module 'ssl' has no attribute 'TLSVersion'`. Plugins that don't use TLS version pinning keep working; calls that pin TLS get a clearer error. Officially supported minimum stays Python 3.9 (fix shipped via `linuxfabrik-lib` 4.0.2)
 * mysql-*: queries against `mysql.user` and `mysql.global_priv` no longer abort with "Illegal mix of collations" when the server's connection-collation default differs from the system tables' column collations. Fix lives in `linuxfabrik-lib` 4.0.2, which now aligns the session collation with the `mysql` schema right after connect ([#1139](https://github.com/Linuxfabrik/monitoring-plugins/issues/1139))
+* mysql-perf-metrics: the `innodb_io_capacity` check no longer raises false alarms on virtualised or network-backed storage (Ceph, cloud volumes), where the disk auto-detection misreads slow devices as fast local SSDs. It now runs only when `--storage-type=ssd` is set explicitly, and recommends sizing the value to the disk's measured IOPS instead of a fixed target
 * mysql-table-definition-cache: dropped the incorrect advice to set `table_definition_cache = -1`. Assigning `-1` does not enable autosizing (MySQL clamps it to the 400 minimum and documents it as a do-not-assign value, MariaDB refuses to start); autosizing only happens when the variable is left unset. The recommendation now points to a concrete value above the table count
 
 
