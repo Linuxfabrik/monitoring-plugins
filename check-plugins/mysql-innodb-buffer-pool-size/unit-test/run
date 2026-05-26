@@ -64,12 +64,13 @@ def _check_image(test, containerfile):
     print(f'\n=== Testing {containerfile} ===', flush=True)
     with lib.lftest.run_mysql_compatible_from_containerfile(
         path,
-        # Pin both the buffer pool and the log file so the plugin's
-        # "ratio in [20%, 30%]" sanity check lands on exactly 25%
-        # regardless of the image defaults. sclorg defaults to 8 MiB
-        # log files and the upstream image to 96 MiB, which would
-        # otherwise send the ratio to 300%.
-        extra_args='--innodb-buffer-pool-size=33554432 --innodb-log-file-size=8388608',
+        # Pin only the buffer pool so the assertion can target a
+        # deterministic 32 MiB. The log/redo size is left at the image
+        # default on purpose: `--innodb-log-file-size` was removed in
+        # MySQL 9.3.0, so pinning it would break that container's boot,
+        # and the plugin no longer evaluates the log-size-to-buffer-pool
+        # ratio anyway.
+        extra_args='--innodb-buffer-pool-size=33554432',
     ) as (_container, defaults_file):
         cmd = [
             'python3', '../mysql-innodb-buffer-pool-size',

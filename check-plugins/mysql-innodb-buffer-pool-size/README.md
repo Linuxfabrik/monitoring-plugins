@@ -129,7 +129,7 @@ Recommendations:
 |----|----|----|
 | mysql_innodb_buffer_pool_size | Bytes | `innodb_buffer_pool_size` in bytes. The primary value to adjust on a database server with entirely/primarily InnoDB tables, can be set up to 80% of the total memory. |
 | mysql_innodb_data_size | Bytes | Sum of `DATA_LENGTH + INDEX_LENGTH` across all InnoDB tables in non-system schemas. |
-| mysql_innodb_log_file_size | Bytes | Size of each InnoDB redo log file. Always emitted, even on servers exposing `innodb_redo_log_capacity`, for trending across the MySQL 8.0.30 cutover. |
+| mysql_innodb_log_file_size | Bytes | Size of each InnoDB redo log file. Emitted on MariaDB and MySQL < 9.3.0; absent on MySQL >= 9.3.0, where `innodb_log_file_size` was removed in favour of `innodb_redo_log_capacity`. |
 | mysql_innodb_os_log_written_per_hour | Bytes | Hourly InnoDB redo log write rate, derived as `Innodb_os_log_written / (Uptime / 3600)`. Only emitted on MySQL 8.0.30+ with at least 1 hour of uptime. |
 | mysql_innodb_redo_log_capacity | Bytes | Configured `innodb_redo_log_capacity` (MySQL 8.0.30+ only). |
 | mysql_innodb_redo_log_capacity_recommended | Bytes | Workload-based recommendation for `innodb_redo_log_capacity`, derived from the hourly write rate and rounded into the host's RAM tier (matches mysqltuner). Only emitted on MySQL 8.0.30+ with at least 1 hour of uptime. |
