@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Monitoring Plugins:
 
+* fail2ban: `--ignore` (regex) and `--socket` options ([#140](https://github.com/Linuxfabrik/monitoring-plugins/issues/140))
 * mysql-long-queries: output now suggests `KILL <id>` to terminate a runaway query
 * swap-usage: `--severity-no-swap` alerts when a host has no swap configured at all, helping detect a swap partition that was inadvertently disabled ([#1142](https://github.com/Linuxfabrik/monitoring-plugins/issues/1142))
 
@@ -22,6 +23,7 @@ Monitoring Plugins:
 * about-me: `--tags` covers Jitsi, Needs Restarting, and Proxmox
 * about-me: `--tags` emits all `MariaDB *` or `MySQL *` variant tags so all relevant service sets are offered
 * about-me: `--tags` now detects Podman hosts
+* fail2ban: per-jail breakdown is now a table; thresholds accept Nagios ranges ([#140](https://github.com/Linuxfabrik/monitoring-plugins/issues/140))
 * mysql-*: tuning advice now appears only in the plugin output where a problem is flagged, no longer duplicated in the plugin description
 
 ### Fixed
@@ -32,6 +34,7 @@ Monitoring Plugins:
 * about-me: `--tags` package-based detection now works on Debian, Ubuntu, SUSE, Arch, Alpine, and is fixed on Red Hat family
 * about-me: "User-Installed Software" table (renamed from the misleading "Non-default Software") now lists every package instead of just the first one
 * all plugins: importing `lib.url` on RHEL 8's default `python3` (3.6) no longer aborts with `AttributeError: module 'ssl' has no attribute 'TLSVersion'`. Plugins that don't use TLS version pinning keep working; calls that pin TLS get a clearer error. Officially supported minimum stays Python 3.9 (fix shipped via `linuxfabrik-lib` 4.0.2)
+* fail2ban: a banned jail no longer mislabels the following jails with its state in the output
 * mysql-*: queries against `mysql.user` and `mysql.global_priv` no longer abort with "Illegal mix of collations" when the server's connection-collation default differs from the system tables' column collations. Fix lives in `linuxfabrik-lib` 4.0.2, which now aligns the session collation with the `mysql` schema right after connect ([#1139](https://github.com/Linuxfabrik/monitoring-plugins/issues/1139))
 * mysql-innodb-buffer-pool-size: no longer aborts on MySQL 9.3 and newer. There `innodb_log_file_size` was removed, so the check now relies on `innodb_redo_log_capacity`
 * mysql-perf-metrics: no longer flags `innodb_log_file_size` and `innodb_log_files_in_group` as obsolete on MySQL 9.0 to 9.2, where they are still valid settings. They are reported only from MySQL 9.3 on, where they were actually removed
