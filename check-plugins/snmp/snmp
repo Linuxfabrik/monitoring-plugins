@@ -24,7 +24,7 @@ import lib.shell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026042301'
+__version__ = '2026052801'
 
 DESCRIPTION = """Queries SNMP OIDs defined in a CSV file and checks the returned values against optional
 warning and critical thresholds. Supports SNMP v1, v2c, and v3 with authentication and
@@ -571,13 +571,24 @@ def main():
         # create perfdata for numeric values
         value_type = lib.base.guess_type(value)
         w, c = None, None
-        try:
-            # performance thresholds should return a tuple
-            # eval() is the documented feature: admins provide perf thresholds
-            # as Python tuple expressions in the check config
-            w, c = eval(perf_thresholds, {})  # nosec B307
-        except Exception:
-            pass
+        if perf_thresholds:
+            # admins provide the perfdata alert thresholds as a Python tuple
+            # expression (e.g. "80,90") in the check config. An empty field is
+            # the normal case and means "no thresholds". A non-empty but
+            # malformed entry (syntax error, or not a two-element tuple) is
+            # surfaced as UNKNOWN instead of being silently dropped, so a typo
+            # does not just result in missing threshold lines without feedback.
+            # eval() is the documented feature here.
+            try:
+                w, c = eval(perf_thresholds, {})  # nosec B307
+            except Exception as e:
+                msg_header += (
+                    f'{name}: invalid perfdata alert thresholds in {args.DEVICE} '
+                    f'({type(e).__name__}: {e}) '
+                    f'{lib.base.state2str(STATE_UNKNOWN)}, '
+                )
+                state = lib.base.get_worst(state, STATE_UNKNOWN)
+                w, c = None, None
         if not ignore_perfdata and isinstance(value_type, (int, float)):
             if perfdata_unit == '%':
                 perfdata += lib.base.get_perfdata(
@@ -638,7 +649,6 @@ def main():
 
     # create output
     if msg_header:
-
         # build the message
         msg += msg_header[:-2]
     if not args.HIDE_TABLE and len(table_values) > 0:

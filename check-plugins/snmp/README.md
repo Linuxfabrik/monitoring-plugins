@@ -248,7 +248,11 @@ The columns in detail:
    Bool, either "False", "True", or empty. By default, all numeric values are automatically returned as perfdata objects. Set to `True` to exclude this item from the perfdata list.
 
 * **Perfdata Alert Thresholds:**
-   Python tuple. Add warning and critical thresholds to performance data by defining a valid Python tuple - first element for warning, second one for critical. Use double quotes around the tuple because the comma is the separator between the fields. Normally, the values of WARN and CRIT should be repeated here so that the actual thresholds used are written to the performance data.
+   Python tuple, or empty. The "WARN" and "CRIT" columns hold Python *conditions* (for example `value > 80`), not plain numbers, so they cannot be written into the performance data as-is. This column provides the numeric warning and critical thresholds that should appear in the perfdata, as a two-element Python tuple: the first element is the warning threshold, the second one the critical threshold. Use `None` for "no threshold". Wrap the tuple in double quotes, otherwise the comma inside it is read as a CSV field separator. Example: `"3*30*24*3600,5*365*24*3600"`.
+
+   This column only annotates the performance data, meaning the `warn` and `crit` fields a graphing tool draws as threshold lines. It has no effect on the OK, WARN, or CRIT state the plugin returns; that state is decided solely by the "WARN" and "CRIT" columns. Because the two are independent, the values here may differ from the conditions in "WARN" and "CRIT". Normally you keep them in sync by repeating the same numeric breakpoints. A row can also have perfdata thresholds without any "WARN"/"CRIT" condition, purely for visualization.
+
+   The repetition looks redundant but the separation is deliberate and buys you flexibility: the "WARN" and "CRIT" columns may hold arbitrary Python conditions, including comparisons that combine several OIDs or that have no single numeric equivalent, while the perfdata still gets clean numeric threshold lines a graphing tool can draw. It also lets you place a guideline at a value that differs from the alerting threshold, or annotate a metric that is not alerted on at all.
 
 * **Skip Output:**
    Bool, either "False", "True", or empty. Should this row be included in the resulting table output? Set this to "True" if you only need the row for calculations.
@@ -318,7 +322,7 @@ snmpbulkwalk -v2c \
 
 ## Perfdata / Metrics
 
-By default, all numeric values are automatically returned as perfdata objects. Use the "Ignore in Perfdata" CSV column to exclude specific items.
+By default, all numeric values are automatically returned as perfdata objects. Use the "Ignore in Perfdata" CSV column to exclude specific items. The `warn` and `crit` threshold fields in the perfdata come from the "Perfdata Alert Thresholds" CSV column and are purely for visualization; they do not influence the plugin's state.
 
 | Name | Type | Description |
 |----|----|----|

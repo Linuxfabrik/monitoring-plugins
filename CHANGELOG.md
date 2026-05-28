@@ -40,6 +40,7 @@ Monitoring Plugins:
 * mysql-perf-metrics: no longer flags `innodb_log_file_size` and `innodb_log_files_in_group` as obsolete on MySQL 9.0 to 9.2, where they are still valid settings. They are reported only from MySQL 9.3 on, where they were actually removed
 * mysql-perf-metrics: the `innodb_io_capacity` check no longer raises false alarms on virtualised or network-backed storage (Ceph, cloud volumes), where the disk auto-detection misreads slow devices as fast local SSDs. It now runs only when `--storage-type=ssd` is set explicitly, and recommends sizing the value to the disk's measured IOPS instead of a fixed target
 * mysql-table-definition-cache: dropped the incorrect advice to set `table_definition_cache = -1`. Assigning `-1` does not enable autosizing (MySQL clamps it to the 400 minimum and documents it as a do-not-assign value, MariaDB refuses to start); autosizing only happens when the variable is left unset. The recommendation now points to a concrete value above the table count
+* snmp: a malformed "Perfdata Alert Thresholds" entry in a device CSV is now reported as UNKNOWN instead of being silently ignored, so a typo no longer just results in missing threshold lines without any feedback ([#768](https://github.com/Linuxfabrik/monitoring-plugins/discussions/768))
 
 
 ## [v5.0.0] - 2026-05-15
