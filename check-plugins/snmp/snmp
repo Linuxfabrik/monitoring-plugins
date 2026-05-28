@@ -24,7 +24,7 @@ import lib.shell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026052801'
+__version__ = '2026052802'
 
 DESCRIPTION = """Queries SNMP OIDs defined in a CSV file and checks the returned values against optional
 warning and critical thresholds. Supports SNMP v1, v2c, and v3 with authentication and
@@ -570,17 +570,31 @@ def main():
 
         # create perfdata for numeric values
         value_type = lib.base.guess_type(value)
+        # admins provide the perfdata alert thresholds as a Python tuple
+        # expression in the check config: "warn,crit" or, to also pin the
+        # graph axis, "warn,crit,min,max". Min and max are optional and fall
+        # back to the per-unit defaults below. An empty field is the normal
+        # case and means "no thresholds". A non-empty but malformed entry
+        # (syntax error, or not a tuple of two to four elements) is surfaced as
+        # UNKNOWN instead of being silently dropped, so a typo does not just
+        # result in missing threshold lines without feedback.
         w, c = None, None
+        perf_min, perf_max = None, None
+        has_min, has_max = False, False
         if perf_thresholds:
-            # admins provide the perfdata alert thresholds as a Python tuple
-            # expression (e.g. "80,90") in the check config. An empty field is
-            # the normal case and means "no thresholds". A non-empty but
-            # malformed entry (syntax error, or not a two-element tuple) is
-            # surfaced as UNKNOWN instead of being silently dropped, so a typo
-            # does not just result in missing threshold lines without feedback.
-            # eval() is the documented feature here.
             try:
-                w, c = eval(perf_thresholds, {})  # nosec B307
+                # eval() is the documented feature here
+                parsed = eval(perf_thresholds, {})  # nosec B307
+                if not isinstance(parsed, (tuple, list)) or not 2 <= len(parsed) <= 4:
+                    raise ValueError(
+                        'expected a tuple of two to four elements '
+                        '(warn, crit[, min[, max]])'
+                    )
+                w, c = parsed[0], parsed[1]
+                if len(parsed) >= 3:
+                    perf_min, has_min = parsed[2], True
+                if len(parsed) == 4:
+                    perf_max, has_max = parsed[3], True
             except Exception as e:
                 msg_header += (
                     f'{name}: invalid perfdata alert thresholds in {args.DEVICE} '
@@ -588,18 +602,13 @@ def main():
                     f'{lib.base.state2str(STATE_UNKNOWN)}, '
                 )
                 state = lib.base.get_worst(state, STATE_UNKNOWN)
-                w, c = None, None
+                w, c, perf_min, perf_max = None, None, None, None
+                has_min, has_max = False, False
         if not ignore_perfdata and isinstance(value_type, (int, float)):
+            # pick the uom and the default graph axis (min, max) per unit; an
+            # explicit min/max from the CSV overrides the default
             if perfdata_unit == '%':
-                perfdata += lib.base.get_perfdata(
-                    name,
-                    value,
-                    uom='%',
-                    warn=w,
-                    crit=c,
-                    _min=0,
-                    _max=100,
-                )
+                uom, default_max = '%', 100
             elif perfdata_unit.upper() in [
                 'B',
                 'KB',
@@ -611,41 +620,26 @@ def main():
                 'ZB',
                 'YB',
             ]:
-                perfdata += lib.base.get_perfdata(
-                    name,
-                    value,
-                    uom=perfdata_unit.upper(),
-                    warn=w,
-                    crit=c,
-                    _min=0,
-                    _max=None,
-                )
+                uom, default_max = perfdata_unit.upper(), None
             elif perfdata_unit.lower() in [
                 'c',
                 's',
                 'ms',
                 'us',
             ]:
-                perfdata += lib.base.get_perfdata(
-                    name,
-                    value,
-                    uom=perfdata_unit.lower(),
-                    warn=w,
-                    crit=c,
-                    _min=0,
-                    _max=None,
-                )
+                uom, default_max = perfdata_unit.lower(), None
             else:
                 # unknown perfdata suffixes, so do not use them
-                perfdata += lib.base.get_perfdata(
-                    name,
-                    value,
-                    uom=None,
-                    warn=w,
-                    crit=c,
-                    _min=0,
-                    _max=None,
-                )
+                uom, default_max = None, None
+            perfdata += lib.base.get_perfdata(
+                name,
+                value,
+                uom=uom,
+                warn=w,
+                crit=c,
+                _min=perf_min if has_min else 0,
+                _max=perf_max if has_max else default_max,
+            )
 
     # create output
     if msg_header:

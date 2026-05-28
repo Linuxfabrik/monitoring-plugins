@@ -14,6 +14,7 @@ Monitoring Plugins:
 
 * fail2ban: `--ignore` (regex) and `--socket` options ([#140](https://github.com/Linuxfabrik/monitoring-plugins/issues/140))
 * mysql-long-queries: output now suggests `KILL <id>` to terminate a runaway query
+* snmp: "Perfdata Alert Thresholds" accepts an optional min/max for the graph axis (`warn,crit,min,max`) ([#986](https://github.com/Linuxfabrik/monitoring-plugins/pull/986))
 * swap-usage: `--severity-no-swap` alerts when a host has no swap configured at all, helping detect a swap partition that was inadvertently disabled ([#1142](https://github.com/Linuxfabrik/monitoring-plugins/issues/1142))
 
 ### Changed
