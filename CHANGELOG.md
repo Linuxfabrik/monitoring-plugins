@@ -14,7 +14,7 @@ Monitoring Plugins:
 
 * fail2ban: `--ignore` (regex) and `--socket` options ([#140](https://github.com/Linuxfabrik/monitoring-plugins/issues/140))
 * mysql-long-queries: output now suggests `KILL <id>` to terminate a runaway query
-* snmp: "Perfdata Alert Thresholds" accepts an optional min/max for the graph axis (`warn,crit,min,max`) ([#986](https://github.com/Linuxfabrik/monitoring-plugins/pull/986))
+* snmp: "Perfdata Alert Thresholds" accepts an optional min/max for the graph axis (`warn,crit,min,max`) ([PR #986](https://github.com/Linuxfabrik/monitoring-plugins/pull/986), thanks to [paasi6666](https://github.com/paasi6666))
 * swap-usage: `--severity-no-swap` alerts when a host has no swap configured at all, helping detect a swap partition that was inadvertently disabled ([#1142](https://github.com/Linuxfabrik/monitoring-plugins/issues/1142))
 
 ### Changed
@@ -25,7 +25,7 @@ Monitoring Plugins:
 * about-me: `--tags` emits all `MariaDB *` or `MySQL *` variant tags so all relevant service sets are offered
 * about-me: `--tags` now detects Podman hosts
 * fail2ban: per-jail breakdown is now a table; thresholds accept Nagios ranges ([#140](https://github.com/Linuxfabrik/monitoring-plugins/issues/140))
-* mysql-*: tuning advice now appears only in the plugin output where a problem is flagged, no longer duplicated in the plugin description
+* `mysql-*`: tuning advice now appears only in the plugin output where a problem is flagged, no longer duplicated in the plugin description
 
 ### Fixed
 
@@ -36,7 +36,7 @@ Monitoring Plugins:
 * about-me: "User-Installed Software" table (renamed from the misleading "Non-default Software") now lists every package instead of just the first one
 * all plugins: importing `lib.url` on RHEL 8's default `python3` (3.6) no longer aborts with `AttributeError: module 'ssl' has no attribute 'TLSVersion'`. Plugins that don't use TLS version pinning keep working; calls that pin TLS get a clearer error. Officially supported minimum stays Python 3.9 (fix shipped via `linuxfabrik-lib` 4.0.2)
 * fail2ban: a banned jail no longer mislabels the following jails with its state in the output
-* mysql-*: queries against `mysql.user` and `mysql.global_priv` no longer abort with "Illegal mix of collations" when the server's connection-collation default differs from the system tables' column collations. Fix lives in `linuxfabrik-lib` 4.0.2, which now aligns the session collation with the `mysql` schema right after connect ([#1139](https://github.com/Linuxfabrik/monitoring-plugins/issues/1139))
+* `mysql-*`: queries against `mysql.user` and `mysql.global_priv` no longer abort with "Illegal mix of collations" when the server's connection-collation default differs from the system tables' column collations. Fix lives in `linuxfabrik-lib` 4.0.2, which now aligns the session collation with the `mysql` schema right after connect ([#1139](https://github.com/Linuxfabrik/monitoring-plugins/issues/1139))
 * mysql-innodb-buffer-pool-size: no longer aborts on MySQL 9.3 and newer. There `innodb_log_file_size` was removed, so the check now relies on `innodb_redo_log_capacity`
 * mysql-perf-metrics: no longer flags `innodb_log_file_size` and `innodb_log_files_in_group` as obsolete on MySQL 9.0 to 9.2, where they are still valid settings. They are reported only from MySQL 9.3 on, where they were actually removed
 * mysql-perf-metrics: the `innodb_io_capacity` check no longer raises false alarms on virtualised or network-backed storage (Ceph, cloud volumes), where the disk auto-detection misreads slow devices as fast local SSDs. It now runs only when `--storage-type=ssd` is set explicitly, and recommends sizing the value to the disk's measured IOPS instead of a fixed target
@@ -80,7 +80,7 @@ Icinga Director:
 
 Monitoring Plugins:
 
-* mysql-* plugins: verify required privileges up front; exit UNKNOWN naming the missing privilege. See [PLUGINS-MYSQL.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
+* `mysql-*` plugins: verify required privileges up front; exit UNKNOWN naming the missing privilege. See [PLUGINS-MYSQL.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 * mysql-aria: absent or disabled Aria engine no longer UNKNOWN (now OK with info). Breaking perfdata: cumulative counters replaced by per-second rates. Ships Grafana dashboard
 * mysql-binlog-cache: `log_bin = OFF` no longer UNKNOWN. Breaking perfdata: cumulative counters replaced by per-second rates. Ships Grafana dashboard
 * mysql-connections: name-resolution warning suppressed when `skip_networking=ON`. Breaking perfdata: cumulative counters replaced by per-second rates. New `mysql_pct_max_connections_used`
@@ -92,15 +92,15 @@ Monitoring Plugins:
 * mysql-logfile: prefers `performance_schema.error_log` on MySQL 8.0.22+ (works remote). Bug fix: docker/podman/kubectl sources read container logs. Severity matched via `[ERROR]`/`[Warning]` tags
 * mysql-logfile: empty log file is now consistently STATE_OK regardless of whether `--server-log` was set (was STATE_UNKNOWN in auto-detect mode). Typical right after logrotate fires
 * mysql-memory: bug fix on `max_tmp_table_size`. Galera GCache counted on cluster nodes. New `--warning` (85%) / `--critical` (95%). `--lengthy` shows full breakdown. New perfdata
-* mysql-memory and several other mysql-* plugins: thresholds now accept Nagios ranges. Boundary semantic shifts from `>=N` to `>N`
+* mysql-memory and several other `mysql-*` plugins: thresholds now accept Nagios ranges. Boundary semantic shifts from `>=N` to `>N`
 * mysql-open-files: new `--warning` (85%) / `--critical` (95%) replace the hardcoded 85% WARN-only
 * mysql-open-files, mysql-slow-queries, mysql-sorts, mysql-table-cache, mysql-table-definition-cache, mysql-table-locks, mysql-temp-tables, mysql-thread-cache, mysql-traffic: ship Grafana dashboards
 * mysql-perf-metrics: duplicate `innodb_file_per_table` check removed (lives in `mysql-innodb-buffer-pool-size`). Now emits numeric perfdata. Ships Grafana dashboard
 * mysql-perf-metrics: warn when a deprecated config variable was explicitly set via `my.cnf` or `SET GLOBAL` (compile-time defaults stay silent). New perfdata `mysql_deprecated_config_variables`
 * mysql-perf-metrics: also check `innodb_snapshot_isolation` (MariaDB), and the two storage-type-aware InnoDB knobs `innodb_flush_neighbors` and `innodb_io_capacity`. New `--storage-type=auto|ssd|hdd|skip` parameter (auto reads `/sys/block` when the plugin runs on the database host)
-* mysql-* plugins: container-test image matrix moved into per-plugin Containerfiles under `unit-test/containerfiles/`. Adding/retiring a MariaDB LTS is now a single-file change in each affected plugin
-* mysql-* plugins: container tests now also cover MySQL 8.0 and 8.4 LTS upstream images (`mysql-v80`, `mysql-v84` Containerfiles per plugin)
-* mysql-query!: align with the other mysql-* plugins. Breaking perfdata: `cnt_warn`/`cnt_crit` renamed to `mysql_query_warn_value`/`mysql_query_crit_value`
+* `mysql-*` plugins: container-test image matrix moved into per-plugin Containerfiles under `unit-test/containerfiles/`. Adding/retiring a MariaDB LTS is now a single-file change in each affected plugin
+* `mysql-*` plugins: container tests now also cover MySQL 8.0 and 8.4 LTS upstream images (`mysql-v80`, `mysql-v84` Containerfiles per plugin)
+* mysql-query!: align with the other `mysql-*` plugins. Breaking perfdata: `cnt_warn`/`cnt_crit` renamed to `mysql_query_warn_value`/`mysql_query_crit_value`
 * mysql-replica-status!: bug fix - lag detection fired on every server. Privilege narrowed to `SLAVE MONITOR` / `REPLICA MONITOR` on MariaDB 10.5+. New parameters and perfdata. Ships Grafana dashboard
 * mysql-slow-queries: README clarifies that `Slow_queries` is a counter independent of `slow_query_log`, and that the `slow_query_log` / `long_query_time` findings only surface as recommendations alongside a slow-query-ratio WARN/CRIT (no standalone alert)
 * mysql-slow-queries!: bug fix - 5.x% never alerted (now float). New `--warning` (5%) / `--critical` (10%). Breaking perfdata: cumulative counters replaced by per-second rates
