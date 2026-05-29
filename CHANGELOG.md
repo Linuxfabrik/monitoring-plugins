@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Monitoring Plugins:
 
 * [fail2ban](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fail2ban/): `--ignore` (regex) and `--socket` options ([#140](https://github.com/Linuxfabrik/monitoring-plugins/issues/140))
+* [mysql-database-metrics](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-database-metrics/): lists the largest tables by data plus index size to spot cleanup candidates before raising the InnoDB buffer pool; optional `--warning` / `--critical` size thresholds (e.g. `10G`) alert on oversized tables
 * [mysql-long-queries](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-long-queries/): output now suggests `KILL <id>` to terminate a runaway query
 * [snmp](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/snmp/): "Perfdata Alert Thresholds" accepts an optional min/max for the graph axis (`warn,crit,min,max`) ([PR #986](https://github.com/Linuxfabrik/monitoring-plugins/pull/986), thanks to [paasi6666](https://github.com/paasi6666))
 * [swap-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/swap-usage/): `--severity-no-swap` alerts when a host has no swap configured at all, helping detect a swap partition that was inadvertently disabled ([#1142](https://github.com/Linuxfabrik/monitoring-plugins/issues/1142))

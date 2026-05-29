@@ -3,7 +3,9 @@
 
 ## Overview
 
-Checks index sizes, fragmentation, and consistent engine and collation usage across all schemas in MySQL/MariaDB. Detects schemas where mixed storage engines, collations, charsets, or table engines are in use, which can indicate configuration drift or migration issues.
+Checks index sizes, fragmentation, and consistent engine and collation usage across all schemas in MySQL/MariaDB, and lists the largest tables by combined data and index size so storage growth can be traced before raising memory settings such as the InnoDB buffer pool. Detects schemas where mixed storage engines, collations, charsets, or table engines are in use, which can indicate configuration drift or migration issues.
+
+The top-tables list is the fast way to find cleanup candidates. Bumping `innodb_buffer_pool_size` blindly only papers over a few oversized tables that dominate the working set; identifying and pruning them first is usually the cheaper fix.
 
 **Important Notes:**
 
@@ -15,6 +17,7 @@ Checks index sizes, fragmentation, and consistent engine and collation usage acr
 
 * Queries `information_schema.schemata` for all non-system schemas. The system schemas `information_schema`, `mysql`, `percona`, `performance_schema`, and `sys` are skipped.
 * For each schema, queries `information_schema.tables` for row counts, data/index sizes, storage engine counts, and collation counts
+* Queries `information_schema.tables` once more for the largest `--top` base tables across all scanned schemas, ranked by `DATA_LENGTH + INDEX_LENGTH` (descending). `--ignore-schemas` and `--ignore-tables` apply to this list as well. Views are excluded.
 * Queries `information_schema.COLUMNS` for distinct character sets and collations per schema
 * Empty schemas (no tables) are surfaced as an info note in the output but do not change the state - they are common in fresh installs and lazy-init applications.
 * Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_databases() and has been verified in sync with MySQLTuner. Intentional deviation: the index-vs-data-size check additionally requires one of the two sizes to exceed 10 MiB, otherwise tiny schemas (where indices proportionally dwarf data) generate constant noise.
@@ -37,21 +40,29 @@ Checks index sizes, fragmentation, and consistent engine and collation usage acr
 ## Help
 
 ```text
-usage: mysql-database-metrics [-h] [-V] [--always-ok]
+usage: mysql-database-metrics [-h] [-V] [--always-ok] [-c CRITICAL]
                               [--defaults-file DEFAULTS_FILE]
                               [--defaults-group DEFAULTS_GROUP]
                               [--ignore-schemas IGNORE_SCHEMAS]
                               [--ignore-tables IGNORE_TABLES] [--lengthy]
-                              [--timeout TIMEOUT]
+                              [--timeout TIMEOUT] [--top TOP] [-w WARNING]
 
 Checks index sizes, fragmentation, and consistent engine and collation usage
-across all schemas in MySQL/MariaDB. Alerts on mixed storage engines or
-collations within a single schema.
+across all schemas in MySQL/MariaDB, and lists the largest tables by combined
+data and index size so storage growth can be traced before raising memory
+settings such as the InnoDB buffer pool. Alerts on mixed storage engines or
+collations within a single schema, and on table sizes that cross the optional
+--warning / --critical thresholds. Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  -c, --critical CRITICAL
+                        CRIT threshold for the size of a single table (data +
+                        index). Supports Nagios ranges with size qualifiers,
+                        for example `10G`, `5G:`, `@1G:10G`. Default: report
+                        only (no alerting).
   --defaults-file DEFAULTS_FILE
                         MySQL/MariaDB cnf file to read user, host and password
                         from (instead of specifying them on the command line).
@@ -81,34 +92,83 @@ options:
                         tables="^(tmp_|backup_)"`
   --lengthy             Extended reporting. Default: False
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+  --top TOP             Number of largest tables (by data + index size) to
+                        list. Default: 10
+  -w, --warning WARNING
+                        WARN threshold for the size of a single table (data +
+                        index). Supports Nagios ranges with size qualifiers,
+                        for example `10G`, `5G:`, `@1G:10G`. Default: report
+                        only (no alerting).
 ```
 
 
 ## Usage Examples
 
 ```bash
-./mysql-database-metrics --defaults-file=/var/spool/icinga2/.my.cnf
+./mysql-database-metrics --defaults-file=/var/spool/icinga2/.my.cnf --lengthy
 ```
 
-Output:
+Output against the MySQL `sakila` sample database. The Director Basket enables `--lengthy` by default, so this is the verbose form including the per-schema breakdown that mirrors `mysqltuner --dbstat`:
 
 ```text
 There are warnings.
 
-* Index size is larger than data size: xca (11.4MiB / 5.4MiB)
-* Mixed storage engines (use one engine for all tables in a schema): appldb (2x)
-* Mixed table collations (use one collation for all tables in a schema): accounting (2x), piwik (2x), wordpress-www (2x)
-* Mixed column charsets (use one charset for all text-like columns if possible): accounting (2x), piwik (2x), django-mvc (2x), wordpress-www (2x), django-mvc-devel (2x)
-* Mixed column collations (use one collation for all text-like columns if possible): accounting (3x), piwik (2x), django-mvc (2x), wordpress-www (2x), django-mvc-devel (2x)
+* Mixed column collations (use one collation for all text-like columns if possible): sakila (2x)
+
+Top 10 tables by size:
+
+Schema ! Table      ! Data     ! Index    ! Total   
+-------+------------+----------+----------+---------
+sakila ! rental     ! 1.5MiB   ! 1.2MiB   ! 2.7MiB  
+sakila ! payment    ! 1.5MiB   ! 736.0KiB ! 2.2MiB  
+sakila ! inventory  ! 160.0KiB ! 144.0KiB ! 304.0KiB
+sakila ! film       ! 176.0KiB ! 80.0KiB  ! 256.0KiB
+sakila ! film_actor ! 176.0KiB ! 80.0KiB  ! 256.0KiB
+sakila ! film_text  ! 176.0KiB ! 16.0KiB  ! 192.0KiB
+sakila ! customer   ! 80.0KiB  ! 48.0KiB  ! 128.0KiB
+sakila ! address    ! 80.0KiB  ! 16.0KiB  ! 96.0KiB 
+sakila ! staff      ! 64.0KiB  ! 32.0KiB  ! 96.0KiB 
+sakila ! city       ! 48.0KiB  ! 16.0KiB  ! 64.0KiB
+
+Schema ! Tables ! Rows  ! Data   ! Index  ! Total  ! Engines ! Table Collations   ! Column Charsets ! Column Collations              
+-------+--------+-------+--------+--------+--------+---------+--------------------+-----------------+--------------------------------
+sakila ! 23     ! 47372 ! 4.1MiB ! 2.4MiB ! 6.5MiB ! InnoDB  ! utf8mb4_general_ci ! utf8mb4         ! utf8mb4_bin, utf8mb4_general_ci
 ```
 
-When everything is clean:
+When everything is clean, the verdict leads with `Everything is ok.` followed by the scanned-scope summary, then the top-tables list.
+
+Without size thresholds the plugin only reports the list. Set `--warning` / `--critical` (Nagios ranges with size qualifiers) to alert on individual tables; the state marker sits on the `Total` column. Without `--lengthy` the per-schema breakdown collapses to the compact `Schema | Tables | Size | Issues` form:
+
+```bash
+./mysql-database-metrics --defaults-file=/var/spool/icinga2/.my.cnf --warning=2M --critical=10M
+```
 
 ```text
-8 user schema(s) scanned, 246 table(s), 12.4M rows, 1.2GiB data, 384.0MiB indices. Everything is ok.
+There are warnings. (warn=2M crit=10M)
+
+* Mixed column collations (use one collation for all text-like columns if possible): sakila (2x)
+
+Top 10 tables by size (warn=2M crit=10M):
+
+Schema ! Table      ! Data     ! Index    ! Total           
+-------+------------+----------+----------+-----------------
+sakila ! rental     ! 1.5MiB   ! 1.2MiB   ! 2.7MiB [WARNING]
+sakila ! payment    ! 1.5MiB   ! 736.0KiB ! 2.2MiB [WARNING]
+sakila ! inventory  ! 160.0KiB ! 144.0KiB ! 304.0KiB        
+sakila ! film       ! 176.0KiB ! 80.0KiB  ! 256.0KiB        
+sakila ! film_actor ! 176.0KiB ! 80.0KiB  ! 256.0KiB        
+sakila ! film_text  ! 176.0KiB ! 16.0KiB  ! 192.0KiB        
+sakila ! customer   ! 80.0KiB  ! 48.0KiB  ! 128.0KiB        
+sakila ! address    ! 80.0KiB  ! 16.0KiB  ! 96.0KiB         
+sakila ! staff      ! 64.0KiB  ! 32.0KiB  ! 96.0KiB         
+sakila ! city       ! 48.0KiB  ! 16.0KiB  ! 64.0KiB
+
+Schema ! Tables ! Size   ! Issues             
+-------+--------+--------+--------------------
+sakila ! 23     ! 6.5MiB ! 2 column collations
 ```
 
-With `--lengthy`, the output additionally includes a per-schema breakdown table mirroring what `mysqltuner --dbstat` prints (Schema, Tables, Rows, Data, Index, Total, Engines, Table Collations, Column Charsets, Column Collations).
+`rental` (2.7MiB) and `payment` (2.2MiB) cross the 2M warning threshold; none reaches 10M, so the overall state is WARN.
 
 The Director Basket activates `--lengthy` by default and pre-fills `--ignore-schemas` with `^icinga`, so admins running the shipped `MySQL Schemas Service Set` get the verbose table without the well-known Icinga-ecosystem mixed-collation noise (Icinga Director, Icinga Web 2 and Icinga DB ship schemas with mixed utf8/utf8mb4 collations by design).
 
@@ -120,6 +180,7 @@ The Director Basket activates `--lengthy` by default and pre-fills `--ignore-sch
 * WARN if more than one table collation is used within a schema.
 * WARN if more than one charset is used across the text-like columns of a schema.
 * WARN if more than one collation is used across the text-like columns of a schema.
+* WARN/CRIT if a single table's combined data + index size crosses `--warning` / `--critical`. These thresholds are unset by default, so the top-tables list is reported without alerting unless you set them.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -132,6 +193,7 @@ The Director Basket activates `--lengthy` by default and pre-fills `--ignore-sch
 | mysql_total_index_size | Bytes | Sum of `INDEX_LENGTH` across all scanned tables. |
 | mysql_total_rows | Number | Sum of `TABLE_ROWS` across all scanned tables. Note: for InnoDB this is an estimate, not an exact count. |
 | mysql_total_tables | Number | Total number of tables across all scanned schemas. |
+| `<schema>_<table>_size` | Bytes | Combined `DATA_LENGTH + INDEX_LENGTH` of one of the `--top` largest tables. One metric per listed table; the label is sanitized (non-alphanumeric characters become `_`). |
 
 
 ## Credits, License

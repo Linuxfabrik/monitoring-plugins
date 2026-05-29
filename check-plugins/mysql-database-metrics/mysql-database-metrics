@@ -11,27 +11,34 @@
 """See the check's README for more details."""
 
 import argparse
+import re
 import sys
 
 import lib.args
 import lib.base
 import lib.db_mysql
 import lib.human
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051005'
+__version__ = '2026052901'
 
-DESCRIPTION = """Checks index sizes, fragmentation, and consistent engine and collation usage across
-all schemas in MySQL/MariaDB. Alerts on mixed storage engines or collations within a
-single schema."""
+DESCRIPTION = """Checks index sizes, fragmentation, and consistent engine and collation usage
+across all schemas in MySQL/MariaDB, and lists the largest tables by combined data and index
+size so storage growth can be traced before raising memory settings such as the InnoDB buffer
+pool. Alerts on mixed storage engines or collations within a single schema, and on table sizes
+that cross the optional --warning / --critical thresholds. Supports extended reporting via
+--lengthy."""
 
+DEFAULT_CRIT = ''
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_IGNORE_SCHEMAS = ''
 DEFAULT_IGNORE_TABLES = ''
 DEFAULT_LENGTHY = False
 DEFAULT_TIMEOUT = 3
+DEFAULT_TOP = 10
+DEFAULT_WARN = ''
 
 # System schemas: skipped during all aggregates and per-schema checks. mysqltuner
 # excludes the same set; `percona` is added because the Percona Server Toolkit installs a
@@ -56,6 +63,17 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the size of a single table (data + index). '
+        'Supports Nagios ranges with size qualifiers, '
+        'for example `10G`, `5G:`, `@1G:10G`. '
+        'Default: report only (no alerting).',
+        dest='CRITICAL',
+        default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
@@ -115,6 +133,26 @@ def parse_args():
         default=DEFAULT_TIMEOUT,
     )
 
+    parser.add_argument(
+        '--top',
+        help='Number of largest tables (by data + index size) to list. '
+        'Default: %(default)s',
+        dest='TOP',
+        type=int,
+        default=DEFAULT_TOP,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the size of a single table (data + index). '
+        'Supports Nagios ranges with size qualifiers, '
+        'for example `10G`, `5G:`, `@1G:10G`. '
+        'Default: report only (no alerting).',
+        dest='WARNING',
+        default=DEFAULT_WARN,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -138,6 +176,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
         'defaults_group': args.DEFAULTS_GROUP,
@@ -145,10 +184,6 @@ def main():
     }
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
     lib.base.coe(lib.db_mysql.check_privileges(conn, 'SELECT'))
-
-    # init some vars
-    state = STATE_OK
-    perfdata = ''
 
     # The --ignore-tables and --ignore-schemas regexes are interpolated into the SQL
     # string. The values come from the CLI (admin-controlled), and any embedded single
@@ -159,20 +194,25 @@ def main():
         safe_regex = args.IGNORE_TABLES.replace("'", "''")
         ignore_tables_clause = f" and TABLE_NAME NOT REGEXP '{safe_regex}'"
     ignore_schemas_clause = ''
+    ignore_schemas_tbl_clause = ''
     if args.IGNORE_SCHEMAS:
         safe_regex = args.IGNORE_SCHEMAS.replace("'", "''")
         ignore_schemas_clause = f" and SCHEMA_NAME NOT REGEXP '{safe_regex}'"
+        ignore_schemas_tbl_clause = f" and TABLE_SCHEMA NOT REGEXP '{safe_regex}'"
 
     # SCHEMA_NAME and others must be uppercase due to MySQL 8+
     excluded = ', '.join(f'"{s}"' for s in SYSTEM_SCHEMAS)
-    sql = f'''
+    sql = f"""
         select SCHEMA_NAME
         from information_schema.schemata
         where SCHEMA_NAME not in ({excluded})
             {ignore_schemas_clause};
-    '''  # nosec B608
+    """  # nosec B608
     dblist = lib.base.coe(lib.db_mysql.select(conn, sql))
 
+    # init some vars
+    state = STATE_OK
+    perfdata = ''
     results = {
         'index': '',
         'engine': '',
@@ -186,7 +226,13 @@ def main():
     total_index_size = 0
     total_rows = 0
     total_tables = 0
+    # Table-size thresholds are Nagios ranges with size qualifiers (e.g. `10G`),
+    # converted to byte ranges so lib.base.get_state() can evaluate them. None
+    # means "report only" (no alerting).
+    warn_bytes = lib.human.humanrange2bytes(args.WARNING) if args.WARNING else None
+    crit_bytes = lib.human.humanrange2bytes(args.CRITICAL) if args.CRITICAL else None
 
+    # analyze data
     # schema names come from MySQL itself (information_schema.schemata), not from user input
     for schema in dblist:
         schema_name = schema['SCHEMA_NAME']
@@ -300,30 +346,94 @@ def main():
         if len(ccoll_list) > 1:
             issues.append(f'{len(ccoll_list)} column collations')
 
-        per_schema_rows.append({
-            'schema': schema_name,
-            'tables': cnt_tables or 0,
-            'rows': sum_rows or 0,
-            'data': lib.human.bytes2human(sum_data or 0),
-            'index': lib.human.bytes2human(sum_index or 0),
-            'total': lib.human.bytes2human(sum_total or 0),
-            'engines': ', '.join(engines_list) or '-',
-            'table_coll': ', '.join(tcoll_list) or '-',
-            'col_charsets': ', '.join(ccharset_list) or '-',
-            'col_coll': ', '.join(ccoll_list) or '-',
-            'issues': ', '.join(issues) if issues else 'OK',
-        })
+        per_schema_rows.append(
+            {
+                'schema': schema_name,
+                'tables': cnt_tables or 0,
+                'rows': sum_rows or 0,
+                'data': lib.human.bytes2human(sum_data or 0),
+                'index': lib.human.bytes2human(sum_index or 0),
+                'total': lib.human.bytes2human(sum_total or 0),
+                'engines': ', '.join(engines_list) or '-',
+                'table_coll': ', '.join(tcoll_list) or '-',
+                'col_charsets': ', '.join(ccharset_list) or '-',
+                'col_coll': ', '.join(ccoll_list) or '-',
+                'issues': ', '.join(issues) if issues else 'OK',
+            }
+        )
+
+    # Top N tables by combined data + index size, across all scanned schemas.
+    # This surfaces cleanup candidates before an admin blindly raises memory
+    # settings such as innodb_buffer_pool_size. The list is reported by default;
+    # it only drives the state when --warning / --critical size thresholds are
+    # given.
+    sql = f"""
+        select TABLE_SCHEMA,
+            TABLE_NAME,
+            coalesce(DATA_LENGTH, 0) as data_size,
+            coalesce(INDEX_LENGTH, 0) as index_size,
+            coalesce(DATA_LENGTH, 0) + coalesce(INDEX_LENGTH, 0) as total_size
+        from information_schema.tables
+        where TABLE_TYPE = 'BASE TABLE'
+            and TABLE_SCHEMA not in ({excluded})
+            {ignore_schemas_tbl_clause}
+            {ignore_tables_clause}
+        order by total_size desc
+        limit {int(args.TOP)};
+    """  # nosec B608
+    top_tables = lib.base.coe(lib.db_mysql.select(conn, sql))
 
     lib.db_mysql.close(conn)
 
-    # Build the message in independent sections, then join with a single blank line
-    # between each. This guarantees no `\n\n\n` (double blank lines) appear in the
-    # final output regardless of which optional sections fire.
+    top_rows = []
+    for tbl in top_tables:
+        data_size = int(tbl['data_size'] or 0)
+        index_size = int(tbl['index_size'] or 0)
+        total_size = int(tbl['total_size'] or 0)
+        # Thresholds apply to the combined footprint (the table is ranked by it),
+        # so the per-row state and its marker live on the Total column.
+        tbl_state = lib.base.get_state(
+            total_size,
+            warn_bytes,
+            crit_bytes,
+            _operator='range',
+        )
+        state = lib.base.get_worst(state, tbl_state)
+        top_rows.append(
+            {
+                'schema': tbl['TABLE_SCHEMA'],
+                'table': tbl['TABLE_NAME'],
+                'data': lib.human.bytes2human(data_size),
+                'index': lib.human.bytes2human(index_size),
+                'total': f'{lib.human.bytes2human(total_size)}'
+                f'{lib.base.state2str(tbl_state, prefix=" ")}',
+            }
+        )
+        # Per-table perfdata so Grafana can trend each table's footprint. Sanitize
+        # the `<schema>_<table>` label so exotic names stay perfdata-safe.
+        label = (
+            re.sub(r'\W+', '_', f'{tbl["TABLE_SCHEMA"]}_{tbl["TABLE_NAME"]}') + '_size'
+        )
+        perfdata += lib.base.get_perfdata(
+            label,
+            total_size,
+            uom='B',
+            warn=warn_bytes,
+            crit=crit_bytes,
+            _min=0,
+        )
+
+    # build the message
+    # Independent sections joined with a single blank line between each. This
+    # guarantees no `\n\n\n` (double blank lines) appear in the final output
+    # regardless of which optional sections fire.
 
     # Section 1: header + bullet findings, or the OK summary
     bullets = []
     if results['index']:
-        bullets.append(f'* Index size is larger than data size: {results["index"][:-2]}')
+        bullets.append(
+            f'* Index size is larger than data size: {results["index"][:-2]}'
+        )
     if results['engine']:
         bullets.append(
             f'* Mixed storage engines (use one engine for all tables in a schema):'
@@ -345,24 +455,53 @@ def main():
             f' if possible): {results["colcollation"][:-2]}'
         )
 
-    sections = []
     if bullets:
-        state = STATE_WARN
-        sections.append('There are warnings.\n\n' + '\n'.join(bullets))
+        state = lib.base.get_worst(state, STATE_WARN)
+
+    # "Everything is ok." leads so admins see the verdict first; the
+    # scanned-scope details follow. Format mirrors mysqltuner's per-database
+    # stats but condensed to a single line. The state may already be WARN/CRIT
+    # from the table-size thresholds above, so the header reflects the worst
+    # state, not just the consistency findings.
+    summary = (
+        f'{len(dblist)} user schema(s) scanned,'
+        f' {total_tables} table(s),'
+        f' {lib.human.number2human(total_rows)} rows,'
+        f' {lib.human.bytes2human(total_data_size)} data,'
+        f' {lib.human.bytes2human(total_index_size)} indices.'
+    )
+
+    sections = []
+    if state == STATE_OK:
+        sections.append(f'Everything is ok. {summary}')
     else:
-        # "Everything is ok." leads so admins see the verdict first; the
-        # scanned-scope details follow. Format mirrors mysqltuner's
-        # per-database stats but condensed to a single line.
+        header = (
+            'There are critical errors.'
+            if state == STATE_CRIT
+            else 'There are warnings.'
+        )
+        if bullets:
+            sections.append(f'{header}\n\n' + '\n'.join(bullets))
+        else:
+            sections.append(header)
+
+    # Section 2: top tables by size. Always reported (the headline feature),
+    # independent of --lengthy. The per-row STATE marker is the last thing on
+    # the line so IcingaWeb's icon substitution does not break the table.
+    if top_rows:
+        thresholds = ''
+        if args.WARNING or args.CRITICAL:
+            thresholds = f' (warn={args.WARNING or "-"} crit={args.CRITICAL or "-"})'
+        top_table = lib.base.get_table(
+            top_rows,
+            ['schema', 'table', 'data', 'index', 'total'],
+            header=['Schema', 'Table', 'Data', 'Index', 'Total'],
+        )
         sections.append(
-            f'Everything is ok.'
-            f' {len(dblist)} user schema(s) scanned,'
-            f' {total_tables} table(s),'
-            f' {lib.human.number2human(total_rows)} rows,'
-            f' {lib.human.bytes2human(total_data_size)} data,'
-            f' {lib.human.bytes2human(total_index_size)} indices.'
+            f'Top {len(top_rows)} tables by size{thresholds}:\n\n{top_table}'
         )
 
-    # Section 2: empty-schemas info (common: lazy-init apps, fresh installs,
+    # Section 3: empty-schemas info (common: lazy-init apps, fresh installs,
     # migration leftovers); does not change state, mirroring our "alert on the
     # actionable" stance.
     if empty_schemas:
@@ -371,26 +510,44 @@ def main():
             f' {", ".join(empty_schemas)}.'
         )
 
-    # Section 3: per-schema breakdown table. Without --lengthy: compact summary
+    # Section 4: per-schema breakdown table. Without --lengthy: compact summary
     # (Schema | Tables | Total Size | Issues). With --lengthy: full breakdown,
     # mirroring the per-database information mysqltuner emits when invoked with
     # `--dbstat`.
     if per_schema_rows:
         if args.LENGTHY:
             keys = [
-                'schema', 'tables', 'rows', 'data', 'index', 'total',
-                'engines', 'table_coll', 'col_charsets', 'col_coll',
+                'schema',
+                'tables',
+                'rows',
+                'data',
+                'index',
+                'total',
+                'engines',
+                'table_coll',
+                'col_charsets',
+                'col_coll',
             ]
             headers = [
-                'Schema', 'Tables', 'Rows', 'Data', 'Index', 'Total',
-                'Engines', 'Table Collations', 'Column Charsets', 'Column Collations',
+                'Schema',
+                'Tables',
+                'Rows',
+                'Data',
+                'Index',
+                'Total',
+                'Engines',
+                'Table Collations',
+                'Column Charsets',
+                'Column Collations',
             ]
         else:
             keys = ['schema', 'tables', 'total', 'issues']
             headers = ['Schema', 'Tables', 'Size', 'Issues']
         sections.append(lib.base.get_table(per_schema_rows, keys, header=headers))
 
-    msg = '\n\n'.join(sections)
+    # rstrip each section: lib.base.get_table() appends a trailing newline, which
+    # would turn the blank line between two adjacent tables into two blank lines.
+    msg = '\n\n'.join(section.rstrip() for section in sections)
 
     perfdata += lib.base.get_perfdata('mysql_database_count', len(dblist), _min=0)
     perfdata += lib.base.get_perfdata(

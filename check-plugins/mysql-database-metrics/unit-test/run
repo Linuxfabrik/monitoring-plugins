@@ -42,7 +42,7 @@ import unittest
 sys.path.insert(0, '..')
 
 import lib.lftest
-from lib.globals import STATE_OK
+from lib.globals import STATE_OK, STATE_WARN
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
@@ -70,6 +70,10 @@ def _check_image(test, containerfile):
             "('CHE', 'Switzerland'), ('DEU', 'Germany'), ('FRA', 'France')"
         ),
     ) as (_container, defaults_file):
+        here = os.path.dirname(os.path.abspath(__file__))
+
+        # Default run: no size thresholds, so the seeded `countries` table is
+        # reported in the top-tables section but does not drive the state.
         cmd = [
             'python3', '../mysql-database-metrics',
             f'--defaults-file={defaults_file}',
@@ -77,7 +81,7 @@ def _check_image(test, containerfile):
         print(f'Run plugin: {" ".join(cmd)}', flush=True)
         result = subprocess.run(
             cmd,
-            cwd=os.path.dirname(os.path.abspath(__file__)),
+            cwd=here,
             capture_output=True,
             text=True,
         )
@@ -86,6 +90,29 @@ def _check_image(test, containerfile):
 
         test.assertEqual(result.returncode, STATE_OK)
         test.assertIn('Everything is ok', combined)
+        test.assertIn('tables by size', combined)
+        test.assertIn('countries', combined)
+
+        # Size threshold with a size qualifier: a 1-byte warning range flags
+        # every non-empty table, proving humanrange2bytes() + range evaluation
+        # are wired up. The seeded table is well above one byte.
+        cmd = [
+            'python3', '../mysql-database-metrics',
+            f'--defaults-file={defaults_file}',
+            '--warning=1B',
+        ]
+        print(f'Run plugin: {" ".join(cmd)}', flush=True)
+        result = subprocess.run(
+            cmd,
+            cwd=here,
+            capture_output=True,
+            text=True,
+        )
+        combined = result.stdout + result.stderr
+        print(f'Script output:\n{combined.strip()}', flush=True)
+
+        test.assertEqual(result.returncode, STATE_WARN)
+        test.assertIn('[WARNING]', combined)
 
 
 lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)
