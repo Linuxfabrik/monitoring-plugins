@@ -43,6 +43,10 @@ Monitoring Plugins:
 * [mysql-table-definition-cache](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-table-definition-cache/): dropped the incorrect advice to set `table_definition_cache = -1`. Assigning `-1` does not enable autosizing (MySQL clamps it to the 400 minimum and documents it as a do-not-assign value, MariaDB refuses to start); autosizing only happens when the variable is left unset. The recommendation now points to a concrete value above the table count
 * [snmp](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/snmp/): a malformed "Perfdata Alert Thresholds" entry in a device CSV is now reported as UNKNOWN instead of being silently ignored, so a typo no longer just results in missing threshold lines without any feedback ([#768](https://github.com/Linuxfabrik/monitoring-plugins/discussions/768))
 
+### Security
+
+* Debian sudoers: the `apt-get` rule is now restricted to the exact command the `deb-updates` plugin runs, closing a local privilege escalation where the monitoring user could obtain a root shell by passing extra arguments to `apt-get` (GHSA-8w6w-23mq-h8rg)
+
 
 ## [v5.0.0] - 2026-05-15
 
