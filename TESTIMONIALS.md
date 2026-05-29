@@ -2,6 +2,10 @@
 
 Comments from the community about the Linuxfabrik Monitoring Plugins.
 
+> First, thank you for providing such an high-quality, really well documented open source project! We are happy to use it in our company in the near future.
+
+-- [OoYo0uto](https://github.com/OoYo0uto)
+
 
 > First, I just wanted to say thanks for your great work on these plugins. Great collection that cover a lot of bases!
 
