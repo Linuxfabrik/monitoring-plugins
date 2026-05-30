@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 2026053001
+# 2025021602
 
 # This script can run in a container (absolute paths) or in a Windows-VM.
 
@@ -43,8 +43,12 @@ if [[ -e "$COMPILE_DIR/$PLUGINS/$PLUGIN.dist/$PLUGIN.bin" ]]; then
     mv "$COMPILE_DIR/$PLUGINS/$PLUGIN.dist/$PLUGIN.bin" "$COMPILE_DIR/$PLUGINS/$PLUGIN.dist/$PLUGIN"
 fi
 
-# The compiled plugin is left in its own `$PLUGIN.dist` directory on purpose.
-# Flattening every plugin's dist into the shared `$COMPILE_DIR/$PLUGINS/`
-# directory is done centrally by compile-multiple.sh *after* all plugins are
-# built, so that several compile-one.sh runs can execute in parallel without
-# racing on the shared runtime files (python3xx.dll etc.) they all carry.
+# move files to a merged flattened directory to save disk space if directory exists and is not empty.
+if [[ -d "$COMPILE_DIR/$PLUGINS/$PLUGIN.dist" && -n "$(ls --almost-all $COMPILE_DIR/$PLUGINS/$PLUGIN.dist)" ]]; then
+    # Note that we use the special /.' suffix to copy **only the contents** of the *.dist directory (preserving attributes).
+    # Unfortunately, mv does not have a built‐in equivalent to "move the contents of a directory" using the/.' trick.
+    # Therefore we copy and remove later to save disk space, important in github runners.
+    echo "✅ cp --archive $COMPILE_DIR/$PLUGINS/$PLUGIN.dist/. $COMPILE_DIR/$PLUGINS/"
+    \cp --archive --verbose $COMPILE_DIR/$PLUGINS/$PLUGIN.dist/. $COMPILE_DIR/$PLUGINS/
+    rm -rf $COMPILE_DIR/$PLUGINS/$PLUGIN.dist
+fi
