@@ -51,7 +51,7 @@ Monitoring Plugins:
 
 ### Security
 
-* Debian sudoers: the `apt-get` rule is now restricted to the exact command the `deb-updates` plugin runs, closing a local privilege escalation where the monitoring user could obtain a root shell by passing extra arguments to `apt-get` (GHSA-8w6w-23mq-h8rg)
+* Debian sudoers: the `apt-get` rule is now restricted to the exact command the `deb-updates` plugin runs, closing a local privilege escalation where the monitoring user could obtain a root shell by passing extra arguments to `apt-get` ([GHSA-8w6w-23mq-h8rg](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-8w6w-23mq-h8rg), thanks to [OoYo0uto](https://github.com/OoYo0uto))
 
 
 ## [v5.0.0] - 2026-05-15
