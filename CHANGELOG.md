@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+tbd
+
+
+## [v5.1.0] - 2026-05-30
+
 ### Added
 
 Monitoring Plugins:
@@ -2355,7 +2360,8 @@ Monitoring Plugins:
 Initial release for the general public.
 
 
-[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v5.0.0...HEAD
+[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v5.1.0...HEAD
+[v5.1.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v5.0.0...v5.1.0
 [v5.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v4.1.0...v5.0.0
 [v4.1.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v4.0.0...v4.1.0
 [v4.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v3.0.0...v4.0.0
