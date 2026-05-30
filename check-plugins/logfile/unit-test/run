@@ -31,20 +31,21 @@ import unittest
 
 sys.path.insert(0, '..')
 
+import lib.disk
 import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 
 
 def _db_glob(fixture_basename):
     return os.path.join(
-        tempfile.gettempdir(),
+        lib.disk.get_tmpdir(),
         f'linuxfabrik-monitoring-plugins-logfile-{fixture_basename}-*.db',
     )
 
 
 def _legacy_db_path(fixture_basename):
     return os.path.join(
-        tempfile.gettempdir(),
+        lib.disk.get_tmpdir(),
         f'linuxfabrik-monitoring-plugins-logfile-{fixture_basename}.db',
     )
 
@@ -232,11 +233,16 @@ def _instance_hash(
 
 
 def _per_check_db_path(basename, **hash_kwargs):
-    return os.path.join(
-        tempfile.gettempdir(),
+    filename = (
         f'linuxfabrik-monitoring-plugins-logfile-{basename}-'
-        f'{_instance_hash(**hash_kwargs)}.db',
+        f'{_instance_hash(**hash_kwargs)}.db'
     )
+    # Mirror lib.db_sqlite's per-user `-uid<uid>` suffix so a seeded DB lands at
+    # the exact path the plugin reads on a shared /tmp.
+    if hasattr(os, 'getuid'):
+        stem, ext = os.path.splitext(filename)
+        filename = f'{stem}-uid{os.getuid()}{ext}'
+    return os.path.join(lib.disk.get_tmpdir(), filename)
 
 
 class TestOffsetSurvivesAcrossRuns(unittest.TestCase):
