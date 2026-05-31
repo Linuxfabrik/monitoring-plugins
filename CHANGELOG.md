@@ -8,7 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-tbd
+### Changed
+
+Build, CI/CD:
+
+* requirements: source-install lockfiles now pin every build dependency (including `setuptools`) with hashes, so `pip install --require-hashes` no longer relies on the build host having `setuptools` preinstalled ([#1138](https://github.com/Linuxfabrik/monitoring-plugins/issues/1138))
 
 
 ## [v5.1.0] - 2026-05-30
