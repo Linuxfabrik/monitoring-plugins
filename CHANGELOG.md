@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+Icinga Director:
+
+* NUT Service Set now includes the `ups-nut` UPS check, not just the NUT systemd units
+
 ### Changed
 
 Build, CI/CD:
