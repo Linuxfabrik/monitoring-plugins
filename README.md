@@ -112,6 +112,15 @@ Byte sizes use IEC (KiB, MiB, GiB, powers of 2) so values match what the shell s
 Where a check supports thresholds, `--warning` / `--critical` follow the [Nagios plugin format](https://nagios-plugins.org/doc/guidelines.html#THRESHOLDFORMAT) (`start:end`, `~` for negative infinity, `@` to invert). The full threshold reference with examples is in [THRESHOLDS.md](THRESHOLDS.md).
 
 
+## Parameter Handling
+
+When you call a plugin directly from a shell, two things can trip you up. Through Icinga Director the rules are different (no `=` allowed, plus Icinga's own `$$` macro escaping); see the Parameter Handling section in [ICINGA.md](ICINGA.md).
+
+A value that starts with `-` is read by `argparse` as another option, so the plugin reports an unknown argument. Glue the value to its parameter instead of separating it with a space: long parameters as `./file-age --warning=-60:3600` (not `--warning -60:3600`), short parameters as `./file-age -w-60:3600`.
+
+A value that contains shell-special characters such as `$`, `*`, spaces or parentheses must be wrapped in single quotes so the shell passes it through to the plugin literally. This matters for regex parameters like `--match` and `--ignore`, for example `./dmesg --ignore='error$'`. Single quotes do not help with the leading-`-` case, because that is an `argparse` rule and not a shell one; use the glue form above.
+
+
 ## FAQ
 
 Q: **All pipe characters `|` in the output of any plugin are replaced with `!`. Why?**
@@ -147,17 +156,7 @@ A: In Bash, use `/usr/lib64/nagios/plugins/check-command | cut -f1 -d'|'`
 
 ## Troubleshooting
 
-For installation-related issues (sudoers drop-ins, SELinux, Windows `0x80070005` under the Icinga Agent) see [INSTALL.md](INSTALL.md). For Icinga-specific quirks (passing `http_proxy` through Icinga, negative values in Director-dispatched parameters) see [ICINGA.md](ICINGA.md).
-
-Q: **A plugin reports an unknown argument when I pass a value starting with `-`.**
-
-A: argparse treats a value that starts with `-` as another option. Glue the value to the parameter instead of separating with a space:
-
-* Long parameters: `./file-age --warning=-60:3600` (not `--warning -60:3600`).
-* Short parameters: `./file-age -w-60:3600` (no space, no escape).
-
-In Icinga Director, where arguments cannot be sent with `=`, prefix the first minus with a backslash (`\-60`); the `lib.base` library strips it before argparse sees it.
-
+For installation-related issues (sudoers drop-ins, SELinux, Windows `0x80070005` under the Icinga Agent) see [INSTALL.md](INSTALL.md). For Icinga-specific quirks (passing `http_proxy` through Icinga, escaping special characters like `$` and leading `-` in Director-dispatched parameters) see [ICINGA.md](ICINGA.md).
 
 Q: **After an update, I get "Operational Error: no such column: ..., state UNKNOWN". On the next run, this disappears. What happened?**
 
