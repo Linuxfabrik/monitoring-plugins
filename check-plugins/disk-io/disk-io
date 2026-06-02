@@ -34,7 +34,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040701'
+__version__ = '2026060201'
 
 DESCRIPTION = """Checks disk I/O bandwidth over time and alerts on sustained saturation, not
 short spikes. The check records per-disk read/write counters and then derives current (R1/W1)
@@ -137,7 +137,12 @@ def parse_args():
         help='Filter by disk name. '
         + lib.args.help('--match')
         + ' '
-        + 'Default: %(default)s',
+        + 'The regex is anchored at the start of the string (Python `re.match`) and matched '
+        'against the full device path (e.g. `/dev/sda`), the device-mapper path '
+        '(e.g. `/dev/mapper/vg-lv`) and the mountpoint, so prefix with `.*` to match anywhere '
+        '(`.*sda$` instead of `^sda$`). '
+        'On Linux only block devices with a mounted filesystem are considered, so raw devices '
+        '(Oracle ASM, raw LUNs, swap) cannot be matched. ' + 'Default: %(default)s',
         dest='MATCH',
         default=DEFAULT_MATCH,
     )

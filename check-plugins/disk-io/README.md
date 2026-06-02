@@ -26,7 +26,8 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 * On the first run, returns "Waiting for more data." until at least two measurements are available
 * After a system reboot, counter values may be lower than the previous measurement. The check detects this and returns "Waiting for more data." until the next valid measurement pair
 * Disk I/O bandwidth tracking starts at 10 MiB/sec as a baseline, but stores the highest measured bandwidth, so the `RWmax/s` value adjusts accordingly over time. The check may throw warnings during the first major disk activities above 10 MiB/sec until the actual maximum bandwidth of the disk has been determined
-* Disks can be filtered by `--match` (Python regular expression matching block device, device mapper device, or mountpoint)
+* On Linux, only block devices that have a mounted filesystem are monitored. Devices used raw, without a mounted filesystem (Oracle ASM disks, raw database LUNs, unmounted multipath devices, swap), are not visible to the check (see Troubleshooting)
+* Disks can be filtered by `--match`, a Python regular expression. It is anchored at the start of the string (Python `re.match`) and matched against the full device path (for example `/dev/sda`), the device-mapper path (for example `/dev/mapper/vg-lv`), and the mountpoint. Prefix the pattern with `.*` to match anywhere in the path, for example `.*sda$` rather than `^sda$`
 
 
 ## Fact Sheet
@@ -98,7 +99,15 @@ options:
                         case-insensitive matching. Can be specified multiple
                         times. Examples: `(?i)example` to match "example"
                         regardless of case. `^(?!.*example).*$` to match any
-                        string except "example" (negative lookahead). Default:
+                        string except "example" (negative lookahead). The
+                        regex is anchored at the start of the string (Python
+                        `re.match`) and matched against the full device path
+                        (e.g. `/dev/sda`), the device-mapper path (e.g.
+                        `/dev/mapper/vg-lv`) and the mountpoint, so prefix
+                        with `.*` to match anywhere (`.*sda$` instead of
+                        `^sda$`). On Linux only block devices with a mounted
+                        filesystem are considered, so raw devices (Oracle ASM,
+                        raw LUNs, swap) cannot be matched. Default:
   --top TOP             Number of top processes to list by I/O traffic. Use
                         `--top=0` to disable. Default: 5
   --warning WARN        WARN threshold for disk bandwidth saturation as a
@@ -188,6 +197,9 @@ Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
 `Waiting for more data.`  
 This is expected on the first run. The check needs at least two measurements to calculate a delta. Wait for the next check interval.
+
+A device is missing, or `--match` returns "No I/O" / "No disks matched" for it (for example Oracle ASM disks, raw LUNs, or swap)  
+On Linux the check only monitors block devices that have a mounted filesystem (it reads `/proc/mounts`). Devices used raw, without a mounted filesystem, never appear in the device list, so no `--match` regex can select them. This affects Oracle ASM disks, raw database LUNs, unmounted multipath devices and swap. For overall I/O pressure on such systems, run the check without `--match` and watch the system-wide `iowait` metric instead. Also note that `--match` is anchored at the start of the full device path: use `.*sda$`, not `^sda$`.
 
 
 ## Credits, License
