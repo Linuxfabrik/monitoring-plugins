@@ -35,7 +35,10 @@ WORKDIR /tmp
 ADD https://raw.githubusercontent.com/Linuxfabrik/monitoring-plugins/refs/heads/main/lockfiles/py39/requirements.txt /tmp/requirements.txt
 
 # Install dependencies using pip
-RUN dnf --assumeyes remove python3-requests
+# Remove the rpm-managed python3-requests and python3-setuptools: both are
+# pinned in the lockfile and pip cannot uninstall the rpm copies (no RECORD
+# file on UBI9), which otherwise aborts the --require-hashes install.
+RUN dnf --assumeyes remove python3-requests python3-setuptools
 RUN python -m pip install --upgrade pip && \
     python -m pip install --no-cache-dir --requirement requirements.txt --require-hashes --no-deps
 
