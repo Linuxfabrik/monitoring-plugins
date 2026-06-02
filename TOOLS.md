@@ -88,6 +88,20 @@ tools/update-readmes
 
 ## Testing
 
+### run-all-tests
+
+Run the whole test toolset in parallel: `run-linter-checks`,
+`run-unit-tests --no-container` and `run-container-tests` each in its own
+subprocess. The workloads are disjoint and isolate their mutable state, so
+they do not interfere; wall clock time is the slowest single suite instead
+of the sum. Output is captured per suite and printed under a banner when
+that suite finishes. Pass `--no-container` to skip the container suite.
+
+```bash
+tools/run-all-tests
+tools/run-all-tests --no-container
+```
+
 ### run-container-tests
 
 Discover and run all container-based plugin unit tests (those importing
