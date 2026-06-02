@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+tbd
+
+
+## [v5.2.0] - 2026-06-02
+
 ### Added
 
 Icinga Director:
@@ -19,6 +24,12 @@ Icinga Director:
 Build, CI/CD:
 
 * requirements: source-install lockfiles now pin every build dependency (including `setuptools`) with hashes, so `pip install --require-hashes` no longer relies on the build host having `setuptools` preinstalled ([#1138](https://github.com/Linuxfabrik/monitoring-plugins/issues/1138))
+
+### Security
+
+Monitoring Plugins:
+
+* Plugins that cache trend data in the system temporary directory now keep their SQLite databases (and the `csv-values` staging file) in a private, per-user directory instead of directly in the shared, world-writable `/tmp`. This closes a local symlink attack on the predictable paths where an unprivileged user could redirect writes from a check running as root to arbitrary files ([GHSA-r35r-fpx2-jgr4](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-r35r-fpx2-jgr4), thanks to [OoYo0uto](https://github.com/OoYo0uto))
 
 
 ## [v5.1.0] - 2026-05-30
@@ -2370,7 +2381,8 @@ Monitoring Plugins:
 Initial release for the general public.
 
 
-[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v5.1.0...HEAD
+[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v5.2.0...HEAD
+[v5.2.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v5.1.0...v5.2.0
 [v5.1.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v5.0.0...v5.1.0
 [v5.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v4.1.0...v5.0.0
 [v4.1.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v4.0.0...v4.1.0
