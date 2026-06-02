@@ -30,6 +30,19 @@ TESTS = [
         ],
     },
     {
+        # A sensor whose firmware reports a zero-width min/max range
+        # (identical min and max, here 255 as a "not available"/"no limit"
+        # placeholder) must not raise a false warning for an in-spec reading.
+        # Fixture taken from issue #1211.
+        'id': 'ok-zero-width-range',
+        'test': 'stdout/zero-range-chassis,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok, checked sensors on 1 member.',
+            'CPU Utilization',
+        ],
+    },
+    {
         # A missing fixture must surface as STATE_UNKNOWN with a
         # readable message, not as a Python traceback.
         'id': 'unknown-missing-fixture',

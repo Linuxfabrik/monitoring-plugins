@@ -14,6 +14,12 @@ Monitoring Plugins:
 
 * disk-io: can now also monitor raw, unmounted block devices such as multipath SAN volumes or Oracle ASM disks (`--include-unmounted`)
 
+### Fixed
+
+Monitoring Plugins:
+
+* redfish-sensor: no longer raises false warnings for sensors that report a placeholder min/max range (e.g. CPU/memory utilization on some hardware) ([#1211](https://github.com/Linuxfabrik/monitoring-plugins/issues/1211))
+
 
 ## [v5.2.0] - 2026-06-02
 
