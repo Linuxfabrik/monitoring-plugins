@@ -32,7 +32,7 @@ except ModuleNotFoundError as e:
     missing_lib = e.name
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041001'
+__version__ = '2026060101'
 
 DESCRIPTION = """Imports a CSV file (local, remote via URL, or from an SMB share) into a temporary
 SQLite database and runs configurable SQL queries against it. Separate queries can be
@@ -307,10 +307,10 @@ def main():
             ) as fd:
                 csv = lib.txt.to_text(fd.read())
 
-        args.FILENAME = (
-            f'{lib.disk.get_tmpdir()}'
-            f'/linuxfabrik-monitoring-plugins-csv-values'
-            f'-{db_filename}.csv'
+        args.FILENAME = lib.base.coe(
+            lib.db_sqlite.get_db_path(
+                filename=f'linuxfabrik-monitoring-plugins-csv-values-{db_filename}.csv',
+            )
         )
         lib.base.coe(lib.disk.write_file(args.FILENAME, csv))
 

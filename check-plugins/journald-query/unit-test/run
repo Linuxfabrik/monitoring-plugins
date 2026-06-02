@@ -19,6 +19,7 @@ sys.path.insert(0, '..')
 
 import unittest
 
+import lib.db_sqlite
 import lib.disk
 import lib.lftest
 import lib.time
@@ -87,12 +88,10 @@ def _instance_db_path(payload):
     blob = json.dumps(payload, sort_keys=True).encode('utf-8')
     instance_hash = hashlib.sha256(blob).hexdigest()[:10]
     filename = f'linuxfabrik-monitoring-plugins-journald-query-{instance_hash}.db'
-    # Mirror lib.db_sqlite's per-user `-uid<uid>` suffix so the test seeds and
-    # removes the exact file the plugin reads/writes on a shared /tmp.
-    if hasattr(os, 'getuid'):
-        stem, ext = os.path.splitext(filename)
-        filename = f'{stem}-uid{os.getuid()}{ext}'
-    return os.path.join(lib.disk.get_tmpdir(), filename)
+    # Resolve via the lib so the test seeds and removes the exact file the plugin
+    # reads/writes, including the secured per-user directory.
+    ok, db_path = lib.db_sqlite.get_db_path(filename=filename)
+    return db_path if ok else os.path.join(lib.disk.get_tmpdir(), filename)
 
 
 def _default_instance_payload():
@@ -159,7 +158,7 @@ class TestIcingaCallback(unittest.TestCase):
         # in the 'one-iscsid-err' fixture. On the next run the plugin
         # must filter it out and report OK.
         event_fingerprint = hashlib.sha256(
-            '1659011388341815|iSCSI daemon with pid=865 started!'.encode()
+            b'1659011388341815|iSCSI daemon with pid=865 started!'
         ).hexdigest()
         db = _instance_db_path(_default_instance_payload())
         conn = sqlite3.connect(db)
