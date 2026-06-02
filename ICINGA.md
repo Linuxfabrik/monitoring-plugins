@@ -302,7 +302,7 @@ Examples:
 
 If you forget to double a `$`, the deployment fails with `Closing $ not found in macro format string`. Icinga 2 reduces `$$` back to a single `$` before the plugin runs, so the regex stays correct.
 
-Calling the plugins directly from a shell instead of through the Director follows different rules (no Icinga macro layer, single quotes instead of backslash escaping). See the Parameter Handling section in [README.md](README.md).
+Calling the plugins directly from a shell instead of through the Director follows different rules (no Icinga macro layer, single quotes instead of backslash escaping). See the Parameter Handling section in the [README](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/README.md#parameter-handling).
 
 
 ## Troubleshooting
