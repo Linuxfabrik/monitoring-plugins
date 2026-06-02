@@ -34,7 +34,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060201'
+__version__ = '2026060202'
 
 DESCRIPTION = """Checks disk I/O bandwidth over time and alerts on sustained saturation, not
 short spikes. The check records per-disk read/write counters and then derives current (R1/W1)
@@ -49,8 +49,9 @@ CPUs. This makes the default thresholds (80/90%) work consistently across differ
 Like bandwidth alerts, iowait alerts require COUNT consecutive threshold violations.
 
 Perfdata is emitted for each disk (busy_time, read_bytes, read_time, write_bytes, write_time)
-and for iowait, so you can graph trends. On Linux the check automatically focuses on "real"
-block devices with mountpoints; on Windows it uses psutil's disk counters. Optionally, `--top`
+and for iowait, so you can graph trends. On Linux the check focuses on block devices with a
+mounted filesystem by default; use `--include-unmounted` to also include raw, unmounted devices
+such as multipath SAN volumes. On Windows it uses psutil's disk counters. Optionally, `--top`
 lists the processes that generated the most I/O traffic (read/write totals) to help identify
 offenders.
 
@@ -64,6 +65,7 @@ DEFAULT_COUNT = (
     5  # measurements; if check runs once per minute, this is a 5 minute interval
 )
 DEFAULT_CRIT = 90  # %
+DEFAULT_INCLUDE_UNMOUNTED = False
 DEFAULT_MATCH = ''
 DEFAULT_TOP = 5
 DEFAULT_WARN = 80  # %
@@ -133,6 +135,20 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--include-unmounted',
+        help='Also monitor block devices that have no mounted filesystem (Linux only). '
+        'By default only block devices with a mounted filesystem are monitored. '
+        'Enable this to include raw, unmounted devices such as multipath SAN volumes or '
+        'disks used directly by a database or storage layer. '
+        'Combine with `--match`, otherwise every unmounted device shows up. '
+        'Pseudo devices (loop, ram, zram, floppy, optical) are always excluded. '
+        'Default: %(default)s',
+        dest='INCLUDE_UNMOUNTED',
+        action='store_true',
+        default=DEFAULT_INCLUDE_UNMOUNTED,
+    )
+
+    parser.add_argument(
         '--match',
         help='Filter by disk name. '
         + lib.args.help('--match')
@@ -141,8 +157,9 @@ def parse_args():
         'against the full device path (e.g. `/dev/sda`), the device-mapper path '
         '(e.g. `/dev/mapper/vg-lv`) and the mountpoint, so prefix with `.*` to match anywhere '
         '(`.*sda$` instead of `^sda$`). '
-        'On Linux only block devices with a mounted filesystem are considered, so raw devices '
-        '(Oracle ASM, raw LUNs, swap) cannot be matched. ' + 'Default: %(default)s',
+        'On Linux only block devices with a mounted filesystem are considered by default; add '
+        '`--include-unmounted` to also match raw, unmounted devices (multipath SAN volumes, raw '
+        'LUNs). ' + 'Default: %(default)s',
         dest='MATCH',
         default=DEFAULT_MATCH,
     )
@@ -495,7 +512,11 @@ def main():
             # store it to database
             lib.base.coe(lib.db_sqlite.insert(conn, data))
     else:
-        real_disks = lib.disk.get_real_disks()
+        # by default only mounted filesystems; opt in to raw/unmounted block devices
+        if args.INCLUDE_UNMOUNTED:
+            real_disks = lib.disk.get_block_devices()
+        else:
+            real_disks = lib.disk.get_real_disks()
         for disk in real_disks:
             # filter devices that do not match
             if args.MATCH and not any(

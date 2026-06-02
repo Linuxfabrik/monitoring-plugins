@@ -8,7 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-tbd
+### Added
+
+Monitoring Plugins:
+
+* disk-io: can now also monitor raw, unmounted block devices such as multipath SAN volumes or Oracle ASM disks (`--include-unmounted`)
 
 
 ## [v5.2.0] - 2026-06-02

@@ -17,6 +17,9 @@
                 "--iowait-warning": {
                     "value": "$disk_io_iowait_warning$"
                 },
+                "--include-unmounted": {
+                    "set_if": "$disk_io_include_unmounted$"
+                },
                 "--match": {
                     "value": "$disk_io_match$"
                 },
@@ -69,6 +72,11 @@
                     "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -98,6 +106,9 @@
                 "--iowait-warning": {
                     "value": "$disk_io_windows_iowait_warning$"
                 },
+                "--include-unmounted": {
+                    "set_if": "$disk_io_windows_include_unmounted$"
+                },
                 "--match": {
                     "value": "$disk_io_windows_match$"
                 },
@@ -111,11 +122,6 @@
             "command": "C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\disk-io.exe",
             "disabled": false,
             "fields": [
-                {
-                    "datafield_id": 9,
-                    "is_required": "n",
-                    "var_filter": null
-                },
                 {
                     "datafield_id": 10,
                     "is_required": "n",
@@ -148,6 +154,16 @@
                 },
                 {
                     "datafield_id": 16,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 18,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -210,7 +226,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes. The check records per-disk read/write counters and then derives current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the period's total bandwidth against the maximum ever observed for that disk (RWmax). WARN/CRIT trigger if the period average exceeds the configured percentage of RWmax for COUNT consecutive runs. On Linux, the check also monitors the system-wide iowait percentage (CPU time spent waiting for I/O). The raw iowait value is normalized by multiplying it with the number of logical CPUs, so that 100% always means one CPU core is fully I/O-saturated, regardless of the total number of CPUs. This makes the default thresholds (80/90%) work consistently across different hardware. Like bandwidth alerts, iowait alerts require COUNT consecutive threshold violations. Perfdata is emitted for each disk (busy_time, read_bytes, read_time, write_bytes, write_time) and for iowait, so you can graph trends. On Linux the check automatically focuses on \"real\" block devices with mountpoints; on Windows it uses psutil's disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
+            "notes": "Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes. The check records per-disk read/write counters and then derives current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the period's total bandwidth against the maximum ever observed for that disk (RWmax). WARN/CRIT trigger if the period average exceeds the configured percentage of RWmax for COUNT consecutive runs. On Linux, the check also monitors the system-wide iowait percentage (CPU time spent waiting for I/O). The raw iowait value is normalized by multiplying it with the number of logical CPUs, so that 100% always means one CPU core is fully I/O-saturated, regardless of the total number of CPUs. This makes the default thresholds (80/90%) work consistently across different hardware. Like bandwidth alerts, iowait alerts require COUNT consecutive threshold violations. Perfdata is emitted for each disk (busy_time, read_bytes, read_time, write_bytes, write_time) and for iowait, so you can graph trends. On Linux the check focuses on block devices with a mounted filesystem by default; use `--include-unmounted` to also include raw, unmounted devices such as multipath SAN volumes. On Windows it uses psutil's disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/",
             "object_name": "tpl-service-disk-io",
             "object_type": "template",
@@ -226,6 +242,7 @@
                 "disk_io_critical": 90,
                 "disk_io_iowait_critical": 90,
                 "disk_io_iowait_warning": 80,
+                "disk_io_include_unmounted": false,
                 "disk_io_match": "",
                 "disk_io_top": 5,
                 "disk_io_warning": 80
@@ -263,7 +280,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes. The check records per-disk read/write counters and then derives current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the period's total bandwidth against the maximum ever observed for that disk (RWmax). WARN/CRIT trigger if the period average exceeds the configured percentage of RWmax for COUNT consecutive runs. On Linux, the check also monitors the system-wide iowait percentage (CPU time spent waiting for I/O). The raw iowait value is normalized by multiplying it with the number of logical CPUs, so that 100% always means one CPU core is fully I/O-saturated, regardless of the total number of CPUs. This makes the default thresholds (80/90%) work consistently across different hardware. Like bandwidth alerts, iowait alerts require COUNT consecutive threshold violations. Perfdata is emitted for each disk (busy_time, read_bytes, read_time, write_bytes, write_time) and for iowait, so you can graph trends. On Linux the check automatically focuses on \"real\" block devices with mountpoints; on Windows it uses psutil's disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
+            "notes": "Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes. The check records per-disk read/write counters and then derives current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the period's total bandwidth against the maximum ever observed for that disk (RWmax). WARN/CRIT trigger if the period average exceeds the configured percentage of RWmax for COUNT consecutive runs. On Linux, the check also monitors the system-wide iowait percentage (CPU time spent waiting for I/O). The raw iowait value is normalized by multiplying it with the number of logical CPUs, so that 100% always means one CPU core is fully I/O-saturated, regardless of the total number of CPUs. This makes the default thresholds (80/90%) work consistently across different hardware. Like bandwidth alerts, iowait alerts require COUNT consecutive threshold violations. Perfdata is emitted for each disk (busy_time, read_bytes, read_time, write_bytes, write_time) and for iowait, so you can graph trends. On Linux the check focuses on block devices with a mounted filesystem by default; use `--include-unmounted` to also include raw, unmounted devices such as multipath SAN volumes. On Windows it uses psutil's disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/",
             "object_name": "tpl-service-disk-io-windows",
             "object_type": "template",
@@ -279,6 +296,7 @@
                 "disk_io_windows_critical": 90,
                 "disk_io_windows_iowait_critical": 90,
                 "disk_io_windows_iowait_warning": 80,
+                "disk_io_windows_include_unmounted": false,
                 "disk_io_windows_match": ".*",
                 "disk_io_windows_top": 5,
                 "disk_io_windows_warning": 80
@@ -343,9 +361,18 @@
             "uuid": "4d650bc6-1030-40e3-9478-3f0ed404921e"
         },
         "6": {
+            "varname": "disk_io_include_unmounted",
+            "caption": "Disk I/O: Include Unmounted?",
+            "description": "Also monitor block devices that have no mounted filesystem (Linux only). By default only block devices with a mounted filesystem are monitored. Enable this to include raw, unmounted devices such as multipath SAN volumes or disks used directly by a database or storage layer. Combine with `--match`, otherwise every unmounted device shows up. Pseudo devices (loop, ram, zram, floppy, optical) are always excluded.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "2d6c73fe-fd51-4e4b-b336-7e882bcf408c"
+        },
+        "7": {
             "varname": "disk_io_match",
             "caption": "Disk I/O: Match",
-            "description": "Filter by disk name. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and matched against the full device path (e.g. `/dev/sda`), the device-mapper path (e.g. `/dev/mapper/vg-lv`) and the mountpoint, so prefix with `.*` to match anywhere (`.*sda$` instead of `^sda$`). On Linux only block devices with a mounted filesystem are considered, so raw devices (Oracle ASM, raw LUNs, swap) cannot be matched.",
+            "description": "Filter by disk name. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and matched against the full device path (e.g. `/dev/sda`), the device-mapper path (e.g. `/dev/mapper/vg-lv`) and the mountpoint, so prefix with `.*` to match anywhere (`.*sda$` instead of `^sda$`). On Linux only block devices with a mounted filesystem are considered by default; add `--include-unmounted` to also match raw, unmounted devices (multipath SAN volumes, raw LUNs).",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -353,7 +380,7 @@
             },
             "uuid": "799caa91-3402-4421-99d8-b24bdf6dce23"
         },
-        "7": {
+        "8": {
             "varname": "disk_io_top",
             "caption": "Disk I/O: Top",
             "description": "Number of top processes to list by I/O traffic. Use `--top=0` to disable.",
@@ -364,7 +391,7 @@
             },
             "uuid": "11d2ba4f-ae3b-4bda-9ab1-2d16790673c9"
         },
-        "8": {
+        "9": {
             "varname": "disk_io_warning",
             "caption": "Disk I/O: Warning",
             "description": "WARN threshold for disk bandwidth saturation as a percentage of the observed maximum, measured over the last `--count` runs.",
@@ -375,7 +402,7 @@
             },
             "uuid": "648f2e2a-bd9f-45f1-9324-c31819472838"
         },
-        "9": {
+        "10": {
             "varname": "disk_io_windows_always_ok",
             "caption": "Disk I/O: Always OK?",
             "description": "Always returns OK.",
@@ -384,7 +411,7 @@
             "settings": {},
             "uuid": "0aeaffd3-218b-4d59-8338-10a5b21b0849"
         },
-        "10": {
+        "11": {
             "varname": "disk_io_windows_count",
             "caption": "Disk I/O: Count",
             "description": "Number of consecutive checks the threshold must be exceeded before alerting.",
@@ -395,7 +422,7 @@
             },
             "uuid": "6a0f4753-34bc-4d85-a66d-2be17f4b218e"
         },
-        "11": {
+        "12": {
             "varname": "disk_io_windows_critical",
             "caption": "Disk I/O: Critical",
             "description": "CRIT threshold for disk bandwidth saturation as a percentage of the observed maximum, measured over the last `--count` runs.",
@@ -406,7 +433,7 @@
             },
             "uuid": "6feda2a2-3432-4543-937f-f7677d00c604"
         },
-        "12": {
+        "13": {
             "varname": "disk_io_windows_iowait_critical",
             "caption": "Disk I/O: Iowait Critical",
             "description": "CRIT threshold for normalized iowait in percent (Linux only). The iowait value is normalized so that 100% means one CPU core is fully I/O-saturated. Values above 100% indicate that more than one core is waiting for I/O.",
@@ -417,7 +444,7 @@
             },
             "uuid": "0bf8b4a9-4736-48c1-907f-3cca8ffad3ea"
         },
-        "13": {
+        "14": {
             "varname": "disk_io_windows_iowait_warning",
             "caption": "Disk I/O: Iowait Warning",
             "description": "WARN threshold for normalized iowait in percent (Linux only). The iowait value is normalized so that 100% means one CPU core is fully I/O-saturated. Values above 100% indicate that more than one core is waiting for I/O.",
@@ -428,10 +455,19 @@
             },
             "uuid": "f055e158-db5b-4c47-ab59-0ecbaeaaf282"
         },
-        "14": {
+        "15": {
+            "varname": "disk_io_windows_include_unmounted",
+            "caption": "Disk I/O: Include Unmounted?",
+            "description": "Also monitor block devices that have no mounted filesystem (Linux only). By default only block devices with a mounted filesystem are monitored. Enable this to include raw, unmounted devices such as multipath SAN volumes or disks used directly by a database or storage layer. Combine with `--match`, otherwise every unmounted device shows up. Pseudo devices (loop, ram, zram, floppy, optical) are always excluded.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "c5bc1a3a-b81f-4e0d-9e0e-f8ffb300a013"
+        },
+        "16": {
             "varname": "disk_io_windows_match",
             "caption": "Disk I/O: Match",
-            "description": "Filter by disk name. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and matched against the full device path (e.g. `/dev/sda`), the device-mapper path (e.g. `/dev/mapper/vg-lv`) and the mountpoint, so prefix with `.*` to match anywhere (`.*sda$` instead of `^sda$`). On Linux only block devices with a mounted filesystem are considered, so raw devices (Oracle ASM, raw LUNs, swap) cannot be matched.",
+            "description": "Filter by disk name. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and matched against the full device path (e.g. `/dev/sda`), the device-mapper path (e.g. `/dev/mapper/vg-lv`) and the mountpoint, so prefix with `.*` to match anywhere (`.*sda$` instead of `^sda$`). On Linux only block devices with a mounted filesystem are considered by default; add `--include-unmounted` to also match raw, unmounted devices (multipath SAN volumes, raw LUNs).",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -439,7 +475,7 @@
             },
             "uuid": "3889d94e-e928-43d8-994a-fc6bd1dd5716"
         },
-        "15": {
+        "17": {
             "varname": "disk_io_windows_top",
             "caption": "Disk I/O: Top",
             "description": "Number of top processes to list by I/O traffic. Use `--top=0` to disable.",
@@ -450,7 +486,7 @@
             },
             "uuid": "09d50d40-cf5b-4252-9870-f951faf6a90b"
         },
-        "16": {
+        "18": {
             "varname": "disk_io_windows_warning",
             "caption": "Disk I/O: Warning",
             "description": "WARN threshold for disk bandwidth saturation as a percentage of the observed maximum, measured over the last `--count` runs.",
