@@ -13,11 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Monitoring Plugins:
 
 * disk-io: can now also monitor raw, unmounted block devices such as multipath SAN volumes or Oracle ASM disks (`--include-unmounted`)
+* lynis: new check that audits the security hardening posture of every host in a subnet over SSH and reports each host's hardening index, warnings and suggestions
 
 ### Fixed
 
 Monitoring Plugins:
 
+* by-ssh: a failed connection no longer echoes the full command line (which can contain the password passed via `--password`) in the plugin output
 * redfish-sensor: no longer raises false warnings for sensors that report a placeholder min/max range (e.g. CPU/memory utilization on some hardware) ([#1211](https://github.com/Linuxfabrik/monitoring-plugins/issues/1211))
 
 
