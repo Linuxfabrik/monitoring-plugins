@@ -36,6 +36,7 @@ Monitoring Plugins:
 * redfish-*: individual components (drives, sensors, memory modules, processors, interfaces, firmware components, managers) can be included or excluded by regular expression, so known-noisy or irrelevant hardware no longer drives the check state (`--match`, `--ignore`)
 * redfish-*: plugins renamed to match their Redfish API endpoints (`redfish-drives` → `redfish-storage`, `redfish-sel` → `redfish-logservices`, `redfish-sensor` → `redfish-sensors`, `redfish-system` → `redfish-systems`)
 * redfish-*: frequent checks no longer flood a management controller's session table or audit log
+* redfish-*: can export the parsed hardware as a JSON inventory instead of running a health check; the output of several Redfish checks merges into one inventory document with `jq --slurp` (`--inventory`)
 * redfish-*: a slow or flaky management controller request is retried before the check fails (`--retries`)
 * redfish-logservices: can now also read the management controller event log (MEL), not just the System Event Log, selectable per check (`--log-type=sel|mel|both`)
 * redfish-logservices: event log entries can be filtered by regular expression, and old entries can be aged out so a long-since resolved event no longer keeps the check alerting (`--match`, `--ignore`, `--max-age`)

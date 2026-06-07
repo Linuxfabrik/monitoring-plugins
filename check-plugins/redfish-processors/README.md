@@ -37,9 +37,10 @@ Checks the state of all processors (CPUs) in a Redfish-compatible server via the
 ```text
 usage: redfish-processors [-h] [-V] [--always-ok] [--brief]
                           [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
-                          [--insecure] [--match MATCH] [--no-proxy]
-                          [--password PASSWORD] [--retries RETRIES]
-                          [--test TEST] [--timeout TIMEOUT] [--url URL]
+                          [--insecure] [--inventory] [--match MATCH]
+                          [--no-proxy] [--password PASSWORD]
+                          [--retries RETRIES] [--test TEST]
+                          [--timeout TIMEOUT] [--url URL]
                           [--username USERNAME]
 
 Checks the state of all processors (CPUs) in a Redfish-compatible server via
@@ -64,6 +65,13 @@ options:
                         times.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --inventory           Output the parsed components as JSON on stdout and
+                        exit OK, instead of running a health check. Use this
+                        to collect a hardware inventory: the JSON is a single
+                        object keyed by component type, so the output of
+                        several Redfish checks can be merged into one
+                        inventory document with `jq --slurp`. Ignores --brief,
+                        --match and --ignore. Default: False
   --match MATCH         Only check items whose name matches this Python
                         regular expression. Case-sensitive by default; use
                         `(?i)` for case-insensitive matching. Can be specified

@@ -37,9 +37,9 @@ Checks the overall system health reported by a Redfish-compatible server via the
 
 ```text
 usage: redfish-systems [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
-                       [--insecure] [--no-proxy] [--password PASSWORD]
-                       [--retries RETRIES] [--test TEST] [--timeout TIMEOUT]
-                       [--url URL] [--username USERNAME]
+                       [--insecure] [--inventory] [--no-proxy]
+                       [--password PASSWORD] [--retries RETRIES] [--test TEST]
+                       [--timeout TIMEOUT] [--url URL] [--username USERNAME]
 
 Checks the overall system health reported by a Redfish-compatible server via
 the Redfish API. Reports every enabled system member with its identification
@@ -57,6 +57,12 @@ options:
                         cache expires, in minutes. Default: 15
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --inventory           Output the parsed components as JSON on stdout and
+                        exit OK, instead of running a health check. Use this
+                        to collect a hardware inventory: the JSON is a single
+                        object keyed by component type, so the output of
+                        several Redfish checks can be merged into one
+                        inventory document with `jq --slurp`. Default: False
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Redfish API password.
   --retries RETRIES     Number of extra attempts if a request to the Redfish

@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060707'
+__version__ = '2026060708'
 
 DESCRIPTION = """Checks the state of all physical drives, volumes and their storage controllers in a
 Redfish-compatible server via the Redfish API. Alerts when any drive, volume or storage controller
@@ -94,6 +94,18 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--inventory',
+        help='Output the parsed components as JSON on stdout and exit OK, instead of '
+        'running a health check. Use this to collect a hardware inventory: the JSON is a '
+        'single object keyed by component type, so the output of several Redfish checks can '
+        'be merged into one inventory document with `jq --slurp`. Ignores --brief, --match '
+        'and --ignore. Default: %(default)s',
+        dest='INVENTORY',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -245,6 +257,13 @@ def main():
     volume_not_ok = 0
     controller_count = 0
     controller_not_ok = 0
+    # only allocated and populated in --inventory mode, so a normal health
+    # check holds nothing extra in memory
+    inventory = (
+        {'physical_drive': [], 'logical_drive': [], 'storage_controller': []}
+        if args.INVENTORY
+        else None
+    )
 
     # analyze data: follow each "Member" link, aggregate drive and
     # storage-controller health into `state`. System-level health is
@@ -342,6 +361,11 @@ def main():
                 drive_data = lib.redfish.get_systems_storage_drives(drive_data)
                 if drive_data['Status_State'] not in ['Enabled', 'Quiesced']:
                     continue
+                # collect for --inventory before any display filter
+                if args.INVENTORY:
+                    inventory['physical_drive'].append(
+                        dict(drive_data, system_ids=systems['Id'])
+                    )
                 # --match/--ignore: filter by item name
                 item_name = drive_data['Name'] or drive_data.get('Id', '')
                 if ignore_patterns and any(
@@ -443,6 +467,11 @@ def main():
                     volume_data = lib.redfish.get_systems_storage_volumes(volume_data)
                     if volume_data['Status_State'] not in ['Enabled', 'Quiesced']:
                         continue
+                    # collect for --inventory before any display filter
+                    if args.INVENTORY:
+                        inventory['logical_drive'].append(
+                            dict(volume_data, system_ids=systems['Id'])
+                        )
                     # --match/--ignore: filter by item name
                     item_name = volume_data['Name'] or volume_data.get('Id', '')
                     if ignore_patterns and any(
@@ -467,6 +496,11 @@ def main():
             storage_data = lib.redfish.get_systems_storage(storage_data)
             if storage_data['Status_State'] not in ['Enabled', 'Quiesced']:
                 continue
+            # collect for --inventory before any display filter
+            if args.INVENTORY:
+                inventory['storage_controller'].append(
+                    dict(storage_data, system_ids=systems['Id'])
+                )
             # --match/--ignore: filter by item name
             item_name = storage_data['Name'] or storage_data.get('Id', '')
             if ignore_patterns and any(p.search(item_name) for p in ignore_patterns):
@@ -528,6 +562,12 @@ def main():
             msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
 
         msg += '\n\n'
+
+    # --inventory: emit the collected components as JSON and exit before
+    # building the human-readable message and perfdata
+    if args.INVENTORY:
+        print(json.dumps(inventory, ensure_ascii=False, indent=4, sort_keys=True))
+        sys.exit(STATE_OK)
 
     # build the message
     members = lib.txt.pluralize('member', member_count)

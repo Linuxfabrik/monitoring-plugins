@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060703'
+__version__ = '2026060704'
 
 DESCRIPTION = """Checks the overall system health reported by a Redfish-compatible server via the
 Redfish API. Reports every enabled system member with its identification (manufacturer, model,
@@ -74,6 +74,17 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--inventory',
+        help='Output the parsed components as JSON on stdout and exit OK, instead of '
+        'running a health check. Use this to collect a hardware inventory: the JSON is a '
+        'single object keyed by component type, so the output of several Redfish checks can '
+        'be merged into one inventory document with `jq --slurp`. Default: %(default)s',
+        dest='INVENTORY',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -194,6 +205,9 @@ def main():
     state = STATE_OK
     perfdata = ''
     member_count = 0
+    # only allocated and populated in --inventory mode, so a normal health
+    # check holds nothing extra in memory
+    inventory = [] if args.INVENTORY else None
 
     # analyze data: follow each "Member" link and aggregate the rolled-up
     # Redfish system `Status` into `state`. Drive and storage-controller
@@ -217,6 +231,9 @@ def main():
         if systems['Status_State'] not in ['Enabled', 'Quiesced']:
             continue
         member_count += 1
+        # collect for --inventory
+        if args.INVENTORY:
+            inventory.append(dict(systems))
         systems_state = lib.redfish.get_state(systems)
         state = lib.base.get_worst(state, systems_state)
 
@@ -245,6 +262,16 @@ def main():
         msg += f'SerNo: {systems["SerialNumber"]}, ' if systems['SerialNumber'] else ''
         msg = msg[:-2] + lib.base.state2str(systems_state, prefix=' ')
         msg += '\n\n'
+
+    # --inventory: emit the collected components as JSON and exit before
+    # building the human-readable message and perfdata
+    if args.INVENTORY:
+        print(
+            json.dumps(
+                {'system': inventory}, ensure_ascii=False, indent=4, sort_keys=True
+            )
+        )
+        sys.exit(STATE_OK)
 
     # build the message
     members = lib.txt.pluralize('member', member_count)

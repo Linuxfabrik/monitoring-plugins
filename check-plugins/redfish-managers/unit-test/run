@@ -42,6 +42,16 @@ TESTS = [
         ],
     },
     {
+        # --inventory emits the parsed components as JSON (one object keyed by
+        # component type) and exits OK, so several Redfish checks can be merged
+        # with `jq --slurp`.
+        'id': 'ok-inventory-json',
+        'test': 'stdout/healthy-managers,,0',
+        'params': '--inventory',
+        'assert-retc': STATE_OK,
+        'assert-in': ['"manager":', '"FirmwareVersion":'],
+    },
+    {
         # A missing fixture must surface as STATE_UNKNOWN with a
         # readable message, not as a Python traceback.
         'id': 'unknown-missing-fixture',
@@ -53,7 +63,6 @@ TESTS = [
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../redfish-managers'
 
 

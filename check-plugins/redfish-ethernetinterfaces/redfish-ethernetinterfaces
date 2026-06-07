@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060705'
+__version__ = '2026060706'
 
 DESCRIPTION = """Checks the state of all Ethernet interfaces in a Redfish-compatible server via the
 Redfish API. Alerts when any enabled Ethernet interface reports a degraded or failed health state.
@@ -94,6 +94,18 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--inventory',
+        help='Output the parsed components as JSON on stdout and exit OK, instead of '
+        'running a health check. Use this to collect a hardware inventory: the JSON is a '
+        'single object keyed by component type, so the output of several Redfish checks can '
+        'be merged into one inventory document with `jq --slurp`. Ignores --brief, --match '
+        'and --ignore. Default: %(default)s',
+        dest='INVENTORY',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -241,6 +253,9 @@ def main():
     member_count = 0
     interface_count = 0
     interface_not_ok = 0
+    # only allocated and populated in --inventory mode, so a normal health
+    # check holds nothing extra in memory
+    inventory = [] if args.INVENTORY else None
 
     # analyze data: follow each "Member" link, aggregate Ethernet-interface
     # health into `state`. System-level health is deliberately not
@@ -316,6 +331,9 @@ def main():
             nic_data = lib.redfish.get_systems_ethernetinterfaces(nic_data)
             if nic_data['Status_State'] not in ['Enabled', 'Quiesced']:
                 continue
+            # collect for --inventory before any display filter (--match/--ignore/--brief)
+            if args.INVENTORY:
+                inventory.append(dict(nic_data, system_ids=systems['Id']))
             # --match/--ignore: filter by item name
             item_name = nic_data['Name'] or nic_data.get('Id', '')
             if ignore_patterns and any(p.search(item_name) for p in ignore_patterns):
@@ -354,6 +372,19 @@ def main():
             msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
 
         msg += '\n\n'
+
+    # --inventory: emit the collected components as JSON and exit before
+    # building the human-readable message and perfdata
+    if args.INVENTORY:
+        print(
+            json.dumps(
+                {'network_port': inventory},
+                ensure_ascii=False,
+                indent=4,
+                sort_keys=True,
+            )
+        )
+        sys.exit(STATE_OK)
 
     # build the message
     members = lib.txt.pluralize('member', member_count)

@@ -123,6 +123,16 @@ TESTS = [
         'assert-not-in': ['SSD 1'],
     },
     {
+        # --inventory emits the parsed components as JSON (one object keyed by
+        # component type: physical_drive, logical_drive, storage_controller) and
+        # exits OK, so several Redfish checks can be merged with `jq --slurp`.
+        'id': 'ok-inventory-json',
+        'test': 'stdout/two-drives-one-volume,,0',
+        'params': '--inventory',
+        'assert-retc': STATE_OK,
+        'assert-in': ['"physical_drive":', '"logical_drive":', '"system_ids":'],
+    },
+    {
         # A missing fixture must surface as STATE_UNKNOWN with a
         # readable message, not as a Python traceback.
         'id': 'unknown-missing-fixture',
@@ -134,7 +144,6 @@ TESTS = [
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../redfish-storage'
 
 

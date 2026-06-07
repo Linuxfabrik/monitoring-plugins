@@ -37,7 +37,7 @@ Checks the state of all Ethernet interfaces in a Redfish-compatible server via t
 ```text
 usage: redfish-ethernetinterfaces [-h] [-V] [--always-ok] [--brief]
                                   [--cache-expire CACHE_EXPIRE]
-                                  [--ignore IGNORE] [--insecure]
+                                  [--ignore IGNORE] [--insecure] [--inventory]
                                   [--match MATCH] [--no-proxy]
                                   [--password PASSWORD] [--retries RETRIES]
                                   [--test TEST] [--timeout TIMEOUT]
@@ -66,6 +66,13 @@ options:
                         times.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --inventory           Output the parsed components as JSON on stdout and
+                        exit OK, instead of running a health check. Use this
+                        to collect a hardware inventory: the JSON is a single
+                        object keyed by component type, so the output of
+                        several Redfish checks can be merged into one
+                        inventory document with `jq --slurp`. Ignores --brief,
+                        --match and --ignore. Default: False
   --match MATCH         Only check items whose name matches this Python
                         regular expression. Case-sensitive by default; use
                         `(?i)` for case-insensitive matching. Can be specified

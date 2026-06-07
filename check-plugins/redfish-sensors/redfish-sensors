@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060706'
+__version__ = '2026060707'
 
 DESCRIPTION = """Checks hardware sensor readings (temperature, voltage, fan speed, power) from the
 Redfish Chassis collection via the Redfish API. Reads the modern Sensors collection where
@@ -93,6 +93,18 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--inventory',
+        help='Output the parsed components as JSON on stdout and exit OK, instead of '
+        'running a health check. Use this to collect a hardware inventory: the JSON is a '
+        'single object keyed by component type, so the output of several Redfish checks can '
+        'be merged into one inventory document with `jq --slurp`. Ignores --brief, --match '
+        'and --ignore. Default: %(default)s',
+        dest='INVENTORY',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -238,6 +250,9 @@ def main():
     state = STATE_OK
     perfdata = ''
     member_count = 0
+    # only allocated and populated in --inventory mode, so a normal health
+    # check holds nothing extra in memory
+    inventory = [] if args.INVENTORY else None
 
     # analyze data: follow each "Member" link, aggregate chassis,
     # sensor and thermal health into `state`.
@@ -311,6 +326,9 @@ def main():
                 sensor_data = lib.redfish.get_chassis_sensors(sensor_data)
                 if sensor_data['Status_State'] not in ['Enabled', 'Quiesced']:
                     continue
+                # collect for --inventory before any display filter
+                if args.INVENTORY:
+                    inventory.append(dict(sensor_data, chassi_ids=chassis['Id']))
                 # --match/--ignore: filter by item name
                 item_name = sensor_data['Name'] or sensor_data.get('Id', '')
                 if ignore_patterns and any(
@@ -393,6 +411,9 @@ def main():
             for item, reading_key, units in legacy:
                 if item['Status_State'] not in ['Enabled', 'Quiesced']:
                     continue
+                # collect for --inventory before any display filter
+                if args.INVENTORY:
+                    inventory.append(dict(item, chassi_ids=chassis['Id']))
                 # --match/--ignore: filter by item name
                 item_name = item['Name'] or item.get('Id', '')
                 if ignore_patterns and any(
@@ -435,6 +456,9 @@ def main():
                 if psu['Status_State'] not in ['Enabled', 'Quiesced']:
                     continue
                 psu['Name'] = psu.get('Model') or 'Power Supply'
+                # collect for --inventory before any display filter
+                if args.INVENTORY:
+                    inventory.append(dict(psu, chassi_ids=chassis['Id']))
                 # --match/--ignore: filter by item name
                 item_name = psu['Name'] or psu.get('Id', '')
                 if ignore_patterns and any(
@@ -465,6 +489,9 @@ def main():
                 if pc['Status_State'] not in ['Enabled', 'Quiesced']:
                     continue
                 pc['Name'] = pc.get('Name') or 'Power Control'
+                # collect for --inventory before any display filter
+                if args.INVENTORY:
+                    inventory.append(dict(pc, chassi_ids=chassis['Id']))
                 # --match/--ignore: filter by item name
                 item_name = pc['Name'] or pc.get('MemberId', '')
                 if ignore_patterns and any(
@@ -523,6 +550,16 @@ def main():
             msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
 
         msg += '\n\n'
+
+    # --inventory: emit the collected components as JSON and exit before
+    # building the human-readable message and perfdata
+    if args.INVENTORY:
+        print(
+            json.dumps(
+                {'sensor': inventory}, ensure_ascii=False, indent=4, sort_keys=True
+            )
+        )
+        sys.exit(STATE_OK)
 
     # build the message
     members = lib.txt.pluralize('member', member_count)
