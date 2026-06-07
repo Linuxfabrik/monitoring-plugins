@@ -394,11 +394,9 @@ def main():
                     perfdata += lib.base.get_perfdata(
                         f'{drive_id}_media_life_left',
                         media_life,
-                        '%',
-                        None,
-                        None,
-                        0,
-                        100,
+                        uom='%',
+                        _min=0,
+                        _max=100,
                     )
                 # power-on hours is a monotonic counter, but there is no
                 # meaningful gauge alternative for drive age, so it is exposed
@@ -408,11 +406,7 @@ def main():
                     perfdata += lib.base.get_perfdata(
                         f'{drive_id}_power_on_hours',
                         power_on_hours,
-                        None,
-                        None,
-                        None,
-                        0,
-                        None,
+                        _min=0,
                     )
                 # drive temperature (degrees Celsius) is a gauge. Not every
                 # vendor reports it, so it is only emitted when present.
@@ -421,11 +415,7 @@ def main():
                     perfdata += lib.base.get_perfdata(
                         f'{drive_id}_temperature',
                         temperature,
-                        'Cel',
-                        None,
-                        None,
-                        None,
-                        None,
+                        uom='Cel',
                     )
                 table_data_drive.append(drive_data)
 
@@ -587,21 +577,35 @@ def main():
 
     # perfdata: how many drives, volumes and storage controllers were checked
     # and how many are not OK. These are instantaneous gauges, not counters.
-    perfdata += lib.base.get_perfdata('drives', drive_count, None, None, None, 0, None)
     perfdata += lib.base.get_perfdata(
-        'drives_not_ok', drive_not_ok, None, None, None, 0, None
+        'drives',
+        drive_count,
+        _min=0,
     )
     perfdata += lib.base.get_perfdata(
-        'volumes', volume_count, None, None, None, 0, None
+        'drives_not_ok',
+        drive_not_ok,
+        _min=0,
     )
     perfdata += lib.base.get_perfdata(
-        'volumes_not_ok', volume_not_ok, None, None, None, 0, None
+        'volumes',
+        volume_count,
+        _min=0,
     )
     perfdata += lib.base.get_perfdata(
-        'storage_controllers', controller_count, None, None, None, 0, None
+        'volumes_not_ok',
+        volume_not_ok,
+        _min=0,
     )
     perfdata += lib.base.get_perfdata(
-        'storage_controllers_not_ok', controller_not_ok, None, None, None, 0, None
+        'storage_controllers',
+        controller_count,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'storage_controllers_not_ok',
+        controller_not_ok,
+        _min=0,
     )
 
     # over and out
