@@ -99,7 +99,7 @@ CPU 1  ! CPU  ! Multi-Core Intel(R) Xeon(R) processor 7xxx Series ! Intel(R) Cor
 
 ## For Maintainers
 
-There is no need for a real BMC to develop or test this plugin. The official DMTF Redfish mockup server serves a static, read-only Redfish tree (including a `Processors` collection) over plain HTTP, which is exactly what this GET-only plugin needs.
+You don't need a physical server with a real BMC (the management controller that serves the Redfish API, e.g. HPE iLO or Dell iDRAC) to develop or test this plugin. The official DMTF Redfish mockup server serves a static, read-only Redfish tree (including a `Processors` collection) over plain HTTP, which is exactly what this GET-only plugin needs.
 
 Run the mockup server and point the plugin at it, from the repository root:
 
