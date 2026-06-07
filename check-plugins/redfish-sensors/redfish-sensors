@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060703'
+__version__ = '2026060704'
 
 DESCRIPTION = """Checks hardware sensor readings (temperature, voltage, fan speed, power) from the
 Redfish Chassis collection via the Redfish API. Reads the modern Sensors collection where
@@ -54,6 +54,16 @@ def parse_args():
         '--always-ok',
         help=lib.args.help('--always-ok'),
         dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help='Hide items that are OK and show only those in WARN/CRIT state. '
+        'Alerting is unaffected: all items still drive the overall check state. '
+        'Default: %(default)s',
+        dest='BRIEF',
         action='store_true',
         default=False,
     )
@@ -428,6 +438,12 @@ def main():
                 psu['State'] = lib.base.state2str(psu_state, empty_ok=False)
                 table_data.append(psu)
 
+        if args.BRIEF:
+            table_data = [
+                r
+                for r in table_data
+                if not (r.get('State') == '[OK]' and r.get('Value') == '[OK]')
+            ]
         if table_data:
             keys = [
                 'Name',
@@ -452,6 +468,8 @@ def main():
             state = lib.base.get_worst(state, redundancy_state)
             redundancy['State'] = lib.base.state2str(redundancy_state, empty_ok=False)
             table_data.append(redundancy)
+        if args.BRIEF:
+            table_data = [r for r in table_data if r.get('State') != '[OK]']
         if table_data:
             keys = ['Name', 'Mode', 'State']
             headers = ['Redundancy', 'Mode', 'State']

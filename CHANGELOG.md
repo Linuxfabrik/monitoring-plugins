@@ -32,6 +32,7 @@ Grafana:
 
 Monitoring Plugins:
 
+* redfish-*: a `--brief` option lists only the components in WARN/CRIT state and hides the healthy ones, to keep the output short on large systems
 * redfish-*: individual components (drives, sensors, memory modules, processors, interfaces, firmware components, managers) can be included or excluded by regular expression, so known-noisy or irrelevant hardware no longer drives the check state (`--match`, `--ignore`)
 * redfish-*: plugins renamed to match their Redfish API endpoints (`redfish-drives` → `redfish-storage`, `redfish-sel` → `redfish-logservices`, `redfish-sensor` → `redfish-sensors`, `redfish-system` → `redfish-systems`)
 * redfish-*: frequent checks no longer flood a management controller's session table or audit log

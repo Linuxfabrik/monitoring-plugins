@@ -35,10 +35,11 @@ Checks the state of all physical drives, volumes and their storage controllers i
 ## Help
 
 ```text
-usage: redfish-storage [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
-                       [--ignore IGNORE] [--insecure] [--match MATCH]
-                       [--no-proxy] [--password PASSWORD] [--test TEST]
-                       [--timeout TIMEOUT] [--url URL] [--username USERNAME]
+usage: redfish-storage [-h] [-V] [--always-ok] [--brief]
+                       [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
+                       [--insecure] [--match MATCH] [--no-proxy]
+                       [--password PASSWORD] [--test TEST] [--timeout TIMEOUT]
+                       [--url URL] [--username USERNAME]
 
 Checks the state of all physical drives, volumes and their storage controllers
 in a Redfish-compatible server via the Redfish API. Alerts when any drive,
@@ -51,6 +52,9 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --brief               Hide items that are OK and show only those in
+                        WARN/CRIT state. Alerting is unaffected: all items
+                        still drive the overall check state. Default: False
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15

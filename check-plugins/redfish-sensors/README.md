@@ -37,10 +37,11 @@ Checks hardware sensor readings (temperature, voltage, fan speed, power) from th
 ## Help
 
 ```text
-usage: redfish-sensors [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
-                       [--ignore IGNORE] [--insecure] [--match MATCH]
-                       [--no-proxy] [--password PASSWORD] [--test TEST]
-                       [--timeout TIMEOUT] [--url URL] [--username USERNAME]
+usage: redfish-sensors [-h] [-V] [--always-ok] [--brief]
+                       [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
+                       [--insecure] [--match MATCH] [--no-proxy]
+                       [--password PASSWORD] [--test TEST] [--timeout TIMEOUT]
+                       [--url URL] [--username USERNAME]
 
 Checks hardware sensor readings (temperature, voltage, fan speed, power) from
 the Redfish Chassis collection via the Redfish API. Reads the modern Sensors
@@ -51,6 +52,9 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --brief               Hide items that are OK and show only those in
+                        WARN/CRIT state. Alerting is unaffected: all items
+                        still drive the overall check state. Default: False
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15

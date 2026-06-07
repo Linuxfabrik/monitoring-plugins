@@ -64,6 +64,26 @@ TESTS = [
         'assert-not-in': ['DIMM Slot 1', 'DIMM Slot 3'],
     },
     {
+        # --brief on an all-healthy system hides every (OK) module row, so
+        # only the summary remains.
+        'id': 'ok-brief-hides-healthy',
+        'test': 'stdout/healthy-memory,,0',
+        'params': '--brief',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok, checked memory on 1 member.'],
+        'assert-not-in': ['DIMM Slot 1', 'DIMM Slot 2'],
+    },
+    {
+        # --brief keeps the alerting state but shows only the faulty module,
+        # hiding the healthy ones.
+        'id': 'crit-brief-shows-faulty',
+        'test': 'stdout/one-dimm-fault,,0',
+        'params': '--brief',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['DIMM Slot 2', '[CRITICAL]'],
+        'assert-not-in': ['DIMM Slot 1', 'DIMM Slot 3'],
+    },
+    {
         # A missing fixture must surface as STATE_UNKNOWN with a
         # readable message, not as a Python traceback.
         'id': 'unknown-missing-fixture',

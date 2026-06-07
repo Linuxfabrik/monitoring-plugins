@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060704'
+__version__ = '2026060705'
 
 DESCRIPTION = """Checks the state of all physical drives, volumes and their storage controllers in a
 Redfish-compatible server via the Redfish API. Alerts when any drive, volume or storage controller
@@ -55,6 +55,16 @@ def parse_args():
         '--always-ok',
         help=lib.args.help('--always-ok'),
         dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help='Hide items that are OK and show only those in WARN/CRIT state. '
+        'Alerting is unaffected: all items still drive the overall check state. '
+        'Default: %(default)s',
+        dest='BRIEF',
         action='store_true',
         default=False,
     )
@@ -443,6 +453,8 @@ def main():
                 controller_not_ok += 1
             table_data.append(storage_data)
 
+        if args.BRIEF:
+            table_data_drive = [r for r in table_data_drive if r.get('State') != '[OK]']
         if table_data_drive:
             keys = [
                 'Name',
@@ -468,11 +480,17 @@ def main():
             ]
             msg += '\n\n' + lib.base.get_table(table_data_drive, keys, header=headers)
 
+        if args.BRIEF:
+            table_data_volume = [
+                r for r in table_data_volume if r.get('State') != '[OK]'
+            ]
         if table_data_volume:
             keys = ['Name', 'RAIDType', 'CapacityBytes', 'Encrypted', 'State']
             headers = ['Volume', 'RAID', 'Size', 'Encrypted', 'State']
             msg += '\n\n' + lib.base.get_table(table_data_volume, keys, header=headers)
 
+        if args.BRIEF:
+            table_data = [r for r in table_data if r.get('State') != '[OK]']
         if table_data:
             keys = ['Id', 'Name', 'Description', 'Drives@odata.count', 'State']
             headers = ['ID', 'Name', 'Description', 'Drives', 'State']

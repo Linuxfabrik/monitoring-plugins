@@ -35,7 +35,7 @@ Reports the firmware inventory of a Redfish-compatible server via the Redfish AP
 ## Help
 
 ```text
-usage: redfish-firmwareinventory [-h] [-V] [--always-ok]
+usage: redfish-firmwareinventory [-h] [-V] [--always-ok] [--brief]
                                  [--cache-expire CACHE_EXPIRE]
                                  [--ignore IGNORE] [--insecure]
                                  [--match MATCH] [--no-proxy]
@@ -52,6 +52,9 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --brief               Hide items that are OK and show only those in
+                        WARN/CRIT state. Alerting is unaffected: all items
+                        still drive the overall check state. Default: False
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15

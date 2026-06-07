@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060703'
+__version__ = '2026060704'
 
 DESCRIPTION = """Reports the firmware inventory of a Redfish-compatible server via the Redfish API.
 Lists every firmware component with its installed version and identification, and alerts whenever a
@@ -53,6 +53,16 @@ def parse_args():
         '--always-ok',
         help=lib.args.help('--always-ok'),
         dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help='Hide items that are OK and show only those in WARN/CRIT state. '
+        'Alerting is unaffected: all items still drive the overall check state. '
+        'Default: %(default)s',
+        dest='BRIEF',
         action='store_true',
         default=False,
     )
@@ -253,6 +263,8 @@ def main():
             component_not_ok += 1
         table_data.append(firmware_data)
 
+    if args.BRIEF:
+        table_data = [r for r in table_data if r.get('State') != '[OK]']
     if table_data:
         keys = [
             'Name',
