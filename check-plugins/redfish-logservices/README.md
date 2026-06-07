@@ -36,18 +36,19 @@ Checks the event log entries exposed under the LogServices of a Redfish-compatib
 ```text
 usage: redfish-logservices [-h] [-V] [--always-ok]
                            [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
-                           [--insecure] [--match MATCH] [--max-age MAX_AGE]
-                           [--no-proxy] [--password PASSWORD]
-                           [--retries RETRIES] [--test TEST]
-                           [--timeout TIMEOUT] [--url URL]
+                           [--insecure] [--log-type {sel,mel,both}]
+                           [--match MATCH] [--max-age MAX_AGE] [--no-proxy]
+                           [--password PASSWORD] [--retries RETRIES]
+                           [--test TEST] [--timeout TIMEOUT] [--url URL]
                            [--username USERNAME]
 
 Checks the event log entries exposed under the LogServices of a Redfish-
-compatible server (the System Event Log, SEL) via the Redfish API. Alerts
-based on the severity of the log entries. Entries can be filtered by regular
-expression (--match, --ignore), and entries older than --max-age days can be
-aged out so a long-since resolved event does not keep the check in a non-OK
-state forever.
+compatible server via the Redfish API and alerts based on the severity of the
+log entries. By default it reads the System Event Log (SEL); `--log-type`
+selects the management controller log (MEL) or both. Entries can be filtered
+by regular expression (--match, --ignore), and entries older than --max-age
+days can be aged out so a long-since resolved event does not keep the check in
+a non-OK state forever.
 
 options:
   -h, --help            show this help message and exit
@@ -63,6 +64,10 @@ options:
                         reset/cleared"`.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --log-type {sel,mel,both}
+                        Which log to read: `sel` (System Event Log, default),
+                        `mel` (management controller event log) or `both`.
+                        Default: sel
   --match MATCH         Only consider SEL entries whose message matches this
                         Python regular expression. Case-sensitive by default;
                         use `(?i)` for case-insensitive matching. Can be

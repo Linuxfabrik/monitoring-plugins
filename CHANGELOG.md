@@ -37,6 +37,7 @@ Monitoring Plugins:
 * redfish-*: plugins renamed to match their Redfish API endpoints (`redfish-drives` → `redfish-storage`, `redfish-sel` → `redfish-logservices`, `redfish-sensor` → `redfish-sensors`, `redfish-system` → `redfish-systems`)
 * redfish-*: frequent checks no longer flood a management controller's session table or audit log
 * redfish-*: a slow or flaky management controller request is retried before the check fails (`--retries`)
+* redfish-logservices: can now also read the management controller event log (MEL), not just the System Event Log, selectable per check (`--log-type=sel|mel|both`)
 * redfish-logservices: event log entries can be filtered by regular expression, and old entries can be aged out so a long-since resolved event no longer keeps the check alerting (`--match`, `--ignore`, `--max-age`)
 * redfish-sensors: falls back to the legacy Thermal and Power endpoints when the modern Sensors collection is absent
 * redfish-storage: now also checks volumes (logical drives), not just physical drives and controllers

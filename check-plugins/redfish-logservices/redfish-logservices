@@ -25,22 +25,47 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060704'
+__version__ = '2026060705'
 
 DESCRIPTION = """Checks the event log entries exposed under the LogServices of a Redfish-compatible
-server (the System Event Log, SEL) via the Redfish API. Alerts based on the severity of the log
-entries. Entries can be filtered by regular expression (--match, --ignore), and entries older than
---max-age days can be aged out so a long-since resolved event does not keep the check in a non-OK
-state forever."""
+server via the Redfish API and alerts based on the severity of the log entries. By default it reads
+the System Event Log (SEL); `--log-type` selects the management controller log (MEL) or both.
+Entries can be filtered by regular expression (--match, --ignore), and entries older than --max-age
+days can be aged out so a long-since resolved event does not keep the check in a non-OK state
+forever."""
 
 API_BASE = '/redfish/v1'
 DEFAULT_CACHE_EXPIRE = 15  # minutes; keep below the controller's session timeout
 DEFAULT_INSECURE = True
+DEFAULT_LOG_TYPE = 'sel'
 DEFAULT_MAX_AGE = 0  # days; 0 disables aging
 DEFAULT_NO_PROXY = False
 DEFAULT_RETRIES = 3  # extra attempts on a failed Redfish request
 DEFAULT_TIMEOUT = 8
 DEFAULT_URL = 'https://localhost:5000'
+
+# Per-vendor LogService paths. The SEL (System Event Log) paths are exercised against the
+# fixtures/mockup; the MEL (management controller event log) paths are ported 1:1 from
+# bb-Ricardo/check_redfish and still need real-hardware verification, which is why --log-type
+# defaults to "sel". An empty string means "no known path for this vendor/log".
+LOG_PATHS = {
+    'ami': {'sel': '/LogServices/BIOS/Entries', 'mel': '/LogServices/EventLog/Entries'},
+    'avigilon': {'sel': '/LogServices', 'mel': '/LogServices/Lclog/Entries'},
+    'cisco': {'sel': '/LogServices/SEL/Entries', 'mel': '/LogServices/CIMC/Entries'},
+    'dell': {'sel': '/LogServices/Sel/Entries', 'mel': '/LogServices/Lclog/Entries'},
+    'generic': {'sel': '/LogServices/Log/Entries', 'mel': ''},
+    'hp': {'sel': '/LogServices/IML/Entries', 'mel': '/LogServices/IEL/Entries'},
+    'hpe': {'sel': '/LogServices/IML/Entries', 'mel': '/LogServices/IEL/Entries'},
+    'lenovo': {
+        'sel': '/LogServices/ActiveLog/Entries',
+        'mel': '/LogServices/StandardLog/Entries',
+    },
+    'supermicro': {'sel': '/LogServices/Log1/Entries', 'mel': ''},
+    'ts_fujitsu': {
+        'sel': '/LogServices/SystemEventLog/Entries',
+        'mel': '/LogServices/InternalEventLog/Entries',
+    },
+}
 
 
 def parse_args():
@@ -87,6 +112,16 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--log-type',
+        help='Which log to read: `sel` (System Event Log, default), `mel` (management controller '
+        'event log) or `both`. '
+        'Default: %(default)s',
+        dest='LOG_TYPE',
+        choices=['sel', 'mel', 'both'],
+        default=DEFAULT_LOG_TYPE,
     )
 
     parser.add_argument(
@@ -263,75 +298,61 @@ def main():
     member_count = 0
     aged_out_total = 0
 
-    if vendor == 'generic':
-        sel_path = '/LogServices/Log/Entries'
-    elif vendor in ['avigilon']:  # which is a relabeled dell
-        sel_path = '/LogServices'
-    elif vendor in ['ami']:
-        sel_path = '/LogServices/BIOS/Entries'
-    elif vendor in ['cisco']:
-        sel_path = '/LogServices/SEL/Entries'
-    elif vendor in ['dell']:
-        sel_path = '/LogServices/Sel/Entries'
-    elif vendor in ['hpe', 'hp']:
-        sel_path = '/LogServices/IML/Entries'
-    elif vendor in ['lenovo']:
-        sel_path = '/LogServices/ActiveLog/Entries'
-    elif vendor in ['supermicro']:
-        sel_path = '/LogServices/Log1/Entries'
-    elif vendor in ['ts_fujitsu']:
-        sel_path = '/LogServices/SystemEventLog/Entries'
-    else:
-        sel_path = ''
+    # resolve which log path(s) to read for this vendor and --log-type
+    paths = LOG_PATHS.get(vendor, {'sel': '', 'mel': ''})
+    wanted = ['sel', 'mel'] if args.LOG_TYPE == 'both' else [args.LOG_TYPE]
+    logs = [(label, paths.get(label, '')) for label in wanted if paths.get(label)]
+    log_label = {'sel': 'SEL', 'mel': 'MEL', 'both': 'SEL and MEL'}[args.LOG_TYPE]
 
-    # analyze data: follow each "Member" link and aggregate the SEL entries'
-    # severity into `state`.
+    # analyze data: follow each "Member" link and aggregate the selected log
+    # entries' severity into `state`.
     for member in result.get('Members', []):
-        if not sel_path:
+        if not logs:
             continue
         member_count += 1
-        if args.TEST is None:
-            # For example {https://localhost:5000} {/redfish/v1/Managers/BMC} {/LogServices/Log/Entries}
-            sel = lib.base.coe(
-                lib.url.fetch_json(
-                    f'{args.URL}{member["@odata.id"]}{sel_path}',
+        for label, path in logs:
+            if args.TEST is None:
+                # a missing or unknown log path must not abort the check
+                success, entries = lib.url.fetch_json(
+                    f'{args.URL}{member["@odata.id"]}{path}',
                     header=header,
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,
                     timeout=args.TIMEOUT,
                     retries=args.RETRIES,
                 )
+                if not success or not isinstance(entries, dict):
+                    entries = {}
+            else:
+                entries = load_test_fixture(args.TEST, f'{test_base}-{label}')
+            member_msg, member_state, member_aged = (
+                lib.redfish.get_manager_logservices_sel_entries(
+                    entries,
+                    match=match_patterns,
+                    ignore=ignore_patterns,
+                    cutoff_epoch=cutoff_epoch,
+                )
             )
-        else:
-            sel = load_test_fixture(args.TEST, f'{test_base}-sel')
-        member_msg, member_state, member_aged = (
-            lib.redfish.get_manager_logservices_sel_entries(
-                sel,
-                match=match_patterns,
-                ignore=ignore_patterns,
-                cutoff_epoch=cutoff_epoch,
-            )
-        )
-        aged_out_total += member_aged
-        if member_msg:
-            # build the message
-            msg += f'{member["@odata.id"]}\n{member_msg}\n\n'
-            state = lib.base.get_worst(state, member_state)
+            aged_out_total += member_aged
+            if member_msg:
+                # build the message
+                msg += f'{member["@odata.id"]} ({label.upper()})\n{member_msg}\n\n'
+                state = lib.base.get_worst(state, member_state)
 
     members = lib.txt.pluralize('member', member_count)
     aged = f' {aged_out_total} aged out.' if aged_out_total else ''
     if state == STATE_CRIT:
         msg = (
-            f'Checked SEL on {member_count} {members}.'
+            f'Checked {log_label} on {member_count} {members}.'
             f' There are critical errors.{aged}\n\n'
         ) + msg
     elif state == STATE_WARN:
         msg = (
-            f'Checked SEL on {member_count} {members}. There are warnings.{aged}\n\n'
+            f'Checked {log_label} on {member_count} {members}. There are warnings.{aged}\n\n'
         ) + msg
     else:
         msg = (
-            f'Everything is ok, checked SEL on {member_count} {members}.{aged}\n\n'
+            f'Everything is ok, checked {log_label} on {member_count} {members}.{aged}\n\n'
         ) + msg
 
     # over and out

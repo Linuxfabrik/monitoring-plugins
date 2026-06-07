@@ -81,6 +81,31 @@ TESTS = [
         'assert-not-in': ['aged out'],
     },
     {
+        # --log-type=mel reads only the management controller log, which here
+        # holds a single warning, so the check is WARNING and labelled MEL.
+        'id': 'warn-mel-only',
+        'test': 'stdout/sel-entries,,0',
+        'params': '--log-type=mel',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Checked MEL on 1 member.', '(MEL)', 'BMC firmware was updated'],
+        'assert-not-in': ['CPU temperature is critical'],
+    },
+    {
+        # --log-type=both reads SEL and MEL; the critical SEL entry dominates,
+        # and both logs are labelled in the output.
+        'id': 'crit-both-logs',
+        'test': 'stdout/sel-entries,,0',
+        'params': '--log-type=both',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Checked SEL and MEL on 1 member.',
+            '(SEL)',
+            '(MEL)',
+            'CPU temperature is critical',
+            'BMC firmware was updated',
+        ],
+    },
+    {
         # A missing fixture must surface as STATE_UNKNOWN with a
         # readable message, not as a Python traceback.
         'id': 'unknown-missing-fixture',
