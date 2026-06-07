@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060706'
+__version__ = '2026060707'
 
 DESCRIPTION = """Checks the state of all physical drives, volumes and their storage controllers in a
 Redfish-compatible server via the Redfish API. Alerts when any drive, volume or storage controller
@@ -388,6 +388,19 @@ def main():
                         None,
                         None,
                         0,
+                        None,
+                    )
+                # drive temperature (degrees Celsius) is a gauge. Not every
+                # vendor reports it, so it is only emitted when present.
+                temperature = drive_data.get('Temperature')
+                if isinstance(temperature, (int, float)):
+                    perfdata += lib.base.get_perfdata(
+                        f'{drive_id}_temperature',
+                        temperature,
+                        'Cel',
+                        None,
+                        None,
+                        None,
                         None,
                     )
                 table_data_drive.append(drive_data)

@@ -39,9 +39,11 @@ Monitoring Plugins:
 * redfish-*: a slow or flaky management controller request is retried before the check fails (`--retries`)
 * redfish-logservices: can now also read the management controller event log (MEL), not just the System Event Log, selectable per check (`--log-type=sel|mel|both`)
 * redfish-logservices: event log entries can be filtered by regular expression, and old entries can be aged out so a long-since resolved event no longer keeps the check alerting (`--match`, `--ignore`, `--max-age`)
+* redfish-memory: reports memory size and module health correctly on Dell, HPE and Fujitsu controllers that expose these values in vendor-specific fields
+* redfish-sensors: also reports the chassis-wide power consumption, and reads fan speed correctly whether the controller reports it in RPM or percent
 * redfish-sensors: falls back to the legacy Thermal and Power endpoints when the modern Sensors collection is absent
 * redfish-storage: now also checks volumes (logical drives), not just physical drives and controllers
-* redfish-storage: now reports performance data over time for drive wear, drive power-on hours and drive, volume and controller counts, ready for graphing
+* redfish-storage: now reports performance data over time for drive wear, drive power-on hours, drive temperature and drive, volume and controller counts, ready for graphing
 
 Icinga Director:
 

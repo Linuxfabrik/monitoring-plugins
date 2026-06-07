@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060705'
+__version__ = '2026060706'
 
 DESCRIPTION = """Checks hardware sensor readings (temperature, voltage, fan speed, power) from the
 Redfish Chassis collection via the Redfish API. Reads the modern Sensors collection where
@@ -454,6 +454,36 @@ def main():
                 psu['Value'] = lib.base.state2str(psu_state, empty_ok=False)
                 psu['State'] = lib.base.state2str(psu_state, empty_ok=False)
                 table_data.append(psu)
+            # power control reports the chassis-wide power consumption. Cisco
+            # returns a single object where the schema expects a list, so
+            # normalize it before iterating.
+            power_control = power.get('PowerControl', [])
+            if isinstance(power_control, dict):
+                power_control = [power_control]
+            for pc in power_control:
+                pc = lib.redfish.get_chassis_power_powercontrol(pc)
+                if pc['Status_State'] not in ['Enabled', 'Quiesced']:
+                    continue
+                pc['Name'] = pc.get('Name') or 'Power Control'
+                # --match/--ignore: filter by item name
+                item_name = pc['Name'] or pc.get('MemberId', '')
+                if ignore_patterns and any(
+                    p.search(item_name) for p in ignore_patterns
+                ):
+                    continue
+                if match_patterns and not any(
+                    p.search(item_name) for p in match_patterns
+                ):
+                    continue
+                pc['PhysicalContext'] = 'PowerControl'
+                pc['Reading'] = pc.get('PowerConsumedWatts', '')
+                pc['ReadingUnits'] = 'W'
+                perfdata += lib.redfish.get_perfdata(pc, 'Reading')
+                pc_state = lib.redfish.get_state(pc)
+                state = lib.base.get_worst(state, pc_state)
+                pc['Value'] = lib.base.state2str(pc_state, empty_ok=False)
+                pc['State'] = lib.base.state2str(pc_state, empty_ok=False)
+                table_data.append(pc)
 
         if args.BRIEF:
             table_data = [
