@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060702'
+__version__ = '2026060703'
 
 DESCRIPTION = """Checks the health of all managers (BMCs such as iLO, iDRAC, or a generic BMC) of a
 Redfish-compatible server via the Redfish API. Reports every enabled manager with its
@@ -68,11 +68,31 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore',
+        help='Ignore items whose name matches this Python regular expression. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times.',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
         '--insecure',
         help=lib.args.help('--insecure'),
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only check items whose name matches this Python regular expression. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times.',
+        dest='MATCH',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -145,6 +165,20 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # compile the item filter regexes once
+    ignore_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    match_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+
     # fetch data
     if args.TEST is None:
         if not args.URL.startswith('http'):
@@ -202,6 +236,12 @@ def main():
             manager = load_test_fixture(args.TEST, f'{test_base}-manager')
         manager = lib.redfish.get_manager(manager)
         if manager['Status_State'] not in ['Enabled', 'Quiesced']:
+            continue
+        # --match/--ignore: filter by item name
+        item_name = manager['Name'] or manager.get('Id', '')
+        if ignore_patterns and any(p.search(item_name) for p in ignore_patterns):
+            continue
+        if match_patterns and not any(p.search(item_name) for p in match_patterns):
             continue
         member_count += 1
         manager_state = lib.redfish.get_state(manager)

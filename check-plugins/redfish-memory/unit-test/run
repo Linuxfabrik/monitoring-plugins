@@ -45,6 +45,25 @@ TESTS = [
         ],
     },
     {
+        # --ignore drops the only faulty module (DIMM Slot 2) by regex, so the
+        # check is OK and that module is no longer reported.
+        'id': 'ok-ignore-faulty-dimm',
+        'test': 'stdout/one-dimm-fault,,0',
+        'params': "--ignore='DIMM Slot 2'",
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['DIMM Slot 2', '[CRITICAL]'],
+    },
+    {
+        # --match keeps only the faulty module, so the healthy ones are not
+        # considered and the check stays CRITICAL on it alone.
+        'id': 'crit-match-faulty-dimm',
+        'test': 'stdout/one-dimm-fault,,0',
+        'params': "--match='DIMM Slot 2'",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['DIMM Slot 2', '[CRITICAL]'],
+        'assert-not-in': ['DIMM Slot 1', 'DIMM Slot 3'],
+    },
+    {
         # A missing fixture must surface as STATE_UNKNOWN with a
         # readable message, not as a Python traceback.
         'id': 'unknown-missing-fixture',

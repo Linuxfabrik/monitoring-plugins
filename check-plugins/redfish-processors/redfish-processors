@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060702'
+__version__ = '2026060703'
 
 DESCRIPTION = """Checks the state of all processors (CPUs) in a Redfish-compatible server via the
 Redfish API. Alerts when any processor reports a degraded or failed state. System-level health
@@ -68,11 +68,31 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore',
+        help='Ignore items whose name matches this Python regular expression. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times.',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
         '--insecure',
         help=lib.args.help('--insecure'),
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only check items whose name matches this Python regular expression. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times.',
+        dest='MATCH',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -144,6 +164,20 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # compile the item filter regexes once
+    ignore_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    match_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
 
     # fetch data
     if args.TEST is None:
@@ -256,6 +290,12 @@ def main():
                 cpu_data = load_test_fixture(args.TEST, f'{test_base}-cpu-{cpu_idx}')
             cpu_data = lib.redfish.get_systems_processors(cpu_data)
             if cpu_data['Status_State'] not in ['Enabled', 'Quiesced']:
+                continue
+            # --match/--ignore: filter by item name
+            item_name = cpu_data['Name'] or cpu_data.get('Id', '')
+            if ignore_patterns and any(p.search(item_name) for p in ignore_patterns):
+                continue
+            if match_patterns and not any(p.search(item_name) for p in match_patterns):
                 continue
             # is the processor healthy at all?
             cpu_data_state = lib.redfish.get_state(cpu_data)

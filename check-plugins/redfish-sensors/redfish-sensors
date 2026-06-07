@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060702'
+__version__ = '2026060703'
 
 DESCRIPTION = """Checks hardware sensor readings (temperature, voltage, fan speed, power) from the
 Redfish Chassis collection via the Redfish API. Reads the modern Sensors collection where
@@ -67,11 +67,31 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore',
+        help='Ignore items whose name matches this Python regular expression. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times.',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
         '--insecure',
         help=lib.args.help('--insecure'),
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only check items whose name matches this Python regular expression. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times.',
+        dest='MATCH',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -143,6 +163,20 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # compile the item filter regexes once
+    ignore_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    match_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
 
     # fetch data
     if args.TEST is None:
@@ -252,6 +286,16 @@ def main():
                 sensor_data = lib.redfish.get_chassis_sensors(sensor_data)
                 if sensor_data['Status_State'] not in ['Enabled', 'Quiesced']:
                     continue
+                # --match/--ignore: filter by item name
+                item_name = sensor_data['Name'] or sensor_data.get('Id', '')
+                if ignore_patterns and any(
+                    p.search(item_name) for p in ignore_patterns
+                ):
+                    continue
+                if match_patterns and not any(
+                    p.search(item_name) for p in match_patterns
+                ):
+                    continue
                 perfdata += lib.redfish.get_perfdata(sensor_data, 'Reading')
                 # is the sensor reading within its thresholds?
                 sensor_data_value_state = lib.redfish.get_sensor_state(
@@ -322,6 +366,16 @@ def main():
             for item, reading_key, units in legacy:
                 if item['Status_State'] not in ['Enabled', 'Quiesced']:
                     continue
+                # --match/--ignore: filter by item name
+                item_name = item['Name'] or item.get('Id', '')
+                if ignore_patterns and any(
+                    p.search(item_name) for p in ignore_patterns
+                ):
+                    continue
+                if match_patterns and not any(
+                    p.search(item_name) for p in match_patterns
+                ):
+                    continue
                 # adapt the legacy Upper/LowerThreshold* field names to the
                 # modern sensor schema so get_sensor_state()/get_perfdata()
                 # can consume them unchanged
@@ -354,6 +408,16 @@ def main():
                 if psu['Status_State'] not in ['Enabled', 'Quiesced']:
                     continue
                 psu['Name'] = psu.get('Model') or 'Power Supply'
+                # --match/--ignore: filter by item name
+                item_name = psu['Name'] or psu.get('Id', '')
+                if ignore_patterns and any(
+                    p.search(item_name) for p in ignore_patterns
+                ):
+                    continue
+                if match_patterns and not any(
+                    p.search(item_name) for p in match_patterns
+                ):
+                    continue
                 psu['PhysicalContext'] = 'PowerSupply'
                 psu['Reading'] = psu.get('LastPowerOutputWatts', '')
                 psu['ReadingUnits'] = 'W'

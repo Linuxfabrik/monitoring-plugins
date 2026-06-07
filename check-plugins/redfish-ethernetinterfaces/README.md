@@ -36,10 +36,12 @@ Checks the state of all Ethernet interfaces in a Redfish-compatible server via t
 
 ```text
 usage: redfish-ethernetinterfaces [-h] [-V] [--always-ok]
-                                  [--cache-expire CACHE_EXPIRE] [--insecure]
-                                  [--no-proxy] [--password PASSWORD]
-                                  [--test TEST] [--timeout TIMEOUT]
-                                  [--url URL] [--username USERNAME]
+                                  [--cache-expire CACHE_EXPIRE]
+                                  [--ignore IGNORE] [--insecure]
+                                  [--match MATCH] [--no-proxy]
+                                  [--password PASSWORD] [--test TEST]
+                                  [--timeout TIMEOUT] [--url URL]
+                                  [--username USERNAME]
 
 Checks the state of all Ethernet interfaces in a Redfish-compatible server via
 the Redfish API. Alerts when any enabled Ethernet interface reports a degraded
@@ -55,8 +57,16 @@ options:
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15
+  --ignore IGNORE       Ignore items whose name matches this Python regular
+                        expression. Case-sensitive by default; use `(?i)` for
+                        case-insensitive matching. Can be specified multiple
+                        times.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --match MATCH         Only check items whose name matches this Python
+                        regular expression. Case-sensitive by default; use
+                        `(?i)` for case-insensitive matching. Can be specified
+                        multiple times.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Redfish API password.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-

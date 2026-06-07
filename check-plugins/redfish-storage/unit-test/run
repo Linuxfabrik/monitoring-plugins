@@ -92,6 +92,25 @@ TESTS = [
         ],
     },
     {
+        # --ignore drops the only faulty drive (SSD 0) by regex, so the check
+        # is OK and that drive is no longer reported.
+        'id': 'ok-ignore-faulty-drive',
+        'test': 'stdout/one-drive-fault,,0',
+        'params': "--ignore='SSD 0'",
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['SSD 0', '[CRITICAL]'],
+    },
+    {
+        # --match keeps only the faulty drive, so the healthy one is not
+        # considered and the check stays CRITICAL on it alone.
+        'id': 'crit-match-faulty-drive',
+        'test': 'stdout/one-drive-fault,,0',
+        'params': "--match='SSD 0'",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['SSD 0', '[CRITICAL]'],
+        'assert-not-in': ['SSD 1'],
+    },
+    {
         # A missing fixture must surface as STATE_UNKNOWN with a
         # readable message, not as a Python traceback.
         'id': 'unknown-missing-fixture',

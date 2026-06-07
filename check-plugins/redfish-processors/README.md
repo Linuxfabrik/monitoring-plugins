@@ -36,8 +36,9 @@ Checks the state of all processors (CPUs) in a Redfish-compatible server via the
 
 ```text
 usage: redfish-processors [-h] [-V] [--always-ok]
-                          [--cache-expire CACHE_EXPIRE] [--insecure]
-                          [--no-proxy] [--password PASSWORD] [--test TEST]
+                          [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
+                          [--insecure] [--match MATCH] [--no-proxy]
+                          [--password PASSWORD] [--test TEST]
                           [--timeout TIMEOUT] [--url URL]
                           [--username USERNAME]
 
@@ -54,8 +55,16 @@ options:
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15
+  --ignore IGNORE       Ignore items whose name matches this Python regular
+                        expression. Case-sensitive by default; use `(?i)` for
+                        case-insensitive matching. Can be specified multiple
+                        times.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --match MATCH         Only check items whose name matches this Python
+                        regular expression. Case-sensitive by default; use
+                        `(?i)` for case-insensitive matching. Can be specified
+                        multiple times.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Redfish API password.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-

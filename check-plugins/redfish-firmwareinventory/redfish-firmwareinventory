@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060702'
+__version__ = '2026060703'
 
 DESCRIPTION = """Reports the firmware inventory of a Redfish-compatible server via the Redfish API.
 Lists every firmware component with its installed version and identification, and alerts whenever a
@@ -66,11 +66,31 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore',
+        help='Ignore items whose name matches this Python regular expression. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times.',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
         '--insecure',
         help=lib.args.help('--insecure'),
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only check items whose name matches this Python regular expression. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times.',
+        dest='MATCH',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -143,6 +163,20 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # compile the item filter regexes once
+    ignore_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    match_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+
     # fetch data
     if args.TEST is None:
         if not args.URL.startswith('http'):
@@ -204,6 +238,12 @@ def main():
                 args.TEST, f'{test_base}-firmware-{fw_idx}'
             )
         firmware_data = lib.redfish.get_updateservice_firmwareinventory(firmware_data)
+        # --match/--ignore: filter by item name
+        item_name = firmware_data['Name'] or firmware_data.get('Id', '')
+        if ignore_patterns and any(p.search(item_name) for p in ignore_patterns):
+            continue
+        if match_patterns and not any(p.search(item_name) for p in match_patterns):
+            continue
         component_count += 1
         # is the firmware component healthy at all?
         firmware_data_state = lib.redfish.get_state(firmware_data)

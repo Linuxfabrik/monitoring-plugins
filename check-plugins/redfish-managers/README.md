@@ -36,9 +36,9 @@ Checks the health of all managers (BMCs such as iLO, iDRAC, or a generic BMC) of
 
 ```text
 usage: redfish-managers [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
-                        [--insecure] [--no-proxy] [--password PASSWORD]
-                        [--test TEST] [--timeout TIMEOUT] [--url URL]
-                        [--username USERNAME]
+                        [--ignore IGNORE] [--insecure] [--match MATCH]
+                        [--no-proxy] [--password PASSWORD] [--test TEST]
+                        [--timeout TIMEOUT] [--url URL] [--username USERNAME]
 
 Checks the health of all managers (BMCs such as iLO, iDRAC, or a generic BMC)
 of a Redfish-compatible server via the Redfish API. Reports every enabled
@@ -53,8 +53,16 @@ options:
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15
+  --ignore IGNORE       Ignore items whose name matches this Python regular
+                        expression. Case-sensitive by default; use `(?i)` for
+                        case-insensitive matching. Can be specified multiple
+                        times.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --match MATCH         Only check items whose name matches this Python
+                        regular expression. Case-sensitive by default; use
+                        `(?i)` for case-insensitive matching. Can be specified
+                        multiple times.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Redfish API password.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
