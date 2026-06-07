@@ -5,14 +5,31 @@
                 "--always-ok": {
                     "set_if": "$redfish_sensors_always_ok$"
                 },
+                "--brief": {
+                    "set_if": "$redfish_sensors_brief$"
+                },
+                "--cache-expire": {
+                    "value": "$redfish_sensors_cache_expire$"
+                },
+                "--ignore": {
+                    "value": "$redfish_sensors_ignore$",
+                    "repeat_key": true
+                },
                 "--insecure": {
                     "set_if": "$redfish_sensors_insecure$"
+                },
+                "--match": {
+                    "value": "$redfish_sensors_match$",
+                    "repeat_key": true
                 },
                 "--no-proxy": {
                     "set_if": "$redfish_sensors_no_proxy$"
                 },
                 "--password": {
                     "value": "$redfish_sensors_password$"
+                },
+                "--retries": {
+                    "value": "$redfish_sensors_retries$"
                 },
                 "--timeout": {
                     "value": "$redfish_sensors_timeout$"
@@ -61,6 +78,31 @@
                     "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -68,7 +110,7 @@
             "methods_execute": "PluginCheck",
             "object_name": "cmd-check-redfish-sensors",
             "object_type": "object",
-            "timeout": 30,
+            "timeout": 60,
             "vars": {},
             "zone": null,
             "uuid": "e08acd5e-eee9-4be2-b0e6-ab3feb199c2b"
@@ -104,7 +146,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks hardware sensor readings (temperature, voltage, fan speed, power) from the Redfish Chassis collection via the Redfish API. Alerts when any sensor reports a non-ok state.",
+            "notes": "Checks hardware sensor readings (temperature, voltage, fan speed, power) from the Redfish Chassis collection via the Redfish API. Reads the modern Sensors collection where available and falls back to the legacy Thermal and Power endpoints otherwise. Alerts when any sensor reports a non-ok state.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-sensors/",
             "object_name": "tpl-service-redfish-sensors",
             "object_type": "template",
@@ -116,8 +158,13 @@
             "vars": {
                 "criticality": "A",
                 "redfish_sensors_always_ok": false,
+                "redfish_sensors_brief": false,
+                "redfish_sensors_cache_expire": 15,
+                "redfish_sensors_ignore": [],
                 "redfish_sensors_insecure": true,
+                "redfish_sensors_match": [],
                 "redfish_sensors_no_proxy": false,
+                "redfish_sensors_retries": 3,
                 "redfish_sensors_timeout": 8,
                 "redfish_sensors_url": "https://localhost:5000"
             },
@@ -174,7 +221,7 @@
     "Datafield": {
         "1": {
             "varname": "redfish_sensors_always_ok",
-            "caption": "Redfish Sensor: Always OK?",
+            "caption": "Redfish Sensors: Always OK?",
             "description": "Always returns OK.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
@@ -182,26 +229,68 @@
             "uuid": "cf7accbb-2f2b-495a-9197-4852cb3aa601"
         },
         "2": {
+            "varname": "redfish_sensors_brief",
+            "caption": "Redfish Sensors: Brief?",
+            "description": "Hide items that are OK and show only those in WARN/CRIT state. Alerting is unaffected: all items still drive the overall check state.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "79b78cc5-23b7-4393-bae6-9b1a3ee7bf8a"
+        },
+        "3": {
+            "varname": "redfish_sensors_cache_expire",
+            "caption": "Redfish Sensors: Cache Expire",
+            "description": "The amount of time after which the credential/data cache expires, in minutes.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "3c6578d6-a90a-4130-91a7-52c56440c240"
+        },
+        "4": {
+            "varname": "redfish_sensors_ignore",
+            "caption": "Redfish Sensors: Ignore",
+            "description": "Ignore items whose name matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a49b8c05-3553-4e2c-97aa-17f320031d46"
+        },
+        "5": {
             "varname": "redfish_sensors_insecure",
-            "caption": "Redfish Sensor: Insecure?",
+            "caption": "Redfish Sensors: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "8dd888af-1cfe-48cd-a3ca-e8040ee1bf2f"
         },
-        "3": {
+        "6": {
+            "varname": "redfish_sensors_match",
+            "caption": "Redfish Sensors: Match",
+            "description": "Only check items whose name matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a1d4b3a7-7c58-4ff4-99b5-711e81982f5c"
+        },
+        "7": {
             "varname": "redfish_sensors_no_proxy",
-            "caption": "Redfish Sensor: No Proxy?",
+            "caption": "Redfish Sensors: No Proxy?",
             "description": "Do not use a proxy.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "1aabcbc7-3f45-4359-a9a8-93273888fea6"
         },
-        "4": {
+        "8": {
             "varname": "redfish_sensors_password",
-            "caption": "Redfish Sensor: Password",
+            "caption": "Redfish Sensors: Password",
             "description": "Redfish API password.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
@@ -210,9 +299,20 @@
             },
             "uuid": "b2e57e6e-3e8d-4881-a90d-667a6f5b885f"
         },
-        "5": {
+        "9": {
+            "varname": "redfish_sensors_retries",
+            "caption": "Redfish Sensors: Retries",
+            "description": "Number of extra attempts if a request to the Redfish API fails, before the check gives up. Helps against an occasionally slow or flaky management controller.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "45a174fe-ec73-486b-a531-8caab030d9c2"
+        },
+        "10": {
             "varname": "redfish_sensors_timeout",
-            "caption": "Redfish Sensor: Timeout",
+            "caption": "Redfish Sensors: Timeout",
             "description": "Network timeout in seconds.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
@@ -221,9 +321,9 @@
             },
             "uuid": "177a3150-bab7-4dac-82d5-f29b6c15be87"
         },
-        "6": {
+        "11": {
             "varname": "redfish_sensors_url",
-            "caption": "Redfish Sensor: URL",
+            "caption": "Redfish Sensors: URL",
             "description": "Redfish API URL.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
@@ -232,9 +332,9 @@
             },
             "uuid": "081877df-622b-4c93-998b-398d394f8527"
         },
-        "7": {
+        "12": {
             "varname": "redfish_sensors_username",
-            "caption": "Redfish Sensor: Username",
+            "caption": "Redfish Sensors: Username",
             "description": "Redfish API username.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,

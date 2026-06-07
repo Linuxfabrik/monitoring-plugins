@@ -8,7 +8,7 @@ Checks the overall system health reported by a Redfish-compatible server via the
 **Important Notes:**
 
 * Tested on DELL iDRAC and DMTF Simulator
-* A check takes up to 10 seconds. Increasing runtime timeout to 30 seconds is recommended.
+* A check usually completes within a few seconds, but a slow or retried request can take longer. The bundled Director basket allows a 60 second runtime timeout.
 * This check runs with both HTTP and HTTPS. It uses GET requests only.
 * No additional Python Redfish modules need to be installed.
 * This check reports system-level (rolled-up) health only. For dedicated component monitoring use `redfish-storage`, `redfish-memory`, `redfish-processors`, `redfish-ethernetinterfaces`, `redfish-sensors`, `redfish-managers` or `redfish-firmwareinventory`.

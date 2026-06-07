@@ -5,14 +5,28 @@
                 "--always-ok": {
                     "set_if": "$redfish_managers_always_ok$"
                 },
+                "--cache-expire": {
+                    "value": "$redfish_managers_cache_expire$"
+                },
+                "--ignore": {
+                    "value": "$redfish_managers_ignore$",
+                    "repeat_key": true
+                },
                 "--insecure": {
                     "set_if": "$redfish_managers_insecure$"
+                },
+                "--match": {
+                    "value": "$redfish_managers_match$",
+                    "repeat_key": true
                 },
                 "--no-proxy": {
                     "set_if": "$redfish_managers_no_proxy$"
                 },
                 "--password": {
                     "value": "$redfish_managers_password$"
+                },
+                "--retries": {
+                    "value": "$redfish_managers_retries$"
                 },
                 "--timeout": {
                     "value": "$redfish_managers_timeout$"
@@ -61,6 +75,26 @@
                     "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -68,7 +102,7 @@
             "methods_execute": "PluginCheck",
             "object_name": "cmd-check-redfish-managers",
             "object_type": "object",
-            "timeout": 30,
+            "timeout": 60,
             "vars": {},
             "zone": null,
             "uuid": "aded1a3a-6e48-4eae-b2a2-b6fc2cd5eecd"
@@ -116,8 +150,12 @@
             "vars": {
                 "criticality": "A",
                 "redfish_managers_always_ok": false,
+                "redfish_managers_cache_expire": 15,
+                "redfish_managers_ignore": [],
                 "redfish_managers_insecure": true,
+                "redfish_managers_match": [],
                 "redfish_managers_no_proxy": false,
+                "redfish_managers_retries": 3,
                 "redfish_managers_timeout": 8,
                 "redfish_managers_url": "https://localhost:5000"
             },
@@ -182,6 +220,28 @@
             "uuid": "9e2f7d6a-b26b-4998-98c5-a50df5caebe9"
         },
         "2": {
+            "varname": "redfish_managers_cache_expire",
+            "caption": "Redfish Managers: Cache Expire",
+            "description": "The amount of time after which the credential/data cache expires, in minutes.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "268c7b4e-3c13-4b06-90c1-9e367ece6dae"
+        },
+        "3": {
+            "varname": "redfish_managers_ignore",
+            "caption": "Redfish Managers: Ignore",
+            "description": "Ignore items whose name matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "10389a19-f00a-43c1-9562-cdbbe660d257"
+        },
+        "4": {
             "varname": "redfish_managers_insecure",
             "caption": "Redfish Managers: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -190,7 +250,18 @@
             "settings": {},
             "uuid": "324a1c28-cbc9-4e2f-8e87-ed4de7210b3c"
         },
-        "3": {
+        "5": {
+            "varname": "redfish_managers_match",
+            "caption": "Redfish Managers: Match",
+            "description": "Only check items whose name matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "f6be010c-43ab-4093-b59c-d3c4aec2f772"
+        },
+        "6": {
             "varname": "redfish_managers_no_proxy",
             "caption": "Redfish Managers: No Proxy?",
             "description": "Do not use a proxy.",
@@ -199,7 +270,7 @@
             "settings": {},
             "uuid": "5c686a2d-cfea-42b4-bdfd-fad2447a88cb"
         },
-        "4": {
+        "7": {
             "varname": "redfish_managers_password",
             "caption": "Redfish Managers: Password",
             "description": "Redfish API password.",
@@ -210,7 +281,18 @@
             },
             "uuid": "a73c4a83-ca44-4d82-afe7-3a4f9c808f38"
         },
-        "5": {
+        "8": {
+            "varname": "redfish_managers_retries",
+            "caption": "Redfish Managers: Retries",
+            "description": "Number of extra attempts if a request to the Redfish API fails, before the check gives up. Helps against an occasionally slow or flaky management controller.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ab07c64d-0aed-4f60-9752-7bd3d83457eb"
+        },
+        "9": {
             "varname": "redfish_managers_timeout",
             "caption": "Redfish Managers: Timeout",
             "description": "Network timeout in seconds.",
@@ -221,7 +303,7 @@
             },
             "uuid": "aaf8b017-7bdd-465e-9bda-b4ac57802f85"
         },
-        "6": {
+        "10": {
             "varname": "redfish_managers_url",
             "caption": "Redfish Managers: URL",
             "description": "Redfish API URL.",
@@ -232,7 +314,7 @@
             },
             "uuid": "70b0b19e-daf9-43c8-b58c-97e60cfa465f"
         },
-        "7": {
+        "11": {
             "varname": "redfish_managers_username",
             "caption": "Redfish Managers: Username",
             "description": "Redfish API username.",

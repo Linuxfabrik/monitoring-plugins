@@ -5,14 +5,31 @@
                 "--always-ok": {
                     "set_if": "$redfish_storage_always_ok$"
                 },
+                "--brief": {
+                    "set_if": "$redfish_storage_brief$"
+                },
+                "--cache-expire": {
+                    "value": "$redfish_storage_cache_expire$"
+                },
+                "--ignore": {
+                    "value": "$redfish_storage_ignore$",
+                    "repeat_key": true
+                },
                 "--insecure": {
                     "set_if": "$redfish_storage_insecure$"
+                },
+                "--match": {
+                    "value": "$redfish_storage_match$",
+                    "repeat_key": true
                 },
                 "--no-proxy": {
                     "set_if": "$redfish_storage_no_proxy$"
                 },
                 "--password": {
                     "value": "$redfish_storage_password$"
+                },
+                "--retries": {
+                    "value": "$redfish_storage_retries$"
                 },
                 "--timeout": {
                     "value": "$redfish_storage_timeout$"
@@ -61,6 +78,31 @@
                     "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -68,7 +110,7 @@
             "methods_execute": "PluginCheck",
             "object_name": "cmd-check-redfish-storage",
             "object_type": "object",
-            "timeout": 30,
+            "timeout": 60,
             "vars": {},
             "zone": null,
             "uuid": "de66b251-7e94-452e-b9c9-1e475e022d6b"
@@ -104,7 +146,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the state of all physical drives and their storage controllers in a Redfish-compatible server via the Redfish API. Alerts when any drive or storage controller reports a degraded or failed state. System-level health (processors, BIOS, power, temperature, indicator LED, etc.) is deliberately ignored by this check so that a system warning unrelated to storage does not mask the drive status; use `redfish-systems` for that.",
+            "notes": "Checks the state of all physical drives, volumes and their storage controllers in a Redfish-compatible server via the Redfish API. Alerts when any drive, volume or storage controller reports a degraded or failed state. System-level health (processors, BIOS, power, temperature, indicator LED, etc.) is deliberately ignored by this check so that a system warning unrelated to storage does not mask the storage status; use `redfish-systems` for that.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-storage/",
             "object_name": "tpl-service-redfish-storage",
             "object_type": "template",
@@ -116,8 +158,13 @@
             "vars": {
                 "criticality": "A",
                 "redfish_storage_always_ok": false,
+                "redfish_storage_brief": false,
+                "redfish_storage_cache_expire": 15,
+                "redfish_storage_ignore": [],
                 "redfish_storage_insecure": true,
+                "redfish_storage_match": [],
                 "redfish_storage_no_proxy": false,
+                "redfish_storage_retries": 3,
                 "redfish_storage_timeout": 8,
                 "redfish_storage_url": "https://localhost:5000"
             },
@@ -174,7 +221,7 @@
     "Datafield": {
         "1": {
             "varname": "redfish_storage_always_ok",
-            "caption": "Redfish Drives: Always OK?",
+            "caption": "Redfish Storage: Always OK?",
             "description": "Always returns OK.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
@@ -182,26 +229,68 @@
             "uuid": "86f500da-cbff-478b-8c3b-49ce71ebc5b5"
         },
         "2": {
+            "varname": "redfish_storage_brief",
+            "caption": "Redfish Storage: Brief?",
+            "description": "Hide items that are OK and show only those in WARN/CRIT state. Alerting is unaffected: all items still drive the overall check state.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "693f4b61-f32d-44d4-b620-5f96f5f31e37"
+        },
+        "3": {
+            "varname": "redfish_storage_cache_expire",
+            "caption": "Redfish Storage: Cache Expire",
+            "description": "The amount of time after which the credential/data cache expires, in minutes.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "00748b5f-da3a-41bb-bad8-cc58ceb397c0"
+        },
+        "4": {
+            "varname": "redfish_storage_ignore",
+            "caption": "Redfish Storage: Ignore",
+            "description": "Ignore items whose name matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a4691c5e-534a-48e8-b8fe-3749f5cbebb4"
+        },
+        "5": {
             "varname": "redfish_storage_insecure",
-            "caption": "Redfish Drives: Insecure?",
+            "caption": "Redfish Storage: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "70c21dbe-0a34-4f13-acf4-014a9da8e745"
         },
-        "3": {
+        "6": {
+            "varname": "redfish_storage_match",
+            "caption": "Redfish Storage: Match",
+            "description": "Only check items whose name matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "0a8d8484-6df4-4f57-8d9d-9455f19c9ffd"
+        },
+        "7": {
             "varname": "redfish_storage_no_proxy",
-            "caption": "Redfish Drives: No Proxy?",
+            "caption": "Redfish Storage: No Proxy?",
             "description": "Do not use a proxy.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "bce2a499-b0be-432c-805e-706f4ae33377"
         },
-        "4": {
+        "8": {
             "varname": "redfish_storage_password",
-            "caption": "Redfish Drives: Password",
+            "caption": "Redfish Storage: Password",
             "description": "Redfish API password.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
@@ -210,9 +299,20 @@
             },
             "uuid": "77904e59-da06-4e8f-a17b-2a632985a6b1"
         },
-        "5": {
+        "9": {
+            "varname": "redfish_storage_retries",
+            "caption": "Redfish Storage: Retries",
+            "description": "Number of extra attempts if a request to the Redfish API fails, before the check gives up. Helps against an occasionally slow or flaky management controller.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "78bf9467-bdb5-4114-ae03-e64f4ddfda72"
+        },
+        "10": {
             "varname": "redfish_storage_timeout",
-            "caption": "Redfish Drives: Timeout",
+            "caption": "Redfish Storage: Timeout",
             "description": "Network timeout in seconds.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
@@ -221,9 +321,9 @@
             },
             "uuid": "59ca2c35-414e-4763-82e2-3b59c39524f6"
         },
-        "6": {
+        "11": {
             "varname": "redfish_storage_url",
-            "caption": "Redfish Drives: URL",
+            "caption": "Redfish Storage: URL",
             "description": "Redfish API URL.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
@@ -232,9 +332,9 @@
             },
             "uuid": "a2f07a98-af67-482c-a037-669e8edf578b"
         },
-        "7": {
+        "12": {
             "varname": "redfish_storage_username",
-            "caption": "Redfish Drives: Username",
+            "caption": "Redfish Storage: Username",
             "description": "Redfish API username.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,

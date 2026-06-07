@@ -8,7 +8,7 @@ Checks the event log entries exposed under the LogServices of a Redfish-compatib
 **Important Notes:**
 
 * Tested on DELL iDRAC and DMTF Simulator
-* A check takes up to 10 seconds. Increasing runtime timeout to 30 seconds is recommended.
+* A check usually completes within a few seconds, but a slow or retried request can take longer. The bundled Director basket allows a 60 second runtime timeout.
 * This check runs with both HTTP and HTTPS. It uses GET requests only.
 * No additional Python Redfish modules need to be installed.
 

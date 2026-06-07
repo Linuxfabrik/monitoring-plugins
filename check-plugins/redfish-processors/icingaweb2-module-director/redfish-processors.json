@@ -5,14 +5,31 @@
                 "--always-ok": {
                     "set_if": "$redfish_processors_always_ok$"
                 },
+                "--brief": {
+                    "set_if": "$redfish_processors_brief$"
+                },
+                "--cache-expire": {
+                    "value": "$redfish_processors_cache_expire$"
+                },
+                "--ignore": {
+                    "value": "$redfish_processors_ignore$",
+                    "repeat_key": true
+                },
                 "--insecure": {
                     "set_if": "$redfish_processors_insecure$"
+                },
+                "--match": {
+                    "value": "$redfish_processors_match$",
+                    "repeat_key": true
                 },
                 "--no-proxy": {
                     "set_if": "$redfish_processors_no_proxy$"
                 },
                 "--password": {
                     "value": "$redfish_processors_password$"
+                },
+                "--retries": {
+                    "value": "$redfish_processors_retries$"
                 },
                 "--timeout": {
                     "value": "$redfish_processors_timeout$"
@@ -61,6 +78,31 @@
                     "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -68,7 +110,7 @@
             "methods_execute": "PluginCheck",
             "object_name": "cmd-check-redfish-processors",
             "object_type": "object",
-            "timeout": 30,
+            "timeout": 60,
             "vars": {},
             "zone": null,
             "uuid": "8c4ca93d-897f-4a69-8d5b-955327673f8e"
@@ -116,8 +158,13 @@
             "vars": {
                 "criticality": "A",
                 "redfish_processors_always_ok": false,
+                "redfish_processors_brief": false,
+                "redfish_processors_cache_expire": 15,
+                "redfish_processors_ignore": [],
                 "redfish_processors_insecure": true,
+                "redfish_processors_match": [],
                 "redfish_processors_no_proxy": false,
+                "redfish_processors_retries": 3,
                 "redfish_processors_timeout": 8,
                 "redfish_processors_url": "https://localhost:5000"
             },
@@ -182,6 +229,37 @@
             "uuid": "82eed2f0-ef2a-4d85-afbd-f6873880ac02"
         },
         "2": {
+            "varname": "redfish_processors_brief",
+            "caption": "Redfish Processors: Brief?",
+            "description": "Hide items that are OK and show only those in WARN/CRIT state. Alerting is unaffected: all items still drive the overall check state.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "9b1ba85d-c043-4495-9511-8c62ee8f6ac6"
+        },
+        "3": {
+            "varname": "redfish_processors_cache_expire",
+            "caption": "Redfish Processors: Cache Expire",
+            "description": "The amount of time after which the credential/data cache expires, in minutes.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "700f591c-f0c0-41af-8fd1-4c8931963ee3"
+        },
+        "4": {
+            "varname": "redfish_processors_ignore",
+            "caption": "Redfish Processors: Ignore",
+            "description": "Ignore items whose name matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "e4214bdb-de6e-4713-b2fe-f6d97e50e88b"
+        },
+        "5": {
             "varname": "redfish_processors_insecure",
             "caption": "Redfish Processors: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -190,7 +268,18 @@
             "settings": {},
             "uuid": "0e4206e2-27ce-4cd6-b15d-b4d55c134d17"
         },
-        "3": {
+        "6": {
+            "varname": "redfish_processors_match",
+            "caption": "Redfish Processors: Match",
+            "description": "Only check items whose name matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2194f56b-cb9a-4bfb-b646-f45c8115fc65"
+        },
+        "7": {
             "varname": "redfish_processors_no_proxy",
             "caption": "Redfish Processors: No Proxy?",
             "description": "Do not use a proxy.",
@@ -199,7 +288,7 @@
             "settings": {},
             "uuid": "f84034ba-e7f1-4af7-981e-eb31d57581f9"
         },
-        "4": {
+        "8": {
             "varname": "redfish_processors_password",
             "caption": "Redfish Processors: Password",
             "description": "Redfish API password.",
@@ -210,7 +299,18 @@
             },
             "uuid": "89eb649f-2fb0-43f2-b2f0-378dd771c103"
         },
-        "5": {
+        "9": {
+            "varname": "redfish_processors_retries",
+            "caption": "Redfish Processors: Retries",
+            "description": "Number of extra attempts if a request to the Redfish API fails, before the check gives up. Helps against an occasionally slow or flaky management controller.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "522be7bf-caf9-4693-a24b-91e5da46dafe"
+        },
+        "10": {
             "varname": "redfish_processors_timeout",
             "caption": "Redfish Processors: Timeout",
             "description": "Network timeout in seconds.",
@@ -221,7 +321,7 @@
             },
             "uuid": "c059afba-0462-48cb-9f41-c5213fb31c5a"
         },
-        "6": {
+        "11": {
             "varname": "redfish_processors_url",
             "caption": "Redfish Processors: URL",
             "description": "Redfish API URL.",
@@ -232,7 +332,7 @@
             },
             "uuid": "b8819efb-b690-4bde-90a4-025603d4d930"
         },
-        "7": {
+        "12": {
             "varname": "redfish_processors_username",
             "caption": "Redfish Processors: Username",
             "description": "Redfish API username.",

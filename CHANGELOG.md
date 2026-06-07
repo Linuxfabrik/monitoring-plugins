@@ -42,6 +42,10 @@ Monitoring Plugins:
 * redfish-storage: now also checks volumes (logical drives), not just physical drives and controllers
 * redfish-storage: now reports performance data over time for drive wear, drive power-on hours and drive, volume and controller counts, ready for graphing
 
+Icinga Director:
+
+* the Redfish baskets expose the new check options and raise the command timeout to 60 seconds, leaving headroom for retries against a slow controller
+
 ### Fixed
 
 Monitoring Plugins:

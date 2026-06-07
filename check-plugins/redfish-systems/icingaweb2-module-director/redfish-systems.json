@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$redfish_systems_always_ok$"
                 },
+                "--cache-expire": {
+                    "value": "$redfish_systems_cache_expire$"
+                },
                 "--insecure": {
                     "set_if": "$redfish_systems_insecure$"
                 },
@@ -13,6 +16,9 @@
                 },
                 "--password": {
                     "value": "$redfish_systems_password$"
+                },
+                "--retries": {
+                    "value": "$redfish_systems_retries$"
                 },
                 "--timeout": {
                     "value": "$redfish_systems_timeout$"
@@ -61,6 +67,16 @@
                     "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -68,7 +84,7 @@
             "methods_execute": "PluginCheck",
             "object_name": "cmd-check-redfish-systems",
             "object_type": "object",
-            "timeout": 30,
+            "timeout": 60,
             "vars": {},
             "zone": null,
             "uuid": "2beffd7e-0f06-4aaf-8aec-7370119b72b2"
@@ -116,8 +132,10 @@
             "vars": {
                 "criticality": "A",
                 "redfish_systems_always_ok": false,
+                "redfish_systems_cache_expire": 15,
                 "redfish_systems_insecure": true,
                 "redfish_systems_no_proxy": false,
+                "redfish_systems_retries": 3,
                 "redfish_systems_timeout": 8,
                 "redfish_systems_url": "https://localhost:5000"
             },
@@ -174,7 +192,7 @@
     "Datafield": {
         "1": {
             "varname": "redfish_systems_always_ok",
-            "caption": "Redfish System: Always OK?",
+            "caption": "Redfish Systems: Always OK?",
             "description": "Always returns OK.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
@@ -182,26 +200,37 @@
             "uuid": "ff307bd7-d03e-47ff-9f48-b9c745d367eb"
         },
         "2": {
+            "varname": "redfish_systems_cache_expire",
+            "caption": "Redfish Systems: Cache Expire",
+            "description": "The amount of time after which the credential/data cache expires, in minutes.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "13cebb7a-9965-4cc7-b559-d4055662447c"
+        },
+        "3": {
             "varname": "redfish_systems_insecure",
-            "caption": "Redfish System: Insecure?",
+            "caption": "Redfish Systems: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "fd5d152d-ba21-4c04-81a0-c56e5ede1e3c"
         },
-        "3": {
+        "4": {
             "varname": "redfish_systems_no_proxy",
-            "caption": "Redfish System: No Proxy?",
+            "caption": "Redfish Systems: No Proxy?",
             "description": "Do not use a proxy.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "9e85a7e3-e39b-48c6-9364-1f1d82b29c13"
         },
-        "4": {
+        "5": {
             "varname": "redfish_systems_password",
-            "caption": "Redfish System: Password",
+            "caption": "Redfish Systems: Password",
             "description": "Redfish API password.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
@@ -210,9 +239,20 @@
             },
             "uuid": "80c35e1f-f7cb-4fcb-b562-762cf72ba4be"
         },
-        "5": {
+        "6": {
+            "varname": "redfish_systems_retries",
+            "caption": "Redfish Systems: Retries",
+            "description": "Number of extra attempts if a request to the Redfish API fails, before the check gives up. Helps against an occasionally slow or flaky management controller.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "cdd1e07f-fabb-49c8-b47e-57b9df24929c"
+        },
+        "7": {
             "varname": "redfish_systems_timeout",
-            "caption": "Redfish System: Timeout",
+            "caption": "Redfish Systems: Timeout",
             "description": "Network timeout in seconds.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
@@ -221,9 +261,9 @@
             },
             "uuid": "dbfe3a04-69b3-40b1-bbf1-4d816cbebbd7"
         },
-        "6": {
+        "8": {
             "varname": "redfish_systems_url",
-            "caption": "Redfish System: URL",
+            "caption": "Redfish Systems: URL",
             "description": "Redfish API URL.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
@@ -232,9 +272,9 @@
             },
             "uuid": "3040cb79-856b-4e6c-ac8d-7a1bbd025b36"
         },
-        "7": {
+        "9": {
             "varname": "redfish_systems_username",
-            "caption": "Redfish System: Username",
+            "caption": "Redfish Systems: Username",
             "description": "Redfish API username.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,

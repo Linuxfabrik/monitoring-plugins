@@ -5,14 +5,31 @@
                 "--always-ok": {
                     "set_if": "$redfish_firmwareinventory_always_ok$"
                 },
+                "--brief": {
+                    "set_if": "$redfish_firmwareinventory_brief$"
+                },
+                "--cache-expire": {
+                    "value": "$redfish_firmwareinventory_cache_expire$"
+                },
+                "--ignore": {
+                    "value": "$redfish_firmwareinventory_ignore$",
+                    "repeat_key": true
+                },
                 "--insecure": {
                     "set_if": "$redfish_firmwareinventory_insecure$"
+                },
+                "--match": {
+                    "value": "$redfish_firmwareinventory_match$",
+                    "repeat_key": true
                 },
                 "--no-proxy": {
                     "set_if": "$redfish_firmwareinventory_no_proxy$"
                 },
                 "--password": {
                     "value": "$redfish_firmwareinventory_password$"
+                },
+                "--retries": {
+                    "value": "$redfish_firmwareinventory_retries$"
                 },
                 "--timeout": {
                     "value": "$redfish_firmwareinventory_timeout$"
@@ -61,6 +78,31 @@
                     "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -68,7 +110,7 @@
             "methods_execute": "PluginCheck",
             "object_name": "cmd-check-redfish-firmwareinventory",
             "object_type": "object",
-            "timeout": 30,
+            "timeout": 60,
             "vars": {},
             "zone": null,
             "uuid": "7f98195f-26c8-4b4b-8fed-783f81cbf7b8"
@@ -116,8 +158,13 @@
             "vars": {
                 "criticality": "A",
                 "redfish_firmwareinventory_always_ok": false,
+                "redfish_firmwareinventory_brief": false,
+                "redfish_firmwareinventory_cache_expire": 15,
+                "redfish_firmwareinventory_ignore": [],
                 "redfish_firmwareinventory_insecure": true,
+                "redfish_firmwareinventory_match": [],
                 "redfish_firmwareinventory_no_proxy": false,
+                "redfish_firmwareinventory_retries": 3,
                 "redfish_firmwareinventory_timeout": 8,
                 "redfish_firmwareinventory_url": "https://localhost:5000"
             },
@@ -182,6 +229,37 @@
             "uuid": "4d1f2a3e-3929-4fb7-b1f1-a2f8221d44d1"
         },
         "2": {
+            "varname": "redfish_firmwareinventory_brief",
+            "caption": "Redfish Firmwareinventory: Brief?",
+            "description": "Hide items that are OK and show only those in WARN/CRIT state. Alerting is unaffected: all items still drive the overall check state.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "0e2e742f-6203-4fd6-99f0-0592c033fe57"
+        },
+        "3": {
+            "varname": "redfish_firmwareinventory_cache_expire",
+            "caption": "Redfish Firmwareinventory: Cache Expire",
+            "description": "The amount of time after which the credential/data cache expires, in minutes.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "3cef3f11-e1d1-4220-b60f-0c5879971fe0"
+        },
+        "4": {
+            "varname": "redfish_firmwareinventory_ignore",
+            "caption": "Redfish Firmwareinventory: Ignore",
+            "description": "Ignore items whose name matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "7bcb54f0-7199-42f6-a5bc-0a8903e15c2f"
+        },
+        "5": {
             "varname": "redfish_firmwareinventory_insecure",
             "caption": "Redfish Firmwareinventory: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -190,7 +268,18 @@
             "settings": {},
             "uuid": "8d2c2efa-b8ed-459d-ba61-80a3473ed67f"
         },
-        "3": {
+        "6": {
+            "varname": "redfish_firmwareinventory_match",
+            "caption": "Redfish Firmwareinventory: Match",
+            "description": "Only check items whose name matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "fcc630b2-6e2b-4aec-bd35-845f98786e14"
+        },
+        "7": {
             "varname": "redfish_firmwareinventory_no_proxy",
             "caption": "Redfish Firmwareinventory: No Proxy?",
             "description": "Do not use a proxy.",
@@ -199,7 +288,7 @@
             "settings": {},
             "uuid": "2cfbfaf3-4df8-463f-aab7-15628673e100"
         },
-        "4": {
+        "8": {
             "varname": "redfish_firmwareinventory_password",
             "caption": "Redfish Firmwareinventory: Password",
             "description": "Redfish API password.",
@@ -210,7 +299,18 @@
             },
             "uuid": "003306d8-d47a-4737-93aa-bd2f1551912d"
         },
-        "5": {
+        "9": {
+            "varname": "redfish_firmwareinventory_retries",
+            "caption": "Redfish Firmwareinventory: Retries",
+            "description": "Number of extra attempts if a request to the Redfish API fails, before the check gives up. Helps against an occasionally slow or flaky management controller.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "e8e93777-a0a7-4dc5-9f0b-c68a648f96d7"
+        },
+        "10": {
             "varname": "redfish_firmwareinventory_timeout",
             "caption": "Redfish Firmwareinventory: Timeout",
             "description": "Network timeout in seconds.",
@@ -221,7 +321,7 @@
             },
             "uuid": "b8baae2d-fbeb-4bd1-b6a8-15a0ae407c6d"
         },
-        "6": {
+        "11": {
             "varname": "redfish_firmwareinventory_url",
             "caption": "Redfish Firmwareinventory: URL",
             "description": "Redfish API URL.",
@@ -232,7 +332,7 @@
             },
             "uuid": "ba6a6764-c7f4-4df3-8428-cd3e86ad190d"
         },
-        "7": {
+        "12": {
             "varname": "redfish_firmwareinventory_username",
             "caption": "Redfish Firmwareinventory: Username",
             "description": "Redfish API username.",

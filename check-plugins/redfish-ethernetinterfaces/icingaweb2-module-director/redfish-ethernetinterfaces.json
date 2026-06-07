@@ -5,14 +5,31 @@
                 "--always-ok": {
                     "set_if": "$redfish_ethernetinterfaces_always_ok$"
                 },
+                "--brief": {
+                    "set_if": "$redfish_ethernetinterfaces_brief$"
+                },
+                "--cache-expire": {
+                    "value": "$redfish_ethernetinterfaces_cache_expire$"
+                },
+                "--ignore": {
+                    "value": "$redfish_ethernetinterfaces_ignore$",
+                    "repeat_key": true
+                },
                 "--insecure": {
                     "set_if": "$redfish_ethernetinterfaces_insecure$"
+                },
+                "--match": {
+                    "value": "$redfish_ethernetinterfaces_match$",
+                    "repeat_key": true
                 },
                 "--no-proxy": {
                     "set_if": "$redfish_ethernetinterfaces_no_proxy$"
                 },
                 "--password": {
                     "value": "$redfish_ethernetinterfaces_password$"
+                },
+                "--retries": {
+                    "value": "$redfish_ethernetinterfaces_retries$"
                 },
                 "--timeout": {
                     "value": "$redfish_ethernetinterfaces_timeout$"
@@ -61,6 +78,31 @@
                     "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -68,7 +110,7 @@
             "methods_execute": "PluginCheck",
             "object_name": "cmd-check-redfish-ethernetinterfaces",
             "object_type": "object",
-            "timeout": 30,
+            "timeout": 60,
             "vars": {},
             "zone": null,
             "uuid": "dfcdf08f-6cc3-4ac9-ae9b-04eb483296b8"
@@ -116,8 +158,13 @@
             "vars": {
                 "criticality": "A",
                 "redfish_ethernetinterfaces_always_ok": false,
+                "redfish_ethernetinterfaces_brief": false,
+                "redfish_ethernetinterfaces_cache_expire": 15,
+                "redfish_ethernetinterfaces_ignore": [],
                 "redfish_ethernetinterfaces_insecure": true,
+                "redfish_ethernetinterfaces_match": [],
                 "redfish_ethernetinterfaces_no_proxy": false,
+                "redfish_ethernetinterfaces_retries": 3,
                 "redfish_ethernetinterfaces_timeout": 8,
                 "redfish_ethernetinterfaces_url": "https://localhost:5000"
             },
@@ -182,6 +229,37 @@
             "uuid": "5d2f0911-1505-4dc4-b91b-edb7d51f9110"
         },
         "2": {
+            "varname": "redfish_ethernetinterfaces_brief",
+            "caption": "Redfish Ethernetinterfaces: Brief?",
+            "description": "Hide items that are OK and show only those in WARN/CRIT state. Alerting is unaffected: all items still drive the overall check state.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "6aa4147b-312a-4d16-9830-082438605a46"
+        },
+        "3": {
+            "varname": "redfish_ethernetinterfaces_cache_expire",
+            "caption": "Redfish Ethernetinterfaces: Cache Expire",
+            "description": "The amount of time after which the credential/data cache expires, in minutes.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "b44bd92e-1e3b-4bd3-8975-62b006c472c5"
+        },
+        "4": {
+            "varname": "redfish_ethernetinterfaces_ignore",
+            "caption": "Redfish Ethernetinterfaces: Ignore",
+            "description": "Ignore items whose name matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "95b1a8ff-37f3-4a96-a41c-9b54bca8db30"
+        },
+        "5": {
             "varname": "redfish_ethernetinterfaces_insecure",
             "caption": "Redfish Ethernetinterfaces: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -190,7 +268,18 @@
             "settings": {},
             "uuid": "d0148bf3-da2f-43c9-ae17-2e39b95ab53f"
         },
-        "3": {
+        "6": {
+            "varname": "redfish_ethernetinterfaces_match",
+            "caption": "Redfish Ethernetinterfaces: Match",
+            "description": "Only check items whose name matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "baec9dba-32e5-4e3b-a17d-8f0665b58a8c"
+        },
+        "7": {
             "varname": "redfish_ethernetinterfaces_no_proxy",
             "caption": "Redfish Ethernetinterfaces: No Proxy?",
             "description": "Do not use a proxy.",
@@ -199,7 +288,7 @@
             "settings": {},
             "uuid": "d0561c73-46ae-4aea-b795-59c804b4650c"
         },
-        "4": {
+        "8": {
             "varname": "redfish_ethernetinterfaces_password",
             "caption": "Redfish Ethernetinterfaces: Password",
             "description": "Redfish API password.",
@@ -210,7 +299,18 @@
             },
             "uuid": "eda2e078-1bc1-4274-a27c-9f88308d9267"
         },
-        "5": {
+        "9": {
+            "varname": "redfish_ethernetinterfaces_retries",
+            "caption": "Redfish Ethernetinterfaces: Retries",
+            "description": "Number of extra attempts if a request to the Redfish API fails, before the check gives up. Helps against an occasionally slow or flaky management controller.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ed265d4a-0c1f-4ee1-b354-3e426c2a3647"
+        },
+        "10": {
             "varname": "redfish_ethernetinterfaces_timeout",
             "caption": "Redfish Ethernetinterfaces: Timeout",
             "description": "Network timeout in seconds.",
@@ -221,7 +321,7 @@
             },
             "uuid": "af84eb76-9f5d-451b-a09f-9e1f02c0956c"
         },
-        "6": {
+        "11": {
             "varname": "redfish_ethernetinterfaces_url",
             "caption": "Redfish Ethernetinterfaces: URL",
             "description": "Redfish API URL.",
@@ -232,7 +332,7 @@
             },
             "uuid": "648c93a0-ebfd-495b-9803-8567f698cc13"
         },
-        "7": {
+        "12": {
             "varname": "redfish_ethernetinterfaces_username",
             "caption": "Redfish Ethernetinterfaces: Username",
             "description": "Redfish API username.",
