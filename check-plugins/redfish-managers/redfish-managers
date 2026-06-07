@@ -11,7 +11,6 @@
 """See the check's README for more details."""
 
 import argparse
-import base64
 import json
 import os
 import sys
@@ -25,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060701'
+__version__ = '2026060702'
 
 DESCRIPTION = """Checks the health of all managers (BMCs such as iLO, iDRAC, or a generic BMC) of a
 Redfish-compatible server via the Redfish API. Reports every enabled manager with its
@@ -34,6 +33,7 @@ alerts whenever any manager's status leaves `OK`. Use `redfish-logservices` to i
 event log."""
 
 API_BASE = '/redfish/v1'
+DEFAULT_CACHE_EXPIRE = 15  # minutes; keep below the controller's session timeout
 DEFAULT_INSECURE = True
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 8
@@ -57,6 +57,14 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help=lib.args.help('--cache-expire') + ' Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
     )
 
     parser.add_argument(
@@ -142,10 +150,9 @@ def main():
         if not args.URL.startswith('http'):
             lib.base.cu('--url parameter has to start with "http://" or https://".')
         header = {'Accept': 'application/json'}
-        if args.USERNAME and args.PASSWORD:
-            auth = f'{args.USERNAME}:{args.PASSWORD}'
-            encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
-            header['Authorization'] = f'Basic {encoded_auth}'
+        # reuse a cached Redfish session token across requests and runs, so we
+        # do not create (and have the controller log) a new session each time
+        header.update(lib.redfish.get_auth_header(args))
         # Entry point: the Managers collection
         result = lib.base.coe(
             lib.url.fetch_json(

@@ -37,9 +37,10 @@ Checks hardware sensor readings (temperature, voltage, fan speed, power) from th
 ## Help
 
 ```text
-usage: redfish-sensors [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                       [--password PASSWORD] [--test TEST] [--timeout TIMEOUT]
-                       [--url URL] [--username USERNAME]
+usage: redfish-sensors [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
+                       [--insecure] [--no-proxy] [--password PASSWORD]
+                       [--test TEST] [--timeout TIMEOUT] [--url URL]
+                       [--username USERNAME]
 
 Checks hardware sensor readings (temperature, voltage, fan speed, power) from
 the Redfish Chassis collection via the Redfish API. Reads the modern Sensors
@@ -47,17 +48,21 @@ collection where available and falls back to the legacy Thermal and Power
 endpoints otherwise. Alerts when any sensor reports a non-ok state.
 
 options:
-  -h, --help           show this help message and exit
-  -V, --version        show program's version number and exit
-  --always-ok          Always returns OK.
-  --insecure           This option explicitly allows insecure SSL connections.
-  --no-proxy           Do not use a proxy.
-  --password PASSWORD  Redfish API password.
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
-  --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
-  --url URL            Redfish API URL. Default: https://localhost:5000
-  --username USERNAME  Redfish API username.
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
+  --cache-expire CACHE_EXPIRE
+                        The amount of time after which the credential/data
+                        cache expires, in minutes. Default: 15
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
+  --password PASSWORD   Redfish API password.
+  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                        stderr-file,expected-retc".
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --url URL             Redfish API URL. Default: https://localhost:5000
+  --username USERNAME   Redfish API username.
 ```
 
 

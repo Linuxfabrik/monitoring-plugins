@@ -34,8 +34,9 @@ Checks the event log entries exposed under the LogServices of a Redfish-compatib
 ## Help
 
 ```text
-usage: redfish-logservices [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                           [--password PASSWORD] [--test TEST]
+usage: redfish-logservices [-h] [-V] [--always-ok]
+                           [--cache-expire CACHE_EXPIRE] [--insecure]
+                           [--no-proxy] [--password PASSWORD] [--test TEST]
                            [--timeout TIMEOUT] [--url URL]
                            [--username USERNAME]
 
@@ -44,17 +45,21 @@ compatible server (the System Event Log, SEL) via the Redfish API. Alerts
 based on the severity of the log entries.
 
 options:
-  -h, --help           show this help message and exit
-  -V, --version        show program's version number and exit
-  --always-ok          Always returns OK.
-  --insecure           This option explicitly allows insecure SSL connections.
-  --no-proxy           Do not use a proxy.
-  --password PASSWORD  Redfish API password.
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
-  --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
-  --url URL            Redfish API URL. Default: https://localhost:5000
-  --username USERNAME  Redfish API username.
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
+  --cache-expire CACHE_EXPIRE
+                        The amount of time after which the credential/data
+                        cache expires, in minutes. Default: 15
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
+  --password PASSWORD   Redfish API password.
+  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                        stderr-file,expected-retc".
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --url URL             Redfish API URL. Default: https://localhost:5000
+  --username USERNAME   Redfish API username.
 ```
 
 

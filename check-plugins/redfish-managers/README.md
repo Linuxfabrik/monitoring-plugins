@@ -35,9 +35,10 @@ Checks the health of all managers (BMCs such as iLO, iDRAC, or a generic BMC) of
 ## Help
 
 ```text
-usage: redfish-managers [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                        [--password PASSWORD] [--test TEST]
-                        [--timeout TIMEOUT] [--url URL] [--username USERNAME]
+usage: redfish-managers [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
+                        [--insecure] [--no-proxy] [--password PASSWORD]
+                        [--test TEST] [--timeout TIMEOUT] [--url URL]
+                        [--username USERNAME]
 
 Checks the health of all managers (BMCs such as iLO, iDRAC, or a generic BMC)
 of a Redfish-compatible server via the Redfish API. Reports every enabled
@@ -46,17 +47,21 @@ UUID) and rolled-up health status, and alerts whenever any manager's status
 leaves `OK`. Use `redfish-logservices` to inspect a manager's event log.
 
 options:
-  -h, --help           show this help message and exit
-  -V, --version        show program's version number and exit
-  --always-ok          Always returns OK.
-  --insecure           This option explicitly allows insecure SSL connections.
-  --no-proxy           Do not use a proxy.
-  --password PASSWORD  Redfish API password.
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
-  --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
-  --url URL            Redfish API URL. Default: https://localhost:5000
-  --username USERNAME  Redfish API username.
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
+  --cache-expire CACHE_EXPIRE
+                        The amount of time after which the credential/data
+                        cache expires, in minutes. Default: 15
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
+  --password PASSWORD   Redfish API password.
+  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                        stderr-file,expected-retc".
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --url URL             Redfish API URL. Default: https://localhost:5000
+  --username USERNAME   Redfish API username.
 ```
 
 

@@ -35,7 +35,8 @@ Reports the firmware inventory of a Redfish-compatible server via the Redfish AP
 ## Help
 
 ```text
-usage: redfish-firmwareinventory [-h] [-V] [--always-ok] [--insecure]
+usage: redfish-firmwareinventory [-h] [-V] [--always-ok]
+                                 [--cache-expire CACHE_EXPIRE] [--insecure]
                                  [--no-proxy] [--password PASSWORD]
                                  [--test TEST] [--timeout TIMEOUT] [--url URL]
                                  [--username USERNAME]
@@ -46,17 +47,21 @@ identification, and alerts whenever a component reports a degraded or failed
 health state.
 
 options:
-  -h, --help           show this help message and exit
-  -V, --version        show program's version number and exit
-  --always-ok          Always returns OK.
-  --insecure           This option explicitly allows insecure SSL connections.
-  --no-proxy           Do not use a proxy.
-  --password PASSWORD  Redfish API password.
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
-  --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
-  --url URL            Redfish API URL. Default: https://localhost:5000
-  --username USERNAME  Redfish API username.
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
+  --cache-expire CACHE_EXPIRE
+                        The amount of time after which the credential/data
+                        cache expires, in minutes. Default: 15
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-proxy            Do not use a proxy.
+  --password PASSWORD   Redfish API password.
+  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                        stderr-file,expected-retc".
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --url URL             Redfish API URL. Default: https://localhost:5000
+  --username USERNAME   Redfish API username.
 ```
 
 
