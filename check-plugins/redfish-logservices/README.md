@@ -35,14 +35,18 @@ Checks the event log entries exposed under the LogServices of a Redfish-compatib
 
 ```text
 usage: redfish-logservices [-h] [-V] [--always-ok]
-                           [--cache-expire CACHE_EXPIRE] [--insecure]
+                           [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
+                           [--insecure] [--match MATCH] [--max-age MAX_AGE]
                            [--no-proxy] [--password PASSWORD] [--test TEST]
                            [--timeout TIMEOUT] [--url URL]
                            [--username USERNAME]
 
 Checks the event log entries exposed under the LogServices of a Redfish-
 compatible server (the System Event Log, SEL) via the Redfish API. Alerts
-based on the severity of the log entries.
+based on the severity of the log entries. Entries can be filtered by regular
+expression (--match, --ignore), and entries older than --max-age days can be
+aged out so a long-since resolved event does not keep the check in a non-OK
+state forever.
 
 options:
   -h, --help            show this help message and exit
@@ -51,8 +55,24 @@ options:
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15
+  --ignore IGNORE       Ignore SEL entries whose message matches this Python
+                        regular expression. Case-sensitive by default; use
+                        `(?i)` for case-insensitive matching. Can be specified
+                        multiple times. Example: `--ignore="Log area
+                        reset/cleared"`.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --match MATCH         Only consider SEL entries whose message matches this
+                        Python regular expression. Case-sensitive by default;
+                        use `(?i)` for case-insensitive matching. Can be
+                        specified multiple times. Example:
+                        `--match="(?i)temperature"`.
+  --max-age MAX_AGE     Age out SEL entries older than this many days: they
+                        are no longer alerted on, only counted in the summary.
+                        A controller keeps an entry until the log is cleared,
+                        so a long-since resolved event would otherwise keep
+                        the check in a non-OK state forever. Default: 0 (0
+                        disables aging).
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Redfish API password.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-

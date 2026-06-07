@@ -19,20 +19,24 @@ import lib.args
 import lib.base
 import lib.lftest
 import lib.redfish
+import lib.time
 import lib.txt
 import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060702'
+__version__ = '2026060703'
 
 DESCRIPTION = """Checks the event log entries exposed under the LogServices of a Redfish-compatible
 server (the System Event Log, SEL) via the Redfish API. Alerts based on the severity of the log
-entries."""
+entries. Entries can be filtered by regular expression (--match, --ignore), and entries older than
+--max-age days can be aged out so a long-since resolved event does not keep the check in a non-OK
+state forever."""
 
 API_BASE = '/redfish/v1'
 DEFAULT_CACHE_EXPIRE = 15  # minutes; keep below the controller's session timeout
 DEFAULT_INSECURE = True
+DEFAULT_MAX_AGE = 0  # days; 0 disables aging
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 8
 DEFAULT_URL = 'https://localhost:5000'
@@ -66,11 +70,44 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore',
+        help='Ignore SEL entries whose message matches this Python regular expression. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. '
+        'Example: `--ignore="Log area reset/cleared"`.',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
         '--insecure',
         help=lib.args.help('--insecure'),
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only consider SEL entries whose message matches this Python regular expression. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. '
+        'Example: `--match="(?i)temperature"`.',
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--max-age',
+        help='Age out SEL entries older than this many days: they are no longer alerted on, only '
+        'counted in the summary. A controller keeps an entry until the log is cleared, so a '
+        'long-since resolved event would otherwise keep the check in a non-OK state forever. '
+        'Default: %(default)s (0 disables aging).',
+        dest='MAX_AGE',
+        type=int,
+        default=DEFAULT_MAX_AGE,
     )
 
     parser.add_argument(
@@ -143,6 +180,21 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # compile the filter regexes and work out the age cutoff once
+    ignore_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    match_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    cutoff_epoch = int(lib.time.now()) - args.MAX_AGE * 86400 if args.MAX_AGE else 0
+
     # fetch data
     if args.TEST is None:
         if not args.URL.startswith('http'):
@@ -196,6 +248,7 @@ def main():
     state = STATE_OK
     perfdata = ''
     member_count = 0
+    aged_out_total = 0
 
     if vendor == 'generic':
         sel_path = '/LogServices/Log/Entries'
@@ -237,23 +290,35 @@ def main():
             )
         else:
             sel = load_test_fixture(args.TEST, f'{test_base}-sel')
-        member_msg, member_state = lib.redfish.get_manager_logservices_sel_entries(sel)
+        member_msg, member_state, member_aged = (
+            lib.redfish.get_manager_logservices_sel_entries(
+                sel,
+                match=match_patterns,
+                ignore=ignore_patterns,
+                cutoff_epoch=cutoff_epoch,
+            )
+        )
+        aged_out_total += member_aged
         if member_msg:
             # build the message
             msg += f'{member["@odata.id"]}\n{member_msg}\n\n'
             state = lib.base.get_worst(state, member_state)
 
     members = lib.txt.pluralize('member', member_count)
+    aged = f' {aged_out_total} aged out.' if aged_out_total else ''
     if state == STATE_CRIT:
         msg = (
-            f'Checked SEL on {member_count} {members}. There are critical errors.\n\n'
+            f'Checked SEL on {member_count} {members}.'
+            f' There are critical errors.{aged}\n\n'
         ) + msg
     elif state == STATE_WARN:
         msg = (
-            f'Checked SEL on {member_count} {members}. There are warnings.\n\n'
+            f'Checked SEL on {member_count} {members}. There are warnings.{aged}\n\n'
         ) + msg
     else:
-        msg = (f'Everything is ok, checked SEL on {member_count} {members}.\n\n') + msg
+        msg = (
+            f'Everything is ok, checked SEL on {member_count} {members}.{aged}\n\n'
+        ) + msg
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

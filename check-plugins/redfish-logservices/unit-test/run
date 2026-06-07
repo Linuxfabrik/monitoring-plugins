@@ -15,17 +15,70 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
-# The plugin appends `-v1`, `-managers`, `-vendor` to the --test path
+# The plugin appends `-root`, `-managers` and `-sel` to the --test path
 # as it walks the Redfish API, so each scenario requires three fixture
-# files: `<name>-v1`, `<name>-v1-managers`, `<name>-v1-managers-vendor`.
+# files: `<name>-root`, `<name>-managers`, `<name>-sel`.
 TESTS = [
     {
         'id': 'ok-empty-sel',
         'test': 'stdout/empty-sel,,0',
         'assert-retc': STATE_OK,
         'assert-in': ['Everything is ok, checked SEL on 1 member.'],
+    },
+    {
+        # A SEL with a critical and a warning entry (and one OK entry that
+        # is always skipped) escalates to CRITICAL and lists both.
+        'id': 'crit-sel-entries',
+        'test': 'stdout/sel-entries,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'There are critical errors.',
+            'CPU temperature is critical',
+            'Fan 3 redundancy lost',
+            '[CRITICAL]',
+        ],
+    },
+    {
+        # --ignore drops the critical temperature entry by regex, leaving only
+        # the fan warning, so the check de-escalates to WARNING.
+        'id': 'warn-ignore-temperature',
+        'test': 'stdout/sel-entries,,0',
+        'params': "--ignore='(?i)temperature'",
+        'assert-retc': STATE_WARN,
+        'assert-in': ['There are warnings.', 'Fan 3 redundancy lost'],
+        'assert-not-in': ['[CRITICAL]', 'CPU temperature is critical'],
+    },
+    {
+        # --match keeps only the temperature entry, so the fan warning is not
+        # considered and the check is CRITICAL on the temperature alone.
+        'id': 'crit-match-temperature',
+        'test': 'stdout/sel-entries,,0',
+        'params': "--match='(?i)temperature'",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['CPU temperature is critical', '[CRITICAL]'],
+        'assert-not-in': ['Fan 3 redundancy lost'],
+    },
+    {
+        # --max-age ages out both non-OK entries (dated 2021), so nothing
+        # drives the state and the summary reports how many aged out.
+        'id': 'ok-max-age-ages-out',
+        'test': 'stdout/sel-entries,,0',
+        'params': '--max-age=30',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok, checked SEL on 1 member.', '2 aged out'],
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    {
+        # A huge --max-age keeps even old entries within the window, so aging
+        # does not suppress them and the check stays CRITICAL.
+        'id': 'crit-max-age-keeps-entries',
+        'test': 'stdout/sel-entries,,0',
+        'params': '--max-age=100000',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['CPU temperature is critical', '[CRITICAL]'],
+        'assert-not-in': ['aged out'],
     },
     {
         # A missing fixture must surface as STATE_UNKNOWN with a
@@ -39,7 +92,6 @@ TESTS = [
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../redfish-logservices'
 
 
