@@ -24,6 +24,10 @@ Icinga Director:
 
 * Redfish Service Set now also covers the memory, processor, Ethernet-interface, manager and firmware-inventory checks
 
+Grafana:
+
+* the Redfish checks that emit performance data now ship Grafana dashboards (redfish-sensors, redfish-storage, redfish-memory, redfish-processors, redfish-ethernetinterfaces, redfish-managers, redfish-firmwareinventory)
+
 ### Changed
 
 Monitoring Plugins:
