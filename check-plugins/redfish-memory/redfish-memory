@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060704'
+__version__ = '2026060705'
 
 DESCRIPTION = """Checks the state of all memory modules (DIMMs) in a Redfish-compatible server via
 the Redfish API. Alerts when any memory module reports a degraded or failed state. System-level
@@ -36,6 +36,7 @@ API_BASE = '/redfish/v1'
 DEFAULT_CACHE_EXPIRE = 15  # minutes; keep below the controller's session timeout
 DEFAULT_INSECURE = True
 DEFAULT_NO_PROXY = False
+DEFAULT_RETRIES = 3  # extra attempts on a failed Redfish request
 DEFAULT_TIMEOUT = 8
 DEFAULT_URL = 'https://localhost:5000'
 
@@ -117,6 +118,16 @@ def parse_args():
         '--password',
         help='Redfish API password.',
         dest='PASSWORD',
+    )
+
+    parser.add_argument(
+        '--retries',
+        help='Number of extra attempts if a request to the Redfish API fails, before the '
+        'check gives up. Helps against an occasionally slow or flaky management controller. '
+        'Default: %(default)s',
+        dest='RETRIES',
+        type=int,
+        default=DEFAULT_RETRIES,
     )
 
     parser.add_argument(
@@ -205,6 +216,7 @@ def main():
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
                 timeout=args.TIMEOUT,
+                retries=args.RETRIES,
             )
         )
     else:
@@ -243,6 +255,7 @@ def main():
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,
                     timeout=args.TIMEOUT,
+                    retries=args.RETRIES,
                 )
             )
         else:
@@ -279,6 +292,7 @@ def main():
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,
                     timeout=args.TIMEOUT,
+                    retries=args.RETRIES,
                 )
             )
         else:
@@ -294,6 +308,7 @@ def main():
                         insecure=args.INSECURE,
                         no_proxy=args.NO_PROXY,
                         timeout=args.TIMEOUT,
+                        retries=args.RETRIES,
                     )
                 )
             else:

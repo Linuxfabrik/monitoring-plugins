@@ -40,8 +40,8 @@ Checks hardware sensor readings (temperature, voltage, fan speed, power) from th
 usage: redfish-sensors [-h] [-V] [--always-ok] [--brief]
                        [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
                        [--insecure] [--match MATCH] [--no-proxy]
-                       [--password PASSWORD] [--test TEST] [--timeout TIMEOUT]
-                       [--url URL] [--username USERNAME]
+                       [--password PASSWORD] [--retries RETRIES] [--test TEST]
+                       [--timeout TIMEOUT] [--url URL] [--username USERNAME]
 
 Checks hardware sensor readings (temperature, voltage, fan speed, power) from
 the Redfish Chassis collection via the Redfish API. Reads the modern Sensors
@@ -70,6 +70,10 @@ options:
                         multiple times.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Redfish API password.
+  --retries RETRIES     Number of extra attempts if a request to the Redfish
+                        API fails, before the check gives up. Helps against an
+                        occasionally slow or flaky management controller.
+                        Default: 3
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)

@@ -25,7 +25,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060703'
+__version__ = '2026060704'
 
 DESCRIPTION = """Checks the event log entries exposed under the LogServices of a Redfish-compatible
 server (the System Event Log, SEL) via the Redfish API. Alerts based on the severity of the log
@@ -38,6 +38,7 @@ DEFAULT_CACHE_EXPIRE = 15  # minutes; keep below the controller's session timeou
 DEFAULT_INSECURE = True
 DEFAULT_MAX_AGE = 0  # days; 0 disables aging
 DEFAULT_NO_PROXY = False
+DEFAULT_RETRIES = 3  # extra attempts on a failed Redfish request
 DEFAULT_TIMEOUT = 8
 DEFAULT_URL = 'https://localhost:5000'
 
@@ -122,6 +123,16 @@ def parse_args():
         '--password',
         help='Redfish API password.',
         dest='PASSWORD',
+    )
+
+    parser.add_argument(
+        '--retries',
+        help='Number of extra attempts if a request to the Redfish API fails, before the '
+        'check gives up. Helps against an occasionally slow or flaky management controller. '
+        'Default: %(default)s',
+        dest='RETRIES',
+        type=int,
+        default=DEFAULT_RETRIES,
     )
 
     parser.add_argument(
@@ -211,6 +222,7 @@ def main():
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
                 timeout=args.TIMEOUT,
+                retries=args.RETRIES,
             )
         )
         vendor = lib.redfish.get_vendor(result)
@@ -223,6 +235,7 @@ def main():
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
                 timeout=args.TIMEOUT,
+                retries=args.RETRIES,
             )
         )
     else:
@@ -286,6 +299,7 @@ def main():
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,
                     timeout=args.TIMEOUT,
+                    retries=args.RETRIES,
                 )
             )
         else:

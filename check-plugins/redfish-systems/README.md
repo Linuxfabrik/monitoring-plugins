@@ -38,8 +38,8 @@ Checks the overall system health reported by a Redfish-compatible server via the
 ```text
 usage: redfish-systems [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
                        [--insecure] [--no-proxy] [--password PASSWORD]
-                       [--test TEST] [--timeout TIMEOUT] [--url URL]
-                       [--username USERNAME]
+                       [--retries RETRIES] [--test TEST] [--timeout TIMEOUT]
+                       [--url URL] [--username USERNAME]
 
 Checks the overall system health reported by a Redfish-compatible server via
 the Redfish API. Reports every enabled system member with its identification
@@ -59,6 +59,10 @@ options:
                         connections.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Redfish API password.
+  --retries RETRIES     Number of extra attempts if a request to the Redfish
+                        API fails, before the check gives up. Helps against an
+                        occasionally slow or flaky management controller.
+                        Default: 3
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
