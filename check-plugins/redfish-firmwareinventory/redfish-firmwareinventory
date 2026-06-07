@@ -1,0 +1,260 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import base64
+import json
+import os
+import sys
+
+import lib.args
+import lib.base
+import lib.lftest
+import lib.redfish
+import lib.txt
+import lib.url
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026060701'
+
+DESCRIPTION = """Reports the firmware inventory of a Redfish-compatible server via the Redfish API.
+Lists every firmware component with its installed version and identification, and alerts whenever a
+component reports a degraded or failed health state."""
+
+API_BASE = '/redfish/v1'
+DEFAULT_INSECURE = True
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 8
+DEFAULT_URL = 'https://localhost:5000'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='Redfish API password.',
+        dest='PASSWORD',
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='Redfish API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Redfish API username.',
+        dest='USERNAME',
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def load_test_fixture(test_args, path):
+    # Replace the first element of args.TEST with the walk-specific
+    # fixture path, read it via lib.lftest.test() and return the parsed
+    # JSON. On a missing file or malformed JSON, exit STATE_UNKNOWN with
+    # a helpful message instead of letting json.loads raise a traceback.
+    if not os.path.isfile(path):
+        lib.base.cu(f'Test fixture not found: "{path}".')
+    test_args[0] = path
+    stdout, _, _ = lib.lftest.test(test_args)
+    try:
+        return json.loads(stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        lib.base.cu(f'Test fixture "{path}" does not contain valid JSON: {e}')
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        if not args.URL.startswith('http'):
+            lib.base.cu('--url parameter has to start with "http://" or https://".')
+        header = {'Accept': 'application/json'}
+        if args.USERNAME and args.PASSWORD:
+            auth = f'{args.USERNAME}:{args.PASSWORD}'
+            encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
+            header['Authorization'] = f'Basic {encoded_auth}'
+        # Entry point: the FirmwareInventory collection
+        result = lib.base.coe(
+            lib.url.fetch_json(
+                f'{args.URL}{API_BASE}/UpdateService/FirmwareInventory',
+                header=header,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+            )
+        )
+    else:
+        # do not call the API, put in test data. Each API call in the
+        # Redfish walk has an explicit fixture suffix, so the fixture
+        # file names describe what they contain (firmwareinventory,
+        # firmware-N).
+        test_base = args.TEST[0]
+        result = load_test_fixture(args.TEST, f'{test_base}-firmwareinventory')
+    # "Members": [
+    #     {
+    #         "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/BIOS"
+    #     }
+    # ],
+    if len(result.get('Members', [])) == 0:
+        lib.base.cu('Nothing to check, no Redfish members found.')
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    component_count = 0
+    component_not_ok = 0
+
+    # analyze data: follow each "Member" link and aggregate firmware-component
+    # health into `state`. Every component is listed regardless of its state,
+    # because this check doubles as a firmware version inventory.
+    table_data = []
+    for fw_idx, firmware in enumerate(result.get('Members', [])):
+        if args.TEST is None:
+            # "/redfish/v1/UpdateService/FirmwareInventory/BIOS"
+            firmware_data = lib.base.coe(
+                lib.url.fetch_json(
+                    f'{args.URL}{firmware["@odata.id"]}',
+                    header=header,
+                    insecure=args.INSECURE,
+                    no_proxy=args.NO_PROXY,
+                    timeout=args.TIMEOUT,
+                )
+            )
+        else:
+            firmware_data = load_test_fixture(
+                args.TEST, f'{test_base}-firmware-{fw_idx}'
+            )
+        firmware_data = lib.redfish.get_updateservice_firmwareinventory(firmware_data)
+        component_count += 1
+        # is the firmware component healthy at all?
+        firmware_data_state = lib.redfish.get_state(firmware_data)
+        state = lib.base.get_worst(state, firmware_data_state)
+        firmware_data['State'] = lib.base.state2str(firmware_data_state, empty_ok=False)
+        if firmware_data_state != STATE_OK:
+            component_not_ok += 1
+        table_data.append(firmware_data)
+
+    if table_data:
+        keys = [
+            'Name',
+            'Version',
+            'Manufacturer',
+            'ReleaseDate',
+            'Updateable',
+            'State',
+        ]
+        headers = [
+            'Component',
+            'Version',
+            'Manufacturer',
+            'ReleaseDate',
+            'Updateable',
+            'State',
+        ]
+        msg += lib.base.get_table(table_data, keys, header=headers)
+
+    # build the message
+    components = lib.txt.pluralize('component', component_count)
+    if state == STATE_CRIT:
+        msg = (
+            f'Checked {component_count} firmware {components}.'
+            f' There are critical errors.\n\n'
+        ) + msg
+    elif state == STATE_WARN:
+        msg = (
+            f'Checked {component_count} firmware {components}. There are warnings.\n\n'
+        ) + msg
+    else:
+        msg = (
+            f'Everything is ok, checked {component_count} firmware {components}.\n\n'
+        ) + msg
+
+    # perfdata: how many firmware components were checked and how many are not OK
+    perfdata = lib.base.get_perfdata(
+        'firmware_components', component_count, None, None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'firmware_components_not_ok', component_not_ok, None, None, None, 0, None
+    )
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

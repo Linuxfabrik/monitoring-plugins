@@ -14,13 +14,30 @@ Monitoring Plugins:
 
 * disk-io: can now also monitor raw, unmounted block devices such as multipath SAN volumes or Oracle ASM disks (`--include-unmounted`)
 * lynis: new check that audits the security hardening posture of every host in a subnet over SSH and reports each host's hardening index, warnings and suggestions
+* redfish-ethernetinterfaces: new check for a server's Ethernet interface health
+* redfish-firmwareinventory: new check reporting a server's firmware component versions and health
+* redfish-managers: new check for a server's management controller health (BMC, e.g. iLO or iDRAC)
+* redfish-memory: new check for a server's memory module health
+* redfish-processors: new check for a server's processor health
+
+Icinga Director:
+
+* Redfish Service Set now also covers the memory, processor, Ethernet-interface, manager and firmware-inventory checks
+
+### Changed
+
+Monitoring Plugins:
+
+* redfish-*: plugins renamed to match their Redfish API endpoints (`redfish-drives` → `redfish-storage`, `redfish-sel` → `redfish-logservices`, `redfish-sensor` → `redfish-sensors`, `redfish-system` → `redfish-systems`)
+* redfish-sensors: falls back to the legacy Thermal and Power endpoints when the modern Sensors collection is absent
+* redfish-storage: now also checks volumes (logical drives), not just physical drives and controllers
 
 ### Fixed
 
 Monitoring Plugins:
 
 * by-ssh: a failed connection no longer echoes the full command line (which can contain the password passed via `--password`) in the plugin output
-* redfish-sensor: no longer raises false warnings for sensors that report a placeholder min/max range (e.g. CPU/memory utilization on some hardware) ([#1211](https://github.com/Linuxfabrik/monitoring-plugins/issues/1211))
+* redfish-sensors: no longer raises false warnings for sensors that report a placeholder min/max range (e.g. CPU/memory utilization on some hardware) ([#1211](https://github.com/Linuxfabrik/monitoring-plugins/issues/1211))
 
 
 ## [v5.2.0] - 2026-06-02
