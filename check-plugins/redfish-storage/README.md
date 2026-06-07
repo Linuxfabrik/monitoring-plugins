@@ -100,12 +100,23 @@ RAID.SL.1 ! PERC H740P Mini ! PERC H740P Mini ! 2      ! [OK]
 
 ## Perfdata / Metrics
 
-This plugin does not provide any performance data.
+The per-drive metrics depend on your hardware: a drive is only reported when it exposes the corresponding value.
+
+| Name | Type | Description |
+|----|----|----|
+| \<drive\>_media_life_left | Percentage | Predicted remaining life of a drive's media (0-100%). Example: `SSD_0_media_life_left` |
+| \<drive\>_power_on_hours | Number | Hours a drive has been powered on. Example: `SSD_0_power_on_hours` |
+| drives | Number | Number of enabled drives checked. |
+| drives_not_ok | Number | Number of drives whose health is not OK. |
+| storage_controllers | Number | Number of enabled storage controllers checked. |
+| storage_controllers_not_ok | Number | Number of storage controllers whose health is not OK. |
+| volumes | Number | Number of enabled volumes (logical drives) checked. |
+| volumes_not_ok | Number | Number of volumes whose health is not OK. |
 
 
 ## For Maintainers
 
-There is no need for a real BMC to develop or test this plugin. The official DMTF Redfish mockup server serves a static, read-only Redfish tree over plain HTTP, which is exactly what this GET-only plugin needs. Note that the bundled `public-rackmount1` mockup ships no storage subsystem, so the offline fixtures are the primary way to exercise the drive and volume paths.
+You don't need a physical server with a real BMC (the management controller that serves the Redfish API, e.g. HPE iLO or Dell iDRAC) to develop or test this plugin. The official DMTF Redfish mockup server serves a static, read-only Redfish tree over plain HTTP, which is exactly what this GET-only plugin needs. Note that the bundled `public-rackmount1` mockup ships no storage subsystem, so the offline fixtures are the primary way to exercise the drive and volume paths.
 
 Run the mockup server and point the plugin at it, from the repository root:
 

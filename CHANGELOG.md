@@ -31,6 +31,7 @@ Monitoring Plugins:
 * redfish-*: plugins renamed to match their Redfish API endpoints (`redfish-drives` → `redfish-storage`, `redfish-sel` → `redfish-logservices`, `redfish-sensor` → `redfish-sensors`, `redfish-system` → `redfish-systems`)
 * redfish-sensors: falls back to the legacy Thermal and Power endpoints when the modern Sensors collection is absent
 * redfish-storage: now also checks volumes (logical drives), not just physical drives and controllers
+* redfish-storage: now reports performance data over time for drive wear, drive power-on hours and drive, volume and controller counts, ready for graphing
 
 ### Fixed
 

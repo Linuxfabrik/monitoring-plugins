@@ -79,6 +79,19 @@ TESTS = [
         ],
     },
     {
+        # A drive that exposes PredictedMediaLifeLeftPercent and PowerOnHours
+        # must emit them as perfdata: the media life as a 0-100% gauge and the
+        # power-on hours as a (counter) value. Both are keyed by the drive name.
+        'id': 'ok-drive-power-on-hours',
+        'test': 'stdout/drive-power-on-hours,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok, checked storage on 1 member.',
+            "'SSD_0_media_life_left'=87%;;;0;100",
+            "'SSD_0_power_on_hours'=17532;;;0",
+        ],
+    },
+    {
         # A missing fixture must surface as STATE_UNKNOWN with a
         # readable message, not as a Python traceback.
         'id': 'unknown-missing-fixture',

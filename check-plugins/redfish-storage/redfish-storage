@@ -25,7 +25,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060701'
+__version__ = '2026060702'
 
 DESCRIPTION = """Checks the state of all physical drives, volumes and their storage controllers in a
 Redfish-compatible server via the Redfish API. Alerts when any drive, volume or storage controller
@@ -176,6 +176,12 @@ def main():
     state = STATE_OK
     perfdata = ''
     member_count = 0
+    drive_count = 0
+    drive_not_ok = 0
+    volume_count = 0
+    volume_not_ok = 0
+    controller_count = 0
+    controller_not_ok = 0
 
     # analyze data: follow each "Member" link, aggregate drive and
     # storage-controller health into `state`. System-level health is
@@ -275,6 +281,38 @@ def main():
                 drive_data['State'] = lib.base.state2str(
                     drive_data_state, empty_ok=False
                 )
+                drive_count += 1
+                if drive_data_state != STATE_OK:
+                    drive_not_ok += 1
+                # perfdata: remaining SSD/flash endurance as a 0-100% gauge so
+                # the wear-out trend is graphable. This is a gauge, not a
+                # monotonic counter, so it is safe to expose as perfdata.
+                drive_id = (drive_data['Name'] or drive_data['Id']).replace(' ', '_')
+                media_life = drive_data.get('PredictedMediaLifeLeftPercent')
+                if isinstance(media_life, (int, float)):
+                    perfdata += lib.base.get_perfdata(
+                        f'{drive_id}_media_life_left',
+                        media_life,
+                        '%',
+                        None,
+                        None,
+                        0,
+                        100,
+                    )
+                # power-on hours is a monotonic counter, but there is no
+                # meaningful gauge alternative for drive age, so it is exposed
+                # as perfdata anyway.
+                power_on_hours = drive_data.get('PowerOnHours')
+                if isinstance(power_on_hours, (int, float)):
+                    perfdata += lib.base.get_perfdata(
+                        f'{drive_id}_power_on_hours',
+                        power_on_hours,
+                        None,
+                        None,
+                        None,
+                        0,
+                        None,
+                    )
                 table_data_drive.append(drive_data)
 
             # get volumes (logical drives) defined on the storage member
@@ -319,6 +357,9 @@ def main():
                     volume_data['State'] = lib.base.state2str(
                         volume_data_state, empty_ok=False
                     )
+                    volume_count += 1
+                    if volume_data_state != STATE_OK:
+                        volume_not_ok += 1
                     table_data_volume.append(volume_data)
 
             storage_data = lib.redfish.get_systems_storage(storage_data)
@@ -330,6 +371,9 @@ def main():
             storage_data['State'] = lib.base.state2str(
                 storage_data_state, empty_ok=False
             )
+            controller_count += 1
+            if storage_data_state != STATE_OK:
+                controller_not_ok += 1
             table_data.append(storage_data)
 
         if table_data_drive:
@@ -384,6 +428,25 @@ def main():
         msg = (
             f'Everything is ok, checked storage on {member_count} {members}.\n\n'
         ) + msg
+
+    # perfdata: how many drives, volumes and storage controllers were checked
+    # and how many are not OK. These are instantaneous gauges, not counters.
+    perfdata += lib.base.get_perfdata('drives', drive_count, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'drives_not_ok', drive_not_ok, None, None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'volumes', volume_count, None, None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'volumes_not_ok', volume_not_ok, None, None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'storage_controllers', controller_count, None, None, None, 0, None
+    )
+    perfdata += lib.base.get_perfdata(
+        'storage_controllers_not_ok', controller_not_ok, None, None, None, 0, None
+    )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
