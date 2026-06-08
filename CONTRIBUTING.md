@@ -1209,5 +1209,7 @@ Non-obvious patterns worth copying from, when writing a new plugin. Each entry p
 | Threshold warm-up (learns a baseline before alerting) | [disk-io](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io) |
 | `--icinga-callback`: acknowledgement-aware plugin | [logfile](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/logfile) |
 | Credential file via MySQL option-file / `configparser` | All mysql-\* plugins, [icinga-topflap-services](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/icinga-topflap-services) |
+| Network scan of a subnet (host discovery via `--host`/`--network`/`--interface`, parallel per-host probing, worst-of aggregation) | [lynis](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/lynis) |
 | Optional asset script (`monitoring.php`) alongside the plugin | [php-status](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/php-status) |
+| Session caching (reuse an API session token / cookie across runs to avoid rate-limited logins) | [huawei-dorado-system](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/huawei-dorado-system) |
 | Cross-platform branching (`lib.base.LINUX` / `lib.base.WINDOWS`) | [users](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/users) |

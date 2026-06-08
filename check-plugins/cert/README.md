@@ -3,21 +3,25 @@
 
 ## Overview
 
-Inspects an X.509 certificate and alerts on days remaining until expiry, hostname mismatch and chain verification failures. Two sources via `--source`: `url` connects to a TLS endpoint, runs a TLS handshake and captures the server certificate; `file` reads one or many local certificate files, with glob expansion for batch monitoring of cert directories. With `--source=url` the plugin only runs the TLS handshake and reads the server certificate (no HTTP request is sent), so it works for any "TLS from start" service - HTTPS, IMAPS, LDAPS, SMTPS, AMQPS, MQTTS, custom TLS ports. STARTTLS-style upgrades on plaintext ports (SMTP 587, IMAP 143, LDAP 389) are not supported. `p12` and `jks` sources are reserved for future expansion without renaming the plugin or breaking existing service templates.
+Inspects X.509 certificates and alerts on days remaining until expiry, hostname mismatch and chain verification failures. Three sources via `--source`: `url` connects to a single TLS endpoint, runs a TLS handshake and captures the server certificate; `file` reads one or many local certificate files, with glob expansion for batch monitoring of cert directories; `scan` discovers the hosts of a subnet (the default interface's subnet, a chosen interface, an explicit network in CIDR notation, or an explicit host list) and probes each host on the ports given by `--ports`, inspecting every certificate it gets. With `--source=url` the plugin only runs the TLS handshake and reads the server certificate (no HTTP request is sent), so it works for any "TLS from start" service - HTTPS, IMAPS, LDAPS, SMTPS, AMQPS, MQTTS, custom TLS ports. STARTTLS-style upgrades on plaintext ports (SMTP 587, IMAP 143, LDAP 389) are not supported. The default source is `scan`, so without any parameter the plugin scans the default interface's subnet on a set of common data-center TLS ports (HTTPS, mail, LDAPS, AMQPS, MQTTS and common management interfaces; see the `--ports` help for the full default list). `p12` and `jks` sources are reserved for future expansion without renaming the plugin or breaking existing service templates.
 
 **Important Notes:**
 
 * `--source=url`: Hostname mismatch and chain verification failures share one `--severity` (default WARN), so operators running internal CAs are not paged for trust issues that are expected in their environment. Set `--severity=crit` to enforce strict trust.
 * `--source=file`: chain and hostname checks are not performed. Only days remaining is evaluated. With a glob that matches many files, the worst state across all matches drives the plugin state. The File column abbreviates each path zsh-style (`/etc/ssl/certs/web1.pem` becomes `/e/s/c/web1.pem`) so wide cert-directory listings stay readable; the full path is shown in `--lengthy` output.
+* `--source=scan`: each reachable certificate is checked for expiry **and** for chain/trust (does it chain to a CA in the system trust store, or one added via `--ca-file`?). Hostname verification is not done, because a subnet scan reaches IP addresses whose certificates legitimately do not match. A valid self-signed certificate is tolerated (it is cryptographically as sound as a publicly trusted one); other trust failures (unknown CA, expired or broken chain) raise the state via `--severity` (default WARN, `crit` to enforce). `--insecure` turns trust verification off entirely for pure expiry monitoring. Counting follows the `lynis` check and is done per host, not per host/port: a `/24` reports `X/254 hosts responded`, not `X/508 targets`. Hosts (or host/port combinations) that do not answer within `--timeout` are skipped silently, so an empty subnet returns OK with `0/N hosts responded`. The worst state across all reachable certificates drives the plugin state. Scan a large subnet from a host that can actually reach it, and tune `--max-workers` (parallelism) and `--timeout` so the run finishes within the check interval.
+* `--source=url`: the plugin inspects the full certificate chain the server sends, not just the leaf. The leaf carries the chain/hostname verdict; every intermediate is additionally checked for expiry, so a soon-to-expire intermediate raises the state and shows up as the soonest-expiring certificate in the output. Capturing the chain requires Python 3.13 or newer (`ssl.SSLSocket.get_unverified_chain()`); on older Python only the leaf is inspected. The chain is shown one block per certificate in `--lengthy`.
+* `--warning` and `--critical` accept three forms: a Nagios range in days (`14:`), a percentage of the certificate's total validity period (`25%`, alert when less than 25% of the lifetime is left), or a duration with a unit (`14d`, `12h`, `2W`, `1M`). The percentage form matches the convention of other X.509 scanners and adapts to short-lived (90-day) and long-lived certificates alike.
 * Expired certificates are unconditionally reported as CRIT, regardless of the `--warning` and `--critical` thresholds.
-* `--insecure` skips chain and hostname verification entirely (only meaningful for `--source=url`). The certificate is still fetched and inspected, the chain verdict is then reported as "verification skipped".
+* `--insecure` skips chain (and, for `--source=url`, hostname) verification entirely. The certificate is still fetched and inspected for expiry, the chain verdict is then reported as "verification skipped". Use it for pure expiry monitoring when trust is verified elsewhere or not relevant.
 * When a PEM file contains multiple certificates (for example `fullchain.pem`, a CA bundle, or a chain file), each certificate becomes its own item in the output and is checked independently. So a `fullchain.pem` with leaf plus one intermediate produces two rows in the table; the worst state across all of them drives the plugin state. To check only the leaf, point `--filename` at a single-cert file like `cert.pem`.
 * What "chain verified" actually covers: the leaf chains to a trust anchor in the system trust store (or `--ca-file`) using the intermediates the server sent or that the local trust store has cached, every certificate in the verified path is within its `notBefore`/`notAfter` window, every signature in that path is cryptographically valid, and the value of `--sni-hostname` (or, when not set, the host part of `--url`) appears in the leaf certificate's `subjectAltName` (or `CommonName` for legacy certs). What it does **not** cover: OCSP responder lookups, CRL checks, Certificate Transparency / SCT validation, enforcement of the order in which the server sends the chain, detection of SHA-1 in the verified chain, and the completeness of the chain the server sent (a server that omits intermediates may still verify locally if they are cached, but break for clients with empty caches). For those compliance-style checks use a dedicated TLS scanner like `sslyze`.
 
 **Data Collection:**
 
-* `--source=url`: opens a TCP connection to the host and port from `--url`, runs a TLS handshake and reads the server certificate. No HTTP request is sent. The chain is verified against the system trust store; pass `--ca-file` to use a custom CA bundle. `--sni-hostname` overrides the SNI value sent during the handshake; `--client-cert` and `--client-key` attach a client certificate for mutual TLS.
+* `--source=url`: opens a TCP connection to the host and port from `--url`, runs a TLS handshake and reads the certificate chain the server presents (leaf plus intermediates on Python 3.13+, leaf only on older Python). No HTTP request is sent. The chain is verified against the system trust store; `--ca-file` adds one or more CA bundles to the trusted set and can be given multiple times. `--sni-hostname` overrides the SNI value sent during the handshake; `--client-cert` and `--client-key` attach a client certificate for mutual TLS.
 * `--source=file`: reads each file matching `--filename` (PEM or DER, autodetected) and parses every certificate found. PEM bundles expand to one item per certificate. `--filename` supports glob (`*`, `?`, `[abc]`) and recursive glob (`**`). When the glob matches files that don't look like certificates (private keys, plain text), they are silently skipped so recursive scans of `/etc/ssl/**` are safe. **Always quote the glob pattern**, otherwise the shell expands it before the plugin sees it and only the first match reaches `--filename`.
+* `--source=scan`: enumerates the target hosts (`--host` overrides discovery, otherwise `--network` in CIDR notation, otherwise `--interface`, otherwise the default interface's subnet; `--exclude` drops individual addresses or names), then probes each host in parallel (`--max-workers`) on every port from `--ports` (each value a single port like `443` or a range like `8000-8100`). For each reachable port it runs a TLS handshake, verifies the chain against the system trust store plus any `--ca-file` (without hostname checking), and evaluates the certificate's expiry. `--client-cert` and `--client-key` attach a client certificate for mutual TLS. Auto-discovery via `--interface` or the default interface requires the `netifaces` Python module.
 
 
 ## Fact Sheet
@@ -27,10 +31,10 @@ Inspects an X.509 certificate and alerts on days remaining until expiry, hostnam
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cert> |
 | Nagios/Icinga Check Name              | `check_cert` |
 | Check Interval Recommendation         | Every day |
-| Can be called without parameters      | No (`--source` plus `--url` or `--filename`) |
+| Can be called without parameters      | Yes (scans the default interface's subnet on common TLS ports) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
-| 3rd Party Python modules              | `cryptography` |
+| 3rd Party Python modules              | `cryptography`, `netifaces` (only for `--source=scan` auto-discovery) |
 
 
 ## Help
@@ -38,43 +42,67 @@ Inspects an X.509 certificate and alerts on days remaining until expiry, hostnam
 ```text
 usage: cert [-h] [-V] [--always-ok] [--ca-file CA_FILE]
             [--client-cert CLIENT_CERT] [--client-key CLIENT_KEY] [-c CRIT]
-            [--filename FILENAME] [--insecure] [--lengthy]
-            [--severity {crit,warn}] [--sni-hostname SNI_HOSTNAME]
-            [--source {file,url}] [--timeout TIMEOUT] [--url URL] [-w WARN]
+            [--exclude EXCLUDE] [--filename FILENAME] [-H HOST] [--insecure]
+            [--interface INTERFACE] [--lengthy] [--max-workers MAX_WORKERS]
+            [--network NETWORK] [--ports PORTS] [--severity {crit,warn}]
+            [--sni-hostname SNI_HOSTNAME] [--source {file,scan,url}]
+            [--timeout TIMEOUT] [--url URL] [--verbose] [-w WARN]
 
-Inspects an X.509 certificate and alerts on days remaining until expiry,
+Inspects X.509 certificates and alerts on days remaining until expiry,
 hostname mismatch and chain verification failures. Sources via --source: `url`
-fetches the certificate from a TLS endpoint and verifies the chain against the
-system trust store by default (override with --ca-file); `file` reads one or
-many certificate files via glob expansion (PEM or DER). PEM bundles expand to
-one item per certificate, so a fullchain.pem produces a row for the leaf and a
-row for each intermediate. With --source url the plugin only runs the TLS
-handshake and reads the server certificate; no HTTP request is sent. That
-means it works for any "TLS from start" service, not only HTTPS: IMAPS (port
-993), LDAPS (636), SMTPS (465), AMQPS (5671), MQTTS (8883), custom TLS ports -
-just point --url at the right host and port (`https://mail.example.com:993/`
-inspects the IMAPS cert). STARTTLS protocols that upgrade an existing
-plaintext connection (SMTP submission on 587, IMAP on 143, LDAP on 389) are
-not supported. Hostname mismatch and chain verification failures share one
---severity (warn or crit) and only apply to --source url. Expired certificates
-are unconditionally reported as CRIT. With --source file, the worst state
-across all matched files drives the plugin state.
+fetches the certificate from a single TLS endpoint and verifies the chain
+against the system trust store by default (override with --ca-file); `file`
+reads one or many certificate files via glob expansion (PEM or DER); `scan`
+discovers the hosts of a subnet (the subnet of the default interface, a chosen
+interface, an explicit network in CIDR notation, or an explicit host list),
+connects to each one on the ports given by --ports and inspects every
+certificate it gets. PEM bundles expand to one item per certificate, so a
+fullchain.pem produces a row for the leaf and a row for each intermediate.
+With --source url the plugin only runs the TLS handshake and reads the server
+certificate; no HTTP request is sent. That means it works for any "TLS from
+start" service, not only HTTPS: IMAPS (port 993), LDAPS (636), SMTPS (465),
+AMQPS (5671), MQTTS (8883), custom TLS ports - just point --url at the right
+host and port (`https://mail.example.com:993/` inspects the IMAPS cert).
+STARTTLS protocols that upgrade an existing plaintext connection (SMTP
+submission on 587, IMAP on 143, LDAP on 389) are not supported. Hostname
+verification only applies to --source url; chain/trust verification applies to
+--source url and --source scan and its failures use --severity (warn or crit),
+while a valid self-signed certificate is tolerated. Expired certificates are
+unconditionally reported as CRIT. With --source file and --source scan the
+worst state across all inspected certificates drives the plugin state; targets
+that do not answer within --timeout are skipped. The default source is `scan`,
+so without any parameter the plugin scans the default interface's subnet on a
+set of common data-center TLS ports (HTTPS, mail, LDAPS, AMQPS, MQTTS and
+common management interfaces); see --ports for the full default list.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --ca-file CA_FILE     Path to a CA bundle in PEM format used for chain
-                        verification. Default uses the system trust store.
+  --ca-file CA_FILE     Path to a CA bundle in PEM format, trusted for chain
+                        verification in addition to the system trust store.
+                        Can be specified multiple times to combine several
+                        bundles. Applies to --source=url and --source=scan.
+                        Example: `--ca-file=/etc/pki/ca-
+                        trust/source/anchors/internal.pem`
   --client-cert CLIENT_CERT
                         Path to a client certificate in PEM format for mutual
                         TLS.
   --client-key CLIENT_KEY
                         Path to the client certificate private key in PEM
                         format.
-  -c, --critical CRIT   CRIT threshold for days remaining until the
-                        certificate expires. Supports Nagios ranges. Example:
-                        `5:` (CRIT when below 5 days). Default: 5:
+  -c, --critical CRIT   CRIT threshold for the time remaining until the
+                        certificate expires. Accepts a Nagios range in days
+                        (`5:`), a percentage of the total validity period
+                        (`10%`, CRIT when less than 10% of the lifetime is
+                        left), or a duration with a unit (`3d`, `12h`, `2W`,
+                        `1M`; CRIT when less time than that is left).
+                        Examples: `5:` `10%` `3d`. Default: 5:
+  --exclude EXCLUDE     IP address or hostname to skip during a scan. Matched
+                        against both the discovered target address and, for
+                        --host, the given name. Only applies to --source=scan.
+                        Can be specified multiple times. Example:
+                        `--exclude=192.0.2.1 --exclude=192.0.2.254`
   --filename FILENAME   Path to a certificate file or a glob pattern matching
                         multiple certificate files. Required when
                         --source=file. Files are read as PEM or DER
@@ -88,32 +116,70 @@ options:
                         it. Example: `--filename='/etc/ssl/certs/*.pem'`.
                         Recursive example:
                         `--filename='/etc/letsencrypt/live/**/cert.pem'`
+  -H, --host HOST       Target host to scan. Overrides subnet auto-discovery.
+                        Only applies to --source=scan. Can be specified
+                        multiple times. If not specified, the subnet of the
+                        default interface is scanned. Example:
+                        `--host=mail.example.com --host=192.0.2.10`
   --insecure            Skip chain and hostname verification entirely. The
                         certificate is still fetched and inspected, but the
                         chain verdict is reported as "verification skipped".
+  --interface INTERFACE
+                        Network interface whose subnet is scanned. Only
+                        applies to --source=scan. Ignored when --host or
+                        --network is given. If not specified, the default
+                        interface (the one carrying the default route) is
+                        used.
   --lengthy             Extended reporting.
+  --max-workers MAX_WORKERS
+                        Maximum number of targets to scan in parallel. Only
+                        applies to --source=scan. Default: 10
+  --network NETWORK     Network in CIDR notation to scan for targets via auto-
+                        discovery. Only applies to --source=scan. Takes
+                        precedence over --interface. Can be specified multiple
+                        times. Example: `--network=192.0.2.0/24`
+  --ports PORTS         TCP port to probe on every scanned target. A range is
+                        written `start-end`. Only applies to --source=scan.
+                        Can be specified multiple times. If not specified, a
+                        set of common data-center TLS ports is probed (443,
+                        465, 636, 990, 993, 995, 3269, 5671, 5986, 6443, 8006,
+                        8200, 8443, 8883, 9090, 9443, 10000). Example:
+                        `--ports=443 --ports=993 --ports=8000-8100`
   --severity {crit,warn}
-                        Severity assigned to hostname mismatch and chain
-                        verification failures. Defaults to warn so that
-                        operators running internal CAs are not paged by trust
-                        issues that are expected in their environment. Set to
-                        `crit` to enforce strict trust.
+                        Severity assigned to chain/trust verification failures
+                        (--source=url and --source=scan) and to hostname
+                        mismatches (--source=url only). A valid self-signed
+                        certificate is always tolerated. Defaults to warn so
+                        that operators running internal CAs are not paged by
+                        trust issues that are expected in their environment.
+                        Set to `crit` to enforce strict trust.
   --sni-hostname SNI_HOSTNAME
                         SNI hostname sent during the TLS handshake and used
                         for hostname verification. Useful when --url points at
                         an IP address or a load balancer that needs an
                         explicit SNI. Default uses the hostname from --url.
-  --source {file,url}   Where the certificate is fetched from. `url` fetches
-                        it from a TLS endpoint (requires --url). `file` reads
-                        it from one or many local files (requires --filename,
-                        supports glob patterns). `p12` and `jks` are reserved
-                        for future expansion. Default: url
+  --source {file,scan,url}
+                        Where the certificates are fetched from. `url` fetches
+                        one from a TLS endpoint (requires --url). `file` reads
+                        one or many from local files (requires --filename,
+                        supports glob patterns). `scan` discovers the hosts of
+                        a subnet (via --host, --network, --interface or the
+                        default interface) and probes each one on --ports.
+                        `p12` and `jks` are reserved for future expansion.
+                        Default: scan
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             URL of the TLS endpoint to inspect. Required when
                         --source=url. Example: `https://www.example.com/`
-  -w, --warning WARN    WARN threshold for days remaining until the
-                        certificate expires. Supports Nagios ranges. Example:
-                        `14:` (WARN when below 14 days). Default: 14:
+  --verbose             Makes this plugin verbose during the operation. Useful
+                        for debugging and seeing what is going on under the
+                        hood. Default: False
+  -w, --warning WARN    WARN threshold for the time remaining until the
+                        certificate expires. Accepts a Nagios range in days
+                        (`14:`), a percentage of the total validity period
+                        (`25%`, WARN when less than 25% of the lifetime is
+                        left), or a duration with a unit (`14d`, `12h`, `2W`,
+                        `1M`; WARN when less time than that is left).
+                        Examples: `14:` `25%` `14d`. Default: 14:
 ```
 
 
@@ -127,6 +193,18 @@ Output (default, OK):
 
 ```text
 www.example.com, 61d left, chain verified|'cert_days_left'=61d;14:;5: 'tls_handshake_time'=0.07s;;;0
+```
+
+Alert relative to the certificate's lifetime instead of a fixed number of days. Here WARN when less than 25% of the validity period is left, CRIT below 10% (adapts to short-lived 90-day certs and multi-year certs alike):
+
+```bash
+./cert --source=url --url=https://www.example.com/ --warning=25% --critical=10%
+```
+
+Alert on a fixed duration left, for example WARN below two weeks and CRIT below three days:
+
+```bash
+./cert --source=url --url=https://www.example.com/ --warning=2W --critical=3d
 ```
 
 Self-signed certificate, default `--severity=warn`:
@@ -232,23 +310,63 @@ TLS Version         ! TLSv1.3
 Chain               ! verified
 ```
 
+Scan the default interface's subnet on the default set of common TLS ports. This is also what the plugin does without any parameter:
+
+```bash
+./cert
+./cert --source=scan
+```
+
+Scan an explicit network on a custom set of ports, excluding the gateway:
+
+```bash
+./cert --source=scan --network=192.0.2.0/24 --ports=443 --ports=8443 --ports=9443 --exclude=192.0.2.1
+```
+
+Scan a handful of named hosts (a hostname target sends SNI, so virtual hosts present the right certificate):
+
+```bash
+./cert --source=scan --host=mail.example.com --host=ldap.example.com --ports=993 --ports=636
+```
+
+Scan a subnet and trust your internal CA, so internally-issued certificates count as verified instead of raising a trust warning (self-signed certs are tolerated either way):
+
+```bash
+./cert --source=scan --network=192.0.2.0/24 --ca-file=/etc/pki/ca-trust/source/anchors/internal.pem
+```
+
+Output (scan, one host answered on two ports, one certificate close to expiry):
+
+```text
+1/254 hosts responded, 2 certificates, worst 9d left (b.example.com) [WARNING]
+
+Target            ! Subject CN    ! Status   ! State
+------------------+---------------+----------+----------
+192.0.2.10:443    ! a.example.com ! 59d left ! [OK]
+192.0.2.10:8443   ! b.example.com ! 9d left  ! [WARNING]
+```
+
 
 ## States
 
-* OK if the certificate is within `--warning` and `--critical` thresholds, the chain verifies and the hostname matches.
+* OK if the certificate is within `--warning` and `--critical` thresholds, the chain verifies and the hostname matches. A `--source=scan` run where no host answers is also OK.
 * WARN if days remaining hits `--warning` (default `14:`), or chain/hostname verification fails and `--severity` is `warn` (default).
 * CRIT if days remaining hits `--critical` (default `5:`), the certificate is expired, or chain/hostname verification fails and `--severity` is `crit`.
-* UNKNOWN on connection errors, TLS handshake failures, missing `--url`, missing `cryptography` Python module, or invalid command-line arguments.
+* UNKNOWN on connection errors, TLS handshake failures (`--source=url`), missing `--url`, missing `--filename`, no host left to scan, invalid `--ports`, missing `cryptography` (or `netifaces` for scan auto-discovery) Python module, or invalid command-line arguments.
 * `--always-ok` suppresses all alerts and always returns OK.
 * `--insecure` reports the chain as "verification skipped" and never raises a chain-related state.
+* With `--source=scan`, the chain/trust check runs (without hostname verification): a valid self-signed certificate is tolerated, other trust failures raise the state via `--severity`. Expiry is always evaluated, and the worst state across all reachable certificates wins.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| cert_days_left | Days | Days remaining until the certificate's `notAfter` date. Negative when expired. |
-| tls_handshake_time | Seconds | Wall-clock time for the TCP connect plus TLS handshake. |
+| cert_days_left | Days | Days remaining until the certificate's `notAfter` date (the worst across all inspected certificates). Negative when expired. Absent on a `--source=scan` run where no host answered. |
+| certs_found | Number | `--source=scan` only: number of certificates collected across all reachable hosts and ports. |
+| hosts_responded | Number | `--source=scan` only: number of scanned hosts that returned at least one certificate. |
+| hosts_total | Number | `--source=scan` only: number of hosts scanned (subnet size, after `--exclude`). |
+| tls_handshake_time | Seconds | `--source=url` only: wall-clock time for the TCP connect plus TLS handshake. |
 
 
 ## Troubleshooting
