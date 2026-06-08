@@ -8,6 +8,9 @@
                 "--no-proxy": {
                     "set_if": "$nextcloud_security_scan_no_proxy$"
                 },
+                "--path": {
+                    "value": "$nextcloud_security_scan_path$"
+                },
                 "--timeout": {
                     "value": "$nextcloud_security_scan_timeout$"
                 },
@@ -43,6 +46,11 @@
                 },
                 {
                     "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
                     "is_required": "y",
                     "var_filter": null
                 }
@@ -88,7 +96,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 1,
-            "notes": "Checks the security of a private Nextcloud server using the Nextcloud security scanner. Reports the assigned security rating and alerts on known vulnerabilities in the installed version.",
+            "notes": "Checks the security of a private Nextcloud server using the Nextcloud security scanner. Reports the assigned security rating and alerts on known vulnerabilities in the installed version. When --path points at a local Nextcloud installation, the plugin reads the installed version and forces a fresh scan after an update, so the rating never lags behind.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-security-scan/",
             "object_name": "tpl-service-nextcloud-security-scan",
             "object_type": "template",
@@ -129,6 +137,17 @@
             "uuid": "c05dfdd0-9c3f-4f80-8ed0-210dbf224bbc"
         },
         "3": {
+            "varname": "nextcloud_security_scan_path",
+            "caption": "Nextcloud Security Scan: Path",
+            "description": "Local path to the Nextcloud installation, typically the web server document root. When set, the plugin reads the installed version via `occ` and triggers an immediate re-scan if it differs from the version scan.nextcloud.com last saw, so the rating no longer lags a Nextcloud update. Requires running on the Nextcloud server with sudo for the UID owning config/config.php.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "f3e3d02b-6520-48e4-88fd-450eed3e1053"
+        },
+        "4": {
             "varname": "nextcloud_security_scan_timeout",
             "caption": "Nextcloud Security Scan: Timeout",
             "description": "Network timeout in seconds.",
@@ -139,7 +158,7 @@
             },
             "uuid": "f342b8c9-132d-48a2-a871-32e3397c5369"
         },
-        "4": {
+        "5": {
             "varname": "nextcloud_security_scan_trigger",
             "caption": "Nextcloud Security Scan: Trigger",
             "description": "Trigger a re-scan if the result on scan.nextcloud.com is older than this many days.",
@@ -150,7 +169,7 @@
             },
             "uuid": "5d0095fa-03e9-4963-a429-abceb28b8166"
         },
-        "5": {
+        "6": {
             "varname": "nextcloud_security_scan_url",
             "caption": "Nextcloud Security Scan: URL",
             "description": "Nextcloud server URL. Example: `cloud.example.com`.",

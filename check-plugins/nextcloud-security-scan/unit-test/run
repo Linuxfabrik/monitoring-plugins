@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+# args.TEST[0] is the fixture base path. The plugin appends `-scan` (the
+# scan.nextcloud.com result JSON) and, only for scenarios that exercise the
+# post-update staleness path, `-installed` (the `occ config:list` output that
+# --path would normally produce). This lets the version-mismatch path be tested
+# without a live Nextcloud server. Fixtures are named after the scenario, not
+# the expected state; the expected state lives in the testcase `id`.
+TESTS = [
+    {
+        'id': 'ok-a-plus-fully-hardened',
+        'test': 'stdout/a-plus-fully-hardened,,0',
+        'params': '--url=cloud.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '"A+" rating for cloud.example.com',
+            'on Nextcloud v28.0.4.1.',
+        ],
+        'assert-not-in': [
+            'missing',
+            'NOT on latest patch level',
+            'stale',
+            'vulnerablities',
+        ],
+    },
+    {
+        'id': 'ok-stale-after-update',
+        'test': 'stdout/stale-after-update,,0',
+        'params': '--url=cloud.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '"A+" rating for cloud.example.com',
+            'Scan result is stale; installed version is v28.0.4.1.',
+            'Re-scan triggered, check again in ~5 minutes.',
+        ],
+    },
+    {
+        'id': 'ok-up-to-date-no-stale-note',
+        'test': 'stdout/up-to-date,,0',
+        'params': '--url=cloud.example.com',
+        'assert-retc': STATE_OK,
+        'assert-not-in': [
+            'Re-scan triggered',
+            'stale',
+        ],
+    },
+    {
+        'id': 'warn-d-rating-missing-hardenings',
+        'test': 'stdout/d-rating-missing-hardenings,,0',
+        'params': '--url=cloud.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '"D" rating for cloud.example.com',
+            '(NOT on latest patch level)',
+            'Bruteforce protection setting missing.',
+            'CSPv3 HTTP feature missing.',
+        ],
+    },
+    {
+        'id': 'crit-f-rating-vulnerable',
+        'test': 'stdout/f-rating-vulnerable,,0',
+        'params': '--url=cloud.example.com',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '"F" rating for cloud.example.com',
+            'Known vulnerablities:',
+            'CVE-2024-0001 Example remote code execution',
+            'HTTPS not enforced.',
+            'HTTPS not used.',
+        ],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../nextcloud-security-scan'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -34,6 +34,7 @@ Monitoring Plugins:
 
 * cert: can scan a whole subnet for expiring or untrusted TLS certificates across many common ports, not just a single endpoint or local files (now the default when run without parameters)
 * cert: warning/critical thresholds also accept a percentage of the lifetime or a duration, and a TLS endpoint's full certificate chain is checked, not just the leaf
+* nextcloud-security-scan: reports a fresh rating right after a Nextcloud update instead of a stale one (`--path`) ([#118](https://github.com/Linuxfabrik/monitoring-plugins/issues/118))
 * redfish-*: a `--brief` option lists only the components in WARN/CRIT state and hides the healthy ones, to keep the output short on large systems
 * redfish-*: individual components (drives, sensors, memory modules, processors, interfaces, firmware components, managers) can be included or excluded by regular expression, so known-noisy or irrelevant hardware no longer drives the check state (`--match`, `--ignore`)
 * redfish-*: plugins renamed to match their Redfish API endpoints (`redfish-drives` → `redfish-storage`, `redfish-sel` → `redfish-logservices`, `redfish-sensor` → `redfish-sensors`, `redfish-system` → `redfish-systems`)
