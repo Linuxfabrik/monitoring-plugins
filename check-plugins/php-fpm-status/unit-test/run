@@ -261,28 +261,6 @@ class TestCheck(unittest.TestCase):
         )
         self.assertEqual(php_fpm_status._strip_query_string(''), '')
 
-    def test_abbreviate_path(self):
-        self.assertEqual(
-            php_fpm_status._abbreviate_path('/usr/share/icingaweb2/public/index.php'),
-            '/u/s/i/p/index.php',
-        )
-        self.assertEqual(
-            php_fpm_status._abbreviate_path('/var/www/html/nextcloud/index.php'),
-            '/v/w/h/n/index.php',
-        )
-        # Two-segment paths keep their structure
-        self.assertEqual(
-            php_fpm_status._abbreviate_path('/srv/index.php'),
-            '/s/index.php',
-        )
-        # Top-level file stays as-is
-        self.assertEqual(
-            php_fpm_status._abbreviate_path('/index.php'),
-            '/index.php',
-        )
-        # Sentinel "-" is passed through (no script)
-        self.assertEqual(php_fpm_status._abbreviate_path('-'), '-')
-
     def test_compute_deltas_first_run_is_baseline(self):
         data = {'start time': 1000, 'accepted conn': 100, 'slow requests': 5}
         rate, slow, baseline = php_fpm_status.compute_deltas(data, None, 2000)

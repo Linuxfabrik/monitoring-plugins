@@ -19,6 +19,7 @@ import urllib.parse
 import lib.args
 import lib.base
 import lib.db_sqlite
+import lib.disk
 import lib.human
 import lib.lftest
 import lib.time
@@ -26,7 +27,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026050801'
+__version__ = '2026060801'
 
 DESCRIPTION = """Monitors PHP-FPM pool performance via the pool status page. Reports pool
 saturation (percentage of busy workers), new slow requests since the previous check, the
@@ -348,23 +349,6 @@ def _strip_query_string(uri):
     return uri[: q + 1]
 
 
-def _abbreviate_path(path):
-    """Abbreviate a filesystem path by reducing every directory component
-    except the last one to its first character.
-
-    Example: ``/usr/share/icingaweb2/public/index.php`` →
-    ``/u/s/i/p/index.php``. The basename is always kept in full because
-    the admin needs it to identify the script.
-    """
-    if not path or path in ('-', '/') or '/' not in path:
-        return path
-    parts = path.split('/')
-    head = parts[:-1]
-    tail = parts[-1]
-    abbrev = '/'.join(p[:1] if p else '' for p in head)
-    return f'{abbrev}/{tail}' if abbrev else f'/{tail}'
-
-
 def _format_request_duration(us):
     """Format a PHP-FPM `request duration` (microseconds) at millisecond
     precision.
@@ -466,7 +450,7 @@ def build_process_rows(data, include_idle=False):
                 ),
                 'user': value.get('user', '-'),
                 'script': _shorten_left(
-                    _abbreviate_path(value.get('script', '-')), _SCRIPT_MAX
+                    lib.disk.shorten_path(value.get('script', '-')), _SCRIPT_MAX
                 ),
             }
         )
@@ -597,9 +581,7 @@ def analyze_pool(url, raw, old_snapshot, now, args):
         # manager is unambiguously dynamic or ondemand AND the listen-queue
         # field is present in the status payload; any uncertainty falls
         # back to the conservative active/total threshold below.
-        saturation_state = (
-            STATE_CRIT if int(listen_queue) > 0 else STATE_OK
-        )
+        saturation_state = STATE_CRIT if int(listen_queue) > 0 else STATE_OK
     else:
         # static pool, missing process manager field, or missing listen
         # queue: total == pm.max_children for static and we have no
