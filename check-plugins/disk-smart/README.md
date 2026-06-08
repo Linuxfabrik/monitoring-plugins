@@ -120,7 +120,10 @@ Checked 6 disks. There are critical errors.
 
 ## Troubleshooting
 
-`smartctl failed with exit status "Device open failed, device did not return an IDENTIFY DEVICE structure, or device is in a low-power mode.`  
+### smartctl cannot open the device
+
+`smartctl failed with exit status "Device open failed, device did not return an IDENTIFY DEVICE structure, or device is in a low-power mode.`
+
 Run the check with root privileges, for example using `sudo`.
 
 

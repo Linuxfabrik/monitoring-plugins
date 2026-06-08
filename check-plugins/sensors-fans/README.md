@@ -77,7 +77,8 @@ dell_smm: dell_smm = 4714 RPM, dell_smm = 4428 RPM
 
 ## Troubleshooting
 
-`Python module "psutil" is not installed.`  
+### `Python module "psutil" is not installed.`
+
 Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
 

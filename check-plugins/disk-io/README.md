@@ -207,17 +207,23 @@ Per matched disk, where `<disk>` is the block device name:
 
 ## Troubleshooting
 
-`psutil raised error "not sure how to interpret line '...'"` or `Nothing checked. Running Kernel >= 4.18, this check needs the Python module psutil v5.7.0+`  
-Update the `psutil` library. On RHEL 8+, use at least `python38` and `python38-psutil` if using `dnf`.
+### `Python module "psutil" is not installed.`
 
-`Python module "psutil" is not installed.`  
 Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
-`Waiting for more data.`  
+### Outdated psutil
+
+`psutil raised error "not sure how to interpret line '...'"` or `Nothing checked. Running Kernel >= 4.18, this check needs the Python module psutil v5.7.0+`
+
+Update the `psutil` library. On RHEL 8+, use at least `python38` and `python38-psutil` if using `dnf`.
+
+### `Waiting for more data.`
+
 This is expected on the first run. The check needs at least two measurements to calculate a delta. Wait for the next check interval.
 
-A raw or unmounted device is missing (for example multipath SAN volumes, raw LUNs, Oracle ASM disks)  
-By default the check only monitors block devices that have a mounted filesystem, so raw, unmounted devices never appear. Add `--include-unmounted` to also monitor them, and narrow the result with `--match`, for example `--include-unmounted --match '.*dm-7$'` for a multipath volume. Pseudo devices (loop, ram, zram, floppy, optical) stay excluded. Note that `--match` is anchored at the start of the full device path: use `.*dm-7$`, not `^dm-7$`.
+### A raw or unmounted device is missing
+
+By default the check only monitors block devices that have a mounted filesystem, so raw, unmounted devices never appear (for example multipath SAN volumes, raw LUNs, Oracle ASM disks). Add `--include-unmounted` to also monitor them, and narrow the result with `--match`, for example `--include-unmounted --match '.*dm-7$'` for a multipath volume. Pseudo devices (loop, ram, zram, floppy, optical) stay excluded. Note that `--match` is anchored at the start of the full device path: use `.*dm-7$`, not `^dm-7$`.
 
 
 ## Credits, License

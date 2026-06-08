@@ -183,13 +183,16 @@ Latest info can be found [here](https://valkey.io/commands/info/).
 
 ## Troubleshooting
 
-`vm.overcommit_memory is not set to 1`
-Fix: `sysctl -w vm.overcommit_memory=1`
+### `vm.overcommit_memory is not set to 1`
 
-`kernel transparent_hugepage is not set to "madvise" or "never"`
-Fix: `echo madvise > /sys/kernel/mm/transparent_hugepage/enabled`
+Run `sysctl -w vm.overcommit_memory=1`.
 
-`net.core.somaxconn is lower than net.ipv4.tcp_max_syn_backlog`
+### `kernel transparent_hugepage is not set to "madvise" or "never"`
+
+Run `echo madvise > /sys/kernel/mm/transparent_hugepage/enabled`.
+
+### `net.core.somaxconn is lower than net.ipv4.tcp_max_syn_backlog`
+
 `tcp_max_syn_backlog` represents the maximal number of connections in `SYN_RECV` queue. `somaxconn` represents the maximal size of `ESTABLISHED` queue and should be greater than `tcp_max_syn_backlog`, so do something like this: `sysctl -w net.core.somaxconn=1024; sysctl -w net.ipv4.tcp_max_syn_backlog=512`
 
 

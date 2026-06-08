@@ -282,23 +282,19 @@ Lynis reads its settings from profile files. `default.prf` is the default profil
 
 ## Troubleshooting
 
-### A host shows `SSH authentication failed`
+### `SSH authentication failed`
 
-**Cause:** The host answered on SSH, but authentication failed. Auto-discovery connects to raw IP addresses, which do not match a `Host myhost` alias in `~/.ssh/config`.
+The host answered on SSH, but authentication failed. Auto-discovery connects to raw IP addresses, which do not match a `Host myhost` alias in `~/.ssh/config`. Pass working credentials with `--username` and `--identity`, or add a matching `Host` / `Match` block to the SSH config.
 
-**Solution:** Pass working credentials with `--username` and `--identity`, or add a matching `Host` / `Match` block to the SSH config.
+### `no executable (non-noexec) work directory found`
 
-### A host shows `no executable (non-noexec) work directory found`
-
-**Cause:** Every candidate partition on the target is mounted `noexec`, so the pushed `lynis` script cannot be executed.
-
-**Solution:** Mount one of `/var/tmp`, `/tmp` or the user's home without `noexec`, or provide another writable, executable partition.
+Every candidate partition on the target is mounted `noexec`, so the pushed `lynis` script cannot be executed. Mount one of `/var/tmp`, `/tmp` or the user's home without `noexec`, or provide another writable, executable partition.
 
 ### Accepting a finding you do not want to fix
 
-**Cause:** The plugin never silences individual lynis warnings; every warning raises at least WARNING. Acceptance belongs in lynis itself, where a test is skipped when its ID is listed with `skip-test=` in a profile.
+The plugin never silences individual lynis warnings; every warning raises at least WARNING. Acceptance belongs in lynis itself, where a test is skipped when its ID is listed with `skip-test=` in a profile.
 
-**Solution (single host):** add the test ID to the host's `custom.prf`. For example, to accept this warning:
+For a single host, add the test ID to the host's `custom.prf`. For example, to accept this warning:
 
 ```text
 warning[]=MAIL-8818|Found some information disclosure in SMTP banner (OS or software name)|-|-|
@@ -312,13 +308,13 @@ mkdir --parents /etc/lynis && echo 'skip-test=MAIL-8818' >> /etc/lynis/custom.pr
 
 The next audit no longer reports `MAIL-8818`.
 
-**Solution (fleet-wide):** pass `--lynis-skip-test`, which is injected into the pushed profile on every host and merged with each host's `custom.prf`:
+Fleet-wide, pass `--lynis-skip-test`, which is injected into the pushed profile on every host and merged with each host's `custom.prf`:
 
 ```bash
 ./lynis --network=192.0.2.0/24 --lynis-skip-test=MAIL-8818
 ```
 
-**Best practice:** silence recurring, host- or runtime-dependent noise centrally instead of changing host roles. Findings such as `ACCT-9622` / `ACCT-9626` (process accounting / `sysstat` not installed), `HRDN-7222` (a compiler is present), `FIRE-4513` (iptables has no rules), `LOGG-2190` (deleted files still in use), `BOOT-5264` and `AUTH-9282` / `AUTH-9284` (password aging) are often not worth a configuration change just to satisfy the audit. Rather than installing packages, rebuilding firewall rules or reworking roles only to lift the index, decide once which of these your organisation accepts and skip them fleet-wide with `--lynis-skip-test` (or a shared `custom.prf`). Keep `skip-test` for consciously accepted findings; fix the rest.
+As a best practice, silence recurring, host- or runtime-dependent noise centrally instead of changing host roles. Findings such as `ACCT-9622` / `ACCT-9626` (process accounting / `sysstat` not installed), `HRDN-7222` (a compiler is present), `FIRE-4513` (iptables has no rules), `LOGG-2190` (deleted files still in use), `BOOT-5264` and `AUTH-9282` / `AUTH-9284` (password aging) are often not worth a configuration change just to satisfy the audit. Rather than installing packages, rebuilding firewall rules or reworking roles only to lift the index, decide once which of these your organisation accepts and skip them fleet-wide with `--lynis-skip-test` (or a shared `custom.prf`). Keep `skip-test` for consciously accepted findings; fix the rest.
 
 
 ## Credits, License

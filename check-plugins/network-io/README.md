@@ -121,7 +121,8 @@ Per interface:
 
 ## Troubleshooting
 
-`Waiting for more data.`
+### `Waiting for more data.`
+
 This is expected on the first run or after a reboot. The check needs at least two measurements to calculate a delta. Wait for the next check interval.
 
 

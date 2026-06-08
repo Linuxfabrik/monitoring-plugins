@@ -113,7 +113,8 @@ Each finding lists the rootkit name followed by the year it was first publicly d
 
 ## Troubleshooting
 
-`Python module "yaml" is not installed.`  
+### `Python module "yaml" is not installed.`
+
 Install `pyyaml`: `pip install pyyaml` or `dnf install python3-pyyaml`.
 
 

@@ -181,10 +181,12 @@ Alerting on a numeric value inside a nested JSON key with Nagios range expressio
 
 ## Troubleshooting
 
-`Python module "smbprotocol" is not installed.`
+### `Python module "smbprotocol" is not installed.`
+
 Install the required modules: `pip install PySmbClient smbprotocol`.
 
-`The --filename and -u / --url parameter are mutually exclusive.`
+### `The --filename and -u / --url parameter are mutually exclusive.`
+
 Specify either `--filename` or `--url`, not both.
 
 

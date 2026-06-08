@@ -107,10 +107,12 @@ second_server     ! 38654a93-435d-40ea-bd39-64d01b186830 ! 2023-06-12 09:11:09 (
 
 ## Troubleshooting
 
-`Python module "python-novaclient" is not installed.`  
+### `Python module "python-novaclient" is not installed.`
+
 Install `python-novaclient`: `pip install python-novaclient`.
 
-`An error occurred while connecting to Nova`  
+### `An error occurred while connecting to Nova`
+
 Check the credentials in your rc file and verify that the OpenStack API endpoint is reachable.
 
 

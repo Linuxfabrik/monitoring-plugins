@@ -104,7 +104,8 @@ Output:
 
 ## Troubleshooting
 
-`apt-get update returned with an error.`  
+### `apt-get update returned with an error.`
+
 The plugin runs `sudo apt-get update` and requires a working sudoers configuration. The package installs `/etc/sudoers.d/linuxfabrik-monitoring-plugins` automatically. If this file is missing, restore it:
 
 ```bash

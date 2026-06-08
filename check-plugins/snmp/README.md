@@ -331,19 +331,26 @@ By default, all numeric values are automatically returned as perfdata objects. U
 
 ## Troubleshooting
 
-`IndexError: list index out of range`  
+### `IndexError: list index out of range`
+
 Something is wrong with your CSV file format. Try editing it in LibreOffice Calc, for example, to get the right amount of commas, quotes, etc.
 
-`Too many object identifiers specified. Only 128 allowed in one request.`  
+### `Too many object identifiers specified. Only 128 allowed in one request.`
+
 Probably your SNMP v3 parameters are incomplete or incorrect.
 
-`add_mibdir: strings scanned in from .snmp/mibs/.index are too large. count = ...`  
+### MIB index file too large
+
+`add_mibdir: strings scanned in from .snmp/mibs/.index are too large. count = ...`
+
 There seems to be a malformed, a duplicated MIB file or one with spaces in its filename within one of your MIB directories.
 
-`Error in packet. Reason: (tooBig) Response message would have been too large.`  
+### `Error in packet. Reason: (tooBig) Response message would have been too large.`
+
 A "tooBig" response simply means that the SNMP agent tried to generate a response with all requested OIDs, but the response grew too big for its buffer, resulting in this error message. The check already limits requests to a maximum of 25 OIDs each.
 
-`Within Icinga, if I acknowledge a value change in WARN or CRIT state, does the plugin return OK?`  
+### Does an acknowledged value change return to OK?
+
 If you acknowledge a value change in Icinga, the desired WARN or CRIT state remains, because SNMP is mostly run against hardware and you have to check what triggered the change. If everything is fine, delete `$TEMP/linuxfabrik-monitoring-plugins-snmp.db`. On the next run, the plugin will recreate the inventory.
 
 

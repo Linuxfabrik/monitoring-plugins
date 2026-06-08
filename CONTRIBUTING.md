@@ -1182,7 +1182,15 @@ Each plugin README follows a fixed structure. Use [check-plugins/example/README.
 
 6. **Perfdata / Metrics**: Table with columns Name, Type, Description. Types: `Bytes`, `Number`, `Percentage`, `Seconds`. Where possible, use the metric descriptions from the vendor's official documentation (e.g. Redis INFO, psutil docs, API references).
 
-7. **Troubleshooting** (optional): Known error messages with their solutions. Format: error message in backticks on its own line, followed by two trailing spaces for a Markdown line break, solution on the next line. Separate entries with a blank line.
+7. **Troubleshooting** (optional): Known problems with their solutions. Each problem is its own `### <short heading>` subsection, so the section stays scannable and every problem gets a clickable anchor. Within a subsection:
+
+    * Make the heading the thing an admin recognizes. When the literal error string is short and complete, use it as the `### heading` itself (in backticks) and write nothing else above the prose. When the error is long or contains placeholders (`host:port`, `<pattern>`, `/path/to/file`), use a short descriptive heading instead and put the literal string in backticks on its own line below it. Never do both - do not repeat the same error as the heading and again as a separate line.
+    * Then explain the fix in flowing prose. The cause is always optional: when it is known and specific, lead with it in the first paragraph and let the solution follow; when no cause is known or it would only be generic, write just the problem and the solution and nothing else. Never pad the text with a filler cause, and never invent a cause the plugin does not actually have.
+    * Do not use **Cause:** / **Solution:** labels. The prose carries the structure on its own, which keeps the writing free.
+    * For alert-state problems that have no literal error string (a metric crossing a threshold, a first-run baseline), use a descriptive heading and a short numbered runbook.
+    * Order the subsections from most common to most obscure.
+
+    Reference implementations: [`lynis`](check-plugins/lynis.md) for the error → cause-then-solution shape, and [`php-fpm-status`](check-plugins/php-fpm-status.md) for alert-state runbooks.
 
 8. **Credits, License**: Always present.
 

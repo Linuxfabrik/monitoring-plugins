@@ -201,10 +201,13 @@ Other examples:
 
 ## Troubleshooting
 
-`Python module "psutil" is not installed.`
+### `Python module "psutil" is not installed.`
+
 Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
-How to get process names? Some process names in Python's psutil do not match the ones from `ps aux`. To get a list with all processes, their names and details from a Python point of view, do:
+### How to get process names
+
+Some process names in Python's psutil do not match the ones from `ps aux`. To get a list with all processes, their names and details from a Python point of view, do:
 
 ```python
 (echo "import psutil"; echo "processes = psutil.process_iter()"; echo "for process in processes: print(process)") | python

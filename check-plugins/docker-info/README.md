@@ -90,7 +90,8 @@ WARNING: the devicemapper storage-driver is deprecated, and will be removed in a
 
 ## Troubleshooting
 
-`WARNING: bridge-nf-call-iptables is disabled, WARNING: bridge-nf-call-ip6tables is disabled`  
+### `WARNING: bridge-nf-call-iptables is disabled, WARNING: bridge-nf-call-ip6tables is disabled`
+
 These settings control whether packets traversing a network bridge are processed by iptables rules on the host system. Typically, enabling these options is not desirable as this can cause guest container traffic to be blocked by iptables rules that are intended for the host. This could cause unpredictable behavior for containers that do not expect traffic to be firewalled at the host level.
 
 If you accept and understand the implications of enabling these options or you have no iptables rules set on the host, you can enable these options to remove the warning messages.
@@ -102,7 +103,8 @@ sysctl -p net.bridge.bridge-nf-call-iptables=1
 sysctl -p net.bridge.bridge-nf-call-ip6tables=1
 ```
 
-`Unable to parse docker info output. If you are using Podman, use the podman-info check instead.`  
+### `Unable to parse docker info output. If you are using Podman, use the podman-info check instead.`
+
 The output of `docker info` does not contain the expected "Server Version" field. If you are running Podman instead of Docker, use the `podman-info` check plugin.
 
 

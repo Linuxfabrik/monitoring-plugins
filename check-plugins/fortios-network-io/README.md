@@ -118,7 +118,8 @@ Depends on the interfaces present on your appliance. For each interface (e.g. `p
 
 ## Troubleshooting
 
-`Waiting for more data.`
+### `Waiting for more data.`
+
 The check needs at least two measurements to calculate a delta. Wait for the next check interval.
 
 

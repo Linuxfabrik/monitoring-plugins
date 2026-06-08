@@ -78,7 +78,8 @@ For each mount point (e.g. `/`, `/tmp`, `/boot`):
 
 ## Troubleshooting
 
-`Everything is ok (although nothing checked).`
+### `Everything is ok (although nothing checked).`
+
 No local disk devices with inode-reporting filesystems were found. This can happen on systems using only btrfs or network-mounted filesystems.
 
 

@@ -121,8 +121,9 @@ pyspnego ! 0.7.0   ! 0.8.0   ! wheel
 
 ## Troubleshooting
 
-`TypeError: '>' not supported between instances of 'Version' and 'Version'`
-This indicates that your version of `pip` is below 20.3. Upgrade by running `python3 -m pip install --upgrade pip`.
+### `TypeError: '>' not supported between instances of 'Version' and 'Version'`
+
+Your version of `pip` is below 20.3. Upgrade by running `python3 -m pip install --upgrade pip`.
 
 
 ## Credits, License

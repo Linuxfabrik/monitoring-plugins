@@ -120,10 +120,12 @@ Source of description: <https://access.redhat.com/documentation/en-us/red_hat_en
 
 ## Troubleshooting
 
-`OS Error "2 No such file or directory" calling command "chronyc tracking"`  
+### `OS Error "2 No such file or directory" calling command "chronyc tracking"`
+
 You don't have `chronyd` installed.
 
-`No NTP server used.`  
+### `No NTP server used.`
+
 This message occurs when chronyd is running but does not currently use any NTP server.
 
 

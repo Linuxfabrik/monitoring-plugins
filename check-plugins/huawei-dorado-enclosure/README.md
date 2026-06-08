@@ -113,10 +113,14 @@ Have a look at the [API documentation](https://support.huawei.com/enterprise/en/
 
 ## Troubleshooting
 
+### No valuable response from the API
+
 `Got no valuable response from https://...`
+
 Check the `--url`, `--device-id`, `--username` and `--password` parameters. Verify that the API user has query permissions and that the storage system REST API is reachable.
 
-`This operation fails to be performed because of the unauthorized REST.`
+### `This operation fails to be performed because of the unauthorized REST.`
+
 This is a known transient issue with the Huawei REST API. The check retries automatically up to 9 times. If the error persists, verify the API credentials and session timeout settings.
 
 

@@ -157,10 +157,16 @@ Recommendations:
 
 ## Troubleshooting
 
+### No log file found
+
 `No log file set (set log_error in MySQL/MariaDB config or use the check's --server-log parameter).`
+
 The check tried to get information from an error logfile, but was unable to do so. All possible error logfile locations were tried, but no logfile was found. You have to help by configuring the MySQL/MariaDB system variable `log_error` accordingly, or by providing the `--server-log` parameter to the check.
 
+### `proxies_priv` entry ignored in `--skip-name-resolve` mode
+
 `'proxies_priv' entry '@% root@mariadb-server' ignored in --skip-name-resolve mode.`
+
 ```text
 select * from mysql.proxies_priv;
 delete from `mysql`.`proxies_priv`

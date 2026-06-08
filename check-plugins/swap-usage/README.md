@@ -96,7 +96,8 @@ Top 3 processes that use the most swap space:
 
 ## Troubleshooting
 
-`Python module "psutil" is not installed.`
+### `Python module "psutil" is not installed.`
+
 Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
 

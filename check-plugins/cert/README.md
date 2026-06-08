@@ -371,29 +371,53 @@ Target            ! Subject CN    ! Status   ! State
 
 ## Troubleshooting
 
+### `cryptography` module not installed
+
 `Python module "cryptography" is not installed.`
-Install `cryptography`: `pip install cryptography` or `dnf install python3-cryptography`.
+
+The plugin needs the `cryptography` library to parse certificates. Install it with `dnf install python3-cryptography` (RHEL) or `pip install cryptography`.
+
+### TCP connection fails
 
 `Cannot connect to host:port: ...`
-The TCP connection failed. Check DNS, firewall, the port number in `--url` and `--timeout`.
+
+The TCP connection never established. Check DNS resolution, firewall rules, the port number in `--url`, and `--timeout`.
+
+### TLS handshake fails
 
 `TLS handshake failed for host:port: ...`
-The server rejected the TLS handshake. Possible causes: TLS version mismatch, unsupported cipher, missing SNI (try `--sni-hostname`), missing client certificate (try `--client-cert` / `--client-key`).
+
+The server rejected the TLS handshake, usually a TLS version mismatch, an unsupported cipher, missing SNI, or a required client certificate. Pass `--sni-hostname` when the server needs SNI, `--client-cert` / `--client-key` for client authentication, or verify the server's supported TLS versions and ciphers.
+
+### Certificate chain does not verify
 
 `chain unverified (...)`
-The chain did not verify against the system trust store. The reason in parentheses is the OpenSSL verification message; common values are `self-signed certificate`, `unable to get local issuer certificate`, `certificate has expired` and `Hostname mismatch, certificate is not valid for ...`. Pass `--ca-file` for internal CAs, `--sni-hostname` for hostname mismatches caused by SNI, or `--insecure` to bypass the check entirely.
+
+The chain did not verify against the system trust store. The text in parentheses is the OpenSSL verification message; common values are `self-signed certificate`, `unable to get local issuer certificate`, `certificate has expired`, and `Hostname mismatch, certificate is not valid for ...`. Pass `--ca-file` for internal CAs, `--sni-hostname` for hostname mismatches caused by SNI, or `--insecure` to bypass the check entirely.
+
+### Glob matches no files
 
 `No files match "<pattern>"`
-The glob did not expand to any path. Two likely causes: the path is wrong, or the shell expanded the glob before the plugin saw it. Always quote glob patterns: `--filename='/etc/ssl/**/*.pem'` instead of `--filename=/etc/ssl/**/*.pem`.
+
+The glob did not expand to any path, either because the path is wrong or because the shell expanded the glob before the plugin saw it. Quote the glob pattern: `--filename='/etc/ssl/**/*.pem'` instead of `--filename=/etc/ssl/**/*.pem`.
+
+### Glob matches files but no certificates
 
 `No parseable certificates among N file(s) matching "<pattern>"`
-The glob matched files, but none of them looked like a certificate (no PEM `BEGIN CERTIFICATE` marker and no DER signature). Tighten the pattern (for example `*.crt` instead of `*`) or point `--filename` directly at a known cert file.
+
+The glob matched files, but none of them looked like a certificate (no PEM `BEGIN CERTIFICATE` marker and no DER signature). Tighten the pattern (for example `*.crt` instead of `*`) or point `--filename` directly at a known certificate file.
+
+### Certificate file cannot be parsed
 
 `Cannot parse certificate from /path/to/file: ...`
+
 The file looks like a certificate (PEM marker present or DER prefix detected) but the content is corrupt or in an unsupported encoding. Inspect the file with `openssl x509 -in /path/to/file -noout -text` to see the underlying error.
 
+### Certificate file cannot be read
+
 `Cannot read /path/to/file: ...`
-The plugin could not read the file. Typical cause is permissions: certificate files are sometimes mode `0600` and owned by the service account, in which case the monitoring user has no read access. Either grant read permission or copy the public certificate to a path the monitoring user can read.
+
+The plugin could not read the file, typically a permissions problem: certificate files are sometimes mode `0600` and owned by the service account, so the monitoring user has no read access. Grant read permission, or copy the public certificate to a path the monitoring user can read.
 
 
 ## Credits, License

@@ -106,7 +106,8 @@ Everything is ok. Extent allocation, btree, block mapping, btree, directory oper
 
 ## Troubleshooting
 
-`No mounted XFS filesystem found.`
+### `No mounted XFS filesystem found.`
+
 The system does not have any mounted XFS filesystem. `/proc/fs/xfs/stat` does not exist. Disable this check for this machine.
 
 

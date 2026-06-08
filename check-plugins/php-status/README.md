@@ -179,28 +179,36 @@ opcache.validate_timestamps     ! True
 
 ## Troubleshooting
 
-`OpCache Mem used warning`
-Increase `opcache.memory_consumption`, in megabytes. The minimum permissible value is `8`, which is enforced if a smaller value is set.
+### `OpCache Mem used warning`
 
-`Keys used warning`
-Increase `opcache.max_accelerated_files`. The actual value used will be the first number in the set of prime numbers `{223, 463, 983, 1979, 3907, 7963, 16229, 32531, 65407, 130987, 262237, 524521, 1048793}` that is greater than or equal to `opcache.max_accelerated_files`. The minimum value is `223`. The maximum value is `1048793`.
+The OPcache is close to its configured memory limit. Increase `opcache.memory_consumption` (in megabytes). The minimum permissible value is `8`, which is enforced if a smaller value is set.
 
-`Hit Rate low`
-Cache has to warm up, so wait and see.
+### `Keys used warning`
 
-`Interned Strings used warning`
-The OPcache interned strings buffer assures that repeating strings can be effectively cached. Increase `opcache.interned_strings_buffer`, in megabytes. The actual value is always lower than what is configured in `opcache.interned_strings_buffer`.
+The number of cached scripts is approaching `opcache.max_accelerated_files`. Increase it; the actual value used is the first number in the set of prime numbers `{223, 463, 983, 1979, 3907, 7963, 16229, 32531, 65407, 130987, 262237, 524521, 1048793}` that is greater than or equal to the configured value. The minimum is `223`, the maximum `1048793`.
 
-`OOM restarts warning`
-Increase any of the above values and restart Apache or PHP-FPM.
+### `Hit Rate low`
 
-`display_startup_errors - N/A`
-Could happen while a PHP or Icinga update is running on your machine.
+The cache still has to warm up. Wait and re-check; the hit rate rises as scripts get cached.
 
-`No entry for terminal type "unknown"; using dump terminal settings.`
-Maybe you are using a too old PHP version.
+### `Interned Strings used warning`
 
-`PHP Warning: PHP Startup: Unable to load dynamic library ...`
+The OPcache interned strings buffer, which lets repeating strings be cached effectively, is filling up. Increase `opcache.interned_strings_buffer` (in megabytes). The actual value is always lower than what is configured.
+
+### `OOM restarts warning`
+
+The OPcache ran out of memory and restarted. Increase any of the values above and restart Apache or PHP-FPM.
+
+### `display_startup_errors - N/A`
+
+This can happen while a PHP or Icinga update is running on the machine. Re-check once the update has finished.
+
+### `No entry for terminal type "unknown"; using dump terminal settings.`
+
+Usually means the PHP version is too old. Upgrade PHP to a current version.
+
+### `PHP Warning: PHP Startup: Unable to load dynamic library ...`
+
 Update this plugin.
 
 

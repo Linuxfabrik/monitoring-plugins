@@ -92,10 +92,15 @@ portscan ! 1974   ! [OK]
 
 ## Troubleshooting
 
-`Permission denied to socket: /var/run/fail2ban/fail2ban.sock (you must be root)`  
+### `Permission denied to socket: /var/run/fail2ban/fail2ban.sock (you must be root)`
+
 The fail2ban client works only with user `root` by default. Fail2ban does not have individual permission or a user privilege model. If you allow the fail2ban client accessing the fail2ban server for non-root, you could stop the server, change runtime config, ban, unban, etc.
 
-Preparing fail2ban by changing permissions (tested on Debian 11):
+There are two ways to let a non-root user like `nagios` or `icinga` run the check: change the socket permissions, or grant sudo access.
+
+### Granting access by changing socket permissions
+
+Tested on Debian 11.
 
 The communication takes place via unix-socket `/var/run/fail2ban/fail2ban.sock` which has the following permissions:
 
@@ -132,7 +137,9 @@ ExecStartPost=/usr/bin/chgrp fail2ban /var/run/fail2ban/fail2ban.sock
 ExecStartPost=/usr/bin/chmod g+w /var/run/fail2ban/fail2ban.sock
 ```
 
-Preparing fail2ban by using sudo (tested on RHEL 7+):
+### Granting access using sudo
+
+Tested on RHEL 7+.
 
 As an alternative you might add a sudoers rule, for example in `/etc/sudoers.d/fail2ban`:
 

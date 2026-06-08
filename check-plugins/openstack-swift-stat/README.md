@@ -97,7 +97,8 @@ Container ! Items  ! Quota    ! Used           ! Free
 
 ## Troubleshooting
 
-`Python module "python-swiftclient" is not installed.`  
+### `Python module "python-swiftclient" is not installed.`
+
 Install `python-swiftclient`: `pip install python-swiftclient python-keystoneclient`.
 
 

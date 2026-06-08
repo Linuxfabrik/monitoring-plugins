@@ -212,6 +212,8 @@ Server Built                   ! Jun  2 2021 00:00:00
 
 ## Troubleshooting
 
+### Identifying which requests or clients consume all resources
+
 From <https://httpd.apache.org/docs/2.4/mod/mod_status.html#troubleshoot>:
 
 > The check may be used as a starting place for troubleshooting a situation where your server is consuming all available resources (CPU or memory), and you wish to identify which requests or clients are causing the problem.
