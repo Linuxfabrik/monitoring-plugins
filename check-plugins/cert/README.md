@@ -8,7 +8,7 @@ Inspects an X.509 certificate and alerts on days remaining until expiry, hostnam
 **Important Notes:**
 
 * `--source=url`: Hostname mismatch and chain verification failures share one `--severity` (default WARN), so operators running internal CAs are not paged for trust issues that are expected in their environment. Set `--severity=crit` to enforce strict trust.
-* `--source=file`: chain and hostname checks are not performed. Only days remaining is evaluated. With a glob that matches many files, the worst state across all matches drives the plugin state.
+* `--source=file`: chain and hostname checks are not performed. Only days remaining is evaluated. With a glob that matches many files, the worst state across all matches drives the plugin state. The File column abbreviates each path zsh-style (`/etc/ssl/certs/web1.pem` becomes `/e/s/c/web1.pem`) so wide cert-directory listings stay readable; the full path is shown in `--lengthy` output.
 * Expired certificates are unconditionally reported as CRIT, regardless of the `--warning` and `--critical` thresholds.
 * `--insecure` skips chain and hostname verification entirely (only meaningful for `--source=url`). The certificate is still fetched and inspected, the chain verdict is then reported as "verification skipped".
 * When a PEM file contains multiple certificates (for example `fullchain.pem`, a CA bundle, or a chain file), each certificate becomes its own item in the output and is checked independently. So a `fullchain.pem` with leaf plus one intermediate produces two rows in the table; the worst state across all of them drives the plugin state. To check only the leaf, point `--filename` at a single-cert file like `cert.pem`.
@@ -138,15 +138,30 @@ Self-signed certificate, default `--severity=warn`:
 Output:
 
 ```text
-internal.example.com, 725d left [WARNING], chain unverified (self-signed certificate)|'cert_days_left'=725d;14:;5: 'tls_handshake_time'=0.5s;;;0
+internal.example.com, 725d left, chain unverified (self-signed certificate) [WARNING]|'cert_days_left'=725d;14:;5: 'tls_handshake_time'=0.5s;;;0
 ```
 
-Skip chain verification entirely (still inspect the cert), pin a custom CA bundle, attach mTLS client cert, override SNI:
+Skip chain verification entirely, but still inspect the cert:
 
 ```bash
 ./cert --source=url --url=https://api.example.com/ --insecure
+```
+
+Pin a custom CA bundle for chain verification:
+
+```bash
 ./cert --source=url --url=https://api.example.com/ --ca-file=/etc/pki/ca-trust/source/anchors/internal.pem
+```
+
+Attach an mTLS (mutual TLS; client certificate authentication):
+
+```bash
 ./cert --source=url --url=https://api.example.com/ --client-cert=/etc/icinga2/client.pem --client-key=/etc/icinga2/client.key
+```
+
+Override the SNI hostname, for example when `--url` points at an IP:
+
+```bash
 ./cert --source=url --url=https://10.0.0.5/ --sni-hostname=api.example.com
 ```
 
@@ -164,7 +179,19 @@ Batch-inspect every certificate under a directory via glob, including recursive 
 ./cert --source=file --filename='/etc/letsencrypt/live/**/cert.pem'
 ```
 
-Inspect a non-HTTPS TLS service - point `--url` at the service's TLS port:
+Output (glob matches multiple files, one expired):
+
+```text
+3 certificates in /etc/ssl/certs/*.pem checked, worst expired 42 days ago (www2.example.com) [CRITICAL]
+
+File            ! Subject CN       ! Status              ! State
+----------------+------------------+---------------------+-----------
+/e/s/c/web1.pem ! www1.example.com ! 90d left            ! [OK]
+/e/s/c/web2.pem ! www2.example.com ! expired 42 days ago ! [CRITICAL]
+/e/s/c/web3.pem ! www3.example.com ! 100d left           ! [OK]
+```
+
+Inspect a non-HTTPS TLS service - point `--url` at the service's TLS port. Each line is an independent check; `--source=url` inspects exactly one endpoint per run:
 
 ```bash
 ./cert --source=url --url=https://mail.example.com:993/   # IMAPS
@@ -172,34 +199,35 @@ Inspect a non-HTTPS TLS service - point `--url` at the service's TLS port:
 ./cert --source=url --url=https://smtp.example.com:465/   # SMTPS
 ```
 
-Output (multiple files, one expired):
+Output (single endpoint, same one-line form as the first example):
 
 ```text
-3 certificates checked, worst -42d left [CRITICAL]
-
-File                                  ! Subject CN              ! Days Left ! State
---------------------------------------+-------------------------+-----------+-----------
-/etc/ssl/certs/web1.pem               ! www1.example.com        ! 90        ! [OK]
-/etc/ssl/certs/web2.pem               ! www2.example.com        ! -42       ! [CRITICAL]
-/etc/ssl/certs/web3.pem               ! www3.example.com        ! 100       ! [OK]
+mail.example.com, 61d left, chain verified|'cert_days_left'=61d;14:;5: 'tls_handshake_time'=0.07s;;;0
 ```
 
-With `--lengthy`:
+Full field/value table per certificate with `--lengthy`:
+
+```bash
+./cert --source=url --url=https://www.example.com/ --lengthy
+```
+
+Output:
 
 ```text
 www.example.com, 61d left, chain verified
 
 Field               ! Value
---------------------+--------------------------------------------------
+--------------------+----------------------------------------------------------------------------------------------------
 Subject CN          ! www.example.com
 Issuer CN           ! R13
 Serial              ! 5700EBF15B911BC3D902A0BFE488552C112
 Signature Algorithm ! sha256WithRSAEncryption
-Public Key          ! RSA 4096
+Public Key          ! RSA 4096 (e=65537)
 SANs                ! www.example.com
 Not Before          ! 2026-04-11T22:19:04Z
 Not After           ! 2026-07-10T22:19:03Z
-SHA-256 Fingerprint ! BF:DF:BB:23:93:A9:31:CD:8B:B9:A9:61:18:6D:0A:07
+SHA-256 Fingerprint ! BF:DF:BB:23:93:A9:31:CD:8B:B9:A9:61:18:6D:0A:07:2C:4E:1F:9A:55:D0:7B:38:E2:6C:A4:90:11:F3:5D:88
+OCSP Must-Staple    ! no
 TLS Version         ! TLSv1.3
 Chain               ! verified
 ```
@@ -225,28 +253,28 @@ Chain               ! verified
 
 ## Troubleshooting
 
-`Python module "cryptography" is not installed.`  
+`Python module "cryptography" is not installed.`
 Install `cryptography`: `pip install cryptography` or `dnf install python3-cryptography`.
 
-`Cannot connect to host:port: ...`  
+`Cannot connect to host:port: ...`
 The TCP connection failed. Check DNS, firewall, the port number in `--url` and `--timeout`.
 
-`TLS handshake failed for host:port: ...`  
+`TLS handshake failed for host:port: ...`
 The server rejected the TLS handshake. Possible causes: TLS version mismatch, unsupported cipher, missing SNI (try `--sni-hostname`), missing client certificate (try `--client-cert` / `--client-key`).
 
-`chain unverified (...)`  
+`chain unverified (...)`
 The chain did not verify against the system trust store. The reason in parentheses is the OpenSSL verification message; common values are `self-signed certificate`, `unable to get local issuer certificate`, `certificate has expired` and `Hostname mismatch, certificate is not valid for ...`. Pass `--ca-file` for internal CAs, `--sni-hostname` for hostname mismatches caused by SNI, or `--insecure` to bypass the check entirely.
 
-`No files match "<pattern>"`  
+`No files match "<pattern>"`
 The glob did not expand to any path. Two likely causes: the path is wrong, or the shell expanded the glob before the plugin saw it. Always quote glob patterns: `--filename='/etc/ssl/**/*.pem'` instead of `--filename=/etc/ssl/**/*.pem`.
 
-`No parseable certificates among N file(s) matching "<pattern>"`  
+`No parseable certificates among N file(s) matching "<pattern>"`
 The glob matched files, but none of them looked like a certificate (no PEM `BEGIN CERTIFICATE` marker and no DER signature). Tighten the pattern (for example `*.crt` instead of `*`) or point `--filename` directly at a known cert file.
 
-`Cannot parse certificate from /path/to/file: ...`  
+`Cannot parse certificate from /path/to/file: ...`
 The file looks like a certificate (PEM marker present or DER prefix detected) but the content is corrupt or in an unsupported encoding. Inspect the file with `openssl x509 -in /path/to/file -noout -text` to see the underlying error.
 
-`Cannot read /path/to/file: ...`  
+`Cannot read /path/to/file: ...`
 The plugin could not read the file. Typical cause is permissions: certificate files are sometimes mode `0600` and owned by the service account, in which case the monitoring user has no read access. Either grant read permission or copy the public certificate to a path the monitoring user can read.
 
 

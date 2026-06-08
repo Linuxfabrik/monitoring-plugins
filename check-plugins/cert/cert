@@ -16,23 +16,32 @@ import ssl
 import sys
 import time
 import urllib.parse
+import warnings
 from pathlib import Path
 
 import lib.args
 import lib.base
+import lib.disk
 import lib.time
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 try:
     from cryptography import x509
     from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.utils import CryptographyDeprecationWarning
 except ImportError:
     print('Python module "cryptography" is not installed.')
     sys.exit(STATE_UNKNOWN)
 
+# System trust stores (for example /etc/pki/tls/certs) ship legacy root CAs whose serial
+# number is zero or negative, which RFC 5280 disallows. cryptography only warns about this
+# for now, but the warning would otherwise leak onto the plugin's stderr and confuse the
+# monitoring system. We still parse and check these certificates, so silence the warning.
+warnings.filterwarnings('ignore', category=CryptographyDeprecationWarning)
+
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051201'
+__version__ = '2026060801'
 
 DESCRIPTION = """Inspects an X.509 certificate and alerts on days remaining until expiry,
 hostname mismatch and chain verification failures. Sources via --source: `url` fetches the
@@ -118,8 +127,8 @@ def parse_args():
         'Python conventions: `*` matches one path segment, `**` matches across '
         'directories. Always quote the pattern in shells so that the shell does not '
         'expand the wildcard before the plugin sees it. '
-        'Example: `--filename=\'/etc/ssl/certs/*.pem\'`. '
-        'Recursive example: `--filename=\'/etc/letsencrypt/live/**/cert.pem\'`',
+        "Example: `--filename='/etc/ssl/certs/*.pem'`. "
+        "Recursive example: `--filename='/etc/letsencrypt/live/**/cert.pem'`",
         dest='FILENAME',
     )
 
@@ -311,7 +320,7 @@ def _load_all_certs(data):
                 raise ValueError(
                     'truncated PEM bundle: BEGIN CERTIFICATE without matching END',
                 )
-            block = data[start:end + len(marker_end)]
+            block = data[start : end + len(marker_end)]
             cert = x509.load_pem_x509_certificate(block)
             certs.append(cert.public_bytes(serialization.Encoding.DER))
             cursor = end + len(marker_end)
@@ -350,13 +359,15 @@ def get_certs_from_files(args):
         except (ValueError, TypeError) as e:
             return False, f'Cannot parse certificate from {match}: {e}'
         for cert_der in cert_ders:
-            items.append({
-                'cert_der': cert_der,
-                'chain_verdict': None,
-                'handshake_seconds': None,
-                'label': str(match),
-                'tls_version': None,
-            })
+            items.append(
+                {
+                    'cert_der': cert_der,
+                    'chain_verdict': None,
+                    'handshake_seconds': None,
+                    'label': str(match),
+                    'tls_version': None,
+                }
+            )
     if not items:
         if matched_files == 0:
             return False, f'No files match "{args.FILENAME}"'
@@ -384,13 +395,15 @@ def collect_items(args):
             chain_verdict = 'verified'
         else:
             chain_verdict = f'unverified ({info["chain_reason"]})'
-        return True, [{
-            'cert_der': info['cert_der'],
-            'chain_verdict': chain_verdict,
-            'handshake_seconds': info['handshake_seconds'],
-            'label': info['host'],
-            'tls_version': info['tls_version'],
-        }]
+        return True, [
+            {
+                'cert_der': info['cert_der'],
+                'chain_verdict': chain_verdict,
+                'handshake_seconds': info['handshake_seconds'],
+                'label': info['host'],
+                'tls_version': info['tls_version'],
+            }
+        ]
     if args.SOURCE == 'file':
         if not args.FILENAME:
             return False, '--filename is required when --source=file'
@@ -469,7 +482,9 @@ def parse_cert(cert_der):
         'sans': sans,
         'serial_hex': f'{cert.serial_number:X}',
         'sha256_fingerprint': cert.fingerprint(hashes.SHA256()).hex(':').upper(),
-        'sig_algorithm': cert.signature_algorithm_oid._name,
+        # cryptography exposes no public getter for the signature algorithm's OID name;
+        # `_name` is the documented way to read it.
+        'sig_algorithm': cert.signature_algorithm_oid._name,  # pylint: disable=protected-access
         'subject_cn': _cn(cert.subject),
     }
 
@@ -555,12 +570,16 @@ def main():
         if item['handshake_seconds'] is not None:
             handshake_seconds = item['handshake_seconds']
 
-        summary_table.append({
-            'label': item['label'],
-            'subject_cn': cert['subject_cn'] or '(no CN)',
-            'days_left': _format_days_left(days_left),
-            'state': lib.base.state2str(item_state, empty_ok=False),
-        })
+        summary_table.append(
+            {
+                # shorten the path for the File column so long cert-directory paths stay
+                # readable in the table; the --lengthy block below keeps the full path
+                'label': lib.disk.shorten_path(item['label']),
+                'subject_cn': cert['subject_cn'] or '(no CN)',
+                'days_left': _format_days_left(days_left),
+                'state': lib.base.state2str(item_state, empty_ok=False),
+            }
+        )
         if args.LENGTHY:
             lengthy_blocks.append((item['label'], _build_lengthy_table(item, cert)))
 
@@ -578,7 +597,7 @@ def main():
         worst = days_left_values[worst_idx]
         worst_subject = summary_table[worst_idx]['subject_cn']
         msg = (
-            f'{len(items)} certificates checked'
+            f'{len(items)} certificates in {args.FILENAME} checked'
             f', worst {_format_days_left(worst)} ({worst_subject})'
             f'{lib.base.state2str(state, prefix=" ")}'
         )
