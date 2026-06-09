@@ -21,7 +21,7 @@ Inspects X.509 certificates and alerts on days remaining until expiry, hostname 
 
 * `--source=url`: opens a TCP connection to the host and port from `--url`, runs a TLS handshake and reads the certificate chain the server presents (leaf plus intermediates on Python 3.13+, leaf only on older Python). No HTTP request is sent. The chain is verified against the system trust store; `--ca-file` adds one or more CA bundles to the trusted set and can be given multiple times. `--sni-hostname` overrides the SNI value sent during the handshake; `--client-cert` and `--client-key` attach a client certificate for mutual TLS.
 * `--source=file`: reads each file matching `--filename` (PEM or DER, autodetected) and parses every certificate found. PEM bundles expand to one item per certificate. `--filename` supports glob (`*`, `?`, `[abc]`) and recursive glob (`**`). When the glob matches files that don't look like certificates (private keys, plain text), they are silently skipped so recursive scans of `/etc/ssl/**` are safe. **Always quote the glob pattern**, otherwise the shell expands it before the plugin sees it and only the first match reaches `--filename`.
-* `--source=scan`: enumerates the target hosts (`--host` overrides discovery, otherwise `--network` in CIDR notation, otherwise `--interface`, otherwise the default interface's subnet; `--exclude` drops individual addresses or names), then probes each host in parallel (`--max-workers`) on every port from `--ports` (each value a single port like `443` or a range like `8000-8100`). For each reachable port it runs a TLS handshake, verifies the chain against the system trust store plus any `--ca-file` (without hostname checking), and evaluates the certificate's expiry. `--client-cert` and `--client-key` attach a client certificate for mutual TLS. Auto-discovery via `--interface` or the default interface requires the `netifaces` Python module.
+* `--source=scan`: enumerates the target hosts (`--host` overrides discovery, otherwise `--network` in CIDR notation, otherwise `--interface`, otherwise the default interface's subnet; `--exclude` drops individual addresses or names), then probes each host in parallel (`--max-workers`) on every port from `--ports` (each value a single port like `443` or a range like `8000-8100`). For each reachable port it runs a TLS handshake, verifies the chain against the system trust store plus any `--ca-file` (without hostname checking), and evaluates the certificate's expiry. `--client-cert` and `--client-key` attach a client certificate for mutual TLS. Auto-discovery via `--interface` or the default interface requires the `psutil` Python module.
 
 
 ## Fact Sheet
@@ -34,7 +34,7 @@ Inspects X.509 certificates and alerts on days remaining until expiry, hostname 
 | Can be called without parameters      | Yes (scans the default interface's subnet on common TLS ports) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
-| 3rd Party Python modules              | `cryptography`, `netifaces` (only for `--source=scan` auto-discovery) |
+| 3rd Party Python modules              | `cryptography`, `psutil` (only for `--source=scan` auto-discovery) |
 
 
 ## Help
@@ -352,7 +352,7 @@ Target            ! Subject CN    ! Status   ! State
 * OK if the certificate is within `--warning` and `--critical` thresholds, the chain verifies and the hostname matches. A `--source=scan` run where no host answers is also OK.
 * WARN if days remaining hits `--warning` (default `14:`), or chain/hostname verification fails and `--severity` is `warn` (default).
 * CRIT if days remaining hits `--critical` (default `5:`), the certificate is expired, or chain/hostname verification fails and `--severity` is `crit`.
-* UNKNOWN on connection errors, TLS handshake failures (`--source=url`), missing `--url`, missing `--filename`, no host left to scan, invalid `--ports`, missing `cryptography` (or `netifaces` for scan auto-discovery) Python module, or invalid command-line arguments.
+* UNKNOWN on connection errors, TLS handshake failures (`--source=url`), missing `--url`, missing `--filename`, no host left to scan, invalid `--ports`, missing `cryptography` (or `psutil` for scan auto-discovery) Python module, or invalid command-line arguments.
 * `--always-ok` suppresses all alerts and always returns OK.
 * `--insecure` reports the chain as "verification skipped" and never raises a chain-related state.
 * With `--source=scan`, the chain/trust check runs (without hostname verification): a valid self-signed certificate is tolerated, other trust failures raise the state via `--severity`. Expiry is always evaluated, and the worst state across all reachable certificates wins.

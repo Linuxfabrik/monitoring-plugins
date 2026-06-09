@@ -920,19 +920,7 @@ tox -e py39              # single environment
 
 `tox` invokes `tools/run-unit-tests --no-container` so the multi-Python matrix skips the container suite. Run `tools/run-container-tests` separately before a release for full integration coverage.
 
-`tox` builds each Python environment from sdist, and `linuxfabrik-lib` pulls in `netifaces` which has no binary wheels on PyPI. For every Python version in the `tox` matrix you want to run locally, the matching development headers must be installed on the host, otherwise pip falls back to building `netifaces` from source and aborts with `fatal error: Python.h: No such file or directory`:
-
-```bash
-# Fedora
-sudo dnf install python3.9-devel python3.10-devel python3.11-devel \
-                 python3.12-devel python3.13-devel python3.14-devel
-
-# Debian / Ubuntu
-sudo apt install python3.9-dev python3.10-dev python3.11-dev \
-                 python3.12-dev python3.13-dev python3.14-dev
-```
-
-`skip_missing_interpreters = true` already skips environments for Python versions that are not installed at all.
+The dependencies install from pure wheels (plus a few pure-Python sdists), so no compiler or development headers are needed on the host. `skip_missing_interpreters = true` already skips environments for Python versions that are not installed at all.
 
 
 #### Container-based tests
