@@ -26,6 +26,7 @@ Icinga Director:
 
 Grafana:
 
+* ipmi-sensor: now ships a Grafana dashboard that groups temperature, fan, voltage and power readings into separate panels ([#22](https://github.com/Linuxfabrik/monitoring-plugins/issues/22))
 * the Redfish checks that emit performance data now ship Grafana dashboards (redfish-sensors, redfish-storage, redfish-memory, redfish-processors, redfish-ethernetinterfaces, redfish-managers, redfish-firmwareinventory)
 
 ### Changed
@@ -34,6 +35,7 @@ Monitoring Plugins:
 
 * cert: can scan a whole subnet for expiring or untrusted TLS certificates across many common ports, not just a single endpoint or local files (now the default when run without parameters)
 * cert: warning/critical thresholds also accept a percentage of the lifetime or a duration, and a TLS endpoint's full certificate chain is checked, not just the leaf
+* ipmi-sensor: performance data is grouped by sensor type, so temperatures, fan speeds, voltages and power show up in separate graphs (existing IPMI graph history resets once) ([#22](https://github.com/Linuxfabrik/monitoring-plugins/issues/22))
 * nextcloud-security-scan: reports a fresh rating right after a Nextcloud update instead of a stale one (`--path`) ([#118](https://github.com/Linuxfabrik/monitoring-plugins/issues/118))
 * redfish-*: a `--brief` option lists only the components in WARN/CRIT state and hides the healthy ones, to keep the output short on large systems
 * redfish-*: individual components (drives, sensors, memory modules, processors, interfaces, firmware components, managers) can be included or excluded by regular expression, so known-noisy or irrelevant hardware no longer drives the check state (`--match`, `--ignore`)

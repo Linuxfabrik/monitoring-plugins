@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041001'
+__version__ = '2026060901'
 
 DESCRIPTION = """Checks IPMI sensor readings (temperature, voltage, fan speed, power, etc.) using
 ipmitool. Alerts when any sensor reports a non-ok status. Provides detailed output
@@ -133,6 +133,40 @@ def shorten_uom(uom):
     return uom
 
 
+# Map an IPMI unit of measurement to its canonical sensor type plus the (lower-cased) name words
+# that already imply that type. The canonical type is appended as a suffix so a dashboard can group
+# readings by a stable regex (e.g. /Temperature$/), matching the Redfish sensor wording.
+SENSOR_TYPES = {
+    'Amps': ('Current', ('amp', 'amps', 'current')),
+    'RPM': ('Fan', ('fan',)),
+    'Volts': ('Voltage', ('volt', 'voltage', 'volts')),
+    'Watts': ('Power', ('power', 'pwr')),
+    'degrees C': ('Temperature', ('temp', 'temperature')),
+    'degrees F': ('Temperature', ('temp', 'temperature')),
+}
+
+
+def metric_name(sensor, uom):
+    """Build the perfdata metric name for an IPMI sensor.
+
+    ipmitool sensor names are vendor-specific and do not reliably encode the sensor type, while the
+    unit column is reliable. The canonical type (derived from the unit) is appended as a suffix so a
+    Grafana dashboard can group readings by a stable regex (e.g. /Temperature$/), matching the
+    redfish-sensors wording. Any type word the vendor already put in the name is dropped first, so
+    'CPU Temp' becomes 'CPU_Temperature' instead of 'CPU_Temp_Temperature'. Units without a known
+    mapping keep the bare sensor name.
+    """
+    entry = SENSOR_TYPES.get(uom)
+    if entry is None:
+        return sensor.replace(' ', '_')
+    suffix, redundant = entry
+    parts = [word for word in sensor.split() if word.lower() not in redundant]
+    if not parts:
+        # the name consisted only of the type word; keep it rather than emitting a bare suffix
+        parts = sensor.split()
+    return '_'.join([*parts, suffix])
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -197,7 +231,7 @@ def main():
             else cols[COL_UPPERNR]
         )
         perfdata += lib.base.get_perfdata(
-            cols[COL_SENSOR].replace(' ', '_'),
+            metric_name(cols[COL_SENSOR], cols[COL_UOM]),
             cols[COL_VALUE],
             uom=perfuom,
             warn=perfwarn,
@@ -216,7 +250,6 @@ def main():
 
         # nr - Non Recoverable
         if cols[COL_STATE] == 'nr':
-
             # build the message
             msg += f'\n* {cols[COL_SENSOR]} ({cols[COL_VALUE]} {shorten_uom(cols[COL_UOM])}) is NON-RECOVERABLE. Hardware might be DAMAGED.'
             sensor_state = STATE_CRIT
