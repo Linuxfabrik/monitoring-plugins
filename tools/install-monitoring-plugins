@@ -7,24 +7,23 @@
 #
 # One-liner installer for the Linuxfabrik Monitoring Plugins.
 #
-# Two independent install paths:
+# Three install paths plus an uninstaller:
 #
-#   1. Package repository (default). Detects the OS family from /etc/os-release,
-#      registers the signed Linuxfabrik repository and installs the package with the
-#      system package manager. This is the recommended, upgradeable path.
-#
-#   2. From source (--source). Downloads the latest source straight from GitHub (no git
-#      client, no package manager) and copies the plugins into the Nagios plugin
-#      directory. Because the monitoring-plugins repository pulls in the shared `lib`
-#      from a SEPARATE repository via a symlink, this path fetches TWO tarballs
-#      (monitoring-plugins + lib) and assembles them. Use it for air-gapped-ish hosts,
-#      testing `main`, or verifying a fix before it is released.
+#   --package (default)  Detect the OS family from /etc/os-release, register the signed
+#                        Linuxfabrik repository and install the package with the system
+#                        package manager. Recommended, upgradeable.
+#   --source             Install the latest source straight from GitHub (no git client, no
+#                        package manager) into a self-contained venv. For testing main or a
+#                        fix before release. Because the monitoring-plugins repo pulls in the
+#                        shared `lib` from a SEPARATE repo via a symlink, this fetches TWO
+#                        tarballs (monitoring-plugins + lib) and assembles them.
+#   --zip                Install the signed, frozen source zip from download.linuxfabrik.ch
+#                        (sha256 + GPG verified) into a venv. For air-gapped or version-pinned
+#                        production hosts that cannot or do not want to reach the repository.
+#   --uninstall          Reverse a previous install (package, source or zip).
 #
 # Usage (recommended path):
 #   curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash
-#
-# Usage (from source / main branch):
-#   curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s -- --source
 #
 # Set DRY_RUN=1 to print every privileged action without executing it.
 
@@ -33,11 +32,12 @@ set -eu -o pipefail
 # --- constants ---------------------------------------------------------------------------
 
 REPO_BASE_URL='https://repo.linuxfabrik.ch'
+DOWNLOAD_BASE_URL='https://download.linuxfabrik.ch/monitoring-plugins'
 KEY_URL="${REPO_BASE_URL}/linuxfabrik.key"
 PKG_NAME='linuxfabrik-monitoring-plugins'
 PKG_NAME_SELINUX='linuxfabrik-monitoring-plugins-selinux'
 
-# GitHub source for the --git path. Both repositories are public.
+# GitHub source for the --source path. Both repositories are public.
 GH_BASE='https://github.com/Linuxfabrik'
 GH_MP_REPO='monitoring-plugins'
 GH_LIB_REPO='lib'
@@ -46,17 +46,22 @@ GH_LIB_REPO='lib'
 # keeps sudoers rules and Icinga Director command definitions portable across distros.
 DEFAULT_PLUGIN_DIR='/usr/lib64/nagios/plugins'
 
-# The --source path puts the Python dependencies into a self-contained venv here, the same
-# location the RPM/DEB packages use. The plugins are pointed at this interpreter, so the
-# dependencies work regardless of which account runs the plugins.
-VENV_DIR='/usr/lib64/linuxfabrik-monitoring-plugins/venv'
+# Source/zip installs keep their state here, mirroring the RPM/DEB layout: a self-contained
+# dependency venv plus a manifest of every path placed, so --uninstall can reverse cleanly
+# even though the plugin directory is shared with the distro's own plugins.
+STATE_DIR='/usr/lib64/linuxfabrik-monitoring-plugins'
+VENV_DIR="${STATE_DIR}/venv"
+MANIFEST="${STATE_DIR}/install-manifest.txt"
+SUDOERS_DEST='/etc/sudoers.d/linuxfabrik-monitoring-plugins'
 
 # --- defaults (overridable via flags / env) ----------------------------------------------
 
-MODE='repo'                       # 'repo' or 'source'
+MODE='package'                    # 'package', 'source' or 'zip'
+ACTION='install'                  # 'install' or 'uninstall'
 SOURCE_REF='main'                 # branch or tag for the --source path
+ZIP_VERSION="${LFMP_VERSION:-}"   # <version>-<iteration> for the --zip path
 PLUGIN_DIR="${DEFAULT_PLUGIN_DIR}"
-PYBIN='python3'                   # interpreter for the --source venv; override with --python
+PYBIN='python3'                   # interpreter for the source/zip venv; override with --python
 DRY_RUN="${DRY_RUN:-0}"
 
 # --- helpers -----------------------------------------------------------------------------
@@ -86,6 +91,13 @@ require_root() {
     [ "$(id -u)" -eq 0 ] || die 'this installer must run as root (pipe to "sudo bash")'
 }
 
+# Record an absolute path we created, so --uninstall can reverse it. No-op in a dry run.
+record() {
+    [ "${DRY_RUN}" = '1' ] && return 0
+    mkdir -p "${STATE_DIR}"
+    printf '%s\n' "$1" >> "${MANIFEST}"
+}
+
 usage() {
     cat <<'EOF'
 Install the Linuxfabrik Monitoring Plugins.
@@ -93,25 +105,35 @@ Install the Linuxfabrik Monitoring Plugins.
 Usage:
   install-monitoring-plugins [OPTIONS]
 
-Options:
-  --source             Install from source (latest GitHub tarball) instead of the
-                       package repository. Fetches both monitoring-plugins and lib.
+Modes (mutually exclusive; --package is the default):
+  --package            Register the signed package repository and install the package
+                       with the system package manager. Recommended, upgradeable.
+  --source             Install the latest source from GitHub into a venv (no git client,
+                       no package manager). For testing main or a fix before release.
                        (--git is accepted as an alias.)
+  --zip                Install the signed, frozen source zip from download.linuxfabrik.ch
+                       (sha256 + GPG verified) into a venv. For air-gapped or pinned hosts.
+  --uninstall          Reverse a previous package, source or zip install.
+
+Options:
   --ref=REF            Branch or tag to install with --source (default: main).
+  --version=VER        <version>-<iteration> for --zip (or set LFMP_VERSION), e.g. 2.2.1-1.
   --plugin-dir=DIR     Target plugin directory (default: /usr/lib64/nagios/plugins).
-  --python=BIN         Interpreter for the --source dependency venv (default: python3).
-                       Use this to pick a newer Python where the system python3 is too
-                       old, e.g. --python=python3.12 on RHEL 8.
+  --python=BIN         Interpreter for the source/zip dependency venv (default: python3).
+                       Use a newer Python where the system python3 is too old,
+                       e.g. --python=python3.12 on RHEL 8.
   --help               Show this help and exit.
 
 Environment:
   DRY_RUN=1            Print every privileged action without executing it.
+  LFMP_VERSION=VER     Same as --version for --zip.
 
 Examples:
   install-monitoring-plugins
   install-monitoring-plugins --source
+  install-monitoring-plugins --zip --version=2.2.1-1
   install-monitoring-plugins --source --python=python3.12
-  install-monitoring-plugins --source --ref=v2.2.1
+  install-monitoring-plugins --uninstall
 EOF
 }
 
@@ -166,7 +188,7 @@ download() {
     esac
 }
 
-# --- path 1: package repository ----------------------------------------------------------
+# --- path: package repository ------------------------------------------------------------
 
 setup_repo_apt() {
     # $1 = repo path segment: 'debian' or 'ubuntu'
@@ -205,7 +227,7 @@ setup_repo_sle() {
     run zypper --non-interactive install "${PKG_NAME}"
 }
 
-install_via_repo() {
+install_via_package() {
     require_root
     detect_os
     # The package repository serves enterprise releases only (RHEL 8/9/10, SLE, Debian,
@@ -225,27 +247,11 @@ install_via_repo() {
     log 'keep current with your usual package manager (dnf/zypper/apt upgrade).'
 }
 
-# --- path 2: from source (GitHub tarball, no git client) ---------------------------------
+# --- shared source/zip assembly ----------------------------------------------------------
 
-# GitHub serves any branch/tag as a tarball at /archive/<ref>.tar.gz and extracts to
-# <repo>-<ref>/. We download monitoring-plugins AND lib, because lib lives in a separate
-# repository and is only referenced via a (dangling-in-tarball) symlink.
-fetch_and_extract() {
-    # fetch_and_extract REPO REF WORKDIR -> echoes the extracted top-level directory
-    local repo="$1" ref="$2" workdir="$3"
-    local tarball="${workdir}/${repo}.tar.gz"
-    download "${GH_BASE}/${repo}/archive/${ref}.tar.gz" "${tarball}"
-    # Extract with python (tarfile + built-in zlib) instead of `tar -xz`, so the source path
-    # needs no external tar/gzip (minimal hosts, e.g. openSUSE, often ship neither).
-    run "${PYBIN}" -c 'import sys,tarfile; tarfile.open(sys.argv[1]).extractall(sys.argv[2])' \
-        "${tarball}" "${workdir}"
-    # ref may contain slashes (e.g. release branches); GitHub flattens them with '-'.
-    printf '%s/%s-%s\n' "${workdir}" "${repo}" "${ref//\//-}"
-}
-
-# Flatten <src>/<name>/<name> executables into the plugin directory. The package and the
-# official source zip use the same flat layout: one executable per plugin next to a shared
-# lib/. <src> is a check-plugins or notification-plugins tree.
+# Flatten <src>/<name>/<name> executables into the plugin directory and record each, so the
+# uninstaller can reverse them out of the shared directory. <src> is a check-plugins or
+# notification-plugins tree.
 flatten_plugins() {
     local src="$1" dir name count=0
     if [ "${DRY_RUN}" = '1' ]; then
@@ -256,6 +262,7 @@ flatten_plugins() {
         name="$(basename "${dir}")"
         [ -f "${dir}${name}" ] || continue
         install -m 0755 "${dir}${name}" "${PLUGIN_DIR}/${name}"
+        record "${PLUGIN_DIR}/${name}"
         count=$((count + 1))
     done
     log "flattened ${count} plugins from ${src##*/}"
@@ -271,10 +278,11 @@ install_lib() {
     cp -a "${lib_src}/." "${PLUGIN_DIR}/lib/"
     rm -rf "${PLUGIN_DIR}/lib/tests" "${PLUGIN_DIR}/lib/.github" \
            "${PLUGIN_DIR}/lib/lockfiles" "${PLUGIN_DIR}/lib/.git"
+    record "${PLUGIN_DIR}/lib"
 }
 
-# Install the family-specific sudoers drop-in shipped in the source tree, mirroring what
-# the RPM/DEB package does. The file is validated with visudo before activation so a broken
+# Install the family-specific sudoers drop-in shipped in the source tree, mirroring what the
+# RPM/DEB package does. The file is validated with visudo before activation so a broken
 # drop-in can never lock sudo out. Only Debian and RedHat drop-ins are shipped.
 install_sudoers() {
     local mp_dir="$1" family_file=''
@@ -291,23 +299,22 @@ install_sudoers() {
         return 0
     fi
     local src="${mp_dir}/assets/sudoers/${family_file}"
-    local dest='/etc/sudoers.d/linuxfabrik-monitoring-plugins'
     if [ "${DRY_RUN}" = '1' ]; then
-        printf '    [dry-run] visudo -cf %s && install -m 0440 %s %s\n' "${src}" "${src}" "${dest}" >&2
+        printf '    [dry-run] visudo -cf %s && install -m 0440 %s %s\n' \
+            "${src}" "${src}" "${SUDOERS_DEST}" >&2
         return 0
     fi
     [ -f "${src}" ] || { warn "sudoers source ${src} not found; skipping"; return 0; }
     log "installing sudoers drop-in ${family_file}"
     visudo -cf "${src}" >/dev/null || die "sudoers file ${src} failed validation"
-    install -m 0440 "${src}" "${dest}"
+    install -m 0440 "${src}" "${SUDOERS_DEST}"
+    record "${SUDOERS_DEST}"
 }
 
 # Final ownership and SELinux fix-ups, mirroring the package: the monitoring user owns the
 # plugins, the tree is relabelled, and plugins may call sudo. Each step is applied only when its
 # user or tool is present, so the install still succeeds on a host without a monitoring agent.
 finalize_permissions() {
-    # Hand the plugins to whichever monitoring user exists (icinga on RHEL/SLE, nagios on
-    # Debian/Ubuntu); normally only one is present.
     if command -v chown >/dev/null 2>&1; then
         local u
         for u in icinga nagios; do
@@ -317,7 +324,6 @@ finalize_permissions() {
             fi
         done
     fi
-    # Relabel the freshly installed tree and let the plugins call sudo, where SELinux is active.
     if command -v selinuxenabled >/dev/null 2>&1 && selinuxenabled; then
         if command -v restorecon >/dev/null 2>&1; then
             log "restoring SELinux labels on ${PLUGIN_DIR}"
@@ -345,12 +351,12 @@ ensure_venv_support() {
 # Install the Python dependencies into a self-contained venv and point every flattened plugin
 # at that interpreter. This keeps the dependencies independent of any user account (no ~/.local,
 # no sudo -u) and isolated from the system Python (no PEP 668 externally-managed conflict),
-# matching the venv the RPM/DEB packages ship.
+# matching the venv the RPM/DEB packages ship. <reqs_dir> holds a lockfiles/pyXX/ tree.
 install_dependencies() {
-    local mp_dir="$1" pyver py_tag lockfile
+    local reqs_dir="$1" pyver py_tag lockfile
     pyver="$("${PYBIN}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
     py_tag="py${pyver//./}"
-    lockfile="${mp_dir}/lockfiles/${py_tag}/requirements.txt"
+    lockfile="${reqs_dir}/lockfiles/${py_tag}/requirements.txt"
 
     if [ ! -f "${lockfile}" ] && [ "${DRY_RUN}" != '1' ]; then
         warn "no lockfile for ${py_tag}; skipping dependencies, plugins may fail to import"
@@ -360,6 +366,7 @@ install_dependencies() {
 
     log "creating dependency venv at ${VENV_DIR} (${py_tag})"
     run "${PYBIN}" -m venv "${VENV_DIR}"
+    record "${STATE_DIR}"
     run "${VENV_DIR}/bin/python3" -m pip install --quiet --upgrade pip
     run "${VENV_DIR}/bin/python3" -m pip install --quiet \
         --requirement "${lockfile}" --require-hashes
@@ -379,30 +386,48 @@ install_dependencies() {
     done
 }
 
+# Bail early on a Python older than 3.9 (no matching dependency lockfile) with an actionable
+# hint, instead of leaving a half-working install behind.
+require_python39() {
+    require_cmd "${PYBIN}"
+    local pyminor
+    pyminor="$("${PYBIN}" -c 'import sys; print(sys.version_info[1] if sys.version_info[0] == 3 else 0)' 2>/dev/null || echo 0)"
+    [ "${pyminor}" -ge 9 ] && return 0
+    warn "${PYBIN} is $(${PYBIN} --version 2>&1); the plugins need Python 3.9 or newer."
+    warn 'install a newer Python and re-run pointing at it, for example on RHEL 8:'
+    warn '  dnf install -y python3.12'
+    warn "  curl -fsSL ${REPO_BASE_URL}/install-monitoring-plugins | sudo bash -s -- --source --python=python3.12"
+    die 'aborting: the system Python is too old'
+}
+
+# --- path: from source (GitHub tarball, no git client) -----------------------------------
+
+# GitHub serves any branch/tag as a tarball at /archive/<ref>.tar.gz and extracts to
+# <repo>-<ref>/. We download monitoring-plugins AND lib, because lib lives in a separate
+# repository and is only referenced via a (dangling-in-tarball) symlink.
+fetch_and_extract() {
+    # fetch_and_extract REPO REF WORKDIR -> echoes the extracted top-level directory
+    local repo="$1" ref="$2" workdir="$3"
+    local tarball="${workdir}/${repo}.tar.gz"
+    download "${GH_BASE}/${repo}/archive/${ref}.tar.gz" "${tarball}"
+    # Extract with python (tarfile + built-in zlib) instead of `tar -xz`, so the source path
+    # needs no external tar/gzip (minimal hosts, e.g. openSUSE, often ship neither).
+    run "${PYBIN}" -c 'import sys,tarfile; tarfile.open(sys.argv[1]).extractall(sys.argv[2])' \
+        "${tarball}" "${workdir}"
+    # ref may contain slashes (e.g. release branches); GitHub flattens them with '-'.
+    printf '%s/%s-%s\n' "${workdir}" "${repo}" "${ref//\//-}"
+}
+
 install_from_source() {
     require_root
     detect_os
-    require_cmd "${PYBIN}"
-
-    # The plugins need Python 3.9+ (older interpreters have no matching dependency lockfile).
-    # Bail early with an actionable hint instead of leaving a half-working install behind.
-    local pyminor
-    pyminor="$("${PYBIN}" -c 'import sys; print(sys.version_info[1] if sys.version_info[0] == 3 else 0)' 2>/dev/null || echo 0)"
-    if [ "${pyminor}" -lt 9 ]; then
-        warn "${PYBIN} is $(${PYBIN} --version 2>&1); the plugins need Python 3.9 or newer."
-        warn 'install a newer Python and re-run --source pointing at it, for example on RHEL 8:'
-        warn '  dnf install -y python3.12'
-        warn "  curl -fsSL ${REPO_BASE_URL}/install-monitoring-plugins | sudo bash -s -- --source --python=python3.12"
-        die 'aborting: the system Python is too old for the source install'
-    fi
+    require_python39
 
     local workdir
     workdir="$(mktemp -d)"
     # shellcheck disable=SC2064
     trap "rm -rf '${workdir}'" EXIT
 
-    # lib lives in a separate repository and is only referenced via a symlink (dangling in
-    # the tarball), so we fetch and assemble both monitoring-plugins and lib.
     log "downloading ${GH_MP_REPO}@${SOURCE_REF} and ${GH_LIB_REPO}@${SOURCE_REF} from GitHub"
     local mp_dir lib_dir
     mp_dir="$(fetch_and_extract "${GH_MP_REPO}" "${SOURCE_REF}" "${workdir}")"
@@ -415,11 +440,137 @@ install_from_source() {
     install_lib "${lib_dir}"
 
     install_dependencies "${mp_dir}"
-
     install_sudoers "${mp_dir}"
     finalize_permissions
 
     log "installed ${GH_MP_REPO}@${SOURCE_REF} into ${PLUGIN_DIR}"
+}
+
+# --- path: from the signed source zip ----------------------------------------------------
+
+# Verify a downloaded file against its detached sha256 and GPG signature, both fetched from
+# the same location. Aborts on any mismatch so a tampered or truncated zip is never installed.
+verify_download() {
+    local file="$1" url="$2" workdir="$3"
+    require_cmd sha256sum
+    require_cmd gpg
+    download "${url}.sha256" "${file}.sha256"
+    download "${url}.asc" "${file}.asc"
+    if [ "${DRY_RUN}" = '1' ]; then
+        printf '    [dry-run] sha256sum -c %s.sha256 && gpg --verify %s.asc %s\n' \
+            "${file}" "${file}" "${file}" >&2
+        return 0
+    fi
+    log 'verifying sha256 checksum'
+    ( cd "${workdir}" && sha256sum -c "$(basename "${file}").sha256" >/dev/null ) \
+        || die 'sha256 checksum verification failed'
+    log 'verifying GPG signature'
+    local gnupghome
+    gnupghome="$(mktemp -d)"
+    download "${KEY_URL}" "${workdir}/linuxfabrik.key"
+    GNUPGHOME="${gnupghome}" gpg --quiet --import "${workdir}/linuxfabrik.key" 2>/dev/null \
+        || die 'could not import the Linuxfabrik signing key'
+    GNUPGHOME="${gnupghome}" gpg --quiet --verify "${file}.asc" "${file}" 2>/dev/null \
+        || { rm -rf "${gnupghome}"; die 'GPG signature verification failed'; }
+    rm -rf "${gnupghome}"
+}
+
+install_from_zip() {
+    require_root
+    detect_os
+    require_python39
+    [ -n "${ZIP_VERSION}" ] || die 'specify the release with --version=<version>-<iteration> (or LFMP_VERSION), e.g. --version=2.2.1-1'
+
+    local workdir
+    workdir="$(mktemp -d)"
+    # shellcheck disable=SC2064
+    trap "rm -rf '${workdir}'" EXIT
+
+    local zip_name="lfmp-${ZIP_VERSION}.source.noarch.zip"
+    local zip_url="${DOWNLOAD_BASE_URL}/${zip_name}"
+    local zip="${workdir}/${zip_name}"
+    log "downloading ${zip_name} from ${DOWNLOAD_BASE_URL}"
+    download "${zip_url}" "${zip}"
+    verify_download "${zip}" "${zip_url}" "${workdir}"
+
+    # The source zip is pre-assembled (plugins flat, plus lib/, lockfiles/ and assets/). Extract
+    # it to a staging dir with python's zipfile (no external unzip), then copy each top-level
+    # entry into the plugin directory, recording it for a clean uninstall.
+    local staging="${workdir}/staging"
+    log "extracting and installing into ${PLUGIN_DIR}"
+    if [ "${DRY_RUN}" = '1' ]; then
+        printf '    [dry-run] unzip %s and copy plugins + lib/lockfiles/assets -> %s\n' \
+            "${zip_name}" "${PLUGIN_DIR}" >&2
+    else
+        run mkdir -p "${staging}" "${PLUGIN_DIR}"
+        "${PYBIN}" -c 'import sys,zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' \
+            "${zip}" "${staging}"
+        local entry base
+        for entry in "${staging}"/*; do
+            base="$(basename "${entry}")"
+            if [ -f "${entry}" ]; then
+                install -m 0755 "${entry}" "${PLUGIN_DIR}/${base}"
+                record "${PLUGIN_DIR}/${base}"
+            else
+                cp -a "${entry}" "${PLUGIN_DIR}/${base}"
+                record "${PLUGIN_DIR}/${base}"
+            fi
+        done
+    fi
+
+    install_dependencies "${PLUGIN_DIR}"
+    install_sudoers "${PLUGIN_DIR}"
+    finalize_permissions
+
+    log "installed ${zip_name} into ${PLUGIN_DIR}"
+}
+
+# --- uninstall ---------------------------------------------------------------------------
+
+uninstall() {
+    require_root
+    detect_os
+    local did_something=0
+
+    # Package install: let the package manager reverse it, then drop the repo registration.
+    if command -v rpm >/dev/null 2>&1 && rpm -q "${PKG_NAME}" >/dev/null 2>&1; then
+        did_something=1
+        if command -v dnf >/dev/null 2>&1; then
+            run dnf remove --assumeyes "${PKG_NAME}" "${PKG_NAME_SELINUX}"
+            run rm -f "/etc/yum.repos.d/${PKG_NAME}-release.repo"
+        elif command -v zypper >/dev/null 2>&1; then
+            run zypper --non-interactive remove "${PKG_NAME}"
+            run zypper --non-interactive removerepo "${PKG_NAME}-release" || true
+        fi
+    fi
+    if command -v dpkg >/dev/null 2>&1 && dpkg -s "${PKG_NAME}" >/dev/null 2>&1; then
+        did_something=1
+        run apt-get remove --yes "${PKG_NAME}"
+        run rm -f "/etc/apt/sources.list.d/${PKG_NAME}.list" \
+                  /etc/apt/keyrings/linuxfabrik.asc
+    fi
+
+    # Source/zip install: remove exactly what the manifest recorded, plus the venv state dir.
+    if [ -f "${MANIFEST}" ]; then
+        did_something=1
+        log "removing source/zip install listed in ${MANIFEST}"
+        local p
+        while IFS= read -r p; do
+            [ -n "${p}" ] && run rm -rf "${p}"
+        done < "${MANIFEST}"
+        run rm -rf "${STATE_DIR}"
+    elif [ -d "${STATE_DIR}" ]; then
+        warn "no manifest at ${MANIFEST}; removing ${STATE_DIR} but leaving plugin files in ${PLUGIN_DIR}"
+        run rm -rf "${STATE_DIR}"
+        did_something=1
+    fi
+    run rm -f "${SUDOERS_DEST}"
+
+    if [ "${did_something}" -eq 1 ]; then
+        log 'uninstall complete.'
+    else
+        warn 'nothing to uninstall (no package, manifest or state found).'
+    fi
 }
 
 # --- argument parsing --------------------------------------------------------------------
@@ -427,8 +578,12 @@ install_from_source() {
 parse_args() {
     while [ "$#" -gt 0 ]; do
         case "$1" in
+            --package)       MODE='package' ;;
             --source|--git)  MODE='source' ;;
+            --zip)           MODE='zip' ;;
+            --uninstall)     ACTION='uninstall' ;;
             --ref=*)         SOURCE_REF="${1#*=}" ;;
+            --version=*)     ZIP_VERSION="${1#*=}" ;;
             --plugin-dir=*)  PLUGIN_DIR="${1#*=}" ;;
             --python=*)      PYBIN="${1#*=}" ;;
             --help|-h)       usage; exit 0 ;;
@@ -444,9 +599,14 @@ main() {
     parse_args "$@"
     pick_downloader
     [ "${DRY_RUN}" = '1' ] && log 'DRY_RUN=1: no changes will be made.'
+    if [ "${ACTION}" = 'uninstall' ]; then
+        uninstall
+        return 0
+    fi
     case "${MODE}" in
-        repo)   install_via_repo ;;
-        source) install_from_source ;;
+        package) install_via_package ;;
+        source)  install_from_source ;;
+        zip)     install_from_zip ;;
     esac
 }
 
