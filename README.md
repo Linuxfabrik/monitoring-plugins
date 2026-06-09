@@ -53,9 +53,15 @@ A public demo with the plugins wired into Icinga Web 2 and Grafana:
 [icinga-demo.linuxfabrik.ch](https://icinga-demo.linuxfabrik.ch/).
 
 
-## Quick Start
+## Installation
 
-After [installing](#installation), run a plugin directly to verify it works:
+On Linux, install with the one-liner. It registers our signed package repository and installs the package:
+
+```bash
+curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash
+```
+
+Then run a plugin directly to verify it works:
 
 ```text
 $ /usr/lib64/nagios/plugins/cpu-usage
@@ -65,6 +71,15 @@ ctx_switches: 8.5G, interrupts: 6.8G, soft_interrupts: 1.7G|'cpu-usage'=5.1%;80;
 ```
 
 Every plugin supports `--help` and prints its version with `--version`.
+
+For the verify-then-run variant and other installation paths (Windows, source, air-gapped, per-distribution, sudoers drop-ins, SELinux), see [INSTALL.md](INSTALL.md).
+
+Plugins that share setup steps:
+
+* [Keycloak plugins](PLUGINS-KEYCLOAK.md)
+* [MySQL / MariaDB plugins](PLUGINS-MYSQL.md)
+* [Rocket.Chat plugins](PLUGINS-ROCKETCHAT.md)
+* [WildFly / JBoss EAP plugins](PLUGINS-WILDFLY.md)
 
 
 ## OS Compatibility
@@ -78,18 +93,6 @@ Every plugin supports `--help` and prints its version with `--version`.
 | Windows           | Windows Server 2016 and later, Windows 10 and later   | Shipped as signed MSI, x86_64.     |
 
 Other Linux distributions run the plugins fine as long as Python 3.9 or newer is available; you just lose the pre-built native packages.
-
-
-## Installation
-
-The recommended path is our package repository for Linux (RPM/DEB) and the signed MSI for Windows. See [INSTALL.md](INSTALL.md) for per-distribution commands, the source-tarball and Git paths, sudoers drop-ins and SELinux bits.
-
-Plugins that share setup steps:
-
-* [Keycloak plugins](PLUGINS-KEYCLOAK.md)
-* [MySQL / MariaDB plugins](PLUGINS-MYSQL.md)
-* [Rocket.Chat plugins](PLUGINS-ROCKETCHAT.md)
-* [WildFly / JBoss EAP plugins](PLUGINS-WILDFLY.md)
 
 
 ## Icinga, Grafana, Nagios
