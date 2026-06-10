@@ -59,6 +59,7 @@ Icinga Director:
 
 Monitoring Plugins:
 
+* apache-httpd-version: adapted to the new endoflife.date URL ([PR #1224](https://github.com/Linuxfabrik/monitoring-plugins/pull/1224), thanks to [Salman Mohammadi](https://github.com/salmanxmoha))
 * by-ssh: a failed connection no longer echoes the full command line (which can contain the password passed via `--password`) in the plugin output
 * redfish-sensors: no longer raises false warnings for sensors that report a placeholder min/max range (e.g. CPU/memory utilization on some hardware) ([#1211](https://github.com/Linuxfabrik/monitoring-plugins/issues/1211))
 
