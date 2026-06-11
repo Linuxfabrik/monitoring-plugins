@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Monitoring Plugins:
 
 * disk-io: can now also monitor raw, unmounted block devices such as multipath SAN volumes or Oracle ASM disks (`--include-unmounted`)
+* file-size: can report the mean or median file size as performance data for trending (`--perfdata-mode`) ([#159](https://github.com/Linuxfabrik/monitoring-plugins/issues/159))
 * lynis: new check that audits the security hardening posture of every host in a subnet over SSH and reports each host's hardening index, warnings and suggestions
 * redfish-ethernetinterfaces: new check for a server's Ethernet interface health
 * redfish-firmwareinventory: new check reporting a server's firmware component versions and health

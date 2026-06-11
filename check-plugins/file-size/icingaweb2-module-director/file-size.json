@@ -17,6 +17,9 @@
                 "--password": {
                     "value": "$file_size_password$"
                 },
+                "--perfdata-mode": {
+                    "value": "$file_size_perfdata_mode$"
+                },
                 "--timeout": {
                     "value": "$file_size_timeout$"
                 },
@@ -77,6 +80,11 @@
                     "datafield_id": 9,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -123,6 +131,9 @@
                 "--password": {
                     "value": "$file_size_windows_password$"
                 },
+                "--perfdata-mode": {
+                    "value": "$file_size_windows_perfdata_mode$"
+                },
                 "--timeout": {
                     "value": "$file_size_windows_timeout$"
                 },
@@ -139,11 +150,6 @@
             "command": "C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\file-size.exe",
             "disabled": false,
             "fields": [
-                {
-                    "datafield_id": 10,
-                    "is_required": "n",
-                    "var_filter": null
-                },
                 {
                     "datafield_id": 11,
                     "is_required": "n",
@@ -181,6 +187,16 @@
                 },
                 {
                     "datafield_id": 18,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 19,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 20,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -243,7 +259,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks file sizes against configurable thresholds using human-readable units (e.g. 25M, 1G). Supports glob patterns and SMB shares. Directories are skipped because their reported size is not meaningful across filesystems. Alerts when any file exceeds the configured size thresholds. Requires root or sudo.",
+            "notes": "Checks file sizes against configurable thresholds using human-readable units (e.g. 25M, 1G). Supports glob patterns, SMB shares, and optional aggregation (mean or median) across all matched files. Directories are skipped because their reported size is not meaningful across filesystems. Alerts when any file exceeds the configured size thresholds. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-size/",
             "object_name": "tpl-service-file-size",
             "object_type": "template",
@@ -338,7 +354,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks file sizes against configurable thresholds using human-readable units (e.g. 25M, 1G). Supports glob patterns and SMB shares. Directories are skipped because their reported size is not meaningful across filesystems. Alerts when any file exceeds the configured size thresholds. Requires root or sudo.",
+            "notes": "Checks file sizes against configurable thresholds using human-readable units (e.g. 25M, 1G). Supports glob patterns, SMB shares, and optional aggregation (mean or median) across all matched files. Directories are skipped because their reported size is not meaningful across filesystems. Alerts when any file exceeds the configured size thresholds. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-size/",
             "object_name": "tpl-service-file-size-windows",
             "object_type": "template",
@@ -358,6 +374,58 @@
             "volatile": null,
             "zone": null,
             "uuid": "d0d44d9a-f496-450a-8218-4f65eb70f034"
+        }
+    },
+    "DataList": {
+        "file_size_perfdata_mode_list": {
+            "list_name": "file_size_perfdata_mode_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "mean",
+                    "entry_value": "Mean",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "median",
+                    "entry_value": "Median",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "None",
+                    "entry_value": "None",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "ca7555dc-ce69-4d81-9a10-02502be6a41f"
+        },
+        "file_size_windows_perfdata_mode_list": {
+            "list_name": "file_size_windows_perfdata_mode_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "mean",
+                    "entry_value": "Mean",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "median",
+                    "entry_value": "Median",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "None",
+                    "entry_value": "None",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "7c1eec56-6b9a-439d-bd24-87c64e7ded11"
         }
     },
     "Datafield": {
@@ -415,6 +483,19 @@
             "uuid": "6fda7fa6-b04a-4190-8360-393008362e62"
         },
         "6": {
+            "varname": "file_size_perfdata_mode",
+            "caption": "File Size: Perfdata Mode",
+            "description": "Aggregation mode for performance data across matched files.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "file_size_perfdata_mode_list"
+            },
+            "uuid": "be0b0a64-fd84-405b-98a3-0e0a97c81fcb"
+        },
+        "7": {
             "varname": "file_size_timeout",
             "caption": "File Size: Timeout",
             "description": "Network timeout in seconds.",
@@ -425,7 +506,7 @@
             },
             "uuid": "1ecb3316-e7dc-4b16-ae2a-b49edeeda976"
         },
-        "7": {
+        "8": {
             "varname": "file_size_url",
             "caption": "File Size: URL",
             "description": "URL of the file to check, starting with `smb://`. Mutually exclusive with `--filename`. Example: `--url smb://server/share/path`.",
@@ -436,7 +517,7 @@
             },
             "uuid": "697a0079-4297-41b1-9159-9a89126c0928"
         },
-        "8": {
+        "9": {
             "varname": "file_size_username",
             "caption": "File Size: Username",
             "description": "Username for SMB authentication.",
@@ -447,7 +528,7 @@
             },
             "uuid": "f2fca516-7655-46ab-bbf0-9f03825f7e71"
         },
-        "9": {
+        "10": {
             "varname": "file_size_warning",
             "caption": "File Size: Warning",
             "description": "WARN threshold for the file size in human-readable format (base is always 1024; valid qualifiers are b, k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.",
@@ -458,7 +539,7 @@
             },
             "uuid": "81630705-7df2-4ad3-9498-51fa3e5d7788"
         },
-        "10": {
+        "11": {
             "varname": "file_size_windows_always_ok",
             "caption": "File Size: Always OK?",
             "description": "Always returns OK.",
@@ -467,7 +548,7 @@
             "settings": {},
             "uuid": "38360153-ddcf-44c4-8aa9-e879826e05f9"
         },
-        "11": {
+        "12": {
             "varname": "file_size_windows_critical",
             "caption": "File Size: Critical",
             "description": "CRIT threshold for the file size in human-readable format (base is always 1024; valid qualifiers are b, k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.",
@@ -478,7 +559,7 @@
             },
             "uuid": "dcaf9e8e-599d-4391-84ae-3850e1c8cc5f"
         },
-        "12": {
+        "13": {
             "varname": "file_size_windows_filename",
             "caption": "File Size: Filename",
             "description": "Path of the file to check. Supports glob patterns according to https://docs.python.org/3/library/glob.html. Recursive globs can cause high memory usage. Mutually exclusive with `-u` / `--url`. Example: `--filename /tmp/*.log`.",
@@ -489,7 +570,7 @@
             },
             "uuid": "cf224109-87ce-430a-8a39-9007fce38be0"
         },
-        "13": {
+        "14": {
             "varname": "file_size_windows_pattern",
             "caption": "File Size: Pattern",
             "description": "Search string to match against SMB directory or file names. Use `*` as a wildcard for multiple characters and `?` for a single character. Does not support regex patterns.",
@@ -500,7 +581,7 @@
             },
             "uuid": "edd8c7a9-0096-4d0e-a36d-ed4cf0d65190"
         },
-        "14": {
+        "15": {
             "varname": "file_size_windows_password",
             "caption": "File Size: Password",
             "description": "Password for SMB authentication.",
@@ -511,7 +592,20 @@
             },
             "uuid": "0fc3c701-dffe-49d7-931d-e63fffb393df"
         },
-        "15": {
+        "16": {
+            "varname": "file_size_windows_perfdata_mode",
+            "caption": "File Size: Perfdata Mode",
+            "description": "Aggregation mode for performance data across matched files.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "file_size_windows_perfdata_mode_list"
+            },
+            "uuid": "0b298dfd-f1ee-4118-be27-ed83d85a0126"
+        },
+        "17": {
             "varname": "file_size_windows_timeout",
             "caption": "File Size: Timeout",
             "description": "Network timeout in seconds.",
@@ -522,7 +616,7 @@
             },
             "uuid": "0e65a7fb-4675-4c96-b151-cc7f28379628"
         },
-        "16": {
+        "18": {
             "varname": "file_size_windows_url",
             "caption": "File Size: URL",
             "description": "URL of the file to check, starting with `smb://`. Mutually exclusive with `--filename`. Example: `--url smb://server/share/path`.",
@@ -533,7 +627,7 @@
             },
             "uuid": "2fa58ba2-ce87-4a8c-9850-606c6959e010"
         },
-        "17": {
+        "19": {
             "varname": "file_size_windows_username",
             "caption": "File Size: Username",
             "description": "Username for SMB authentication.",
@@ -544,7 +638,7 @@
             },
             "uuid": "a1ec99b7-7b39-4016-b705-a63715d8d34d"
         },
-        "18": {
+        "20": {
             "varname": "file_size_windows_warning",
             "caption": "File Size: Warning",
             "description": "WARN threshold for the file size in human-readable format (base is always 1024; valid qualifiers are b, k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.",
