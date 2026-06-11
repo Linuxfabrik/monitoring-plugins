@@ -38,6 +38,10 @@ Monitoring Plugins:
 * cert: warning/critical thresholds also accept a percentage of the lifetime or a duration, and a TLS endpoint's full certificate chain is checked, not just the leaf
 * ipmi-sensor: performance data is grouped by sensor type, so temperatures, fan speeds, voltages and power show up in separate graphs (existing IPMI graph history resets once) ([#22](https://github.com/Linuxfabrik/monitoring-plugins/issues/22))
 * nextcloud-security-scan: reports a fresh rating right after a Nextcloud update instead of a stale one (`--path`) ([#118](https://github.com/Linuxfabrik/monitoring-plugins/issues/118))
+* php-status: also reports the active php.ini runtime settings next to PHP's own defaults and the largest OPcache scripts (`--top`), and on a host with several PHP-FPM services points out the ones a single check does not cover
+* php-status: OPcache alerting is more tolerant (warns at 95% by default) and now flags cache thrashing (out-of-memory and hash restarts), while a harmless full interned strings buffer no longer raises a warning
+* php-status: when the monitoring.php helper cannot be read, the output names the actual cause (for example a missing dependency or an HTTP error) instead of a generic "not found", and on success states which web server process answered
+* php-status: the raw OPcache hits and misses counters are no longer emitted as performance data (the hit-rate percentage stays), so graphs of those two values stop updating
 * redfish-*: a `--brief` option lists only the components in WARN/CRIT state and hides the healthy ones, to keep the output short on large systems
 * redfish-*: individual components (drives, sensors, memory modules, processors, interfaces, firmware components, managers) can be included or excluded by regular expression, so known-noisy or irrelevant hardware no longer drives the check state (`--match`, `--ignore`)
 * redfish-*: plugins renamed to match their Redfish API endpoints (`redfish-drives` → `redfish-storage`, `redfish-sel` → `redfish-logservices`, `redfish-sensor` → `redfish-sensors`, `redfish-system` → `redfish-systems`)
