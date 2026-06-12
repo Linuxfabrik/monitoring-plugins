@@ -160,6 +160,24 @@ The criticality behaviour relies on the notification rules in `all-the-rest.json
 Most checks run on the Icinga Agent of the monitored host (the plugin files are deployed there). Checks where that is impossible or wasteful (typical example: external HTTPS endpoints, certificate checks from a central vantage point) use the `-no-agent` variants of `tpl-service-url` / `tpl-service-cert`, which run from the Icinga master instead. Pick the variant that matches where you want the check to actually execute.
 
 
+### Distributed Monitoring (master / satellite / agent)
+
+In a distributed Icinga 2 setup the checks execute on satellites or agents, not on the master. Icinga validates that a checkable's `command_endpoint` is in the same zone as the checkable or in a *direct child zone*; otherwise it rejects the configuration with:
+
+```text
+Error: ... Attribute 'command_endpoint': Command endpoint must be in zone 'X' or in a direct child zone thereof.
+```
+
+The templates are built so this works in any topology:
+
+* **Check commands** must exist on every endpoint that runs a check. Deploy them through a global zone (`director-global`), which the Icinga config sync distributes to all endpoints.
+* **Hosts** carry their own zone and `command_endpoint`. Set them per host in Director (enable the *Icinga Agent* and pick the host's cluster zone); the host then lives in its agent or satellite zone.
+* **Service templates do not pin a zone.** `tpl-service-generic` has no zone, so every service inherits the host's zone and `command_endpoint` and runs on the host's agent, no matter how many tiers sit between master and agent (master → agent, master → satellite → agent, and deeper).
+* Only the agentless `-no-agent` variants (`tpl-service-cert-no-agent`, `tpl-service-url-no-agent`) pin `"zone": "master"`, because they run centrally from the master.
+
+Do **not** force an agent-based service into a fixed zone or a global zone. A service that sets a `command_endpoint` can never satisfy the zone rule from a global zone (global zones have no child zones), and pinning it to `master` breaks every setup where the agent is not a direct child of the master, such as a three-tier master → satellite → agent topology.
+
+
 ### Notes URL
 
 Each Service Template's `notes_url` points at the matching plugin documentation page on <https://linuxfabrik.github.io/monitoring-plugins/>. In the Icinga Web 2 service detail view, click the book icon to jump straight to that page. If you regenerate the basket after editing Service Templates locally, re-run `tools/build-basket --auto` so the links stay in sync.
@@ -341,7 +359,7 @@ Trade-off: without UUIDs, Director falls back to name-based object matching, whi
 
 ### Master zone is not named `master`
 
-Every Service Template in `all-the-rest.json` carries `"zone": "master"`. If your Icinga 2 master zone has a different name, replace the literal before importing:
+The agentless central Service Templates (`tpl-service-cert-no-agent`, `tpl-service-url-no-agent`) carry `"zone": "master"` because they run on the master. The agent-based templates do not pin a zone (they inherit the host's zone, see the "Distributed Monitoring" section under Core Concepts). If your Icinga 2 master zone has a different name, replace the literal before importing so the agentless checks still target your master:
 
 ```bash
 sed --in-place 's/"zone": "master"/"zone": "icinga-master-zone"/g' \

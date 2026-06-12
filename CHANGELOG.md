@@ -72,6 +72,10 @@ Monitoring Plugins:
 * on Windows, multi-line plugin output is no longer shown with a blank line between every line in IcingaWeb
 * redfish-sensors: no longer raises false warnings for sensors that report a placeholder min/max range (e.g. CPU/memory utilization on some hardware) ([#1211](https://github.com/Linuxfabrik/monitoring-plugins/issues/1211))
 
+Icinga Director:
+
+* the shipped Service and Host templates no longer pin checks to the master zone, so checks deploy correctly in distributed setups (master → satellite → agent); the agentless `-no-agent` checks still run from the master ([#721](https://github.com/Linuxfabrik/monitoring-plugins/issues/721))
+
 ### Security
 
 Monitoring Plugins:
