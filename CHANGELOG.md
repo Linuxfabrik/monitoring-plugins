@@ -57,6 +57,7 @@ Monitoring Plugins:
 * redfish-sensors: falls back to the legacy Thermal and Power endpoints when the modern Sensors collection is absent
 * redfish-storage: now also checks volumes (logical drives), not just physical drives and controllers
 * redfish-storage: now reports performance data over time for drive wear, drive power-on hours, drive temperature and drive, volume and controller counts, ready for graphing
+* swap-usage: a host without any swap is OK by default instead of UNKNOWN; set `--severity-no-swap` to alert on missing swap ([#1142](https://github.com/Linuxfabrik/monitoring-plugins/issues/1142))
 
 Icinga Director:
 
