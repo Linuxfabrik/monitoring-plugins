@@ -412,8 +412,15 @@ fetch_and_extract() {
     download "${GH_BASE}/${repo}/archive/${ref}.tar.gz" "${tarball}"
     # Extract with python (tarfile + built-in zlib) instead of `tar -xz`, so the source path
     # needs no external tar/gzip (minimal hosts, e.g. openSUSE, often ship neither).
-    run "${PYBIN}" -c 'import sys,tarfile; tarfile.open(sys.argv[1]).extractall(sys.argv[2])' \
-        "${tarball}" "${workdir}"
+    # Request the "data" extraction filter where available (CVE-2007-4559 mitigation, for
+    # example backported into the RHEL 9 python3.9): same safe extraction, but without the
+    # RuntimeWarning that an unfiltered extractall() triggers there. Pythons without the
+    # filter machinery reject the keyword, so fall back to a plain extractall().
+    run "${PYBIN}" -c '
+import sys, tarfile
+kwargs = {"filter": "data"} if hasattr(tarfile, "data_filter") else {}
+tarfile.open(sys.argv[1]).extractall(sys.argv[2], **kwargs)
+' "${tarball}" "${workdir}"
     # ref may contain slashes (e.g. release branches); GitHub flattens them with '-'.
     printf '%s/%s-%s\n' "${workdir}" "${repo}" "${ref//\//-}"
 }

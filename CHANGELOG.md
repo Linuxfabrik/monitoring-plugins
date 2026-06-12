@@ -65,6 +65,10 @@ Icinga Director:
 
 ### Fixed
 
+Build, CI/CD:
+
+* installer: a source install (`install-monitoring-plugins --source`) no longer prints Python `RuntimeWarning` messages about tarfile extraction on RHEL 9 family hosts
+
 Monitoring Plugins:
 
 * apache-httpd-version: adapted to the new endoflife.date URL ([PR #1224](https://github.com/Linuxfabrik/monitoring-plugins/pull/1224), thanks to [Salman Mohammadi](https://github.com/salmanxmoha))
