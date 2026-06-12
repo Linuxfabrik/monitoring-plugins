@@ -25,7 +25,7 @@ from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 __author__ = """
 Linuxfabrik GmbH, Zurich/Switzerland;
 """
-__version__ = '2026061201'
+__version__ = '2026061202'
 
 DESCRIPTION = """Monitors a Redis server via the INFO command. Reports memory usage, fragmentation ratio,
 keyspace hit rate, connected clients, replication status, and persistence state. Alerts
@@ -231,9 +231,14 @@ def main():
     # fetch data using `x-cli info default`
     if args.TEST is None:
         cmd = [*base_cmd, 'info', 'default']
-        stdout, stderr, _ = lib.base.coe(lib.shell.shell_exec(cmd))
-        if stderr:
-            lib.base.cu(stderr)
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        # do not echo the full cmd, it may contain the password
+        if retc != 0:
+            lib.base.oao(
+                f'`redis-cli info default` failed (exit {retc}): {stderr.strip()}',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
     else:
         # do not call the command, put in test data
         stdout, stderr, _ = lib.lftest.test(args.TEST)
@@ -264,9 +269,14 @@ def main():
     result['memory_doctor'] = 'Hi Sam'
     if args.TEST is None:
         cmd = [*base_cmd, 'memory', 'doctor']
-        stdout, stderr, _ = lib.base.coe(lib.shell.shell_exec(cmd))
-        if stderr:
-            lib.base.cu(stderr)
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        # do not echo the full cmd, it may contain the password
+        if retc != 0:
+            lib.base.oao(
+                f'`redis-cli memory doctor` failed (exit {retc}): {stderr.strip()}',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
         if not stdout.startswith('ERR '):
             result['memory_doctor'] = stdout.strip()
 

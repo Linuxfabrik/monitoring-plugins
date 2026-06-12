@@ -76,6 +76,7 @@ Monitoring Plugins:
 * on Windows, plugins that run system commands (for example `users`, `scheduled-task`, `ntp-w32tm`) show non-ASCII output such as umlauts in usernames correctly instead of garbled, and no longer risk a decoding error ([#681](https://github.com/Linuxfabrik/monitoring-plugins/issues/681))
 * on Windows, multi-line plugin output is no longer shown with a blank line between every line in IcingaWeb
 * redfish-sensors: no longer raises false warnings for sensors that report a placeholder min/max range (e.g. CPU/memory utilization on some hardware) ([#1211](https://github.com/Linuxfabrik/monitoring-plugins/issues/1211))
+* several plugins that run system commands no longer report UNKNOWN when the command only writes a harmless warning to stderr (for example rpm's "Could not load key" or ssh's known-hosts notice); a genuine command failure is now reported as WARN. Affects deb-lastactivity, disk-smart, getent, journald-query, journald-usage, kubectl-get-pods, ntp-chronyd, ntp-ntpd, ntp-systemd-timesyncd, redis-status, restic-snapshots, restic-stats, rpm-lastactivity, safenet-hsm-state and valkey-status
 
 Icinga Director:
 

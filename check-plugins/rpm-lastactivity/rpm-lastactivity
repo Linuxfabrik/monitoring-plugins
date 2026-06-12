@@ -18,10 +18,10 @@ import lib.human
 import lib.shell
 import lib.time
 import lib.txt
-from lib.globals import STATE_UNKNOWN
+from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061201'
+__version__ = '2026061202'
 
 DESCRIPTION = """Checks how long ago the last RPM package manager activity occurred (install, update, or remove via yum/dnf). Alerts if no package management activity has happened within the configured thresholds. Useful for detecting servers that have not been patched in a long time."""
 
@@ -74,13 +74,13 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    stdout, stderr, _ = lib.base.coe(
-        lib.shell.shell_exec(
-            ['rpm', '--query', '--all', '--queryformat', '%{INSTALLTIME} %{NAME}\n']
+    cmd = ['rpm', '--query', '--all', '--queryformat', '%{INSTALLTIME} %{NAME}\n']
+    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+    if retc != 0:
+        lib.base.oao(
+            f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
+            STATE_WARN,
         )
-    )
-    if stderr:
-        lib.base.cu(stderr)
 
     # stdout: '1662130946 unbound-libs\n1662130898 NetworkManager-libnm\n'
     try:

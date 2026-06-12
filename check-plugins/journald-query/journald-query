@@ -27,10 +27,10 @@ import lib.lftest
 import lib.shell
 import lib.time
 import lib.txt
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061201'
+__version__ = '2026061202'
 
 DESCRIPTION = """Queries the systemd journal using journalctl and alerts when matching entries are found.
 Supports all journalctl filtering options such as --unit, --priority, --facility,
@@ -392,9 +392,13 @@ def main():
         if args.USER_UNIT is not None:
             for unit in args.USER_UNIT:
                 cmd.append(f'--user-unit={unit}')
-        stdout, stderr, _retc = lib.base.coe(lib.shell.shell_exec(cmd))
-        if stderr:
-            lib.base.cu(stderr)
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        if retc != 0:
+            lib.base.oao(
+                f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
     else:
         # do not call the command, put in test data
         cmd = ['no-real-command-used']
