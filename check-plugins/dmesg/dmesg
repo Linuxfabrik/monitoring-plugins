@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026050703'
+__version__ = '2026061201'
 
 DESCRIPTION = """Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, alert,
 crit, and err. Known false positives and hardware-specific noise are filtered out by default; the
@@ -168,7 +168,7 @@ def main():
     # fetch data
     if args.TEST is None:
         stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('dmesg --level=emerg,alert,crit,err --ctime'),
+            lib.shell.shell_exec(['dmesg', '--level=emerg,alert,crit,err', '--ctime']),
         )
         if stderr or retc != 0:
             lib.base.cu(stderr)

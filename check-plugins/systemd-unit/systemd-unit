@@ -20,7 +20,7 @@ import lib.version
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026033101'
+__version__ = '2026061201'
 
 DESCRIPTION = """Checks the state of a specific systemd unit (service, socket, device, mount, timer,
 scope, etc.) via systemctl. Verifies the active state, sub-state, load state, and
@@ -232,7 +232,7 @@ def main():
     # init some vars
     options = []
     if args.MACHINE:
-        stdout, _, _ = lib.base.coe(lib.shell.shell_exec('systemctl --version'))
+        stdout, _, _ = lib.base.coe(lib.shell.shell_exec(['systemctl', '--version']))
 
         # Systemd reports the version number in the second word/field:
         #   systemd 256 (256.12-1.fc41)
@@ -245,22 +245,28 @@ def main():
                 ),
                 STATE_UNKNOWN,
             )
-        options.append(f'--machine {args.MACHINE}')
+        options += ['--machine', args.MACHINE]
 
     if args.USER:
         options.append('--user')
-    options = ' '.join(options)
 
-    command = (
-        f'systemctl {options} show '
-        f'-p LoadState,ActiveState,SubState,UnitFileState '
-        f'{args.UNIT}'
-    )
+    # the unit reaches systemctl as a positional argument; reject a value that
+    # systemctl could read as an option (leading "-")
+    lib.base.coe(lib.shell.safe_cli_value(args.UNIT, '--unit'))
+
+    command = [
+        'systemctl',
+        *options,
+        'show',
+        '-p',
+        'LoadState,ActiveState,SubState,UnitFileState',
+        args.UNIT,
+    ]
 
     stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(command))
     if stderr or retc != 0:
         lib.base.oao(
-            f'Bash command `{command}` failed.\nStdout: {stdout}\nStderr: {stderr}',
+            f'Bash command `{" ".join(command)}` failed.\nStdout: {stdout}\nStderr: {stderr}',
             STATE_UNKNOWN,
         )
     result = stdout.split('\n')

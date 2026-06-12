@@ -28,10 +28,10 @@ class TestCheck(unittest.TestCase):
         touch -d '3 seconds ago' {tmpdir}/file
         """
         _stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('bash', stdin=bash.encode())
+            lib.shell.shell_exec(['bash'], stdin=bash.encode())
         )
 
-        cmd = f"../file-age --filename '{tmpdir}/file' --warning 5 --critical 10"
+        cmd = ['../file-age', '--filename', f'{tmpdir}/file', '--warning', '5', '--critical', '10']
         _stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
@@ -39,7 +39,7 @@ class TestCheck(unittest.TestCase):
     def test_case1_empty(self):
         tmpdir = tempfile.mkdtemp()
 
-        cmd = f"../file-age --filename '{tmpdir}/file' --warning 5 --critical 10"
+        cmd = ['../file-age', '--filename', f'{tmpdir}/file', '--warning', '5', '--critical', '10']
         _stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
@@ -50,10 +50,10 @@ class TestCheck(unittest.TestCase):
         touch -d '7 seconds ago' {tmpdir}/file
         """
         _stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('bash', stdin=bash.encode())
+            lib.shell.shell_exec(['bash'], stdin=bash.encode())
         )
 
-        cmd = f"../file-age --filename '{tmpdir}/file' --warning 5 --critical 10"
+        cmd = ['../file-age', '--filename', f'{tmpdir}/file', '--warning', '5', '--critical', '10']
         _stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
@@ -64,10 +64,10 @@ class TestCheck(unittest.TestCase):
         touch -d '12 seconds ago' {tmpdir}/file
         """
         _stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('bash', stdin=bash.encode())
+            lib.shell.shell_exec(['bash'], stdin=bash.encode())
         )
 
-        cmd = f"../file-age --filename '{tmpdir}/file' --warning 5 --critical 10"
+        cmd = ['../file-age', '--filename', f'{tmpdir}/file', '--warning', '5', '--critical', '10']
         _stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
@@ -89,10 +89,10 @@ class TestCheck(unittest.TestCase):
         touch -d '25 seconds ago' {tmpdir}/file5
         """
         _stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('bash', stdin=bash.encode())
+            lib.shell.shell_exec(['bash'], stdin=bash.encode())
         )
 
-        cmd = f"../file-age --filename '{tmpdir}/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:'"
+        cmd = ['../file-age', '--filename', f'{tmpdir}/*', '--warning', '15:', '--warning-count', '3:', '--critical', '20:', '--critical-count', '2:']
         _stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
@@ -100,7 +100,7 @@ class TestCheck(unittest.TestCase):
     def test_scenario1_empty(self):
         tmpdir = tempfile.mkdtemp()
 
-        cmd = f"../file-age --filename '{tmpdir}/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:'"
+        cmd = ['../file-age', '--filename', f'{tmpdir}/*', '--warning', '15:', '--warning-count', '3:', '--critical', '20:', '--critical-count', '2:']
         _stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         # self.assertRegexpMatches(stdout, r'1 mail to deliver\.')
         self.assertEqual(stderr, '')
@@ -117,10 +117,10 @@ class TestCheck(unittest.TestCase):
         touch -d '30 seconds ago' {tmpdir}/file5
         """
         _stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('bash', stdin=bash.encode())
+            lib.shell.shell_exec(['bash'], stdin=bash.encode())
         )
 
-        cmd = f"../file-age --filename '{tmpdir}/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:'"
+        cmd = ['../file-age', '--filename', f'{tmpdir}/*', '--warning', '15:', '--warning-count', '3:', '--critical', '20:', '--critical-count', '2:']
         _stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
@@ -136,10 +136,10 @@ class TestCheck(unittest.TestCase):
         touch -d '40 seconds ago' {tmpdir}/file5
         """
         _stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('bash', stdin=bash.encode())
+            lib.shell.shell_exec(['bash'], stdin=bash.encode())
         )
 
-        cmd = f"../file-age --filename '{tmpdir}/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:'"
+        cmd = ['../file-age', '--filename', f'{tmpdir}/*', '--warning', '15:', '--warning-count', '3:', '--critical', '20:', '--critical-count', '2:']
         _stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
@@ -163,10 +163,10 @@ class TestCheck(unittest.TestCase):
         touch -d '40 seconds ago' {tmpdir}/file11
         """
         _stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('bash', stdin=bash.encode())
+            lib.shell.shell_exec(['bash'], stdin=bash.encode())
         )
 
-        cmd = f"../file-age --filename '{tmpdir}/*' --warning '10:' --warning-count 2 --critical '15:' --critical-count 3"
+        cmd = ['../file-age', '--filename', f'{tmpdir}/*', '--warning', '10:', '--warning-count', '2', '--critical', '15:', '--critical-count', '3']
         _stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
@@ -174,8 +174,8 @@ class TestCheck(unittest.TestCase):
     def test_scenario2_empty(self):
         tmpdir = tempfile.mkdtemp()
 
-        cmd = f"../file-age --filename '{tmpdir}/*' --warning '10:' --warning-count 2 --critical '15:' --critical-count 3"
-        cmd = f"../file-age --filename '{tmpdir}/*' --warning 15 --warning-count 2 --critical 20 --critical-count 2"
+        cmd = ['../file-age', '--filename', f'{tmpdir}/*', '--warning', '10:', '--warning-count', '2', '--critical', '15:', '--critical-count', '3']
+        cmd = ['../file-age', '--filename', f'{tmpdir}/*', '--warning', '15', '--warning-count', '2', '--critical', '20', '--critical-count', '2']
         _stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         # self.assertRegexpMatches(stdout, r'1 mail to deliver\.')
         self.assertEqual(stderr, '')
@@ -195,10 +195,10 @@ class TestCheck(unittest.TestCase):
         touch -d '40 seconds ago' {tmpdir}/file12
         """
         _stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('bash', stdin=bash.encode())
+            lib.shell.shell_exec(['bash'], stdin=bash.encode())
         )
 
-        cmd = f"../file-age --filename '{tmpdir}/*' --warning '10:' --warning-count 2 --critical '15:' --critical-count 3"
+        cmd = ['../file-age', '--filename', f'{tmpdir}/*', '--warning', '10:', '--warning-count', '2', '--critical', '15:', '--critical-count', '3']
         _stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         # self.assertRegexpMatches(stdout, r'1 mail to deliver\.')
         self.assertEqual(stderr, '')
@@ -218,10 +218,10 @@ class TestCheck(unittest.TestCase):
         touch -d '30 seconds ago' {tmpdir}/file8
         """
         _stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('bash', stdin=bash.encode())
+            lib.shell.shell_exec(['bash'], stdin=bash.encode())
         )
 
-        cmd = f"../file-age --filename '{tmpdir}/*' --warning '10:' --warning-count 2 --critical '15:' --critical-count 3"
+        cmd = ['../file-age', '--filename', f'{tmpdir}/*', '--warning', '10:', '--warning-count', '2', '--critical', '15:', '--critical-count', '3']
         _stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
@@ -233,7 +233,7 @@ class TestCheck(unittest.TestCase):
         touch -d '25 seconds ago' {tmpdir}/file2
         touch -d '100 seconds ago' {tmpdir}/file3
         """
-        lib.base.coe(lib.shell.shell_exec('bash', stdin=bash.encode()))
+        lib.base.coe(lib.shell.shell_exec(['bash'], stdin=bash.encode()))
 
         # Perfdata ages are checked against a loose range because real
         # elapsed time between the `touch` command and the plugin call
@@ -244,7 +244,7 @@ class TestCheck(unittest.TestCase):
         # is busy.
 
         # check mean uneven (expected ~45.0s = (10+25+100)/3)
-        cmd = f"../file-age --filename '{tmpdir}/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:' --perfdata-mode=mean"
+        cmd = ['../file-age', '--filename', f'{tmpdir}/*', '--warning', '15:', '--warning-count', '3:', '--critical', '20:', '--critical-count', '2:', '--perfdata-mode=mean']
         stdout, _stderr, _retc = lib.base.coe(lib.shell.shell_exec(cmd))
         age = float(
             stdout.rpartition('|')[2].rpartition('=')[2].split('s')[0]
@@ -252,7 +252,7 @@ class TestCheck(unittest.TestCase):
         self.assertTrue(43.0 < age < 50.0)
 
         # check median uneven (expected ~25.0s)
-        cmd = f"../file-age --filename '{tmpdir}/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:' --perfdata-mode=median"
+        cmd = ['../file-age', '--filename', f'{tmpdir}/*', '--warning', '15:', '--warning-count', '3:', '--critical', '20:', '--critical-count', '2:', '--perfdata-mode=median']
         stdout, _stderr, _retc = lib.base.coe(lib.shell.shell_exec(cmd))
         age = float(
             stdout.rpartition('|')[2].rpartition('=')[2].split('s')[0]
@@ -263,10 +263,10 @@ class TestCheck(unittest.TestCase):
         bash = f"""
         touch -d '200 seconds ago' {tmpdir}/file4
         """
-        lib.base.coe(lib.shell.shell_exec('bash', stdin=bash.encode()))
+        lib.base.coe(lib.shell.shell_exec(['bash'], stdin=bash.encode()))
 
         # check mean even (expected ~83.75s = (10+25+100+200)/4)
-        cmd = f"../file-age --filename '{tmpdir}/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:' --perfdata-mode=mean"
+        cmd = ['../file-age', '--filename', f'{tmpdir}/*', '--warning', '15:', '--warning-count', '3:', '--critical', '20:', '--critical-count', '2:', '--perfdata-mode=mean']
         stdout, _stderr, _retc = lib.base.coe(lib.shell.shell_exec(cmd))
         age = float(
             stdout.rpartition('|')[2].rpartition('=')[2].split('s')[0]
@@ -274,7 +274,7 @@ class TestCheck(unittest.TestCase):
         self.assertTrue(81.0 < age < 90.0)
 
         # check median even (expected ~62.5s = (25+100)/2)
-        cmd = f"../file-age --filename '{tmpdir}/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:' --perfdata-mode=median"
+        cmd = ['../file-age', '--filename', f'{tmpdir}/*', '--warning', '15:', '--warning-count', '3:', '--critical', '20:', '--critical-count', '2:', '--perfdata-mode=median']
         stdout, _stderr, _retc = lib.base.coe(lib.shell.shell_exec(cmd))
         age = float(
             stdout.rpartition('|')[2].rpartition('=')[2].split('s')[0]

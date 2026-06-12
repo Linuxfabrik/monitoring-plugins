@@ -21,7 +21,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041001'
+__version__ = '2026061201'
 
 DESCRIPTION = """Checks the clock offset of ntpd in milliseconds compared to the configured NTP
 servers. Alerts when the offset exceeds the configured thresholds."""
@@ -90,10 +90,9 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-
     # fetch data
     if args.TEST is None:
-        cmd = 'ntpq -p'
+        cmd = ['ntpq', '-p']
         stdout, stderr, _ = lib.base.coe(lib.shell.shell_exec(cmd))
     else:
         # do not call the command, put in test data

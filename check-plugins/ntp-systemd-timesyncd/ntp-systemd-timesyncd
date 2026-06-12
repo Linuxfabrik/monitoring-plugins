@@ -20,7 +20,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025120201'
+__version__ = '2026061201'
 
 DESCRIPTION = """Checks the state of systemd-timesyncd, including synchronization status, server
 reachability, and stratum level. Alerts if time synchronization is inactive or if
@@ -68,10 +68,9 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-
     # fetch data
     if args.TEST is None:
-        cmd = 'timedatectl show-timesync --all'
+        cmd = ['timedatectl', 'show-timesync', '--all']
         stdout, stderr, _ = lib.base.coe(lib.shell.shell_exec(cmd))
     else:
         # do not call the command, put in test data

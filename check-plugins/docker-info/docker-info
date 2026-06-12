@@ -22,7 +22,7 @@ import lib.shell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041404'
+__version__ = '2026061201'
 
 DESCRIPTION = """Displays system-wide Docker information including container counts (running,
 paused, stopped), image count, storage and logging driver, Docker version, available
@@ -102,7 +102,7 @@ def main():
     # fetch data
     if args.TEST is None:
         stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('docker info'),
+            lib.shell.shell_exec(['docker', 'info']),
         )
         if retc != 0:
             lib.base.oao(f'{stderr}\n{stdout}', STATE_CRIT)
@@ -206,7 +206,6 @@ def main():
 
     # create output
     if crit:
-
         # build the message
         msg += f'{crit}'
     if warn:

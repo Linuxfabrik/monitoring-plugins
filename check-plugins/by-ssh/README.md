@@ -10,7 +10,7 @@ Executes a command on a remote host via SSH and evaluates the result. Returns ST
 * Requires SSH access to the remote host
 * Requires the `sshpass` command-line tool if password-based authentication is used
 * Password-based authentication (`--password`) is not recommended. If used, `ps` will expose the SSH password on the monitoring host.
-* The `--shell` option enables shell expansion for environment variables and file globs but can be a security hazard. Without it, only simple commands without globs or pipes are supported.
+* The remote command is sent to the remote shell as-is, so pipes, file globs and shell variables are expanded on the remote host. The `--shell` option is deprecated and ignored.
 * Supports multiple `--identity` files and `--ssh-option` parameters for fine-grained SSH configuration
 
 **Data Collection:**
@@ -47,7 +47,7 @@ usage: by-ssh [-h] [-V] [--always-ok] --command COMMAND
               [--severity-stdout {ok,warn,crit,unknown}]
               [--severity-timeout {ok,warn,crit,unknown}]
               [--skip-stderr SKIP_STDERR] [--skip-stdout SKIP_STDOUT]
-              [--ssh-option SSH_OPTION] [--shell] [--test TEST] [-u USERNAME]
+              [--ssh-option SSH_OPTION] [--test TEST] [-u USERNAME]
               [--verbose] [-w WARN] [--warning-pattern WARN_PATTERN]
               [--warning-regex WARN_REGEX]
 
@@ -135,10 +135,6 @@ options:
                         flag. For full details of the options, and their
                         possible values, see ssh_config(5). Can be specified
                         multiple times.
-  --shell               Enable shell expansion for environment variables and
-                        file globs. Can be a security hazard. Without this
-                        option, only simple commands without globs or pipes
-                        are supported.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   -u, --username USERNAME
@@ -207,7 +203,6 @@ You want to get a CRIT if the command does not return `Command Result : 0`. A ve
      \
     --hostname appserver \
     --username linuxfabrik \
-    --shell \
     --command 'status interface | tail -1'
 ```
 

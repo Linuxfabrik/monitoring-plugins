@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041201'
+__version__ = '2026061201'
 
 DESCRIPTION = """Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 systems. Reports the number and type of available advisories (bugfix, enhancement,
@@ -126,12 +126,12 @@ def get_updates(args):
       - `yum_installed` (`str` or similar`): The stdout result of `"yum list --installed"`
 
     ### Behavior
-    1. Calls `lib.shell.shell_exec('yum list --assumeyes --upgrades', timeout=args.TIMEOUT)`:
+    1. Calls `lib.shell.shell_exec(['yum', 'list', '--assumeyes', '--upgrades'], timeout=args.TIMEOUT)`:
        - Wrapped with `lib.base.coe()`. If this call fails (nonzero exit code), the error
          message is printed via `lib.base.cu()` and the script exits.
        - If no upgrades are returned (`yum_upgrades` is empty or falsy), prints
          `"No updates available."` via `lib.base.oao()` and continues.
-    2. Calls `lib.shell.shell_exec('yum list --installed', timeout=args.TIMEOUT)`:
+    2. Calls `lib.shell.shell_exec(['yum', 'list', '--installed'], timeout=args.TIMEOUT)`:
        - Also wrapped with `lib.base.coe()`. If there is an error (nonzero exit code or
          anything on stderr), logs the error with `lib.base.cu()` but does **not** exit.
     3. Returns a tuple `(yum_upgrades, yum_installed)`.
@@ -146,7 +146,9 @@ def get_updates(args):
     # get the list of updates (--assumeyes so command can import GPG keys)
     if args.TEST is None:
         yum_upgrades, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('yum list --assumeyes --upgrades', timeout=args.TIMEOUT),
+            lib.shell.shell_exec(
+                ['yum', 'list', '--assumeyes', '--upgrades'], timeout=args.TIMEOUT
+            ),
         )
     else:
         yum_upgrades, stderr, retc = lib.lftest.test(
@@ -161,7 +163,7 @@ def get_updates(args):
     # get the list of installed software
     if args.TEST is None:
         yum_installed, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('yum list --installed', timeout=args.TIMEOUT),
+            lib.shell.shell_exec(['yum', 'list', '--installed'], timeout=args.TIMEOUT),
         )
     else:
         yum_installed, stderr, retc = lib.lftest.test(
@@ -193,7 +195,7 @@ def get_updateinfo(args):
       if an error occurred.
 
     ### Notes
-    - The function wraps `lib.shell.shell_exec('yum updateinfo list --available')`
+    - The function wraps `lib.shell.shell_exec(['yum', 'updateinfo', 'list', '--available'])`
       with `lib.base.coe()`. If the shell command itself fails (e.g., cannot run YUM), `coe` will
       exit the script after printing a sanitized error.
     - After unwrapping with `coe`, the function destructures into `(yum_info, stderr, retc)`.
@@ -222,7 +224,9 @@ def get_updateinfo(args):
     #   FEDORA-2025-34e9b9 security Critical firefox-139.0-1.fc42.x86_64         2025-05-30 02:21:33
     if args.TEST is None:
         yum_info, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('yum updateinfo list --available', timeout=args.TIMEOUT),
+            lib.shell.shell_exec(
+                ['yum', 'updateinfo', 'list', '--available'], timeout=args.TIMEOUT
+            ),
         )
     else:
         yum_info, stderr, retc = lib.lftest.test(

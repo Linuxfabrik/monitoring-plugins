@@ -31,7 +31,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041202'
+__version__ = '2026061201'
 
 DESCRIPTION = """Skeleton plugin demonstrating all standard patterns and library functions:
 argparse with append/deprecated/suppress parameters, (success, result) error handling,
@@ -230,7 +230,8 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        cmd = 'cat /sys/class/hwmon/hwmon0/humidity1_input'
+        # cmd is a list of arguments (argv); shell_exec never invokes a shell
+        cmd = ['cat', '/sys/class/hwmon/hwmon0/humidity1_input']
         stdout = lib.base.coe(get_data(cmd, timeout=args.TIMEOUT))
     else:
         # do not call the command, put in test data

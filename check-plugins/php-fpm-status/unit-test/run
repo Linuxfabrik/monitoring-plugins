@@ -151,13 +151,15 @@ class TestCheck(unittest.TestCase):
     def test_multi_pool_worst_state_crit(self):
         """Two pools, one saturated, one healthy: overall CRIT and the
         summary line calls out the CRIT pool by name."""
-        cmd = (
-            f'{self.check} '
-            f'--url http://host/nextcloud-fpm-status '
-            f'--url http://host/wordpress-fpm-status '
-            f'--test=stdout/nextcloud-pool-saturated,, '
-            f'--test=stdout/wordpress-pool-healthy,,'
-        )
+        cmd = [
+            self.check,
+            '--url',
+            'http://host/nextcloud-fpm-status',
+            '--url',
+            'http://host/wordpress-fpm-status',
+            '--test=stdout/nextcloud-pool-saturated,,',
+            '--test=stdout/wordpress-pool-healthy,,',
+        ]
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
@@ -169,12 +171,15 @@ class TestCheck(unittest.TestCase):
         """Two unreachable URLs: WARN by default (via --severity), both
         pools listed as unreachable in the summary and as placeholder rows
         in the overview table."""
-        cmd = (
-            f'{self.check} '
-            f'--url http://127.0.0.1:1/first '
-            f'--url http://127.0.0.1:1/second '
-            f'--timeout 1'
-        )
+        cmd = [
+            self.check,
+            '--url',
+            'http://127.0.0.1:1/first',
+            '--url',
+            'http://127.0.0.1:1/second',
+            '--timeout',
+            '1',
+        ]
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
@@ -183,12 +188,15 @@ class TestCheck(unittest.TestCase):
 
     def test_multi_pool_unreachable_severity_crit(self):
         """--severity crit promotes an unreachable pool to CRIT."""
-        cmd = (
-            f'{self.check} '
-            f'--url http://127.0.0.1:1/unreachable '
-            f'--severity crit '
-            f'--timeout 1'
-        )
+        cmd = [
+            self.check,
+            '--url',
+            'http://127.0.0.1:1/unreachable',
+            '--severity',
+            'crit',
+            '--timeout',
+            '1',
+        ]
         _stdout, _stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         self.assertEqual(retc, STATE_CRIT)
 

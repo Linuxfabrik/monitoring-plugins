@@ -24,7 +24,7 @@ import lib.shell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026052802'
+__version__ = '2026061201'
 
 DESCRIPTION = """Queries SNMP OIDs defined in a CSV file and checks the returned values against optional
 warning and critical thresholds. Supports SNMP v1, v2c, and v3 with authentication and
@@ -220,30 +220,40 @@ def build_snmpget_call(args):
         U:  don't print units
     """
     if args.SNMP_VERSION in ['1', '2c']:
-        cmd = f'snmpget -v {args.SNMP_VERSION} '
-        cmd += f"-c '{args.COMMUNITY}' " if args.COMMUNITY else ''
+        cmd = ['snmpget', '-v', args.SNMP_VERSION]
+        if args.COMMUNITY:
+            cmd += ['-c', args.COMMUNITY]
     else:
-        cmd = 'snmpget -v 3 '
-        cmd += f'-a {args.V3_AUTH_PROT} ' if args.V3_AUTH_PROT else ''
-        cmd += (
-            f"-A '{args.V3_AUTH_PROT_PASSWORD}' " if args.V3_AUTH_PROT_PASSWORD else ''
-        )
-        cmd += f'-e {args.V3_SECURITY_ENGINE_ID} ' if args.V3_SECURITY_ENGINE_ID else ''
-        cmd += f'-E {args.V3_CONTEXT_ENGINE_ID} ' if args.V3_CONTEXT_ENGINE_ID else ''
-        cmd += f'-l {args.V3_LEVEL} ' if args.V3_LEVEL else ''
-        cmd += f'-n {args.V3_CONTEXT} ' if args.V3_CONTEXT else ''
-        cmd += f'-u {args.V3_USERNAME} ' if args.V3_USERNAME else ''
-        cmd += f'-x {args.V3_PRIV_PROT} ' if args.V3_PRIV_PROT else ''
-        cmd += (
-            f"-X '{args.V3_PRIV_PROT_PASSWORD}' " if args.V3_PRIV_PROT_PASSWORD else ''
-        )
-        cmd += f'-Z {args.V3_BOOTS_TIME} ' if args.V3_BOOTS_TIME else ''
-    cmd += '-OSqtU -r 0 '
-    cmd += f'-t {args.TIMEOUT} ' if args.TIMEOUT else ''
-    cmd += f'-M {args.MIB_DIR} ' if args.MIB_DIR else ''
-    cmd += f'-m {args.MIB} ' if args.MIB else ''
-    cmd += f'{args.HOSTNAME} ' if args.HOSTNAME else ''
-    cmd += '_OIDS_'
+        cmd = ['snmpget', '-v', '3']
+        if args.V3_AUTH_PROT:
+            cmd += ['-a', args.V3_AUTH_PROT]
+        if args.V3_AUTH_PROT_PASSWORD:
+            cmd += ['-A', args.V3_AUTH_PROT_PASSWORD]
+        if args.V3_SECURITY_ENGINE_ID:
+            cmd += ['-e', args.V3_SECURITY_ENGINE_ID]
+        if args.V3_CONTEXT_ENGINE_ID:
+            cmd += ['-E', args.V3_CONTEXT_ENGINE_ID]
+        if args.V3_LEVEL:
+            cmd += ['-l', args.V3_LEVEL]
+        if args.V3_CONTEXT:
+            cmd += ['-n', args.V3_CONTEXT]
+        if args.V3_USERNAME:
+            cmd += ['-u', args.V3_USERNAME]
+        if args.V3_PRIV_PROT:
+            cmd += ['-x', args.V3_PRIV_PROT]
+        if args.V3_PRIV_PROT_PASSWORD:
+            cmd += ['-X', args.V3_PRIV_PROT_PASSWORD]
+        if args.V3_BOOTS_TIME:
+            cmd += ['-Z', args.V3_BOOTS_TIME]
+    cmd += ['-OSqtU', '-r', '0']
+    if args.TIMEOUT:
+        cmd += ['-t', str(args.TIMEOUT)]
+    if args.MIB_DIR:
+        cmd += ['-M', args.MIB_DIR]
+    if args.MIB:
+        cmd += ['-m', args.MIB]
+    if args.HOSTNAME:
+        cmd.append(args.HOSTNAME)
 
     return cmd
 
@@ -296,30 +306,26 @@ def main():
     # Max. 128 object identifiers are allowed in one snmp get request, so divide them into chunks.
     # To avoid "Error in packet. Reason: (tooBig) Response message would have been too large.", we
     # only ask for 25 OIDs per request.
-    oids = []
-    count = 0
-    tmp = ''
+    oid_chunks = []
+    chunk = []
     for snmp_object in snmp_objects[1:]:  # ignore the header row in csv
-        tmp += f'{snmp_object[CSV_COL_OID]} '
-        count += 1
-        if count == MAX_OIDS_PER_REQUEST:
-            oids.append(tmp)
-            count = 0
-            tmp = ''
-    if tmp:
-        oids.append(tmp)
+        chunk.append(snmp_object[CSV_COL_OID])
+        if len(chunk) == MAX_OIDS_PER_REQUEST:
+            oid_chunks.append(chunk)
+            chunk = []
+    if chunk:
+        oid_chunks.append(chunk)
+
+    # the hostname reaches snmpget as a positional argument; reject a value that
+    # snmpget could read as an option (leading "-")
+    lib.base.coe(lib.shell.safe_cli_value(args.HOSTNAME, '--hostname'))
 
     # fetch data
     stdout = ''
     if args.TEST is None:
         cmd = build_snmpget_call(args)
-        # cmd is built from admin-controlled SNMP parameters (Icinga check config),
-        # not from end-user input; shell=True is required so snmpget accepts the
-        # escaped OID list as a single argument
-        for oid in oids:
-            tmp, stderr, retc = lib.base.coe(
-                lib.shell.shell_exec(cmd.replace('_OIDS_', oid), shell=True)  # nosec B604
-            )
+        for oids in oid_chunks:
+            tmp, stderr, retc = lib.base.coe(lib.shell.shell_exec([*cmd, *oids]))
             if stderr or retc != 0:
                 lib.base.cu(stderr)
             stdout += tmp

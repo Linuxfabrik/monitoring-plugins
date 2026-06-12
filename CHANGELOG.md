@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Monitoring Plugins:
 
+* csv-values: is shipped as a Windows build again
 * disk-io: can now also monitor raw, unmounted block devices such as multipath SAN volumes or Oracle ASM disks (`--include-unmounted`)
 * file-size: can report the mean or median file size as performance data for trending (`--perfdata-mode`) ([#159](https://github.com/Linuxfabrik/monitoring-plugins/issues/159))
 * lynis: new check that audits the security hardening posture of every host in a subnet over SSH and reports each host's hardening index, warnings and suggestions
@@ -34,6 +35,7 @@ Grafana:
 
 Monitoring Plugins:
 
+* by-ssh: the `--shell` option is deprecated and ignored; remote commands that use pipes, globs or variables now always work
 * cert: can scan a whole subnet for expiring or untrusted TLS certificates across many common ports, not just a single endpoint or local files (now the default when run without parameters)
 * cert: warning/critical thresholds also accept a percentage of the lifetime or a duration, and a TLS endpoint's full certificate chain is checked, not just the leaf
 * ipmi-sensor: performance data is grouped by sensor type, so temperatures, fan speeds, voltages and power show up in separate graphs (existing IPMI graph history resets once) ([#22](https://github.com/Linuxfabrik/monitoring-plugins/issues/22))
@@ -66,7 +68,15 @@ Monitoring Plugins:
 
 * apache-httpd-version: adapted to the new endoflife.date URL ([PR #1224](https://github.com/Linuxfabrik/monitoring-plugins/pull/1224), thanks to [Salman Mohammadi](https://github.com/salmanxmoha))
 * by-ssh: a failed connection no longer echoes the full command line (which can contain the password passed via `--password`) in the plugin output
+* on Windows, plugins that run system commands (for example `users`, `scheduled-task`, `ntp-w32tm`) show non-ASCII output such as umlauts in usernames correctly instead of garbled, and no longer risk a decoding error ([#681](https://github.com/Linuxfabrik/monitoring-plugins/issues/681))
+* on Windows, multi-line plugin output is no longer shown with a blank line between every line in IcingaWeb
 * redfish-sensors: no longer raises false warnings for sensors that report a placeholder min/max range (e.g. CPU/memory utilization on some hardware) ([#1211](https://github.com/Linuxfabrik/monitoring-plugins/issues/1211))
+
+### Security
+
+Monitoring Plugins:
+
+* every plugin that runs an external command now builds the command as an argument list instead of a shell command string, closing a local privilege escalation in which crafted plugin arguments (for example via `--repo`, `--hostname` or `--path`) could execute arbitrary commands. This is most serious on hosts where a plugin is allowed to run via sudo. Plugins that take an ssh, ping, getent or systemd target additionally reject a target that could be misread as a command option ([GHSA-798h-hpph-m24j](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-798h-hpph-m24j))
 
 
 ## [v5.2.0] - 2026-06-02

@@ -26,7 +26,7 @@ import lib.time
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026061201'
 
 DESCRIPTION = """Checks the health and status of Kubernetes pods by running "kubectl get pods" and
 parsing the results. Lists namespace, pod name, readiness, status, restart count, age,
@@ -121,11 +121,13 @@ def main():
         f'--kubeconfig={args.KUBECONFIG.replace("~", os.path.expanduser("~"))}',
         'get',
         'pods',
-        '--all-namespaces' if args.ALL_NAMESPACES else '',
+    ]
+    if args.ALL_NAMESPACES:
+        cmd += ['--all-namespaces']
+    cmd += [
         '--output=json',
         '--request-timeout=8',
     ]
-    cmd = ' '.join(cmd)
 
     # returns (in JSON):
     # NAMESPACE  NAME                           READY  STATUS    RESTARTS  AGE  IP

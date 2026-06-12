@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060901'
+__version__ = '2026061201'
 
 DESCRIPTION = """Checks IPMI sensor readings (temperature, voltage, fan speed, power, etc.) using
 ipmitool. Alerts when any sensor reports a non-ok status. Provides detailed output
@@ -179,16 +179,16 @@ def main():
     # fetch data
     if args.TEST is None:
         # build parameters for ipmitool
-        cmd = 'ipmitool sensor list '
+        cmd = ['ipmitool', 'sensor', 'list']
         if args.HOSTNAME:
             # use ipmi with remote parameters
-            cmd += f'-A {args.V15AUTHTYPE} ' if args.INTERFACE == 'lan' else ''
-            cmd += f'-H {args.HOSTNAME} ' if args.HOSTNAME else ''
-            cmd += f'-I {args.INTERFACE} ' if args.INTERFACE else ''
-            cmd += f'-L {args.PRIVLEVEL} ' if args.PRIVLEVEL else ''
-            cmd += f'-p {args.PORT} ' if args.PORT else ''
-            cmd += f'-P {args.PASSWORD} ' if args.PASSWORD else ''
-            cmd += f'-U {args.USERNAME} ' if args.USERNAME else ''
+            cmd += ['-A', args.V15AUTHTYPE] if args.INTERFACE == 'lan' else []
+            cmd += ['-H', args.HOSTNAME] if args.HOSTNAME else []
+            cmd += ['-I', args.INTERFACE] if args.INTERFACE else []
+            cmd += ['-L', args.PRIVLEVEL] if args.PRIVLEVEL else []
+            cmd += ['-p', str(args.PORT)] if args.PORT else []
+            cmd += ['-P', args.PASSWORD] if args.PASSWORD else []
+            cmd += ['-U', args.USERNAME] if args.USERNAME else []
 
         # execute the shell command and return its result and exit code
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))

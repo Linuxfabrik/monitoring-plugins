@@ -38,7 +38,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060201 / v5.2.0'
+__version__ = '2026061201 / v5.2.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -145,13 +145,15 @@ def get_birthday():
         birthday = os.stat('/var/lib/cloud/data/instance-id')
         return f'born {lib.time.epoch2iso(birthday.st_ctime)}. '
     # no way to do this in python - getting the birthday of a folder
-    # hardcoded shell pipeline (no user input); shell=True needed for pipes
-    _success, result = lib.shell.shell_exec(
-        'stat / | grep "Birth" | sed "s/Birth: //g" | cut -b 2-11',
-        shell=True,  # nosec B604
-    )
-    birthday, _, _ = result
-    birthday = birthday.strip()
+    success, result = lib.shell.shell_exec(['stat', '/'])
+    if not success:
+        return 'born unknown. '
+    stdout, _, _ = result
+    birthday = ''
+    for line in stdout.splitlines():
+        if 'Birth' in line:
+            birthday = line.replace('Birth: ', '')[1:11].strip()
+            break
     return f'born {birthday}. '
 
 
@@ -161,7 +163,17 @@ def get_boot_mode():
 
 def get_crontab():
     """Returns all crontab items."""
-    cmd = r"grep --dereference-recursive --no-filename --invert-match '\s*#' /etc/crontab /etc/cron.d/ /etc/anacrontab /var/spool/cron"
+    cmd = [
+        'grep',
+        '--dereference-recursive',
+        '--no-filename',
+        '--invert-match',
+        r'\s*#',
+        '/etc/crontab',
+        '/etc/cron.d/',
+        '/etc/anacrontab',
+        '/var/spool/cron',
+    ]
     success, result = lib.shell.shell_exec(cmd)
     if not success:
         return ''
@@ -180,7 +192,15 @@ def get_crontab():
 def get_disks():
     """Returns system disks tuple "text, count": `'Disk nvme0n1 1.8T', 1`"""
     success, result = lib.shell.shell_exec(
-        'lsblk --nodeps --output NAME,SIZE --noheadings --include 8,252,259'
+        [
+            'lsblk',
+            '--nodeps',
+            '--output',
+            'NAME,SIZE',
+            '--noheadings',
+            '--include',
+            '8,252,259',
+        ]
     )
     if not success:
         return '', 0
@@ -316,7 +336,7 @@ def get_lftags(distro):
         ...). Admin-intent semantics avoids false positives from transitive
         dependencies.
       - `expr`:    list of expressions evaluated at function call time
-        (truthy/falsy). Typical: `run_cmd('systemctl is-enabled <unit>',
+        (truthy/falsy). Typical: `run_cmd(['systemctl', 'is-enabled', '<unit>'],
         ignore_output=True)` or `os.path.isfile(...)` /  `os.path.isdir(...)`.
 
     If you add software that no package manager tracks and you only spot
@@ -333,32 +353,48 @@ def get_lftags(distro):
         {
             'sw': 'acme.sh',
             'package': [],
-            'expr': [run_cmd('systemctl is-enabled acme-sh.timer', ignore_output=True)],
+            'expr': [
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'acme-sh.timer'], ignore_output=True
+                )
+            ],
         },
         {
             'sw': 'AIDE',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled aide-check.timer', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'aide-check.timer'], ignore_output=True
+                )
             ],
         },
         {
             'sw': 'Apache httpd',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled httpd.service', ignore_output=True),
-                run_cmd('systemctl is-enabled apache2.service', ignore_output=True),
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'httpd.service'], ignore_output=True
+                ),
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'apache2.service'], ignore_output=True
+                ),
             ],
         },
         {
             'sw': 'Apache Solr',
             'package': [],
-            'expr': [run_cmd('systemctl is-enabled solr.service', ignore_output=True)],
+            'expr': [
+                run_cmd(['systemctl', 'is-enabled', 'solr.service'], ignore_output=True)
+            ],
         },
         {
             'sw': 'BIND',
             'package': [],
-            'expr': [run_cmd('systemctl is-enabled named.service', ignore_output=True)],
+            'expr': [
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'named.service'], ignore_output=True
+                )
+            ],
         },
         {'sw': 'Bonding', 'package': [], 'expr': [os.path.isdir('/proc/net/bonding')]},
         {
@@ -374,41 +410,52 @@ def get_lftags(distro):
             'sw': 'Chronyd',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled chronyd.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'chronyd.service'], ignore_output=True
+                )
             ],
         },
         {
             'sw': 'ClamAV',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled clamd@scan.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'clamd@scan.service'],
+                    ignore_output=True,
+                )
             ],
         },
         {
             'sw': 'Collabora Online',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled coolwsd.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'coolwsd.service'], ignore_output=True
+                )
             ],
         },
         {'sw': 'Composer', 'package': ['composer'], 'expr': []},
         {
             'sw': 'coturn',
             'package': ['coturn'],
-            'expr': [run_cmd('systemctl is-enabled coturn.service')],
+            'expr': [run_cmd(['systemctl', 'is-enabled', 'coturn.service'])],
         },
         # {'sw': 'DHCP Client', 'package': [], 'expr': []},
         {
             'sw': 'Docker',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled docker.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'docker.service'], ignore_output=True
+                )
             ],
         },
         {
             'sw': 'Duplicity',
             'package': [],
-            'expr': [run_cmd('systemctl is-enabled duba.timer', ignore_output=True)],
+            'expr': [
+                run_cmd(['systemctl', 'is-enabled', 'duba.timer'], ignore_output=True)
+            ],
         },
         {
             'sw': 'Elasticsearch',
@@ -422,32 +469,44 @@ def get_lftags(distro):
         {
             'sw': 'Exim4',
             'package': [],
-            'expr': [run_cmd('systemctl is-enabled exim4.service', ignore_output=True)],
+            'expr': [
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'exim4.service'], ignore_output=True
+                )
+            ],
         },
         {
             'sw': 'Fail2Ban',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled fail2ban.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'fail2ban.service'], ignore_output=True
+                )
             ],
         },
         {
             'sw': 'FirewallD',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled firewalld.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'firewalld.service'], ignore_output=True
+                )
             ],
         },
         # {'sw': 'FortiOS 6', 'package': [], 'expr': []},
         {
             'sw': 'FreeIPA Server',
             'package': [],
-            'expr': [run_cmd('systemctl is-enabled ipa.service', ignore_output=True)],
+            'expr': [
+                run_cmd(['systemctl', 'is-enabled', 'ipa.service'], ignore_output=True)
+            ],
         },
         {
             'sw': 'Fwbuilder',
             'package': [],
-            'expr': [run_cmd('systemctl is-enabled fwb.service', ignore_output=True)],
+            'expr': [
+                run_cmd(['systemctl', 'is-enabled', 'fwb.service'], ignore_output=True)
+            ],
         },
         {
             'sw': 'GitLab',
@@ -462,7 +521,9 @@ def get_lftags(distro):
             'sw': 'Gluster Host',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled glusterd.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'glusterd.service'], ignore_output=True
+                )
             ],
         },
         {
@@ -505,7 +566,9 @@ def get_lftags(distro):
             'sw': 'HAProxy',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled haproxy.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'haproxy.service'], ignore_output=True
+                )
             ],
         },
         # {'sw': 'Huawei Dorado', 'package': [], 'expr': []},
@@ -513,21 +576,27 @@ def get_lftags(distro):
             'sw': 'Icinga2',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled icinga2.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'icinga2.service'], ignore_output=True
+                )
             ],
         },
         {
             'sw': 'IcingaDB',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled icingadb.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'icingadb.service'], ignore_output=True
+                )
             ],
         },
         {
             'sw': 'InfluxDB',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled influxdb.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'influxdb.service'], ignore_output=True
+                )
             ],
         },
         # {'sw': 'Infomaniak Swiss Backup', 'package': [], 'expr': []},
@@ -535,34 +604,47 @@ def get_lftags(distro):
         {
             'sw': 'iSCSI',
             'package': [],
-            'expr': [run_cmd('systemctl is-enabled iscsi.service', ignore_output=True)],
+            'expr': [
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'iscsi.service'], ignore_output=True
+                )
+            ],
         },
         {
             'sw': 'Jitsi',
             'package': ['jitsi-videobridge2'],
             'expr': [
-                run_cmd('systemctl is-enabled jitsi-videobridge2.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'jitsi-videobridge2.service'],
+                    ignore_output=True,
+                )
             ],
         },
         {
             'sw': 'JumpCloud Agent',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled jcagent.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'jcagent.service'], ignore_output=True
+                )
             ],
         },
         {
             'sw': 'Keycloak',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled keycloak.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'keycloak.service'], ignore_output=True
+                )
             ],
         },
         {
             'sw': 'KVM Host',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled libvirtd.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'libvirtd.service'], ignore_output=True
+                )
             ],
         },
         {'sw': 'LibreNMS', 'package': [], 'expr': [os.path.isdir('/opt/librenms')]},
@@ -570,14 +652,18 @@ def get_lftags(distro):
             'sw': 'Logstash Client',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled filebeat.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'filebeat.service'], ignore_output=True
+                )
             ],
         },
         {
             'sw': 'Logstash Server',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled logstash.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'logstash.service'], ignore_output=True
+                )
             ],
         },
         {
@@ -589,7 +675,10 @@ def get_lftags(distro):
             'sw': 'MariaDB Dump',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled mariadb-dump.timer', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'mariadb-dump.timer'],
+                    ignore_output=True,
+                )
             ],
         },
         # MariaDB-* variants below are facets of the same server; we cannot
@@ -638,34 +727,30 @@ def get_lftags(distro):
         {
             'sw': 'mod_qos',
             'package': ['mod_qos'],
-            # hardcoded shell pipelines (no user input); shell=True needed for pipes
+            # httpd writes DUMP_MODULES to stderr, so cmd_output_contains checks both streams
             'expr': [
                 os.path.isfile('/usr/lib64/httpd/modules/mod_qos.so'),
                 os.path.isdir('/var/lib/mod_security'),
-                run_cmd(
-                    'httpd -t -D DUMP_MODULES | grep mod_qos',
-                    shell=True,  # nosec B604
-                    ignore_output=True,
-                ),
-                run_cmd(
-                    'apache2 -t -D DUMP_MODULES | grep mod_qos',
-                    shell=True,  # nosec B604
-                    ignore_output=True,
-                ),
+                cmd_output_contains(['httpd', '-t', '-D', 'DUMP_MODULES'], 'mod_qos'),
+                cmd_output_contains(['apache2', '-t', '-D', 'DUMP_MODULES'], 'mod_qos'),
             ],
         },
         {
             'sw': 'MongoDB',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled mongod.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'mongod.service'], ignore_output=True
+                )
             ],
         },
         {
             'sw': 'Moodle',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled moodle-cron.timer', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'moodle-cron.timer'], ignore_output=True
+                )
             ],
         },
         {
@@ -696,33 +781,48 @@ def get_lftags(distro):
             'sw': 'networking.service',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled networking.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'networking.service'],
+                    ignore_output=True,
+                )
             ],
         },
         {
             'sw': 'Nextcloud',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled nextcloud-jobs.timer', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'nextcloud-jobs.timer'],
+                    ignore_output=True,
+                )
             ],
         },
         {
             'sw': 'NFS Server',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled nfs-server.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'nfs-server.service'],
+                    ignore_output=True,
+                )
             ],
         },
         {
             'sw': 'Nginx',
             'package': [],
-            'expr': [run_cmd('systemctl is-enabled nginx.service', ignore_output=True)],
+            'expr': [
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'nginx.service'], ignore_output=True
+                )
+            ],
         },
         {'sw': 'NodeBB', 'package': [], 'expr': [os.path.isdir('/opt/nodebb')]},
         {
             'sw': 'NTPd',
             'package': [],
-            'expr': [run_cmd('systemctl is-enabled ntpd.service', ignore_output=True)],
+            'expr': [
+                run_cmd(['systemctl', 'is-enabled', 'ntpd.service'], ignore_output=True)
+            ],
         },
         {
             'sw': 'OnlyOffice',
@@ -732,7 +832,9 @@ def get_lftags(distro):
         {
             'sw': 'OpenVAS',
             'package': [],
-            'expr': [run_cmd('systemctl is-enabled gsad.service', ignore_output=True)],
+            'expr': [
+                run_cmd(['systemctl', 'is-enabled', 'gsad.service'], ignore_output=True)
+            ],
         },
         {
             'sw': 'OpenVPN Server',
@@ -754,7 +856,9 @@ def get_lftags(distro):
             'sw': 'PHP-FPM',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled php-fpm.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'php-fpm.service'], ignore_output=True
+                )
             ],
         },
         {
@@ -766,7 +870,9 @@ def get_lftags(distro):
             'sw': 'Podman',
             'package': ['podman'],
             'expr': [
-                run_cmd('systemctl is-enabled podman.socket', ignore_output=True),
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'podman.socket'], ignore_output=True
+                ),
                 run_cmd(
                     'systemctl is-enabled podman-auto-update.timer', ignore_output=True
                 ),
@@ -779,14 +885,19 @@ def get_lftags(distro):
             'sw': 'Postfix MTA',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled postfix.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'postfix.service'], ignore_output=True
+                )
             ],
         },
         {
             'sw': 'PostgreSQL',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled postgresql.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'postgresql.service'],
+                    ignore_output=True,
+                )
             ],
         },
         {'sw': 'Proxmox', 'package': [], 'expr': [os.path.isdir('/etc/pve')]},
@@ -805,18 +916,25 @@ def get_lftags(distro):
         {
             'sw': 'Redis',
             'package': [],
-            'expr': [run_cmd('systemctl is-enabled redis.service', ignore_output=True)],
+            'expr': [
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'redis.service'], ignore_output=True
+                )
+            ],
         },
         {
             'sw': 'restic',
             'package': ['restic'],
-            'expr': [run_cmd('restic version', ignore_output=True)],
+            'expr': [run_cmd(['restic', 'version'], ignore_output=True)],
         },
         {
             'sw': 'Rocket.Chat',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled rocketchat.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'rocketchat.service'],
+                    ignore_output=True,
+                )
             ],
         },
         # {'sw': 'RPM Updates', 'package': [], 'expr': []},
@@ -824,32 +942,44 @@ def get_lftags(distro):
             'sw': 'rsyncd',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled rsyncd.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'rsyncd.service'], ignore_output=True
+                )
             ],
         },
         {
             'sw': 'rsyslog',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled rsyslog.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'rsyslog.service'], ignore_output=True
+                )
             ],
         },
         {
             'sw': 'Samba',
             'package': [],
-            'expr': [run_cmd('systemctl is-enabled smb.service', ignore_output=True)],
+            'expr': [
+                run_cmd(['systemctl', 'is-enabled', 'smb.service'], ignore_output=True)
+            ],
         },
         {'sw': 'Scanrootkit', 'package': [], 'expr': [True]},
         {
             'sw': 'snmpd',
             'package': [],
-            'expr': [run_cmd('systemctl is-enabled snmpd.service', ignore_output=True)],
+            'expr': [
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'snmpd.service'], ignore_output=True
+                )
+            ],
         },
         {
             'sw': 'Splunk',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled splunk.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'splunk.service'], ignore_output=True
+                )
             ],
         },
         # {'sw': 'Starface PBX', 'package': [], 'expr': []},
@@ -857,14 +987,19 @@ def get_lftags(distro):
             'sw': 'strongSwan IPSec',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled strongswan.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'strongswan.service'],
+                    ignore_output=True,
+                )
             ],
         },
         {
             'sw': 'syslog-ng',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled syslog-ng.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'syslog-ng.service'], ignore_output=True
+                )
             ],
         },
         {
@@ -888,27 +1023,38 @@ def get_lftags(distro):
         {
             'sw': 'TuneD',
             'package': [],
-            'expr': [run_cmd('systemctl is-enabled tuned.service', ignore_output=True)],
+            'expr': [
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'tuned.service'], ignore_output=True
+                )
+            ],
         },
         {
             'sw': 'UPS (Network UPS Tools, nut)',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled nut-server.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'nut-server.service'],
+                    ignore_output=True,
+                )
             ],
         },
         {
             'sw': 'Valkey',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled valkey.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'valkey.service'], ignore_output=True
+                )
             ],
         },
         {
             'sw': 'vsftpd',
             'package': [],
             'expr': [
-                run_cmd('systemctl is-enabled vsftpd.service', ignore_output=True)
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'vsftpd.service'], ignore_output=True
+                )
             ],
         },
         {'sw': 'Wildfly', 'package': [], 'expr': [os.path.isdir('/opt/wildfly')]},
@@ -927,21 +1073,27 @@ def get_lftags(distro):
     # rules out transitive deps to avoid false-positive tags like IPMI on a
     # workstation that only has `ipmitool` as an indirect dependency.
     if os_family == 'RedHat':
-        pkg_query = 'dnf repoquery --userinstalled --queryformat "%{name}\\n"'
+        pkg_query = [
+            'dnf',
+            'repoquery',
+            '--userinstalled',
+            '--queryformat',
+            r'%{name}\n',
+        ]
     elif os_family == 'Debian':
-        pkg_query = 'apt-mark showmanual'
+        pkg_query = ['apt-mark', 'showmanual']
     elif os_family == 'Archlinux':
-        pkg_query = 'pacman --query --explicit --quiet'
+        pkg_query = ['pacman', '--query', '--explicit', '--quiet']
     elif os_family == 'Alpine':
         # apk has no admin-intent query; alpine's lean dep model makes the
         # presence/intent distinction less noisy in practice
-        pkg_query = 'apk info'
+        pkg_query = ['apk', 'info']
     elif os_family == 'Suse':
         # zypper/rpm offer no clean admin-intent equivalent; accept the
         # broader presence semantic and the resulting false-positive risk
-        pkg_query = 'rpm --query --all --queryformat "%{NAME}\\n"'
+        pkg_query = ['rpm', '--query', '--all', '--queryformat', r'%{NAME}\n']
     else:
-        pkg_query = ''
+        pkg_query = []
     installed_packages = set()
     if pkg_query:
         success, result = lib.shell.shell_exec(pkg_query)
@@ -1003,7 +1155,13 @@ def get_listening_ports():
 
 def get_userinstalled_software():
     success, result = lib.shell.shell_exec(
-        'dnf repoquery --userinstalled --queryformat "%{name};%{version};%{from_repo};%{installtime}\\n"'
+        [
+            'dnf',
+            'repoquery',
+            '--userinstalled',
+            '--queryformat',
+            r'%{name};%{version};%{from_repo};%{installtime}\n',
+        ]
     )
     if not success:
         return ''
@@ -1254,7 +1412,7 @@ def get_sys_dimensions():
 
 
 def get_systemd_default_target():
-    cmd = 'systemctl get-default'
+    cmd = ['systemctl', 'get-default']
     success, result = lib.shell.shell_exec(cmd)
     if not success:
         return ''
@@ -1270,7 +1428,7 @@ def get_systemd_timers():
     # the human output.
     # in order to list for a different user (`--user`), we would need to sudo to that user
     # first - we will skip that for now
-    success, result = lib.shell.shell_exec('systemctl list-timers')
+    success, result = lib.shell.shell_exec(['systemctl', 'list-timers'])
     if not success:
         return ''
     stdout, stderr, retc = result
@@ -1324,7 +1482,7 @@ def get_systemd_units(cmd):
     if not stdout:
         return ''
 
-    output = f'{cmd.replace(" --no-legend", "")}:\n'
+    output = f'{" ".join(arg for arg in cmd if arg != "--no-legend")}:\n'
     for line in stdout.splitlines():
         output += f'* {line.split()[0]}\n'
     return output + '\n'
@@ -1332,7 +1490,7 @@ def get_systemd_units(cmd):
 
 def get_tuned_active_profile():
     """Return current active tuned profile (if any)."""
-    output = run_cmd('tuned-adm active')
+    output = run_cmd(['tuned-adm', 'active'])
     if output:
         return (
             f'tuned profile "{run_regex(output, ": (.*)").strip().replace("* ", "")}", '
@@ -1342,22 +1500,33 @@ def get_tuned_active_profile():
 
 def get_virt_info():
     # alternative would be `/usr/sbin/virt-what` (POSIX shell script)
-    success, result = lib.shell.shell_exec('systemd-detect-virt')
+    success, result = lib.shell.shell_exec(['systemd-detect-virt'])
     if success:
         stdout, _, _ = result
         return stdout.strip()
     return 'Unknown'
 
 
-def run_cmd(cmd, shell=False, ignore_output=False):
+def cmd_output_contains(cmd, needle):
+    """Run cmd (argv list) and return True if needle appears in its stdout/stderr."""
+    env = os.environ.copy()
+    env['LC_ALL'] = 'C'
+    env['PATH'] += ':/usr/local/bin:/usr/local/sbin'
+    success, result = lib.shell.shell_exec(cmd, env=env)
+    if not success:
+        return False
+    stdout, stderr, _retc = result
+    return needle in stdout or needle in stderr
+
+
+def run_cmd(cmd, ignore_output=False):
     """Run a command and return its output. Returns stderr if cmd prints its standard output there.
     If ignore_output is set to True, returns True. Returns False if cmd is not found.
     """
     env = os.environ.copy()
     env['LC_ALL'] = 'C'
     env['PATH'] += ':/usr/local/bin:/usr/local/sbin'
-    # shell is opt-in per call site and all call sites pass hardcoded commands
-    success, result = lib.shell.shell_exec(cmd, shell=shell, env=env)  # nosec B604
+    success, result = lib.shell.shell_exec(cmd, env=env)
     if not success:
         return False
     stdout, stderr, retc = result
@@ -1410,7 +1579,7 @@ def main():
     os_info = distro.get('os_info')
     if os_info:
         msg += f'{os_info} '
-    msg += f'Kernel {run_cmd("uname -r")} '
+    msg += f'Kernel {run_cmd(["uname", "-r"])} '
 
     virt = get_virt_info()
     if virt == 'none':
@@ -1491,13 +1660,33 @@ def main():
     msg += get_nondefault_users()
     msg += get_systemd_default_target()
     msg += get_systemd_units(
-        'systemctl list-unit-files --type=service --state=enabled --no-legend',
+        [
+            'systemctl',
+            'list-unit-files',
+            '--type=service',
+            '--state=enabled',
+            '--no-legend',
+        ],
     )
     msg += get_systemd_units(
-        'systemctl list-unit-files --type=mount --state=static --state=generated --no-legend',
+        [
+            'systemctl',
+            'list-unit-files',
+            '--type=mount',
+            '--state=static',
+            '--state=generated',
+            '--no-legend',
+        ],
     )
     msg += get_systemd_units(
-        'systemctl list-unit-files --type=automount --state=enabled --state=static --no-legend',
+        [
+            'systemctl',
+            'list-unit-files',
+            '--type=automount',
+            '--state=enabled',
+            '--state=static',
+            '--no-legend',
+        ],
     )
     msg += get_systemd_timers()
     msg += get_crontab()

@@ -30,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026042201'
+__version__ = '2026061201'
 
 DESCRIPTION = """Queries the systemd journal using journalctl and alerts when matching entries are found.
 Supports all journalctl filtering options such as --unit, --priority, --facility,
@@ -328,19 +328,21 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        cmd = 'journalctl '
-        # cmd += '--boot '  # logs for the current boot will be shown
-        cmd += '--reverse '
-        cmd += '--quiet '
-        cmd += '--output=json '
-        cmd += f'--priority={args.PRIORITY} '
-        cmd += f'--since={args.SINCE} '
+        cmd = [
+            'journalctl',
+            # '--boot',  # logs for the current boot will be shown
+            '--reverse',
+            '--quiet',
+            '--output=json',
+            f'--priority={args.PRIORITY}',
+            f'--since={args.SINCE}',
+        ]
         if args.FACILITY:
-            cmd += f'--facility={args.FACILITY} '
+            cmd.append(f'--facility={args.FACILITY}')
         if args.IDENTIFIER:
-            cmd += f'--identifier={args.IDENTIFIER} '
+            cmd.append(f'--identifier={args.IDENTIFIER}')
         # unfortunately only for newer journalctl commands:
-        # cmd += '--output-fields=UNIT,_SYSTEMD_UNIT,_SYSTEMD_SLICE,PRIORITY,MESSAGE '
+        # cmd.append('--output-fields=UNIT,_SYSTEMD_UNIT,_SYSTEMD_SLICE,PRIORITY,MESSAGE')
         if args.UNIT is None and args.USER_UNIT is None:
             # Pre-define a standard set on basic system services we want to warn about,
             # found on fresh rhel 7+, ubuntu 16+ and debian 9+ systems altogether, if no unit
@@ -349,54 +351,53 @@ def main():
             # services, call this check separately using --unit=httpd, for example.
             # Attention: '*' is the only wildcard that works.
             units = [
-                '--unit="accounts-daemon.service"',
-                '--unit="acpid.service"',
-                '--unit="apparmor.service"',
-                '--unit="apport.service"',
-                '--unit="auditd.service"',
-                '--unit="cron.service"',
-                '--unit="crond.service"',
-                '--unit="dbus.service"',
-                '--unit="dracut-*.service"',
-                '--unit="haveged.service"',
-                '--unit="ifplugd.service"',
-                '--unit="ifup@*.service"',
-                '--unit="init.scope"',
-                '--unit="irqbalance.service"',
-                '--unit="iscsid.service"',
-                '--unit="lvm2-*.service"',
-                '--unit="lxcfs.service"',
-                '--unit="mdadm.service"',
-                '--unit="network.service"',
-                '--unit="NetworkManager*.service"',
-                '--unit="open-iscsi.service"',
-                '--unit="polkit.service"',
-                '--unit="polkitd.service"',
-                '--unit="qemu-guest-agent.service"',
-                '--unit="rsyslog.service"',
-                '--unit="session-*.scope"',
-                '--unit="snapd*.service"',
-                '--unit="ssh.service"',
-                '--unit="sshd*.service"',
-                '--unit="sssd.service"',
-                '--unit="sysstat.service"',
-                '--unit="systemd-*.service"',
-                '--unit="user@*.service"',
+                '--unit=accounts-daemon.service',
+                '--unit=acpid.service',
+                '--unit=apparmor.service',
+                '--unit=apport.service',
+                '--unit=auditd.service',
+                '--unit=cron.service',
+                '--unit=crond.service',
+                '--unit=dbus.service',
+                '--unit=dracut-*.service',
+                '--unit=haveged.service',
+                '--unit=ifplugd.service',
+                '--unit=ifup@*.service',
+                '--unit=init.scope',
+                '--unit=irqbalance.service',
+                '--unit=iscsid.service',
+                '--unit=lvm2-*.service',
+                '--unit=lxcfs.service',
+                '--unit=mdadm.service',
+                '--unit=network.service',
+                '--unit=NetworkManager*.service',
+                '--unit=open-iscsi.service',
+                '--unit=polkit.service',
+                '--unit=polkitd.service',
+                '--unit=qemu-guest-agent.service',
+                '--unit=rsyslog.service',
+                '--unit=session-*.scope',
+                '--unit=snapd*.service',
+                '--unit=ssh.service',
+                '--unit=sshd*.service',
+                '--unit=sssd.service',
+                '--unit=sysstat.service',
+                '--unit=systemd-*.service',
+                '--unit=user@*.service',
             ]
-            cmd += ' '.join(units)
+            cmd += units
         if args.UNIT is not None:
             for unit in args.UNIT:
-                cmd += f'--unit="{unit}" '
+                cmd.append(f'--unit={unit}')
         if args.USER_UNIT is not None:
             for unit in args.USER_UNIT:
-                cmd += f'--user-unit="{unit}" '
-        cmd = cmd.strip()
+                cmd.append(f'--user-unit={unit}')
         stdout, stderr, _retc = lib.base.coe(lib.shell.shell_exec(cmd))
         if stderr:
             lib.base.cu(stderr)
     else:
         # do not call the command, put in test data
-        cmd = 'no-real-command-used'
+        cmd = ['no-real-command-used']
         stdout, stderr, _retc = lib.lftest.test(args.TEST)
 
     # init some vars
@@ -510,9 +511,7 @@ def main():
                     'Icinga API, this could be due to an incorrect service name.'
                 )
         else:
-            msg_addendum += (
-                f'Note: Could not determine the acknowledgement from the Icinga API:\n{icinga}.'
-            )
+            msg_addendum += f'Note: Could not determine the acknowledgement from the Icinga API:\n{icinga}.'
 
     if ack_conn is not None:
         lib.base.coe(lib.db_sqlite.commit(ack_conn))
@@ -595,25 +594,14 @@ def main():
             f"'{item}'" for item in sorted(args.IGNORE_PATTERN + args.IGNORE_REGEX)
         ]
 
-        msg = (
-            f'Queried the systemd journal (0 events) using '
-            f'{_join_and(filter_parts)}'
-        )
+        msg = f'Queried the systemd journal (0 events) using {_join_and(filter_parts)}'
         if ignore_parts:
             msg += f', ignoring {_join_and(ignore_parts)}'
         msg += '.'
         state = STATE_OK
 
-    full_cmd = (
-        cmd.replace(
-            ' --quiet',
-            '',
-        )
-        .replace(
-            ' --output=json',
-            '',
-        )
-        .replace('\\', '')
+    full_cmd = ' '.join(
+        token for token in cmd if token not in ('--quiet', '--output=json')
     )
     msg += f'\nThe full command used was:\n`{full_cmd}`'
     perfdata = lib.base.get_perfdata(

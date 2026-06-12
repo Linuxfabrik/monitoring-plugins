@@ -78,9 +78,9 @@ options:
   --user                Only check packages installed in the user-site
                         directory.
   --virtualenv VIRTUALENV
-                        Path to a virtualenv activate script to source before
-                        checking for updates. Example: `/opt/sphinx-
-                        venv/bin/activate`
+                        Path to a virtualenv activate script. The interpreter
+                        from that virtualenv is used to check for updates
+                        inside it. Example: `/opt/sphinx-venv/bin/activate`
   -w, --warning WARN    WARN threshold for the number of outdated packages.
                         Default: 10
 ```
@@ -95,7 +95,7 @@ options:
 Output:
 
 ```text
-venv /path/to/my/venv/bin/activate. pip is complaining about something or about itself, but most of the packages are up to date. 2 outdated packages. Executed command: `source /path/to/my/venv/bin/activate && python3 -m pip list --outdated --exclude=boto3 --exclude=pip --local`
+venv /path/to/my/venv/bin/activate. pip is complaining about something or about itself, but most of the packages are up to date. 2 outdated packages. Executed command: `/path/to/my/venv/bin/python3 -m pip list --outdated --exclude=boto3 --exclude=pip --local`
 
 Package  ! Version ! Latest  ! Type  
 ---------+---------+---------+-------

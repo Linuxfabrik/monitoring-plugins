@@ -23,7 +23,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041301'
+__version__ = '2026061201'
 
 DESCRIPTION = """Checks the installed Graylog version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -129,9 +129,11 @@ def get_installed_version(test_arg=None):
         distro = lib.distro.get_distribution_facts()
         result = None
         if distro['os_family'] == 'RedHat':
-            success, result = lib.shell.shell_exec('yum list installed graylog*')
+            success, result = lib.shell.shell_exec(
+                ['yum', 'list', 'installed', 'graylog*']
+            )
         elif distro['os_family'] == 'Debian':
-            success, result = lib.shell.shell_exec('dpkg --list')
+            success, result = lib.shell.shell_exec(['dpkg', '--list'])
         else:
             success = False
         if not success:

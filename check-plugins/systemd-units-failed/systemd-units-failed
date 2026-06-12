@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026050801'
+__version__ = '2026061201'
 
 DESCRIPTION = """Checks for failed systemd units. Alerts when any unit is in a failed state. Specific
 units can be excluded from the check via --ignore with regular expressions. When no unit
@@ -90,7 +90,7 @@ def _unescape_systemd_name(name):
 
 
 _LAST_FAILED_LINE = re.compile(
-    r"^(\d+(?:\.\d+)?)\s+\S+\s+systemd\[\d+\]:\s+(.+?):\s+"
+    r'^(\d+(?:\.\d+)?)\s+\S+\s+systemd\[\d+\]:\s+(.+?):\s+'
     r"Failed with result\s+'([^']+)'"
 )
 
@@ -119,10 +119,14 @@ def get_last_failed_unit():
     `--grep` against `--lines=1` and produce no JSON output for some
     `--output=json --grep ...` combinations.
     """
-    cmd = (
-        'journalctl --no-pager --output=short-unix --boot=0 '
-        '_PID=1 --grep="Failed with result"'
-    )
+    cmd = [
+        'journalctl',
+        '--no-pager',
+        '--output=short-unix',
+        '--boot=0',
+        '_PID=1',
+        '--grep=Failed with result',
+    ]
     success, result = lib.shell.shell_exec(cmd)
     if not success:
         return None, None, None
@@ -158,7 +162,9 @@ def main():
     if args.TEST is None:
         # get the values the normal way
         stdout, _stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('systemctl --state=failed --no-pager --no-legend')
+            lib.shell.shell_exec(
+                ['systemctl', '--state=failed', '--no-pager', '--no-legend']
+            )
         )
     else:
         # do not call the command, put in test data

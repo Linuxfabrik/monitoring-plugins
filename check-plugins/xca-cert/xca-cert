@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026061201'
 
 DESCRIPTION = """Checks the expiration dates of certificates stored in a XCA-managed MySQL/MariaDB
 database. Alerts when certificates are about to expire or have already expired."""
@@ -122,7 +122,7 @@ def check_crts(conn, args, state):
         # execute the shell command and return its result and exit code
         stdout, _stderr, _retc = lib.base.coe(
             lib.shell.shell_exec(
-                'openssl x509 -noout -dates -in /dev/stdin',
+                ['openssl', 'x509', '-noout', '-dates', '-in', '/dev/stdin'],
                 # add line break after 10th character, for the openssl command to always work
                 stdin=(
                     f'-----BEGIN CERTIFICATE-----\n'
@@ -178,7 +178,7 @@ def check_crls(conn, args, state):
         # execute the shell command and return its result and exit code
         stdout, _stderr, _retc = lib.base.coe(
             lib.shell.shell_exec(
-                'openssl crl -noout -nextupdate -in /dev/stdin',
+                ['openssl', 'crl', '-noout', '-nextupdate', '-in', '/dev/stdin'],
                 stdin=f'-----BEGIN X509 CRL-----\n{row[cert]}\n-----END X509 CRL-----',
             )
         )
@@ -237,7 +237,6 @@ def main():
     )
 
     if expiring_crts > 0:
-
         # build the message
         msg += (
             f'{expiring_crts}'

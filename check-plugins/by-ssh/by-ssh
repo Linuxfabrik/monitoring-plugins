@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060601'
+__version__ = '2026061201'
 
 DESCRIPTION = """Executes a command on a remote host via SSH and evaluates the result. Returns
 STDOUT and, in case of failure, STDERR and the command's exit code. Supports pattern matching
@@ -240,10 +240,11 @@ def parse_args():
     )
 
     parser.add_argument(
+        # Deprecated and ignored: the remote command is always passed as a single
+        # argument to the remote shell, which expands globs, pipes and variables.
+        # Kept so existing service definitions keep working.
         '--shell',
-        help='Enable shell expansion for environment variables and file globs. '
-        'Can be a security hazard. '
-        'Without this option, only simple commands without globs or pipes are supported.',
+        help=argparse.SUPPRESS,
         dest='SHELL',
         action='store_true',
         default=False,
@@ -332,8 +333,8 @@ def main():
         quiet=args.QUIET,
     )
     timer_start = lib.time.now('float')
-    # shell=True is opt-in via --shell for the admin; the plugin's purpose is
-    # to execute admin-provided remote commands over SSH
+    # the plugin's purpose is to execute admin-provided remote commands over SSH;
+    # the command is sent as a single argument and expanded by the remote shell
     stdout, stderr, retc = lib.base.coe(
         lib.ssh.run(
             args.HOSTNAME,
@@ -343,7 +344,6 @@ def main():
             options=ssh_opts,
             disable_pseudo_terminal=args.DISABLE_PSEUDO_TERMINAL,
             password=args.PASSWORD,
-            use_shell=args.SHELL,
         )
     )
     if args.PASSWORD and not stderr and retc in range(1, 8):

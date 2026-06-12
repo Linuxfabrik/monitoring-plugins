@@ -22,7 +22,7 @@ from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
                 originally written by Dominik Riva, Universitätsspital Basel/Switzerland"""
-__version__ = '2026040801'
+__version__ = '2026061201'
 
 DESCRIPTION = """Checks the current state of a Gemalto SafeNet ProtectServer Network HSM via SSH by
 running a PSESH command on the appliance. Alerts when the HSM adapter reports a
@@ -138,12 +138,17 @@ def main():
     if args.TEST is None:
         # -o: Give options in the format used in the configuration file.
         # -T: Disable pseudo-terminal allocation.
-        cmd = (
-            f'sshpass -p {args.PASSWORD}'
-            f' ssh -o ConnectTimeout={args.TIMEOUT}'
-            f" -T '{args.USERNAME}'@'{args.HOSTNAME}'"
-            f" 'hsm state'"
-        )
+        cmd = [
+            'sshpass',
+            '-p',
+            args.PASSWORD,
+            'ssh',
+            '-o',
+            f'ConnectTimeout={args.TIMEOUT}',
+            '-T',
+            f'{args.USERNAME}@{args.HOSTNAME}',
+            'hsm state',
+        ]
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         if lib.shell.RETC_SSHPASS.get(retc, ''):
             lib.base.cu(f'sshpass: {lib.shell.RETC_SSHPASS[retc]}')

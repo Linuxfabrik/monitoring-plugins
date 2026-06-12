@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026061201'
 
 DESCRIPTION = """Checks the current disk usage of all systemd journal files (archived and active
 combined). Alerts when journal disk usage exceeds the configured thresholds.
@@ -104,13 +104,13 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        cmd = 'journalctl --disk-usage'
+        cmd = ['journalctl', '--disk-usage']
         stdout, stderr, _ = lib.base.coe(lib.shell.shell_exec(cmd))
         if stderr:
             lib.base.cu(stderr)
 
         # get journald's thresholds
-        cmd = 'systemd-analyze cat-config systemd/journald.conf'
+        cmd = ['systemd-analyze', 'cat-config', 'systemd/journald.conf']
         config, stderr, _ = lib.base.coe(lib.shell.shell_exec(cmd))
         if stderr:
             lib.base.cu(stderr)

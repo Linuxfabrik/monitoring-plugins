@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051007'
+__version__ = '2026061201'
 
 DESCRIPTION = """Checks Linux kernel parameters that affect MySQL/MariaDB stability and
 performance: `vm.swappiness`, the asynchronous-I/O event ceiling `fs.aio-max-nr`, the
@@ -89,7 +89,7 @@ def get_listening_ports():
 
 def get_sysctl(key):
     """Read a sysctl key. Returns the stripped value, or `None` if empty/unreadable."""
-    cmd = f'sysctl --values {key} 2> /dev/null'
+    cmd = ['sysctl', '--values', key]
     stdout, _stderr, _retc = lib.base.coe(lib.shell.shell_exec(cmd))
     value = stdout.strip()
     return value or None

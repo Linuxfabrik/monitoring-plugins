@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026061201'
 
 DESCRIPTION = """Queries SMART (Self-Monitoring, Analysis, and Reporting Technology) data from hard
 disks and solid-state drives using smartctl. Inspects drive health attributes,
@@ -34,10 +34,10 @@ Requires root or sudo."""
 
 DEFAULT_IGNORE = []
 
-CMD_LIST_DISKS = 'smartctl --scan-open'
+CMD_LIST_DISKS = ['smartctl', '--scan-open']
 # Without forcing the device type (--device option), smartctl often fails with "Unable to read
 # device ID" (especially for external / USB drives)
-CMD_SMARTCTL = 'smartctl --xall'
+CMD_SMARTCTL = ['smartctl', '--xall']
 
 
 def parse_args():
@@ -1056,7 +1056,7 @@ def main():
 
         # fetch data
         if args.TEST is None:
-            cmd_smartctl = f'{CMD_SMARTCTL} {disk}'
+            cmd_smartctl = [*CMD_SMARTCTL, disk]
             stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd_smartctl))
         else:
             # do not call the command, put in test data

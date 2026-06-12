@@ -12,6 +12,7 @@
 
 import argparse
 import json
+import os
 import sys
 
 import lib.args
@@ -22,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026033101'
+__version__ = '2026061201'
 
 DESCRIPTION = """Checks for outdated Python packages installed via pip. Reports the number of packages
 with available updates and lists them. Alerts when the count exceeds the configured
@@ -145,7 +146,8 @@ def parse_args():
 
     parser.add_argument(
         '--virtualenv',
-        help='Path to a virtualenv activate script to source before checking for updates. '
+        help='Path to a virtualenv activate script. The interpreter from that '
+        'virtualenv is used to check for updates inside it. '
         'Example: `/opt/sphinx-venv/bin/activate`',
         dest='VIRTUALENV',
     )
@@ -179,38 +181,35 @@ def main():
         args.FIND_LINKS = []
 
     # fetch data
-    cmd = 'python3 -m pip list --outdated --format=json'
+    cmd = ['python3', '-m', 'pip', 'list', '--outdated', '--format=json']
     if args.TEST is None:
         # build commandline call
-        if args.EXCLUDE:
-            cmd += f' --exclude={" --exclude=".join(args.EXCLUDE)}'
-        if args.EXTRA_INDEX_URL:
-            cmd += (
-                f' --extra-index-url={" --extra-index-url=".join(args.EXTRA_INDEX_URL)}'
-            )
-        if args.FIND_LINKS:
-            cmd += f' --find-links={" --find-links=".join(args.FIND_LINKS)}'
+        for item in args.EXCLUDE or []:
+            cmd.append(f'--exclude={item}')
+        for item in args.EXTRA_INDEX_URL or []:
+            cmd.append(f'--extra-index-url={item}')
+        for item in args.FIND_LINKS or []:
+            cmd.append(f'--find-links={item}')
         if args.INDEX_URL:
-            cmd += f' --index-url={args.INDEX_URL}'
+            cmd.append(f'--index-url={args.INDEX_URL}')
         if args.LOCAL:
-            cmd += ' --local'
+            cmd.append('--local')
         if args.NO_INDEX:
-            cmd += ' --no-index'
+            cmd.append('--no-index')
         if args.NOT_REQUIRED:
-            cmd += ' --not-required'
+            cmd.append('--not-required')
         if args.PRE:
-            cmd += ' --pre'
+            cmd.append('--pre')
         if args.USER:
-            cmd += ' --user'
+            cmd.append('--user')
 
         if args.VIRTUALENV:
-            # `source` does not work on every environment, so use `.`
-            # shell=True needed for the `. venv && pip` composition; VIRTUALENV
-            # is an admin-provided path from the Icinga check config
-            cmd = f'. {args.VIRTUALENV} && {cmd}'
-            stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd, shell=True))  # nosec B604
-        else:
-            stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+            # Run the virtualenv's own interpreter instead of sourcing its activate
+            # script, which avoids a shell. VIRTUALENV points at the activate script,
+            # so its directory holds the interpreter.
+            cmd[0] = os.path.join(os.path.dirname(args.VIRTUALENV), 'python3')
+
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
@@ -251,7 +250,8 @@ def main():
             f'{len(packages)} outdated {lib.txt.pluralize("package", len(packages))}'
             f'{lib.base.state2str(state, prefix=" ")}. '
         )
-    msg += f'Executed command: `{cmd.replace(" --format=json", "")}`'
+    cmd_str = ' '.join(token for token in cmd if token != '--format=json')
+    msg += f'Executed command: `{cmd_str}`'
 
     if packages:
         msg += '\n\n'

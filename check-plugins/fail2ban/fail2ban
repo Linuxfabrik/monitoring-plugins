@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026052701'
+__version__ = '2026061201'
 
 DESCRIPTION = """Checks the number of currently banned IP addresses across all fail2ban jails.
 Reports the total ban count and a per-jail breakdown. Jails can be excluded from the
@@ -130,14 +130,14 @@ def main():
             lib.base.cu(f'Invalid regular expression: {e}')
 
     # build the fail2ban-client command prefix, optionally pointing at a custom socket
-    client = 'fail2ban-client'
+    client = ['fail2ban-client']
     if args.SOCKET:
-        client += f' --socket {args.SOCKET}'
+        client += ['--socket', args.SOCKET]
 
     # fetch data
     # fail2ban-client ping
     if args.TEST is None:
-        stdout, _stderr, retc = lib.base.coe(lib.shell.shell_exec(f'{client} ping'))
+        stdout, _stderr, retc = lib.base.coe(lib.shell.shell_exec([*client, 'ping']))
     else:
         # do not call the command, put in test data
         stdout, _stderr, retc = lib.lftest.test(
@@ -148,7 +148,7 @@ def main():
 
     # fail2ban-client status
     if args.TEST is None:
-        stdout, _stderr, retc = lib.base.coe(lib.shell.shell_exec(f'{client} status'))
+        stdout, _stderr, retc = lib.base.coe(lib.shell.shell_exec([*client, 'status']))
     else:
         # do not call the command, put in test data
         stdout, _stderr, retc = lib.lftest.test(
@@ -179,7 +179,7 @@ def main():
 
         if args.TEST is None:
             stdout, _stderr, retc = lib.base.coe(
-                lib.shell.shell_exec(f'{client} status {jail}')
+                lib.shell.shell_exec([*client, 'status', jail])
             )
         else:
             # do not call the command, put in test data
