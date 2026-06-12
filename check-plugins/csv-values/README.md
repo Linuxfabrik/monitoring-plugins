@@ -88,7 +88,7 @@ Helpful resources:
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | No (`--columns-query` and at least one query are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `PySmbClient`, `smbprotocol` (only for SMB access) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-csv-values-*.db` |
 
