@@ -72,6 +72,7 @@ Build, CI/CD:
 
 Monitoring Plugins:
 
+* about-me: no longer crashes when detecting installed software on a host (it ran the service detection the wrong way after the move to argument lists)
 * apache-httpd-version: adapted to the new endoflife.date URL ([PR #1224](https://github.com/Linuxfabrik/monitoring-plugins/pull/1224), thanks to [Salman Mohammadi](https://github.com/salmanxmoha))
 * by-ssh: a failed connection no longer echoes the full command line (which can contain the password passed via `--password`) in the plugin output
 * on Windows, plugins that run system commands (for example `users`, `scheduled-task`, `ntp-w32tm`) show non-ASCII output such as umlauts in usernames correctly instead of garbled, and no longer risk a decoding error ([#681](https://github.com/Linuxfabrik/monitoring-plugins/issues/681))
