@@ -13,11 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Monitoring Plugins:
 
 * csv-values: is shipped as a Windows build again
-* disk-io: can now also monitor raw, unmounted block devices such as multipath SAN volumes or Oracle ASM disks (`--include-unmounted`)
-* file-size: can report the mean or median file size as performance data for trending (`--perfdata-mode`) ([#159](https://github.com/Linuxfabrik/monitoring-plugins/issues/159))
-* lynis: new check that audits the security hardening posture of every host in a subnet over SSH and reports each host's hardening index, warnings and suggestions
+* disk-io: can also monitor raw, unmounted block devices such as multipath SAN or Oracle ASM disks (`--include-unmounted`)
+* file-size: can report the mean or median file size as performance data (`--perfdata-mode`) ([#159](https://github.com/Linuxfabrik/monitoring-plugins/issues/159))
+* lynis: new check that audits the security hardening of hosts across a subnet over SSH (hardening index, warnings, suggestions)
 * redfish-ethernetinterfaces: new check for a server's Ethernet interface health
-* redfish-firmwareinventory: new check reporting a server's firmware component versions and health
+* redfish-firmwareinventory: new check for a server's firmware component versions and health
 * redfish-managers: new check for a server's management controller health (BMC, e.g. iLO or iDRAC)
 * redfish-memory: new check for a server's memory module health
 * redfish-processors: new check for a server's processor health
@@ -29,66 +29,66 @@ Icinga Director:
 Grafana:
 
 * ipmi-sensor: now ships a Grafana dashboard that groups temperature, fan, voltage and power readings into separate panels ([#22](https://github.com/Linuxfabrik/monitoring-plugins/issues/22))
-* the Redfish checks that emit performance data now ship Grafana dashboards (redfish-sensors, redfish-storage, redfish-memory, redfish-processors, redfish-ethernetinterfaces, redfish-managers, redfish-firmwareinventory)
+* the Redfish checks that emit performance data now ship Grafana dashboards
 
 ### Changed
 
 Monitoring Plugins:
 
-* by-ssh: the `--shell` option is deprecated and ignored; remote commands that use pipes, globs or variables now always work
+* by-ssh: the `--shell` option is deprecated and ignored; remote commands using pipes, globs or variables now always work
 * cert: can scan a whole subnet for expiring or untrusted TLS certificates across many common ports, not just a single endpoint or local files (now the default when run without parameters)
-* cert: warning/critical thresholds also accept a percentage of the lifetime or a duration, and a TLS endpoint's full certificate chain is checked, not just the leaf
+* cert: warning/critical thresholds also accept a percentage of the lifetime or a duration, and the full certificate chain is checked, not just the leaf
 * ipmi-sensor: performance data is grouped by sensor type, so temperatures, fan speeds, voltages and power show up in separate graphs (existing IPMI graph history resets once) ([#22](https://github.com/Linuxfabrik/monitoring-plugins/issues/22))
 * nextcloud-security-scan: reports a fresh rating right after a Nextcloud update instead of a stale one (`--path`) ([#118](https://github.com/Linuxfabrik/monitoring-plugins/issues/118))
-* php-status: also reports the active php.ini runtime settings next to PHP's own defaults and the largest OPcache scripts (`--top`), and on a host with several PHP-FPM services points out the ones a single check does not cover
-* php-status: OPcache alerting is more tolerant (warns at 95% by default) and now flags cache thrashing (out-of-memory and hash restarts), while a harmless full interned strings buffer no longer raises a warning
-* php-status: when the monitoring.php helper cannot be read, the output names the actual cause (for example a missing dependency or an HTTP error) instead of a generic "not found", and on success states which web server process answered
-* php-status: the raw OPcache hits and misses counters are no longer emitted as performance data (the hit-rate percentage stays), so graphs of those two values stop updating
-* redfish-*: a `--brief` option lists only the components in WARN/CRIT state and hides the healthy ones, to keep the output short on large systems
-* redfish-*: individual components (drives, sensors, memory modules, processors, interfaces, firmware components, managers) can be included or excluded by regular expression, so known-noisy or irrelevant hardware no longer drives the check state (`--match`, `--ignore`)
+* php-status: also reports the active php.ini runtime settings and the largest OPcache scripts (`--top`), and flags PHP-FPM services a single check does not cover
+* php-status: OPcache alerting is more tolerant (warns at 95% by default) and now flags cache thrashing, while a full interned strings buffer no longer warns
+* php-status: when the monitoring.php helper cannot be read, the output names the actual cause instead of a generic "not found"
+* php-status: the raw OPcache hits and misses counters are no longer emitted as performance data (the hit-rate percentage stays)
+* redfish-*: a `--brief` option lists only the components in WARN/CRIT state, to keep the output short on large systems
+* redfish-*: individual components can be included or excluded by regular expression, so noisy hardware no longer drives the check state (`--match`, `--ignore`)
 * redfish-*: plugins renamed to match their Redfish API endpoints (`redfish-drives` → `redfish-storage`, `redfish-sel` → `redfish-logservices`, `redfish-sensor` → `redfish-sensors`, `redfish-system` → `redfish-systems`)
 * redfish-*: frequent checks no longer flood a management controller's session table or audit log
-* redfish-*: can export the parsed hardware as a JSON inventory instead of running a health check; the output of several Redfish checks merges into one inventory document with `jq --slurp` (`--inventory`)
+* redfish-*: can export the parsed hardware as a JSON inventory instead of running a health check (`--inventory`)
 * redfish-*: a slow or flaky management controller request is retried before the check fails (`--retries`)
-* redfish-logservices: can now also read the management controller event log (MEL), not just the System Event Log, selectable per check (`--log-type=sel|mel|both`)
-* redfish-logservices: event log entries can be filtered by regular expression, and old entries can be aged out so a long-since resolved event no longer keeps the check alerting (`--match`, `--ignore`, `--max-age`)
-* redfish-memory: reports memory size and module health correctly on Dell, HPE and Fujitsu controllers that expose these values in vendor-specific fields
-* redfish-sensors: also reports the chassis-wide power consumption, and reads fan speed correctly whether the controller reports it in RPM or percent
+* redfish-logservices: can also read the management controller event log (MEL), not just the System Event Log (`--log-type=sel|mel|both`)
+* redfish-logservices: event log entries can be filtered by regular expression and aged out (`--match`, `--ignore`, `--max-age`)
+* redfish-memory: reports memory size and module health correctly on Dell, HPE and Fujitsu controllers
+* redfish-sensors: also reports chassis-wide power consumption, and reads fan speed whether reported in RPM or percent
 * redfish-sensors: falls back to the legacy Thermal and Power endpoints when the modern Sensors collection is absent
 * redfish-storage: now also checks volumes (logical drives), not just physical drives and controllers
-* redfish-storage: now reports performance data over time for drive wear, drive power-on hours, drive temperature and drive, volume and controller counts, ready for graphing
+* redfish-storage: now reports performance data for drive wear, temperature and component counts, ready for graphing
 * swap-usage: a host without any swap is OK by default instead of UNKNOWN; set `--severity-no-swap` to alert on missing swap ([#1142](https://github.com/Linuxfabrik/monitoring-plugins/issues/1142))
 
 Icinga Director:
 
-* the Redfish baskets expose the new check options and raise the command timeout to 60 seconds, leaving headroom for retries against a slow controller
+* the Redfish baskets expose the new check options and raise the command timeout to 60 seconds
 
 ### Fixed
 
 Build, CI/CD:
 
-* installer: a source install (`install-monitoring-plugins --source`) cleans up a sudoers drop-in left under an earlier name, so sudo no longer warns about a duplicate `Cmnd_Alias` on hosts that were previously set up a different way
-* installer: a source install (`install-monitoring-plugins --source`) no longer prints Python `RuntimeWarning` messages about tarfile extraction on RHEL 9 family hosts
+* installer: a source install (`--source`) cleans up a sudoers drop-in left under an earlier name, so sudo no longer warns about a duplicate `Cmnd_Alias`
+* installer: a source install (`--source`) no longer prints Python `RuntimeWarning` messages about tarfile extraction on RHEL 9 family hosts
 
 Monitoring Plugins:
 
 * about-me: no longer crashes when detecting installed software on a host (it ran the service detection the wrong way after the move to argument lists)
 * apache-httpd-version: adapted to the new endoflife.date URL ([PR #1224](https://github.com/Linuxfabrik/monitoring-plugins/pull/1224), thanks to [Salman Mohammadi](https://github.com/salmanxmoha))
-* by-ssh: a failed connection no longer echoes the full command line (which can contain the password passed via `--password`) in the plugin output
-* on Windows, plugins that run system commands (for example `users`, `scheduled-task`, `ntp-w32tm`) show non-ASCII output such as umlauts in usernames correctly instead of garbled, and no longer risk a decoding error ([#681](https://github.com/Linuxfabrik/monitoring-plugins/issues/681))
+* by-ssh: a failed connection no longer echoes the full command line (which can contain the `--password` value) in the plugin output
+* on Windows, plugins that run system commands (for example `users`, `scheduled-task`, `ntp-w32tm`) show non-ASCII output such as umlauts in usernames correctly instead of garbled ([#681](https://github.com/Linuxfabrik/monitoring-plugins/issues/681))
 * on Windows, multi-line plugin output is no longer shown with a blank line between every line in IcingaWeb
-* redfish-sensors: no longer raises false warnings for sensors that report a placeholder min/max range (e.g. CPU/memory utilization on some hardware) ([#1211](https://github.com/Linuxfabrik/monitoring-plugins/issues/1211))
-* several plugins that run system commands no longer report UNKNOWN when the command only writes a harmless warning to stderr (for example rpm's "Could not load key" or ssh's known-hosts notice); a genuine command failure is now reported as WARN. Affects deb-lastactivity, disk-smart, getent, journald-query, journald-usage, kubectl-get-pods, ntp-chronyd, ntp-ntpd, ntp-systemd-timesyncd, redis-status, restic-snapshots, restic-stats, rpm-lastactivity, safenet-hsm-state and valkey-status
+* redfish-sensors: no longer raises false warnings for sensors that report a placeholder min/max range ([#1211](https://github.com/Linuxfabrik/monitoring-plugins/issues/1211))
+* several plugins that run system commands no longer report UNKNOWN when the command only writes a harmless warning to stderr; a genuine command failure is now reported as WARN. Affects deb-lastactivity, disk-smart, getent, journald-query, journald-usage, kubectl-get-pods, ntp-chronyd, ntp-ntpd, ntp-systemd-timesyncd, redis-status, restic-snapshots, restic-stats, rpm-lastactivity, safenet-hsm-state and valkey-status
 
 Icinga Director:
 
-* the shipped Service and Host templates no longer pin checks to the master zone, so checks deploy correctly in distributed setups (master → satellite → agent); the agentless `-no-agent` checks still run from the master ([#721](https://github.com/Linuxfabrik/monitoring-plugins/issues/721))
+* the shipped Service and Host templates no longer pin checks to the master zone, so checks deploy correctly in distributed setups; the agentless `-no-agent` checks still run from the master ([#721](https://github.com/Linuxfabrik/monitoring-plugins/issues/721))
 
 ### Security
 
 Monitoring Plugins:
 
-* every plugin that runs an external command now builds the command as an argument list instead of a shell command string, closing a local privilege escalation in which crafted plugin arguments (for example via `--repo`, `--hostname` or `--path`) could execute arbitrary commands. This is most serious on hosts where a plugin is allowed to run via sudo. Plugins that take an ssh, ping, getent or systemd target additionally reject a target that could be misread as a command option ([GHSA-798h-hpph-m24j](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-798h-hpph-m24j))
+* every plugin that runs an external command now builds the command as an argument list instead of a shell command string, closing a local privilege escalation in which crafted plugin arguments could execute arbitrary commands. This is most serious on hosts where a plugin is allowed to run via sudo ([GHSA-798h-hpph-m24j](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-798h-hpph-m24j))
 
 
 ## [v5.2.0] - 2026-06-02
