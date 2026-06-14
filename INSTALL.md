@@ -35,16 +35,21 @@ less install-monitoring-plugins
 sudo bash install-monitoring-plugins
 ```
 
-The same script can install without the package repository, into a self-contained venv
-(the layout the RPM and DEB packages use), instead of registering the repository:
+The same script can also install without the package repository, into a self-contained venv
+(the layout the RPM and DEB packages use), instead of registering the repository. There are
+two such modes.
+
+Install the latest source from GitHub into a venv, without a git client or package manager:
 
 ```bash
-# latest source from GitHub into a venv (no git client, no package manager)
 curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s -- --source
+```
 
-# signed, version-pinned source zip from the download server; for air-gapped or pinned hosts
-curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins \
-    | sudo bash -s -- --zip --version=<version>-<iteration>
+Install a signed, version-pinned source zip from the download server, for air-gapped or
+pinned hosts:
+
+```bash
+curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s -- --zip --version=<version>-<iteration>
 ```
 
 Add `--uninstall` to reverse any of these, or `--help` for all options (`--package`,
