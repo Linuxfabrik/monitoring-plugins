@@ -67,6 +67,7 @@ Icinga Director:
 
 Build, CI/CD:
 
+* installer: a source install (`install-monitoring-plugins --source`) cleans up a sudoers drop-in left under an earlier name, so sudo no longer warns about a duplicate `Cmnd_Alias` on hosts that were previously set up a different way
 * installer: a source install (`install-monitoring-plugins --source`) no longer prints Python `RuntimeWarning` messages about tarfile extraction on RHEL 9 family hosts
 
 Monitoring Plugins:

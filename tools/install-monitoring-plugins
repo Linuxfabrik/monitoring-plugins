@@ -53,6 +53,11 @@ STATE_DIR='/usr/lib64/linuxfabrik-monitoring-plugins'
 VENV_DIR="${STATE_DIR}/venv"
 MANIFEST="${STATE_DIR}/install-manifest.txt"
 SUDOERS_DEST='/etc/sudoers.d/linuxfabrik-monitoring-plugins'
+# sudoers drop-ins this project placed under earlier names: 'monitoring-plugins' (the Ansible
+# source install) and 'icinga2-plugins' (the manual scp deployment documented in the old README).
+# They are removed on install and on uninstall so a host never carries the LF_NAGIOS Cmnd_Alias
+# twice, which makes sudo warn about a duplicate Cmnd_Alias on every invocation.
+LEGACY_SUDOERS_DESTS='/etc/sudoers.d/monitoring-plugins /etc/sudoers.d/icinga2-plugins'
 
 # --- defaults (overridable via flags / env) ----------------------------------------------
 
@@ -309,6 +314,15 @@ install_sudoers() {
     visudo -cf "${src}" >/dev/null || die "sudoers file ${src} failed validation"
     install -m 0440 "${src}" "${SUDOERS_DEST}"
     record "${SUDOERS_DEST}"
+    # Drop sudoers files this project shipped under earlier names, so the LF_NAGIOS Cmnd_Alias is
+    # not defined twice (which makes sudo warn about a duplicate Cmnd_Alias on every call).
+    local legacy
+    for legacy in ${LEGACY_SUDOERS_DESTS}; do
+        if [ -e "${legacy}" ]; then
+            log "removing superseded sudoers drop-in ${legacy}"
+            run rm -f "${legacy}"
+        fi
+    done
 }
 
 # Final ownership and SELinux fix-ups, mirroring the package: the monitoring user owns the
@@ -572,6 +586,10 @@ uninstall() {
         did_something=1
     fi
     run rm -f "${SUDOERS_DEST}"
+    # also drop any sudoers drop-ins shipped under earlier names
+    for p in ${LEGACY_SUDOERS_DESTS}; do
+        run rm -f "${p}"
+    done
 
     if [ "${did_something}" -eq 1 ]; then
         log 'uninstall complete.'
