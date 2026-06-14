@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+tbd
+
+
+## [v6.0.0] - 2026-06-14
+
+### Breaking Changes
+
+Monitoring Plugins:
+
+* redfish-*: plugins renamed to match their Redfish API endpoints (`redfish-drives` → `redfish-storage`, `redfish-sel` → `redfish-logservices`, `redfish-sensor` → `redfish-sensors`, `redfish-system` → `redfish-systems`); update any Icinga commands that reference the old names
+
 ### Added
 
 Monitoring Plugins:
@@ -46,7 +57,6 @@ Monitoring Plugins:
 * php-status: the raw OPcache hits and misses counters are no longer emitted as performance data (the hit-rate percentage stays)
 * redfish-*: a `--brief` option lists only the components in WARN/CRIT state, to keep the output short on large systems
 * redfish-*: individual components can be included or excluded by regular expression, so noisy hardware no longer drives the check state (`--match`, `--ignore`)
-* redfish-*: plugins renamed to match their Redfish API endpoints (`redfish-drives` → `redfish-storage`, `redfish-sel` → `redfish-logservices`, `redfish-sensor` → `redfish-sensors`, `redfish-system` → `redfish-systems`)
 * redfish-*: frequent checks no longer flood a management controller's session table or audit log
 * redfish-*: can export the parsed hardware as a JSON inventory instead of running a health check (`--inventory`)
 * redfish-*: a slow or flaky management controller request is retried before the check fails (`--retries`)
@@ -2461,7 +2471,8 @@ Monitoring Plugins:
 Initial release for the general public.
 
 
-[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v5.2.0...HEAD
+[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v6.0.0...HEAD
+[v6.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v5.2.0...v6.0.0
 [v5.2.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v5.1.0...v5.2.0
 [v5.1.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v5.0.0...v5.1.0
 [v5.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v4.1.0...v5.0.0
