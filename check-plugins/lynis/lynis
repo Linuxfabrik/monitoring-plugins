@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060601'
+__version__ = '2026061501'
 
 DESCRIPTION = """Runs a full security audit across the hosts of a subnet and reports each host's
 hardening posture. From a single management host it discovers the targets (the subnet of the
@@ -61,6 +61,22 @@ REMOTE_REPORT = '/var/log/lynis-report.dat'
 # file is used. The name is also used to validate the path before any removal.
 REMOTE_WORKDIR_NAME = 'linuxfabrik-monitoring-plugins-lynis'
 REMOTE_WORKDIR_BASES = ['/var/tmp', '/tmp', '"$HOME"', '/root', '/']
+
+# Where a packaged lynis keeps its plugins and default profile on the management
+# host varies by distro (RHEL/Fedora/Arch ship the plugins under
+# /usr/share/lynis, Debian/Ubuntu under /etc/lynis). These mirror lynis' own
+# search order so the assembled copy is self-contained on every distro, which
+# matters because a missing plugins directory aborts the remote audit.
+LOCAL_PLUGIN_DIRS = (
+    '/usr/local/lynis/plugins',
+    '/usr/local/share/lynis/plugins',
+    '/usr/share/lynis/plugins',
+    '/etc/lynis/plugins',
+)
+LOCAL_PROFILE_FILES = (
+    '/etc/lynis/default.prf',
+    '/usr/share/lynis/default.prf',
+)
 
 
 def parse_args():
@@ -465,16 +481,21 @@ def push_lynis(host, args, ssh_opts, base_dir, remote_dir):
     return scp_push(host, args, ssh_opts, base_dir, remote_dir, recursive=True)
 
 
-def build_lynis_command(args):
+def build_lynis_command(args, base_dir):
     """Assemble the remote `./lynis audit system ...` invocation. --cronjob
     runs unattended (quick, quiet, no colors); --usecwd pins the pushed copy so
     a lynis installation already present on the target is ignored.
     """
-    # --plugin-dir is given as an absolute path ($PWD is expanded on the target,
-    # where the command runs from inside the extracted lynis directory), because
-    # lynis resolves a relative plugin directory against its current working
-    # directory and aborts once it changes directory during the scan.
-    parts = ['./lynis audit system --cronjob --usecwd --plugin-dir "$PWD/plugins"']
+    parts = ['./lynis audit system --cronjob --usecwd']
+    # --plugin-dir is only pinned when the assembled copy actually ships a
+    # plugins directory: pointing it at a missing directory makes lynis abort
+    # before writing a report. The absolute path ($PWD is expanded on the
+    # target, inside the extracted lynis directory) is needed because lynis
+    # resolves a relative plugin directory against its working directory and
+    # aborts once it changes directory during the scan. Without a plugins
+    # directory the flag is omitted and lynis falls back to its own search.
+    if lib.disk.dir_exists(os.path.join(base_dir, 'plugins')):
+        parts[0] += ' --plugin-dir "$PWD/plugins"'
     if args.LYNIS_PROFILE:
         parts.append(f'--profile "{args.LYNIS_PROFILE}"')
     if args.LYNIS_AUDITOR:
@@ -562,19 +583,31 @@ def prepare_lynis_source(source):
     success, error = lib.disk.copy_file(executable, os.path.join(base_dir, 'lynis'))
     if not success:
         return (False, error)
-    for subdir in ('include', 'db', 'plugins'):
+    for subdir in ('include', 'db'):
         src = os.path.join(share, subdir)
         if lib.disk.dir_exists(src):
             success, error = lib.disk.copy_dir(src, os.path.join(base_dir, subdir))
             if not success:
                 return (False, error)
-    profile = '/etc/lynis/default.prf'
-    if lib.disk.file_exists(profile):
-        success, error = lib.disk.copy_file(
-            profile, os.path.join(base_dir, 'default.prf')
-        )
-        if not success:
-            return (False, error)
+    # The plugins directory and the default profile live in different places
+    # depending on the distro, so copy the first candidate found. Without a
+    # plugins directory in the pushed copy, the remote audit aborts.
+    for plugin_dir in LOCAL_PLUGIN_DIRS:
+        if lib.disk.dir_exists(plugin_dir):
+            success, error = lib.disk.copy_dir(
+                plugin_dir, os.path.join(base_dir, 'plugins')
+            )
+            if not success:
+                return (False, error)
+            break
+    for profile in LOCAL_PROFILE_FILES:
+        if lib.disk.file_exists(profile):
+            success, error = lib.disk.copy_file(
+                profile, os.path.join(base_dir, 'default.prf')
+            )
+            if not success:
+                return (False, error)
+            break
     return (True, (base_dir, tmp_dir))
 
 
@@ -681,7 +714,10 @@ def audit_host(host, args, ssh_opts, base_dir, lynis_cmd):
     success, result = ssh_exec(
         host, args, ssh_opts, remote_audit, timeout=args.AUDIT_TIMEOUT
     )
-    audit_stderr = result[1] if success else str(result)
+    # lynis prints its abort reasons (for example a bad plugin directory) to
+    # stdout, not stderr, so keep both streams to surface a useful message when
+    # no report is written.
+    audit_output = f'{result[0]}\n{result[1]}' if success else str(result)
 
     # fetch the report (root-owned, so cat it via sudo instead of scp)
     verbose(args, f'{host}: fetching report...')
@@ -709,7 +745,7 @@ def audit_host(host, args, ssh_opts, base_dir, lynis_cmd):
     )
 
     if 'hardening_index=' not in report_text:
-        return (False, extract_error(audit_stderr))
+        return (False, extract_error(audit_output))
     return (True, report_text)
 
 
@@ -808,29 +844,39 @@ def main():
             targets = lib.base.coe(lib.net.get_subnet_hosts(args.INTERFACE))
         verbose(args, f'{len(targets)} target(s) to check')
         ssh_opts = build_ssh_opts(args)
-        lynis_cmd = build_lynis_command(args)
 
         verbose(args, 'Preparing local lynis copy...')
         base_dir, tmp_dir = lib.base.coe(prepare_lynis_source(args.LYNIS_SOURCE))
+        lynis_cmd = build_lynis_command(args, base_dir)
 
         def process_host(host):
             """Probe and (if reachable and authenticated) audit one host.
             Returns a (host, success, result) tuple, or None to skip the host.
+            A failure on a single host must never abort the whole subnet scan,
+            so any unexpected error is caught and reported as that host's
+            result instead of propagating out of the worker pool.
             """
-            status = probe_host(host, args, ssh_opts)
-            if status == 'down':
-                return None
-            if status == 'auth':
-                # host is up on SSH but we could not authenticate; surface it
-                # instead of silently skipping, so wrong credentials are visible
-                return (host, False, 'SSH authentication failed')
-            success, result = audit_host(host, args, ssh_opts, base_dir, lynis_cmd)
-            if success:
-                report = parse_report(result)
-                verbose(args, f'{host}: hardening index {report["hardening_index"]}')
-            else:
-                verbose(args, f'{host}: audit failed ({result})')
-            return (host, success, result)
+            try:
+                status = probe_host(host, args, ssh_opts)
+                if status == 'down':
+                    return None
+                if status == 'auth':
+                    # host is up on SSH but we could not authenticate; surface
+                    # it instead of silently skipping, so wrong credentials are
+                    # visible
+                    return (host, False, 'SSH authentication failed')
+                success, result = audit_host(host, args, ssh_opts, base_dir, lynis_cmd)
+                if success:
+                    report = parse_report(result)
+                    verbose(
+                        args, f'{host}: hardening index {report["hardening_index"]}'
+                    )
+                else:
+                    verbose(args, f'{host}: audit failed ({result})')
+                return (host, success, result)
+            except Exception as exc:  # isolate per-host failures from the scan
+                verbose(args, f'{host}: audit failed ({exc})')
+                return (host, False, f'audit error: {exc}')
 
         try:
             # Audit hosts in parallel. map() preserves the input order, so the

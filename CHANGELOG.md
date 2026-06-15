@@ -8,7 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-tbd
+### Fixed
+
+Monitoring Plugins:
+
+* lynis: audits now produce a report on Debian, Ubuntu and other distributions that keep the lynis plugins outside `/usr/share` ([#1262](https://github.com/Linuxfabrik/monitoring-plugins/issues/1262))
+* lynis: when an audit produces no report, the plugin now shows the underlying lynis error instead of a generic message
 
 
 ## [v6.0.0] - 2026-06-14
