@@ -28,18 +28,42 @@ Usage:
     tools/run-container-tests keycloak-version  # run one plugin
 """
 
+import argparse
 import subprocess
 import sys
 
 import _common
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041301'
+__version__ = '2026061501'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(description=__doc__.strip().split('\n\n')[0])
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        'plugins',
+        nargs='*',
+        help='Optional list of plugin names to restrict the run to.',
+    )
+
+    return parser.parse_args()
 
 
 def main():
+    # Parse here so this wrapper exposes its own --help/--version instead of
+    # forwarding them to run-unit-tests, which would print that tool's help.
+    args = parse_args()
     runner = _common.TOOLS_DIR / 'run-unit-tests'
-    argv = [sys.executable, str(runner), '--only-container', *sys.argv[1:]]
+    argv = [sys.executable, str(runner), '--only-container', *args.plugins]
     result = subprocess.run(argv, check=False)
     return result.returncode
 
