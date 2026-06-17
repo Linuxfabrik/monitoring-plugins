@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+Monitoring Plugins:
+
+* network-errors: new check that alerts on receive and transmit interface errors ([#707](https://github.com/Linuxfabrik/monitoring-plugins/issues/707))
+
 ### Fixed
 
 Monitoring Plugins:
@@ -22,7 +28,7 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
-* redfish-*: plugins renamed to match their Redfish API endpoints (`redfish-drives` → `redfish-storage`, `redfish-sel` → `redfish-logservices`, `redfish-sensor` → `redfish-sensors`, `redfish-system` → `redfish-systems`); update any Icinga commands that reference the old names
+* redfish-\*: plugins renamed to match their Redfish API endpoints (`redfish-drives` → `redfish-storage`, `redfish-sel` → `redfish-logservices`, `redfish-sensor` → `redfish-sensors`, `redfish-system` → `redfish-systems`); update any Icinga commands that reference the old names
 
 ### Added
 
@@ -60,11 +66,11 @@ Monitoring Plugins:
 * php-status: OPcache alerting is more tolerant (warns at 95% by default) and now flags cache thrashing, while a full interned strings buffer no longer warns
 * php-status: when the monitoring.php helper cannot be read, the output names the actual cause instead of a generic "not found"
 * php-status: the raw OPcache hits and misses counters are no longer emitted as performance data (the hit-rate percentage stays)
-* redfish-*: a `--brief` option lists only the components in WARN/CRIT state, to keep the output short on large systems
-* redfish-*: individual components can be included or excluded by regular expression, so noisy hardware no longer drives the check state (`--match`, `--ignore`)
-* redfish-*: frequent checks no longer flood a management controller's session table or audit log
-* redfish-*: can export the parsed hardware as a JSON inventory instead of running a health check (`--inventory`)
-* redfish-*: a slow or flaky management controller request is retried before the check fails (`--retries`)
+* redfish-\*: a `--brief` option lists only the components in WARN/CRIT state, to keep the output short on large systems
+* redfish-\*: individual components can be included or excluded by regular expression, so noisy hardware no longer drives the check state (`--match`, `--ignore`)
+* redfish-\*: frequent checks no longer flood a management controller's session table or audit log
+* redfish-\*: can export the parsed hardware as a JSON inventory instead of running a health check (`--inventory`)
+* redfish-\*: a slow or flaky management controller request is retried before the check fails (`--retries`)
 * redfish-logservices: can also read the management controller event log (MEL), not just the System Event Log (`--log-type=sel|mel|both`)
 * redfish-logservices: event log entries can be filtered by regular expression and aged out (`--match`, `--ignore`, `--max-age`)
 * redfish-memory: reports memory size and module health correctly on Dell, HPE and Fujitsu controllers

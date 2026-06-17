@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+
+TESTS = [
+    # A clean interface table never alerts.
+    {
+        'id': 'ok-no-errors',
+        'test': 'stdout/no-errors,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', 'eth0'],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    # --ignore excludes interfaces by regex.
+    {
+        'id': 'ok-ignore-excludes-lo',
+        'test': 'stdout/no-errors,,0',
+        'params': '--ignore=^lo$',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['lo '],
+    },
+    # --match keeps only interfaces whose name matches the regex.
+    {
+        'id': 'ok-match-only-eth',
+        'test': 'stdout/no-errors,,0',
+        'params': '--match=^eth',
+        'assert-retc': STATE_OK,
+        'assert-in': ['eth0'],
+        'assert-not-in': ['lo '],
+    },
+    # Same fixture (7 rx errors), three threshold combinations on the error total.
+    {
+        'id': 'warn-rx-errs-default',
+        'test': 'stdout/rx-errs-eth0,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'eth0.*7\.0.*\[WARNING\]',
+    },
+    {
+        'id': 'ok-rx-errs-below-warning',
+        'test': 'stdout/rx-errs-eth0,,0',
+        'params': '--warning 10',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        'id': 'crit-rx-errs-above-critical',
+        'test': 'stdout/rx-errs-eth0,,0',
+        'params': '--warning 1 --critical 5',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'eth0.*7\.0.*\[CRITICAL\]',
+    },
+    # rx_errs=5 + tx_errs=4 -> error total 9; the fifo/frame/carrier breakdown
+    # (subsets of those totals) is always shown but never summed into the total.
+    {
+        'id': 'warn-rx-tx-errors-total',
+        'test': 'stdout/rx-tx-errors,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Tx Carrier/s', 'Rx Frame/s'],
+        'assert-regex': r'eth0.*9\.0.*\[WARNING\]',
+    },
+    {
+        'id': 'crit-rx-tx-errors-total',
+        'test': 'stdout/rx-tx-errors,,0',
+        'params': '--warning 1 --critical 5',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'eth0.*9\.0.*\[CRITICAL\]',
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../network-errors'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
