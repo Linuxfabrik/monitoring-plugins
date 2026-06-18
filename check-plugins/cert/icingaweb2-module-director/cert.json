@@ -6,7 +6,8 @@
                     "set_if": "$cert_always_ok$"
                 },
                 "--ca-file": {
-                    "value": "$cert_ca_file$"
+                    "value": "$cert_ca_file$",
+                    "repeat_key": true
                 },
                 "--client-cert": {
                     "value": "$cert_client_cert$"
@@ -17,14 +18,36 @@
                 "--critical": {
                     "value": "$cert_critical$"
                 },
+                "--exclude": {
+                    "value": "$cert_exclude$",
+                    "repeat_key": true
+                },
                 "--filename": {
                     "value": "$cert_filename$"
+                },
+                "--host": {
+                    "value": "$cert_host$",
+                    "repeat_key": true
                 },
                 "--insecure": {
                     "set_if": "$cert_insecure$"
                 },
+                "--interface": {
+                    "value": "$cert_interface$"
+                },
                 "--lengthy": {
                     "set_if": "$cert_lengthy$"
+                },
+                "--max-workers": {
+                    "value": "$cert_max_workers$"
+                },
+                "--network": {
+                    "value": "$cert_network$",
+                    "repeat_key": true
+                },
+                "--ports": {
+                    "value": "$cert_ports$",
+                    "repeat_key": true
                 },
                 "--severity": {
                     "value": "$cert_severity$"
@@ -40,6 +63,9 @@
                 },
                 "--url": {
                     "value": "$cert_url$"
+                },
+                "--verbose": {
+                    "set_if": "$cert_verbose$"
                 },
                 "--warning": {
                     "value": "$cert_warning$"
@@ -117,6 +143,41 @@
                     "datafield_id": 14,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 18,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 19,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 20,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 21,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -124,7 +185,7 @@
             "methods_execute": "PluginCheck",
             "object_name": "cmd-check-cert",
             "object_type": "object",
-            "timeout": "10",
+            "timeout": 600,
             "vars": {},
             "zone": null,
             "uuid": "5adb8026-0117-4501-9822-65c72ab4f737"
@@ -160,7 +221,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Inspects an X.509 certificate and alerts on days remaining until expiry, hostname mismatch and chain verification failures. Sources via --source: `url` fetches the certificate from a TLS endpoint and verifies the chain against the system trust store by default (override with --ca-file); `file` reads one or many certificate files via glob expansion (PEM or DER). PEM bundles expand to one item per certificate, so a fullchain.pem produces a row for the leaf and a row for each intermediate. With --source url the plugin only runs the TLS handshake and reads the server certificate; no HTTP request is sent. That means it works for any \"TLS from start\" service, not only HTTPS: IMAPS (port 993), LDAPS (636), SMTPS (465), AMQPS (5671), MQTTS (8883), custom TLS ports - just point --url at the right host and port (`https://mail.example.com:993/` inspects the IMAPS cert). STARTTLS protocols that upgrade an existing plaintext connection (SMTP submission on 587, IMAP on 143, LDAP on 389) are not supported. Hostname mismatch and chain verification failures share one --severity (warn or crit) and only apply to --source url. Expired certificates are unconditionally reported as CRIT. With --source file, the worst state across all matched files drives the plugin state.",
+            "notes": "Inspects X.509 certificates and alerts on days remaining until expiry, hostname mismatch and chain verification failures. Sources via --source: `url` fetches the certificate from a single TLS endpoint and verifies the chain against the system trust store by default (override with --ca-file); `file` reads one or many certificate files via glob expansion (PEM or DER); `scan` discovers the hosts of a subnet (the subnet of the default interface, a chosen interface, an explicit network in CIDR notation, or an explicit host list), connects to each one on the ports given by --ports and inspects every certificate it gets. PEM bundles expand to one item per certificate, so a fullchain.pem produces a row for the leaf and a row for each intermediate. With --source url the plugin only runs the TLS handshake and reads the server certificate; no HTTP request is sent. That means it works for any \"TLS from start\" service, not only HTTPS: IMAPS (port 993), LDAPS (636), SMTPS (465), AMQPS (5671), MQTTS (8883), custom TLS ports - just point --url at the right host and port (`https://mail.example.com:993/` inspects the IMAPS cert). STARTTLS protocols that upgrade an existing plaintext connection (SMTP submission on 587, IMAP on 143, LDAP on 389) are not supported. Hostname verification only applies to --source url; chain/trust verification applies to --source url and --source scan and its failures use --severity (warn or crit), while a valid self-signed certificate is tolerated. Expired certificates are unconditionally reported as CRIT. With --source file and --source scan the worst state across all inspected certificates drives the plugin state; targets that do not answer within --timeout are skipped. The default source is `scan`, so without any parameter the plugin scans the default interface's subnet on a set of common data-center TLS ports (HTTPS, mail, LDAPS, AMQPS, MQTTS and common management interfaces); see --ports for the full default list.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cert/",
             "object_name": "tpl-service-cert",
             "object_type": "template",
@@ -172,12 +233,19 @@
             "vars": {
                 "criticality": "C",
                 "cert_always_ok": false,
+                "cert_ca_file": [],
                 "cert_critical": "5:",
+                "cert_exclude": [],
+                "cert_host": [],
                 "cert_insecure": false,
                 "cert_lengthy": true,
+                "cert_max_workers": 100,
+                "cert_network": [],
+                "cert_ports": [],
                 "cert_severity": "warn",
-                "cert_source": "url",
+                "cert_source": "scan",
                 "cert_timeout": 8,
+                "cert_verbose": false,
                 "cert_warning": "14:"
             },
             "volatile": null,
@@ -216,6 +284,12 @@
                     "allowed_roles": null
                 },
                 {
+                    "entry_name": "scan",
+                    "entry_value": "Scan",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
                     "entry_name": "url",
                     "entry_value": "URL",
                     "format": "string",
@@ -238,8 +312,8 @@
         "2": {
             "varname": "cert_ca_file",
             "caption": "Cert: CA File",
-            "description": "Path to a CA bundle in PEM format used for chain verification. Default uses the system trust store.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "description": "Path to a CA bundle in PEM format, trusted for chain verification in addition to the system trust store. Can be specified multiple times to combine several bundles. Applies to --source=url and --source=scan. Example: `--ca-file=/etc/pki/ca-trust/source/anchors/internal.pem`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
@@ -271,7 +345,7 @@
         "5": {
             "varname": "cert_critical",
             "caption": "Cert: Critical",
-            "description": "CRIT threshold for days remaining until the certificate expires. Supports Nagios ranges. Example: `5:` (CRIT when below 5 days).",
+            "description": "CRIT threshold for the time remaining until the certificate expires. Accepts a Nagios range in days (`5:`), a percentage of the total validity period (`10%`, CRIT when less than 10% of the lifetime is left), or a duration with a unit (`3d`, `12h`, `2W`, `1M`; CRIT when less time than that is left). Examples: `5:` `10%` `3d`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -280,6 +354,17 @@
             "uuid": "6fdbf84f-4a4a-414f-9ac5-b305a5302dbe"
         },
         "6": {
+            "varname": "cert_exclude",
+            "caption": "Cert: Exclude",
+            "description": "IP address or hostname to skip during a scan. Matched against both the discovered target address and, for --host, the given name. Only applies to --source=scan. Can be specified multiple times. Example: `--exclude=192.0.2.1 --exclude=192.0.2.254`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ecdf2836-f640-4fda-8af9-d9777e488dd7"
+        },
+        "7": {
             "varname": "cert_filename",
             "caption": "Cert: Filename",
             "description": "Path to a certificate file or a glob pattern matching multiple certificate files. Required when --source=file. Files are read as PEM or DER (autodetected); when a PEM bundle contains multiple certificates (typical for fullchain.pem or a CA bundle), each certificate becomes its own row in the output. Globs follow Python conventions: `*` matches one path segment, `**` matches across directories. Always quote the pattern in shells so that the shell does not expand the wildcard before the plugin sees it. Example: `--filename='/etc/ssl/certs/*.pem'`. Recursive example: `--filename='/etc/letsencrypt/live/**/cert.pem'`",
@@ -290,7 +375,18 @@
             },
             "uuid": "e1a3f93c-3ba0-42eb-8a51-732381792f9a"
         },
-        "7": {
+        "8": {
+            "varname": "cert_host",
+            "caption": "Cert: Host",
+            "description": "Target host to scan. Overrides subnet auto-discovery. Only applies to --source=scan. Can be specified multiple times. If not specified, the subnet of the default interface is scanned. Example: `--host=mail.example.com --host=192.0.2.10`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "5b597b98-bd57-479f-8748-9cc80f3ecb5b"
+        },
+        "9": {
             "varname": "cert_insecure",
             "caption": "Cert: Insecure?",
             "description": "Skip chain and hostname verification entirely. The certificate is still fetched and inspected, but the chain verdict is reported as \"verification skipped\".",
@@ -299,7 +395,18 @@
             "settings": {},
             "uuid": "ba4bc30f-2b0d-477e-ad51-79cb7ea0fa5c"
         },
-        "8": {
+        "10": {
+            "varname": "cert_interface",
+            "caption": "Cert: Interface",
+            "description": "Network interface whose subnet is scanned. Only applies to --source=scan. Ignored when --host or --network is given. If not specified, the default interface (the one carrying the default route) is used.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ac450e70-6865-4306-b40f-cb75bc733073"
+        },
+        "11": {
             "varname": "cert_lengthy",
             "caption": "Cert: Lengthy?",
             "description": "Extended reporting.",
@@ -308,10 +415,43 @@
             "settings": {},
             "uuid": "b2294ebc-36b0-4a9f-8f37-bb3520b255a5"
         },
-        "9": {
+        "12": {
+            "varname": "cert_max_workers",
+            "caption": "Cert: Max Workers",
+            "description": "Maximum number of targets to scan in parallel. Only applies to --source=scan.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "c5e7b6e4-bef5-4eeb-97cc-931208607f31"
+        },
+        "13": {
+            "varname": "cert_network",
+            "caption": "Cert: Network",
+            "description": "Network in CIDR notation to scan for targets via auto-discovery. Only applies to --source=scan. Takes precedence over --interface. Can be specified multiple times. Example: `--network=192.0.2.0/24`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "e53d3f87-c83b-48cd-8530-d10e4cec0e4f"
+        },
+        "14": {
+            "varname": "cert_ports",
+            "caption": "Cert: Ports",
+            "description": "TCP port to probe on every scanned target. A range is written `start-end`. Only applies to --source=scan. Can be specified multiple times. If not specified, a set of common data-center TLS ports is probed (443, 465, 636, 990, 993, 995, 3269, 5671, 5986, 6443, 8006, 8200, 8443, 8883, 9090, 9443, 10000). Example: `--ports=443 --ports=993 --ports=8000-8100`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "e0648a84-95c0-4967-9444-7301dcd154a6"
+        },
+        "15": {
             "varname": "cert_severity",
             "caption": "Cert: Severity",
-            "description": "Severity assigned to hostname mismatch and chain verification failures. Defaults to %(default)s so that operators running internal CAs are not paged by trust issues that are expected in their environment. Set to `crit` to enforce strict trust.",
+            "description": "Severity assigned to chain/trust verification failures (--source=url and --source=scan) and to hostname mismatches (--source=url only). A valid self-signed certificate is always tolerated. Defaults to %(default)s so that operators running internal CAs are not paged by trust issues that are expected in their environment. Set to `crit` to enforce strict trust.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -321,7 +461,7 @@
             },
             "uuid": "87d1027d-8b39-4dab-9539-b8ae3ef09d0b"
         },
-        "10": {
+        "16": {
             "varname": "cert_sni_hostname",
             "caption": "Cert: SNI Hostname",
             "description": "SNI hostname sent during the TLS handshake and used for hostname verification. Useful when --url points at an IP address or a load balancer that needs an explicit SNI. Default uses the hostname from --url.",
@@ -332,10 +472,10 @@
             },
             "uuid": "b5ca62eb-7883-4d08-87c8-d31190c9efad"
         },
-        "11": {
+        "17": {
             "varname": "cert_source",
             "caption": "Cert: Source",
-            "description": "Where the certificate is fetched from. `url` fetches it from a TLS endpoint (requires --url). `file` reads it from one or many local files (requires --filename, supports glob patterns). `p12` and `jks` are reserved for future expansion.",
+            "description": "Where the certificates are fetched from. `url` fetches one from a TLS endpoint (requires --url). `file` reads one or many from local files (requires --filename, supports glob patterns). `scan` discovers the hosts of a subnet (via --host, --network, --interface or the default interface) and probes each one on --ports. `p12` and `jks` are reserved for future expansion.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -345,7 +485,7 @@
             },
             "uuid": "584dc1b2-48e8-40cb-82eb-6aa546b5d183"
         },
-        "12": {
+        "18": {
             "varname": "cert_timeout",
             "caption": "Cert: Timeout",
             "description": "Network timeout in seconds.",
@@ -356,7 +496,7 @@
             },
             "uuid": "2ae3b17a-3261-4167-a573-3034ff7c72c5"
         },
-        "13": {
+        "19": {
             "varname": "cert_url",
             "caption": "Cert: URL",
             "description": "URL of the TLS endpoint to inspect. Required when --source=url. Example: `https://www.example.com/`",
@@ -367,10 +507,19 @@
             },
             "uuid": "02140b96-19c6-4d46-8d9a-a50afb1278ea"
         },
-        "14": {
+        "20": {
+            "varname": "cert_verbose",
+            "caption": "Cert: Verbose?",
+            "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "e67f3663-39f4-4c0e-b565-ab4a4d9959be"
+        },
+        "21": {
             "varname": "cert_warning",
             "caption": "Cert: Warning",
-            "description": "WARN threshold for days remaining until the certificate expires. Supports Nagios ranges. Example: `14:` (WARN when below 14 days).",
+            "description": "WARN threshold for the time remaining until the certificate expires. Accepts a Nagios range in days (`14:`), a percentage of the total validity period (`25%`, WARN when less than 25% of the lifetime is left), or a duration with a unit (`14d`, `12h`, `2W`, `1M`; WARN when less time than that is left). Examples: `14:` `25%` `14d`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

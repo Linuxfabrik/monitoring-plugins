@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$mysql_database_metrics_always_ok$"
                 },
+                "--critical": {
+                    "value": "$mysql_database_metrics_critical$"
+                },
                 "--defaults-file": {
                     "value": "$mysql_database_metrics_defaults_file$"
                 },
@@ -22,6 +25,12 @@
                 },
                 "--timeout": {
                     "value": "$mysql_database_metrics_timeout$"
+                },
+                "--top": {
+                    "value": "$mysql_database_metrics_top$"
+                },
+                "--warning": {
+                    "value": "$mysql_database_metrics_warning$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/mysql-database-metrics",
@@ -59,6 +68,21 @@
                 },
                 {
                     "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -104,7 +128,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks index sizes, fragmentation, and consistent engine and collation usage across all schemas in MySQL/MariaDB. Alerts on mixed storage engines or collations within a single schema.",
+            "notes": "Checks index sizes, fragmentation, and consistent engine and collation usage across all schemas in MySQL/MariaDB, and lists the largest tables by combined data and index size so storage growth can be traced before raising memory settings such as the InnoDB buffer pool. Alerts on mixed storage engines or collations within a single schema, and on table sizes that cross the optional --warning / --critical thresholds. Supports extended reporting via --lengthy.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-database-metrics/",
             "object_name": "tpl-service-mysql-database-metrics",
             "object_type": "template",
@@ -116,12 +140,15 @@
             "vars": {
                 "criticality": "C",
                 "mysql_database_metrics_always_ok": false,
+                "mysql_database_metrics_critical": "",
                 "mysql_database_metrics_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_database_metrics_defaults_group": "client",
                 "mysql_database_metrics_ignore_schemas": "^icinga",
                 "mysql_database_metrics_ignore_tables": "",
                 "mysql_database_metrics_lengthy": true,
-                "mysql_database_metrics_timeout": 3
+                "mysql_database_metrics_timeout": 3,
+                "mysql_database_metrics_top": 10,
+                "mysql_database_metrics_warning": ""
             },
             "volatile": null,
             "zone": null,
@@ -139,6 +166,17 @@
             "uuid": "8dc7209a-fcb2-4f41-88a6-7b9332fcd56a"
         },
         "2": {
+            "varname": "mysql_database_metrics_critical",
+            "caption": "MySQL Database Metrics: Critical",
+            "description": "CRIT threshold for the size of a single table (data + index). Supports Nagios ranges with size qualifiers, for example `10G`, `5G:`, `@1G:10G`. Default: report only (no alerting).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "830b40da-27de-40d6-91ef-af33aefb751b"
+        },
+        "3": {
             "varname": "mysql_database_metrics_defaults_file",
             "caption": "MySQL Database Metrics: Defaults File",
             "description": "MySQL/MariaDB cnf file to read user, host and password from (instead of specifying them on the command line). Example: `/var/spool/icinga2/.my.cnf`.",
@@ -149,7 +187,7 @@
             },
             "uuid": "22f0bdfb-b3fd-44d1-8bb8-0d7ac1676125"
         },
-        "3": {
+        "4": {
             "varname": "mysql_database_metrics_defaults_group",
             "caption": "MySQL Database Metrics: Defaults Group",
             "description": "Group/section to read from in the cnf file.",
@@ -160,7 +198,7 @@
             },
             "uuid": "2f1c4268-09ec-4115-a93f-9353b86f8a78"
         },
-        "4": {
+        "5": {
             "varname": "mysql_database_metrics_ignore_schemas",
             "caption": "MySQL Database Metrics: Ignore Schemas",
             "description": "Regular expression matched against `SCHEMA_NAME` (case-sensitive). Schemas whose name matches are skipped entirely (no aggregate contribution, no checks). Useful for known-mixed schemas that the admin cannot or does not want to fix (common with Icinga Director / Icinga Web 2 / Icinga DB schemas, which mix utf8 / utf8mb4 collations by design). System schemas are skipped unconditionally.",
@@ -171,7 +209,7 @@
             },
             "uuid": "e778a186-00a7-4e4e-a539-b1dc54056562"
         },
-        "5": {
+        "6": {
             "varname": "mysql_database_metrics_ignore_tables",
             "caption": "MySQL Database Metrics: Ignore Tables",
             "description": "Regular expression matched against `TABLE_NAME` (case-sensitive). Tables whose name matches are excluded from every aggregate and every per-schema check. Useful for muting noisy temporary or backup tables that legitimately differ from the schema-wide engine/collation.",
@@ -182,7 +220,7 @@
             },
             "uuid": "5a203d24-0fb8-4fcf-afa2-c4d166284dd8"
         },
-        "6": {
+        "7": {
             "varname": "mysql_database_metrics_lengthy",
             "caption": "MySQL Database Metrics: Lengthy?",
             "description": "Extended reporting.",
@@ -191,7 +229,7 @@
             "settings": {},
             "uuid": "2de8eb0b-b7c1-4d45-9f56-ec50fe0851eb"
         },
-        "7": {
+        "8": {
             "varname": "mysql_database_metrics_timeout",
             "caption": "MySQL Database Metrics: Timeout",
             "description": "Network timeout in seconds.",
@@ -201,6 +239,28 @@
                 "visibility": "visible"
             },
             "uuid": "bee7a78d-b7fc-45cd-b0b6-38012e9d4010"
+        },
+        "9": {
+            "varname": "mysql_database_metrics_top",
+            "caption": "MySQL Database Metrics: Top",
+            "description": "Number of largest tables (by data + index size) to list.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "5ab9ce2a-c13d-4f1b-8862-a98d8a1c46ca"
+        },
+        "10": {
+            "varname": "mysql_database_metrics_warning",
+            "caption": "MySQL Database Metrics: Warning",
+            "description": "WARN threshold for the size of a single table (data + index). Supports Nagios ranges with size qualifiers, for example `10G`, `5G:`, `@1G:10G`. Default: report only (no alerting).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "76155b02-37be-4353-ba6b-ca85604eb9b5"
         }
     }
 }

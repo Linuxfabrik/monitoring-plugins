@@ -1,0 +1,38 @@
+# Base image: Official SUSE Linux Enterprise Server 16 (BCI)
+FROM registry.suse.com/bci/bci-base:16.0
+
+# SLES 16 ships python313 as its preferred Python 3. Install it and alias
+# it to `python3` so the test run can invoke it generically.
+#
+# The lynis plugin has no third-party Python dependencies (standard
+# library plus the bundled lib only), so no venv or lockfile install is
+# needed. SLES has no lynis package, so the upstream self-contained tree
+# is cloned into /usr/local/lynis, where the plugin auto-detects it (this
+# is the supported "run from a clone" deployment). The image also needs
+# an SSH server and client, sudo and rsync for the audit transport.
+RUN zypper --non-interactive install --no-recommends \
+        gawk git-core openssh python313 rsync sudo && \
+    zypper clean --all && \
+    ln -sf /usr/bin/python3.13 /usr/local/bin/python3 && \
+    git clone --depth 1 https://github.com/CISOfy/lynis /usr/local/lynis
+
+# Set up password-less root SSH-to-self so the plugin can audit 127.0.0.1
+# over its normal SSH transport. sudo as root needs no password, so the
+# privileged audit works without extra sudoers rules.
+RUN ssh-keygen -A && \
+    mkdir -p /run/sshd /root/.ssh && \
+    ssh-keygen -t ed25519 -N '' -f /root/.ssh/id_ed25519 -q && \
+    cp /root/.ssh/id_ed25519.pub /root/.ssh/authorized_keys && \
+    chmod 700 /root/.ssh && \
+    chmod 600 /root/.ssh/authorized_keys && \
+    printf 'PermitRootLogin prohibit-password\nPubkeyAuthentication yes\n' \
+        >> /etc/ssh/sshd_config
+
+# Set the working directory in the container
+WORKDIR /tmp
+
+# Verify Python installation
+RUN python3 --version
+
+# Default command to keep the container running
+CMD ["sleep", "infinity"]

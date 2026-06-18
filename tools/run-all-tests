@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Run the whole test toolset in parallel and aggregate the results.
+
+Launches the other `tools/run-*` scripts concurrently, each in its own
+subprocess:
+
+- `run-linter-checks`        (ruff, bandit, vulture - read-only)
+- `run-unit-tests --no-container` (fast, fixture-based unit tests)
+- `run-container-tests`      (podman-backed integration tests)
+
+The three workloads are disjoint and isolate their mutable state (each
+test runner gets a unique temp directory, the linter only reads), so
+running them at the same time does not let them trample each other. Wall
+clock time is therefore the slowest single suite instead of the sum.
+
+Pass `--no-container` to skip the container suite for a quick full check
+without podman.
+
+Usage:
+    tools/run-all-tests                  # lint + fast + container, parallel
+    tools/run-all-tests --no-container   # lint + fast, parallel
+"""
+
+import argparse
+import subprocess
+import sys
+
+import _common
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026060201'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=__doc__.strip().split('\n\n')[0],
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--no-container',
+        action='store_true',
+        help='Skip the container-based integration suite.',
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """Start every test runner in parallel and report a combined result."""
+    args = parse_args()
+
+    jobs = [
+        ('linter checks', [sys.executable, str(_common.TOOLS_DIR / 'run-linter-checks')]),
+        (
+            'fast unit tests',
+            [sys.executable, str(_common.TOOLS_DIR / 'run-unit-tests'), '--no-container'],
+        ),
+    ]
+    if not args.no_container:
+        jobs.append(
+            ('container tests', [sys.executable, str(_common.TOOLS_DIR / 'run-container-tests')])
+        )
+
+    # Start all runners at once; each writes to its own isolated temp dir, so
+    # they do not interfere. Capture output per job and print it under a banner
+    # when that job finishes, so the logs stay readable instead of interleaved.
+    running = []
+    for name, argv in jobs:
+        print(f'>>> started: {name}', flush=True)
+        proc = subprocess.Popen(
+            argv,
+            cwd=_common.REPO_ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        running.append((name, proc))
+
+    results = []
+    for name, proc in running:
+        output, _ = proc.communicate()
+        results.append((name, proc.returncode, output))
+
+    for name, returncode, output in results:
+        print(f'\n===== {name} ({"OK" if returncode == 0 else "FAILED"}) =====')
+        print(output.rstrip('\n'))
+
+    failed = [name for name, returncode, _ in results if returncode != 0]
+    print(f'\n{len(results) - len(failed)}/{len(results)} suites passed.')
+    if failed:
+        print(f'Failed: {", ".join(failed)}')
+        return 1
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

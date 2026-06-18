@@ -88,7 +88,8 @@ Last Backup started 2021-06-02 23:05:07, ended 2021-06-02 23:05:43, took 36s.
 
 ## Troubleshooting
 
-`Could not find all expected values in the logfile.`  
+### `Could not find all expected values in the logfile.`
+
 If either `starttime`, `endtime`, `create_retc` or `prune_retc` is missing from the logfile, the backup has failed in some way. Check the borg logs for details.
 
 

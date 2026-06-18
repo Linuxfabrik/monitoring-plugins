@@ -21,7 +21,7 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051101'
+__version__ = '2026052601'
 
 DESCRIPTION = """Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the
 configured `innodb_buffer_pool_size` against the actual InnoDB data and index sizes, and on
@@ -214,7 +214,11 @@ def main():
     # init some vars
     # cache int conversions
     buffer_size = int(myvar['innodb_buffer_pool_size'])
-    log_file_size = int(myvar['innodb_log_file_size'])
+    # `innodb_log_file_size` was removed in MySQL 9.3.0, where
+    # `innodb_redo_log_capacity` (MySQL 8.0.30+) is the only redo-log sizing knob.
+    # It still exists on MariaDB and on MySQL < 9.3.0, so it may be absent.
+    log_file_size_raw = myvar.get('innodb_log_file_size')
+    log_file_size = int(log_file_size_raw) if log_file_size_raw is not None else None
     redo_log_capacity_raw = myvar.get('innodb_redo_log_capacity')
     redo_log_capacity = (
         int(redo_log_capacity_raw)
@@ -366,12 +370,15 @@ def main():
         uom='B',
         _min=0,
     )
-    perfdata += lib.base.get_perfdata(
-        'mysql_innodb_log_file_size',
-        log_file_size,
-        uom='B',
-        _min=0,
-    )
+    if log_file_size is not None:
+        # Absent on MySQL >= 9.3.0 (removed there in favour of
+        # `innodb_redo_log_capacity`).
+        perfdata += lib.base.get_perfdata(
+            'mysql_innodb_log_file_size',
+            log_file_size,
+            uom='B',
+            _min=0,
+        )
     if redo_log_capacity is not None:
         perfdata += lib.base.get_perfdata(
             'mysql_innodb_redo_log_capacity',

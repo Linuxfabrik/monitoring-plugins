@@ -18,11 +18,11 @@ import lib.base
 import lib.lftest
 import lib.shell
 import lib.txt
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
                 originally written by Dominik Riva, Universitätsspital Basel/Switzerland"""
-__version__ = '2026040801'
+__version__ = '2026061202'
 
 DESCRIPTION = """Checks the current state of a Gemalto SafeNet ProtectServer Network HSM via SSH by
 running a PSESH command on the appliance. Alerts when the HSM adapter reports a
@@ -138,20 +138,31 @@ def main():
     if args.TEST is None:
         # -o: Give options in the format used in the configuration file.
         # -T: Disable pseudo-terminal allocation.
-        cmd = (
-            f'sshpass -p {args.PASSWORD}'
-            f' ssh -o ConnectTimeout={args.TIMEOUT}'
-            f" -T '{args.USERNAME}'@'{args.HOSTNAME}'"
-            f" 'hsm state'"
-        )
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        cmd = [
+            'sshpass',
+            '-p',
+            args.PASSWORD,
+            'ssh',
+            '-o',
+            f'ConnectTimeout={args.TIMEOUT}',
+            '-T',
+            f'{args.USERNAME}@{args.HOSTNAME}',
+            'hsm state',
+        ]
+        stdout, _stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        # An sshpass connection or authentication failure means the HSM is
+        # unreachable, not that the plugin itself failed, so report it as WARN.
+        # ssh also writes the benign "Permanently added ... to known_hosts"
+        # notice to stderr, which is not a failure.
         if lib.shell.RETC_SSHPASS.get(retc, ''):
-            lib.base.cu(f'sshpass: {lib.shell.RETC_SSHPASS[retc]}')
-        if stderr:
-            lib.base.cu(stderr)
+            lib.base.oao(
+                f'sshpass: {lib.shell.RETC_SSHPASS[retc]}',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.lftest.test(args.TEST)
+        stdout, _stderr, retc = lib.lftest.test(args.TEST)
 
     # init some vars
     msg = ''

@@ -7,7 +7,7 @@ Checks disk I/O bandwidth over time and alerts on sustained saturation, not shor
 
 On Linux, the check also monitors the system-wide iowait percentage (CPU time spent waiting for I/O). The raw iowait value is normalized by multiplying it with the number of logical CPUs, so that 100% always means one CPU core is fully I/O-saturated, regardless of the total number of CPUs. This makes the default thresholds (80/90%) work consistently across different hardware. Like bandwidth alerts, iowait alerts require COUNT consecutive threshold violations.
 
-Perfdata is emitted for each disk (busy_time, read_bytes, read_time, write_bytes, write_time) and for iowait, so you can graph trends. On Linux the check automatically focuses on "real" block devices with mountpoints; on Windows it uses psutil's disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders.
+Perfdata is emitted for each disk (busy_time, read_bytes, read_time, write_bytes, write_time) and for iowait, so you can graph trends. On Linux the check focuses on block devices with a mounted filesystem by default; use `--include-unmounted` to also include raw, unmounted devices such as multipath SAN volumes. On Windows it uses psutil's disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders.
 
 This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.
 
@@ -26,7 +26,8 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 * On the first run, returns "Waiting for more data." until at least two measurements are available
 * After a system reboot, counter values may be lower than the previous measurement. The check detects this and returns "Waiting for more data." until the next valid measurement pair
 * Disk I/O bandwidth tracking starts at 10 MiB/sec as a baseline, but stores the highest measured bandwidth, so the `RWmax/s` value adjusts accordingly over time. The check may throw warnings during the first major disk activities above 10 MiB/sec until the actual maximum bandwidth of the disk has been determined
-* Disks can be filtered by `--match` (Python regular expression matching block device, device mapper device, or mountpoint)
+* On Linux, only block devices that have a mounted filesystem are monitored by default. Use `--include-unmounted` to also monitor raw, unmounted devices (multipath SAN volumes, raw database LUNs, disks used directly by Oracle ASM). Pseudo devices (loop, ram, zram, floppy, optical) are always excluded (see Troubleshooting)
+* Disks can be filtered by `--match`, a Python regular expression. It is anchored at the start of the string (Python `re.match`) and matched against the full device path (for example `/dev/sda`), the device-mapper path (for example `/dev/mapper/vg-lv`), and the mountpoint. Prefix the pattern with `.*` to match anywhere in the path, for example `.*sda$` rather than `^sda$`
 
 
 ## Fact Sheet
@@ -49,7 +50,8 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 ```text
 usage: disk-io [-h] [-V] [--always-ok] [--count COUNT] [--critical CRIT]
                [--iowait-critical IOWAIT_CRIT] [--iowait-warning IOWAIT_WARN]
-               [--match MATCH] [--top TOP] [--warning WARN]
+               [--include-unmounted] [--match MATCH] [--top TOP]
+               [--warning WARN]
 
 Checks disk I/O bandwidth over time and alerts on sustained saturation, not
 short spikes. The check records per-disk read/write counters and then derives
@@ -65,12 +67,13 @@ regardless of the total number of CPUs. This makes the default thresholds
 iowait alerts require COUNT consecutive threshold violations. Perfdata is
 emitted for each disk (busy_time, read_bytes, read_time, write_bytes,
 write_time) and for iowait, so you can graph trends. On Linux the check
-automatically focuses on "real" block devices with mountpoints; on Windows it
-uses psutil's disk counters. Optionally, `--top` lists the processes that
-generated the most I/O traffic (read/write totals) to help identify offenders.
-This check is cross-platform and works on Linux, Windows, and all psutil-
-supported systems. The check stores its short trend state locally in an SQLite
-DB to evaluate sustained load across runs.
+focuses on block devices with a mounted filesystem by default; use `--include-
+unmounted` to also include raw, unmounted devices such as multipath SAN
+volumes. On Windows it uses psutil's disk counters. Optionally, `--top` lists
+the processes that generated the most I/O traffic (read/write totals) to help
+identify offenders. This check is cross-platform and works on Linux, Windows,
+and all psutil-supported systems. The check stores its short trend state
+locally in an SQLite DB to evaluate sustained load across runs.
 
 options:
   -h, --help            show this help message and exit
@@ -93,12 +96,30 @@ options:
                         means one CPU core is fully I/O-saturated. Values
                         above 100% indicate that more than one core is waiting
                         for I/O. Default: >= 80
+  --include-unmounted   Also monitor block devices that have no mounted
+                        filesystem (Linux only). By default only block devices
+                        with a mounted filesystem are monitored. Enable this
+                        to include raw, unmounted devices such as multipath
+                        SAN volumes or disks used directly by a database or
+                        storage layer. Combine with `--match`, otherwise every
+                        unmounted device shows up. Pseudo devices (loop, ram,
+                        zram, floppy, optical) are always excluded. Default:
+                        False
   --match MATCH         Filter by disk name. Filter by this Python regular
                         expression. Case-sensitive by default; use `(?i)` for
                         case-insensitive matching. Can be specified multiple
                         times. Examples: `(?i)example` to match "example"
                         regardless of case. `^(?!.*example).*$` to match any
-                        string except "example" (negative lookahead). Default:
+                        string except "example" (negative lookahead). The
+                        regex is anchored at the start of the string (Python
+                        `re.match`) and matched against the full device path
+                        (e.g. `/dev/sda`), the device-mapper path (e.g.
+                        `/dev/mapper/vg-lv`) and the mountpoint, so prefix
+                        with `.*` to match anywhere (`.*sda$` instead of
+                        `^sda$`). On Linux only block devices with a mounted
+                        filesystem are considered by default; add `--include-
+                        unmounted` to also match raw, unmounted devices
+                        (multipath SAN volumes, raw LUNs). Default:
   --top TOP             Number of top processes to list by I/O traffic. Use
                         `--top=0` to disable. Default: 5
   --warning WARN        WARN threshold for disk bandwidth saturation as a
@@ -119,6 +140,12 @@ Match all disks except `vdc`, `vdh` and `vdz`:
 
 ```bash
 ./disk-io --match='^(?:(?!.*vdc|.*vdh|.*vdz).)*$'
+```
+
+Monitor a raw, unmounted multipath SAN volume (for example an Oracle ASM disk):
+
+```bash
+./disk-io --include-unmounted --match='.*dm-7$'
 ```
 
 Output:
@@ -180,14 +207,23 @@ Per matched disk, where `<disk>` is the block device name:
 
 ## Troubleshooting
 
-`psutil raised error "not sure how to interpret line '...'"` or `Nothing checked. Running Kernel >= 4.18, this check needs the Python module psutil v5.7.0+`  
-Update the `psutil` library. On RHEL 8+, use at least `python38` and `python38-psutil` if using `dnf`.
+### `Python module "psutil" is not installed.`
 
-`Python module "psutil" is not installed.`  
 Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
-`Waiting for more data.`  
+### Outdated psutil
+
+`psutil raised error "not sure how to interpret line '...'"` or `Nothing checked. Running Kernel >= 4.18, this check needs the Python module psutil v5.7.0+`
+
+Update the `psutil` library. On RHEL 8+, use at least `python38` and `python38-psutil` if using `dnf`.
+
+### `Waiting for more data.`
+
 This is expected on the first run. The check needs at least two measurements to calculate a delta. Wait for the next check interval.
+
+### A raw or unmounted device is missing
+
+By default the check only monitors block devices that have a mounted filesystem, so raw, unmounted devices never appear (for example multipath SAN volumes, raw LUNs, Oracle ASM disks). Add `--include-unmounted` to also monitor them, and narrow the result with `--match`, for example `--include-unmounted --match '.*dm-7$'` for a multipath volume. Pseudo devices (loop, ram, zram, floppy, optical) stay excluded. Note that `--match` is anchored at the start of the full device path: use `.*dm-7$`, not `^dm-7$`.
 
 
 ## Credits, License

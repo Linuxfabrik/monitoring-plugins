@@ -253,42 +253,41 @@ def _check_containerfile(test, containerfile):
         dockerfile_path=f'containerfiles/{containerfile}',
         tag=image_tag,
         clean_up=False,
-    ) as image:
-        with DockerContainer(str(image)).with_exposed_ports(3493) as container:
-            # upsd self-daemonises and writes its readiness banner to syslog, not to stdout
-            # we can wait_log on. A short sleep is cheap and version-agnostic across NUT
-            # 2.7.x and 2.8.x.
-            time.sleep(5)
-            host_ip = container.get_container_host_ip()
-            host_port = container.get_exposed_port(3493)
-            cmd = [
-                'python3',
-                PLUGIN,
-                '--device=dummy',
-                f'--hostname={host_ip}',
-                f'--port={host_port}',
-            ]
-            print(f'Run plugin: {" ".join(cmd)}', flush=True)
-            result = subprocess.run(
-                cmd,
-                cwd=HERE,
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            combined = result.stdout + result.stderr
-            print(
-                f'  retc={result.returncode}, output={combined.strip()[:200]}',
-                flush=True,
-            )
-            test.assertEqual(
-                result.returncode,
-                STATE_OK,
-                f'plugin returned {result.returncode} on {containerfile}, expected OK\n'
-                f'{combined}',
-            )
-            test.assertIn('Online', combined)
-            test.assertIn('charge 87%', combined)
+    ) as image, DockerContainer(str(image)).with_exposed_ports(3493) as container:
+        # upsd self-daemonises and writes its readiness banner to syslog, not to stdout
+        # we can wait_log on. A short sleep is cheap and version-agnostic across NUT
+        # 2.7.x and 2.8.x.
+        time.sleep(5)
+        host_ip = container.get_container_host_ip()
+        host_port = container.get_exposed_port(3493)
+        cmd = [
+            'python3',
+            PLUGIN,
+            '--device=dummy',
+            f'--hostname={host_ip}',
+            f'--port={host_port}',
+        ]
+        print(f'Run plugin: {" ".join(cmd)}', flush=True)
+        result = subprocess.run(
+            cmd,
+            cwd=HERE,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        combined = result.stdout + result.stderr
+        print(
+            f'  retc={result.returncode}, output={combined.strip()[:200]}',
+            flush=True,
+        )
+        test.assertEqual(
+            result.returncode,
+            STATE_OK,
+            f'plugin returned {result.returncode} on {containerfile}, expected OK\n'
+            f'{combined}',
+        )
+        test.assertIn('Online', combined)
+        test.assertIn('charge 87%', combined)
 
 
 lib.lftest.attach_each(TestContainer, CONTAINERFILES, _check_containerfile, id_func=str)

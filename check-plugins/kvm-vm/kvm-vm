@@ -19,7 +19,7 @@ import lib.shell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026042301'
+__version__ = '2026061201'
 
 DESCRIPTION = """Lists all virtual machines on a KVM host using "virsh list" and checks their states.
 Alerts on VMs that are not in the expected running state. Reports VM name, state,
@@ -61,7 +61,7 @@ def main():
 
     # fetch data
     stdout, stderr, retc = lib.base.coe(
-        lib.shell.shell_exec('virsh list --all'),
+        lib.shell.shell_exec(['virsh', 'list', '--all']),
     )
     if stderr or retc != 0:
         lib.base.oao(f'{stderr}', STATE_WARN)
@@ -109,7 +109,6 @@ def main():
 
         msg = 'VMs: '
         if running:
-
             # build the message
             msg += f'{running} running, '
         if shut_off:

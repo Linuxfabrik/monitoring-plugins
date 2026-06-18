@@ -24,7 +24,7 @@ import lib.shell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026042301'
+__version__ = '2026061201'
 
 DESCRIPTION = """Queries SNMP OIDs defined in a CSV file and checks the returned values against optional
 warning and critical thresholds. Supports SNMP v1, v2c, and v3 with authentication and
@@ -220,30 +220,40 @@ def build_snmpget_call(args):
         U:  don't print units
     """
     if args.SNMP_VERSION in ['1', '2c']:
-        cmd = f'snmpget -v {args.SNMP_VERSION} '
-        cmd += f"-c '{args.COMMUNITY}' " if args.COMMUNITY else ''
+        cmd = ['snmpget', '-v', args.SNMP_VERSION]
+        if args.COMMUNITY:
+            cmd += ['-c', args.COMMUNITY]
     else:
-        cmd = 'snmpget -v 3 '
-        cmd += f'-a {args.V3_AUTH_PROT} ' if args.V3_AUTH_PROT else ''
-        cmd += (
-            f"-A '{args.V3_AUTH_PROT_PASSWORD}' " if args.V3_AUTH_PROT_PASSWORD else ''
-        )
-        cmd += f'-e {args.V3_SECURITY_ENGINE_ID} ' if args.V3_SECURITY_ENGINE_ID else ''
-        cmd += f'-E {args.V3_CONTEXT_ENGINE_ID} ' if args.V3_CONTEXT_ENGINE_ID else ''
-        cmd += f'-l {args.V3_LEVEL} ' if args.V3_LEVEL else ''
-        cmd += f'-n {args.V3_CONTEXT} ' if args.V3_CONTEXT else ''
-        cmd += f'-u {args.V3_USERNAME} ' if args.V3_USERNAME else ''
-        cmd += f'-x {args.V3_PRIV_PROT} ' if args.V3_PRIV_PROT else ''
-        cmd += (
-            f"-X '{args.V3_PRIV_PROT_PASSWORD}' " if args.V3_PRIV_PROT_PASSWORD else ''
-        )
-        cmd += f'-Z {args.V3_BOOTS_TIME} ' if args.V3_BOOTS_TIME else ''
-    cmd += '-OSqtU -r 0 '
-    cmd += f'-t {args.TIMEOUT} ' if args.TIMEOUT else ''
-    cmd += f'-M {args.MIB_DIR} ' if args.MIB_DIR else ''
-    cmd += f'-m {args.MIB} ' if args.MIB else ''
-    cmd += f'{args.HOSTNAME} ' if args.HOSTNAME else ''
-    cmd += '_OIDS_'
+        cmd = ['snmpget', '-v', '3']
+        if args.V3_AUTH_PROT:
+            cmd += ['-a', args.V3_AUTH_PROT]
+        if args.V3_AUTH_PROT_PASSWORD:
+            cmd += ['-A', args.V3_AUTH_PROT_PASSWORD]
+        if args.V3_SECURITY_ENGINE_ID:
+            cmd += ['-e', args.V3_SECURITY_ENGINE_ID]
+        if args.V3_CONTEXT_ENGINE_ID:
+            cmd += ['-E', args.V3_CONTEXT_ENGINE_ID]
+        if args.V3_LEVEL:
+            cmd += ['-l', args.V3_LEVEL]
+        if args.V3_CONTEXT:
+            cmd += ['-n', args.V3_CONTEXT]
+        if args.V3_USERNAME:
+            cmd += ['-u', args.V3_USERNAME]
+        if args.V3_PRIV_PROT:
+            cmd += ['-x', args.V3_PRIV_PROT]
+        if args.V3_PRIV_PROT_PASSWORD:
+            cmd += ['-X', args.V3_PRIV_PROT_PASSWORD]
+        if args.V3_BOOTS_TIME:
+            cmd += ['-Z', args.V3_BOOTS_TIME]
+    cmd += ['-OSqtU', '-r', '0']
+    if args.TIMEOUT:
+        cmd += ['-t', str(args.TIMEOUT)]
+    if args.MIB_DIR:
+        cmd += ['-M', args.MIB_DIR]
+    if args.MIB:
+        cmd += ['-m', args.MIB]
+    if args.HOSTNAME:
+        cmd.append(args.HOSTNAME)
 
     return cmd
 
@@ -296,30 +306,26 @@ def main():
     # Max. 128 object identifiers are allowed in one snmp get request, so divide them into chunks.
     # To avoid "Error in packet. Reason: (tooBig) Response message would have been too large.", we
     # only ask for 25 OIDs per request.
-    oids = []
-    count = 0
-    tmp = ''
+    oid_chunks = []
+    chunk = []
     for snmp_object in snmp_objects[1:]:  # ignore the header row in csv
-        tmp += f'{snmp_object[CSV_COL_OID]} '
-        count += 1
-        if count == MAX_OIDS_PER_REQUEST:
-            oids.append(tmp)
-            count = 0
-            tmp = ''
-    if tmp:
-        oids.append(tmp)
+        chunk.append(snmp_object[CSV_COL_OID])
+        if len(chunk) == MAX_OIDS_PER_REQUEST:
+            oid_chunks.append(chunk)
+            chunk = []
+    if chunk:
+        oid_chunks.append(chunk)
+
+    # the hostname reaches snmpget as a positional argument; reject a value that
+    # snmpget could read as an option (leading "-")
+    lib.base.coe(lib.shell.safe_cli_value(args.HOSTNAME, '--hostname'))
 
     # fetch data
     stdout = ''
     if args.TEST is None:
         cmd = build_snmpget_call(args)
-        # cmd is built from admin-controlled SNMP parameters (Icinga check config),
-        # not from end-user input; shell=True is required so snmpget accepts the
-        # escaped OID list as a single argument
-        for oid in oids:
-            tmp, stderr, retc = lib.base.coe(
-                lib.shell.shell_exec(cmd.replace('_OIDS_', oid), shell=True)  # nosec B604
-            )
+        for oids in oid_chunks:
+            tmp, stderr, retc = lib.base.coe(lib.shell.shell_exec([*cmd, *oids]))
             if stderr or retc != 0:
                 lib.base.cu(stderr)
             stdout += tmp
@@ -570,25 +576,45 @@ def main():
 
         # create perfdata for numeric values
         value_type = lib.base.guess_type(value)
+        # admins provide the perfdata alert thresholds as a Python tuple
+        # expression in the check config: "warn,crit" or, to also pin the
+        # graph axis, "warn,crit,min,max". Min and max are optional and fall
+        # back to the per-unit defaults below. An empty field is the normal
+        # case and means "no thresholds". A non-empty but malformed entry
+        # (syntax error, or not a tuple of two to four elements) is surfaced as
+        # UNKNOWN instead of being silently dropped, so a typo does not just
+        # result in missing threshold lines without feedback.
         w, c = None, None
-        try:
-            # performance thresholds should return a tuple
-            # eval() is the documented feature: admins provide perf thresholds
-            # as Python tuple expressions in the check config
-            w, c = eval(perf_thresholds, {})  # nosec B307
-        except Exception:
-            pass
-        if not ignore_perfdata and isinstance(value_type, (int, float)):
-            if perfdata_unit == '%':
-                perfdata += lib.base.get_perfdata(
-                    name,
-                    value,
-                    uom='%',
-                    warn=w,
-                    crit=c,
-                    _min=0,
-                    _max=100,
+        perf_min, perf_max = None, None
+        has_min, has_max = False, False
+        if perf_thresholds:
+            try:
+                # eval() is the documented feature here
+                parsed = eval(perf_thresholds, {})  # nosec B307
+                if not isinstance(parsed, (tuple, list)) or not 2 <= len(parsed) <= 4:
+                    raise ValueError(
+                        'expected a tuple of two to four elements '
+                        '(warn, crit[, min[, max]])'
+                    )
+                w, c = parsed[0], parsed[1]
+                if len(parsed) >= 3:
+                    perf_min, has_min = parsed[2], True
+                if len(parsed) == 4:
+                    perf_max, has_max = parsed[3], True
+            except Exception as e:
+                msg_header += (
+                    f'{name}: invalid perfdata alert thresholds in {args.DEVICE} '
+                    f'({type(e).__name__}: {e}) '
+                    f'{lib.base.state2str(STATE_UNKNOWN)}, '
                 )
+                state = lib.base.get_worst(state, STATE_UNKNOWN)
+                w, c, perf_min, perf_max = None, None, None, None
+                has_min, has_max = False, False
+        if not ignore_perfdata and isinstance(value_type, (int, float)):
+            # pick the uom and the default graph axis (min, max) per unit; an
+            # explicit min/max from the CSV overrides the default
+            if perfdata_unit == '%':
+                uom, default_max = '%', 100
             elif perfdata_unit.upper() in [
                 'B',
                 'KB',
@@ -600,45 +626,29 @@ def main():
                 'ZB',
                 'YB',
             ]:
-                perfdata += lib.base.get_perfdata(
-                    name,
-                    value,
-                    uom=perfdata_unit.upper(),
-                    warn=w,
-                    crit=c,
-                    _min=0,
-                    _max=None,
-                )
+                uom, default_max = perfdata_unit.upper(), None
             elif perfdata_unit.lower() in [
                 'c',
                 's',
                 'ms',
                 'us',
             ]:
-                perfdata += lib.base.get_perfdata(
-                    name,
-                    value,
-                    uom=perfdata_unit.lower(),
-                    warn=w,
-                    crit=c,
-                    _min=0,
-                    _max=None,
-                )
+                uom, default_max = perfdata_unit.lower(), None
             else:
                 # unknown perfdata suffixes, so do not use them
-                perfdata += lib.base.get_perfdata(
-                    name,
-                    value,
-                    uom=None,
-                    warn=w,
-                    crit=c,
-                    _min=0,
-                    _max=None,
-                )
+                uom, default_max = None, None
+            perfdata += lib.base.get_perfdata(
+                name,
+                value,
+                uom=uom,
+                warn=w,
+                crit=c,
+                _min=perf_min if has_min else 0,
+                _max=perf_max if has_max else default_max,
+            )
 
     # create output
     if msg_header:
-
         # build the message
         msg += msg_header[:-2]
     if not args.HIDE_TABLE and len(table_values) > 0:

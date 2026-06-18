@@ -19,10 +19,10 @@ import lib.human
 import lib.lftest
 import lib.shell
 import lib.txt
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026061202'
 
 DESCRIPTION = """Checks the current disk usage of all systemd journal files (archived and active
 combined). Alerts when journal disk usage exceeds the configured thresholds.
@@ -104,16 +104,24 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        cmd = 'journalctl --disk-usage'
-        stdout, stderr, _ = lib.base.coe(lib.shell.shell_exec(cmd))
-        if stderr:
-            lib.base.cu(stderr)
+        cmd = ['journalctl', '--disk-usage']
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        if retc != 0:
+            lib.base.oao(
+                f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
 
         # get journald's thresholds
-        cmd = 'systemd-analyze cat-config systemd/journald.conf'
-        config, stderr, _ = lib.base.coe(lib.shell.shell_exec(cmd))
-        if stderr:
-            lib.base.cu(stderr)
+        cmd = ['systemd-analyze', 'cat-config', 'systemd/journald.conf']
+        config, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        if retc != 0:
+            lib.base.oao(
+                f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
         max_use, keep_free = extract_config(config)
     else:
         # do not call the command, put in test data

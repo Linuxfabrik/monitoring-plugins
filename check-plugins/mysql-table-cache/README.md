@@ -48,8 +48,6 @@ Checks the hit rate of the MySQL/MariaDB open table cache
 falls back to `Open_tables` / `Opened_tables`). A low hit rate means
 `table_open_cache` is too small for the workload and threads have to keep
 reopening tables. Alerts when the rate drops below `--warning` / `--critical`.
-Also reminds the admin that `open_files_limit` has to stay above
-`table_open_cache`.
 
 options:
   -h, --help            show this help message and exit

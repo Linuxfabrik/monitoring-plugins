@@ -118,6 +118,37 @@ TESTS = [
             'Rack Inlet Temperature 1 ! 36.0         ! [CRITICAL]',
         ],
     },
+    {
+        # A malformed "Perfdata Alert Thresholds" entry (here "26", which is
+        # not a two-element tuple) must be surfaced as UNKNOWN, but it must
+        # not mask the genuine CRITICAL coming from the WARN/CRIT columns.
+        'id': 'unknown-generic-appliance-bad-perfdata-threshold',
+        'test': 'stdout/generic-appliance-over-threshold,,0',
+        'params': (
+            '--hostname 127.0.0.3 '
+            '--device=../unit-test/stdout/generic-appliance-bad-perfthreshold'
+        ),
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Supply Air Temperature: invalid perfdata alert thresholds',
+            'Rack Inlet Temperature 1 ! 36.0         ! [CRITICAL]',
+        ],
+    },
+    {
+        # A four-element "Perfdata Alert Thresholds" tuple "warn,crit,min,max"
+        # must pin the graph axis (min and max) in the perfdata in addition to
+        # the warn and crit fields.
+        'id': 'warn-generic-appliance-perfdata-minmax',
+        'test': 'stdout/generic-appliance-over-threshold,,0',
+        'params': (
+            '--hostname 127.0.0.3 '
+            '--device=../unit-test/stdout/generic-appliance-perfdata-minmax'
+        ),
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            "'Supply Air Temperature'=27.0;26;28;0;50",
+        ],
+    },
 ]
 
 

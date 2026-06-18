@@ -547,7 +547,7 @@ Plugins have a limited runtime - typically 10 seconds max. Every plugin must han
 
 ### Security
 
-* **External commands**: When executing system commands, use `lib.shell.shell_exec()`. Avoid `os.system()` or `subprocess` with `shell=True`, as these are vulnerable to shell injection. The official Monitoring Plugins guidelines require full paths for all external commands to prevent PATH-based trojan hijacking. Our `lib.shell.shell_exec()` uses `subprocess` with `shell=False`, which eliminates shell injection. We accept PATH-based command resolution for cross-platform compatibility (paths differ across distributions), but be aware that a compromised PATH could still redirect commands.
+* **External commands**: When executing system commands, use `lib.shell.shell_exec()`. Avoid `os.system()` or `subprocess` with `shell=True`, as these are vulnerable to shell injection. `lib.shell.shell_exec()` requires the command as a list of arguments (argv) and always runs with `shell=False`, so arguments are passed verbatim to the executable and are never interpreted by a shell. Build commands as lists and put each user-supplied value in its own element, for example `['restic', f'--repo={repo}', 'check']` or `['ping', '-q', hostname]`; never assemble a command string from user input. This closes shell injection, but a value that starts with `-` can still be picked up as an *option* by the program being run (for example an ssh destination `-oProxyCommand=...`, or `ping -f`). For values that reach a command as a positional argument or as a command target, guard them with `lib.shell.safe_cli_value()` (`coe(lib.shell.safe_cli_value(args.HOSTNAME, '--hostname'))`). The official Monitoring Plugins guidelines require full paths for all external commands to prevent PATH-based trojan hijacking. We accept PATH-based command resolution for cross-platform compatibility (paths differ across distributions), but be aware that a compromised PATH could still redirect commands.
 * **Input validation**: Validate all user-supplied input. Use `argparse` type converters (`type=int`, `type=float`, `type=lib.args.csv`) to enforce expected types.
 * **Temporary files**: Avoid temporary files where possible. Prefer a local SQLite database via `lib.db_sqlite` or `lib.cache`. If temp files are unavoidable, fail cleanly if the file cannot be created, and delete it when done.
 * **Symlinks**: If a plugin opens or reads files, ensure it does not follow symlinks to unintended locations.
@@ -920,19 +920,7 @@ tox -e py39              # single environment
 
 `tox` invokes `tools/run-unit-tests --no-container` so the multi-Python matrix skips the container suite. Run `tools/run-container-tests` separately before a release for full integration coverage.
 
-`tox` builds each Python environment from sdist, and `linuxfabrik-lib` pulls in `netifaces` which has no binary wheels on PyPI. For every Python version in the `tox` matrix you want to run locally, the matching development headers must be installed on the host, otherwise pip falls back to building `netifaces` from source and aborts with `fatal error: Python.h: No such file or directory`:
-
-```bash
-# Fedora
-sudo dnf install python3.9-devel python3.10-devel python3.11-devel \
-                 python3.12-devel python3.13-devel python3.14-devel
-
-# Debian / Ubuntu
-sudo apt install python3.9-dev python3.10-dev python3.11-dev \
-                 python3.12-dev python3.13-dev python3.14-dev
-```
-
-`skip_missing_interpreters = true` already skips environments for Python versions that are not installed at all.
+The dependencies install from pure wheels (plus a few pure-Python sdists), so no compiler or development headers are needed on the host. `skip_missing_interpreters = true` already skips environments for Python versions that are not installed at all.
 
 
 #### Container-based tests
@@ -1182,7 +1170,15 @@ Each plugin README follows a fixed structure. Use [check-plugins/example/README.
 
 6. **Perfdata / Metrics**: Table with columns Name, Type, Description. Types: `Bytes`, `Number`, `Percentage`, `Seconds`. Where possible, use the metric descriptions from the vendor's official documentation (e.g. Redis INFO, psutil docs, API references).
 
-7. **Troubleshooting** (optional): Known error messages with their solutions. Format: error message in backticks on its own line, followed by two trailing spaces for a Markdown line break, solution on the next line. Separate entries with a blank line.
+7. **Troubleshooting** (optional): Known problems with their solutions. Each problem is its own `### <short heading>` subsection, so the section stays scannable and every problem gets a clickable anchor. Within a subsection:
+
+    * Make the heading the thing an admin recognizes. When the literal error string is short and complete, use it as the `### heading` itself (in backticks) and write nothing else above the prose. When the error is long or contains placeholders (`host:port`, `<pattern>`, `/path/to/file`), use a short descriptive heading instead and put the literal string in backticks on its own line below it. Never do both - do not repeat the same error as the heading and again as a separate line.
+    * Then explain the fix in flowing prose. The cause is always optional: when it is known and specific, lead with it in the first paragraph and let the solution follow; when no cause is known or it would only be generic, write just the problem and the solution and nothing else. Never pad the text with a filler cause, and never invent a cause the plugin does not actually have.
+    * Do not use **Cause:** / **Solution:** labels. The prose carries the structure on its own, which keeps the writing free.
+    * For alert-state problems that have no literal error string (a metric crossing a threshold, a first-run baseline), use a descriptive heading and a short numbered runbook.
+    * Order the subsections from most common to most obscure.
+
+    Reference implementations: [`lynis`](check-plugins/lynis.md) for the error → cause-then-solution shape, and [`php-fpm-status`](check-plugins/php-fpm-status.md) for alert-state runbooks.
 
 8. **Credits, License**: Always present.
 
@@ -1209,5 +1205,7 @@ Non-obvious patterns worth copying from, when writing a new plugin. Each entry p
 | Threshold warm-up (learns a baseline before alerting) | [disk-io](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io) |
 | `--icinga-callback`: acknowledgement-aware plugin | [logfile](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/logfile) |
 | Credential file via MySQL option-file / `configparser` | All mysql-\* plugins, [icinga-topflap-services](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/icinga-topflap-services) |
+| Network scan of a subnet (host discovery via `--host`/`--network`/`--interface`, parallel per-host probing, worst-of aggregation) | [lynis](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/lynis) |
 | Optional asset script (`monitoring.php`) alongside the plugin | [php-status](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/php-status) |
+| Session caching (reuse an API session token / cookie across runs to avoid rate-limited logins) | [huawei-dorado-system](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/huawei-dorado-system) |
 | Cross-platform branching (`lib.base.LINUX` / `lib.base.WINDOWS`) | [users](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/users) |

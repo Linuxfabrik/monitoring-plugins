@@ -89,7 +89,10 @@ e@linuxfabrik.ch 5.6.7.8      10.123.11.2 Mon May 31 23:08:38 2021
 
 ## Troubleshooting
 
-`Failed to read file /var/log/openvpn-status.log.`  
+### Status log file cannot be read
+
+`Failed to read file /var/log/openvpn-status.log.`
+
 The status log file does not exist or is not readable. Verify that the OpenVPN server is configured with `status /var/log/openvpn-status.log` and that the check has sufficient permissions (root or sudo).
 
 

@@ -34,9 +34,9 @@ usage: swap-usage [-h] [-V] [--always-ok] [-c CRIT]
 
 Monitors swap space usage as a percentage of total swap. Optionally lists the
 top processes consuming the most swap to help identify the source of high
-usage. Alerts when usage exceeds the configured thresholds. Returns a
-configurable severity when no swap is configured at all, which helps detect a
-swap partition that was inadvertently disabled.
+usage. Alerts when usage exceeds the configured thresholds. A host without any
+swap is reported as OK; raise --severity-no-swap to warn or crit to flag a
+missing swap partition where one is expected.
 
 options:
   -h, --help            show this help message and exit
@@ -45,7 +45,7 @@ options:
   -c, --critical CRIT   Threshold for swap usage, in percent. Default: 90
   --severity-no-swap {ok,warn,crit,unknown}
                         Severity for alerting if no swap is configured.
-                        Default: unknown
+                        Default: ok
   --top TOP             Number of top processes consuming the most swap space
                         to list (not available on Windows). Default: 5
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
@@ -78,7 +78,7 @@ Top 3 processes that use the most swap space:
 * OK if swap usage is below the warning threshold.
 * WARN if swap usage is >= `--warning` (default: 70%).
 * CRIT if swap usage is >= `--critical` (default: 90%).
-* If no swap is configured at all (total swap is 0 bytes), reports `No swap configured.` and returns the state given by `--severity-no-swap` (default: UNKNOWN). This helps detect a swap partition that was inadvertently disabled. Set `--severity-no-swap=ok` if running without swap is intentional on the host.
+* If no swap is configured at all (total swap is 0 bytes), reports `No swap configured.` and returns the state given by `--severity-no-swap` (default: OK, since a swapless host is a valid, fully-checked state). Set `--severity-no-swap=warn` or `=crit` to flag a missing swap partition on a host that is expected to have swap.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -96,7 +96,8 @@ Top 3 processes that use the most swap space:
 
 ## Troubleshooting
 
-`Python module "psutil" is not installed.`
+### `Python module "psutil" is not installed.`
+
 Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
 

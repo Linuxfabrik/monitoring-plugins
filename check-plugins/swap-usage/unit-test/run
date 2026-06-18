@@ -66,11 +66,17 @@ TESTS = [
         'assert-retc': STATE_CRIT,
         'assert-in': ['50.0%'],
     },
-    # No swap configured at all: the severity defaults to unknown and can
-    # be overridden per --severity-no-swap.
+    # No swap configured at all: OK by default, overridable per --severity-no-swap.
     {
-        'id': 'unknown-no-swap-configured-default',
+        'id': 'ok-no-swap-configured-default',
         'test': 'stdout/swap-disabled,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No swap configured.'],
+    },
+    {
+        'id': 'unknown-no-swap-configured-severity-unknown',
+        'test': 'stdout/swap-disabled,,0',
+        'params': '--severity-no-swap=unknown',
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['No swap configured.'],
     },

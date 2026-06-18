@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
+
+# The plugin appends `-systems` (Systems collection), `-system` (member),
+# `-memory` (Memory collection), and `-dimm-N` (each memory module, indexed)
+# to the --test path as it walks the Redfish API. Each scenario therefore
+# requires the matching fixture files.
+TESTS = [
+    {
+        'id': 'ok-healthy-memory',
+        'test': 'stdout/healthy-memory,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok, checked memory on 1 member.',
+            '32.0GiB',
+        ],
+        # The Absent module (DIMM4) must be skipped, not reported.
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        # A single memory module reports Health=Critical while the rest are
+        # OK. redfish-memory must escalate to CRITICAL.
+        'id': 'crit-one-dimm-fault',
+        'test': 'stdout/one-dimm-fault,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'There are critical errors.',
+            '[CRITICAL]',
+        ],
+    },
+    {
+        # --ignore drops the only faulty module (DIMM Slot 2) by regex, so the
+        # check is OK and that module is no longer reported.
+        'id': 'ok-ignore-faulty-dimm',
+        'test': 'stdout/one-dimm-fault,,0',
+        'params': "--ignore='DIMM Slot 2'",
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['DIMM Slot 2', '[CRITICAL]'],
+    },
+    {
+        # --match keeps only the faulty module, so the healthy ones are not
+        # considered and the check stays CRITICAL on it alone.
+        'id': 'crit-match-faulty-dimm',
+        'test': 'stdout/one-dimm-fault,,0',
+        'params': "--match='DIMM Slot 2'",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['DIMM Slot 2', '[CRITICAL]'],
+        'assert-not-in': ['DIMM Slot 1', 'DIMM Slot 3'],
+    },
+    {
+        # --brief on an all-healthy system hides every (OK) module row, so
+        # only the summary remains.
+        'id': 'ok-brief-hides-healthy',
+        'test': 'stdout/healthy-memory,,0',
+        'params': '--brief',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok, checked memory on 1 member.'],
+        'assert-not-in': ['DIMM Slot 1', 'DIMM Slot 2'],
+    },
+    {
+        # --brief keeps the alerting state but shows only the faulty module,
+        # hiding the healthy ones.
+        'id': 'crit-brief-shows-faulty',
+        'test': 'stdout/one-dimm-fault,,0',
+        'params': '--brief',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['DIMM Slot 2', '[CRITICAL]'],
+        'assert-not-in': ['DIMM Slot 1', 'DIMM Slot 3'],
+    },
+    {
+        # --inventory emits the parsed components as JSON (one object keyed by
+        # component type) and exits OK, so several Redfish checks can be merged
+        # with `jq --slurp`.
+        'id': 'ok-inventory-json',
+        'test': 'stdout/healthy-memory,,0',
+        'params': '--inventory',
+        'assert-retc': STATE_OK,
+        'assert-in': ['"memory":', '"system_ids":'],
+    },
+    {
+        # A missing fixture must surface as STATE_UNKNOWN with a
+        # readable message, not as a Python traceback.
+        'id': 'unknown-missing-fixture',
+        'test': 'stdout/does-not-exist,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Test fixture not found'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../redfish-memory'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

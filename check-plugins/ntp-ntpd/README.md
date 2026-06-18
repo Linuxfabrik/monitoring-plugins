@@ -99,13 +99,16 @@ NTP offset is -3.005ms, Stratum is 2
 
 ## Troubleshooting
 
-`OS Error "2 No such file or directory" calling command "ntpq -p"`  
+### `OS Error "2 No such file or directory" calling command "ntpq -p"`
+
 You don't have `ntpd` installed.
 
-`ntpq: read: Connection refused`  
+### `ntpq: read: Connection refused`
+
 `ntpd` is not running.
 
-`No NTP server used.`  
+### `No NTP server used.`
+
 This message occurs when ntpd is running but does not currently use any NTP server.
 
 

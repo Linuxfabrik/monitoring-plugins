@@ -21,13 +21,13 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051204'
+__version__ = '2026052201'
 
 DESCRIPTION = """Checks for in-flight MySQL/MariaDB queries that have been running longer
 than `--warning` / `--critical` seconds. Unlike `mysql-slow-queries` (which trends the
 historical ratio of finished slow queries), this plugin shows queries that are *currently*
 executing right now, with their session ID, user, database, runtime and a truncated copy
-of the statement so the admin can `KILL <id>` directly. Sleeping sessions and replication
+of the statement. Sleeping sessions and replication
 threads are ignored. Logic taken from MySQLTuner `mysql_pfs()`, but the data
 source is `information_schema.processlist` so the check works on every MySQL/MariaDB
 release without requiring Performance Schema to be enabled. Without `PROCESS` privilege,
@@ -299,7 +299,10 @@ def main():
     if state == STATE_OK:
         sections.append('Everything is ok. ' + summary + '.')
     else:
-        sections.append(summary + '.')
+        sections.append(
+            summary + '. Use `KILL <id>` to terminate a runaway query'
+            ' (the ID column lists the session IDs).'
+        )
 
     if table_data:
         headers = ['ID', 'User', 'DB', 'Runtime', 'Statement', 'State']

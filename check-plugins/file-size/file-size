@@ -32,17 +32,19 @@ except ModuleNotFoundError as e:
     PYTHON_MOD = e.name
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041001'
+__version__ = '2026061101'
 
 DESCRIPTION = """Checks file sizes against configurable thresholds using human-readable units (e.g.
-25M, 1G). Supports glob patterns and SMB shares. Directories are skipped because
-their reported size is not meaningful across filesystems.
+25M, 1G). Supports glob patterns, SMB shares, and optional aggregation (mean or
+median) across all matched files. Directories are skipped because their reported
+size is not meaningful across filesystems.
 Alerts when any file exceeds the configured size thresholds.
 Requires root or sudo."""
 
 
 DEFAULT_CRIT = '1G'
 DEFAULT_PATTERN = '*'
+DEFAULT_PERFDATA_MODE = None
 DEFAULT_TIMEOUT = 3
 DEFAULT_WARN = '25M'
 
@@ -106,6 +108,19 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--perfdata-mode',
+        help='Aggregation mode for performance data across matched files. '
+        'Default: %(default)s',
+        dest='PERFDATA_MODE',
+        default=DEFAULT_PERFDATA_MODE,
+        choices=[
+            'mean',
+            'median',
+            'None',
+        ],
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -163,6 +178,7 @@ def main():
     # init some vars
     state = STATE_OK
     msg = ''
+    perfdata = ''
     table_data = []
     alert_count = 0
 
@@ -273,8 +289,29 @@ def main():
             ],
         )
 
+    # aggregate perfdata across all matched files if requested. A single value per
+    # run avoids bloating the time series database when wildcards match many files.
+    sizes = [item['size'] for item in table_data]
+    if args.PERFDATA_MODE == 'mean' and len(sizes) > 0:
+        perfdata += lib.base.get_perfdata(
+            label='mean-sizes', value=round(sum(sizes) / len(sizes)), uom='B'
+        )
+    elif args.PERFDATA_MODE == 'median' and len(sizes) > 0:
+        sizes_sorted = sorted(sizes)
+        middle_index = int(len(sizes_sorted) / 2)
+        # differentiate even / uneven list
+        if len(sizes_sorted) % 2 == 0:
+            # even
+            median = (sizes_sorted[middle_index] + sizes_sorted[middle_index - 1]) / 2
+        else:
+            # uneven (manually "flooring" it up)
+            median = sizes_sorted[int(middle_index + 0.5)]
+        perfdata += lib.base.get_perfdata(
+            label='median-sizes', value=round(median), uom='B'
+        )
+
     # over and out
-    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata=perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

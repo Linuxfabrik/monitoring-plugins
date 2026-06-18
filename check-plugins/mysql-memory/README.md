@@ -185,7 +185,10 @@ Memory breakdown (sorted by contribution to peak memory):
 
 ## Troubleshooting
 
+### Possible memory usage exceeds available memory
+
 `Overall possible memory usage with other process will exceed memory [WARNING]. Dedicate this server to your database for highest performance.`
+
 Decrease `max_connections`, tune buffer settings, stop other processes, or increase memory.
 
 

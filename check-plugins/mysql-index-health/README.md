@@ -5,7 +5,7 @@
 
 Reports the two index-housekeeping findings that [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_pfs() flags: unused indexes (never read since the last server start, listed in `sys.schema_unused_indexes`) and redundant indexes (a narrower index fully covered by a wider one, listed in `sys.schema_redundant_indexes`). Both views are populated by the Performance Schema; the plugin reports STATE_UNKNOWN with a clear hint when `performance_schema = OFF` (the MariaDB default).
 
-The check is meant as a trip-wire only: when it alerts, run `mysqltuner --pfstat` on the host for the full analysis with remediation hints and ready-to-run `ALTER TABLE ... DROP INDEX` statements. The plugin itself does not duplicate mysqltuner's deep diagnostic output; it is sized for a once-a-day Icinga check, not a 60-second one (the underlying counters are cumulative since server start, so sub-daily sampling would add nothing).
+The check is meant as a trip-wire only: it surfaces the findings, not the full per-index analysis. The plugin itself does not duplicate mysqltuner's deep diagnostic output; it is sized for a once-a-day Icinga check, not a 60-second one (the underlying counters are cumulative since server start, so sub-daily sampling would add nothing).
 
 **Important Notes:**
 
@@ -56,15 +56,14 @@ listed in `sys.schema_unused_indexes`) and redundant indexes (a narrower index
 fully covered by a wider one, listed in `sys.schema_redundant_indexes`). Both
 views are populated by the Performance Schema; the plugin reports
 STATE_UNKNOWN with a clear hint when `performance_schema = OFF` (the MariaDB
-default). The check is meant as a trip-wire only: when it alerts, run
-`mysqltuner --pfstat` on the host for the full analysis with remediation hints
-and ready-to-run `ALTER TABLE ... DROP INDEX` statements. System schemas
-(`mysql`, `information_schema`, `performance_schema`, `sys`) are excluded.
-Counters are cumulative since server start; restarting the server resets them,
-so the plugin stays silent (STATE_OK with a wait hint) until server uptime
-crosses `--min-uptime-hours` (default 24h). This avoids the false-clean signal
-right after a restart and the false-positive "unused" signal that would fire
-before weekly or monthly jobs have had a chance to touch their indexes. Index
+default). The check is meant as a trip-wire only: it surfaces the findings,
+not the full per-index analysis. System schemas (`mysql`,
+`information_schema`, `performance_schema`, `sys`) are excluded. Counters are
+cumulative since server start; restarting the server resets them, so the
+plugin stays silent (STATE_OK with a wait hint) until server uptime crosses
+`--min-uptime-hours` (default 24h). This avoids the false-clean signal right
+after a restart and the false-positive "unused" signal that would fire before
+weekly or monthly jobs have had a chance to touch their indexes. Index
 housekeeping is never a wake-up-at-night finding, so the plugin only emits
 WARN (and the implicit OK), never CRIT.
 

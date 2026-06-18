@@ -19,6 +19,9 @@
                     "value": "$php_status_module$",
                     "repeat_key": true
                 },
+                "--ignore-multiple-masters": {
+                    "set_if": "$php_status_ignore_multiple_masters$"
+                },
                 "--insecure": {
                     "set_if": "$php_status_insecure$"
                 },
@@ -27,6 +30,9 @@
                 },
                 "--timeout": {
                     "value": "$php_status_timeout$"
+                },
+                "--top": {
+                    "value": "$php_status_top$"
                 },
                 "--url": {
                     "value": "$php_status_url$"
@@ -87,6 +93,16 @@
                     "datafield_id": 10,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -130,7 +146,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks PHP configuration and health, including startup errors, missing modules, and misconfigured php.ini directives. Optionally reads extended PHP information from a monitoring helper script deployed in the web server context. Alerts on startup errors, missing modules, or insecure settings. Requires root or sudo.",
+            "notes": "Checks PHP configuration and health, including startup errors, missing modules, and misconfigured php.ini directives. Optionally reads extended PHP information from a monitoring helper script deployed in the web server context: OPcache statistics, the largest cached scripts, and the active php.ini directives. Alerts on startup errors, missing modules, or insecure settings. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/",
             "object_name": "tpl-service-php-status",
             "object_type": "template",
@@ -145,11 +161,13 @@
                 "php_status_config": [],
                 "php_status_dev": false,
                 "php_status_module": [],
+                "php_status_ignore_multiple_masters": false,
                 "php_status_insecure": false,
                 "php_status_no_proxy": false,
                 "php_status_timeout": 8,
+                "php_status_top": 10,
                 "php_status_url": "http://localhost/monitoring.php",
-                "php_status_warning": 90
+                "php_status_warning": 95
             },
             "volatile": null,
             "zone": null,
@@ -169,7 +187,7 @@
         "2": {
             "varname": "php_status_critical",
             "caption": "PHP Status: Critical",
-            "description": "CRIT threshold for Opcache usage, in percent.",
+            "description": "CRIT threshold for OPcache memory and key usage, in percent.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -209,6 +227,15 @@
             "uuid": "0163dde8-1441-475e-8e3d-2041a7bc9509"
         },
         "6": {
+            "varname": "php_status_ignore_multiple_masters",
+            "caption": "PHP Status: Ignore Multiple Masters?",
+            "description": "Do not warn when more than one PHP-FPM master is running. Use this on hosts where you intentionally run several PHP-FPM services and monitor each one with its own check.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "77de0d8f-e005-4b87-aefe-d0a294bfd692"
+        },
+        "7": {
             "varname": "php_status_insecure",
             "caption": "PHP Status: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -217,7 +244,7 @@
             "settings": {},
             "uuid": "f03ac94c-1259-4957-85fa-87d501eaf9f8"
         },
-        "7": {
+        "8": {
             "varname": "php_status_no_proxy",
             "caption": "PHP Status: No Proxy?",
             "description": "Do not use a proxy.",
@@ -226,7 +253,7 @@
             "settings": {},
             "uuid": "1cdf44d2-2b6b-434b-92d5-41bb2800dc19"
         },
-        "8": {
+        "9": {
             "varname": "php_status_timeout",
             "caption": "PHP Status: Timeout",
             "description": "Network timeout in seconds.",
@@ -237,10 +264,21 @@
             },
             "uuid": "a45b9da4-1508-46db-b844-7797bcbd97ef"
         },
-        "9": {
+        "10": {
+            "varname": "php_status_top",
+            "caption": "PHP Status: Top",
+            "description": "Number of largest OPcache scripts to list, sorted by memory consumption (descending). Use `--top=0` to disable.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "97fb6bd7-1514-4d58-a3e9-1e7d7066f4ec"
+        },
+        "11": {
             "varname": "php_status_url",
             "caption": "PHP Status: URL",
-            "description": "URL to the optional PHP `monitoring.php` helper script. Without it the plugin still works, but with reduced accuracy.",
+            "description": "URL to the optional PHP `monitoring.php` helper script. The helper runs in the context of the single PHP-FPM master that serves this URL and reports only that master's OPcache and php.ini settings. To check several PHP-FPM services on a host, deploy one monitoring.php per service and run this plugin once per URL. Without it the plugin still works, but with reduced accuracy.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -248,10 +286,10 @@
             },
             "uuid": "b12706cc-8a72-48e5-a89d-5581ccd96c32"
         },
-        "10": {
+        "12": {
             "varname": "php_status_warning",
             "caption": "PHP Status: Warning",
-            "description": "WARN threshold for Opcache usage, in percent.",
+            "description": "WARN threshold for OPcache memory and key usage, in percent.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

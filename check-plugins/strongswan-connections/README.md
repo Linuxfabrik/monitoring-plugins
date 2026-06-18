@@ -132,10 +132,12 @@ acme      ! EST   ! 2022-05-10 15:03:43 ! 2022-05-11 14:57:14 ! v2  ! 198.51.100
 
 ## Troubleshooting
 
-`[Errno 2] No such file or directory`
+### `[Errno 2] No such file or directory`
+
 Check the path to `charon.vici`, and specify `--socket` accordingly.
 
-`Python module "vici" is not installed.`
+### `Python module "vici" is not installed.`
+
 Install `vici`: `pip install vici`.
 
 

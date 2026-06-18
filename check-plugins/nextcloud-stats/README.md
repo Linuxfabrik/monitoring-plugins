@@ -108,13 +108,20 @@ Output:
 
 ## Troubleshooting
 
+### Unknown error while fetching the API endpoint
+
 `Unknown error while fetching http://localhost/nextcloud/ocs/v2.php/apps/serverinfo/api/v1/info?format=json, maybe timeout or error on webserver`
+
 Check the Nextcloud API endpoint URL. Maybe change from http(s)://localhost to http(s)://127.0.0.1.
 
+### HTTP 401 Unauthorized
+
 `HTTP error "401 Unauthorized" while fetching http://...`
+
 Password is correct? Maybe you enabled 2FA. Use an app password for your monitoring server.
 
-`Failed to execute script 'nextcloud-stats' due to unhandled exception!`
+### `Failed to execute script 'nextcloud-stats' due to unhandled exception!`
+
 Use a newer version of this plugin.
 
 

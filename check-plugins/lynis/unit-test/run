@@ -1,0 +1,232 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import concurrent.futures
+import os
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# In --test mode the plugin treats the fixture as one host's lynis report.dat
+# (the SSH/audit transport is skipped). The fixtures in stdout/ are anonymised,
+# RFC-5737 sample reports:
+#   report-warn  hardening_index 68, one warning, three suggestions (myhost)
+#   report-ok    hardening_index 80, no warnings (otherhost)
+# The expected state lives in the testcase id and depends on the fixture plus
+# the thresholds: the per-host state is the worst of the hardening index against
+# --warning/--critical and "any lynis warning -> at least WARNING".
+TESTS = [
+    {
+        'id': 'ok-clean-report',
+        'test': 'stdout/report-ok,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['otherhost', '192.0.2.28'],
+    },
+    {
+        'id': 'warn-lynis-warning-present',
+        'test': 'stdout/report-warn,,0',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'myhost.*\[WARNING\]',
+    },
+    {
+        'id': 'warn-index-below-threshold',
+        'test': 'stdout/report-ok,,0',
+        'params': '--warning 90:',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'80.*\[WARNING\]',
+    },
+    {
+        'id': 'crit-index-below-critical',
+        'test': 'stdout/report-ok,,0',
+        'params': '--warning 90: --critical 85:',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'80.*\[CRITICAL\]',
+    },
+    {
+        'id': 'ok-always-ok-masks-warning',
+        'test': 'stdout/report-warn,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'myhost.*\[WARNING\]',
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../lynis'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+# Cross-distro container tests.
+#
+# The fixtures above exercise the report parsing and threshold logic, but they
+# skip the part this plugin is really about: assembling a self-contained lynis
+# copy from a real distro installation and running the audit over SSH. The
+# layout of an installed lynis differs across distributions (the plugins
+# directory lives under /usr/share/lynis on RHEL/Fedora/Arch but under
+# /etc/lynis on Debian/Ubuntu), and that difference decides whether the audit
+# produces a report at all. A static fixture cannot capture this.
+#
+# Each Containerfile under containerfiles/ installs lynis (the distro package,
+# or the upstream self-contained tree on SLES, which has no package), an SSH
+# server and client, sudo and rsync, and sets up password-less root SSH to
+# itself. The test then runs the plugin inside the container, auditing
+# 127.0.0.1 over its normal SSH transport: the container is both the management
+# host (where the lynis copy is assembled from the distro layout) and the audit
+# target. All images are built and audited in parallel; one assertion method
+# per distro then checks that the audit produced a report.
+CONTAINERFILES = [
+    'archlinux-vlatest',
+    'debian-v11',
+    'debian-v12',
+    'debian-v13',
+    'fedora-v43',
+    'rhel-v8',
+    'rhel-v9',
+    'rhel-v10',
+    'sles-v15',
+    'sles-v16',
+    'ubuntu-v2004',
+    'ubuntu-v2204',
+    'ubuntu-v2404',
+    'ubuntu-v2604',
+]
+
+try:
+    from testcontainers.core.container import DockerContainer
+    from testcontainers.core.image import DockerImage
+except ImportError:
+    DockerContainer = None
+    DockerImage = None
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+LIB_DIR = os.path.realpath(os.path.join(HERE, '..', 'lib'))
+PLUGIN = os.path.realpath(os.path.join(HERE, '..', 'lynis'))
+
+# The plugin audits the container itself. StrictHostKeyChecking/known-hosts are
+# disabled because the throwaway host key changes on every build.
+PLUGIN_CMD = (
+    'cd /tmp && python3 ./lynis '
+    '--host=127.0.0.1 --username=root --identity=/root/.ssh/id_ed25519 '
+    '--ssh-option=StrictHostKeyChecking=no '
+    '--ssh-option=UserKnownHostsFile=/dev/null '
+    '--connect-timeout=10 --lengthy --verbose'
+)
+
+# Start sshd (path differs between distros) and wait until a key-based
+# self-login actually works before the audit connects.
+SSHD_START = (
+    '/usr/sbin/sshd 2>/dev/null || /usr/bin/sshd; '
+    'for _ in $(seq 1 30); do '
+    'ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null '
+    '-o BatchMode=yes -i /root/.ssh/id_ed25519 root@127.0.0.1 true 2>/dev/null '
+    '&& break; sleep 0.3; done'
+)
+
+# Audit output per Containerfile, filled in parallel by setUpModule().
+_RESULTS = {}
+
+
+def _audit_in_container(containerfile):
+    """Build one distro image, start its sshd and run the plugin auditing
+    127.0.0.1 inside it. Returns a dict with the plugin exit code and output.
+    """
+    image_tag = f'lfmp-lynis-{containerfile}'.lower()
+    # clean_up=False keeps the built image so the next run reuses cached layers
+    # instead of rebuilding from the base image (see cpu-usage for the rationale).
+    with DockerImage(
+        path=HERE,
+        dockerfile_path=f'containerfiles/{containerfile}',
+        tag=image_tag,
+        clean_up=False,
+    ) as image:
+        # `,z` relabels the mount for SELinux on podman/rhel hosts so the
+        # container can read the bind-mounted plugin and lib. The lowercase
+        # (shared) label is required because every distro container mounts the
+        # same source concurrently; the uppercase `,Z` (private) label would
+        # relabel the shared source per container and race the parallel peers
+        # into "Permission denied".
+        container = (
+            DockerContainer(str(image.tag))
+            .with_volume_mapping(LIB_DIR, '/tmp/lib', mode='ro,z')
+            .with_volume_mapping(PLUGIN, '/tmp/lynis', mode='ro,z')
+        )
+        with container:
+            container.exec(['sh', '-c', SSHD_START])
+            result = container.exec(['sh', '-c', PLUGIN_CMD])
+            output = (result.output or b'').decode('utf-8', errors='replace')
+            return {'exit_code': result.exit_code, 'output': output}
+
+
+def setUpModule():
+    """Build every distro image and run its audit, all in parallel, before the
+    per-distro assertion methods run. A failure in one container is captured and
+    surfaced by that distro's own test, never aborting the others.
+    """
+    if DockerImage is None:
+        return
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(CONTAINERFILES)) as pool:
+        futures = {pool.submit(_audit_in_container, cf): cf for cf in CONTAINERFILES}
+        for future in concurrent.futures.as_completed(futures):
+            containerfile = futures[future]
+            try:
+                _RESULTS[containerfile] = future.result()
+            except Exception as exc:  # report, do not abort the other containers
+                _RESULTS[containerfile] = {'error': repr(exc)}
+
+
+def _assert_audit(test, containerfile):
+    """Assert that the audit inside `containerfile` produced a report."""
+    if DockerImage is None:
+        test.skipTest('Python module "testcontainers" is not installed.')
+    result = _RESULTS.get(containerfile)
+    if result is None:
+        test.skipTest('container did not run')
+    if 'error' in result:
+        test.fail(f'{containerfile}: container run errored: {result["error"]}')
+    output = result['output']
+    print(
+        f'\n=== {containerfile} (exit {result["exit_code"]}) ===\n{output.strip()}',
+        flush=True,
+    )
+    # The plugin pins the pushed copy with --usecwd, which lynis only supports
+    # from 2.7 on. Some distros still package an older lynis (Ubuntu 20.04 ships
+    # 2.6.2), where there is nothing to audit; skip rather than fail. The plugin
+    # surfaces the error correctly, which is what matters there.
+    if "Invalid option '--usecwd'" in output:
+        test.skipTest(f'{containerfile}: packaged lynis is too old (no --usecwd)')
+    # Before the plugin-dir fix, Debian/Ubuntu fail here: lynis aborts with
+    # "invalid plugin directory" and the plugin reports "audit produced no
+    # report" / "0/1 host audited".
+    test.assertNotIn('audit produced no report', output)
+    test.assertIn('1/1 host audited', output)
+    # A fresh container is not hardened, so the per-host state is OK, WARN or
+    # CRIT depending on the hardening index and warnings, but never UNKNOWN
+    # (UNKNOWN means the audit itself failed).
+    test.assertNotEqual(result['exit_code'], STATE_UNKNOWN)
+
+
+class TestContainer(unittest.TestCase):
+    pass
+
+
+lib.lftest.attach_each(TestContainer, CONTAINERFILES, _assert_audit)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051201'
+__version__ = '2026061201'
 
 DESCRIPTION = """Reports CPU and memory usage for all running Docker containers. CPU usage is
 normalized by dividing by the number of available host CPU cores. CPU alerts only
@@ -167,7 +167,7 @@ def main():
     if args.TEST is None:
         # get the number of host CPUs
         stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('docker info'),
+            lib.shell.shell_exec(['docker', 'info']),
         )
         if retc != 0:
             lib.db_sqlite.close(conn)
@@ -184,7 +184,7 @@ def main():
 
         # get the container statistics for all running containers
         stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('docker stats --no-stream'),
+            lib.shell.shell_exec(['docker', 'stats', '--no-stream']),
         )
         if retc != 0:
             lib.db_sqlite.close(conn)
@@ -260,7 +260,6 @@ def main():
         else:
             cpu_state = STATE_OK
         if cpu_state != STATE_OK:
-
             # build the message
             msg += f'"{name}" cpu {cpu_usage}% {lib.base.state2str(cpu_state)}, '
         state = lib.base.get_worst(cpu_state, state)

@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041202'
+__version__ = '2026061201'
 
 DESCRIPTION = """Checks for available APT package updates on Debian, Ubuntu, and compatible systems.
 Reports the number of pending updates and upgrades, and alerts when updates are
@@ -121,7 +121,9 @@ def main():
     if args.TEST is None:
         # try to update the package cache first
         stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec('sudo apt-get update --quiet 2', timeout=args.TIMEOUT),
+            lib.shell.shell_exec(
+                ['sudo', 'apt-get', 'update', '--quiet', '2'], timeout=args.TIMEOUT
+            ),
         )
         if retc or stderr:
             # Not printing stderr as it is quite verbose
@@ -129,7 +131,7 @@ def main():
             lib.base.cu(msg)
 
         stdout, _, retc = lib.base.coe(
-            lib.shell.shell_exec('apt list --upgradable', timeout=args.TIMEOUT),
+            lib.shell.shell_exec(['apt', 'list', '--upgradable'], timeout=args.TIMEOUT),
         )
         if retc:
             # Not printing stderr as it is quite verbose

@@ -18,7 +18,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026042301'
+__version__ = '2026061202'
 
 DESCRIPTION = """Queries the Name Service Switch (NSS) for entries in system
 databases such as group, hosts, networks, passwd, protocols, or services.
@@ -71,16 +71,24 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # database and keys reach getent as positional arguments; reject values that
+    # getent could read as options (leading "-")
+    lib.base.coe(lib.shell.safe_cli_value(args.DATABASE, '--database'))
+    for key in args.KEY or []:
+        lib.base.coe(lib.shell.safe_cli_value(key, '--key'))
+
     # build the getent command
-    cmd = f'/usr/bin/getent {args.DATABASE}'
+    cmd = ['/usr/bin/getent', args.DATABASE]
     if args.KEY:
         for key in args.KEY:
-            cmd += f' {key}'
+            cmd += [key]
+    # human-readable form of the command for the plugin output
+    cmd_str = ' '.join(cmd)
 
-    # fetch data
-    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
-    if stderr:
-        lib.base.cu(stderr)
+    # fetch data. Do not treat stderr as a failure: getent's exit code is the
+    # real signal (interpreted below), and a non-zero exit is a normal result
+    # (e.g. key not found), not a plugin failure.
+    stdout, _stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
 
     # init some vars
     count = len(stdout.strip().split('\n'))
@@ -89,7 +97,7 @@ def main():
     msg = ''
     state = STATE_UNKNOWN
     if retc == 0:
-        msg = f'Everything is ok. Executed `{cmd}`, got {count} results.'
+        msg = f'Everything is ok. Executed `{cmd_str}`, got {count} results.'
         state = STATE_OK
     elif retc == 1:
         msg = f'Missing arguments for `{cmd}`, or database "{args.DATABASE}" unknown.'
@@ -97,7 +105,7 @@ def main():
     elif retc == 2:
         msg = (
             f'One or more supplied keys could not be found'
-            f' in "{args.DATABASE}", executing `{cmd}`.'
+            f' in "{args.DATABASE}", executing `{cmd_str}`.'
         )
         state = STATE_WARN
     elif retc == 3:

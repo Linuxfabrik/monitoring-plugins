@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051201'
+__version__ = '2026061201'
 
 DESCRIPTION = """Scans the MySQL/MariaDB error log for errors, warnings, startups and
 shutdowns. On MySQL 8.0.22+ the plugin prefers the `performance_schema.error_log` table
@@ -200,7 +200,7 @@ def has_pfs_error_log(conn):
     non-empty result implies the user has at least some privilege on it.
     """
     sql = (
-        "SELECT 1 FROM information_schema.tables"
+        'SELECT 1 FROM information_schema.tables'
         " WHERE table_schema = 'performance_schema'"
         " AND table_name = 'error_log' LIMIT 1;"
     )
@@ -232,26 +232,24 @@ def read_pfs_error_log(conn):
         err_code = row.get('ERROR_CODE', '')
         subsystem = row.get('SUBSYSTEM', '')
         data = row.get('DATA', '')
-        lines.append(
-            f'{ts} 0 [{prio}] [{err_code}] [{subsystem}] {data}'
-        )
+        lines.append(f'{ts} 0 [{prio}] [{err_code}] [{subsystem}] {data}')
     return '\n'.join(lines)
 
 
 def read_container_logs(prefix, target):
     """Run `<prefix> logs --tail=<MAXLINES> <target>`; abort on non-zero exit."""
-    cmd = f"{prefix} logs --tail={MAXLINES} '{target}'"
+    cmd = [prefix, 'logs', f'--tail={MAXLINES}', target]
     stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
     if retc != 0:
-        lib.base.cu(f'`{cmd}` exited with error ({retc}, {stderr.strip()}).')
+        lib.base.cu(f'`{" ".join(cmd)}` exited with error ({retc}, {stderr.strip()}).')
     return stdout
 
 
 def read_systemd_logs(unit):
-    cmd = f"journalctl --lines {MAXLINES} --boot --unit '{unit}'"
+    cmd = ['journalctl', '--lines', str(MAXLINES), '--boot', '--unit', unit]
     stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
     if retc != 0:
-        lib.base.cu(f'`{cmd}` exited with error ({retc}, {stderr.strip()}).')
+        lib.base.cu(f'`{" ".join(cmd)}` exited with error ({retc}, {stderr.strip()}).')
     return stdout
 
 
@@ -328,7 +326,7 @@ def main():
                 )
         if not log_error:
             lib.base.cu(
-                "No log file set (set `log_error` in MySQL/MariaDB config or "
+                'No log file set (set `log_error` in MySQL/MariaDB config or '
                 "use the check's `--server-log` parameter)."
             )
 
@@ -345,9 +343,7 @@ def main():
     # read log content (unless PFS already provided it)
     if logfile is None:
         if log_error == 'stderr':
-            lib.base.cu(
-                "log_error is set to STDERR, so this check can't read stderr."
-            )
+            lib.base.cu("log_error is set to STDERR, so this check can't read stderr.")
         container = re.match(r'^(docker|podman|kubectl):(.*)$', log_error)
         systemd_match = re.match(r'^systemd:(.*)$', log_error)
         if container:
@@ -398,9 +394,9 @@ def main():
     # analyze data
     for log_line in logfile.splitlines():
         haystack = log_line.lower()
-        if any(
-            pattern.lower() in haystack for pattern in args.IGNORE_PATTERN
-        ) or any(item.search(haystack) for item in compiled_ignore_regex):
+        if any(pattern.lower() in haystack for pattern in args.IGNORE_PATTERN) or any(
+            item.search(haystack) for item in compiled_ignore_regex
+        ):
             continue
         # MySQL/MariaDB tag the severity in brackets like `[ERROR]` / `[Warning]`.
         # Match the bracketed form so words like "errors" inside table names or
@@ -491,21 +487,15 @@ def main():
         )
     if last_warns:
         sections.append(
-            'Warnings:\n' + '\n'.join(
-                f'* {line}' for line in shorten(last_warns)
-            )
+            'Warnings:\n' + '\n'.join(f'* {line}' for line in shorten(last_warns))
         )
     if last_starts:
         sections.append(
-            'Startups:\n' + '\n'.join(
-                f'* {line}' for line in shorten(last_starts)
-            )
+            'Startups:\n' + '\n'.join(f'* {line}' for line in shorten(last_starts))
         )
     if last_shutdowns:
         sections.append(
-            'Shutdowns:\n' + '\n'.join(
-                f'* {line}' for line in shorten(last_shutdowns)
-            )
+            'Shutdowns:\n' + '\n'.join(f'* {line}' for line in shorten(last_shutdowns))
         )
 
     if recommendations:

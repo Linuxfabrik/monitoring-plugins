@@ -92,10 +92,12 @@ Frequency=-1365573
 
 ## Troubleshooting
 
-`Failed to parse bus message: No such device or address`  
+### `Failed to parse bus message: No such device or address`
+
 You don't have `systemd-timesyncd` installed or the service is not running.
 
-`No NTP server used.`  
+### `No NTP server used.`
+
 This message occurs when systemd-timesyncd is running but does not currently use any NTP server.
 
 

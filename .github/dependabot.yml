@@ -8,23 +8,17 @@ updates:
       time: '05:00'
       timezone: 'Etc/UTC'
 
-  # One entry per Python LTS lockfile under `lockfiles/`. No entry
-  # for `/lockfiles/py39` on purpose: most upstream packages dropped
-  # Python 3.9 over 2025/2026 (urllib3 2.7, requests 2.33, anyio
-  # 4.13, pypsrp 0.9, oslo-* 10, pycparser 3, debtcollector 3.1, ...).
-  # Dependabot would keep proposing version bumps that require
-  # Python >= 3.10 and break `pip install --require-hashes` on
-  # RHEL 8 / Debian 11. The py39 lockfile is regenerated manually
-  # via `pip-compile` on a Python 3.9 host when an actual fix lands
-  # that still supports 3.9.
-  - package-ecosystem: 'pip'
-    directory: '/lockfiles/py310'
-    schedule:
-      interval: 'weekly'
-      day: 'friday'
-      time: '05:00'
-      timezone: 'Etc/UTC'
-
+  # One entry per Python LTS lockfile under `lockfiles/`. No entries
+  # for `/lockfiles/py39` or `/lockfiles/py310` on purpose: upstream
+  # packages keep raising their minimum Python (urllib3 2.7, requests
+  # 2.33, anyio 4.13, pypsrp 0.9, oslo-* 10 then 10.5, pycparser 3,
+  # debtcollector 3.1, ...). Dependabot does not honour
+  # `requires_python`, so it proposes bumps that break
+  # `pip install --require-hashes`: on py39 bumps needing Python
+  # >= 3.10 (RHEL 8 / Debian 11), on py310 bumps needing Python
+  # >= 3.11 (Ubuntu 22.04, e.g. oslo-config 10.5.0). Both lockfiles
+  # are regenerated manually via `pip-compile` on a matching Python
+  # host when an actual fix lands that still supports them.
   - package-ecosystem: 'pip'
     directory: '/lockfiles/py311'
     schedule:

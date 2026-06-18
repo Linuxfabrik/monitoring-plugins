@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the php-status check plugin.
+
+The plugin's primary data comes from an HTTP fetch of the monitoring.php
+helper (lib.url.fetch_json), which cannot be injected through the --test
+fixture mechanism. These tests therefore exercise the plugin's pure helper
+functions directly, by importing the hyphen-named plugin as a module:
+
+  - parse_fpm_topology(): turn `ps -eo pid,ppid,args` output into the PHP-FPM
+    master/pool topology
+  - human_bytes_shorthand(): normalize PHP byte-shorthand values so a value
+    and its default compare equal regardless of the unit they were written in
+  - render_ini_section(): render one php.ini section, annotating a value with
+    its upstream default only when the two differ
+"""
+
+import importlib.machinery
+import importlib.util
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.base
+from lib.globals import STATE_WARN
+
+
+def _load_plugin_module():
+    """Import the hyphen-named plugin as a Python module for direct function
+    unit tests."""
+    loader = importlib.machinery.SourceFileLoader('php_status', '../php-status')
+    spec = importlib.util.spec_from_loader('php_status', loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+php_status = _load_plugin_module()
+
+
+class TestParseFpmTopology(unittest.TestCase):
+    """parse_fpm_topology() groups workers under their master by PPID, skips
+    non-FPM processes and tolerates the `ps` header line."""
+
+    def test_single_master_dedups_and_orders_pools(self):
+        ps = (
+            '  PID  PPID COMMAND\n'
+            ' 1234     1 php-fpm: master process (/etc/php-fpm.conf)\n'
+            ' 1235  1234 php-fpm: pool www\n'
+            ' 1236  1234 php-fpm: pool app1\n'
+            ' 1237  1234 php-fpm: pool www\n'
+            '  500     1 /usr/sbin/httpd -DFOREGROUND'
+        )
+        self.assertEqual(
+            php_status.parse_fpm_topology(ps),
+            [
+                {
+                    'config': '/etc/php-fpm.conf',
+                    'cmdline': 'php-fpm: master process (/etc/php-fpm.conf)',
+                    'pools': ['www', 'app1'],
+                }
+            ],
+        )
+
+    def test_two_masters_are_separate(self):
+        ps = (
+            ' 1234 1 php-fpm: master process (/etc/php-fpm.conf)\n'
+            ' 1235 1234 php-fpm: pool www\n'
+            ' 2234 1 php-fpm: master process (/etc/php-fpm2.conf)\n'
+            ' 2235 2234 php-fpm: pool appb'
+        )
+        result = php_status.parse_fpm_topology(ps)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]['config'], '/etc/php-fpm.conf')
+        self.assertEqual(result[0]['pools'], ['www'])
+        self.assertEqual(result[1]['config'], '/etc/php-fpm2.conf')
+        self.assertEqual(result[1]['pools'], ['appb'])
+
+    def test_master_without_workers(self):
+        ps = ' 1234 1 php-fpm: master process (/etc/php-fpm.conf)'
+        self.assertEqual(
+            php_status.parse_fpm_topology(ps),
+            [
+                {
+                    'config': '/etc/php-fpm.conf',
+                    'cmdline': 'php-fpm: master process (/etc/php-fpm.conf)',
+                    'pools': [],
+                }
+            ],
+        )
+
+    def test_no_fpm_process(self):
+        ps = ' 1 0 /sbin/init\n 500 1 /usr/sbin/httpd -DFOREGROUND'
+        self.assertEqual(php_status.parse_fpm_topology(ps), [])
+
+    def test_empty_input(self):
+        self.assertEqual(php_status.parse_fpm_topology(''), [])
+
+
+class TestHumanBytesShorthand(unittest.TestCase):
+    """human_bytes_shorthand() makes byte-shorthand values comparable by
+    normalizing the unit, and leaves special and unparseable values alone."""
+
+    def test_units_normalize_to_same_value(self):
+        # '4M' and '4096K' are the same size and must render identically, so a
+        # configured value compares equal to its default regardless of unit.
+        self.assertEqual(php_status.human_bytes_shorthand('4M'), '4.0MiB')
+        self.assertEqual(php_status.human_bytes_shorthand('4096K'), '4.0MiB')
+        self.assertEqual(php_status.human_bytes_shorthand('25G'), '25.0GiB')
+
+    def test_special_values_pass_through(self):
+        # '' / '-1' (unlimited) / '0' carry meaning and are returned unchanged.
+        for value in ('', '-1', '0'):
+            self.assertEqual(php_status.human_bytes_shorthand(value), value)
+
+    def test_unparseable_passes_through(self):
+        # A bare number without a unit and non-numeric text are returned as-is.
+        self.assertEqual(php_status.human_bytes_shorthand('1048576'), '1048576')
+        self.assertEqual(php_status.human_bytes_shorthand('N/A'), 'N/A')
+
+
+class TestRenderIniSection(unittest.TestCase):
+    """render_ini_section() emits a php.ini section and appends a
+    "; default: ..." comment only when the value deviates from its default."""
+
+    def test_no_rows_returns_empty(self):
+        self.assertEqual(php_status.render_ini_section('PHP', []), '')
+
+    def test_value_equal_to_default_has_no_comment(self):
+        rows = [('memory_limit', '128.0MiB', '128.0MiB', False)]
+        self.assertEqual(
+            php_status.render_ini_section('PHP', rows),
+            '[PHP]\nmemory_limit = 128.0MiB',
+        )
+
+    def test_deviating_value_shows_default(self):
+        rows = [('display_errors', 'Off', 'On', False)]
+        self.assertEqual(
+            php_status.render_ini_section('PHP', rows),
+            '[PHP]\ndisplay_errors = Off  ; default: On',
+        )
+
+    def test_empty_default_renders_as_empty_marker(self):
+        rows = [('opcache.blacklist_filename', '/etc/x', '', False)]
+        self.assertEqual(
+            php_status.render_ini_section('opcache', rows),
+            '[opcache]\nopcache.blacklist_filename = /etc/x  ; default: (empty)',
+        )
+
+    def test_unknown_default_is_omitted(self):
+        # shown_default None means the upstream default is unknown: no comment.
+        rows = [('max_input_time', '-1', None, False)]
+        self.assertEqual(
+            php_status.render_ini_section('PHP', rows),
+            '[PHP]\nmax_input_time = -1',
+        )
+
+    def test_warned_directive_gets_marker(self):
+        rows = [('session.cookie_httponly', 'On', 'On', True)]
+        self.assertEqual(
+            php_status.render_ini_section('Session', rows),
+            '[Session]\nsession.cookie_httponly = On'
+            + lib.base.state2str(STATE_WARN, prefix=' '),
+        )
+
+
+if __name__ == '__main__':
+    unittest.main()

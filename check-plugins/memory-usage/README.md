@@ -103,10 +103,12 @@ Top 5 most memory consuming processes:
 
 ## Troubleshooting
 
-`This check sometimes reports > 100% memory usage on Linux`
+### This check sometimes reports > 100% memory usage on Linux
+
 That can happen. The RES column in `top` shows the same if you sum up all values for a process and compare process memory to total physical system memory. If the machine does not swap, this is a Linux memory management side effect.
 
-`Python module "psutil" is not installed.`
+### `Python module "psutil" is not installed.`
+
 Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
 

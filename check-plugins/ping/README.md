@@ -95,6 +95,8 @@ PING 192.0.2.10: 10 packets transmitted, 5 received, 50% packet loss, time 187ms
 
 ## Troubleshooting
 
+### Isolating where packet loss or latency originates
+
 From `man ping` and related to this check:
 
 ```text
@@ -106,7 +108,13 @@ duplicate packets are received, they are not included in the packet
 loss calculation, although the round trip time of these packets is used
 in calculating the minimum/average/maximum/mdev round-trip time
 numbers.
+```
 
+### Interpreting RTT variability (mdev)
+
+From `man ping` and related to this check:
+
+```text
 Population standard deviation (mdev), essentially an average of how far
 each ping RTT is from the mean RTT. The higher mdev is, the more
 variable the RTT is (over time). With a high RTT variability, you will

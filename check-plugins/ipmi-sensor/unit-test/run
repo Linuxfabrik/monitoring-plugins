@@ -22,7 +22,16 @@ TESTS = [
         'id': 'ok-twentyfive-sensors',
         'test': 'stdout/twentyfive-sensors-ok,,0',
         'assert-retc': STATE_OK,
-        'assert-in': ['Everything is ok, checked 25 sensors.'],
+        'assert-in': [
+            'Everything is ok, checked 25 sensors.',
+            # perfdata labels are suffixed by sensor type (derived from the unit) so a
+            # dashboard can group them by a stable regex; a type word the vendor already put in
+            # the name is dropped, so 'CPU Temp' yields 'CPU_Temperature', not
+            # 'CPU_Temp_Temperature'
+            'CPU_Temperature',
+            'FAN1_Fan',
+            '12V_Voltage',
+        ],
     },
     {
         'id': 'crit-thirtyeight-sensors-with-critical',

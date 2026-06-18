@@ -79,7 +79,7 @@ class TestCheck(unittest.TestCase):
     # --------------------------------------------------------------------
 
     def test_baseline_clean_system_is_ok(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
         self.assertIn('Everything is ok. Scanned for ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
@@ -89,7 +89,7 @@ class TestCheck(unittest.TestCase):
         # signatures shipped in assets/, so a single trigger file produces
         # two distinct rootkit findings.
         self._touch('/tmp/.cinik')
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
         self.assertIn(
             'Found 2 rootkits. 0 possible rootkits found. [CRITICAL]',
             stdout,
@@ -104,7 +104,7 @@ class TestCheck(unittest.TestCase):
     def test_real_cinik_signature_with_warn_severity(self):
         self._touch('/tmp/.cinik')
         stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(self.check + ' --severity=warn')
+            lib.shell.shell_exec([self.check, '--severity=warn'])
         )
         self.assertIn(
             'Found 2 rootkits. 0 possible rootkits found. [WARNING]',
@@ -133,7 +133,7 @@ class TestCheck(unittest.TestCase):
                 "cl: 100\n"
             ),
         )
-        stdout, _, retc = lib.base.coe(lib.shell.shell_exec(self.check))
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
         self.assertIn('Test Directory Rootkit', stdout)
         self.assertIn(f'{target_dir} (Dir)', stdout)
         self.assertEqual(retc, STATE_CRIT)
@@ -172,7 +172,7 @@ class TestCheck(unittest.TestCase):
                 "cl: 100\n"
             ),
         )
-        stdout, _, retc = lib.base.coe(lib.shell.shell_exec(self.check))
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
         self.assertIn('Test Kernel Symbol Rootkit', stdout)
         self.assertIn(f'{real_sym} (Kernel Symbol)', stdout)
         self.assertEqual(retc, STATE_CRIT)
@@ -192,7 +192,7 @@ class TestCheck(unittest.TestCase):
                 "cl: 100\n"
             ),
         )
-        stdout, _, _ = lib.base.coe(lib.shell.shell_exec(self.check))
+        stdout, _, _ = lib.base.coe(lib.shell.shell_exec([self.check]))
         self.assertNotIn('Test Substring Should Not Match', stdout)
 
     def test_low_confidence_signature_reports_as_possible_warn(self):
@@ -209,7 +209,7 @@ class TestCheck(unittest.TestCase):
             ),
         )
         # Even with --severity=crit (the default), a cl<100 hit is only WARN.
-        stdout, _, retc = lib.base.coe(lib.shell.shell_exec(self.check))
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
         self.assertIn('Possible Rootkits:', stdout)
         self.assertIn('Test Possible Rootkit', stdout)
         self.assertEqual(retc, STATE_WARN)
@@ -228,7 +228,7 @@ class TestCheck(unittest.TestCase):
                 "cl: 100\n"
             ),
         )
-        stdout, _, _ = lib.base.coe(lib.shell.shell_exec(self.check))
+        stdout, _, _ = lib.base.coe(lib.shell.shell_exec([self.check]))
         self.assertIn('Test Dated Rootkit (2099)', stdout)
         self.assertIn(f'{target} (File)', stdout)
 
@@ -245,7 +245,7 @@ class TestCheck(unittest.TestCase):
                 "cl: 100\n"
             ),
         )
-        stdout, _, _ = lib.base.coe(lib.shell.shell_exec(self.check))
+        stdout, _, _ = lib.base.coe(lib.shell.shell_exec([self.check]))
         # No parenthesized year suffix on the name.
         self.assertIn('Test Undated Rootkit:', stdout)
         self.assertNotIn('Test Undated Rootkit (', stdout)
@@ -258,7 +258,7 @@ class TestCheck(unittest.TestCase):
         with open(path, 'w', encoding='utf-8') as fh:
             fh.write("name: [unterminated\n")
         self._tmp_signatures.append(path)
-        stdout, _, retc = lib.base.coe(lib.shell.shell_exec(self.check))
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
         self.assertIn('Scanfile Errors:', stdout)
         self.assertIn('scanrootkit-utest-broken.yml', stdout)
         # baseline check still completes
@@ -277,7 +277,7 @@ class TestCheck(unittest.TestCase):
                 "cl: 100\n"
             ),
         )
-        stdout, _, retc = lib.base.coe(lib.shell.shell_exec(self.check))
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
         self.assertIn('Scanfile Errors:', stdout)
         self.assertIn('scanrootkit-utest-missing-key.yml', stdout)
         self.assertIn('Key Error', stdout)
@@ -289,7 +289,7 @@ class TestCheck(unittest.TestCase):
         # what admins use to graph signature-database growth, and it doubles as
         # the upper bound of the metric range for visualization tools.
         sig_count = len([f for f in os.listdir(ASSETS_DIR) if f.endswith('.yml')])
-        stdout, _, _ = lib.base.coe(lib.shell.shell_exec(self.check))
+        stdout, _, _ = lib.base.coe(lib.shell.shell_exec([self.check]))
         self.assertIn(f"'rootkit_items'=0;;;0;{sig_count}", stdout)
         self.assertIn(f"'rootkit_possible'=0;;;0;{sig_count}", stdout)
 
@@ -318,7 +318,7 @@ class TestCheck(unittest.TestCase):
                 "cl: 50\n"
             ),
         )
-        stdout, _, retc = lib.base.coe(lib.shell.shell_exec(self.check))
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
         self.assertIn('Found 1 rootkit.', stdout)
         self.assertIn('1 possible rootkit found.', stdout)
         self.assertIn('Rootkits:', stdout)

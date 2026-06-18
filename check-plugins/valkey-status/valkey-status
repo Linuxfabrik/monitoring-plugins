@@ -26,7 +26,7 @@ __author__ = """
 Linuxfabrik GmbH, Zurich/Switzerland;
 enhanced by Claudio Kuenzler
 """
-__version__ = '2026050801'
+__version__ = '2026061202'
 
 DESCRIPTION = """Monitors a Valkey server via the INFO command. Reports memory usage, fragmentation
 ratio, keyspace hit rate, connected clients, replication status, and persistence state.
@@ -204,28 +204,33 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # build the base x-cli command line string
-    base_cmd = 'valkey-cli '
+    # build the base x-cli command line
+    base_cmd = ['valkey-cli']
     if not args.SOCKET:
-        base_cmd += f'-h {args.HOSTNAME} -p {args.PORT} '
+        base_cmd += ['-h', args.HOSTNAME, '-p', str(args.PORT)]
     else:
-        base_cmd += f'-s {args.SOCKET} '
+        base_cmd += ['-s', args.SOCKET]
     if args.PASSWORD:
-        base_cmd += '--no-auth-warning '
+        base_cmd.append('--no-auth-warning')
         if args.USERNAME:
-            base_cmd += f'--user {args.USERNAME} '
-            base_cmd += f'--pass {args.PASSWORD} '
+            base_cmd += ['--user', args.USERNAME]
+            base_cmd += ['--pass', args.PASSWORD]
         else:
-            base_cmd += f'-a {args.PASSWORD} '
+            base_cmd += ['-a', args.PASSWORD]
     if args.TLS:
-        base_cmd += f'--tls --cacert {args.CACERT} '
+        base_cmd += ['--tls', '--cacert', args.CACERT]
 
     # fetch data using `x-cli info default`
     if args.TEST is None:
-        cmd = f'{base_cmd} info default'
-        stdout, stderr, _ = lib.base.coe(lib.shell.shell_exec(cmd))
-        if stderr:
-            lib.base.cu(stderr)
+        cmd = [*base_cmd, 'info', 'default']
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        # do not echo the full cmd, it may contain the password
+        if retc != 0:
+            lib.base.oao(
+                f'`valkey-cli info default` failed (exit {retc}): {stderr.strip()}',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
     else:
         # do not call the command, put in test data
         stdout, stderr, _ = lib.lftest.test(args.TEST)
@@ -255,10 +260,15 @@ def main():
     # fetch data using `valkey-cli memory doctor`
     result['memory_doctor'] = 'Hi Sam'
     if args.TEST is None:
-        cmd = f'{base_cmd} memory doctor'
-        stdout, stderr, _ = lib.base.coe(lib.shell.shell_exec(cmd))
-        if stderr:
-            lib.base.cu(stderr)
+        cmd = [*base_cmd, 'memory', 'doctor']
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        # do not echo the full cmd, it may contain the password
+        if retc != 0:
+            lib.base.oao(
+                f'`valkey-cli memory doctor` failed (exit {retc}): {stderr.strip()}',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
         if not stdout.startswith('ERR '):
             result['memory_doctor'] = stdout.strip()
 

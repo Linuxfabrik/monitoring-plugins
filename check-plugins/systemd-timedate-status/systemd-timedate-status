@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026050801'
+__version__ = '2026061201'
 
 DESCRIPTION = """Checks system clock and RTC settings via timedatectl, including whether network time
 synchronization is active and whether the system clock is synchronized. Alerts on
@@ -72,7 +72,7 @@ def main():
         # Do NOT use `timedatectl show` if you want to be compatible to older
         # systemd versions, as this is only available since 2018-05 (and therefore not on RHEL 7).
         # Use `timedatectl status` instead.
-        cmd = 'timedatectl status'
+        cmd = ['timedatectl', 'status']
         stdout, stderr, _retc = lib.base.coe(lib.shell.shell_exec(cmd))
         if stderr:
             lib.base.oao(f'{stderr}', STATE_WARN)

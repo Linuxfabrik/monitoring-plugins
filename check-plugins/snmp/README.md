@@ -248,7 +248,11 @@ The columns in detail:
    Bool, either "False", "True", or empty. By default, all numeric values are automatically returned as perfdata objects. Set to `True` to exclude this item from the perfdata list.
 
 * **Perfdata Alert Thresholds:**
-   Python tuple. Add warning and critical thresholds to performance data by defining a valid Python tuple - first element for warning, second one for critical. Use double quotes around the tuple because the comma is the separator between the fields. Normally, the values of WARN and CRIT should be repeated here so that the actual thresholds used are written to the performance data.
+   Python tuple, or empty. The "WARN" and "CRIT" columns hold Python *conditions* (for example `value > 80`), not plain numbers, so they cannot be written into the performance data as-is. This column provides the numeric thresholds (and optionally the graph axis bounds) that should appear in the perfdata, as a Python tuple of two to four elements: `warn,crit` or `warn,crit,min,max`. The first element is the warning threshold, the second the critical threshold, and the optional third and fourth pin the minimum and maximum of the graph axis. Use `None` for "no value". When min and max are omitted, they default to `0` and (for percentages) `100`, otherwise to no maximum. Wrap the tuple in double quotes, otherwise the commas inside it are read as CSV field separators. Examples: `"3*30*24*3600,5*365*24*3600"` and `"26,28,0,50"`. A non-empty entry that is not such a tuple is reported as UNKNOWN, so a typo does not silently drop the thresholds.
+
+   This column only annotates the performance data, meaning the `warn`, `crit`, `min`, and `max` fields a graphing tool draws. It has no effect on the OK, WARN, or CRIT state the plugin returns; that state is decided solely by the "WARN" and "CRIT" columns. Because the two are independent, the values here may differ from the conditions in "WARN" and "CRIT". Normally you keep them in sync by repeating the same numeric breakpoints. A row can also have perfdata thresholds without any "WARN"/"CRIT" condition, purely for visualization.
+
+   The repetition looks redundant but the separation is deliberate and buys you flexibility: the "WARN" and "CRIT" columns may hold arbitrary Python conditions, including comparisons that combine several OIDs or that have no single numeric equivalent, while the perfdata still gets clean numeric threshold lines a graphing tool can draw. It also lets you place a guideline at a value that differs from the alerting threshold, or annotate a metric that is not alerted on at all.
 
 * **Skip Output:**
    Bool, either "False", "True", or empty. Should this row be included in the resulting table output? Set this to "True" if you only need the row for calculations.
@@ -318,7 +322,7 @@ snmpbulkwalk -v2c \
 
 ## Perfdata / Metrics
 
-By default, all numeric values are automatically returned as perfdata objects. Use the "Ignore in Perfdata" CSV column to exclude specific items.
+By default, all numeric values are automatically returned as perfdata objects. Use the "Ignore in Perfdata" CSV column to exclude specific items. The `warn` and `crit` threshold fields in the perfdata come from the "Perfdata Alert Thresholds" CSV column and are purely for visualization; they do not influence the plugin's state.
 
 | Name | Type | Description |
 |----|----|----|
@@ -327,19 +331,26 @@ By default, all numeric values are automatically returned as perfdata objects. U
 
 ## Troubleshooting
 
-`IndexError: list index out of range`  
+### `IndexError: list index out of range`
+
 Something is wrong with your CSV file format. Try editing it in LibreOffice Calc, for example, to get the right amount of commas, quotes, etc.
 
-`Too many object identifiers specified. Only 128 allowed in one request.`  
+### `Too many object identifiers specified. Only 128 allowed in one request.`
+
 Probably your SNMP v3 parameters are incomplete or incorrect.
 
-`add_mibdir: strings scanned in from .snmp/mibs/.index are too large. count = ...`  
+### MIB index file too large
+
+`add_mibdir: strings scanned in from .snmp/mibs/.index are too large. count = ...`
+
 There seems to be a malformed, a duplicated MIB file or one with spaces in its filename within one of your MIB directories.
 
-`Error in packet. Reason: (tooBig) Response message would have been too large.`  
+### `Error in packet. Reason: (tooBig) Response message would have been too large.`
+
 A "tooBig" response simply means that the SNMP agent tried to generate a response with all requested OIDs, but the response grew too big for its buffer, resulting in this error message. The check already limits requests to a maximum of 25 OIDs each.
 
-`Within Icinga, if I acknowledge a value change in WARN or CRIT state, does the plugin return OK?`  
+### Does an acknowledged value change return to OK?
+
 If you acknowledge a value change in Icinga, the desired WARN or CRIT state remains, because SNMP is mostly run against hardware and you have to check what triggered the change. If everything is fine, delete `$TEMP/linuxfabrik-monitoring-plugins-snmp.db`. On the next run, the plugin will recreate the inventory.
 
 

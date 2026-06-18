@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the number of currently banned IP addresses across all fail2ban jails. Reports the total ban count and a per-jail breakdown. Alerts when the number of banned IPs in any jail exceeds the configured thresholds. Requires root or sudo.
+Checks the number of currently banned IP addresses across all fail2ban jails. Reports the total ban count and a per-jail breakdown. Jails can be excluded from the check with a regular expression. Alerts when the number of banned IPs in any jail exceeds the configured thresholds. Requires root or sudo.
 
 **Data Collection:**
 
@@ -27,47 +27,59 @@ Checks the number of currently banned IP addresses across all fail2ban jails. Re
 ## Help
 
 ```text
-usage: fail2ban [-h] [-V] [--always-ok] [-c CRIT] [--test TEST] [-w WARN]
+usage: fail2ban [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
+                [--socket SOCKET] [--test TEST] [-w WARN]
 
 Checks the number of currently banned IP addresses across all fail2ban jails.
-Reports the total ban count and a per-jail breakdown. Alerts when the number
-of banned IPs in any jail exceeds the configured thresholds. Requires root or
-sudo.
+Reports the total ban count and a per-jail breakdown. Jails can be excluded
+from the check with a regular expression. Alerts when the number of banned IPs
+in any jail exceeds the configured thresholds. Requires root or sudo.
 
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for the number of banned IPs per jail.
-                       Default: 10000
+                       Supports Nagios ranges. Default: 10000
+  --ignore IGNORE      Exclude jails whose name matches this Python regular
+                       expression. Case-sensitive by default; use `(?i)` for
+                       case-insensitive matching. Can be specified multiple
+                       times. Example: `--ignore="^recidive$"`. Default: None
+  --socket SOCKET      Path to the fail2ban server Unix socket. Passed to
+                       `fail2ban-client --socket`. Default: None
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".
   -w, --warning WARN   WARN threshold for the number of banned IPs per jail.
-                       Default: 2500
+                       Supports Nagios ranges. Default: 2500
 ```
 
 
 ## Usage Examples
 
 ```bash
-./fail2ban --warning 2500 --critical 10000
+./fail2ban --warning=2500 --critical=10000 --ignore='^recidive$'
 ```
 
 Output:
 
 ```text
 7406 IPs banned
-* 5432 in jail "sshd" [WARNING]
-* 1974 in jail "portscan"
+
+Jail     ! Banned ! Status
+---------+--------+----------
+sshd     ! 5432   ! [WARNING]
+portscan ! 1974   ! [OK]
 ```
 
 
 ## States
 
-* OK if the number of banned IPs in every jail is below `--warning` (default: 2500).
-* WARN if the number of banned IPs in any jail is >= `--warning` (default: 2500).
-* CRIT if the number of banned IPs in any jail is >= `--critical` (default: 10000).
+* OK if the number of banned IPs in every checked jail is within `--warning` (default: 2500).
+* WARN if the number of banned IPs in any jail exceeds `--warning` (default: 2500).
+* CRIT if the number of banned IPs in any jail exceeds `--critical` (default: 10000).
 * UNKNOWN if `fail2ban-client ping` fails or `fail2ban-client status` returns an error.
+* `--warning` and `--critical` accept Nagios range expressions.
+* Jails matching `--ignore` are excluded from both the output and the alerting.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -80,10 +92,15 @@ Output:
 
 ## Troubleshooting
 
-`Permission denied to socket: /var/run/fail2ban/fail2ban.sock (you must be root)`  
+### `Permission denied to socket: /var/run/fail2ban/fail2ban.sock (you must be root)`
+
 The fail2ban client works only with user `root` by default. Fail2ban does not have individual permission or a user privilege model. If you allow the fail2ban client accessing the fail2ban server for non-root, you could stop the server, change runtime config, ban, unban, etc.
 
-Preparing fail2ban by changing permissions (tested on Debian 11):
+There are two ways to let a non-root user like `nagios` or `icinga` run the check: change the socket permissions, or grant sudo access.
+
+### Granting access by changing socket permissions
+
+Tested on Debian 11.
 
 The communication takes place via unix-socket `/var/run/fail2ban/fail2ban.sock` which has the following permissions:
 
@@ -120,7 +137,9 @@ ExecStartPost=/usr/bin/chgrp fail2ban /var/run/fail2ban/fail2ban.sock
 ExecStartPost=/usr/bin/chmod g+w /var/run/fail2ban/fail2ban.sock
 ```
 
-Preparing fail2ban by using sudo (tested on RHEL 7+):
+### Granting access using sudo
+
+Tested on RHEL 7+.
 
 As an alternative you might add a sudoers rule, for example in `/etc/sudoers.d/fail2ban`:
 

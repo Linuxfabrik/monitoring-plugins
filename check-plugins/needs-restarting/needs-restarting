@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041203'
+__version__ = '2026061201'
 
 DESCRIPTION = """Checks for processes that were started before they or one of their dependencies were
 updated. Returns WARN if a full system reboot is required or if individual services
@@ -92,7 +92,7 @@ def main():
         # needs-restarting --reboothint
         if args.TEST is None:
             stdout, stderr, retc = lib.base.coe(
-                lib.shell.shell_exec('needs-restarting --reboothint')
+                lib.shell.shell_exec(['needs-restarting', '--reboothint'])
             )
         else:
             stdout, stderr, retc = lib.lftest.test(
@@ -103,7 +103,7 @@ def main():
 
         # 2. long list of all updated services (process list): needs-restarting
         if args.TEST is None:
-            stdout, _, retc = lib.base.coe(lib.shell.shell_exec('needs-restarting'))
+            stdout, _, retc = lib.base.coe(lib.shell.shell_exec(['needs-restarting']))
         else:
             stdout, _, retc = lib.lftest.test(
                 [args.TEST[0] + '-services', args.TEST[1], args.TEST[2]],
@@ -127,7 +127,7 @@ def main():
     if distro['os_family'] == 'Debian':
         # 1. check if needrestart is available - if yes, use it
         if args.TEST is None:
-            success, result = lib.shell.shell_exec('needrestart -b')
+            success, result = lib.shell.shell_exec(['needrestart', '-b'])
         else:
             success = True
             result = lib.lftest.test(

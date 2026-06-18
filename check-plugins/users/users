@@ -20,7 +20,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041001'
+__version__ = '2026061201'
 
 DESCRIPTION = """Counts the number of currently logged-in users by session type: tty (console) and pts
 (SSH on Linux, RDP on Windows). On Windows, also counts disconnected sessions (closed
@@ -164,13 +164,13 @@ def main():
         if lib.base.WINDOWS:
             WARN_DISC = lib.args.int_or_none(args.WARN[2])
             CRIT_DISC = lib.args.int_or_none(args.CRIT[2])
-            cmd = 'query user'
+            cmd = ['query', 'user']
             stdout, _, _ = lib.base.coe(lib.shell.shell_exec(cmd))
             # Could not find any documentation in the return codes of 'query user'
             # (%ERRORLEVEL% is always 1).
             lines, count_tty, count_pts, count_disc = parse_windows_output(stdout)
         else:
-            cmd = '/usr/bin/w'
+            cmd = ['/usr/bin/w']
             stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
             if stderr or retc != 0:
                 lib.base.cu(stderr)

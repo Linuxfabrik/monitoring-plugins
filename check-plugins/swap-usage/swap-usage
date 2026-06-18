@@ -30,16 +30,16 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026052001'
+__version__ = '2026061201'
 
 DESCRIPTION = """Monitors swap space usage as a percentage of total swap. Optionally lists the top
 processes consuming the most swap to help identify the source of high usage. Alerts
-when usage exceeds the configured thresholds. Returns a configurable severity when no
-swap is configured at all, which helps detect a swap partition that was inadvertently
-disabled."""
+when usage exceeds the configured thresholds. A host without any swap is reported as OK;
+raise --severity-no-swap to warn or crit to flag a missing swap partition where one is
+expected."""
 
 DEFAULT_CRIT = 90  # %
-DEFAULT_NO_SWAP = 'unknown'
+DEFAULT_NO_SWAP = 'ok'
 DEFAULT_TOP = 5
 DEFAULT_WARN = 70  # %
 
@@ -254,8 +254,9 @@ def main():
     if args.TEST is None and not lib.base.WINDOWS and swap_usage_percent > 0:
         msg_body += '\n' + top(args.TOP)
 
-    # no swap configured at all: report with the configured severity so an
-    # inadvertently disabled swap partition does not silently pass as OK
+    # no swap configured at all: OK by default (a swapless host is a valid,
+    # fully-checked state), raise via --severity-no-swap to flag a missing
+    # swap partition where one is expected
     if swap.total == 0:
         lib.base.oao(
             'No swap configured.',

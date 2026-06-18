@@ -19,10 +19,10 @@ import lib.base
 import lib.human
 import lib.lftest
 import lib.shell
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026061202'
 
 DESCRIPTION = """Collects statistics across multiple snapshots in a restic repository, including the
 number of unique files and their total size. Supports different counting modes
@@ -111,21 +111,26 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        cmd = (
-            f'restic --json --repo={args.REPO}'
-            f' --password-file={args.PASSWORD_FILE}'
-            f' --mode={args.MODE}'
-        )
+        cmd = [
+            'restic',
+            '--json',
+            f'--repo={args.REPO}',
+            f'--password-file={args.PASSWORD_FILE}',
+            f'--mode={args.MODE}',
+        ]
         if args.HOST:
-            cmd += ' --host=' + ' --host='.join(args.HOST)
+            cmd += [f'--host={host}' for host in args.HOST]
         if args.PATH:
-            cmd += ' --path=' + ' --path='.join(args.PATH)
+            cmd += [f'--path={path}' for path in args.PATH]
         if args.TAG:
-            cmd += ' --tag=' + ' --tag='.join(args.TAG)
-        cmd += ' stats'
-        stdout, stderr, _retc = lib.base.coe(lib.shell.shell_exec(cmd))
-        if stderr:
-            lib.base.cu(stderr)
+            cmd += [f'--tag={tag}' for tag in args.TAG]
+        cmd.append('stats')
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        if retc != 0:
+            lib.base.oao(
+                f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
+                STATE_WARN,
+            )
     else:
         # do not call the command, put in test data
         stdout, stderr, _retc = lib.lftest.test(args.TEST)

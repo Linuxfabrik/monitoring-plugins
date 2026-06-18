@@ -133,17 +133,20 @@ There is no perfdata.
 
 ## Troubleshooting
 
-`Python module "BeautifulSoup4" is not installed.`  
+### `Python module "BeautifulSoup4" is not installed.`
+
 ```bash
 sudo -u icinga python3 -m pip install --user BeautifulSoup4
 ```
 
-`Couldn't find a tree builder with the features you requested: xml. Do you need to install a parser library?`  
+### `Couldn't find a tree builder with the features you requested: xml. Do you need to install a parser library?`
+
 ```bash
 sudo -u icinga python3 -m pip install --user lxml
 ```
 
-`--icinga-callback requires --icinga-url, --icinga-password, --icinga-username and --icinga-service-name`  
+### `--icinga-callback requires --icinga-url, --icinga-password, --icinga-username and --icinga-service-name`
+
 When using `--icinga-callback`, all four Icinga connection parameters must be specified.
 
 

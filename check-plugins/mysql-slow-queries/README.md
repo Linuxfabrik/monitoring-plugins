@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the rate of slow queries in MySQL/MariaDB (`Slow_queries` / `Questions`). A high ratio means many queries are exceeding `long_query_time` and likely need optimisation. Also reports whether the slow query log is enabled and nudges the admin to lower `long_query_time` when it is set above 10 seconds. Neither finding raises an alert on its own; both surface only as recommendations alongside a slow-query-ratio WARN/CRIT.
+Checks the rate of slow queries in MySQL/MariaDB (`Slow_queries` / `Questions`). A high ratio means many queries are exceeding `long_query_time` and likely need optimisation. Also reports whether the slow query log is enabled and whether `long_query_time` is set above 10 seconds. Neither finding raises an alert on its own; both surface only as recommendations alongside a slow-query-ratio WARN/CRIT.
 
 **Important Notes:**
 
@@ -46,9 +46,9 @@ usage: mysql-slow-queries [-h] [-V] [--always-ok] [-c CRITICAL]
 Checks the rate of slow queries in MySQL/MariaDB (`Slow_queries` /
 `Questions`). A high ratio means many queries are exceeding `long_query_time`
 and likely need optimisation. Alerts when the ratio crosses `--warning` /
-`--critical`. Also reports whether the slow query log is enabled and nudges
-the admin to lower `long_query_time` to 1 - 3 seconds when it is set above 10
-(MySQL/MariaDB default is 10s, which only catches the worst outliers).
+`--critical`. Also reports whether the slow query log is enabled and whether
+`long_query_time` is set above 10 (the MySQL/MariaDB default of 10s only
+catches the worst outliers).
 
 options:
   -h, --help            show this help message and exit

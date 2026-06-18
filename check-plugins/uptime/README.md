@@ -121,7 +121,8 @@ Last power event at ~2024-11-22 14:44:18 and down for ~13s.
 
 ## Troubleshooting
 
-`Python module "psutil" is not installed.`
+### `Python module "psutil" is not installed.`
+
 Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
 

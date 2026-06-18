@@ -21,12 +21,12 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051002'
+__version__ = '2026060201'
 
 DESCRIPTION = """Checks two related InnoDB log buffer metrics in MySQL/MariaDB:
 1. **Log waits** (`Innodb_log_waits` / `Innodb_log_writes`) - how often InnoDB had to wait for
    log writes to be flushed because the log buffer was full. Anything above 0% indicates that
-   `innodb_log_buffer_size` should be increased.
+   `innodb_log_buffer_size` is too small for the write workload.
 2. **Write log efficiency** ((`Innodb_log_write_requests` - `Innodb_log_writes`) /
    `Innodb_log_write_requests` * 100) - how many log write requests were absorbed by the buffer
    without needing a physical disk write. Below 90% indicates `innodb_log_buffer_size` is too
@@ -169,10 +169,7 @@ def main():
     # analyze data
     # 1. InnoDB Log Waits: any wait at all earns a WARN. mysqltuner uses the same
     #    "any wait" threshold (`> 0.000001` in their float math).
-    if log_writes > 0:
-        pct_log_waits = round(log_waits / log_writes * 100, 4)
-    else:
-        pct_log_waits = 0.0
+    pct_log_waits = round(log_waits / log_writes * 100, 4) if log_writes > 0 else 0.0
 
     log_waits_msg = (
         f'InnoDB log waits: {pct_log_waits}%'

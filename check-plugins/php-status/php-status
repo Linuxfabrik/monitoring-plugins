@@ -11,23 +11,27 @@
 """See the check's README for more details."""
 
 import argparse
+import glob
+import os
+import re
 import sys
 
 import lib.args
 import lib.base
+import lib.disk
 import lib.human
 import lib.shell
 import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041201'
+__version__ = '2026061201'
 
 DESCRIPTION = """Checks PHP configuration and health, including startup errors, missing modules, and
 misconfigured php.ini directives. Optionally reads extended PHP information from a
-monitoring helper script deployed in the web server context.
-Alerts on startup errors, missing modules, or insecure settings.
-Requires root or sudo."""
+monitoring helper script deployed in the web server context: OPcache statistics, the
+largest cached scripts, and the active php.ini directives. Alerts on startup errors,
+missing modules, or insecure settings. Requires root or sudo."""
 
 DEFAULT_CONFIG = ['date.timezone=Europe']
 DEFAULT_CRIT = None
@@ -62,8 +66,102 @@ DEFAULT_MODULES = [
 ]
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 8
+DEFAULT_TOP = 10
 DEFAULT_URL = 'http://localhost/monitoring.php'
-DEFAULT_WARN = 90
+DEFAULT_WARN = 95
+
+# Commonly tuned php.ini directives, grouped by their real php.ini section
+# ([PHP], [Date], [mail function], [Session]). Each tuple is
+# (directive, upstream_default), where the default is the compiled-in value from
+# the PHP source (main/main.c, Zend/zend.c, ext/date, ext/session, ext/standard);
+# None means there is no fixed compiled default. Booleans are shown as On/Off to
+# match the runtime value. The plugin appends "; default: ..." whenever the
+# deployed value deviates from PHP's own default.
+PHP_INI_SECTIONS = [
+    (
+        'PHP',
+        [
+            ('default_socket_timeout', '60'),
+            ('display_errors', 'On'),
+            ('display_startup_errors', 'On'),
+            ('error_reporting', None),
+            ('expose_php', 'On'),
+            ('html_errors', 'On'),
+            ('max_execution_time', '30'),
+            ('max_file_uploads', '20'),
+            ('max_input_time', '-1'),
+            ('max_input_vars', '1000'),
+            ('memory_limit', '128M'),
+            ('post_max_size', '8M'),
+            ('realpath_cache_size', '4096K'),
+            ('realpath_cache_ttl', '120'),
+            ('serialize_precision', '-1'),
+            ('upload_max_filesize', '2M'),
+        ],
+    ),
+    (
+        'Date',
+        [
+            ('date.timezone', 'UTC'),
+        ],
+    ),
+    (
+        'mail function',
+        [
+            ('mail.add_x_header', 'Off'),
+            ('SMTP', 'localhost'),
+            ('smtp_port', '25'),
+        ],
+    ),
+    (
+        'Session',
+        [
+            ('session.cookie_httponly', 'On'),
+            ('session.cookie_secure', 'Off'),
+            ('session.gc_maxlifetime', '1440'),
+            ('session.sid_length', '32'),
+            ('session.trans_sid_tags', 'a=href,area=href,frame=src,form='),
+        ],
+    ),
+]
+
+# [opcache] directives: (directive, upstream_default, kind). kind drives how the
+# value from opcache_get_configuration() is rendered and compared to its default:
+# 'bool' > On/Off, 'bytes' > value already in bytes, 'mb' > value in megabytes,
+# 'int'/'str' > verbatim. For 'bytes'/'mb' the default is a megabyte count.
+# Defaults are the compiled-in values from ext/opcache in the PHP source.
+OPCACHE_SECTION = (
+    'opcache',
+    [
+        ('opcache.blacklist_filename', '', 'str'),
+        ('opcache.enable', 'On', 'bool'),
+        ('opcache.enable_cli', 'Off', 'bool'),
+        ('opcache.huge_code_pages', 'Off', 'bool'),
+        ('opcache.interned_strings_buffer', '8', 'mb'),
+        ('opcache.max_accelerated_files', '10000', 'int'),
+        ('opcache.memory_consumption', '128', 'bytes'),
+        ('opcache.revalidate_freq', '2', 'int'),
+        ('opcache.save_comments', 'On', 'bool'),
+        ('opcache.validate_timestamps', 'On', 'bool'),
+    ],
+)
+
+# Directives flagged with WARN when enabled. The value is whether development
+# mode (--dev) tolerates them; expose_php is always flagged.
+WARN_WHEN_ON = {
+    'display_errors': True,
+    'display_startup_errors': True,
+    'expose_php': False,
+}
+
+# Directives whose value is a byte size in PHP shorthand notation (e.g. "128M").
+# These are normalized so value and default share the same unit when compared.
+BYTE_DIRECTIVES = {
+    'memory_limit',
+    'post_max_size',
+    'realpath_cache_size',
+    'upload_max_filesize',
+}
 
 
 def parse_args():
@@ -88,7 +186,8 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for Opcache usage, in percent. Default: >= %(default)s',
+        help='CRIT threshold for OPcache memory and key usage, in percent. '
+        'Default: >= %(default)s',
         dest='CRIT',
         type=lib.args.int_or_none,
         default=DEFAULT_CRIT,
@@ -124,6 +223,16 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore-multiple-masters',
+        help='Do not warn when more than one PHP-FPM master is running. '
+        'Use this on hosts where you intentionally run several PHP-FPM services '
+        'and monitor each one with its own check.',
+        dest='IGNORE_MULTIPLE_MASTERS',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '--insecure',
         help=lib.args.help('--insecure'),
         dest='INSECURE',
@@ -148,8 +257,23 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--top',
+        help='Number of largest OPcache scripts to list, '
+        'sorted by memory consumption (descending). '
+        'Use `--top=0` to disable. '
+        'Default: %(default)s',
+        dest='TOP',
+        type=int,
+        default=DEFAULT_TOP,
+    )
+
+    parser.add_argument(
         '--url',
         help='URL to the optional PHP `monitoring.php` helper script. '
+        'The helper runs in the context of the single PHP-FPM master that serves '
+        "this URL and reports only that master's OPcache and php.ini settings. "
+        'To check several PHP-FPM services on a host, deploy one monitoring.php '
+        'per service and run this plugin once per URL. '
         'Without it the plugin still works, but with reduced accuracy. '
         'Default: %(default)s',
         dest='URL',
@@ -159,7 +283,8 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for Opcache usage, in percent. Default: >= %(default)s',
+        help='WARN threshold for OPcache memory and key usage, in percent. '
+        'Default: >= %(default)s',
         dest='WARN',
         type=lib.args.int_or_none,
         default=DEFAULT_WARN,
@@ -170,7 +295,7 @@ def parse_args():
 
 
 def get_startup_errors():
-    success, result = lib.shell.shell_exec('php --version 1> /dev/null')
+    success, result = lib.shell.shell_exec(['php', '--version'])
     if not success:
         lib.base.cu('PHP not found')
     _, stderr, _ = result
@@ -178,7 +303,7 @@ def get_startup_errors():
 
 
 def get_config_errors(args):
-    success, result = lib.shell.shell_exec('php --info 2> /dev/null')
+    success, result = lib.shell.shell_exec(['php', '--info'])
     if not success:
         lib.base.cu('PHP not found')
     stdout, _, _ = result
@@ -194,12 +319,18 @@ def get_config_errors(args):
         if f'{key.lower()} => {value.lower()}' not in php_config:
             result += f'{key} = {value}, '
     if result:
-        result = result[:-2] + ' (did you run the check with sudo?), '
+        result = result[:-2]
+        # a non-root run sees PHP's compiled defaults, not the configured values
+        # (a root-only php.ini is unreadable to php as a normal user), so a mismatch
+        # then usually means the check was not run via sudo
+        if hasattr(os, 'geteuid') and os.geteuid() != 0:
+            result += ' (did you run the check with sudo?)'
+        result += ', '
     return result
 
 
 def get_module(args):
-    success, result = lib.shell.shell_exec('php --modules 2> /dev/null')
+    success, result = lib.shell.shell_exec(['php', '--modules'])
     if not success:
         lib.base.cu('PHP not found')
     stdout, _, _ = result
@@ -209,6 +340,124 @@ def get_module(args):
         if module.lower() not in php_modules:
             result += f'{module}, '
     return result
+
+
+def get_fpm_topology():
+    """Return the running PHP-FPM masters, each as a dict with its config file
+    and its pool names: {'config': str|None, 'cmdline': str, 'pools': [str, ...]}.
+
+    Each master owns its own OPcache shared-memory segment (shared by all its
+    pools), so more than one master means `monitoring.php` can only report the
+    OPcache of the master that served it. php.ini settings can still differ per
+    pool. Returns an empty list where no process listing is available (e.g. on
+    Windows), so detection degrades gracefully.
+    """
+    success, result = lib.shell.shell_exec(['ps', '-eo', 'pid,ppid,args'])
+    if not success:
+        return []
+    stdout, _, _ = result
+    return parse_fpm_topology(stdout)
+
+
+def parse_fpm_topology(ps_stdout):
+    """Parse `ps -eo pid,ppid,args` output into the PHP-FPM master/pool topology.
+
+    Kept separate from the shell call so it can be unit-tested with captured ps
+    output. Returns a list of master dicts (see get_fpm_topology).
+    """
+    masters = {}
+    workers = []
+    for line in ps_stdout.splitlines():
+        parts = line.split(None, 2)
+        if len(parts) < 3 or 'fpm' not in parts[2]:
+            continue
+        _, ppid, args = parts
+        if 'master process' in args:
+            match = re.search(r'\(([^)]+)\)', args)
+            masters[parts[0]] = {
+                'config': match.group(1) if match else None,
+                'cmdline': args.strip(),
+                'pools': [],
+            }
+        else:
+            match = re.search(r'pool (\S+)', args)
+            if match:
+                workers.append((ppid, match.group(1)))
+    for ppid, pool in workers:
+        master = masters.get(ppid)
+        if master and pool not in master['pools']:
+            master['pools'].append(pool)
+    return list(masters.values())
+
+
+def parse_fpm_pools(master_config):
+    """Map pool name -> listen socket/address for an FPM master, by reading its
+    config file and the pool files it includes. Returns {} when the files cannot
+    be read (e.g. insufficient permissions), so the topology degrades to just the
+    pool name. The socket is what an admin routes a monitoring.php to in order to
+    check that pool's service separately.
+    """
+    listens = {}
+    success, master_text = lib.disk.read_file(master_config)
+    if not success:
+        return listens
+    files = [master_config]
+    for line in master_text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith('include') and '=' in stripped:
+            key, _, pattern = stripped.partition('=')
+            if key.strip() == 'include':
+                files.extend(sorted(glob.glob(pattern.strip())))
+    for path in files:
+        success, pool_text = lib.disk.read_file(path)
+        if not success:
+            continue
+        current = None
+        for line in pool_text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith('[') and stripped.endswith(']'):
+                current = stripped[1:-1]
+            elif current and stripped.startswith('listen') and '=' in stripped:
+                key, _, value = stripped.partition('=')
+                if key.strip() == 'listen':
+                    listens[current] = value.strip()
+    return listens
+
+
+def human_bytes_shorthand(value):
+    """Normalize a PHP byte-shorthand value (e.g. '4M', '4096K') to a consistent
+    human-readable size, so a value and its default compare equal regardless of
+    the unit they were written in. Special values ('-1' = unlimited, '0', '') and
+    anything that is not a parseable byte size are returned unchanged.
+    """
+    text = str(value).strip()
+    if text in ('', '-1', '0'):
+        return text
+    num_bytes = lib.human.human2bytes(text)
+    if num_bytes <= 0:
+        return text
+    return lib.human.bytes2human(num_bytes)
+
+
+def render_ini_section(name, rows):
+    """Render one (section, rows) pair as php.ini text. Each row is
+    (key, shown_value, shown_default, warned). A "; default: ..." comment is
+    appended when the value differs from its upstream default, and a WARN marker
+    when the directive is flagged. Returns '' when there are no rows.
+    """
+    if not rows:
+        return ''
+    lines = [f'[{name}]']
+    for key, shown, shown_default, warned in rows:
+        line = f'{key} = {shown}'
+        if shown_default is not None and shown != shown_default:
+            line += (
+                f'  ; default: {shown_default if shown_default != "" else "(empty)"}'
+            )
+        if warned:
+            line += lib.base.state2str(STATE_WARN, prefix=' ')
+        lines.append(line)
+    return '\n'.join(lines)
 
 
 def main():
@@ -226,112 +475,129 @@ def main():
     if args.MODULES is None:
         args.MODULES = DEFAULT_MODULES
 
-    # init some vars
-    msg = ''
-    state = STATE_OK
-    perfdata = ''
-    php = {}
-    table_values = []
-
-    # analyze data
+    # fetch data
+    # Request the per-file OPcache script list unless the top-scripts table is
+    # disabled (--top=0), to keep the response small on a frequently scheduled check.
+    url = args.URL
+    if args.TOP:
+        url += ('&' if '?' in url else '?') + 'scripts=1'
     success, php = lib.url.fetch_json(
-        args.URL,
+        url,
         insecure=args.INSECURE,
         no_proxy=args.NO_PROXY,
         timeout=args.TIMEOUT,
     )
-    if not success:
 
-        # build the message
-        msg += 'monitoring.php not found. '
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    script_rows = []
+    ini_sections = []
+
+    # analyze data
+    opcache_enabled = (
+        isinstance(php, dict)
+        and php.get('opcache_status')
+        and php.get('opcache_status').get('opcache_enabled') is True
+    )
+    server = php.get('server') if isinstance(php, dict) else None
+    is_fpm = bool(server and 'fpm' in server.get('sapi', ''))
+
+    # Report whether the monitoring.php helper was read, symmetric in both
+    # directions: on failure name the cause, on success name the process that
+    # answered (its SAPI, e.g. "fpm-fcgi"), making it explicit that the OPcache
+    # and php.ini data come from the live web server process, not the local CLI.
+    if not success:
+        # On failure the fetch returns its error message as the second value
+        # (e.g. httpx not installed, connection refused, HTTP 404). Surface it
+        # verbatim so the cause is diagnosable instead of a generic "not found".
+        reason = php if isinstance(php, str) else 'unknown error'
+        msg += f'monitoring.php could not be read: {reason} '
+    else:
+        sapi = server.get('sapi') if server else None
+        msg += f'monitoring.php read ({sapi}). ' if sapi else 'monitoring.php read. '
+
+    # local PHP-FPM topology (masters and their pools). Reported first as context:
+    # each master owns its own OPcache (shared by all its pools), so on a host with
+    # several masters this check only sees the OPcache of the one that served it.
+    fpm_masters = get_fpm_topology() if (opcache_enabled or is_fpm) else []
+    if fpm_masters:
+        services = []
+        for master in fpm_masters:
+            label = master['config'] or master['cmdline']
+            pools = (
+                ', '.join(master['pools']) if master['pools'] else '(no active workers)'
+            )
+            if len(fpm_masters) <= 1:
+                services.append(f'{label} (pool {pools})')
+            elif server and master['config'] == server.get('config'):
+                services.append(f'{label} (pool {pools}) [inspected]')
+            else:
+                # one monitoring.php per master covers all its pools (they share
+                # one OPcache); point the admin at a single pool socket to route a
+                # separate check for this service to
+                listens = parse_fpm_pools(master['config']) if master['config'] else {}
+                socket = next(
+                    (listens[pool] for pool in master['pools'] if pool in listens), None
+                )
+                hint = f' [check via {socket}]' if socket else ' [not inspected]'
+                services.append(f'{label} (pool {pools}){hint}')
+        services_str = ', '.join(services)
+        if len(fpm_masters) > 1 and not args.IGNORE_MULTIPLE_MASTERS:
+            state = lib.base.get_worst(state, STATE_WARN)
+            msg += (
+                f'{len(fpm_masters)} PHP-FPM masters running, only inspecting '
+                f'one{lib.base.state2str(STATE_WARN, prefix=" ")}. '
+                f'PHP-FPM services and pools: {services_str}.\n\n'
+            )
+        elif len(fpm_masters) > 1:
+            msg += (
+                f'{len(fpm_masters)} PHP-FPM masters running, only inspecting one. '
+                f'PHP-FPM services and pools: {services_str}.\n\n'
+            )
+        else:
+            msg += f'PHP-FPM services and pools: {services_str}. '
 
     # section "php.conf" from monitoring.php
     if isinstance(php, dict) and php.get('php.conf'):
         msg += f'PHP v{php.get("php.conf").get("php.version", "N/A")}'
         msg += f' ({php.get("php.conf").get("php.ini", "N/A")}), '
 
-    # section "php.ini" from monitoring.php, print as key-value-table
+    # section "php.ini" from monitoring.php, rendered later as a real php.ini file
+    # grouped by section, with the upstream default shown when the value deviates.
     if isinstance(php, dict) and php.get('php.ini'):
-        table_values.append(
-            {
-                'key': 'date.timezone',
-                'val': php.get('php.ini').get('date.timezone', 'N/A'),
-            }
-        )
-        table_values.append(
-            {
-                'key': 'default_socket_timeout',
-                'val': php.get('php.ini').get('default_socket_timeout', 'N/A'),
-            }
-        )
-        val = php.get('php.ini').get('display_errors', 'N/A')
-        if val in ('On', '1', 'N/A') and not args.DEV:
-            val = val + lib.base.state2str(STATE_WARN, prefix=' ')
-            state = lib.base.get_worst(state, STATE_WARN)
-        table_values.append({'key': 'display_errors', 'val': val})
-        val = php.get('php.ini').get('display_startup_errors', 'N/A')
-        if val in ('On', '1', 'N/A') and not args.DEV:
-            val = val + lib.base.state2str(STATE_WARN, prefix=' ')
-            state = lib.base.get_worst(state, STATE_WARN)
-        table_values.append({'key': 'display_startup_errors', 'val': val})
-        table_values.append(
-            {
-                'key': 'error_reporting',
-                'val': php.get('php.ini').get('error_reporting', 'N/A'),
-            }
-        )
-        val = php.get('php.ini').get('expose_php', 'N/A')
-        if val in ('On', '1', 'N/A'):
-            val = val + lib.base.state2str(STATE_WARN, prefix=' ')
-            state = lib.base.get_worst(state, STATE_WARN)
-        table_values.append({'key': 'expose_php', 'val': val})
-        table_values.append(
-            {
-                'key': 'max_execution_time',
-                'val': php.get('php.ini').get('max_execution_time', 'N/A'),
-            }
-        )
-        table_values.append(
-            {
-                'key': 'max_file_uploads',
-                'val': php.get('php.ini').get('max_file_uploads', 'N/A'),
-            }
-        )
-        table_values.append(
-            {
-                'key': 'max_input_time',
-                'val': php.get('php.ini').get('max_input_time', 'N/A'),
-            }
-        )
-        table_values.append(
-            {
-                'key': 'memory_limit',
-                'val': php.get('php.ini').get('memory_limit', 'N/A'),
-            }
-        )
-        table_values.append(
-            {
-                'key': 'post_max_size',
-                'val': php.get('php.ini').get('post_max_size', 'N/A'),
-            }
-        )
-        table_values.append(
-            {'key': 'SMTP', 'val': php.get('php.ini').get('SMTP', 'N/A')}
-        )
-        table_values.append(
-            {
-                'key': 'upload_max_filesize',
-                'val': php.get('php.ini').get('upload_max_filesize', 'N/A'),
-            }
-        )
+        php_ini = php.get('php.ini')
+        for section, directives in PHP_INI_SECTIONS:
+            rows = []
+            for key, default in directives:
+                raw = php_ini.get(key, 'N/A')
+                if raw == 'N/A' or raw is False:
+                    # not reported by monitoring.php (e.g. an older helper); the
+                    # real value is unknown, so skip the row rather than guess
+                    continue
+                if key in BYTE_DIRECTIVES:
+                    shown = human_bytes_shorthand(raw)
+                    shown_default = (
+                        None if default is None else human_bytes_shorthand(default)
+                    )
+                else:
+                    shown = str(raw)
+                    shown_default = default
+                warned = (
+                    key in WARN_WHEN_ON
+                    and raw in ('On', '1')
+                    and not (WARN_WHEN_ON[key] and args.DEV)
+                )
+                if warned:
+                    state = lib.base.get_worst(state, STATE_WARN)
+                rows.append((key, shown, shown_default, warned))
+            if rows:
+                ini_sections.append((section, rows))
 
     # checking PHP Opcache module
     # section "opcache_status" from monitoring.php
-    if (
-        isinstance(php, dict)
-        and php.get('opcache_status')
-        and php.get('opcache_status').get('opcache_enabled') is True
-    ):
+    if opcache_enabled:
         if php.get('opcache_status').get('cache_full', 'N/A') is True:
             state = lib.base.get_worst(state, STATE_WARN)
             msg += f'Opcache is full{lib.base.state2str(STATE_WARN, prefix=" ")}, '
@@ -419,30 +685,34 @@ def main():
             .get('interned_strings_usage')
             .get('number_of_strings')
         )
+        # A full interned strings buffer is not an error: OPcache simply stops
+        # deduplicating new strings (they still work), so this is shown for info
+        # only and does not drive the check state.
         string_percentage = round(float(string_used) / float(string_total) * 100, 1)
-        opcache_state = lib.base.get_state(string_percentage, args.WARN, args.CRIT)
-        state = lib.base.get_worst(opcache_state, state)
         msg += (
             f'Interned Strings {string_percentage}% used '
             f'({lib.human.bytes2human(string_used)}/{lib.human.bytes2human(string_total)}, '
-            f'{string_number} Strings){lib.base.state2str(opcache_state, prefix=" ")}, '
+            f'{string_number} Strings), '
         )
 
-        # Opcache Restarts
+        # Opcache Restarts. OOM and hash restarts mean the cache is thrashing
+        # (too small or too much churn), so both drive WARN; manual restarts come
+        # from opcache_reset() (e.g. a deploy) and are shown for info only.
         restarts_oom = (
             php.get('opcache_status').get('opcache_statistics').get('oom_restarts')
         )
         restarts_manual = (
             php.get('opcache_status').get('opcache_statistics').get('manual_restarts')
         )
-        restarts_keys = (
+        restarts_hash = (
             php.get('opcache_status').get('opcache_statistics').get('hash_restarts')
         )
-        opcache_state = lib.base.get_state(restarts_oom, 1, None)
+        opcache_state = lib.base.get_state(restarts_oom + restarts_hash, 1, None)
         state = lib.base.get_worst(opcache_state, state)
         msg += (
-            f'{restarts_oom} OOM{lib.base.state2str(opcache_state, prefix=" ")} / '
-            f'{restarts_manual} manual / {restarts_keys} key restarts, '
+            f'{restarts_oom} OOM / {restarts_hash} hash'
+            f'{lib.base.state2str(opcache_state, prefix=" ")} / '
+            f'{restarts_manual} manual restarts, '
         )
 
         perfdata += lib.base.get_perfdata(
@@ -530,24 +800,8 @@ def main():
             _max=100,
         )
 
-        perfdata += lib.base.get_perfdata(
-            'php-opcache-opcache_statistics-hits',
-            cache_hits,
-            uom='c',
-            warn=None,
-            crit=None,
-            _min=0,
-            _max=None,
-        )
-        perfdata += lib.base.get_perfdata(
-            'php-opcache-opcache_statistics-misses',
-            cache_misses,
-            uom='c',
-            warn=None,
-            crit=None,
-            _min=0,
-            _max=None,
-        )
+        # No perfdata for raw hits/misses: they are monotonic counters, while
+        # perfdata must be gauges. The meaningful gauge is the hit rate below.
         perfdata += lib.base.get_perfdata(
             'php-opcache-opcache_statistics-opcache_hit_rate',
             cache_hit_rate,
@@ -606,7 +860,7 @@ def main():
         )
         perfdata += lib.base.get_perfdata(
             'php-opcache-opcache_statistics-hash_restarts',
-            restarts_keys,
+            restarts_hash,
             uom=None,
             warn=None,
             crit=None,
@@ -644,90 +898,26 @@ def main():
             _max=100,
         )
 
-        table_values.append(
-            {
-                'key': 'opcache.blacklist_filename',
-                'val': php.get('opcache_config')
-                .get('directives')
-                .get('opcache.blacklist_filename'),
-            }
-        )
-        table_values.append(
-            {
-                'key': 'opcache.enable',
-                'val': php.get('opcache_config')
-                .get('directives')
-                .get('opcache.enable'),
-            }
-        )
-        table_values.append(
-            {
-                'key': 'opcache.enable_cli',
-                'val': php.get('opcache_config')
-                .get('directives')
-                .get('opcache.enable_cli'),
-            }
-        )
-        table_values.append(
-            {
-                'key': 'opcache.huge_code_pages',
-                'val': php.get('opcache_config')
-                .get('directives')
-                .get('opcache.huge_code_pages'),
-            }
-        )
-        table_values.append(
-            {
-                'key': 'opcache.interned_strings_buffer',
-                'val': php.get('opcache_config')
-                .get('directives')
-                .get('opcache.interned_strings_buffer'),
-            }
-        )
-        table_values.append(
-            {
-                'key': 'opcache.max_accelerated_files',
-                'val': php.get('opcache_config')
-                .get('directives')
-                .get('opcache.max_accelerated_files'),
-            }
-        )
-        table_values.append(
-            {
-                'key': 'opcache.memory_consumption',
-                'val': lib.human.bytes2human(
-                    php.get('opcache_config')
-                    .get('directives')
-                    .get('opcache.memory_consumption')
-                ),
-            }
-        )
-        table_values.append(
-            {
-                'key': 'opcache.revalidate_freq',
-                'val': php.get('opcache_config')
-                .get('directives')
-                .get('opcache.revalidate_freq'),
-            }
-        )
-        table_values.append(
-            {
-                'key': 'opcache.save_comments',
-                'val': php.get('opcache_config')
-                .get('directives')
-                .get('opcache.save_comments'),
-            }
-        )
-        table_values.append(
-            {
-                'key': 'opcache.validate_timestamps',
-                'val': 'True'
-                if php.get('opcache_config')
-                .get('directives')
-                .get('opcache.validate_timestamps')
-                else 'False',
-            }
-        )
+        opcache_directives = php.get('opcache_config').get('directives')
+        opcache_rows = []
+        for key, default, kind in OPCACHE_SECTION[1]:
+            raw = opcache_directives.get(key)
+            if kind == 'bool':
+                shown = 'On' if raw else 'Off'
+                shown_default = default
+            elif kind == 'bytes':
+                # opcache_get_configuration() returns this one in bytes already
+                shown = lib.human.bytes2human(raw or 0)
+                shown_default = lib.human.bytes2human(int(default) * 1024 * 1024)
+            elif kind == 'mb':
+                # ... but this one in megabytes
+                shown = lib.human.bytes2human((raw or 0) * 1024 * 1024)
+                shown_default = lib.human.bytes2human(int(default) * 1024 * 1024)
+            else:
+                shown = str(raw) if raw is not None else ''
+                shown_default = default
+            opcache_rows.append((key, shown, shown_default, False))
+        ini_sections.append((OPCACHE_SECTION[0], opcache_rows))
 
     if (
         isinstance(php, dict)
@@ -737,9 +927,15 @@ def main():
         msg += f'Opcache not installed or not enabled{lib.base.state2str(STATE_WARN, prefix=" ")}, '
         state = lib.base.get_worst(state, STATE_WARN)
 
+    # the version/opcache fragments above are comma-joined; the startup, config
+    # and module checks below read as full sentences, so close the fragment list
+    # with a period for clean reading
+    if msg.endswith(', '):
+        msg = f'{msg[:-2]}. '
+
     startup_errors = get_startup_errors()
     if startup_errors:
-        msg += f'Startup errors: {startup_errors} {lib.base.state2str(STATE_WARN, prefix="")}, '
+        msg += f'Startup errors: {startup_errors} {lib.base.state2str(STATE_WARN, prefix="")}. '
         state = lib.base.get_worst(state, STATE_WARN)
         perfdata += lib.base.get_perfdata(
             'php-startup-errors',
@@ -766,7 +962,7 @@ def main():
     if config_errors:
         msg += (
             f'Config expected but not found: {config_errors[:-2]} '
-            f'{lib.base.state2str(STATE_WARN, prefix="")}, '
+            f'{lib.base.state2str(STATE_WARN, prefix="")}. '
         )
         state = lib.base.get_worst(state, STATE_WARN)
         perfdata += lib.base.get_perfdata(
@@ -794,7 +990,7 @@ def main():
     if module_errors:
         msg += (
             f'Modules expected but not found: {module_errors[:-2]} '
-            f'{lib.base.state2str(STATE_WARN, prefix="")}, '
+            f'{lib.base.state2str(STATE_WARN, prefix="")}. '
         )
         state = lib.base.get_worst(state, STATE_WARN)
         perfdata += lib.base.get_perfdata(
@@ -818,14 +1014,55 @@ def main():
             _max=3,
         )
 
-    # get the message
-    msg = f'Everything is ok. {msg}\n\n' if state == STATE_OK else msg[:-2] + '\n\n'
-    if len(table_values) > 0:
-        msg += lib.base.get_table(
-            table_values,
-            ['key', 'val'],
-            header=['Key', 'Value'],
+    # build the message. The plugin reports positive facts ("No startup errors
+    # were detected. ... All expected modules were found."), so the generic
+    # "Everything is ok." literal is omitted.
+    msg = f'{msg.rstrip()}\n\n'
+
+    # build table output
+    # the largest cached scripts come first, right after the summary line
+    if opcache_enabled and args.TOP:
+        memory_usage = php.get('opcache_status').get('memory_usage')
+        opcache_total = memory_usage.get('used_memory', 0) + memory_usage.get(
+            'free_memory', 0
         )
+        scripts = php.get('opcache_status').get('scripts') or {}
+        top_scripts = sorted(
+            scripts.values(),
+            key=lambda script: script.get('memory_consumption', 0),
+            reverse=True,
+        )[: args.TOP]
+        for script in top_scripts:
+            script_memory = script.get('memory_consumption', 0)
+            percent = (
+                round(script_memory / opcache_total * 100, 1) if opcache_total else 0.0
+            )
+            script_rows.append(
+                {
+                    'memory': lib.human.bytes2human(script_memory),
+                    'percent': f'{percent}%',
+                    'hits': lib.human.number2human(script.get('hits', 0)),
+                    'path': script.get('full_path', 'N/A'),
+                }
+            )
+        if script_rows:
+            msg += 'Top OPcache scripts by memory consumption:\n'
+            msg += lib.base.get_table(
+                script_rows,
+                ['memory', 'percent', 'hits', 'path'],
+                header=['Memory', 'Mem%', 'Hits', 'Script'],
+            )
+            msg += '\n'
+
+    # the active php.ini directives, rendered as a real php.ini file
+    config_blocks = []
+    for name, rows in ini_sections:
+        block = render_ini_section(name, rows)
+        if block:
+            config_blocks.append(block)
+    if config_blocks:
+        msg += 'php.ini runtime settings:\n'
+        msg += '\n\n'.join(config_blocks)
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

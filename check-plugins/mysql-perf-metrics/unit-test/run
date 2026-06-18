@@ -72,8 +72,8 @@ def _check_image(test, containerfile):
     print(f'\n=== Testing {containerfile} ===', flush=True)
     with lib.lftest.run_mysql_compatible_from_containerfile(path) as (_container, defaults_file):
         # `--storage-type=skip` so the SSD/HDD-aware checks do not
-        # leak the controller host's storage into the assertions;
-        # they are exercised separately on real images.
+        # leak the controller host's storage into the assertions; the
+        # io_capacity gating is asserted separately below.
         cmd = [
             'python3', '../mysql-perf-metrics',
             f'--defaults-file={defaults_file}',
@@ -88,6 +88,36 @@ def _check_image(test, containerfile):
         )
         combined = result.stdout + result.stderr
         print(f'Script output:\n{combined.strip()}', flush=True)
+
+        # innodb_io_capacity is gated on an explicit `--storage-type=ssd`.
+        # With an admin-asserted SSD the plugin reports the value (and warns
+        # when it is the low 200 default); with auto-detection it must stay
+        # silent, because the rotational flag is unreliable on virtualised or
+        # network-backed storage. The reported value differs per release
+        # (MariaDB and MySQL 8.0 default to 200, MySQL 8.4 to 10000), so the
+        # assertion only checks that the check ran, not the exact number.
+        ssd = subprocess.run(
+            [
+                'python3', '../mysql-perf-metrics',
+                f'--defaults-file={defaults_file}',
+                '--storage-type=ssd',
+            ],
+            cwd=HERE,
+            capture_output=True,
+            text=True,
+        )
+        test.assertIn('`innodb_io_capacity` is', ssd.stdout + ssd.stderr)
+        auto = subprocess.run(
+            [
+                'python3', '../mysql-perf-metrics',
+                f'--defaults-file={defaults_file}',
+                '--storage-type=auto',
+            ],
+            cwd=HERE,
+            capture_output=True,
+            text=True,
+        )
+        test.assertNotIn('innodb_io_capacity', auto.stdout + auto.stderr)
 
         # Two safe knobs (`innodb_stats_on_metadata`, `concurrent_insert`)
         # and the deprecated-config check run on every image; the latter

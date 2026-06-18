@@ -94,17 +94,18 @@ Everything is ok, checked 60 sensors.
 
 ## Perfdata / Metrics
 
-Perfdata depends on the hardware. Sensor names have spaces replaced with underscores. Example metrics from a Supermicro system:
+Perfdata depends on the hardware. Each metric is named `<sensor-name>_<Type>`, where the sensor name has its spaces replaced with underscores and `<Type>` is derived from the sensor's unit of measurement (`_Temperature`, `_Fan`, `_Voltage`, `_Power` or `_Current`). The type suffix lets a dashboard group readings by a stable regex (for example `/Temperature$/`) even though IPMI sensor names are vendor-specific, and matches the Redfish sensor wording so this dashboard and redfish-sensors share the same grouping scheme. A type word the vendor already put in the name is dropped first, so `CPU Temp` becomes `CPU_Temperature` rather than `CPU_Temp_Temperature`. Sensors with an unmapped unit keep the bare sensor name. Example metrics from a Supermicro system:
 
 | Name | Type | Description |
 |----|----|----|
-| 12V | Number | 12V rail voltage reading. |
-| 3.3VCC | Number | 3.3V rail voltage reading. |
-| 5VCC | Number | 5V rail voltage reading. |
-| CPU_Temp | Number | CPU temperature reading. |
-| DIMMA1_Temp | Number | DIMM A1 temperature reading. |
-| FAN1 | Number | Fan 1 speed reading. |
-| System_Temp | Number | System temperature reading. |
+| 12V_Voltage | Number | 12V rail voltage reading. |
+| 3.3VCC_Voltage | Number | 3.3V rail voltage reading. |
+| 5VCC_Voltage | Number | 5V rail voltage reading. |
+| AVG_Power | Number | Average power consumption reading. |
+| CPU_Temperature | Number | CPU temperature reading. |
+| DIMMA1_Temperature | Number | DIMM A1 temperature reading. |
+| FAN1_Fan | Number | Fan 1 speed reading. |
+| System_Temperature | Number | System temperature reading. |
 
 The actual metrics vary per hardware platform. Warning and critical thresholds in perfdata are taken from the IPMI-reported upper non-critical and upper critical values.
 

@@ -84,10 +84,12 @@ Output:
 
 ## Troubleshooting
 
-`Python module "psutil" is not installed.`  
+### `Python module "psutil" is not installed.`
+
 Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
-`Can't read any temperature.`  
+### `Can't read any temperature.`
+
 No temperature sensors were detected. Run `sensors-detect --auto` to scan for available hardware monitoring chips.
 
 

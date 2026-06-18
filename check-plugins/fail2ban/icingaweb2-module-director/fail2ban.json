@@ -8,6 +8,13 @@
                 "--critical": {
                     "value": "$fail2ban_critical$"
                 },
+                "--ignore": {
+                    "value": "$fail2ban_ignore$",
+                    "repeat_key": true
+                },
+                "--socket": {
+                    "value": "$fail2ban_socket$"
+                },
                 "--warning": {
                     "value": "$fail2ban_warning$"
                 }
@@ -27,6 +34,16 @@
                 },
                 {
                     "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -72,7 +89,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the number of currently banned IP addresses across all fail2ban jails. Reports the total ban count and a per-jail breakdown. Alerts when the number of banned IPs in any jail exceeds the configured thresholds. Requires root or sudo.",
+            "notes": "Checks the number of currently banned IP addresses across all fail2ban jails. Reports the total ban count and a per-jail breakdown. Jails can be excluded from the check with a regular expression. Alerts when the number of banned IPs in any jail exceeds the configured thresholds. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fail2ban/",
             "object_name": "tpl-service-fail2ban",
             "object_type": "template",
@@ -84,8 +101,9 @@
             "vars": {
                 "criticality": "C",
                 "fail2ban_always_ok": false,
-                "fail2ban_critical": 10000,
-                "fail2ban_warning": 2500
+                "fail2ban_critical": "10000",
+                "fail2ban_ignore": [],
+                "fail2ban_warning": "2500"
             },
             "volatile": null,
             "zone": null,
@@ -105,7 +123,7 @@
         "2": {
             "varname": "fail2ban_critical",
             "caption": "Fail2ban: Critical",
-            "description": "CRIT threshold for the number of banned IPs per jail.",
+            "description": "CRIT threshold for the number of banned IPs per jail. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -114,9 +132,31 @@
             "uuid": "e6fb221a-0a24-4c72-b50b-5da6429f4cc5"
         },
         "3": {
+            "varname": "fail2ban_ignore",
+            "caption": "Fail2ban: Ignore",
+            "description": "Exclude jails whose name matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Example: `--ignore=\"^recidive$\"`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ce1c6979-3a3a-4ca2-b7a8-7ca155865146"
+        },
+        "4": {
+            "varname": "fail2ban_socket",
+            "caption": "Fail2ban: Socket",
+            "description": "Path to the fail2ban server Unix socket. Passed to `fail2ban-client --socket`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "20ee9d17-3fbb-4401-b040-5947c0d7e20a"
+        },
+        "5": {
             "varname": "fail2ban_warning",
             "caption": "Fail2ban: Warning",
-            "description": "WARN threshold for the number of banned IPs per jail.",
+            "description": "WARN threshold for the number of banned IPs per jail. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

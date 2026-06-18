@@ -14,10 +14,21 @@ import unittest
 
 sys.path.insert(0, '..')
 
+import lib.db_sqlite
+import lib.disk
 import lib.lftest
 from lib.globals import STATE_OK, STATE_WARN
 
-CACHE_DB = '/tmp/linuxfabrik-monitoring-plugins-apache-httpd-status.db'
+
+def _cache_db():
+    # Resolve via the lib so the reset below removes the exact file the plugin
+    # uses, including the secured per-user directory db_sqlite stores it in.
+    filename = 'linuxfabrik-monitoring-plugins-apache-httpd-status.db'
+    ok, db_path = lib.db_sqlite.get_db_path(filename=filename)
+    return db_path if ok else os.path.join(lib.disk.get_tmpdir(), filename)
+
+
+CACHE_DB = _cache_db()
 
 
 # The apache-httpd-status plugin talks to Apache's `mod_status` endpoint

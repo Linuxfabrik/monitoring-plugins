@@ -209,7 +209,8 @@ Can be limited by using `--perfdata-regex`.
 
 ## Troubleshooting
 
-`Python module "psutil" is not installed.`  
+### `Python module "psutil" is not installed.`
+
 Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
 

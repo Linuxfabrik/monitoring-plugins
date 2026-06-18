@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
+
+# The plugin appends `-systems` (Systems collection), `-system` (member),
+# `-storages` (Storage collection), `-storage` (Storage member), `-drive-N`
+# (each Drive, indexed) and, when the Storage member exposes a Volumes link,
+# `-volumes` (Volume collection) and `-volume-N` (each Volume, indexed) to the
+# --test path as it walks the Redfish API.
+TESTS = [
+    {
+        'id': 'ok-two-drives-healthy',
+        'test': 'stdout/two-drives-healthy,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok, checked storage on 1 member.',
+        ],
+    },
+    {
+        # Regression test for #652: the system's overall Status.Health is
+        # Warning (e.g. inlet temperature), but all drives and storage
+        # controllers report Health=OK. redfish-drives must not aggregate
+        # the system state into its result.
+        'id': 'ok-inlet-temp-with-healthy-drives',
+        'test': 'stdout/inlet-temp-with-healthy-drives,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok, checked storage on 1 member.',
+        ],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        'id': 'crit-one-drive-fault',
+        'test': 'stdout/one-drive-fault,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'There are critical errors.',
+            '[CRITICAL]',
+        ],
+    },
+    {
+        # A Storage member that also exposes a healthy Volume (logical drive).
+        # Both the drive table and the volume table must be reported as OK.
+        'id': 'ok-two-drives-one-volume',
+        'test': 'stdout/two-drives-one-volume,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok, checked storage on 1 member.',
+            'Virtual Disk 0',
+            'RAID1',
+        ],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        # A volume (logical drive) reports Health=Critical while drives and
+        # controllers are OK. redfish-storage must escalate to CRITICAL.
+        'id': 'crit-one-volume-fault',
+        'test': 'stdout/one-volume-fault,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'There are critical errors.',
+            'Virtual Disk 0',
+            '[CRITICAL]',
+        ],
+    },
+    {
+        # A drive that exposes PredictedMediaLifeLeftPercent, PowerOnHours and a
+        # temperature must emit them as perfdata: the media life as a 0-100%
+        # gauge, the power-on hours as a (counter) value and the temperature as
+        # a degrees-Celsius gauge. All are keyed by the drive name.
+        'id': 'ok-drive-power-on-hours',
+        'test': 'stdout/drive-power-on-hours,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok, checked storage on 1 member.',
+            "'SSD_0_media_life_left'=87%;;;0;100",
+            "'SSD_0_power_on_hours'=17532;;;0",
+            "'SSD_0_temperature'=34Cel",
+        ],
+    },
+    {
+        # --ignore drops the only faulty drive (SSD 0) by regex, so the check
+        # is OK and that drive is no longer reported.
+        'id': 'ok-ignore-faulty-drive',
+        'test': 'stdout/one-drive-fault,,0',
+        'params': "--ignore='SSD 0'",
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['SSD 0', '[CRITICAL]'],
+    },
+    {
+        # --match keeps only the faulty drive, so the healthy one is not
+        # considered and the check stays CRITICAL on it alone.
+        'id': 'crit-match-faulty-drive',
+        'test': 'stdout/one-drive-fault,,0',
+        'params': "--match='SSD 0'",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['SSD 0', '[CRITICAL]'],
+        'assert-not-in': ['SSD 1'],
+    },
+    {
+        # --brief keeps the alerting state but shows only the faulty drive,
+        # hiding the healthy one.
+        'id': 'crit-brief-shows-faulty-drive',
+        'test': 'stdout/one-drive-fault,,0',
+        'params': '--brief',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['SSD 0', '[CRITICAL]'],
+        'assert-not-in': ['SSD 1'],
+    },
+    {
+        # --inventory emits the parsed components as JSON (one object keyed by
+        # component type: physical_drive, logical_drive, storage_controller) and
+        # exits OK, so several Redfish checks can be merged with `jq --slurp`.
+        'id': 'ok-inventory-json',
+        'test': 'stdout/two-drives-one-volume,,0',
+        'params': '--inventory',
+        'assert-retc': STATE_OK,
+        'assert-in': ['"physical_drive":', '"logical_drive":', '"system_ids":'],
+    },
+    {
+        # A missing fixture must surface as STATE_UNKNOWN with a
+        # readable message, not as a Python traceback.
+        'id': 'unknown-missing-fixture',
+        'test': 'stdout/does-not-exist,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Test fixture not found'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../redfish-storage'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

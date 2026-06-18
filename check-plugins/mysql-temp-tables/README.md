@@ -47,10 +47,7 @@ disk (`Created_tmp_disk_tables` divided by `Created_tmp_tables`). A high
 percentage means queries are materialising temporary tables larger than the
 smaller of `tmp_table_size` and `max_heap_table_size`, and the server falls
 back to a disk-based temporary table. Alerts when the percentage crosses
-`--warning` / `--critical`. Recommendations depend on whether the effective
-temp-table cap is already large (`>= 256 MiB`, mysqltuner's cut-off); in that
-case raising the cap further does not help and the underlying queries
-(typically `SELECT DISTINCT` without `LIMIT`) need attention.
+`--warning` / `--critical`.
 
 options:
   -h, --help            show this help message and exit

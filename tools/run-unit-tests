@@ -43,13 +43,15 @@ like `--no-container` still apply.
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 
 import _common
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041301'
+__version__ = '2026060201'
 
 
 # Signatures that identify a real container-driven unit test. These
@@ -189,24 +191,36 @@ def main():
     if any(is_container_test(p) for p in plugins):
         ensure_podman_env()
 
+    # Isolate all temp state (per-plugin SQLite caches, the csv-values staging
+    # file, etc.) under a unique per-invocation directory so several
+    # `tools/run-*` sessions can run in parallel without trampling each other's
+    # files in the shared temp directory. Each test subprocess - and the plugin
+    # it execs - inherits the location through TMPDIR/TEMP/TMP.
+    run_tmpdir = tempfile.mkdtemp(prefix='lfmp-unit-test-')
+    for var in ('TMPDIR', 'TEMP', 'TMP'):
+        os.environ[var] = run_tmpdir
+
     passed = []
     failed = []
     total = len(plugins)
 
-    for i, plugin_dir in enumerate(plugins, 1):
-        unit_test_dir = plugin_dir / 'unit-test'
-        print(f'[{i}/{total}] {plugin_dir.name}', flush=True)
+    try:
+        for i, plugin_dir in enumerate(plugins, 1):
+            unit_test_dir = plugin_dir / 'unit-test'
+            print(f'[{i}/{total}] {plugin_dir.name}', flush=True)
 
-        result = subprocess.run(
-            [sys.executable, 'run'],
-            cwd=unit_test_dir,
-            stderr=subprocess.STDOUT,
-            check=False,
-        )
-        if result.returncode == 0:
-            passed.append(plugin_dir.name)
-        else:
-            failed.append(plugin_dir.name)
+            result = subprocess.run(
+                [sys.executable, 'run'],
+                cwd=unit_test_dir,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            if result.returncode == 0:
+                passed.append(plugin_dir.name)
+            else:
+                failed.append(plugin_dir.name)
+    finally:
+        shutil.rmtree(run_tmpdir, ignore_errors=True)
 
     # summary
     print(f'\n{len(passed)} passed, {len(failed)} failed out of {total}')

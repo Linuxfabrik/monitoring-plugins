@@ -94,7 +94,8 @@ HSM device 0: HSM in NORMAL MODE. RESPONDING to requests. Usage Level=95% [CRITI
 
 ## Troubleshooting
 
-`sshpass: Host public key is unknown. sshpass exits without confirming the new key.`  
+### `sshpass: Host public key is unknown. sshpass exits without confirming the new key.`
+
 On the host running this check, manually connect to the HSM via SSH as the user running this check command. This will add the HSM to the list of known hosts.
 
 

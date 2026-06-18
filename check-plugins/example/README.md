@@ -127,13 +127,16 @@ Lorem ipsum ! Lorem ! 42%
 
 ## Troubleshooting
 
-`Python module "psutil" is not installed.`  
+### `Python module "psutil" is not installed.`
+
 Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
-`Waiting for more data.`  
+### `Waiting for more data.`
+
 This is expected on the first run. The check needs at least two measurements to calculate a delta. Wait for the next check interval.
 
-`Unable to compile regex.`  
+### `Unable to compile regex.`
+
 The pattern passed via `--ignore-regex` is not a valid Python regular expression. Check the syntax at <https://docs.python.org/3/library/re.html>.
 
 

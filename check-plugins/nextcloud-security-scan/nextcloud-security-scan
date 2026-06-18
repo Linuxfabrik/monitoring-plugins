@@ -13,23 +13,29 @@
 import argparse
 import datetime
 import json
+import os
 import sys
 
 import lib.args
 import lib.base
+import lib.lftest
+import lib.nextcloud
 import lib.time
 import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041201'
+__version__ = '2026060801'
 
 DESCRIPTION = """Checks the security of a private Nextcloud server using the Nextcloud security scanner.
 Reports the assigned security rating and alerts on known vulnerabilities in the
-installed version."""
+installed version. When --path points at a local Nextcloud installation, the
+plugin reads the installed version and forces a fresh scan after an update, so
+the rating never lags behind."""
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
+DEFAULT_PATH = None
 DEFAULT_TIMEOUT = 7
 DEFAULT_TRIGGER = 14
 
@@ -59,6 +65,25 @@ def parse_args():
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--path',
+        help='Local path to the Nextcloud installation, typically the web server document root. '
+        'When set, the plugin reads the installed version via `occ` and triggers an immediate '
+        're-scan if it differs from the version scan.nextcloud.com last saw, so the rating no '
+        'longer lags a Nextcloud update. '
+        'Requires running on the Nextcloud server with sudo for the UID owning '
+        'config/config.php.',
+        dest='PATH',
+        default=DEFAULT_PATH,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
     )
 
     parser.add_argument(
@@ -167,6 +192,21 @@ def get_rating_string(rating):
     return grade[rating]
 
 
+def load_test_fixture(test_args, path):
+    # Replace the first element of args.TEST with the source-specific fixture
+    # path, read it via lib.lftest.test() and return the parsed JSON. On a
+    # missing file or malformed JSON, exit STATE_UNKNOWN with a helpful message
+    # instead of letting json.loads raise a traceback.
+    if not os.path.isfile(path):
+        lib.base.cu(f'Test fixture not found: "{path}".')
+    test_args[0] = path
+    stdout, _, _ = lib.lftest.test(test_args)
+    try:
+        return json.loads(stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        lib.base.cu(f'Test fixture "{path}" does not contain valid JSON: {e}')
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -177,30 +217,55 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    uuid = lib.base.coe(get_uuid_from_scan_nextcloud_com(args.URL, args))
-    result = lib.base.coe(get_scan_result_from_scan_nextcloud_com(uuid, args))
-
+    installed_version = None
+    if args.TEST is None:
+        uuid = lib.base.coe(get_uuid_from_scan_nextcloud_com(args.URL, args))
+        result = lib.base.coe(get_scan_result_from_scan_nextcloud_com(uuid, args))
+        if args.PATH:
+            # Reading the locally installed version lets us spot a scan result that
+            # predates a local Nextcloud update. Needs to run on the Nextcloud server
+            # with sudo for the UID owning config/config.php.
+            config = lib.base.coe(lib.nextcloud.run_occ(args.PATH, 'config:list'))
+            installed_version = config['system']['version']
+    else:
+        # do not call the API, put in test data. args.TEST[0] is the fixture base
+        # path; the plugin appends `-scan` (scan.nextcloud.com result) and, only
+        # for scenarios that exercise the post-update staleness path, `-installed`
+        # (the `occ config:list` output that --path would normally produce).
+        test_base = args.TEST[0]
+        result = load_test_fixture(args.TEST, f'{test_base}-scan')
+        installed_path = f'{test_base}-installed'
+        if os.path.isfile(installed_path):
+            config = load_test_fixture(args.TEST, installed_path)
+            installed_version = config['system']['version']
 
     # init some vars
     msg = ''
     state = STATE_OK
+
+    # analyze data
     # we just warn if Nextcloud security scanner warns, too
-    if result['rating'] == 0 or result['rating'] == 1:
+    if result['rating'] in (0, 1):
         # sorry for being CRIT, but such a state is not acceptable
         state = STATE_CRIT
-    elif result['rating'] == 2 or result['rating'] == 3:
+    elif result['rating'] in (2, 3):
         state = STATE_WARN
 
-    # warn if last check is more than TRIGGER days ago, and trigger a rescan.
+    # Decide whether to trigger a re-scan on scan.nextcloud.com. Two independent
+    # reasons make the cached result stale:
+    #   1. the result is older than --trigger days, or
+    #   2. the locally installed version differs from the version the scanner saw,
+    #      which happens right after a Nextcloud update (issue #118).
     # `today - scan_date` yields a positive .days for scans in the past; a scan
-    # dated in the future (clock skew) should not trigger a rescan, so drop the
-    # abs() that the old code relied on.
+    # dated in the future (clock skew) must not trigger a rescan, so we avoid abs().
     scan_date = datetime.datetime.strptime(result['scannedAt']['date'][:10], '%Y-%m-%d')
     today = lib.time.now(as_type='datetime')
     age_days = (today - scan_date).days
-    if age_days > args.TRIGGER:
+    version_changed = (
+        installed_version is not None and installed_version != result['version']
+    )
+    if args.TEST is None and (age_days > args.TRIGGER or version_changed):
         lib.base.coe(trigger_rescan_nextcloud_com(args.URL, args))
-
 
     # build the message
     msg += (
@@ -216,6 +281,14 @@ def main():
         msg += '(NOT on latest patch level). '
     else:
         msg = msg.strip() + '. '
+
+    # Flag a stale result: the scanner still reports an older version than the one
+    # installed locally. A fresh scan was triggered above (issue #118).
+    if version_changed:
+        msg += (
+            f'Scan result is stale; installed version is v{installed_version}. '
+            'Re-scan triggered, check again in ~5 minutes. '
+        )
 
     # Hardenings
     if not result['hardenings']['appPasswordsScannedForHaveIBeenPwned']:

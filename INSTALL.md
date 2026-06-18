@@ -1,8 +1,9 @@
 # Installing the Linuxfabrik Monitoring Plugins Collection
 
-Pick the path that matches your platform. On Linux, prefer the package repository. On
-Windows, prefer the MSI installer. Everything else (source tarball, Git checkout) is for
-corner cases such as air-gapped hosts or testing a development build.
+Pick the path that matches your platform. On Linux, the one-liner installer is the fastest
+way and the recommended path. On Windows, prefer the MSI installer. Everything else (manual
+repository setup, source tarball, Git checkout) is for corner cases such as air-gapped hosts
+or testing a development build.
 
 Supported Python: 3.9 or newer. The RPM and DEB packages depend on the system Python, so
 the plugins run on every currently supported RHEL, SLE, Debian and Ubuntu release
@@ -14,7 +15,52 @@ so no separate Python installation is required.
 ## Linux
 
 
-### Package Repository (recommended)
+### One-Liner Installer (recommended)
+
+The quickest way to install on any supported Linux distribution. The script reads
+`/etc/os-release`, registers the signed Linuxfabrik package repository and installs the
+package with the system package manager:
+
+```bash
+curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash
+```
+
+To review the script before running it as root, download it, verify it against the
+published checksum, read it, then run it:
+
+```bash
+curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins -o install-monitoring-plugins
+curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins.sha256 | sha256sum --check
+less install-monitoring-plugins
+sudo bash install-monitoring-plugins
+```
+
+The same script can also install without the package repository, into a self-contained venv
+(the layout the RPM and DEB packages use), instead of registering the repository. There are
+two such modes.
+
+Install the latest source from GitHub into a venv, without a git client or package manager:
+
+```bash
+curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s -- --source
+```
+
+Install a signed, version-pinned source zip from the download server, for air-gapped or
+pinned hosts:
+
+```bash
+curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s -- --zip --version=<version>-<iteration>
+```
+
+Add `--uninstall` to reverse any of these, or `--help` for all options (`--package`,
+`--plugin-dir`, `--python`, `--ref`, ...). On a host whose system `python3` is older than
+3.9 (for example RHEL 8 or SLE, which default to Python 3.6), the source and zip paths
+print how to re-run against a newer interpreter with `--python`.
+
+The sections below document the manual equivalents and the platform-specific details.
+
+
+### Package Repository (manual setup)
 
 The Linuxfabrik package repository ships signed `.rpm` and `.deb` packages that include
 the plugins and their Python dependencies in a venv, managed by your system package
@@ -105,7 +151,9 @@ replaced. It can also deploy custom plugins from your inventory.
 ### Source Tarball
 
 Use this path if a host cannot reach `repo.linuxfabrik.ch` directly or must stay on a
-frozen plugin version. You still need Python 3.9 or newer on the target.
+frozen plugin version. You still need Python 3.9 or newer on the target. The one-liner
+installer automates everything below via `--zip` (sha256- and GPG-verified); the manual
+steps here are the underlying detail.
 
 Download `lfmp-<version>-<iteration>.source.noarch.zip` from the
 [download server](https://download.linuxfabrik.ch/monitoring-plugins/) and extract it
@@ -177,7 +225,9 @@ self-compiled Python (pyenv) without distro package support.
 ### From Git (Development)
 
 Use this for testing a branch, verifying a bug fix before it is released, or running
-against the current `main`. Not recommended for production.
+against the current `main`. Not recommended for production. The one-liner installer
+automates this via `--source` (optionally with `--ref` to pick a branch or tag); the
+manual `rsync`-based steps below are the underlying detail.
 
 ```bash
 release=2.2.1

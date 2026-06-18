@@ -23,10 +23,10 @@ import lib.human
 import lib.lftest
 import lib.shell
 import lib.time
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026061202'
 
 DESCRIPTION = """Checks the health and status of Kubernetes pods by running "kubectl get pods" and
 parsing the results. Lists namespace, pod name, readiness, status, restart count, age,
@@ -121,11 +121,13 @@ def main():
         f'--kubeconfig={args.KUBECONFIG.replace("~", os.path.expanduser("~"))}',
         'get',
         'pods',
-        '--all-namespaces' if args.ALL_NAMESPACES else '',
+    ]
+    if args.ALL_NAMESPACES:
+        cmd += ['--all-namespaces']
+    cmd += [
         '--output=json',
         '--request-timeout=8',
     ]
-    cmd = ' '.join(cmd)
 
     # returns (in JSON):
     # NAMESPACE  NAME                           READY  STATUS    RESTARTS  AGE  IP
@@ -134,14 +136,18 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        stdout, stderr, _ = lib.base.coe(
+        stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(cmd, timeout=8),
         )
-        if stderr:
-            lib.base.cu(stderr)
+        if retc != 0:
+            lib.base.oao(
+                f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
     else:
         # do not call the command, put in test data
-        stdout, stderr, _ = lib.lftest.test(args.TEST)
+        stdout, stderr, retc = lib.lftest.test(args.TEST)
 
     # init some vars
     msg = ''

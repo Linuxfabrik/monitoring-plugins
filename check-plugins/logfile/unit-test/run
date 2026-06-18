@@ -13,9 +13,10 @@
 The plugin has no `--test` hook because it reads a real file given via
 `--filename`. The test scenarios pass the fixture paths directly as
 `--filename` values. The plugin also maintains a per-check SQLite cache
-under `/tmp/linuxfabrik-monitoring-plugins-logfile-<basename>-<hash>.db`
-(hash over all pattern/regex arguments), so each subtest removes every
-cache DB that matches its fixture to ensure a clean "first scan" state.
+named `linuxfabrik-monitoring-plugins-logfile-<basename>-<hash>.db`
+(hash over all pattern/regex arguments) inside db_sqlite's secured
+per-user temp directory, so each subtest removes every cache DB that
+matches its fixture to ensure a clean "first scan" state.
 """
 
 import datetime
@@ -27,24 +28,33 @@ import shutil
 import sqlite3
 import sys
 import tempfile
+import typing
 import unittest
 
 sys.path.insert(0, '..')
 
+import lib.db_sqlite
+import lib.disk
 import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 
 
+def _db_dir():
+    # The secured per-user directory db_sqlite stores all databases in.
+    ok, db_dir = lib.db_sqlite.get_db_dir(lib.disk.get_tmpdir())
+    return db_dir if ok else lib.disk.get_tmpdir()
+
+
 def _db_glob(fixture_basename):
     return os.path.join(
-        tempfile.gettempdir(),
+        _db_dir(),
         f'linuxfabrik-monitoring-plugins-logfile-{fixture_basename}-*.db',
     )
 
 
 def _legacy_db_path(fixture_basename):
     return os.path.join(
-        tempfile.gettempdir(),
+        _db_dir(),
         f'linuxfabrik-monitoring-plugins-logfile-{fixture_basename}.db',
     )
 
@@ -232,11 +242,14 @@ def _instance_hash(
 
 
 def _per_check_db_path(basename, **hash_kwargs):
-    return os.path.join(
-        tempfile.gettempdir(),
+    filename = (
         f'linuxfabrik-monitoring-plugins-logfile-{basename}-'
-        f'{_instance_hash(**hash_kwargs)}.db',
+        f'{_instance_hash(**hash_kwargs)}.db'
     )
+    # Resolve via the lib so the seeded DB lands at the exact path the plugin
+    # reads, including the secured per-user directory.
+    ok, db_path = lib.db_sqlite.get_db_path(filename=filename)
+    return db_path if ok else os.path.join(lib.disk.get_tmpdir(), filename)
 
 
 class TestOffsetSurvivesAcrossRuns(unittest.TestCase):
@@ -249,7 +262,7 @@ class TestOffsetSurvivesAcrossRuns(unittest.TestCase):
 
     check = '../logfile'
     source_fixture = 'stdout/django-app-one-warning-one-error'
-    hash_kwargs = {
+    hash_kwargs: typing.ClassVar = {
         'warn_regex': [' WARNING '],
         'crit_regex': [' ERROR '],
     }

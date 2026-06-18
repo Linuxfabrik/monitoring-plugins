@@ -53,9 +53,15 @@ A public demo with the plugins wired into Icinga Web 2 and Grafana:
 [icinga-demo.linuxfabrik.ch](https://icinga-demo.linuxfabrik.ch/).
 
 
-## Quick Start
+## Installation
 
-After [installing](#installation), run a plugin directly to verify it works:
+On Linux, install with the one-liner. It registers our signed package repository and installs the package:
+
+```bash
+curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash
+```
+
+Then run a plugin directly to verify it works:
 
 ```text
 $ /usr/lib64/nagios/plugins/cpu-usage
@@ -65,6 +71,15 @@ ctx_switches: 8.5G, interrupts: 6.8G, soft_interrupts: 1.7G|'cpu-usage'=5.1%;80;
 ```
 
 Every plugin supports `--help` and prints its version with `--version`.
+
+For the verify-then-run variant and other installation paths (Windows, source, air-gapped, per-distribution, sudoers drop-ins, SELinux), see [INSTALL.md](INSTALL.md).
+
+Plugins that share setup steps:
+
+* [Keycloak plugins](PLUGINS-KEYCLOAK.md)
+* [MySQL / MariaDB plugins](PLUGINS-MYSQL.md)
+* [Rocket.Chat plugins](PLUGINS-ROCKETCHAT.md)
+* [WildFly / JBoss EAP plugins](PLUGINS-WILDFLY.md)
 
 
 ## OS Compatibility
@@ -78,18 +93,6 @@ Every plugin supports `--help` and prints its version with `--version`.
 | Windows           | Windows Server 2016 and later, Windows 10 and later   | Shipped as signed MSI, x86_64.     |
 
 Other Linux distributions run the plugins fine as long as Python 3.9 or newer is available; you just lose the pre-built native packages.
-
-
-## Installation
-
-The recommended path is our package repository for Linux (RPM/DEB) and the signed MSI for Windows. See [INSTALL.md](INSTALL.md) for per-distribution commands, the source-tarball and Git paths, sudoers drop-ins and SELinux bits.
-
-Plugins that share setup steps:
-
-* [Keycloak plugins](PLUGINS-KEYCLOAK.md)
-* [MySQL / MariaDB plugins](PLUGINS-MYSQL.md)
-* [Rocket.Chat plugins](PLUGINS-ROCKETCHAT.md)
-* [WildFly / JBoss EAP plugins](PLUGINS-WILDFLY.md)
 
 
 ## Icinga, Grafana, Nagios
@@ -110,6 +113,15 @@ Byte sizes use IEC (KiB, MiB, GiB, powers of 2) so values match what the shell s
 ### Thresholds and Ranges
 
 Where a check supports thresholds, `--warning` / `--critical` follow the [Nagios plugin format](https://nagios-plugins.org/doc/guidelines.html#THRESHOLDFORMAT) (`start:end`, `~` for negative infinity, `@` to invert). The full threshold reference with examples is in [THRESHOLDS.md](THRESHOLDS.md).
+
+
+## Parameter Handling
+
+When you call a plugin directly from a shell, two things can trip you up. Through Icinga Director the rules are different (no `=` allowed, plus Icinga's own `$$` macro escaping); see the Parameter Handling section in [ICINGA.md](ICINGA.md).
+
+A value that starts with `-` is read by `argparse` as another option, so the plugin reports an unknown argument. Glue the value to its parameter instead of separating it with a space: long parameters as `./file-age --warning=-60:3600` (not `--warning -60:3600`), short parameters as `./file-age -w-60:3600`.
+
+A value that contains shell-special characters such as `$`, `*`, spaces or parentheses must be wrapped in single quotes so the shell passes it through to the plugin literally. This matters for regex parameters like `--match` and `--ignore`, for example `./dmesg --ignore='error$'`. Single quotes do not help with the leading-`-` case, because that is an `argparse` rule and not a shell one; use the glue form above.
 
 
 ## FAQ
@@ -147,17 +159,7 @@ A: In Bash, use `/usr/lib64/nagios/plugins/check-command | cut -f1 -d'|'`
 
 ## Troubleshooting
 
-For installation-related issues (sudoers drop-ins, SELinux, Windows `0x80070005` under the Icinga Agent) see [INSTALL.md](INSTALL.md). For Icinga-specific quirks (passing `http_proxy` through Icinga, negative values in Director-dispatched parameters) see [ICINGA.md](ICINGA.md).
-
-Q: **A plugin reports an unknown argument when I pass a value starting with `-`.**
-
-A: argparse treats a value that starts with `-` as another option. Glue the value to the parameter instead of separating with a space:
-
-* Long parameters: `./file-age --warning=-60:3600` (not `--warning -60:3600`).
-* Short parameters: `./file-age -w-60:3600` (no space, no escape).
-
-In Icinga Director, where arguments cannot be sent with `=`, prefix the first minus with a backslash (`\-60`); the `lib.base` library strips it before argparse sees it.
-
+For installation-related issues (sudoers drop-ins, SELinux, Windows `0x80070005` under the Icinga Agent) see [INSTALL.md](INSTALL.md). For Icinga-specific quirks (passing `http_proxy` through Icinga, escaping special characters like `$` and leading `-` in Director-dispatched parameters) see [ICINGA.md](ICINGA.md).
 
 Q: **After an update, I get "Operational Error: no such column: ..., state UNKNOWN". On the next run, this disappears. What happened?**
 

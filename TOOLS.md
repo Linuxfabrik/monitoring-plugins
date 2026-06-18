@@ -88,6 +88,20 @@ tools/update-readmes
 
 ## Testing
 
+### run-all-tests
+
+Run the whole test toolset in parallel: `run-linter-checks`,
+`run-unit-tests --no-container` and `run-container-tests` each in its own
+subprocess. The workloads are disjoint and isolate their mutable state, so
+they do not interfere; wall clock time is the slowest single suite instead
+of the sum. Output is captured per suite and printed under a banner when
+that suite finishes. Pass `--no-container` to skip the container suite.
+
+```bash
+tools/run-all-tests
+tools/run-all-tests --no-container
+```
+
 ### run-container-tests
 
 Discover and run all container-based plugin unit tests (those importing
@@ -143,11 +157,10 @@ tools/run-unit-tests --no-container
 ### influxdb-remove-old-measurements
 
 Remove measurements from an InfluxDB instance where the latest entry
-per host is older than the given threshold. Useful when the monitoring
-system does not automatically drop measurements for hosts or services
-that have been removed. See
-[tools/influxdb-remove-old-measurements/README.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/tools/influxdb-remove-old-measurements/README.md)
-for the full fact sheet.
+per host is older than the given threshold (in days). Useful when the
+monitoring system does not automatically drop measurements for hosts or
+services that have been removed. Requires the `influxdb` Python module.
+Pass `--dry-run` to preview the deletions without changing anything.
 
 ```bash
 tools/influxdb-remove-old-measurements --database icinga2 \

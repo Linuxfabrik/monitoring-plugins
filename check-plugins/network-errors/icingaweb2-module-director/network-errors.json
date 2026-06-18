@@ -1,0 +1,347 @@
+{
+    "Command": {
+        "cmd-check-network-errors": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$network_errors_always_ok$"
+                },
+                "--critical": {
+                    "value": "$network_errors_critical$"
+                },
+                "--ignore": {
+                    "value": "$network_errors_ignore$",
+                    "repeat_key": true
+                },
+                "--match": {
+                    "value": "$network_errors_match$",
+                    "repeat_key": true
+                },
+                "--warning": {
+                    "value": "$network_errors_warning$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/network-errors",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-network-errors",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "97ab7389-ab0f-4d0c-9194-9d9c119881ad"
+        },
+        "cmd-check-network-errors-windows": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$network_errors_windows_always_ok$"
+                },
+                "--critical": {
+                    "value": "$network_errors_windows_critical$"
+                },
+                "--ignore": {
+                    "value": "$network_errors_windows_ignore$",
+                    "repeat_key": true
+                },
+                "--match": {
+                    "value": "$network_errors_windows_match$",
+                    "repeat_key": true
+                },
+                "--warning": {
+                    "value": "$network_errors_windows_warning$"
+                }
+            },
+            "command": "C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\network-errors.exe",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-network-errors-windows",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "d6e49c08-a2a1-442a-aff2-4f9eb7c89924"
+        },
+        "cmd-check-network-errors-windows-python": {
+            "arguments": {},
+            "command": "C:\\Windows\\py C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\network-errors.py",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-network-errors-windows"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-network-errors-windows-python",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "uuid": "43fc245d-228c-49d9-9481-a6d6eff4f350"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-network-errors": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-network-errors",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "network-errors.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Monitors network interface errors per interface and alerts on receive and transmit errors. On Linux it additionally shows the receive and transmit error breakdown (the FIFO, frame and carrier error groups); on Windows only the receive and transmit error totals are available. Each counter is reported as a per-second rate measured between two check runs, so the values reflect the current situation rather than totals accumulated since boot. Alerts when the combined error rate (receive plus transmit errors) of an interface leaves the warning or critical range (default: warns on any new errors).",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/network-errors/",
+            "object_name": "tpl-service-network-errors",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "network_errors_always_ok": false,
+                "network_errors_ignore": [],
+                "network_errors_match": [],
+                "network_errors_warning": "0"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "90eee02e-e17d-47aa-b094-97f81f379532"
+        },
+        "tpl-service-network-errors-windows": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-network-errors-windows",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "network-errors.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Monitors network interface errors per interface and alerts on receive and transmit errors. On Linux it additionally shows the receive and transmit error breakdown (the FIFO, frame and carrier error groups); on Windows only the receive and transmit error totals are available. Each counter is reported as a per-second rate measured between two check runs, so the values reflect the current situation rather than totals accumulated since boot. Alerts when the combined error rate (receive plus transmit errors) of an interface leaves the warning or critical range (default: warns on any new errors).",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/network-errors/",
+            "object_name": "tpl-service-network-errors-windows",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "network_errors_windows_always_ok": false,
+                "network_errors_windows_ignore": [],
+                "network_errors_windows_match": [],
+                "network_errors_windows_warning": "0"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "a62d8084-15b3-4191-aa3e-a90425d3abba"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "network_errors_always_ok",
+            "caption": "Network Errors: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "ae4a22f2-b83f-4b43-ab5d-4ce9f103fc08"
+        },
+        "2": {
+            "varname": "network_errors_critical",
+            "caption": "Network Errors: Critical",
+            "description": "CRIT threshold for the combined per-second error rate of an interface. Supports Nagios ranges. Default: no critical threshold",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "889046ab-9939-4bce-bc11-ca2d94d0f6d8"
+        },
+        "3": {
+            "varname": "network_errors_ignore",
+            "caption": "Network Errors: Ignore",
+            "description": "Ignore items whose name matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "db829401-a727-4378-9e5b-1397dca99512"
+        },
+        "4": {
+            "varname": "network_errors_match",
+            "caption": "Network Errors: Match",
+            "description": "Only check items whose name matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "415c634c-6930-410f-b690-b20324bb3b8b"
+        },
+        "5": {
+            "varname": "network_errors_warning",
+            "caption": "Network Errors: Warning",
+            "description": "WARN threshold for the combined per-second error rate of an interface. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "037777e2-3c27-4bd5-9443-8dffbae1460c"
+        },
+        "6": {
+            "varname": "network_errors_windows_always_ok",
+            "caption": "Network Errors: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "3e8620c4-d8f7-4593-b228-5eda9c7d8642"
+        },
+        "7": {
+            "varname": "network_errors_windows_critical",
+            "caption": "Network Errors: Critical",
+            "description": "CRIT threshold for the combined per-second error rate of an interface. Supports Nagios ranges. Default: no critical threshold",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "aebb071b-8c94-4159-8e5e-8c76eab5f553"
+        },
+        "8": {
+            "varname": "network_errors_windows_ignore",
+            "caption": "Network Errors: Ignore",
+            "description": "Ignore items whose name matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "57b186f2-88ec-4900-b301-a8accf83a0e3"
+        },
+        "9": {
+            "varname": "network_errors_windows_match",
+            "caption": "Network Errors: Match",
+            "description": "Only check items whose name matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a9aa437d-c00b-480f-a4f5-2e88ec05fc61"
+        },
+        "10": {
+            "varname": "network_errors_windows_warning",
+            "caption": "Network Errors: Warning",
+            "description": "WARN threshold for the combined per-second error rate of an interface. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "c9a3caac-8786-4b49-8287-542bb157be55"
+        }
+    }
+}

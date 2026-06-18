@@ -23,7 +23,7 @@ import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051203'
+__version__ = '2026052601'
 
 DESCRIPTION = """Audits MySQL/MariaDB configuration knobs that have a measurable impact
 on performance or correctness but no metric of their own. Highlights settings that
@@ -34,31 +34,36 @@ leftovers in `my.cnf` until the next major upgrade refuses to start with them.
 What gets checked:
 - `innodb_stats_on_metadata`: when ON, InnoDB refreshes index statistics on every
   `information_schema` query. Hosts with frequent dashboard, backup and
-  monitoring queries pay a noticeable CPU cost for this. Recommended OFF.
+  monitoring queries pay a noticeable CPU cost for this.
 - `concurrent_insert`: when set to `NEVER` / `0`, MyISAM tables can no longer serve
-  SELECTs in parallel with INSERTs. `AUTO` (the modern default) is recommended.
+  SELECTs in parallel with INSERTs. `AUTO` is the modern default.
 - `innodb_snapshot_isolation` (MariaDB only): under `REPEATABLE-READ`, OFF lets a
   transaction see writes other transactions commit during its lifetime, breaking the
   stable-snapshot guarantee the name `REPEATABLE-READ` implies. ON makes the
   snapshot stable. Default flipped to ON in MariaDB 11.8; before that, the admin had
   to opt in. Other isolation levels and non-MariaDB servers skip this check.
 - `innodb_flush_neighbors`: HDD wins from grouping seek-adjacent dirty-page flushes,
-  SSD/NVMe pays in extra writes for no latency benefit. Recommended `0` on SSD/NVMe,
-  `1` (or `2`) on HDD.
-- `innodb_io_capacity`: caps InnoDB's background flushing rate. Default `200` is
-  sized for HDD; SSD/NVMe deployments should raise this to `2000` or more so InnoDB
-  can flush closer to the disk's IOPS budget.
+  SSD/NVMe pays in extra writes for no latency benefit, so the right value depends on
+  the storage class.
+- `innodb_io_capacity`: caps InnoDB's background flushing rate and should be sized to
+  the disk's measured IOPS. Only checked when `--storage-type=ssd` is passed explicitly:
+  the storage auto-detection cannot be trusted on virtualised or network-backed disks
+  (Ceph, cloud volumes) where a slow device still reports as non-rotational.
 - Deprecated configuration variables explicitly set via `my.cnf` or `SET GLOBAL`.
   The server tolerates these as no-ops, so they hide easily until the next major
   upgrade ships without them. Compile-time defaults are silent. MariaDB exposes a
   runtime deprecation flag; on MySQL a static list filtered through
   `performance_schema.variables_info.VARIABLE_SOURCE` catches the same cases.
 
-The two storage-aware checks (`innodb_flush_neighbors`, `innodb_io_capacity`) need
-to know the disk type. Auto-detection reads `/sys/block/*/queue/rotational` on the
-same host the plugin runs on; when run from a remote monitoring host via TCP the
-auto-detect cannot see the database server's storage, so pass `--storage-type=ssd`
-or `--storage-type=hdd` explicitly, or `--storage-type=skip` to disable those two
+The storage-aware checks need to know the disk type. `innodb_flush_neighbors` uses
+auto-detection (it reads `/sys/block/*/queue/rotational` on the host the plugin runs
+on; `0` is the safe value on any non-seeking storage, so a misread costs nothing).
+`innodb_io_capacity` is only checked when `--storage-type=ssd` is passed explicitly,
+because the rotational flag reports `0` for virtio, RBD and emulated-NVMe devices
+regardless of the real backing store: a database on HDD-backed Ceph or a throttled
+cloud volume would be misread as fast local storage and told to raise the value, which
+can swamp a low-IOPS device. Pass `--storage-type=ssd` or `--storage-type=hdd` to
+override the auto-detection, or `--storage-type=skip` to disable the storage-aware
 checks entirely."""
 
 # Variables MySQL has removed or kept as a no-op. Port of mysqltuner.pl v2.8.41
@@ -112,12 +117,12 @@ REMOVED_VARS_MYSQL = [
     },
     {
         'name': 'innodb_log_file_size',
-        'removed_in': (9, 0, 0),
+        'removed_in': (9, 3, 0),
         'note': 'Replaced by `innodb_redo_log_capacity`.',
     },
     {
         'name': 'innodb_log_files_in_group',
-        'removed_in': (9, 0, 0),
+        'removed_in': (9, 3, 0),
         'note': 'Replaced by `innodb_redo_log_capacity`.',
     },
     {
@@ -177,10 +182,13 @@ def parse_args():
         '--storage-type',
         help='Storage type of the MySQL data directory. Drives the '
         '`innodb_flush_neighbors` and `innodb_io_capacity` checks. '
-        '`auto` reads `/sys/block/*/queue/rotational` on the same host; '
-        '`ssd` or `hdd` overrides the detection (use when running from a '
-        'remote monitoring host via TCP); `skip` disables both storage-type '
-        'checks entirely. '
+        '`auto` reads `/sys/block/*/queue/rotational` on the same host and '
+        'feeds `innodb_flush_neighbors` only; `ssd` or `hdd` overrides the '
+        'detection (use when running from a remote monitoring host via TCP, '
+        'or on virtualised/network-backed storage such as Ceph or cloud '
+        'volumes where the rotational flag is unreliable); `skip` disables '
+        'both storage-type checks entirely. The `innodb_io_capacity` check '
+        'only runs when `ssd` is set explicitly. '
         'Example: `--storage-type=ssd`. '
         'Default: %(default)s',
         dest='STORAGE_TYPE',
@@ -311,12 +319,14 @@ def find_deprecated_variables_mysql(conn, myvar):
         # alone (mysqltuner-aligned).
         if source == 'COMPILED':
             continue
-        findings.append({
-            'name': entry['name'],
-            'value': myvar[entry['name']],
-            'origin': source or 'unknown',
-            'note': entry['note'],
-        })
+        findings.append(
+            {
+                'name': entry['name'],
+                'value': myvar[entry['name']],
+                'origin': source or 'unknown',
+                'note': entry['note'],
+            }
+        )
     return findings
 
 
@@ -362,9 +372,13 @@ def main():
     # Numeric encoding lets Grafana plot config drift and Icinga's perfdata
     # band thresholds (warn/crit) light up the bad value automatically.
     concurrent_insert_map = {
-        'NEVER': 0, '0': 0, 'OFF': 0,
-        'AUTO': 1, '1': 1,
-        'ALWAYS': 2, '2': 2,
+        'NEVER': 0,
+        '0': 0,
+        'OFF': 0,
+        'AUTO': 1,
+        '1': 1,
+        'ALWAYS': 2,
+        '2': 2,
     }
     state = STATE_OK
     sections = []
@@ -438,14 +452,9 @@ def main():
     snapshot_iso = myvar.get('innodb_snapshot_isolation')
     if snapshot_iso is not None:
         transaction_iso = (
-            myvar.get('transaction_isolation')
-            or myvar.get('tx_isolation')
-            or ''
+            myvar.get('transaction_isolation') or myvar.get('tx_isolation') or ''
         )
-        if (
-            snapshot_iso == 'OFF'
-            and transaction_iso == 'REPEATABLE-READ'
-        ):
+        if snapshot_iso == 'OFF' and transaction_iso == 'REPEATABLE-READ':
             state = lib.base.get_worst(state, STATE_WARN)
             facts.append(
                 '`innodb_snapshot_isolation` is `OFF` with '
@@ -498,10 +507,19 @@ def main():
                     f'{storage_type.upper() if storage_type == "ssd" else "HDD"}'
                 )
 
-    # innodb_io_capacity: default 200 is HDD-sized; SSD/NVMe should
-    # usually be 2000 or more so InnoDB does not under-utilise the disk.
+    # innodb_io_capacity: only act on an admin-asserted SSD/NVMe
+    # (`--storage-type=ssd`), not on auto-detected storage. Auto-detection
+    # reads `/sys/block/*/queue/rotational`, which reports `0`
+    # ("non-rotational") for virtio, RBD and emulated-NVMe devices
+    # regardless of the real backing store, so a database on HDD-backed Ceph
+    # or a throttled cloud volume would look like local NVMe and get told to
+    # raise io_capacity - which can swamp a low-IOPS device. MySQL's guidance
+    # is to size io_capacity to the disk's measured IOPS and keep it as low
+    # as practical (the 200 default already suits a lower-end SSD; MySQL 8.4
+    # raised the default to 10000), so we only flag a clearly-low value when
+    # the admin has explicitly vouched for the storage class.
     io_capacity = myvar.get('innodb_io_capacity')
-    if io_capacity is not None and storage_type == 'ssd':
+    if io_capacity is not None and args.STORAGE_TYPE == 'ssd':
         try:
             io_val = int(io_capacity)
         except (TypeError, ValueError):
@@ -513,12 +531,13 @@ def main():
                 f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
             )
             recommendations.append(
-                'Set `innodb_io_capacity >= 2000` (recommended for SSD/NVMe)'
+                'Size `innodb_io_capacity` to the measured IOPS of the disk '
+                'and keep it as low as practical; the default suits a '
+                'lower-end SSD, and a value set too high evicts pages from '
+                'the buffer pool and change buffer too quickly'
             )
         elif io_val is not None:
-            facts.append(
-                f'`innodb_io_capacity` is `{io_val}` on SSD/NVMe'
-            )
+            facts.append(f'`innodb_io_capacity` is `{io_val}` on SSD/NVMe')
 
     # removed/deprecated variables that the server still exposes - typically
     # stray entries in /etc/my.cnf.d/*.cnf left over from a previous distro

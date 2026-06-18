@@ -1,0 +1,44 @@
+# Base image: Official Arch Linux
+FROM archlinux:latest
+
+# Arch is rolling release, and the cached archlinux:latest base image
+# can be months out of date; its archlinux-keyring no longer trusts the
+# current packagers. Refresh the keyring from the shipped files and pull
+# in the latest archlinux-keyring package before -Syu so the full upgrade
+# can verify signatures.
+#
+# --disable-sandbox disables pacman 7.x's landlock/alpm download sandbox,
+# which cannot be applied inside rootless podman.
+#
+# The lynis plugin has no third-party Python dependencies (standard
+# library plus the bundled lib only), so no venv or lockfile install is
+# needed. It assembles a self-contained lynis copy from the local
+# installation, then audits the target over SSH via sudo, so the image
+# needs lynis, an SSH server and client, sudo and rsync.
+RUN pacman-key --init && \
+    pacman-key --populate && \
+    pacman -Sy --noconfirm --disable-sandbox archlinux-keyring && \
+    pacman -Syu --noconfirm --disable-sandbox && \
+    pacman -S --noconfirm --disable-sandbox lynis openssh python rsync sudo && \
+    pacman -Scc --noconfirm
+
+# Set up password-less root SSH-to-self so the plugin can audit 127.0.0.1
+# over its normal SSH transport. sudo as root needs no password, so the
+# privileged audit works without extra sudoers rules.
+RUN ssh-keygen -A && \
+    mkdir -p /run/sshd /root/.ssh && \
+    ssh-keygen -t ed25519 -N '' -f /root/.ssh/id_ed25519 -q && \
+    cp /root/.ssh/id_ed25519.pub /root/.ssh/authorized_keys && \
+    chmod 700 /root/.ssh && \
+    chmod 600 /root/.ssh/authorized_keys && \
+    printf 'PermitRootLogin prohibit-password\nPubkeyAuthentication yes\n' \
+        >> /etc/ssh/sshd_config
+
+# Set the working directory in the container
+WORKDIR /tmp
+
+# Verify Python installation
+RUN python3 --version
+
+# Default command to keep the container running
+CMD ["sleep", "infinity"]

@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041201'
+__version__ = '2026061202'
 
 DESCRIPTION = """Checks the Windows Time Service (w32tm) status, including clock offset, stratum,
 and time source. Useful for diagnosing time synchronization issues on Windows
@@ -93,10 +93,9 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-
     # fetch data
     if args.TEST is None:
-        cmd = 'w32tm /query /status /verbose'
+        cmd = ['w32tm', '/query', '/status', '/verbose']
         stdout, _, retc = lib.base.coe(lib.shell.shell_exec(cmd))
     else:
         # do not call the command, put in test data
@@ -251,7 +250,8 @@ def main():
     )
 
     # over and out
-    lib.base.oao(', '.join(msg) + '\n\n' + stdout, state, perfdata)
+    details = '\n'.join(stdout.splitlines())
+    lib.base.oao(', '.join(msg) + '\n\n' + details, state, perfdata)
 
 
 if __name__ == '__main__':

@@ -13,7 +13,7 @@ Checks the installed Apache httpd version against the endoflife.date API and ale
 **Data Collection:**
 
 * Detects the installed Apache httpd version by running `httpd -v` (RHEL) or `apache2 -v` (Debian-based systems)
-* Queries the [endoflife.date API](https://endoflife.date/api/apache.json) to determine EOL status and available releases
+* Queries the [endoflife.date API](https://endoflife.date/api/apache-http-server.json) to determine EOL status and available releases
 * Caches the API response in a local SQLite database to reduce network calls
 
 

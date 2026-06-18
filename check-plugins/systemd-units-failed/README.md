@@ -94,6 +94,8 @@ Everything is ok. Last failed: `ipmievd.service` with message "Failed with resul
 
 ## Troubleshooting
 
+### Resetting a failed unit
+
 If you cannot fix the underlying issue and simply want to reset the status of a failed unit:
 
 ```bash

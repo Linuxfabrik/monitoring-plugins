@@ -6,7 +6,7 @@
 Checks MySQL/MariaDB best-practice knobs that do not have a dedicated plugin: `innodb_stats_on_metadata`, `concurrent_insert`, and any deprecated configuration variables that the admin has explicitly set. The OK output lists each verified value so admins immediately see what was checked.
 
 * `innodb_stats_on_metadata`: when ON, InnoDB recalculates index statistics every time `information_schema` tables are queried. Most modern setups keep this OFF because applications and tooling query `information_schema` frequently.
-* `concurrent_insert`: when set to `NEVER`/`0`, MyISAM tables can no longer serve SELECTs in parallel with INSERTs. The recommended value is `AUTO` (the modern default).
+* `concurrent_insert`: when set to `NEVER`/`0`, MyISAM tables can no longer serve SELECTs in parallel with INSERTs. `AUTO` is the modern default.
 * Deprecated configuration variables: MariaDB keeps deprecated startup variables in `SHOW VARIABLES` as no-ops for the full LTS support window (5+ years) per its [feature deprecation policy](https://mariadb.com/docs/release-notes/community-server/about/feature-deprecation-policy). The plugin alerts only when such a variable was explicitly set via `my.cnf` or `SET GLOBAL` (`GLOBAL_VALUE_ORIGIN` in `INFORMATION_SCHEMA.SYSTEM_VARIABLES` not equal to `COMPILE-TIME`). Compile-time defaults stay silent. On MySQL, the plugin walks a list of known removed variables (ported from MySQLTuner) and filters them through `performance_schema.variables_info.VARIABLE_SOURCE` so only non-`COMPILED` values surface.
 
 **Important Notes:**
@@ -51,30 +51,36 @@ or hang on as no-op leftovers in `my.cnf` until the next major upgrade refuses
 to start with them. What gets checked: - `innodb_stats_on_metadata`: when ON,
 InnoDB refreshes index statistics on every `information_schema` query. Hosts
 with frequent dashboard, backup and monitoring queries pay a noticeable CPU
-cost for this. Recommended OFF. - `concurrent_insert`: when set to `NEVER` /
-`0`, MyISAM tables can no longer serve SELECTs in parallel with INSERTs.
-`AUTO` (the modern default) is recommended. - `innodb_snapshot_isolation`
-(MariaDB only): under `REPEATABLE-READ`, OFF lets a transaction see writes
-other transactions commit during its lifetime, breaking the stable-snapshot
-guarantee the name `REPEATABLE-READ` implies. ON makes the snapshot stable.
-Default flipped to ON in MariaDB 11.8; before that, the admin had to opt in.
-Other isolation levels and non-MariaDB servers skip this check. -
-`innodb_flush_neighbors`: HDD wins from grouping seek-adjacent dirty-page
-flushes, SSD/NVMe pays in extra writes for no latency benefit. Recommended `0`
-on SSD/NVMe, `1` (or `2`) on HDD. - `innodb_io_capacity`: caps InnoDB's
-background flushing rate. Default `200` is sized for HDD; SSD/NVMe deployments
-should raise this to `2000` or more so InnoDB can flush closer to the disk's
-IOPS budget. - Deprecated configuration variables explicitly set via `my.cnf`
-or `SET GLOBAL`. The server tolerates these as no-ops, so they hide easily
-until the next major upgrade ships without them. Compile-time defaults are
-silent. MariaDB exposes a runtime deprecation flag; on MySQL a static list
-filtered through `performance_schema.variables_info.VARIABLE_SOURCE` catches
-the same cases. The two storage-aware checks (`innodb_flush_neighbors`,
-`innodb_io_capacity`) need to know the disk type. Auto-detection reads
-`/sys/block/*/queue/rotational` on the same host the plugin runs on; when run
-from a remote monitoring host via TCP the auto-detect cannot see the database
-server's storage, so pass `--storage-type=ssd` or `--storage-type=hdd`
-explicitly, or `--storage-type=skip` to disable those two checks entirely.
+cost for this. - `concurrent_insert`: when set to `NEVER` / `0`, MyISAM tables
+can no longer serve SELECTs in parallel with INSERTs. `AUTO` is the modern
+default. - `innodb_snapshot_isolation` (MariaDB only): under `REPEATABLE-
+READ`, OFF lets a transaction see writes other transactions commit during its
+lifetime, breaking the stable-snapshot guarantee the name `REPEATABLE-READ`
+implies. ON makes the snapshot stable. Default flipped to ON in MariaDB 11.8;
+before that, the admin had to opt in. Other isolation levels and non-MariaDB
+servers skip this check. - `innodb_flush_neighbors`: HDD wins from grouping
+seek-adjacent dirty-page flushes, SSD/NVMe pays in extra writes for no latency
+benefit, so the right value depends on the storage class. -
+`innodb_io_capacity`: caps InnoDB's background flushing rate and should be
+sized to the disk's measured IOPS. Only checked when `--storage-type=ssd` is
+passed explicitly: the storage auto-detection cannot be trusted on virtualised
+or network-backed disks (Ceph, cloud volumes) where a slow device still
+reports as non-rotational. - Deprecated configuration variables explicitly set
+via `my.cnf` or `SET GLOBAL`. The server tolerates these as no-ops, so they
+hide easily until the next major upgrade ships without them. Compile-time
+defaults are silent. MariaDB exposes a runtime deprecation flag; on MySQL a
+static list filtered through
+`performance_schema.variables_info.VARIABLE_SOURCE` catches the same cases.
+The storage-aware checks need to know the disk type. `innodb_flush_neighbors`
+uses auto-detection (it reads `/sys/block/*/queue/rotational` on the host the
+plugin runs on; `0` is the safe value on any non-seeking storage, so a misread
+costs nothing). `innodb_io_capacity` is only checked when `--storage-type=ssd`
+is passed explicitly, because the rotational flag reports `0` for virtio, RBD
+and emulated-NVMe devices regardless of the real backing store: a database on
+HDD-backed Ceph or a throttled cloud volume would be misread as fast local
+storage and told to raise the value, which can swamp a low-IOPS device. Pass
+`--storage-type=ssd` or `--storage-type=hdd` to override the auto-detection,
+or `--storage-type=skip` to disable the storage-aware checks entirely.
 
 options:
   -h, --help            show this help message and exit
@@ -92,11 +98,15 @@ options:
                         Storage type of the MySQL data directory. Drives the
                         `innodb_flush_neighbors` and `innodb_io_capacity`
                         checks. `auto` reads `/sys/block/*/queue/rotational`
-                        on the same host; `ssd` or `hdd` overrides the
-                        detection (use when running from a remote monitoring
-                        host via TCP); `skip` disables both storage-type
-                        checks entirely. Example: `--storage-type=ssd`.
-                        Default: auto
+                        on the same host and feeds `innodb_flush_neighbors`
+                        only; `ssd` or `hdd` overrides the detection (use when
+                        running from a remote monitoring host via TCP, or on
+                        virtualised/network-backed storage such as Ceph or
+                        cloud volumes where the rotational flag is
+                        unreliable); `skip` disables both storage-type checks
+                        entirely. The `innodb_io_capacity` check only runs
+                        when `ssd` is set explicitly. Example: `--storage-
+                        type=ssd`. Default: auto
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 
