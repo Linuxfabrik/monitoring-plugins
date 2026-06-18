@@ -307,7 +307,7 @@ A value you type into a Director field travels through two layers before the plu
 
 Only the *first* `-` of a value needs the backslash, and only `$` signs you want to keep literally need doubling. Everything else (backslash, double quote, tab, newline) is escaped by the Director automatically, so type it as-is.
 
-The backslash is removed inside the plugin by the `lib.base` range parser, so the `\-` trick works for threshold and range parameters such as `--warning` and `--critical` (`linuxfabrik-lib` v2024112001+, v2.0.0.0+). Other parameters keep the backslash, so for a non-threshold value that has to start with `-`, set it through a custom variable instead. See [#789](https://github.com/Linuxfabrik/monitoring-plugins/issues/789).
+The backslash is removed inside the plugin by the `lib.base` range parser, so the `\-` trick works for threshold and range parameters such as `--warning` and `--critical` (`linuxfabrik-lib` v2024112001+, v2.0.0.0+). A plugin may additionally strip it for a specific parameter whose value can never legitimately start with a backslash, such as `journald-query --since` (a relative time like `-8h`). All other parameters keep the backslash, so for a non-threshold value that has to start with `-`, set it through a custom variable instead. See [#789](https://github.com/Linuxfabrik/monitoring-plugins/issues/789).
 
 Examples:
 
@@ -317,6 +317,7 @@ Examples:
 | regex `^started$`              | `^started$$`      |
 | range `-60:3600`               | `\-60:3600`       |
 | range `-60:-3600`              | `\-60:-3600`      |
+| relative time `-8h`            | `\-8h`            |
 
 If you forget to double a `$`, the deployment fails with `Closing $ not found in macro format string`. Icinga 2 reduces `$$` back to a single `$` before the plugin runs, so the regex stays correct.
 

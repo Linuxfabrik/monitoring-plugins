@@ -30,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061202'
+__version__ = '2026061801'
 
 DESCRIPTION = """Queries the systemd journal using journalctl and alerts when matching entries are found.
 Supports all journalctl filtering options such as --unit, --priority, --facility,
@@ -247,6 +247,14 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    # Icinga Director escapes a leading dash as "\-" so a value like "-8h"
+    # survives argparse on RHEL 8/9, where a value passed as a separate argv
+    # token is otherwise read as an option (#789). Threshold parameters get
+    # the backslash removed by the lib.base range parser; --since has no such
+    # parser, so undo the escape here before the value reaches journalctl. A
+    # journalctl time spec never legitimately starts with a backslash.
+    args.SINCE = args.SINCE.lstrip('\\')
 
     # set default values for append parameters that were not specified
     if args.IGNORE_PATTERN is None:

@@ -35,6 +35,23 @@ TESTS = [
         ],
     },
     {
+        # The Icinga Director escapes a leading dash as "\-8h" so the value
+        # survives argparse. The plugin must undo that escape, otherwise the
+        # backslash reaches journalctl and the query fails (#1264). The single
+        # quotes keep the backslash intact through the test harness' shlex
+        # tokenizer, mirroring how the Director delivers the value.
+        'id': 'ok-since-backslash-escape-stripped',
+        'test': 'stdout/no-events,,0',
+        'params': r"--since='\-8h'",
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "since='-8h'.",
+        ],
+        'assert-not-in': [
+            r"since='\-8h'",
+        ],
+    },
+    {
         'id': 'warn-one-iscsid-err',
         'test': 'stdout/one-iscsid-err,,0',
         'assert-retc': STATE_WARN,
