@@ -34,7 +34,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061801'
+__version__ = '2026061802'
 
 DESCRIPTION = """Checks disk I/O bandwidth over time and alerts on sustained saturation, not
 short spikes. The check records per-disk read/write counters and then derives current (R1/W1)
@@ -50,7 +50,7 @@ host regardless of its core count: --iowait-warning and --iowait-critical are gi
 of one core (default 80/90, i.e. alert near one saturated core). Like bandwidth alerts, iowait
 alerts require COUNT consecutive threshold violations.
 
-Perfdata is emitted for each disk (busy_time, read_bytes, read_time, write_bytes, write_time)
+Perfdata is emitted for each disk (read/write throughput per second and disk busy percentage)
 and for iowait, so you can graph trends. On Linux the check focuses on block devices with a
 mounted filesystem by default; use `--include-unmounted` to also include raw, unmounted devices
 such as multipath SAN volumes. On Windows it uses psutil's disk counters. Optionally, `--top`
@@ -610,7 +610,7 @@ def main():
             lib.base.oao('Waiting for more data.', state)
 
         # calculate current rates (like "load1")
-        timediff, read_bytes_per_second1, write_bytes_per_second1, bandwidth1 = (
+        timediff1, read_bytes_per_second1, write_bytes_per_second1, bandwidth1 = (
             get_rate(
                 data[0]['timestamp'],
                 data[1]['timestamp'],
@@ -620,7 +620,7 @@ def main():
                 data[1]['write_bytes'],
             )
         )
-        if timediff <= 0:  # often happens after a reboot
+        if timediff1 <= 0:  # often happens after a reboot
             lib.db_sqlite.close(conn)
             lib.base.oao('Waiting for more data.', state)
 
@@ -644,7 +644,7 @@ def main():
         if len(data) != args.COUNT:  # not enough data yet
             continue
 
-        timediff, read_bytes_per_second15, write_bytes_per_second15, bandwidth15 = (
+        timediff15, read_bytes_per_second15, write_bytes_per_second15, bandwidth15 = (
             get_rate(
                 data[0]['timestamp'],
                 data[args.COUNT - 1]['timestamp'],
@@ -654,7 +654,7 @@ def main():
                 data[args.COUNT - 1]['write_bytes'],
             )
         )
-        if timediff <= 0:  # often happens after a reboot
+        if timediff15 <= 0:  # often happens after a reboot
             lib.db_sqlite.close(conn)
             lib.base.oao('Waiting for more data.', state)
 
@@ -682,55 +682,66 @@ def main():
             }
         )
 
-        # perfdata
-        try:
-            perfdata += lib.base.get_perfdata(
-                f'{bd}_busy_time',
-                data[0]['busy_time'],
-                uom='c',
-                warn=None,
-                crit=None,
-                _min=0,
-                _max=None,
-            )
-            perfdata += lib.base.get_perfdata(
-                f'{bd}_read_bytes',
-                data[0]['read_bytes'],
-                uom='c',
-                warn=None,
-                crit=None,
-                _min=0,
-                _max=None,
-            )
-            perfdata += lib.base.get_perfdata(
-                f'{bd}_read_time',
-                data[0]['read_time'],
-                uom='c',
-                warn=None,
-                crit=None,
-                _min=0,
-                _max=None,
-            )
-            perfdata += lib.base.get_perfdata(
-                f'{bd}_write_bytes',
-                data[0]['write_bytes'],
-                uom='c',
-                warn=None,
-                crit=None,
-                _min=0,
-                _max=None,
-            )
-            perfdata += lib.base.get_perfdata(
-                f'{bd}_write_time',
-                data[0]['write_time'],
-                uom='c',
-                warn=None,
-                crit=None,
-                _min=0,
-                _max=None,
-            )
-        except (KeyError, TypeError):
-            pass
+        # disk utilization (iostat's %util): share of wall-clock time the
+        # device was busy with I/O over the last interval. busy_time is a
+        # cumulative millisecond counter, so derive the value from the delta
+        # here rather than emitting the raw counter (see CONTRIBUTING: no
+        # continuous counters in perfdata).
+        busy_delta = data[0]['busy_time'] - data[1]['busy_time']
+        busy_percent = round(
+            max(0.0, min(100.0, busy_delta / (timediff1 * 1000) * 100)),
+            1,
+        )
+
+        # perfdata: emit per-second rates and utilization as gauges, never the
+        # raw cumulative counters. "throughput" is read + write per second; its
+        # _15 average carries the per-disk alerting threshold (a percentage of
+        # the observed maximum bandwidth).
+        perfdata += lib.base.get_perfdata(
+            f'{bd}_read_bytes_per_second1',
+            read_bytes_per_second1,
+            uom='B',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{bd}_read_bytes_per_second15',
+            read_bytes_per_second15,
+            uom='B',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{bd}_write_bytes_per_second1',
+            write_bytes_per_second1,
+            uom='B',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{bd}_write_bytes_per_second15',
+            write_bytes_per_second15,
+            uom='B',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{bd}_throughput1',
+            bandwidth1,
+            uom='B',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{bd}_throughput15',
+            bandwidth15,
+            uom='B',
+            warn=int(bandwidth_max * args.WARN / 100),
+            crit=int(bandwidth_max * args.CRIT / 100),
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{bd}_busy_percent',
+            busy_percent,
+            uom='%',
+            _min=0,
+            _max=100,
+        )
 
     # check iowait alerting (only if enough consecutive values collected)
     iowait_state = STATE_OK

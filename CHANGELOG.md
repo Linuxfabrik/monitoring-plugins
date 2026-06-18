@@ -19,6 +19,7 @@ Monitoring Plugins:
 Monitoring Plugins:
 
 * disk-io: iowait is now reported as saturated CPU cores (e.g. `1.02 cores`) instead of a percentage that could exceed 100% on multi-core hosts, and gets its own Grafana panel; the alerting thresholds keep their meaning and defaults, so no reconfiguration is needed
+* disk-io: per-disk performance data now reports read/write throughput per second and disk busy percentage as ready-to-graph values instead of raw cumulative counters; re-import the disk-io Grafana dashboard after updating ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 
 ### Fixed
 

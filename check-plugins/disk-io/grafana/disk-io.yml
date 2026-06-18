@@ -214,8 +214,6 @@ spec:
           type: field
         - params: []
           type: mean
-        - params: []
-          type: non_negative_difference
       tags:
       - key: hostname
         operator: '='
@@ -245,8 +243,6 @@ spec:
           type: field
         - params: []
           type: mean
-        - params: []
-          type: non_negative_difference
       tags:
       - key: hostname
         operator: '='
@@ -276,8 +272,6 @@ spec:
           type: field
         - params: []
           type: mean
-        - params: []
-          type: non_negative_difference
       tags:
       - key: hostname
         operator: '='
@@ -307,8 +301,6 @@ spec:
           type: field
         - params: []
           type: mean
-        - params: []
-          type: non_negative_difference
       tags:
       - key: hostname
         operator: '='
@@ -338,8 +330,6 @@ spec:
           type: field
         - params: []
           type: mean
-        - params: []
-          type: non_negative_difference
       tags:
       - key: hostname
         operator: '='
@@ -369,8 +359,6 @@ spec:
           type: field
         - params: []
           type: mean
-        - params: []
-          type: non_negative_difference
       tags:
       - key: hostname
         operator: '='
@@ -384,7 +372,7 @@ spec:
         value: /^${metric}_write_bytes_per_second15/
 
 
-  - title: Disk I/O - $metric - Bytes
+  - title: Disk I/O - $metric - Busy
     type: timeseries
     gridPos:
       h: 8
@@ -404,8 +392,9 @@ spec:
           spanNulls: false
         decimals: 1
         mappings: []
+        max: 100
         min: 0
-        unit: bytes
+        unit: percent
     options:
       legend:
         calcs:
@@ -420,7 +409,7 @@ spec:
 
     targets:
 
-    - alias: read_bytes
+    - alias: busy_percent
       groupBy:
       - params:
         - $interval
@@ -429,7 +418,7 @@ spec:
         - previous
         type: fill
       measurement: $command
-      refId: disk-io-read_bytes
+      refId: disk-io-busy_percent
       resultFormat: time_series
       select:
       - - params:
@@ -437,8 +426,6 @@ spec:
           type: field
         - params: []
           type: mean
-        - params: []
-          type: non_negative_difference
       tags:
       - key: hostname
         operator: '='
@@ -449,188 +436,5 @@ spec:
         value: $service
       - key: metric
         operator: =~
-        value: /^${metric}_read_bytes/
-
-    - alias: write_bytes
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      refId: disk-io-write_bytes
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-        - params: []
-          type: non_negative_difference
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - key: metric
-        operator: =~
-        value: /^${metric}_write_bytes/
-
-
-  - title: Disk I/O - $metric - Times
-    type: timeseries
-    gridPos:
-      h: 8
-      w: 12
-      x: 0
-      y: 18
-    fieldConfig:
-      defaults:
-        color:
-          mode: palette-classic
-        custom:
-          drawStyle: line
-          lineInterpolation: smooth
-          lineWidth: 1
-          pointSize: 3
-          showPoints: always
-          spanNulls: false
-        decimals: 2
-        mappings: []
-        unit: ms
-      overrides:
-      - __systemRef: hideSeriesFrom
-        matcher:
-          id: byNames
-          options:
-            mode: exclude
-            names:
-            - read_time
-            - write_time
-            prefix: 'All except:'
-        properties:
-        - id: custom.hideFrom
-          value:
-            viz: true
-    options:
-      legend:
-        calcs:
-        - first
-        - min
-        - mean
-        - max
-        - last
-        displayMode: table
-        placement: bottom
-        showLegend: true
-
-    targets:
-
-    - alias: busy_time
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      refId: disk-io-busy_time
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-        - params: []
-          type: non_negative_difference
-        - params:
-          - / 1000
-          type: math
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - key: metric
-        operator: =~
-        value: /^${metric}_busy_time/
-
-    - alias: read_time
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      refId: disk-io-read_time
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-        - params: []
-          type: non_negative_difference
-        - params:
-          - / 1000
-          type: math
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - key: metric
-        operator: =~
-        value: /^${metric}_read_time/
-
-    - alias: write_time
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      refId: disk-io-write_time
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-        - params: []
-          type: non_negative_difference
-        - params:
-          - / 1000
-          type: math
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - key: metric
-        operator: =~
-        value: /^${metric}_write_time/
+        value: /^${metric}_busy_percent/
 

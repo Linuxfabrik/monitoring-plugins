@@ -7,7 +7,7 @@ Checks disk I/O bandwidth over time and alerts on sustained saturation, not shor
 
 On Linux, the check also monitors how much I/O wait the system accumulates (CPU time spent waiting for I/O). The machine-wide iowait reported by the kernel is normalized to a per-core basis and shown as *saturated cores*: `1.0 cores` means the equivalent of one CPU core spent the whole interval waiting for I/O, `2.0 cores` means two, and so on. This is the same mental model as the load average. Reporting per-core instead of as a percentage of the whole machine is deliberate: it lets you deploy one identical threshold to an entire fleet. `--iowait-warning` and `--iowait-critical` are expressed in percent of a single core (default 80/90), so `90` means "alert when 1 core is stuck 90% in I/O wait", and that means the same thing on a 4-core VM and a 64-core VM, even when the core count changes over time. Like bandwidth alerts, iowait alerts require COUNT consecutive threshold violations.
 
-Perfdata is emitted for each disk (busy_time, read_bytes, read_time, write_bytes, write_time) and for iowait, so you can graph trends. On Linux the check focuses on block devices with a mounted filesystem by default; use `--include-unmounted` to also include raw, unmounted devices such as multipath SAN volumes. On Windows it uses psutil's disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders.
+Perfdata is emitted for each disk (read/write throughput per second and disk busy percentage) and for iowait, so you can graph trends. On Linux the check focuses on block devices with a mounted filesystem by default; use `--include-unmounted` to also include raw, unmounted devices such as multipath SAN volumes. On Windows it uses psutil's disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders.
 
 This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.
 
@@ -67,8 +67,8 @@ fleet-wide threshold works on every host regardless of its core count:
 --iowait-warning and --iowait-critical are given in percent of one core
 (default 80/90, i.e. alert near one saturated core). Like bandwidth alerts,
 iowait alerts require COUNT consecutive threshold violations. Perfdata is
-emitted for each disk (busy_time, read_bytes, read_time, write_bytes,
-write_time) and for iowait, so you can graph trends. On Linux the check
+emitted for each disk (read/write throughput per second and disk busy
+percentage) and for iowait, so you can graph trends. On Linux the check
 focuses on block devices with a mounted filesystem by default; use `--include-
 unmounted` to also include raw, unmounted devices such as multipath SAN
 volumes. On Windows it uses psutil's disk counters. Optionally, `--top` lists
@@ -200,15 +200,17 @@ Global:
 |----|----|----|
 | iowait | Number | Machine-wide I/O wait normalized to saturated CPU cores (`1.0` = one core fully waiting for I/O). Linux only. |
 
-Per matched disk, where `<disk>` is the block device name:
+Per matched disk, where `<disk>` is the block device name. The `1` suffix is the latest interval (like a "load1"), the `15` suffix is the average over the last `--count` runs (like a "load15"):
 
 | Name | Type | Description |
 |----|----|----|
-| `<disk>`\_busy_time | Continuous Counter | Time spent doing actual I/Os (in milliseconds). |
-| `<disk>`\_read_bytes | Continuous Counter | Number of bytes read. |
-| `<disk>`\_read_time | Continuous Counter | Time spent reading from disk (in milliseconds). |
-| `<disk>`\_write_bytes | Continuous Counter | Number of bytes written. |
-| `<disk>`\_write_time | Continuous Counter | Time spent writing to disk (in milliseconds). |
+| `<disk>`\_busy_percent | Percentage | Share of wall-clock time the device was busy with I/O over the last interval (iostat's %util). |
+| `<disk>`\_read_bytes_per_second1 | Bytes | Bytes read per second over the latest interval. |
+| `<disk>`\_read_bytes_per_second15 | Bytes | Bytes read per second, averaged over the last `--count` runs. |
+| `<disk>`\_throughput1 | Bytes | Read plus write bytes per second over the latest interval. |
+| `<disk>`\_throughput15 | Bytes | Read plus write bytes per second, averaged over the last `--count` runs. |
+| `<disk>`\_write_bytes_per_second1 | Bytes | Bytes written per second over the latest interval. |
+| `<disk>`\_write_bytes_per_second15 | Bytes | Bytes written per second, averaged over the last `--count` runs. |
 
 
 ## Troubleshooting
