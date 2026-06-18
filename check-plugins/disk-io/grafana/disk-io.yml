@@ -53,9 +53,89 @@ spec:
       hide: 2
       includeAll: true
       multi: true
-      regex: /^([^_]+)/
+      # Capture the disk prefix only from per-disk labels like "dm-0_busy_time".
+      # The global "iowait" label has no underscore, so it does not match and is
+      # excluded from this per-disk repeat (it has its own dedicated panel).
+      regex: /^([^_]+)_/
 
   panels:
+
+  # iowait is a system-wide CPU statistic (from /proc/stat), not a per-disk
+  # value, so it lives in its own non-repeated panel above the per-disk rows.
+  - title: iowait
+    type: row
+    gridPos:
+      h: 1
+      w: 24
+      x: 0
+      y: 0
+
+
+  - title: Disk I/O - iowait - Saturated Cores
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 24
+      x: 0
+      y: 1
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 2
+        mappings: []
+        min: 0
+        unit: short
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+
+    targets:
+
+    - alias: iowait
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      refId: disk-io-iowait
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - key: metric
+        operator: =~
+        value: /^iowait/
+
 
   - title: $metric
     type: row
@@ -63,7 +143,7 @@ spec:
       h: 1
       w: 24
       x: 0
-      y: 0
+      y: 9
     repeat: metric
     repeatDirection: h
 
@@ -74,7 +154,7 @@ spec:
       h: 8
       w: 12
       x: 0
-      y: 1
+      y: 10
     fieldConfig:
       defaults:
         color:
@@ -310,7 +390,7 @@ spec:
       h: 8
       w: 12
       x: 12
-      y: 1
+      y: 10
     fieldConfig:
       defaults:
         color:
@@ -409,7 +489,7 @@ spec:
       h: 8
       w: 12
       x: 0
-      y: 9
+      y: 18
     fieldConfig:
       defaults:
         color:

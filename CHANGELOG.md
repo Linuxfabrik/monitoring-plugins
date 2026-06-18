@@ -14,6 +14,12 @@ Monitoring Plugins:
 
 * network-errors: new check that alerts on receive and transmit interface errors ([#707](https://github.com/Linuxfabrik/monitoring-plugins/issues/707))
 
+### Changed
+
+Monitoring Plugins:
+
+* disk-io: iowait is now reported as saturated CPU cores (e.g. `1.02 cores`) instead of a percentage that could exceed 100% on multi-core hosts, and gets its own Grafana panel; the alerting thresholds keep their meaning and defaults, so no reconfiguration is needed
+
 ### Fixed
 
 Monitoring Plugins:

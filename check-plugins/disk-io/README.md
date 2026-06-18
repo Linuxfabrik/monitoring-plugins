@@ -5,7 +5,7 @@
 
 Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes. The check records per-disk read/write counters and then derives current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the period's total bandwidth against the maximum ever observed for that disk (RWmax). WARN/CRIT trigger if the period average exceeds the configured percentage of RWmax for COUNT consecutive runs.
 
-On Linux, the check also monitors the system-wide iowait percentage (CPU time spent waiting for I/O). The raw iowait value is normalized by multiplying it with the number of logical CPUs, so that 100% always means one CPU core is fully I/O-saturated, regardless of the total number of CPUs. This makes the default thresholds (80/90%) work consistently across different hardware. Like bandwidth alerts, iowait alerts require COUNT consecutive threshold violations.
+On Linux, the check also monitors how much I/O wait the system accumulates (CPU time spent waiting for I/O). The machine-wide iowait reported by the kernel is normalized to a per-core basis and shown as *saturated cores*: `1.0 cores` means the equivalent of one CPU core spent the whole interval waiting for I/O, `2.0 cores` means two, and so on. This is the same mental model as the load average. Reporting per-core instead of as a percentage of the whole machine is deliberate: it lets you deploy one identical threshold to an entire fleet. `--iowait-warning` and `--iowait-critical` are expressed in percent of a single core (default 80/90), so `90` means "alert when 1 core is stuck 90% in I/O wait", and that means the same thing on a 4-core VM and a 64-core VM, even when the core count changes over time. Like bandwidth alerts, iowait alerts require COUNT consecutive threshold violations.
 
 Perfdata is emitted for each disk (busy_time, read_bytes, read_time, write_bytes, write_time) and for iowait, so you can graph trends. On Linux the check focuses on block devices with a mounted filesystem by default; use `--include-unmounted` to also include raw, unmounted devices such as multipath SAN volumes. On Windows it uses psutil's disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders.
 
@@ -14,19 +14,19 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 **Important Notes:**
 
 * `--count=5` (the default) while checking every minute means that the check will alert if any of your disks have been above a threshold in the last 5 minutes
-* iowait is only available on Linux. Values above 100% indicate that more than one CPU core is waiting for I/O
+* iowait is only available on Linux. It is reported as saturated cores (`1.0` = one core fully waiting for I/O); a value above `1.0` cores is normal and means more than one core's worth of I/O wait
 * Plugin execution may take a moment due to process enumeration when `--top` is enabled
 
 **Data Collection:**
 
-* Uses `psutil` to collect per-disk I/O counters (read_bytes, write_bytes, busy_time, read_time, write_time)
+* Uses `psutil` to collect per-disk I/O counters (see Perfdata / Metrics for the full list)
 * On Linux, automatically detects "real" block devices that have mountpoints, filtering out virtual devices
-* On Linux, derives the system-wide iowait percentage non-blockingly from `/proc/stat` via `psutil.cpu_times()`
+* On Linux, derives the machine-wide iowait non-blockingly from `/proc/stat` via `psutil.cpu_times()`, then normalizes it to a per-core basis (saturated cores) so one fleet-wide threshold fits hosts of any core count
 * Stores counter snapshots in a local SQLite database and calculates deltas between consecutive runs
 * On the first run, returns "Waiting for more data." until at least two measurements are available
 * After a system reboot, counter values may be lower than the previous measurement. The check detects this and returns "Waiting for more data." until the next valid measurement pair
 * Disk I/O bandwidth tracking starts at 10 MiB/sec as a baseline, but stores the highest measured bandwidth, so the `RWmax/s` value adjusts accordingly over time. The check may throw warnings during the first major disk activities above 10 MiB/sec until the actual maximum bandwidth of the disk has been determined
-* On Linux, only block devices that have a mounted filesystem are monitored by default. Use `--include-unmounted` to also monitor raw, unmounted devices (multipath SAN volumes, raw database LUNs, disks used directly by Oracle ASM). Pseudo devices (loop, ram, zram, floppy, optical) are always excluded (see Troubleshooting)
+* On Linux, only block devices with a mounted filesystem are monitored by default; `--include-unmounted` adds raw, unmounted devices (see Troubleshooting). Pseudo devices (loop, ram, zram, floppy, optical) are always excluded
 * Disks can be filtered by `--match`, a Python regular expression. It is anchored at the start of the string (Python `re.match`) and matched against the full device path (for example `/dev/sda`), the device-mapper path (for example `/dev/mapper/vg-lv`), and the mountpoint. Prefix the pattern with `.*` to match anywhere in the path, for example `.*sda$` rather than `^sda$`
 
 
@@ -59,11 +59,13 @@ current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the
 period's total bandwidth against the maximum ever observed for that disk
 (RWmax). WARN/CRIT trigger if the period average exceeds the configured
 percentage of RWmax for COUNT consecutive runs. On Linux, the check also
-monitors the system-wide iowait percentage (CPU time spent waiting for I/O).
-The raw iowait value is normalized by multiplying it with the number of
-logical CPUs, so that 100% always means one CPU core is fully I/O-saturated,
-regardless of the total number of CPUs. This makes the default thresholds
-(80/90%) work consistently across different hardware. Like bandwidth alerts,
+monitors how much I/O wait the system accumulates (CPU time spent waiting for
+I/O). The machine-wide iowait is normalized to a per-core basis and reported
+as saturated cores, where 1.0 cores means the equivalent of one CPU core spent
+the whole interval waiting for I/O. Because the value is per-core, a single
+fleet-wide threshold works on every host regardless of its core count:
+--iowait-warning and --iowait-critical are given in percent of one core
+(default 80/90, i.e. alert near one saturated core). Like bandwidth alerts,
 iowait alerts require COUNT consecutive threshold violations. Perfdata is
 emitted for each disk (busy_time, read_bytes, read_time, write_bytes,
 write_time) and for iowait, so you can graph trends. On Linux the check
@@ -85,17 +87,21 @@ options:
                         percentage of the observed maximum, measured over the
                         last `--count` runs. Default: >= 90
   --iowait-critical IOWAIT_CRIT
-                        CRIT threshold for normalized iowait in percent (Linux
-                        only). The iowait value is normalized so that 100%
-                        means one CPU core is fully I/O-saturated. Values
-                        above 100% indicate that more than one core is waiting
-                        for I/O. Default: >= 90
+                        CRIT threshold for iowait, in percent of a single CPU
+                        core (Linux only). 100 means the equivalent of one
+                        core spent the whole interval waiting for I/O,
+                        independent of the host total core count, so the same
+                        threshold works fleet-wide regardless of how many
+                        cores a host has. The measured value is reported as
+                        saturated cores (e.g. 1.02 cores). Default: >= 90
   --iowait-warning IOWAIT_WARN
-                        WARN threshold for normalized iowait in percent (Linux
-                        only). The iowait value is normalized so that 100%
-                        means one CPU core is fully I/O-saturated. Values
-                        above 100% indicate that more than one core is waiting
-                        for I/O. Default: >= 80
+                        WARN threshold for iowait, in percent of a single CPU
+                        core (Linux only). 100 means the equivalent of one
+                        core spent the whole interval waiting for I/O,
+                        independent of the host total core count, so the same
+                        threshold works fleet-wide regardless of how many
+                        cores a host has. The measured value is reported as
+                        saturated cores (e.g. 1.02 cores). Default: >= 80
   --include-unmounted   Also monitor block devices that have no mounted
                         filesystem (Linux only). By default only block devices
                         with a mounted filesystem are monitored. Enable this
@@ -151,7 +157,7 @@ Monitor a raw, unmounted multipath SAN volume (for example an Oracle ASM disk):
 Output:
 
 ```text
-iowait: 0.1%. /dev/dm-8: 5.6KiB/s read1, 2.2MiB/s write1, 2.2MiB/s total, 10.0MiB/s max
+iowait: 0.00 cores saturated. /dev/dm-8: 5.6KiB/s read1, 2.2MiB/s write1, 2.2MiB/s total, 10.0MiB/s max
 
 Name ! MntPnts        ! DvMppr           ! RWmax/s ! R1/s   ! W1/s    ! R5/s   ! W5/s    ! RW5/s   
 -----+----------------+------------------+---------+--------+---------+--------+---------+---------
@@ -181,8 +187,8 @@ Top 5 processes that generate the most I/O traffic (r/w):
 * OK with "Waiting for more data." on the first run or after a reboot.
 * WARN if the bandwidth period average is >= `--warning` (default: 80%) of the observed maximum for `--count` (default: 5) consecutive runs.
 * CRIT if the bandwidth period average is >= `--critical` (default: 90%) of the observed maximum for `--count` (default: 5) consecutive runs.
-* WARN if iowait is >= `--iowait-warning` (default: 80%) for `--count` (default: 5) consecutive runs (Linux only).
-* CRIT if iowait is >= `--iowait-critical` (default: 90%) for `--count` (default: 5) consecutive runs (Linux only).
+* WARN if iowait reaches `--iowait-warning` (default: 80% of one core, i.e. 0.8 saturated cores) for `--count` (default: 5) consecutive runs (Linux only).
+* CRIT if iowait reaches `--iowait-critical` (default: 90% of one core, i.e. 0.9 saturated cores) for `--count` (default: 5) consecutive runs (Linux only).
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -192,7 +198,7 @@ Global:
 
 | Name | Type | Description |
 |----|----|----|
-| iowait | Percentage | System-wide normalized iowait (Linux only). |
+| iowait | Number | Machine-wide I/O wait normalized to saturated CPU cores (`1.0` = one core fully waiting for I/O). Linux only. |
 
 Per matched disk, where `<disk>` is the block device name:
 
@@ -220,6 +226,10 @@ Update the `psutil` library. On RHEL 8+, use at least `python38` and `python38-p
 ### `Waiting for more data.`
 
 This is expected on the first run. The check needs at least two measurements to calculate a delta. Wait for the next check interval.
+
+### iowait shows more than 1.0 cores
+
+This is expected, not an error. iowait is reported as saturated CPU cores, so on a multi-core host the value legitimately rises above `1.0` once more than one core's worth of I/O wait piles up (see the Overview for the per-core threshold rationale). When the alert fires, the host really does have roughly one or more cores stuck waiting for I/O, sustained over the last `--count` runs; investigate the busy disks and the `--top` process list, not the core count.
 
 ### A raw or unmounted device is missing
 

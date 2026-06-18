@@ -34,7 +34,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060202'
+__version__ = '2026061801'
 
 DESCRIPTION = """Checks disk I/O bandwidth over time and alerts on sustained saturation, not
 short spikes. The check records per-disk read/write counters and then derives current (R1/W1)
@@ -42,11 +42,13 @@ and period averages (R{COUNT}/W{COUNT}). It compares the period's total bandwidt
 maximum ever observed for that disk (RWmax). WARN/CRIT trigger if the period average exceeds
 the configured percentage of RWmax for COUNT consecutive runs.
 
-On Linux, the check also monitors the system-wide iowait percentage (CPU time spent waiting for
-I/O). The raw iowait value is normalized by multiplying it with the number of logical CPUs, so
-that 100% always means one CPU core is fully I/O-saturated, regardless of the total number of
-CPUs. This makes the default thresholds (80/90%) work consistently across different hardware.
-Like bandwidth alerts, iowait alerts require COUNT consecutive threshold violations.
+On Linux, the check also monitors how much I/O wait the system accumulates (CPU time spent
+waiting for I/O). The machine-wide iowait is normalized to a per-core basis and reported as
+saturated cores, where 1.0 cores means the equivalent of one CPU core spent the whole interval
+waiting for I/O. Because the value is per-core, a single fleet-wide threshold works on every
+host regardless of its core count: --iowait-warning and --iowait-critical are given in percent
+of one core (default 80/90, i.e. alert near one saturated core). Like bandwidth alerts, iowait
+alerts require COUNT consecutive threshold violations.
 
 Perfdata is emitted for each disk (busy_time, read_bytes, read_time, write_bytes, write_time)
 and for iowait, so you can graph trends. On Linux the check focuses on block devices with a
@@ -70,8 +72,8 @@ DEFAULT_MATCH = ''
 DEFAULT_TOP = 5
 DEFAULT_WARN = 80  # %
 
-DEFAULT_IOWAIT_CRIT = 90  # %; normalized so that 100% = one fully I/O-saturated core
-DEFAULT_IOWAIT_WARN = 80  # %
+DEFAULT_IOWAIT_CRIT = 90  # % of one core; 100 = one fully I/O-saturated core
+DEFAULT_IOWAIT_WARN = 80  # % of one core
 cpu_count = os.cpu_count() or 1
 
 
@@ -114,9 +116,11 @@ def parse_args():
 
     parser.add_argument(
         '--iowait-critical',
-        help='CRIT threshold for normalized iowait in percent (Linux only). '
-        'The iowait value is normalized so that 100%% means one CPU core is fully I/O-saturated. '
-        'Values above 100%% indicate that more than one core is waiting for I/O. '
+        help='CRIT threshold for iowait, in percent of a single CPU core (Linux only). '
+        '100 means the equivalent of one core spent the whole interval waiting for I/O, '
+        'independent of the host total core count, so the same threshold works fleet-wide '
+        'regardless of how many cores a host has. '
+        'The measured value is reported as saturated cores (e.g. 1.02 cores). '
         'Default: >= %(default)s',
         dest='IOWAIT_CRIT',
         type=int,
@@ -125,9 +129,11 @@ def parse_args():
 
     parser.add_argument(
         '--iowait-warning',
-        help='WARN threshold for normalized iowait in percent (Linux only). '
-        'The iowait value is normalized so that 100%% means one CPU core is fully I/O-saturated. '
-        'Values above 100%% indicate that more than one core is waiting for I/O. '
+        help='WARN threshold for iowait, in percent of a single CPU core (Linux only). '
+        '100 means the equivalent of one core spent the whole interval waiting for I/O, '
+        'independent of the host total core count, so the same threshold works fleet-wide '
+        'regardless of how many cores a host has. '
+        'The measured value is reported as saturated cores (e.g. 1.02 cores). '
         'Default: >= %(default)s',
         dest='IOWAIT_WARN',
         type=int,
@@ -457,7 +463,14 @@ def main():
     )
     iowait_pct = get_iowait(conn)
     if iowait_pct is not None:
-        # normalize: multiply by cpu_count so that 100% = one fully I/O-saturated core
+        # Normalize to "per one core": multiply the raw machine-wide iowait%
+        # by cpu_count so that 100 = one fully I/O-saturated core, independent of
+        # the host's total core count. This is what lets a single fleet-wide
+        # threshold (--iowait-warning/--iowait-critical, in percent of one core)
+        # mean the same thing on every host, no matter how many cores the VM has
+        # or how that count changes over time. Stored here in percent-of-one-core
+        # so the threshold comparison stays in percent; the value is shown to the
+        # admin as saturated cores further down.
         iowait_pct = round(iowait_pct * cpu_count, 1)
         lib.base.coe(
             lib.db_sqlite.insert(
@@ -732,16 +745,26 @@ def main():
 
     # prepend iowait to the message
     if iowait_pct is not None:
+        # iowait_pct is normalized so that 100 = one fully I/O-saturated core
+        # (see the cpu_count scaling above). Report it to the admin as saturated
+        # cores ("1.02 cores saturated") rather than a percentage that can exceed
+        # 100%, mirroring the load-average mental model. The thresholds stay in
+        # percent of one core (80/90), so perfdata warn/crit are their cores
+        # equivalents (0.8/0.9).
+        iowait_cores = round(iowait_pct / 100, 2)
+        # pluralize() decides on int(value), so a fractional value like 1.02
+        # would truncate to 1 and read "core"; only call it singular at exactly 1.
+        core_word = lib.txt.pluralize('core', 1 if iowait_cores == 1 else 2)
         iowait_msg = (
-            f'iowait: {iowait_pct}%{lib.base.state2str(iowait_state, prefix=" ")}'
+            f'iowait: {iowait_cores:.2f} {core_word} saturated'
+            f'{lib.base.state2str(iowait_state, prefix=" ")}'
         )
         msg = f'{iowait_msg}. {msg}'
         perfdata += lib.base.get_perfdata(
             'iowait',
-            iowait_pct,
-            uom='%',
-            warn=args.IOWAIT_WARN,
-            crit=args.IOWAIT_CRIT,
+            iowait_cores,
+            warn=args.IOWAIT_WARN / 100,
+            crit=args.IOWAIT_CRIT / 100,
             _min=0,
             _max=None,
         )
