@@ -16,10 +16,22 @@ Director basket that is shipped with the monitoring plugins. See
 
 ### basket-compare
 
-Compare two Director baskets and print the differences as one table per
+Compare two Director baskets and print the differences as tables per
 object class (Datafield, Command, Host Template, Service Template,
-Service Set). Useful before committing a regenerated basket to see what
-actually changed.
+Service Set). Reports the objects changed in both baskets. An import
+overwrites the objects it contains, so an object that exists on just one
+side is never touched; those `Only in ...` tables are hidden unless
+`--all` is given. Useful before committing a regenerated basket, or to
+compare a live export against the pristine committed basket to find
+manual modifications that a re-import would overwrite.
+
+A changed row shows the differing field with its `left` and `right`
+values. A whole added or removed sub-object (a service, a command
+argument or a field binding) is collapsed into a single row instead of
+one row per attribute. Field-binding rows name the datafield by its
+varname, and noise from the Director export (the `is_required` flag, and
+values stored as a number on one side and a string on the other) is
+suppressed.
 
 ```bash
 tools/basket-compare old-basket.json new-basket.json

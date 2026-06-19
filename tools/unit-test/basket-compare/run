@@ -1,0 +1,77 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Golden-file tests for the basket-compare tool.
+
+Runs the tool against the committed example baskets and compares its
+stdout to the `expected-*.txt` snapshots. The baskets are hand-crafted
+with fixed uuids so the output is deterministic. Trailing whitespace
+(the table column padding) is ignored on both sides, so the snapshots
+stay clean for the trailing-whitespace pre-commit hook. To refresh the
+snapshots after an intended output change, run from this directory:
+
+    ../../basket-compare left.json right.json > expected.txt
+    ../../basket-compare --all left.json right.json > expected-all.txt
+"""
+
+import pathlib
+import subprocess
+import sys
+import unittest
+
+HERE = pathlib.Path(__file__).resolve().parent
+TOOL = HERE.parent.parent / 'basket-compare'
+
+
+def normalize(text):
+    """Ignore trailing whitespace and trailing blank lines.
+
+    Table padding leaves trailing spaces, and the end-of-file pre-commit
+    hook trims the snapshot's trailing blank line; normalising both away
+    keeps the comparison stable regardless of either.
+    """
+    lines = [line.rstrip() for line in text.splitlines()]
+    while lines and not lines[-1]:
+        lines.pop()
+    return '\n'.join(lines)
+
+
+def run_tool(*args):
+    """Invoke basket-compare from this directory and return its stdout."""
+    proc = subprocess.run(
+        [sys.executable, str(TOOL), *args],
+        capture_output=True,
+        cwd=HERE,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise AssertionError(f'basket-compare failed: {proc.stderr}')
+    return proc.stdout
+
+
+class TestBasketCompare(unittest.TestCase):
+    """Compare tool output against the committed snapshots."""
+
+    def assert_matches(self, expected_name, *args):
+        expected = (HERE / expected_name).read_text(encoding='utf-8')
+        self.assertEqual(normalize(run_tool(*args)), normalize(expected))
+
+    def test_default(self):
+        # default: changed rows only (incl. element-level list and long-list marker)
+        self.assert_matches('expected.txt', 'left.json', 'right.json')
+
+    def test_all(self):
+        # --all also shows only-in-left (teams) and only-in-right (obsolete_field)
+        self.assert_matches('expected-all.txt', '--all', 'left.json', 'right.json')
+
+
+if __name__ == '__main__':
+    unittest.main()
