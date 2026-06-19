@@ -1,0 +1,88 @@
+{
+    "Datafield": {
+        "1": {
+            "varname": "dummy_message",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "00000000-0000-0000-0000-00000dummymsg"
+        },
+        "2": {
+            "varname": "obsolete_field",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {},
+            "uuid": "00000000-0000-0000-0000-0000obsolete00"
+        }
+    },
+    "Command": {
+        "cmd-check-dummy": {
+            "object_name": "cmd-check-dummy",
+            "object_type": "object",
+            "command": "/usr/lib64/nagios/plugins/dummy",
+            "timeout": "10",
+            "arguments": {
+                "--message": {
+                    "value": "$dummy_message$"
+                }
+            },
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "vars": {
+                "dummy_null": null,
+                "dummy_real": "kept"
+            },
+            "uuid": "00000000-0000-0000-0000-0000cmddummy0"
+        }
+    },
+    "HostTemplate": {},
+    "ServiceTemplate": {
+        "tpl-service-dummy": {
+            "object_name": "tpl-service-dummy",
+            "object_type": "template",
+            "check_command": "cmd-check-dummy",
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": "host.name"
+                }
+            ],
+            "vars": {
+                "dummy_state": "ok",
+                "dummy_num": 129600,
+                "dummy_ignore": ["alpha", "delta"]
+            },
+            "uuid": "00000000-0000-0000-0000-000tpldummy00"
+        }
+    },
+    "ServiceSet": {
+        "tpl-set-dummy": {
+            "object_name": "tpl-set-dummy",
+            "object_type": "template",
+            "assign_filter": "\"dummy\"=host.vars.tags",
+            "services": {
+                "Dummy Service": {
+                    "object_name": "Dummy Service",
+                    "object_type": "object",
+                    "check_interval": 60,
+                    "uuid": "00000000-0000-0000-0000-00svcdummy000"
+                },
+                "Extra Service": {
+                    "object_name": "Extra Service",
+                    "object_type": "object",
+                    "check_interval": 90,
+                    "uuid": "00000000-0000-0000-0000-00000svcextra"
+                }
+            },
+            "uuid": "00000000-0000-0000-0000-000setdummy00"
+        }
+    }
+}

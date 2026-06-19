@@ -10,16 +10,22 @@
 
 """Compare two Icinga Director baskets and print the differences as tables.
 
-Run this before committing a regenerated basket to see what
-actually changed: loads the old committed basket and the freshly
-generated one, normalises each Director object class (Datafield,
-Command, Host Template, Service Template, Service Set) into a
-flat uuid-indexed shape, diffs the two dicts with deepdiff, and
-prints one table per object class with only the changed rows.
+Importing a basket overwrites every object it contains, so any manual
+adjustment made in the Director is silently lost on the next import.
+This tool surfaces what would change. It normalises each Director object
+class (Datafield, Command, Host Template, Service Template, Service Set)
+into a flat uuid-indexed shape and reports the deltas.
 
-Useful during plugin development when you want to double-check
-that a `--help` change only moved a datafield description and did
-not accidentally also rewire a command's arguments.
+It reports the objects that exist in both baskets with a changed field.
+An import overwrites the objects it contains, so an object that exists on
+just one side is never touched; those `Only in ...` tables are hidden
+unless `--all` is given. Typical uses:
+
+  - left = live export (current version plus manual modifications),
+    right = the pristine committed basket of the same version. Every
+    delta is a manual modification, so the output is pure signal.
+  - left = live export, right = the new release basket. Shows the
+    total impact of the upcoming import, intended changes included.
 """
 
 import argparse
@@ -29,14 +35,16 @@ from pathlib import Path
 
 import _basket
 import _common
-from deepdiff import DeepDiff
 
 import lib.base
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026050801'
+__version__ = '2026061819'
 
-DESCRIPTION = """Compare two Icinga Director baskets and highlight the differences."""
+DESCRIPTION = """Compare Icinga Director baskets and highlight the differences."""
+
+# Sentinel for a field that is absent on one side of a comparison.
+MISSING = object()
 
 
 def parse_args():
@@ -51,14 +59,23 @@ def parse_args():
     )
 
     parser.add_argument(
-        'current_basket',
-        help='Path to the current (committed) Icinga Director basket JSON.',
+        '--all',
+        action='store_true',
+        dest='show_all',
+        help='Also show the "Only in ..." tables (objects that exist on just one '
+        'side). By default only the changed objects are shown, since an import '
+        'never touches an object it does not contain.',
+    )
+
+    parser.add_argument(
+        'left',
+        help='Path to the left (e.g. live export) Icinga Director basket JSON.',
         type=Path,
     )
 
     parser.add_argument(
-        'new_basket',
-        help='Path to the new (freshly built) Icinga Director basket JSON.',
+        'right',
+        help='Path to the right (e.g. pristine committed) Icinga Director basket JSON.',
         type=Path,
     )
 
@@ -69,15 +86,17 @@ def get_val(d):
     """Flatten a Director field value into a printable string.
 
     Bools, ints, floats and dicts are rendered via `str()` /
-    `json.dumps()`; `None` becomes the literal `'None'`; anything
-    longer than 80 characters is replaced by a short marker so
-    the table output stays aligned.
+    `json.dumps()`; `None` becomes the literal `'None'`; the `MISSING`
+    sentinel becomes `'-'`; anything longer than 80 characters is
+    replaced by a short marker so the table output stays aligned.
     """
+    if d is MISSING:
+        return '-'
     if d is None:
         return 'None'
     if isinstance(d, bool):
         tmp = str(d)
-    elif isinstance(d, dict):
+    elif isinstance(d, (dict, list)):
         tmp = json.dumps(d)
     elif isinstance(d, (float, int)):
         tmp = str(d)
@@ -88,10 +107,21 @@ def get_val(d):
     return tmp
 
 
+def _short_uuid(uuid):
+    """Truncate a uuid to its last two dash-groups, keeping the dash.
+
+    Keeps the fragment short but still a recognisable, dash-anchored uuid
+    tail that greps against the full uuid in the basket (e.g.
+    `942a-10ae41c8a194`). Used both for the object `uuid` column and for
+    the datafield uuid inside field-binding labels.
+    """
+    return '-'.join(uuid.split('-')[-2:])
+
+
 def normalize_datafields(basket):
     result = {}
     for d in basket['Datafield'].values():
-        uuid = d.get('uuid')[-12:]
+        uuid = _short_uuid(d.get('uuid'))
         result[uuid] = {}
         result[uuid]['datatype'] = d.get('datatype')
         result[uuid]['format'] = d.get('format')
@@ -100,13 +130,13 @@ def normalize_datafields(basket):
         result[uuid]['uuid'] = uuid
         result[uuid]['varname'] = d.get('varname')
 
-    return {'Datafield': result}
+    return result
 
 
 def normalize_commands(basket):
     result = {}
     for d in basket['Command'].values():
-        uuid = d.get('uuid')[-12:]
+        uuid = _short_uuid(d.get('uuid'))
         result[uuid] = {}
 
         for k, v in d.get('arguments', {}).items():
@@ -150,14 +180,14 @@ def normalize_commands(basket):
 
         result[uuid]['zone'] = d.get('zone')
 
-    return {'Command': result}
+    return result
 
 
 def normalize_host_templates(basket):
     # deactivated those that are not of interest
     result = {}
     for d in basket['HostTemplate'].values():
-        uuid = d.get('uuid')[-12:]
+        uuid = _short_uuid(d.get('uuid'))
         result[uuid] = {}
         result[uuid]['accept_config'] = d.get('accept_config')
         result[uuid]['action_url'] = d.get('action_url')
@@ -217,14 +247,14 @@ def normalize_host_templates(basket):
         result[uuid]['volatile'] = d.get('volatile')
         result[uuid]['zone'] = d.get('zone')
 
-    return {'HostTemplate': result}
+    return result
 
 
 def normalize_service_templates(basket):
     # deactivated those that are not of interest
     result = {}
     for d in basket['ServiceTemplate'].values():
-        uuid = d.get('uuid')[-12:]
+        uuid = _short_uuid(d.get('uuid'))
         result[uuid] = {}
 
         result[uuid]['action_url'] = d.get('action_url')
@@ -285,14 +315,14 @@ def normalize_service_templates(basket):
         result[uuid]['volatile'] = d.get('volatile')
         result[uuid]['zone'] = d.get('zone')
 
-    return {'ServiceTemplate': result}
+    return result
 
 
 def normalize_service_sets(basket):
     # deactivated those that are not of interest
     result = {}
     for d in basket['ServiceSet'].values():
-        uuid = d.get('uuid')[-12:]
+        uuid = _short_uuid(d.get('uuid'))
         result[uuid] = {}
 
         result[uuid]['assign_filter'] = d.get('assign_filter', '')
@@ -305,511 +335,329 @@ def normalize_service_sets(basket):
             tmp = {}
             for s in d['services']:
                 tmp[s['object_name']] = s
-            services = normalize_service_templates({'ServiceTemplate': tmp})[
-                'ServiceTemplate'
-            ]
+            services = normalize_service_templates({'ServiceTemplate': tmp})
         else:
-            services = normalize_service_templates({'ServiceTemplate': d['services']})[
-                'ServiceTemplate'
-            ]
-        # ignore those
-        result[uuid]['services'] = services
+            services = normalize_service_templates({'ServiceTemplate': d['services']})
+
+        # flatten the embedded service templates into the parent object, so the
+        # whole basket has the uniform `{uuid: {field: value}}` shape and the
+        # generic comparator can handle Service Sets like every other class
+        for svc_uuid, svc in services.items():
+            for k, v in svc.items():
+                result[uuid][f'services.{svc_uuid}.{k}'] = v
 
         result[uuid]['uuid'] = uuid
 
-    return {'ServiceSet': result}
+    return result
 
 
-def compare_datafields(left, right):
-    added = []
-    changed = []
-    removed = []
-    for left_item in left['Datafield'].values():
-        found_in_r = False
-        for r in right['Datafield'].values():
-            if left_item == r:
-                # exactly the same, so nothing to do, next in outer loop
-                found_in_r = True
-                break
-            if left_item['uuid'] == r['uuid']:
-                # found, but something has changed
-                found_in_r = True
-                ddiff = DeepDiff(left_item, r, ignore_order=True, verbose_level=2)
-                if ddiff:
-                    changed.append(
-                        {'uuid': r['uuid'], 'varname': r['varname'], 'diff': ddiff}
-                    )
-                break
+def diff_objects(left, right):
+    """Diff two normalised object dicts, joined on uuid.
+
+    Returns `(only_left, only_right, changed)`. `only_left` and
+    `only_right` are `{uuid: obj}` dicts of objects that exist on just
+    one side; `changed` is `{uuid: [field rows]}` for objects that
+    exist on both with at least one differing field.
+    """
+    only_left = {uuid: obj for uuid, obj in left.items() if uuid not in right}
+    only_right = {uuid: obj for uuid, obj in right.items() if uuid not in left}
+    changed = {}
+    for uuid, left_obj in left.items():
+        if uuid not in right:
+            continue
+        rows = field_diff(left_obj, right[uuid])
+        if rows:
+            changed[uuid] = rows
+    return only_left, only_right, changed
+
+
+# Flattened keys of these classes carry a nested sub-object under
+# `<class>.<id>.<leaf>`. When a whole sub-object is added or removed, it
+# is reported as one row instead of one row per leaf.
+_GROUP_NOUN = {
+    'arguments': 'argument',
+    'fields': 'field-binding',
+    'services': 'service',
+}
+
+
+def _group_prefix(key):
+    """Return the `<class>.<id>` group a flat key belongs to, or None."""
+    parts = key.split('.')
+    if len(parts) >= 3 and parts[0] in _GROUP_NOUN:
+        return f'{parts[0]}.{parts[1]}'
+    return None
+
+
+def _groups(obj):
+    """Collect the `<class>.<id>` sub-object groups present in a flat object."""
+    return {prefix for key in obj if (prefix := _group_prefix(key))}
+
+
+def build_datafield_map(*baskets):
+    """Map every datafield uuid to its varname across the given baskets."""
+    dfmap = {}
+    for basket in baskets:
+        for datafield in basket['Datafield'].values():
+            dfmap[datafield['uuid']] = datafield.get('varname', '')
+    return dfmap
+
+
+def _label_field_binding(key, dfmap):
+    """Rewrite `fields.<datafield-uuid>` into `fields.<varname> (<uuid tail>)`.
+
+    A field binding is identified by the uuid of the datafield it points
+    at, which is opaque. Prefix it with the datafield's varname so the
+    row is readable, and show the truncated, dash-preserving uuid tail so
+    it stays greppable against the basket. Leaves every other key
+    untouched, and falls back to the bare uuid tail if the datafield is
+    unknown.
+    """
+    parts = key.split('.')
+    out = []
+    i = 0
+    while i < len(parts):
+        if parts[i] == 'fields' and i + 1 < len(parts) and parts[i + 1] in dfmap:
+            short = _short_uuid(parts[i + 1])
+            varname = dfmap[parts[i + 1]]
+            out.append(f'fields.{varname} ({short})' if varname else f'fields.{short}')
+            i += 2
         else:
-            # last element
-            if r['uuid'] not in added:
-                added.append({'uuid': r['uuid'], 'varname': r['varname'], 'diff': None})
-        if not found_in_r:
-            removed.append({'uuid': r['uuid'], 'varname': r['varname'], 'diff': None})
-
-    return added, changed, removed
+            out.append(parts[i])
+            i += 1
+    return '.'.join(out)
 
 
-def compare_commands(left, right):
-    added = []
-    changed = []
-    removed = []
-    for left_item in left['Command'].values():
-        found_in_r = False
-        for r in right['Command'].values():
-            if left_item == r:
-                # exactly the same, so nothing to do, next in outer loop
-                found_in_r = True
-                break
-            if left_item['uuid'] == r['uuid']:
-                # found, but something has changed
-                found_in_r = True
-                ddiff = DeepDiff(left_item, r, ignore_order=True, verbose_level=2)
-                if ddiff:
-                    changed.append(
-                        {
-                            'uuid': r['uuid'],
-                            'object_name': r['object_name'],
-                            'diff': ddiff,
-                        }
-                    )
-                break
-        else:
-            # last element
-            if r['uuid'] not in added:
-                added.append(
-                    {'uuid': r['uuid'], 'object_name': r['object_name'], 'diff': None}
+def _is_nullish(value):
+    """An absent-vs-empty field carries no information worth a row."""
+    return value is None or value in ('', [], {})
+
+
+# Leaf field names whose diffs are pure noise and are dropped everywhere.
+# `is_required`: Director's basket import/export does not round-trip the
+# field-binding `is_required` flag faithfully (it flips between null, 'n'
+# and 'y' on its own), so comparing it produces spurious changes on every
+# field binding rather than reflecting a real edit.
+_IGNORED_LEAVES = ('is_required',)
+
+
+def _is_ignored(key):
+    """True for flat keys whose leaf is a known-noisy field (see above)."""
+    return key.rsplit('.', 1)[-1] in _IGNORED_LEAVES
+
+
+def _same_value(a, b):
+    """Equality that ignores Director's number-vs-string serialisation.
+
+    Director's basket import/export stores some scalar values
+    inconsistently as a JSON number in one basket and the same digits as
+    a string in another (e.g. 129600 vs "129600"). Such pairs are the
+    same value and must not be reported as a change. Bools are excluded
+    so that True/False never collapses into 1/0.
+    """
+    if a == b:
+        return True
+    if (
+        isinstance(a, (int, float, str))
+        and isinstance(b, (int, float, str))
+        and not isinstance(a, bool)
+        and not isinstance(b, bool)
+    ):
+        return str(a) == str(b)
+    return False
+
+
+def field_diff(left_obj, right_obj):
+    """Compare two flat objects key by key.
+
+    Returns a list of `{field, kind, old, new}`. `kind` is `changed`
+    (key on both sides, different value), `removed` (key only on the
+    left) or `added` (key only on the right). To keep the table
+    readable:
+
+    - a whole nested sub-object (`services.<id>`, `fields.<id>`,
+      `arguments.<id>`) added or removed is collapsed into a single
+      `group_added` / `group_removed` row;
+    - when both sides of a changed field are lists, the field is
+      reported element by element (`item removed` / `item added`);
+    - an added or removed leaf whose value is empty (None, '', [], {})
+      is dropped as noise.
+    """
+    rows = []
+    collapsed = _groups(left_obj) ^ _groups(right_obj)
+    for group in sorted(_groups(right_obj) - _groups(left_obj)):
+        rows.append(_group_row(group, right_obj, 'group_added'))
+    for group in sorted(_groups(left_obj) - _groups(right_obj)):
+        rows.append(_group_row(group, left_obj, 'group_removed'))
+
+    for key in sorted(set(left_obj) | set(right_obj)):
+        if _group_prefix(key) in collapsed or _is_ignored(key):
+            continue
+        in_left = key in left_obj
+        in_right = key in right_obj
+        if in_left and in_right:
+            lv = left_obj[key]
+            rv = right_obj[key]
+            if _same_value(lv, rv):
+                continue
+            if isinstance(lv, list) and isinstance(rv, list):
+                rows.extend(_list_delta(key, lv, rv))
+            else:
+                rows.append({'field': key, 'kind': 'changed', 'old': lv, 'new': rv})
+        elif in_left:
+            if not _is_nullish(left_obj[key]):
+                rows.append(
+                    {
+                        'field': key,
+                        'kind': 'removed',
+                        'old': left_obj[key],
+                        'new': MISSING,
+                    }
                 )
-        if not found_in_r:
-            removed.append(
-                {'uuid': r['uuid'], 'object_name': r['object_name'], 'diff': None}
-            )
-
-    return added, changed, removed
-
-
-def compare_host_templates(left, right):
-    added = []
-    changed = []
-    removed = []
-    for left_item in left['HostTemplate'].values():
-        found_in_r = False
-        for r in right['HostTemplate'].values():
-            if left_item == r:
-                # exactly the same, so nothing to do, next in outer loop
-                found_in_r = True
-                break
-            if left_item['uuid'] == r['uuid']:
-                # found, but something has changed
-                found_in_r = True
-                ddiff = DeepDiff(left_item, r, ignore_order=True, verbose_level=2)
-                if ddiff:
-                    changed.append(
-                        {
-                            'uuid': r['uuid'],
-                            'object_name': r['object_name'],
-                            'diff': ddiff,
-                        }
-                    )
-                break
         else:
-            # last element
-            if r['uuid'] not in added:
-                added.append(
-                    {'uuid': r['uuid'], 'object_name': r['object_name'], 'diff': None}
+            if not _is_nullish(right_obj[key]):
+                rows.append(
+                    {
+                        'field': key,
+                        'kind': 'added',
+                        'old': MISSING,
+                        'new': right_obj[key],
+                    }
                 )
-        if not found_in_r:
-            removed.append(
-                {'uuid': r['uuid'], 'object_name': r['object_name'], 'diff': None}
+    return rows
+
+
+def _group_row(group, obj, kind):
+    """Build a single collapsed row for a whole added/removed sub-object.
+
+    The displayed value names the sub-object: a service's `object_name`
+    or the argument name. Field bindings carry their identity (datafield
+    name plus truncated uuid) in the `changed` column instead, so their
+    value columns stay empty.
+    """
+    cls = group.split('.')[0]
+    noun = _GROUP_NOUN[cls]
+    if cls == 'fields':
+        name = MISSING
+    else:
+        name = (
+            obj.get(f'{group}.object_name')
+            or obj.get(f'{group}.datafield_id')
+            or group.split('.', 1)[1]
+        )
+    side = 'added' if kind == 'group_added' else 'removed'
+    return {
+        'field': group,
+        'kind': kind,
+        'what': f'{noun} {side}',
+        'old': MISSING if kind == 'group_added' else name,
+        'new': name if kind == 'group_added' else MISSING,
+    }
+
+
+def _list_delta(key, old_list, new_list):
+    """Report two list values element by element, preserving order.
+
+    Elements only in the old list become `item removed` rows, elements
+    only in the new list become `item added` rows. Membership is by
+    value, so a reordering with the same elements yields no rows.
+    """
+    rows = []
+    for elem in old_list:
+        if elem not in new_list:
+            rows.append(
+                {'field': key, 'kind': 'item_removed', 'old': elem, 'new': MISSING}
             )
-
-    return added, changed, removed
-
-
-def compare_service_templates(left, right):
-    added = []
-    changed = []
-    removed = []
-    for left_item in left['ServiceTemplate'].values():
-        found_in_r = False
-        for r in right['ServiceTemplate'].values():
-            if left_item == r:
-                # exactly the same, so nothing to do, next in outer loop
-                found_in_r = True
-                break
-            if left_item['uuid'] == r['uuid']:
-                # found, but something has changed
-                found_in_r = True
-                ddiff = DeepDiff(left_item, r, ignore_order=True, verbose_level=2)
-                if ddiff:
-                    changed.append(
-                        {
-                            'uuid': r['uuid'],
-                            'object_name': r['object_name'],
-                            'diff': ddiff,
-                        }
-                    )
-                break
-        else:
-            # last element
-            if r['uuid'] not in added:
-                added.append(
-                    {'uuid': r['uuid'], 'object_name': r['object_name'], 'diff': None}
-                )
-        if not found_in_r:
-            removed.append(
-                {'uuid': r['uuid'], 'object_name': r['object_name'], 'diff': None}
+    for elem in new_list:
+        if elem not in old_list:
+            rows.append(
+                {'field': key, 'kind': 'item_added', 'old': MISSING, 'new': elem}
             )
-
-    return added, changed, removed
-
-
-def compare_service_sets(left, right):
-    added = []
-    changed = []
-    removed = []
-    for left_item in left['ServiceSet'].values():
-        found_in_r = False
-        for r in right['ServiceSet'].values():
-            if left_item == r:
-                # exactly the same, so nothing to do, next in outer loop
-                found_in_r = True
-                break
-            if left_item['uuid'] == r['uuid']:
-                # found, but something has changed
-                found_in_r = True
-                ddiff = DeepDiff(left_item, r, ignore_order=True, verbose_level=2)
-                if ddiff:
-                    changed.append(
-                        {
-                            'uuid': r['uuid'],
-                            'object_name': r['object_name'],
-                            'diff': ddiff,
-                        }
-                    )
-                break
-        else:
-            # last element
-            if r['uuid'] not in added:
-                added.append(
-                    {'uuid': r['uuid'], 'object_name': r['object_name'], 'diff': None}
-                )
-        if not found_in_r:
-            removed.append(
-                {'uuid': r['uuid'], 'object_name': r['object_name'], 'diff': None}
-            )
-
-    return added, changed, removed
+    return rows
 
 
-def get_datafields_diff(diff):
-    table_data = []
-    for d in diff:
-        for category, changes in d['diff'].items():
-            if category == 'values_changed':
-                for k, v in changes.items():
-                    tmp = {}
-                    tmp['varname'] = d['varname']
-                    tmp['uuid'] = d['uuid']
-                    tmp['what'] = 'value changed'
-                    tmp['changed'] = k.replace("root['", '').replace("']", '')
-                    tmp['old_value'] = get_val(v['old_value'])
-                    tmp['new_value'] = get_val(v['new_value'])
-                    table_data.append(tmp)
-            elif category == 'dictionary_item_added':
-                for k, v in changes.items():
-                    tmp = {}
-                    tmp['varname'] = d['varname']
-                    tmp['uuid'] = d['uuid']
-                    tmp['what'] = 'item added'
-                    tmp['changed'] = k.replace("root['", '').replace("']", '')
-                    tmp['old_value'] = '-'
-                    tmp['new_value'] = get_val(v)
-                    table_data.append(tmp)
-            elif category == 'dictionary_item_removed':
-                for k, v in changes.items():
-                    tmp = {}
-                    tmp['varname'] = d['varname']
-                    tmp['uuid'] = d['uuid']
-                    tmp['what'] = 'item removed'
-                    tmp['changed'] = k.replace("root['", '').replace("']", '')
-                    tmp['old_value'] = get_val(v)
-                    tmp['new_value'] = '-'
-                    table_data.append(tmp)
-            else:
-                _common.die(f'unhandled deepdiff category: {category}')
-
-    return table_data
-
-
-def get_commands_diff(diff):
-    table_data = []
-    for d in diff:
-        for category, changes in d['diff'].items():
-            if category == 'dictionary_item_removed':
-                # not of any interest
-                continue
-            if category == 'dictionary_item_added':
-                # not of any interest
-                continue
-            if category == 'values_changed':
-                for k, v in changes.items():
-                    tmp = {}
-                    tmp['object_name'] = d['object_name']
-                    tmp['uuid'] = d['uuid']
-                    tmp['what'] = 'value changed'
-                    tmp['changed'] = k.replace("root['", '').replace("']", '')
-                    tmp['old_value'] = get_val(v['old_value'])
-                    tmp['new_value'] = get_val(v['new_value'])
-                    table_data.append(tmp)
-            elif category == 'type_changes':
-                for k, v in changes.items():
-                    tmp = {}
-                    tmp['object_name'] = d['object_name']
-                    tmp['uuid'] = d['uuid']
-                    tmp['what'] = 'type changed'
-                    tmp['changed'] = k.replace("root['", '').replace("']", '')
-                    tmp['old_value'] = f'{v["old_type"]} ("{get_val(v["old_value"])}")'
-                    tmp['new_value'] = f'{v["new_type"]} ("{get_val(v["new_value"])}")'
-                    table_data.append(tmp)
-            else:
-                _common.die(f'unhandled deepdiff category: {category}')
-
-    return table_data
-
-
-def get_host_templates_diff(diff):
-    table_data = []
-    for d in diff:
-        for category, changes in d['diff'].items():
-            if category == 'dictionary_item_removed':
-                # not of any interest
-                continue
-            if category == 'dictionary_item_added':
-                # not of any interest
-                continue
-            if category == 'values_changed':
-                for k, v in changes.items():
-                    tmp = {}
-                    tmp['object_name'] = d['object_name']
-                    tmp['uuid'] = d['uuid']
-                    tmp['what'] = 'value changed'
-                    tmp['changed'] = k.replace("root['", '').replace("']", '')
-                    tmp['old_value'] = get_val(v['old_value'])
-                    tmp['new_value'] = get_val(v['new_value'])
-                    table_data.append(tmp)
-            elif category == 'type_changes':
-                for k, v in changes.items():
-                    tmp = {}
-                    tmp['object_name'] = d['object_name']
-                    tmp['uuid'] = d['uuid']
-                    tmp['what'] = 'type changed'
-                    tmp['changed'] = k.replace("root['", '').replace("']", '')
-                    tmp['old_value'] = f'{v["old_type"]} ("{get_val(v["old_value"])}")'
-                    tmp['new_value'] = f'{v["new_type"]} ("{get_val(v["new_value"])}")'
-                    table_data.append(tmp)
-            else:
-                _common.die(f'unhandled deepdiff category: {category}')
-
-    return table_data
-
-
-def get_service_templates_diff(diff):
-    table_data = []
-    for d in diff:
-        for category, changes in d['diff'].items():
-            if category == 'dictionary_item_removed':
-                # not of any interest
-                continue
-            if category == 'dictionary_item_added':
-                # not of any interest
-                continue
-            if category == 'values_changed':
-                for k, v in changes.items():
-                    tmp = {}
-                    tmp['object_name'] = d['object_name']
-                    tmp['uuid'] = d['uuid']
-                    tmp['what'] = 'value changed'
-                    tmp['changed'] = k.replace("root['", '').replace("']", '')
-                    tmp['old_value'] = get_val(v['old_value'])
-                    tmp['new_value'] = get_val(v['new_value'])
-                    table_data.append(tmp)
-            elif category == 'type_changes':
-                for k, v in changes.items():
-                    tmp = {}
-                    tmp['object_name'] = d['object_name']
-                    tmp['uuid'] = d['uuid']
-                    tmp['what'] = 'type changed'
-                    tmp['changed'] = k.replace("root['", '').replace("']", '')
-                    tmp['old_value'] = f'{v["old_type"]} ("{get_val(v["old_value"])}")'
-                    tmp['new_value'] = f'{v["new_type"]} ("{get_val(v["new_value"])}")'
-                    table_data.append(tmp)
-            elif category == 'iterable_item_removed':
-                for k, v in changes.items():
-                    tmp = {}
-                    tmp['object_name'] = d['object_name']
-                    tmp['uuid'] = d['uuid']
-                    tmp['what'] = 'item removed'
-                    tmp['changed'] = k.replace("root['", '').replace("']", '')
-                    tmp['old_value'] = get_val(v)
-                    tmp['new_value'] = '-'
-                    table_data.append(tmp)
-            elif category == 'iterable_item_added':
-                for k, v in changes.items():
-                    tmp = {}
-                    tmp['object_name'] = d['object_name']
-                    tmp['uuid'] = d['uuid']
-                    tmp['what'] = 'item added'
-                    tmp['changed'] = k.replace("root['", '').replace("']", '')
-                    tmp['old_value'] = '-'
-                    tmp['new_value'] = get_val(v)
-                    table_data.append(tmp)
-            else:
-                _common.die(f'unhandled deepdiff category: {category}')
-
-    return table_data
-
-
-def get_service_sets_diff(diff):
-    table_data = []
-    for d in diff:
-        for category, changes in d['diff'].items():
-            if category == 'dictionary_item_removed':
-                # not of any interest
-                continue
-            if category == 'dictionary_item_added':
-                # not of any interest
-                continue
-            if category == 'values_changed':
-                for k, v in changes.items():
-                    tmp = {}
-                    tmp['object_name'] = d['object_name']
-                    tmp['uuid'] = d['uuid']
-                    tmp['what'] = 'value changed'
-                    tmp['changed'] = (
-                        k.replace("root['", '')
-                        .replace("']", '')
-                        .replace("services['", '')
-                        + "']"
-                    )
-                    tmp['old_value'] = get_val(v['old_value'])
-                    tmp['new_value'] = get_val(v['new_value'])
-                    table_data.append(tmp)
-            elif category == 'type_changes':
-                for k, v in changes.items():
-                    tmp = {}
-                    tmp['object_name'] = d['object_name']
-                    tmp['uuid'] = d['uuid']
-                    tmp['what'] = 'type changed'
-                    tmp['changed'] = (
-                        k.replace("root['", '')
-                        .replace("']", '')
-                        .replace("services['", '')
-                        + "']"
-                    )
-                    tmp['old_value'] = f'{v["old_type"]} ("{get_val(v["old_value"])}")'
-                    tmp['new_value'] = f'{v["new_type"]} ("{get_val(v["new_value"])}")'
-                    table_data.append(tmp)
-            elif category == 'iterable_item_removed':
-                for k, v in changes.items():
-                    tmp = {}
-                    tmp['object_name'] = d['object_name']
-                    tmp['uuid'] = d['uuid']
-                    tmp['what'] = 'item removed'
-                    tmp['changed'] = (
-                        k.replace("root['", '')
-                        .replace("']", '')
-                        .replace("services['", '')
-                        + "']"
-                    )
-                    tmp['old_value'] = get_val(v)
-                    tmp['new_value'] = '-'
-                    table_data.append(tmp)
-            elif category == 'iterable_item_added':
-                for k, v in changes.items():
-                    tmp = {}
-                    tmp['object_name'] = d['object_name']
-                    tmp['uuid'] = d['uuid']
-                    tmp['what'] = 'item added'
-                    tmp['changed'] = (
-                        k.replace("root['", '')
-                        .replace("']", '')
-                        .replace("services['", '')
-                        + "']"
-                    )
-                    tmp['old_value'] = '-'
-                    tmp['new_value'] = get_val(v)
-                    table_data.append(tmp)
-            else:
-                _common.die(f'unhandled deepdiff category: {category}')
-
-    return table_data
-
-
-# Each section drives one `(label, normalise, compare, get_diff, cols,
-# header)` iteration in `main()`. The Datafield section uses
-# `varname` as the per-row anchor column; every other section uses
-# `object_name`. Headers are human-friendly copies of `cols` with the
-# uuid hint and spaces.
-_OBJECT_NAME_COLS = [
-    'uuid',
-    'object_name',
-    'what',
-    'changed',
-    'old_value',
-    'new_value',
-]
-_OBJECT_NAME_HEADER = [
-    'uuid (-12:)',
-    'object_name',
-    'what',
-    'changed',
-    'old value',
-    'new value',
-]
-
+# Each section is `(label, normalise, anchor)`. `anchor` is the flat-dict
+# key whose value names the object in the output: Datafields are anchored
+# on `varname`, every other class on `object_name`.
 SECTIONS = (
-    (
-        'Datafield',
-        normalize_datafields,
-        compare_datafields,
-        get_datafields_diff,
-        ['uuid', 'varname', 'what', 'changed', 'old_value', 'new_value'],
-        ['uuid (-12:)', 'varname', 'what', 'changed', 'old value', 'new value'],
-    ),
-    (
-        'Command',
-        normalize_commands,
-        compare_commands,
-        get_commands_diff,
-        _OBJECT_NAME_COLS,
-        _OBJECT_NAME_HEADER,
-    ),
-    (
-        'Host Template',
-        normalize_host_templates,
-        compare_host_templates,
-        get_host_templates_diff,
-        _OBJECT_NAME_COLS,
-        _OBJECT_NAME_HEADER,
-    ),
-    (
-        'Service Template',
-        normalize_service_templates,
-        compare_service_templates,
-        get_service_templates_diff,
-        _OBJECT_NAME_COLS,
-        _OBJECT_NAME_HEADER,
-    ),
-    (
-        'Service Set',
-        normalize_service_sets,
-        compare_service_sets,
-        get_service_sets_diff,
-        _OBJECT_NAME_COLS,
-        _OBJECT_NAME_HEADER,
-    ),
+    ('Datafield', normalize_datafields, 'varname'),
+    ('Command', normalize_commands, 'object_name'),
+    ('Host Template', normalize_host_templates, 'object_name'),
+    ('Service Template', normalize_service_templates, 'object_name'),
+    ('Service Set', normalize_service_sets, 'object_name'),
 )
+
+_WHAT = {
+    'added': 'field added',
+    'changed': 'value changed',
+    'item_added': 'item added',
+    'item_removed': 'item removed',
+    'removed': 'field removed',
+}
+
+
+def print_presence_table(objs, anchor, heading):
+    """Print a `uuid / name` table for objects that exist on only one side."""
+    if not objs:
+        return
+    table_data = [
+        {'uuid': uuid, 'name': obj.get(anchor, '')} for uuid, obj in objs.items()
+    ]
+    print(f'\n{heading}:\n')
+    print(
+        lib.base.get_table(
+            table_data,
+            cols=['uuid', 'name'],
+            header=['uuid (tail)', anchor],
+        )
+    )
+
+
+def print_changed_table(label, changed, left, anchor, dfmap):
+    """Print the per-field change table for one object class."""
+    if not changed:
+        return
+    table_data = []
+    for uuid, rows in changed.items():
+        name = left[uuid].get(anchor, '')
+        for row in rows:
+            table_data.append(
+                {
+                    'uuid': uuid,
+                    'name': name,
+                    'what': row.get('what') or _WHAT[row['kind']],
+                    'changed': _label_field_binding(row['field'], dfmap),
+                    'left': get_val(row['old']),
+                    'right': get_val(row['new']),
+                }
+            )
+    print(f'\nChanged {label}s:\n')
+    print(
+        lib.base.get_table(
+            table_data,
+            cols=['uuid', 'name', 'what', 'changed', 'left', 'right'],
+            header=['uuid (tail)', anchor, 'what', 'changed', 'left', 'right'],
+        )
+    )
+
+
+def run_diff(left_basket, right_basket, left_name, right_name, show_all):
+    """Render the diff for every object class.
+
+    Only the changed objects are shown by default: an import overwrites
+    the objects it contains, so an object that exists on just one side is
+    never touched and is noise for spotting overwritten work. `--all`
+    adds the `Only in ...` tables.
+    """
+    dfmap = build_datafield_map(left_basket, right_basket)
+    for label, normalise, anchor in SECTIONS:
+        left = normalise(left_basket)
+        right = normalise(right_basket)
+        only_left, only_right, changed = diff_objects(left, right)
+        if show_all:
+            print_presence_table(only_left, anchor, f'Only in {left_name} ({label}s)')
+            print_presence_table(only_right, anchor, f'Only in {right_name} ({label}s)')
+        print_changed_table(label, changed, left, anchor, dfmap)
 
 
 def main():
@@ -817,28 +665,15 @@ def main():
     args = parse_args()
 
     # fetch data
-    current_basket = _basket.load_basket(args.current_basket)
-    new_basket = _basket.load_basket(args.new_basket)
+    left_basket = _basket.load_basket(args.left)
+    right_basket = _basket.load_basket(args.right)
 
     # build the message
-    for label, normalise, compare, get_diff, cols, header in SECTIONS:
-        current_section = normalise(current_basket)
-        new_section = normalise(new_basket)
-        _added, changed, _removed = compare(current_section, new_section)
-        if not changed:
-            continue
-        print(f'\nChanged {label}s:\n')
-        print(
-            lib.base.get_table(
-                get_diff(changed),
-                cols=cols,
-                header=header,
-            ),
-        )
+    run_diff(left_basket, right_basket, args.left.name, args.right.name, args.show_all)
 
 
 if __name__ == '__main__':
     try:
         sys.exit(main())
-    except Exception as exc:  # pylint: disable=broad-except
+    except Exception as exc:
         _common.die(f'basket-compare: unexpected error: {exc}')

@@ -1,0 +1,77 @@
+{
+    "Datafield": {
+        "1": {
+            "varname": "dummy_message",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "hidden"
+            },
+            "uuid": "00000000-0000-0000-0000-00000dummymsg"
+        },
+        "2": {
+            "varname": "teams",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {},
+            "uuid": "00000000-0000-0000-0000-000000000teams"
+        }
+    },
+    "Command": {
+        "cmd-check-dummy": {
+            "object_name": "cmd-check-dummy",
+            "object_type": "object",
+            "command": "/usr/lib64/nagios/plugins/dummy",
+            "timeout": "20",
+            "uuid": "00000000-0000-0000-0000-0000cmddummy0"
+        }
+    },
+    "HostTemplate": {},
+    "ServiceTemplate": {
+        "tpl-service-dummy": {
+            "object_name": "tpl-service-dummy",
+            "object_type": "template",
+            "check_command": "cmd-check-dummy",
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "y",
+                    "var_filter": null
+                }
+            ],
+            "vars": {
+                "dummy_state": "warn",
+                "dummy_num": "129600",
+                "dummy_ignore": ["alpha", "beta", "gamma"],
+                "dummy_extra": [
+                    "a manually added long ignore pattern",
+                    "another long manual ignore pattern",
+                    "third manual pattern"
+                ]
+            },
+            "uuid": "00000000-0000-0000-0000-000tpldummy00"
+        }
+    },
+    "ServiceSet": {
+        "tpl-set-dummy": {
+            "object_name": "tpl-set-dummy",
+            "object_type": "template",
+            "assign_filter": "\"dummy\"=host.vars.tags",
+            "services": {
+                "Dummy Service": {
+                    "object_name": "Dummy Service",
+                    "object_type": "object",
+                    "check_interval": 30,
+                    "uuid": "00000000-0000-0000-0000-00svcdummy000"
+                },
+                "Legacy Service": {
+                    "object_name": "Legacy Service",
+                    "object_type": "object",
+                    "check_interval": 60,
+                    "uuid": "00000000-0000-0000-0000-0000svclegacy"
+                }
+            },
+            "uuid": "00000000-0000-0000-0000-000setdummy00"
+        }
+    }
+}
