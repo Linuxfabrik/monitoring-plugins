@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+# Each test reads the `occ app:update --showonly` output from the named fixture
+# and the matching `occ app:list --output=json` inventory from its `-applist`
+# companion. Only enabled apps are listed and checked; disabled apps in the
+# inventory fixture are ignored. In test mode the plugin has no persistent
+# state, so every parsed update counts as pending long enough to exceed any
+# finite threshold; the default thresholds alert and the range syntax flips the
+# state on demand.
+TESTS = [
+    # No pending updates: every enabled app is listed with status [OK]. The
+    # disabled app (bookmarks) is ignored.
+    {
+        'id': 'ok-no-updates',
+        'test': 'stdout/no-updates,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            'calendar',
+            '[OK]',
+            "'active'=3",
+            "'pending'=0",
+            "'overdue'=0",
+        ],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]', 'bookmarks'],
+    },
+    # A single pending update alerts with the default 72h threshold and shows
+    # the installed and available version side by side.
+    {
+        'id': 'warn-one-update-default',
+        'test': 'stdout/one-update,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'calendar.*5\.0\.0.*5\.0\.1.*\[WARNING\]',
+        'assert-in': ['files', "'active'=2", "'pending'=1", "'overdue'=1"],
+    },
+    # An open-ended range that always matches keeps the state OK while still
+    # listing the available update.
+    {
+        'id': 'ok-warning-range-always-ok',
+        'test': 'stdout/one-update,,0',
+        'params': '--warning ~:',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', 'calendar', '5.0.1'],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    # A critical threshold escalates the same pending update to CRIT.
+    {
+        'id': 'crit-one-update-critical',
+        'test': 'stdout/one-update,,0',
+        'params': '--critical 72',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'calendar.*5\.0\.1.*\[CRITICAL\]',
+    },
+    # Disabled apps (mail) are ignored, so neither listed nor counted.
+    {
+        'id': 'warn-multiple-updates',
+        'test': 'stdout/multiple-updates,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'calendar',
+            'contacts',
+            "'active'=3",
+            "'pending'=2",
+            "'overdue'=2",
+        ],
+        'assert-not-in': ['mail'],
+    },
+    # --ignore drops apps by regex from both the update list and the inventory.
+    {
+        'id': 'ok-ignore-excludes-update',
+        'test': 'stdout/one-update,,0',
+        'params': '--ignore=^calendar$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', 'files', "'active'=1", "'pending'=0"],
+        'assert-not-in': ['calendar'],
+    },
+    # --match keeps only apps whose id matches the regex.
+    {
+        'id': 'warn-match-only-calendar',
+        'test': 'stdout/multiple-updates,,0',
+        'params': '--match=^calendar$',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['calendar', '5.0.1', "'active'=1", "'pending'=1"],
+        'assert-not-in': ['contacts', 'mail'],
+    },
+    # --verbose appends the occ commands the plugin runs.
+    {
+        'id': 'warn-verbose-shows-occ-commands',
+        'test': 'stdout/one-update,,0',
+        'params': '--verbose',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Executed occ commands:',
+            '/var/www/html/nextcloud/occ app:update --showonly',
+            '/var/www/html/nextcloud/occ app:list --output=json',
+        ],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../nextcloud-app-updates'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

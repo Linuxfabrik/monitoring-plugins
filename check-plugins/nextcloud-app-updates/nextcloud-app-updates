@@ -1,0 +1,350 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import os
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.cache
+import lib.human
+import lib.lftest
+import lib.nextcloud
+import lib.time
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026061901'
+
+DESCRIPTION = """Checks a Nextcloud installation for available app updates from the configured
+app store and alerts when an app update has been available for longer than the warning
+threshold (default: 72 hours). The grace period avoids alerting during maintenance windows
+where updates are applied promptly. Only enabled apps are listed and checked; disabled apps
+are ignored. The threshold is configurable. Requires root or sudo."""
+
+DEFAULT_CRIT = None  # hours
+DEFAULT_PATH = '/var/www/html/nextcloud'
+DEFAULT_VERBOSE = False
+DEFAULT_WARN = '72'  # hours (3 x 24h)
+
+# Prefix for the per-app first-seen timestamps in the shared cache database.
+CACHE_KEY_PREFIX = 'nextcloud-app-updates-'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    # Threshold parameters: use type=str (not int/float) to support Nagios
+    # range expressions. The compared value is the age of a pending update in
+    # hours, so "72" warns once an update has been available for more than 72h.
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for how long an app update may stay available, in hours. '
+        'Supports Nagios ranges. '
+        'Default: no critical threshold',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Ignore apps whose app id matches this Python regular expression. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times.',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only check apps whose app id matches this Python regular expression. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times.',
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--path',
+        help='Local path to the Nextcloud installation, typically the web server document root. '
+        'Default: %(default)s',
+        dest='PATH',
+        default=DEFAULT_PATH,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        help=lib.args.help('--verbose'),
+        dest='VERBOSE',
+        action='store_true',
+        default=DEFAULT_VERBOSE,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for how long an app update may stay available, in hours. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def parse_updates(stdout):
+    """Parse the output of `occ app:update --showonly`.
+
+    Each app with a pending update is reported on its own line as
+    `<app-id> new version available: <version>`. Returns a dict mapping the
+    app id to the available version. Summary and status lines are ignored.
+    """
+    updates = {}
+    for line in stdout.splitlines():
+        match = re.match(r'^(\S+) new version available: (\S+)', line.strip())
+        if match:
+            updates[match.group(1)] = match.group(2)
+    return updates
+
+
+def parse_app_list(data):
+    """Return the installed version of every enabled app from
+    `occ app:list --output=json` as `{app_id: version}`.
+
+    Disabled apps are ignored. An unknown version (which Nextcloud reports as a
+    boolean) becomes the string 'unknown'.
+    """
+    apps = {}
+    for app_id, version in (data.get('enabled') or {}).items():
+        apps[app_id] = 'unknown' if isinstance(version, bool) else str(version)
+    return apps
+
+
+def load_app_list_fixture(test_args):
+    """In test mode, load the companion `occ app:list` JSON fixture.
+
+    The base fixture path in `args.TEST[0]` gets a `-applist` suffix, mirroring
+    the multi-source fixture convention used by the redfish plugins.
+    """
+    path = f'{test_args[0]}-applist'
+    if not os.path.isfile(path):
+        lib.base.cu(f'Test fixture not found: "{path}".')
+    stdout, _, _ = lib.lftest.test([path, *test_args[1:]])
+    try:
+        return json.loads(stdout)
+    except (TypeError, ValueError) as e:
+        lib.base.cu(f'Test fixture "{path}" does not contain valid JSON: {e}')
+    return {}
+
+
+def keep(app_id, match_patterns, ignore_patterns):
+    """Return True if `app_id` passes the --match / --ignore filter pair.
+
+    Include first, then exclude: an app id passes if it matches any
+    `match_patterns` entry (or if `match_patterns` is empty) AND does not match
+    any `ignore_patterns` entry.
+    """
+    if ignore_patterns and any(p.search(app_id) for p in ignore_patterns):
+        return False
+    if not match_patterns:
+        return True
+    return any(p.search(app_id) for p in match_patterns)
+
+
+def first_seen_age(app_id, version, now):
+    """Return the age in seconds since `version` of `app_id` was first seen as
+    an available update. Persists the first-seen timestamp in the shared cache
+    database so the age survives across check runs. A different available
+    version resets the clock.
+    """
+    key = CACHE_KEY_PREFIX + app_id
+    cached = lib.cache.get(key)
+    first_seen = None
+    if cached:
+        try:
+            record = json.loads(cached)
+            if record.get('version') == version:
+                first_seen = record.get('first_seen')
+        except (TypeError, ValueError):
+            first_seen = None
+    if first_seen is None:
+        first_seen = now
+        lib.cache.set(key, json.dumps({'version': version, 'first_seen': first_seen}))
+    return max(0, now - first_seen)
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # compile the app-id filter regexes once
+    ignore_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    match_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+
+    # fetch data
+    occ = os.path.join(args.PATH, 'occ')
+    occ_commands = [f'{occ} app:update --showonly', f'{occ} app:list --output=json']
+    if args.TEST is None:
+        success, stdout = lib.nextcloud.run_occ(
+            args.PATH,
+            'app:update --showonly',
+            _format='text',
+        )
+        if not success:
+            lib.base.cu(stdout)
+        success, app_list = lib.nextcloud.run_occ(args.PATH, 'app:list --output=json')
+        if not success:
+            lib.base.cu(app_list)
+    else:
+        # do not call occ, put in test data
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        app_list = load_app_list_fixture(args.TEST)
+
+    # only enabled apps are considered; --match/--ignore narrows them further
+    all_apps = {
+        app_id: version
+        for app_id, version in parse_app_list(app_list).items()
+        if keep(app_id, match_patterns, ignore_patterns)
+    }
+    # keep only updates for enabled apps that pass the filter
+    updates = {
+        app_id: version
+        for app_id, version in parse_updates(stdout).items()
+        if app_id in all_apps
+    }
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    table_data = []
+    now = lib.time.now()
+    overdue = 0
+
+    # analyze data
+    update_info = {}
+    for app_id in sorted(updates):
+        version = updates[app_id]
+        if args.TEST is None:
+            age = first_seen_age(app_id, version, now)
+            age_hours = age / 3600
+        else:
+            # In test mode there is no persistent state. Assume the update has
+            # been pending long enough to exceed any finite threshold, so the
+            # message and the --warning/--critical wiring can be driven from
+            # fixtures. The grace-period arithmetic itself is time-dependent and
+            # only runs in production.
+            age_hours = float('inf')
+        app_state = lib.base.get_state(
+            age_hours, args.WARN, args.CRIT, _operator='range'
+        )
+        state = lib.base.get_worst(state, app_state)
+        if app_state != STATE_OK:
+            overdue += 1
+        update_info[app_id] = {'version': version, 'state': app_state}
+
+    # build the message
+    total = len(updates)
+    if state == STATE_OK:
+        msg = 'Everything is ok.'
+    else:
+        msg = (
+            f'{overdue} of {total} app update(s) pending longer than allowed'
+            f'{lib.base.state2str(state, prefix=" ")}'
+        )
+
+    # list every enabled app with its installed and available version and an
+    # explicit [OK]/[WARNING]/[CRITICAL] status
+    for app_id in sorted(all_apps):
+        update = update_info.get(app_id)
+        app_state = update['state'] if update else STATE_OK
+        table_data.append(
+            {
+                'app': app_id,
+                'installed': all_apps[app_id],
+                'available': update['version'] if update else '-',
+                'status': lib.base.state2str(app_state, empty_ok=False),
+            }
+        )
+
+    if table_data:
+        keys = ['app', 'installed', 'available', 'status']
+        headers = ['App', 'Installed', 'Available', 'Status']
+        msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
+
+    # --verbose: show the occ commands the plugin runs to collect its data
+    if args.VERBOSE:
+        msg += '\n\nExecuted occ commands:'
+        for command in occ_commands:
+            msg += f'\n  {command}'
+
+    perfdata += lib.base.get_perfdata('active', len(all_apps), uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('pending', total, uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('overdue', overdue, uom=None, _min=0)
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

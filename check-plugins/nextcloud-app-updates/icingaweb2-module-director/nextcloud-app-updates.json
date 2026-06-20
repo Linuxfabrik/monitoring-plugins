@@ -1,0 +1,207 @@
+{
+    "Command": {
+        "cmd-check-nextcloud-app-updates": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$nextcloud_app_updates_always_ok$"
+                },
+                "--critical": {
+                    "value": "$nextcloud_app_updates_critical$"
+                },
+                "--ignore": {
+                    "value": "$nextcloud_app_updates_ignore$",
+                    "repeat_key": true
+                },
+                "--match": {
+                    "value": "$nextcloud_app_updates_match$",
+                    "repeat_key": true
+                },
+                "--path": {
+                    "value": "$nextcloud_app_updates_path$"
+                },
+                "--verbose": {
+                    "set_if": "$nextcloud_app_updates_verbose$"
+                },
+                "--warning": {
+                    "value": "$nextcloud_app_updates_warning$"
+                }
+            },
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/nextcloud-app-updates",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-nextcloud-app-updates",
+            "object_type": "object",
+            "timeout": 60,
+            "vars": {},
+            "zone": null,
+            "uuid": "a11802cf-df1b-417b-84dc-373a3f05e3ac"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-nextcloud-app-updates": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-nextcloud-app-updates",
+            "check_interval": 86400,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "nextcloud-app-updates.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks a Nextcloud installation for available app updates from the configured app store and alerts when an app update has been available for longer than the warning threshold (default: 72 hours). The grace period avoids alerting during maintenance windows where updates are applied promptly. Only enabled apps are listed and checked; disabled apps are ignored. The threshold is configurable. Requires root or sudo.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-app-updates/",
+            "object_name": "tpl-service-nextcloud-app-updates",
+            "object_type": "template",
+            "retry_interval": 300,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "nextcloud_app_updates_always_ok": false,
+                "nextcloud_app_updates_ignore": [],
+                "nextcloud_app_updates_match": [],
+                "nextcloud_app_updates_path": "/var/www/html/nextcloud",
+                "nextcloud_app_updates_verbose": false,
+                "nextcloud_app_updates_warning": "72"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "6829f98e-94d0-45c2-bd46-79e25931a59d"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "nextcloud_app_updates_always_ok",
+            "caption": "Nextcloud App Updates: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "3db05e78-6164-40ef-ace1-d33c5d1942b2"
+        },
+        "2": {
+            "varname": "nextcloud_app_updates_critical",
+            "caption": "Nextcloud App Updates: Critical",
+            "description": "CRIT threshold for how long an app update may stay available, in hours. Supports Nagios ranges. Default: no critical threshold",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "218c8a7a-989c-40a6-a3c6-c064274b10f0"
+        },
+        "3": {
+            "varname": "nextcloud_app_updates_ignore",
+            "caption": "Nextcloud App Updates: Ignore",
+            "description": "Ignore apps whose app id matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "80fae38c-ba47-4230-9929-1c9bc5ce40e6"
+        },
+        "4": {
+            "varname": "nextcloud_app_updates_match",
+            "caption": "Nextcloud App Updates: Match",
+            "description": "Only check apps whose app id matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "c1dd7941-482e-4805-b4c3-e5d803005dd4"
+        },
+        "5": {
+            "varname": "nextcloud_app_updates_path",
+            "caption": "Nextcloud App Updates: Path",
+            "description": "Local path to the Nextcloud installation, typically the web server document root.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "29dc7029-ab7b-472e-ba9b-4beeebae7bc7"
+        },
+        "6": {
+            "varname": "nextcloud_app_updates_verbose",
+            "caption": "Nextcloud App Updates: Verbose?",
+            "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "4175aee4-4e51-4971-90f8-1d7349bf5dd0"
+        },
+        "7": {
+            "varname": "nextcloud_app_updates_warning",
+            "caption": "Nextcloud App Updates: Warning",
+            "description": "WARN threshold for how long an app update may stay available, in hours. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "c23e3755-c76e-4eb9-a2c6-e95452fca9db"
+        }
+    }
+}
