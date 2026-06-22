@@ -24,6 +24,10 @@ Monitoring Plugins:
 
 ### Fixed
 
+Build, CI/CD:
+
+* installer: a source install (`--source`) on a host whose system Python is too old now picks the newest installed Python automatically and rebuilds the dependency environment cleanly, instead of aborting or installing mismatched dependencies
+
 Monitoring Plugins:
 
 * journald-query: a relative `--since` value such as `-8h` configured in the Icinga Director now works instead of making the check fail ([#1264](https://github.com/Linuxfabrik/monitoring-plugins/issues/1264))

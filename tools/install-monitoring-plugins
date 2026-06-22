@@ -67,6 +67,7 @@ SOURCE_REF='main'                 # branch or tag for the --source path
 ZIP_VERSION="${LFMP_VERSION:-}"   # <version>-<iteration> for the --zip path
 PLUGIN_DIR="${DEFAULT_PLUGIN_DIR}"
 PYBIN='python3'                   # interpreter for the source/zip venv; override with --python
+PYBIN_EXPLICIT=0                  # set to 1 once the operator pins one via --python
 DRY_RUN="${DRY_RUN:-0}"
 
 # --- helpers -----------------------------------------------------------------------------
@@ -378,8 +379,12 @@ install_dependencies() {
     fi
     ensure_venv_support
 
+    # --clear wipes any pre-existing venv first. Without it, `python -m venv` over an existing venv
+    # keeps the OLD interpreter (e.g. a 3.9 venv from an earlier install stays 3.9 even when invoked
+    # with python3.11), so the venv would mismatch the lockfile chosen from PYBIN and pip would
+    # reject the pinned dependencies as requiring a newer Python.
     log "creating dependency venv at ${VENV_DIR} (${py_tag})"
-    run "${PYBIN}" -m venv "${VENV_DIR}"
+    run "${PYBIN}" -m venv --clear "${VENV_DIR}"
     record "${STATE_DIR}"
     run "${VENV_DIR}/bin/python3" -m pip install --quiet --upgrade pip
     run "${VENV_DIR}/bin/python3" -m pip install --quiet \
@@ -400,13 +405,37 @@ install_dependencies() {
     done
 }
 
+# True if BIN is a Python 3.9+ interpreter (the oldest version we ship a dependency lockfile for).
+python_ok() {
+    local bin="$1" pyminor
+    command -v "${bin}" >/dev/null 2>&1 || return 1
+    pyminor="$("${bin}" -c 'import sys; print(sys.version_info[1] if sys.version_info[0] == 3 else 0)' 2>/dev/null || echo 0)"
+    [ "${pyminor}" -ge 9 ]
+}
+
+# When the operator did not pin an interpreter and the default python3 is too old, pick the newest
+# pythonX.Y already on PATH that we ship a lockfile for. RHEL 8 hosts often carry an ancient system
+# python3 (3.6) next to a usable python3.11/3.12, so this saves the operator from hunting it down and
+# re-running with --python. Candidates are the versions present under lockfiles/, newest first.
+autoselect_python() {
+    [ "${PYBIN_EXPLICIT}" = '1' ] && return 0
+    python_ok "${PYBIN}" && return 0
+    local cand
+    for cand in python3.14 python3.13 python3.12 python3.11 python3.10 python3.9; do
+        if python_ok "${cand}"; then
+            PYBIN="${cand}"
+            log "system python3 is too old; using ${cand} found on PATH"
+            return 0
+        fi
+    done
+}
+
 # Bail early on a Python older than 3.9 (no matching dependency lockfile) with an actionable
 # hint, instead of leaving a half-working install behind.
 require_python39() {
+    autoselect_python
     require_cmd "${PYBIN}"
-    local pyminor
-    pyminor="$("${PYBIN}" -c 'import sys; print(sys.version_info[1] if sys.version_info[0] == 3 else 0)' 2>/dev/null || echo 0)"
-    [ "${pyminor}" -ge 9 ] && return 0
+    python_ok "${PYBIN}" && return 0
     warn "${PYBIN} is $(${PYBIN} --version 2>&1); the plugins need Python 3.9 or newer."
     warn 'install a newer Python and re-run pointing at it, for example on RHEL 8:'
     warn '  dnf install -y python3.12'
@@ -610,7 +639,7 @@ parse_args() {
             --ref=*)         SOURCE_REF="${1#*=}" ;;
             --version=*)     ZIP_VERSION="${1#*=}" ;;
             --plugin-dir=*)  PLUGIN_DIR="${1#*=}" ;;
-            --python=*)      PYBIN="${1#*=}" ;;
+            --python=*)      PYBIN="${1#*=}"; PYBIN_EXPLICIT=1 ;;
             --help|-h)       usage; exit 0 ;;
             *)               die "unknown option: $1 (try --help)" ;;
         esac
