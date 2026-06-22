@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the wildfly-version check plugin.
+
+This plugin does not query endoflife.date - it queries the GitHub
+releases API for `wildfly/wildfly` and compares the installed
+version to the upstream "latest" tag. To keep the unit tests
+hermetic the test mode pins both halves of the comparison via the
+two payload slots of `lib.lftest.test()`:
+
+  * the first slot (the "stdout" slot) carries the `product-version`
+    string the plugin would otherwise read from the WildFly
+    management API
+  * the second slot (the "stderr" slot) carries the upstream
+    "latest" tag string the plugin would otherwise fetch from
+    GitHub
+
+GitHub's /releases/latest endpoint returns the most recent
+non-prerelease, non-draft release, and WildFly flags its `.Beta`,
+`.CR` and `.Alpha` tags as prereleases, so the "latest" fixture
+pins a stable `.Final` tag. It will need to be re-pinned when a new
+WildFly release happens.
+"""
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+TESTS = [
+    {
+        'id': 'warn-wildfly-26-outdated',
+        'test': 'stdout/product-version-26.1.3.Final,stderr/latest-40.0.0.Final,0',
+        'params': '--username=linuxfabrik --password=linuxfabrik',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'WildFly v26.1.3.Final installed',
+            'WildFly v40.0.0.Final available',
+        ],
+    },
+    {
+        'id': 'ok-wildfly-40-up-to-date',
+        'test': 'stdout/product-version-40.0.0.Final,stderr/latest-40.0.0.Final,0',
+        'params': '--username=linuxfabrik --password=linuxfabrik',
+        'assert-retc': STATE_OK,
+        'assert-in': ['WildFly v40.0.0.Final is up to date'],
+    },
+    {
+        'id': 'unknown-empty-response',
+        'test': 'stdout/empty-response,,0',
+        'params': '--username=linuxfabrik --password=linuxfabrik',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['WildFly not found.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../wildfly-version'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

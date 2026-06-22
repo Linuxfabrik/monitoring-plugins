@@ -1,32 +1,25 @@
 # WildFly Plugins
 
-The WildFly plugins talk to the WildFly / JBoss EAP HTTP management API
-(`/management`, default port `9990`). They work for both standalone and
-domain modes; in domain mode you additionally pass `--node` and `--instance`
-to select the managed server to query.
+The WildFly plugins talk to the WildFly / JBoss EAP HTTP management API (`/management`, default port `9990`). They work for both standalone and domain modes; in domain mode you additionally pass `--node` and `--instance` to select the managed server to query.
 
 
 ## Plugins in this group
 
-* `wildfly-deployment-status`: state of every deployed application
-  (`.war`, `.ear`).
+* `wildfly-deployment-status`: state of every deployed application (`.war`, `.ear`).
 * `wildfly-gc-status`: garbage-collection activity.
-* `wildfly-memory-pool-usage`: JVM memory pool utilization (Eden, Old Gen,
-  Metaspace, ...).
+* `wildfly-memory-pool-usage`: JVM memory pool utilization (Eden, Old Gen, Metaspace, ...).
 * `wildfly-memory-usage`: JVM heap and non-heap totals.
-* `wildfly-non-xa-datasource-stats`: connection-pool stats for non-XA
-  datasources.
-* `wildfly-server-status`: overall server state (alerts when the server is
-  not `running`).
+* `wildfly-non-xa-datasource-stats`: connection-pool stats for non-XA datasources.
+* `wildfly-server-status`: overall server state (alerts when the server is not `running`).
 * `wildfly-thread-usage`: thread counts (current, daemon, peak).
 * `wildfly-uptime`: server uptime.
+* `wildfly-version`: alerts when the installed version is behind the latest stable WildFly release on GitHub.
 * `wildfly-xa-datasource-stats`: connection-pool stats for XA datasources.
 
 
 ## Authentication
 
-WildFly's management API requires a user in the `ManagementRealm`. Create
-one with the shipped `add-user.sh` script:
+WildFly's management API requires a user in the `ManagementRealm`. Create one with the shipped `add-user.sh` script:
 
 ```bash
 /opt/wildfly/bin/add-user.sh
@@ -54,8 +47,7 @@ connection for server to server Jakarta Enterprise Beans calls.
 yes/no? no
 ```
 
-The plugins are then called with `--url` (e.g.
-`http://localhost:9990`), `--username=wildfly-monitoring` and `--password`.
+The plugins are then called with `--url` (e.g. `http://localhost:9990`), `--username=wildfly-monitoring` and `--password`.
 
 
 ## Common parameters
@@ -74,11 +66,7 @@ Shared across all WildFly plugins (run `<plugin> --help` for the full list):
 
 ## Service Sets in the Icinga Director Basket
 
-The shipped basket provides two Service Sets, each activated by its own tag
-on the host:
+The shipped basket provides two Service Sets, each activated by its own tag on the host:
 
-* **Wildfly Service Set**: the full plugin suite against a WildFly server
-  reachable on its management port. Assigned by the `wildfly` tag.
-* **Wildfly Service Set (Containerized)**: the same plugins, but parameters
-  default to a container-friendly setup (for example, adjusted URL and
-  timeout values). Assigned by the `wildfly-container` tag.
+* **Wildfly Service Set**: the full plugin suite against a WildFly server reachable on its management port. Assigned by the `wildfly` tag.
+* **Wildfly Service Set (Containerized)**: the same plugins, but parameters default to a container-friendly setup (for example, adjusted URL and timeout values). Assigned by the `wildfly-container` tag.

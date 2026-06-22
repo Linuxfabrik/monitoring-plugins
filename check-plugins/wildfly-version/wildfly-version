@@ -1,0 +1,247 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import sys
+
+import lib.args
+import lib.base
+import lib.cache
+import lib.lftest
+import lib.time
+import lib.url
+import lib.version
+import lib.wildfly
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026062201'
+
+DESCRIPTION = """Checks if a newer version of WildFly is available by comparing the installed
+version, queried from the HTTP management API, against the latest release on the GitHub
+releases API. Alerts when the installed version is outdated."""
+
+DEFAULT_CACHE_EXPIRE = 24  # hours
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 3
+DEFAULT_URL = 'http://localhost:9990'
+DEFAULT_USERNAME = 'wildfly-monitoring'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help=lib.args.help('--cache-expire') + ' Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--instance',
+        help='WildFly instance (server-config) to check when running in domain mode.',
+        dest='INSTANCE',
+    )
+
+    parser.add_argument(
+        '--mode',
+        help='WildFly server mode. Default: %(default)s',
+        dest='MODE',
+        choices=['standalone', 'domain'],
+        default='standalone',
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--node',
+        help='WildFly node (host) when running in domain mode.',
+        dest='NODE',
+    )
+
+    parser.add_argument(
+        '-p',
+        '--password',
+        help='WildFly management API password.',
+        dest='PASSWORD',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='WildFly management API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='WildFly management API username. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+        required=True,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_installed_version(args):
+    """Read the installed product version from the WildFly management API,
+    falling back to the release version on older or community builds.
+    """
+    if args.TEST is not None:
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        return stdout.strip()
+
+    data = {
+        'operation': 'read-attribute',
+        'name': 'product-version',
+        'json': 1,
+    }
+    res = lib.wildfly.get_data(args, data)
+    if res is None:
+        data = {
+            'operation': 'read-attribute',
+            'name': 'release-version',
+            'json': 1,
+        }
+        res = lib.wildfly.get_data(args, data)
+    if res is None:
+        return ''
+    return res.strip()
+
+
+def get_latest_version(expire):
+    # get version online, but first from cache
+    latest_version = lib.cache.get('wildfly-version')
+    if latest_version:
+        return (True, latest_version)
+
+    # nothing found in cache, get the latest version from github. This uses
+    # GitHub's /releases/latest endpoint, which by definition returns the most
+    # recent non-prerelease, non-draft release. WildFly flags its `.Beta`,
+    # `.CR` and `.Alpha` tags as prereleases, so those are skipped and only
+    # stable `.Final` releases are considered.
+    success, latest_version = lib.url.get_latest_version_from_github(
+        'wildfly', 'wildfly'
+    )
+    if not success:
+        return (success, latest_version)
+
+    lib.cache.set('wildfly-version', latest_version, lib.time.now() + expire)
+    return (True, latest_version)
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    installed_version = get_installed_version(args)
+    if not installed_version:
+        lib.base.cu('WildFly not found.')
+
+    if args.TEST is not None:
+        # In test mode, the second --test slot (the "stderr" slot of
+        # lib.lftest.test) carries the pinned upstream latest version
+        # so the test does not depend on a live GitHub fetch.
+        _, stderr, _ = lib.lftest.test(args.TEST)
+        latest_version = stderr.strip()
+    else:
+        latest_version = lib.base.coe(get_latest_version(args.CACHE_EXPIRE * 60 * 60))
+
+    # init some vars
+    perfdata = lib.base.get_perfdata(
+        'wildfly-version',
+        lib.version.version2float(installed_version),
+        _min=0,
+    )
+
+    # build the message
+    if lib.version.version(installed_version) >= lib.version.version(latest_version):
+        lib.base.oao(
+            f'WildFly v{installed_version} is up to date',
+            STATE_OK,
+            perfdata,
+        )
+
+    # over and out
+    lib.base.oao(
+        (
+            f'WildFly v{installed_version} installed,'
+            f' WildFly v{latest_version} available'
+        ),
+        STATE_WARN,
+        perfdata,
+        always_ok=args.ALWAYS_OK,
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

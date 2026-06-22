@@ -14,6 +14,7 @@ Monitoring Plugins:
 
 * network-errors: new check that alerts on receive and transmit interface errors ([#707](https://github.com/Linuxfabrik/monitoring-plugins/issues/707))
 * nextcloud-app-updates: new check that lists installed Nextcloud apps and alerts when an app update has been available for longer than a configurable grace period ([#62](https://github.com/Linuxfabrik/monitoring-plugins/issues/62))
+* wildfly-version: new check that alerts when the installed WildFly version is behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))
 
 ### Changed
 
