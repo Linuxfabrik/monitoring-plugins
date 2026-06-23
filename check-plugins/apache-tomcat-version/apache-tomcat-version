@@ -1,0 +1,223 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import os
+import re
+import sys
+import zipfile
+
+import lib.args
+import lib.base
+import lib.lftest
+import lib.shell
+import lib.version
+from lib.globals import STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026062301'
+
+DESCRIPTION = """Checks the installed Apache Tomcat version against the endoflife.date API and alerts if
+the version is end-of-life or if newer major, minor, or patch releases are available.
+By default, alerts 30 days before the official EOL date. The offset is configurable."""
+
+DEFAULT_CATALINA_HOME = '/usr/share/tomcat'
+DEFAULT_CHECK_MAJOR = False
+DEFAULT_CHECK_MINOR = False
+DEFAULT_CHECK_PATCH = False
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_OFFSET_EOL = -30  # days
+DEFAULT_TIMEOUT = 8
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--catalina-home',
+        help='Tomcat installation directory (CATALINA_HOME) containing `bin/version.sh`. '
+        'Default: %(default)s',
+        dest='CATALINA_HOME',
+        default=DEFAULT_CATALINA_HOME,
+    )
+
+    parser.add_argument(
+        '--check-major',
+        help=lib.args.help('--check-major'),
+        dest='CHECK_MAJOR',
+        action='store_true',
+        default=DEFAULT_CHECK_MAJOR,
+    )
+
+    parser.add_argument(
+        '--check-minor',
+        help=lib.args.help('--check-minor'),
+        dest='CHECK_MINOR',
+        action='store_true',
+        default=DEFAULT_CHECK_MINOR,
+    )
+
+    parser.add_argument(
+        '--check-patch',
+        help=lib.args.help('--check-patch'),
+        dest='CHECK_PATCH',
+        action='store_true',
+        default=DEFAULT_CHECK_PATCH,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--offset-eol',
+        help=lib.args.help('--offset-eol') + ' Default: %(default)s days',
+        dest='OFFSET_EOL',
+        type=int,
+        default=DEFAULT_OFFSET_EOL,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_version_output(catalina_home):
+    """Return raw text containing the Tomcat version string.
+
+    Primary source is `bin/version.sh`, which ships with the upstream
+    distribution and the official container images and is the way
+    suggested by endoflife.date. RHEL-packaged Tomcat ships no
+    `version.sh`, so fall back to reading `ServerInfo.properties` straight
+    out of `lib/catalina.jar` (a plain ZIP), which is always present.
+    """
+    # primary: bin/version.sh derives CATALINA_HOME from its own location
+    # and execs `catalina.sh version`, printing "... Apache Tomcat/X.Y.Z".
+    version_sh = os.path.join(catalina_home, 'bin', 'version.sh')
+    success, result = lib.shell.shell_exec(
+        [version_sh], env={'CATALINA_HOME': catalina_home}
+    )
+    if success and 'Apache Tomcat/' in result[0]:
+        return result[0]
+
+    # fallback: catalina.jar carries org/apache/catalina/util/ServerInfo.properties
+    # with a "server.info=Apache Tomcat/X.Y.Z" line. Read it via the standard
+    # library `zipfile`, so no external `unzip` binary or running JVM is needed.
+    jar = os.path.join(catalina_home, 'lib', 'catalina.jar')
+    try:
+        with zipfile.ZipFile(jar) as archive:
+            return archive.read(
+                'org/apache/catalina/util/ServerInfo.properties'
+            ).decode('utf-8', 'replace')
+    except Exception:
+        return ''
+
+
+def get_installed_version(args):
+    if args.TEST is None:
+        stdout = get_version_output(args.CATALINA_HOME)
+    else:
+        stdout, _, _ = lib.lftest.test(args.TEST)
+    # where to find the version number in output?
+    version_regex = r'Apache Tomcat/(\d+\.\d+\.\d+)'
+    try:
+        return re.search(version_regex, stdout).group(1).strip()
+    except Exception:
+        return ''
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    installed_version = get_installed_version(args)
+    if not installed_version:
+        lib.base.cu('Apache Tomcat not found.')
+    state, msg = lib.version.check_eol(
+        'https://endoflife.date/api/tomcat.json',
+        installed_version,
+        offset_eol=args.OFFSET_EOL,
+        check_major=args.CHECK_MAJOR,
+        check_minor=args.CHECK_MINOR,
+        check_patch=args.CHECK_PATCH,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    )
+
+    # over and out
+    lib.base.oao(
+        f'Apache Tomcat v{installed_version} ({msg})',
+        state,
+        lib.base.get_perfdata(
+            'apache-tomcat-version',
+            lib.version.version2float(installed_version),
+            _min=0,
+        ),
+        always_ok=args.ALWAYS_OK,
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

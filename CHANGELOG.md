@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Monitoring Plugins:
 
+* apache-tomcat-version: new check that alerts when the installed Apache Tomcat version is end-of-life or behind the latest release, and ships an "Apache Tomcat" Icinga Director service set ([#126](https://github.com/Linuxfabrik/monitoring-plugins/issues/126))
 * network-errors: new check that alerts on receive and transmit interface errors ([#707](https://github.com/Linuxfabrik/monitoring-plugins/issues/707))
 * nextcloud-app-updates: new check that lists installed Nextcloud apps and alerts when an app update has been available for longer than a configurable grace period ([#62](https://github.com/Linuxfabrik/monitoring-plugins/issues/62))
 * wildfly-version: new check that alerts when the installed WildFly version is behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))
@@ -20,6 +21,7 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
+* about-me: now recognizes an installed Apache Tomcat when guessing Icinga Director tags
 * disk-io: iowait is now reported as saturated CPU cores (e.g. `1.02 cores`) instead of a percentage that could exceed 100% on multi-core hosts, and gets its own Grafana panel; the alerting thresholds keep their meaning and defaults, so no reconfiguration is needed
 * disk-io: per-disk performance data now reports read/write throughput per second and disk busy percentage as ready-to-graph values instead of raw cumulative counters; re-import the disk-io Grafana dashboard after updating ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 

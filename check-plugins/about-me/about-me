@@ -38,7 +38,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061401 / v6.0.0'
+__version__ = '2026062301 / v6.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -385,6 +385,29 @@ def get_lftags(distro):
             'package': [],
             'expr': [
                 run_cmd(['systemctl', 'is-enabled', 'solr.service'], ignore_output=True)
+            ],
+        },
+        {
+            'sw': 'Apache Tomcat',
+            'package': ['tomcat', 'tomcat7', 'tomcat8', 'tomcat9', 'tomcat10'],
+            'expr': [
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'tomcat.service'], ignore_output=True
+                ),
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'tomcat7.service'], ignore_output=True
+                ),
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'tomcat8.service'], ignore_output=True
+                ),
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'tomcat9.service'], ignore_output=True
+                ),
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'tomcat10.service'], ignore_output=True
+                ),
+                os.path.isdir('/opt/apache-tomcat'),
+                os.path.isdir('/opt/tomcat'),
             ],
         },
         {

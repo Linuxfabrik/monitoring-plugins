@@ -1,0 +1,238 @@
+{
+    "Command": {
+        "cmd-check-apache-tomcat-version": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$apache_tomcat_version_always_ok$"
+                },
+                "--catalina-home": {
+                    "value": "$apache_tomcat_version_catalina_home$"
+                },
+                "--check-major": {
+                    "set_if": "$apache_tomcat_version_check_major$"
+                },
+                "--check-minor": {
+                    "set_if": "$apache_tomcat_version_check_minor$"
+                },
+                "--check-patch": {
+                    "set_if": "$apache_tomcat_version_check_patch$"
+                },
+                "--insecure": {
+                    "set_if": "$apache_tomcat_version_insecure$"
+                },
+                "--no-proxy": {
+                    "set_if": "$apache_tomcat_version_no_proxy$"
+                },
+                "--offset-eol": {
+                    "value": "$apache_tomcat_version_offset_eol$"
+                },
+                "--timeout": {
+                    "value": "$apache_tomcat_version_timeout$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/apache-tomcat-version",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-apache-tomcat-version",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "bc93e3ba-09e2-4c35-9fc2-b34e866c1ca0"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-apache-tomcat-version": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-apache-tomcat-version",
+            "check_interval": 86400,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "apache-tomcat-version.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks the installed Apache Tomcat version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-tomcat-version/",
+            "object_name": "tpl-service-apache-tomcat-version",
+            "object_type": "template",
+            "retry_interval": 300,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "apache_tomcat_version_always_ok": false,
+                "apache_tomcat_version_catalina_home": "/usr/share/tomcat",
+                "apache_tomcat_version_check_major": false,
+                "apache_tomcat_version_check_minor": false,
+                "apache_tomcat_version_check_patch": false,
+                "apache_tomcat_version_insecure": false,
+                "apache_tomcat_version_no_proxy": false,
+                "apache_tomcat_version_offset_eol": -30,
+                "apache_tomcat_version_timeout": 8
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "19a66e7d-bdbc-44fe-b21e-42cc1016e021"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "apache_tomcat_version_always_ok",
+            "caption": "Apache Tomcat Version: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "2009e842-ffbb-45aa-a3ee-7ea39cb8d7ab"
+        },
+        "2": {
+            "varname": "apache_tomcat_version_catalina_home",
+            "caption": "Apache Tomcat Version: Catalina Home",
+            "description": "Tomcat installation directory (CATALINA_HOME) containing `bin/version.sh`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "9d97cd4d-dfcb-41e0-9978-b20728f809b8"
+        },
+        "3": {
+            "varname": "apache_tomcat_version_check_major",
+            "caption": "Apache Tomcat Version: Check Major?",
+            "description": "Alert when a new major release is available, even if the current version is not yet EOL. Example: running v26 (not yet EOL) and v27 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "a7a2c263-c81b-4d72-a942-aa7f79bc6f22"
+        },
+        "4": {
+            "varname": "apache_tomcat_version_check_minor",
+            "caption": "Apache Tomcat Version: Check Minor?",
+            "description": "Alert when a new major.minor release is available, even if the current version is not yet EOL. Example: running v26.2 (not yet EOL) and v26.3 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "606074e2-d0cf-41ee-9dd2-5b47f58021f8"
+        },
+        "5": {
+            "varname": "apache_tomcat_version_check_patch",
+            "caption": "Apache Tomcat Version: Check Patch?",
+            "description": "Alert when a new major.minor.patch release is available, even if the current version is not yet EOL. Example: running v26.2.7 (not yet EOL) and v26.2.8 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "963202ea-25b5-4cf3-89d2-acd5df176b1c"
+        },
+        "6": {
+            "varname": "apache_tomcat_version_insecure",
+            "caption": "Apache Tomcat Version: Insecure?",
+            "description": "This option explicitly allows insecure SSL connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "a79378e3-e5e8-47fe-b70f-2bb383f09d3b"
+        },
+        "7": {
+            "varname": "apache_tomcat_version_no_proxy",
+            "caption": "Apache Tomcat Version: No Proxy?",
+            "description": "Do not use a proxy.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "3ca79b0f-8504-4898-a98e-f7749bc3f821"
+        },
+        "8": {
+            "varname": "apache_tomcat_version_offset_eol",
+            "caption": "Apache Tomcat Version: Offset Eol",
+            "description": "Alert n days before (\"-30\") or after an EOL date (\"30\" or \"+30\").",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ae19458e-fae4-47e7-9120-02545ab68418"
+        },
+        "9": {
+            "varname": "apache_tomcat_version_timeout",
+            "caption": "Apache Tomcat Version: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "19e978c5-2d06-49fa-9dc4-64370653f8f6"
+        }
+    }
+}

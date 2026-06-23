@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the apache-tomcat-version check plugin.
+
+The fixtures in `stdout/` are `bin/version.sh` outputs in the form
+"Server version: Apache Tomcat/X.Y.Z". The 8.5, 9.0, 10.1 and 11.0
+captures are the real output of the official `docker.io/library/tomcat`
+images; the 7.0.28 capture reuses the same format with the version from
+issue #126. The plugin parses the same `Apache Tomcat/(\\d+\\.\\d+\\.\\d+)`
+string whether it comes from `version.sh` or from the `server.info` line
+of `catalina.jar`, so a single set of fixtures covers both code paths.
+
+The endoflife.date `tomcat.json` feed lists 9.0, 10.1 and 11.0 as
+non-EOL, so those captures resolve to STATE_OK (with a "major ...
+available" hint for the older cycles). The 7.0 and 8.5 cycles are EOL
+and resolve to STATE_WARN. The `assert-retc` and `assert-in` strings
+will need to be re-pinned as cycles reach their EOL dates.
+"""
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+TESTS = [
+    {
+        'id': 'warn-tomcat-7-0-28-eol',
+        'test': 'stdout/version-tomcat7,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Apache Tomcat v7.0.28', 'EOL 2021-03-31'],
+    },
+    {
+        'id': 'warn-tomcat-8-5-100-eol',
+        'test': 'stdout/version-tomcat85,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Apache Tomcat v8.5.100', 'EOL 2024-03-31'],
+    },
+    {
+        'id': 'ok-tomcat-9-0-118',
+        'test': 'stdout/version-tomcat9,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Apache Tomcat v9.0.118'],
+    },
+    {
+        'id': 'ok-tomcat-10-1-55',
+        'test': 'stdout/version-tomcat10,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Apache Tomcat v10.1.55', 'EOL unknown'],
+    },
+    {
+        'id': 'ok-tomcat-11-0-23',
+        'test': 'stdout/version-tomcat11,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Apache Tomcat v11.0.23', 'EOL unknown'],
+    },
+    {
+        'id': 'unknown-garbage-output',
+        'test': 'stdout/garbage-output,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Apache Tomcat not found.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../apache-tomcat-version'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
