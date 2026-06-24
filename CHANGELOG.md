@@ -20,6 +20,10 @@ Monitoring Plugins:
 
 ### Changed
 
+Build, CI/CD:
+
+* Bump pinned `linuxfabrik-lib` dependency from 5.0.0 to 5.1.0, bundling offline Apache Tomcat end-of-life data and keeping plugins importable on RHEL 8 / Rocky 8 system Python
+
 Monitoring Plugins:
 
 * about-me: now recognizes an installed Apache Tomcat when guessing Icinga Director tags
