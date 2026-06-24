@@ -77,6 +77,53 @@ TESTS = [
         'assert-not-in': ['/boot'],
     },
 
+    # --match / --ignore are the canonical, suite-wide filter names
+    # (regex, case-insensitive). The deprecated --include-* / --exclude-*
+    # aliases must keep behaving identically. The three-mounts-mixed-state
+    # fixture has / (30%, OK), /var (91%, WARN), /home (98%, CRIT).
+    {
+        'id': 'warn-match-keeps-only-var',
+        'test': 'stdout/three-mounts-mixed-state,,0',
+        'params': '--match=var',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['/var'],
+        'assert-not-in': ['/home', '97.8GiB'],
+    },
+    {
+        'id': 'warn-match-is-case-insensitive',
+        'test': 'stdout/three-mounts-mixed-state,,0',
+        # disk-usage filters case-insensitively (Windows drive letters,
+        # filesystem paths): uppercase VAR still matches /var.
+        'params': '--match=VAR',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['/var'],
+    },
+    {
+        'id': 'ok-match-case-sensitive-opt-in-misses',
+        'test': 'stdout/three-mounts-mixed-state,,0',
+        # (?-i:...) re-enables case-sensitivity: uppercase VAR no longer
+        # matches the lowercase /var, so nothing is checked.
+        'params': '--match=(?-i:VAR)',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'ok-ignore-drops-var-and-home',
+        'test': 'stdout/three-mounts-mixed-state,,0',
+        'params': '--ignore=var|home',
+        'assert-retc': STATE_OK,
+        'assert-in': ['/ 30.0%'],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        'id': 'warn-include-regex-alias-matches-match',
+        'test': 'stdout/three-mounts-mixed-state,,0',
+        'params': '--include-regex=var',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['/var'],
+        'assert-not-in': ['/home'],
+    },
+
     # #782: --brief hides filesystems within the thresholds and only
     # renders rows in WARN/CRIT state. --brief is the row-level
     # counterpart of the column-level --lengthy switch (both are

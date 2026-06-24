@@ -20,6 +20,7 @@ import lib.args
 import lib.base
 import lib.human
 import lib.lftest
+import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 try:
@@ -37,16 +38,12 @@ except ImportError:
     try:
         from psutil._common import sdiskpart, sdiskusage
     except ImportError:
-        sdiskpart = namedtuple(
-            'sdiskpart', ['device', 'mountpoint', 'fstype', 'opts']
-        )
-        sdiskusage = namedtuple(
-            'sdiskusage', ['total', 'used', 'free', 'percent']
-        )
+        sdiskpart = namedtuple('sdiskpart', ['device', 'mountpoint', 'fstype', 'opts'])
+        sdiskusage = namedtuple('sdiskusage', ['total', 'used', 'free', 'percent'])
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041405'
+__version__ = '2026062401'
 
 DESCRIPTION = """Checks used or free disk space for each mounted partition. By default, only physical
 devices are checked (hard disks, USB drives), ignoring pseudo and memory filesystems.
@@ -54,8 +51,8 @@ Supports filtering by mountpoint pattern or filesystem type. Thresholds can be s
 percentages or absolute values, and can target either used or free space. On systems
 with many filesystems (hundreds of mounts), --brief hides rows that are within the
 thresholds so the table only shows the filesystems in WARN/CRIT state. Note that on
-Unix systems, 5% of disk space is typically reserved for root and not reflected in the
-available space shown to regular users.
+ext2/3/4 filesystems, about 5% of disk space is reserved for root by default and is not
+reflected in the available space shown to regular users.
 Alerts when usage exceeds the configured thresholds."""
 
 DEFAULT_WARN = '90%USED'
@@ -84,10 +81,8 @@ def parse_args():
     parser.add_argument(
         '--brief',
         help='Hide table rows for filesystems within the thresholds and show only '
-        'those in WARN/CRIT state. Inverse of `--lengthy` (which adds columns); '
-        '`--brief` filters rows. The two are orthogonal and can be combined. '
-        'Perfdata and alerting are unaffected: all filesystems still emit perfdata '
-        'and still drive the overall check state. '
+        'those in WARN/CRIT state. Perfdata and alerting are unaffected: all '
+        'filesystems still emit perfdata and still drive the overall check state. '
         'Default: %(default)s',
         dest='BRIEF',
         action='store_true',
@@ -108,13 +103,12 @@ def parse_args():
         default=DEFAULT_CRIT,
     )
 
+    # Deprecated filter aliases, superseded by --match / --ignore. Kept
+    # (hidden) so existing service definitions keep working: --include-*
+    # feed the same list as --match, --exclude-* the same list as --ignore.
     parser.add_argument(
         '--exclude-pattern',
-        help='Exclude any mountpoint containing this substring (case-insensitive). '
-        'Example: `boot` excludes `/boot` and `/boot/efi`. '
-        'Can be specified multiple times. '
-        'On Windows, use drive letters without backslash (`Y:` or `Y`). '
-        'Includes are matched before excludes.',
+        help=argparse.SUPPRESS,
         dest='EXCLUDE_PATTERN',
         action='append',
         default=None,
@@ -122,10 +116,7 @@ def parse_args():
 
     parser.add_argument(
         '--exclude-regex',
-        help='Exclude any mountpoint matching this Python regex (case-insensitive). '
-        'Can be specified multiple times. '
-        'On Windows, use drive letters without backslash (`Y:` or `Y`). '
-        'Includes are matched before excludes.',
+        help=argparse.SUPPRESS,
         dest='EXCLUDE_REGEX',
         action='append',
         default=None,
@@ -143,12 +134,20 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore',
+        help='Ignore mountpoints matching this Python regular expression. '
+        'Case-insensitive by default (on Windows, drive letters and paths are '
+        'case-insensitive; use drive letters such as `C:` or `C`). '
+        'For case-sensitive matching, wrap the pattern in `(?-i:...)`, e.g. `(?-i:Data)`. '
+        'Can be specified multiple times.',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
         '--include-pattern',
-        help='Only include mountpoints containing this substring (case-insensitive). '
-        'Example: `boot` includes `/boot` and `/boot/efi`. '
-        'Can be specified multiple times. '
-        'On Windows, use drive letters without backslash (`Y:` or `Y`). '
-        'Includes are matched before excludes.',
+        help=argparse.SUPPRESS,
         dest='INCLUDE_PATTERN',
         action='append',
         default=None,
@@ -156,10 +155,7 @@ def parse_args():
 
     parser.add_argument(
         '--include-regex',
-        help='Only include mountpoints matching this Python regex (case-insensitive). '
-        'Can be specified multiple times. '
-        'On Windows, use drive letters without backslash (`Y:` or `Y`). '
-        'Includes are matched before excludes.',
+        help=argparse.SUPPRESS,
         dest='INCLUDE_REGEX',
         action='append',
         default=None,
@@ -171,6 +167,18 @@ def parse_args():
         dest='LIST_FSTYPES',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only check mountpoints matching this Python regular expression. '
+        'Case-insensitive by default (on Windows, drive letters and paths are '
+        'case-insensitive; use drive letters such as `C:` or `C`). '
+        'For case-sensitive matching, wrap the pattern in `(?-i:...)`, e.g. `(?-i:Data)`. '
+        'Can be specified multiple times.',
+        dest='MATCH',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -250,18 +258,6 @@ def _load_disk_usage_fixture(raw_json):
     return partitions, usage
 
 
-def compile_regex(regex, what):
-    """Return a compiled regex."""
-    try:
-        return [re.compile(item, re.IGNORECASE) for item in regex]
-    except re.error as e:
-        # don't want a full stacktrace here, therefore not using cu()
-        lib.base.oao(
-            f'Your {what} "{regex}" contains one or more errors: {e}',
-            STATE_UNKNOWN,
-        )
-
-
 def list_fstypes():
     """Print a nice table showing which file system types exist and which are checked by default."""
     # get all partitions, no matter which ones
@@ -312,10 +308,14 @@ def main():
         args.EXCLUDE_REGEX = []
     if args.FSTYPE is None:
         args.FSTYPE = []
+    if args.IGNORE is None:
+        args.IGNORE = []
     if args.INCLUDE_PATTERN is None:
         args.INCLUDE_PATTERN = []
     if args.INCLUDE_REGEX is None:
         args.INCLUDE_REGEX = []
+    if args.MATCH is None:
+        args.MATCH = []
     if args.PERFDATA_REGEX is None:
         args.PERFDATA_REGEX = []
 
@@ -334,9 +334,29 @@ def main():
     state = STATE_OK
     perfdata = ''
     table_data = []
-    compiled_include_regex = compile_regex(args.INCLUDE_REGEX, 'include-regex')
-    compiled_exclude_regex = compile_regex(args.EXCLUDE_REGEX, 'exclude-regex')
-    compiled_perfdata_regex = compile_regex(args.PERFDATA_REGEX, 'perfdata-regex')
+    # --match / --ignore are the canonical filter names. Unlike the generic
+    # case-sensitive --match/--ignore convention used elsewhere, disk-usage
+    # filters case-insensitively because filesystem paths and Windows drive
+    # letters are case-insensitive. The deprecated --include-regex /
+    # --exclude-regex aliases feed the same lists.
+    compiled_include_regex = [
+        lib.base.coe(p)
+        for p in lib.txt.compile_regex(
+            args.INCLUDE_REGEX + args.MATCH, '--match', flags=re.IGNORECASE
+        )
+    ]
+    compiled_exclude_regex = [
+        lib.base.coe(p)
+        for p in lib.txt.compile_regex(
+            args.EXCLUDE_REGEX + args.IGNORE, '--ignore', flags=re.IGNORECASE
+        )
+    ]
+    compiled_perfdata_regex = [
+        lib.base.coe(p)
+        for p in lib.txt.compile_regex(
+            args.PERFDATA_REGEX, '--perfdata-regex', flags=re.IGNORECASE
+        )
+    ]
 
     # fetch data
     fixture_usage = None
@@ -378,17 +398,19 @@ def main():
             ]:
                 continue
 
-        # include (first) and exclude (second) specific partitions
+        # Filter mountpoints. --match (include) is applied first, then
+        # --ignore (exclude), so a mountpoint hit by --ignore is dropped even
+        # if it also matches --match. Matching is case-insensitive.
         # hint: we can't do `if not part or part.mountpoint in args.IGNORE:` because it is
         # impossible to specify a "Y:\" on the command line ('Y:\' or 'Y:\\' all don't work).
         mountpoint = part.mountpoint.lower()
-        if args.INCLUDE_PATTERN or args.INCLUDE_REGEX:
+        if args.INCLUDE_PATTERN or args.INCLUDE_REGEX or args.MATCH:
             if not any(
                 include_pattern.lower() in mountpoint
                 for include_pattern in args.INCLUDE_PATTERN
             ) and not any(item.search(mountpoint) for item in compiled_include_regex):
                 continue
-        if args.EXCLUDE_PATTERN or args.EXCLUDE_REGEX:
+        if args.EXCLUDE_PATTERN or args.EXCLUDE_REGEX or args.IGNORE:
             if any(
                 exclude_pattern.lower() in mountpoint
                 for exclude_pattern in args.EXCLUDE_PATTERN
@@ -544,11 +566,10 @@ def main():
             }
         )
 
-    # Filter table rows for --brief display. --brief is the inverse of
-    # --lengthy: --lengthy adds columns, --brief filters rows. They
-    # are orthogonal and both can be set at the same time. Perfdata
-    # and alerting stay untouched above this point; --brief only
-    # reshapes the human-readable output.
+    # Filter table rows for --brief display: hide rows within the
+    # thresholds and keep only WARN/CRIT rows. Perfdata and alerting stay
+    # untouched above this point; --brief only reshapes the human-readable
+    # output.
     if args.BRIEF:
         display_rows = [
             row for row in table_data if row.get('_state', STATE_OK) != STATE_OK
