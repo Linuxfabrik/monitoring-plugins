@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 # The disk-usage plugin normally calls `psutil.disk_partitions()` to
 # enumerate mountpoints and then `psutil.disk_usage(mountpoint)` for
@@ -125,9 +125,7 @@ TESTS = [
     },
 
     # #782: --brief hides filesystems within the thresholds and only
-    # renders rows in WARN/CRIT state. --brief is the row-level
-    # counterpart of the column-level --lengthy switch (both are
-    # orthogonal and can be combined). Alerting and perfdata are
+    # renders rows in WARN/CRIT state. Alerting and perfdata are
     # unaffected: all filesystems still drive the overall state.
     #
     # The three-mounts-mixed-state fixture has:
@@ -169,6 +167,83 @@ TESTS = [
             'Mountpoint',  # no table header
             '300.0MiB',    # /boot human-readable used size, table-only
         ],
+    },
+
+    # #662 / #1286: --mount overrides the global thresholds for a single
+    # mountpoint (matched exactly, case-insensitively). All other mounts keep
+    # the global thresholds. The three-mounts-mixed-state fixture has
+    # / (30%), /var (91%), /home (98%).
+    {
+        'id': 'ok-mount-override-relaxes-var',
+        'test': 'stdout/three-mounts-mixed-state,,0',
+        # /var is 91% (WARN at the global 90%), but the override relaxes it to
+        # 99%USED, so it is OK. The single-line summary shows the override.
+        'params': '--match=/var$ --mount=/var,99%USED,99%USED',
+        'assert-retc': STATE_OK,
+        'assert-in': ['/var', 'warn=99%USED crit=99%USED'],
+    },
+    {
+        'id': 'crit-mount-override-tightens-root',
+        'test': 'stdout/three-mounts-mixed-state,,0',
+        # / is 30% used (OK globally), but the override tightens it so 30%
+        # crosses the 25%USED critical threshold.
+        'params': '--match=/$ --mount=/,20%USED,25%USED',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['[CRITICAL]', 'warn=20%USED crit=25%USED'],
+    },
+    {
+        'id': 'crit-mount-override-shown-in-table',
+        'test': 'stdout/three-mounts-mixed-state,,0',
+        # no --match: a 3-row table. The override on / (30%, OK at the global
+        # 90/95) makes it CRIT and the row must carry its own thresholds so
+        # the admin sees why an otherwise-fine row alerts.
+        'params': '--mount=/,20%USED,25%USED',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['(warn=20%USED crit=25%USED)', '[CRITICAL]'],
+    },
+    {
+        'id': 'warn-mount-unknown-path-reported-not-applied',
+        'test': 'stdout/three-mounts-mixed-state,,0',
+        # an override for a mountpoint that is not checked has no effect on the
+        # state (/var keeps the global thresholds and stays WARN), but the
+        # plugin reports the unmatched entry so a typo is not silently ignored.
+        'params': '--match=/var$ --mount=/does/not/exist,1%USED,1%USED',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '/var',
+            'warn=90%USED crit=95%USED',
+            'ignored `--mount` for /does/not/exist (not checked)',
+        ],
+    },
+    {
+        'id': 'ok-mount-matched-emits-no-note',
+        'test': 'stdout/three-mounts-mixed-state,,0',
+        # a --mount entry that matches a checked filesystem must not trigger
+        # the "ignored --mount" note.
+        'params': '--match=/var$ --mount=/var,99%USED,99%USED',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['ignored `--mount`'],
+    },
+    {
+        'id': 'unknown-mount-malformed',
+        'test': 'stdout/three-mounts-mixed-state,,0',
+        # --mount needs three fields; two is a usage error -> UNKNOWN.
+        'params': '--mount=/var,90%USED',
+        'assert-retc': STATE_UNKNOWN,
+    },
+
+    # Windows drive letters: the override matches `C:\` whether the user types
+    # `C`, `C:` or `C:\`. The windows-drives fixture has C:\ (89.4%) and
+    # D:\ (9.3%); without --mount both are OK (below the global 90%).
+    {
+        'id': 'crit-mount-windows-drive-letter',
+        'test': 'stdout/windows-drives,,0',
+        # `C` normalizes to the `C:\` mountpoint and overrides it to 3%USED
+        # critical, so 89.4% is CRIT. D:\ keeps the global thresholds (OK).
+        'params': '--mount=C,2%USED,3%USED',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['89.4%', '[CRITICAL]'],
+        'assert-not-in': ['9.3% [CRITICAL]'],
     },
 ]
 

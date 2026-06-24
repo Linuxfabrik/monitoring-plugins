@@ -43,16 +43,17 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026062401'
+__version__ = '2026062402'
 
 DESCRIPTION = """Checks used or free disk space for each mounted partition. By default, only physical
 devices are checked (hard disks, USB drives), ignoring pseudo and memory filesystems.
 Supports filtering by mountpoint pattern or filesystem type. Thresholds can be set as
-percentages or absolute values, and can target either used or free space. On systems
-with many filesystems (hundreds of mounts), --brief hides rows that are within the
-thresholds so the table only shows the filesystems in WARN/CRIT state. Note that on
-ext2/3/4 filesystems, about 5% of disk space is reserved for root by default and is not
-reflected in the available space shown to regular users.
+percentages or absolute values, and can target either used or free space, globally or
+per mountpoint via --mount. On systems with many filesystems (hundreds of mounts),
+--brief hides rows that are within the thresholds so the table only shows the
+filesystems in WARN/CRIT state. Note that on ext2/3/4 filesystems, about 5% of disk
+space is reserved for root by default and is not reflected in the available space shown
+to regular users.
 Alerts when usage exceeds the configured thresholds."""
 
 DEFAULT_WARN = '90%USED'
@@ -182,6 +183,22 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--mount',
+        help='Override the global --warning/--critical thresholds for a single mountpoint, '
+        'in the form `<mountpoint>,<warning>,<critical>`. '
+        'Each threshold uses the same `<number>[unit][method]` syntax as --warning/--critical. '
+        'The mountpoint is matched exactly and case-insensitively, so the override always '
+        'hits exactly one mountpoint and never several. '
+        'On Windows, use drive letters such as `C:` or `C`. '
+        'Can be specified multiple times. '
+        'Example: `--mount=/var/log,80%%USED,90%%USED`',
+        dest='MOUNT',
+        type=lib.args.csv,
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
         '--perfdata-regex',
         help='Only emit perfdata keys matching this Python regex. '
         'For a list of perfdata keys, see the README or run this plugin. '
@@ -292,6 +309,56 @@ def list_fstypes():
     )
 
 
+def normalize_mountpoint(mountpoint):
+    """Normalize a mountpoint for exact, case-insensitive matching. Lowercases,
+    turns backslashes into slashes, expands a bare Windows drive letter
+    (`c` -> `c:`), and strips a trailing slash (except for root `/`), so that
+    `C`, `C:` and `C:\\` all match the mountpoint `C:\\`.
+    """
+    mp = mountpoint.strip().lower().replace('\\', '/')
+    if len(mp) == 1 and mp.isalpha():
+        mp = f'{mp}:'
+    if len(mp) > 1:
+        mp = mp.rstrip('/')
+    return mp
+
+
+def _threshold_operands(usage, threshold):
+    """Map a `(number, unit, method)` threshold triple (as produced by
+    `lib.args.number_unit_method`) and a filesystem's usage onto the
+    `(value, limit, operator)` arguments for `lib.base.get_state()`:
+
+    - `USED` compares the used amount and alerts when it is "number or more"
+      (`ge`); `FREE` compares the free amount and alerts when it is "number or
+      less" (`le`).
+    - a `%` unit compares percentages, any other unit compares absolute bytes.
+    """
+    number, unit, method = threshold
+    if unit == '%':
+        value = usage.percent if method == 'USED' else 100.0 - usage.percent
+        limit = number
+    else:
+        value = usage.used if method == 'USED' else usage.free
+        limit = lib.human.human2bytes(''.join(threshold[:2]))
+    operator = 'ge' if method == 'USED' else 'le'
+    return value, limit, operator
+
+
+def evaluate_disk_state(usage, warn, crit):
+    """Return the WARN/CRIT state for one filesystem. `warn` and `crit` are
+    `(number, unit, method)` triples as produced by
+    `lib.args.number_unit_method`. Checks WARN first, then CRIT, and combines
+    them with get_worst().
+    """
+    warn_value, warn_limit, warn_op = _threshold_operands(usage, warn)
+    crit_value, crit_limit, crit_op = _threshold_operands(usage, crit)
+    disk_state = lib.base.get_state(warn_value, warn_limit, None, warn_op)
+    return lib.base.get_worst(
+        disk_state,
+        lib.base.get_state(crit_value, None, crit_limit, crit_op),
+    )
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -316,6 +383,8 @@ def main():
         args.INCLUDE_REGEX = []
     if args.MATCH is None:
         args.MATCH = []
+    if args.MOUNT is None:
+        args.MOUNT = []
     if args.PERFDATA_REGEX is None:
         args.PERFDATA_REGEX = []
 
@@ -326,6 +395,30 @@ def main():
     except ValueError:
         lib.base.cu('Invalid parameter value.')
 
+    # --mount: per-mountpoint threshold overrides. Build a lookup keyed by the
+    # normalized mountpoint; each value is a (warn, crit) pair of
+    # number_unit_method triples that override the global thresholds for that
+    # one mountpoint. mount_inputs keeps the mountpoint as the user typed it,
+    # for the "matched no checked filesystem" note below.
+    mount_overrides = {}
+    mount_inputs = {}
+    for entry in args.MOUNT:
+        if len(entry) != 3:
+            lib.base.cu(
+                f'`--mount` needs `<mountpoint>,<warning>,<critical>`, got: {",".join(entry)}'
+            )
+        mountpoint, warn_raw, crit_raw = entry
+        warn = lib.args.number_unit_method(warn_raw.strip())
+        crit = lib.args.number_unit_method(crit_raw.strip())
+        try:
+            float(warn[0])
+            float(crit[0])
+        except ValueError:
+            lib.base.cu(f'Invalid `--mount` threshold for "{mountpoint}".')
+        mount_key = normalize_mountpoint(mountpoint)
+        mount_overrides[mount_key] = (warn, crit)
+        mount_inputs[mount_key] = mountpoint.strip()
+
     # show partition information and exit
     if args.LIST_FSTYPES:
         list_fstypes()
@@ -334,6 +427,7 @@ def main():
     state = STATE_OK
     perfdata = ''
     table_data = []
+    seen_overrides = set()  # which --mount keys actually matched a checked filesystem
     # --match / --ignore are the canonical filter names. Unlike the generic
     # case-sensitive --match/--ignore convention used elsewhere, disk-usage
     # filters case-insensitively because filesystem paths and Windows drive
@@ -378,6 +472,7 @@ def main():
         stdout, _, _ = lib.lftest.test(args.TEST)
         parts, fixture_usage = _load_disk_usage_fixture(stdout)
 
+    # analyze data
     for part in parts:
         # sdiskpart(device='/dev/vda2', mountpoint='/', fstype='ext4', opts='rw,relatime')
         # sdiskpart(
@@ -437,80 +532,24 @@ def main():
             )
             continue
 
-        # check % vs. USED|FREE and K|M|G|T|P vs. USED|FREE, first WARN, then CRIT
-        disk_state = STATE_OK
-
-        if args.WARN[1] == '%' and args.WARN[2] == 'USED':
-            disk_state = lib.base.get_state(
-                usage.percent,
-                args.WARN[0],
-                None,
-                'ge',
-            )
-        elif args.WARN[1] == '%' and args.WARN[2] == 'FREE':
-            disk_state = lib.base.get_state(
-                100.0 - usage.percent,
-                args.WARN[0],
-                None,
-                'le',
-            )
-        elif args.WARN[1] != '%' and args.WARN[2] == 'USED':
-            disk_state = lib.base.get_state(
-                usage.used,
-                lib.human.human2bytes(''.join(args.WARN[:2])),
-                None,
-                'ge',
-            )
-        elif args.WARN[1] != '%' and args.WARN[2] == 'FREE':
-            disk_state = lib.base.get_state(
-                usage.free,
-                lib.human.human2bytes(''.join(args.WARN[:2])),
-                None,
-                'le',
-            )
-
-        if args.CRIT[1] == '%' and args.CRIT[2] == 'USED':
-            disk_state = lib.base.get_worst(
-                disk_state,
-                lib.base.get_state(
-                    usage.percent,
-                    None,
-                    args.CRIT[0],
-                    'ge',
-                ),
-            )
-        elif args.CRIT[1] == '%' and args.CRIT[2] == 'FREE':
-            disk_state = lib.base.get_worst(
-                disk_state,
-                lib.base.get_state(
-                    100.0 - usage.percent,
-                    None,
-                    args.CRIT[0],
-                    'le',
-                ),
-            )
-        elif args.CRIT[1] != '%' and args.CRIT[2] == 'USED':
-            disk_state = lib.base.get_worst(
-                disk_state,
-                lib.base.get_state(
-                    usage.used,
-                    None,
-                    lib.human.human2bytes(''.join(args.CRIT[:2])),
-                    'ge',
-                ),
-            )
-        elif args.CRIT[1] != '%' and args.CRIT[2] == 'FREE':
-            disk_state = lib.base.get_worst(
-                disk_state,
-                lib.base.get_state(
-                    usage.free,
-                    None,
-                    lib.human.human2bytes(''.join(args.CRIT[:2])),
-                    'le',
-                ),
-            )
-
+        # evaluate WARN/CRIT, using a --mount per-mountpoint override if one
+        # matches this mountpoint, otherwise the global thresholds
+        mount_key = normalize_mountpoint(part.mountpoint)
+        is_override = mount_key in mount_overrides
+        if is_override:
+            seen_overrides.add(mount_key)
+        warn, crit = mount_overrides.get(mount_key, (args.WARN, args.CRIT))
+        disk_state = evaluate_disk_state(usage, warn, crit)
         state = lib.base.get_worst(state, disk_state)
+
+        # Use% cell: the percentage, the per-mountpoint thresholds when --mount
+        # overrides this row (so the table explains why an otherwise-fine row
+        # alerts), and the state marker last (kept at the end of the cell for
+        # IcingaWeb, which turns it into an icon).
+        percent_cell = f'{usage.percent}%'
+        if is_override:
+            percent_cell += f' (warn={"".join(warn)} crit={"".join(crit)})'
+        percent_cell += lib.base.state2str(disk_state, prefix=' ')
 
         perfdata_key = f'{part.mountpoint}-usage'
         if not args.PERFDATA_REGEX or any(
@@ -558,11 +597,14 @@ def main():
                 'used': lib.human.bytes2human(usage.used),
                 'avail': lib.human.bytes2human(usage.free),
                 'size': lib.human.bytes2human(usage.total),
-                'percent': f'{usage.percent}%{lib.base.state2str(disk_state, prefix=" ")}',
-                # internal per-row state for the --brief filter below;
-                # not rendered because get_table() uses an explicit
-                # column whitelist.
+                'percent': percent_cell,
+                # internal per-row fields, not rendered because get_table()
+                # uses an explicit column whitelist: per-row state for the
+                # --brief filter below, and whether a --mount override applied
+                # (so the single-mountpoint summary does not repeat the
+                # thresholds the Use% value already carries).
                 '_state': disk_state,
+                '_override': is_override,
             }
         )
 
@@ -585,16 +627,19 @@ def main():
         # --brief and nothing worth showing: one-line summary only.
         msg = f'Everything is ok. ({thresholds})'
     elif len(table_data) == 1 and not args.BRIEF:
-        # single-partition system (no --brief): full single-line
-        # summary with the values inline.
+        # single matched filesystem (no --brief): full single-line summary with
+        # the values inline. A --mount override already carries its thresholds
+        # in the Use% value, so only append the global thresholds otherwise.
+        row = table_data[0]
         msg = (
-            f'{table_data[0]["mountpoint"]}'
-            f' {table_data[0]["percent"]}'
-            f' - total: {table_data[0]["size"]}'
-            f', free: {table_data[0]["avail"]}'
-            f', used: {table_data[0]["used"]}'
-            f' ({thresholds})'
+            f'{row["mountpoint"]}'
+            f' {row["percent"]}'
+            f' - total: {row["size"]}'
+            f', free: {row["avail"]}'
+            f', used: {row["used"]}'
         )
+        if not row.get('_override'):
+            msg += f' ({thresholds})'
     else:
         if state == STATE_CRIT:
             header = 'There are critical errors.'
@@ -609,6 +654,19 @@ def main():
             'percent',
         )
         msg = f'{header} ({thresholds})\n\n{table}'
+
+    # warn (in the output, not in the state) about --mount entries that did not
+    # match any checked filesystem, so a typo or a filesystem that is not
+    # checked by default does not silently disable an intended threshold. The
+    # note goes on the first line (not the long output) so it is visible in the
+    # web UI and in notifications without expanding the output.
+    unmatched = sorted(
+        mount_inputs[key] for key in mount_overrides if key not in seen_overrides
+    )
+    if unmatched:
+        note = 'ignored `--mount` for ' + ', '.join(unmatched) + ' (not checked)'
+        head, separator, tail = msg.partition('\n')
+        msg = f'{head} {note}{separator}{tail}'
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
