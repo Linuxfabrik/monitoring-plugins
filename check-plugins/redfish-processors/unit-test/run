@@ -21,10 +21,13 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 # `-processors` (Processors collection), and `-cpu-N` (each processor, indexed)
 # to the --test path as it walks the Redfish API. Each scenario therefore
 # requires the matching fixture files.
+COMMON = '--url=https://example.com'
+
 TESTS = [
     {
         'id': 'ok-healthy-processors',
         'test': 'stdout/healthy-processors,,0',
+        'params': COMMON,
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok, checked processors on 1 member.',
@@ -36,6 +39,7 @@ TESTS = [
         # redfish-processors must escalate to CRITICAL.
         'id': 'crit-one-cpu-fault',
         'test': 'stdout/one-cpu-fault,,0',
+        'params': COMMON,
         'assert-retc': STATE_CRIT,
         'assert-in': [
             'There are critical errors.',
@@ -47,7 +51,7 @@ TESTS = [
         # faulty one), excluding the healthy FPGA, so the check stays CRITICAL.
         'id': 'crit-match-processor',
         'test': 'stdout/one-cpu-fault,,0',
-        'params': "--match='Processor'",
+        'params': f"{COMMON} --match='Processor'",
         'assert-retc': STATE_CRIT,
         'assert-in': ['[CRITICAL]'],
         'assert-not-in': ['FPGA'],
@@ -57,7 +61,7 @@ TESTS = [
         # leaving only the healthy FPGA, so the check is OK.
         'id': 'ok-ignore-processor',
         'test': 'stdout/one-cpu-fault,,0',
-        'params': "--ignore='Processor'",
+        'params': f"{COMMON} --ignore='Processor'",
         'assert-retc': STATE_OK,
         'assert-in': ['FPGA'],
         'assert-not-in': ['[CRITICAL]'],
@@ -68,7 +72,7 @@ TESTS = [
         # with `jq --slurp`.
         'id': 'ok-inventory-json',
         'test': 'stdout/healthy-processors,,0',
-        'params': '--inventory',
+        'params': f'{COMMON} --inventory',
         'assert-retc': STATE_OK,
         'assert-in': ['"processor":', '"system_ids":'],
     },
@@ -77,6 +81,7 @@ TESTS = [
         # readable message, not as a Python traceback.
         'id': 'unknown-missing-fixture',
         'test': 'stdout/does-not-exist,,0',
+        'params': COMMON,
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Test fixture not found'],
     },

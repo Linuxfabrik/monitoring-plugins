@@ -20,10 +20,13 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 # The plugin appends `-managers` (Managers collection) and `-manager` (member)
 # to the --test path as it walks the Redfish API. Each scenario therefore
 # requires the matching fixture files.
+COMMON = '--url=https://example.com'
+
 TESTS = [
     {
         'id': 'ok-healthy-managers',
         'test': 'stdout/healthy-managers,,0',
+        'params': COMMON,
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok, checked manager health on 1 member.',
@@ -35,6 +38,7 @@ TESTS = [
         # escalate to CRITICAL.
         'id': 'crit-one-manager-fault',
         'test': 'stdout/one-manager-fault,,0',
+        'params': COMMON,
         'assert-retc': STATE_CRIT,
         'assert-in': [
             'There are critical errors.',
@@ -47,7 +51,7 @@ TESTS = [
         # with `jq --slurp`.
         'id': 'ok-inventory-json',
         'test': 'stdout/healthy-managers,,0',
-        'params': '--inventory',
+        'params': f'{COMMON} --inventory',
         'assert-retc': STATE_OK,
         'assert-in': ['"manager":', '"FirmwareVersion":'],
     },
@@ -56,6 +60,7 @@ TESTS = [
         # readable message, not as a Python traceback.
         'id': 'unknown-missing-fixture',
         'test': 'stdout/does-not-exist,,0',
+        'params': COMMON,
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Test fixture not found'],
     },

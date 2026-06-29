@@ -22,10 +22,13 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 # (each Drive, indexed) and, when the Storage member exposes a Volumes link,
 # `-volumes` (Volume collection) and `-volume-N` (each Volume, indexed) to the
 # --test path as it walks the Redfish API.
+COMMON = '--url=https://example.com'
+
 TESTS = [
     {
         'id': 'ok-two-drives-healthy',
         'test': 'stdout/two-drives-healthy,,0',
+        'params': COMMON,
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok, checked storage on 1 member.',
@@ -38,6 +41,7 @@ TESTS = [
         # the system state into its result.
         'id': 'ok-inlet-temp-with-healthy-drives',
         'test': 'stdout/inlet-temp-with-healthy-drives,,0',
+        'params': COMMON,
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok, checked storage on 1 member.',
@@ -47,6 +51,7 @@ TESTS = [
     {
         'id': 'crit-one-drive-fault',
         'test': 'stdout/one-drive-fault,,0',
+        'params': COMMON,
         'assert-retc': STATE_CRIT,
         'assert-in': [
             'There are critical errors.',
@@ -58,6 +63,7 @@ TESTS = [
         # Both the drive table and the volume table must be reported as OK.
         'id': 'ok-two-drives-one-volume',
         'test': 'stdout/two-drives-one-volume,,0',
+        'params': COMMON,
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok, checked storage on 1 member.',
@@ -71,6 +77,7 @@ TESTS = [
         # controllers are OK. redfish-storage must escalate to CRITICAL.
         'id': 'crit-one-volume-fault',
         'test': 'stdout/one-volume-fault,,0',
+        'params': COMMON,
         'assert-retc': STATE_CRIT,
         'assert-in': [
             'There are critical errors.',
@@ -85,6 +92,7 @@ TESTS = [
         # a degrees-Celsius gauge. All are keyed by the drive name.
         'id': 'ok-drive-power-on-hours',
         'test': 'stdout/drive-power-on-hours,,0',
+        'params': COMMON,
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok, checked storage on 1 member.',
@@ -98,7 +106,7 @@ TESTS = [
         # is OK and that drive is no longer reported.
         'id': 'ok-ignore-faulty-drive',
         'test': 'stdout/one-drive-fault,,0',
-        'params': "--ignore='SSD 0'",
+        'params': f"{COMMON} --ignore='SSD 0'",
         'assert-retc': STATE_OK,
         'assert-not-in': ['SSD 0', '[CRITICAL]'],
     },
@@ -107,7 +115,7 @@ TESTS = [
         # considered and the check stays CRITICAL on it alone.
         'id': 'crit-match-faulty-drive',
         'test': 'stdout/one-drive-fault,,0',
-        'params': "--match='SSD 0'",
+        'params': f"{COMMON} --match='SSD 0'",
         'assert-retc': STATE_CRIT,
         'assert-in': ['SSD 0', '[CRITICAL]'],
         'assert-not-in': ['SSD 1'],
@@ -117,7 +125,7 @@ TESTS = [
         # hiding the healthy one.
         'id': 'crit-brief-shows-faulty-drive',
         'test': 'stdout/one-drive-fault,,0',
-        'params': '--brief',
+        'params': f'{COMMON} --brief',
         'assert-retc': STATE_CRIT,
         'assert-in': ['SSD 0', '[CRITICAL]'],
         'assert-not-in': ['SSD 1'],
@@ -128,7 +136,7 @@ TESTS = [
         # exits OK, so several Redfish checks can be merged with `jq --slurp`.
         'id': 'ok-inventory-json',
         'test': 'stdout/two-drives-one-volume,,0',
-        'params': '--inventory',
+        'params': f'{COMMON} --inventory',
         'assert-retc': STATE_OK,
         'assert-in': ['"physical_drive":', '"logical_drive":', '"system_ids":'],
     },
@@ -137,6 +145,7 @@ TESTS = [
         # readable message, not as a Python traceback.
         'id': 'unknown-missing-fixture',
         'test': 'stdout/does-not-exist,,0',
+        'params': COMMON,
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Test fixture not found'],
     },

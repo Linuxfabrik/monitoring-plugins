@@ -39,7 +39,7 @@ usage: redfish-logservices [-h] [-V] [--always-ok]
                            [--insecure] [--log-type {sel,mel,both}]
                            [--match MATCH] [--max-age MAX_AGE] [--no-proxy]
                            [--password PASSWORD] [--retries RETRIES]
-                           [--test TEST] [--timeout TIMEOUT] [--url URL]
+                           [--test TEST] [--timeout TIMEOUT] --url URL
                            [--username USERNAME]
 
 Checks the event log entries exposed under the LogServices of a Redfish-
@@ -88,7 +88,7 @@ options:
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  --url URL             Redfish API URL. Default: https://localhost:5000
+  --url URL             Redfish API URL.
   --username USERNAME   Redfish API username.
 ```
 

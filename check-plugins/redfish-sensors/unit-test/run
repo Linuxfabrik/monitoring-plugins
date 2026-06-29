@@ -22,10 +22,13 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 # `-thermal` (Thermal block) to the --test path as it walks the Redfish API.
 # When a chassis exposes no Sensors collection, the plugin falls back to the
 # legacy Thermal and Power endpoints and additionally loads `-power`.
+COMMON = '--url=https://example.com'
+
 TESTS = [
     {
         'id': 'ok-healthy-chassis',
         'test': 'stdout/healthy-chassis,,0',
+        'params': COMMON,
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok, checked sensors on 1 member.',
@@ -38,6 +41,7 @@ TESTS = [
         # Fixture taken from issue #1211.
         'id': 'ok-zero-width-range',
         'test': 'stdout/zero-range-chassis,,0',
+        'params': COMMON,
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok, checked sensors on 1 member.',
@@ -50,6 +54,7 @@ TESTS = [
         # supplies) endpoints and still report readings.
         'id': 'ok-legacy-thermal-fallback',
         'test': 'stdout/legacy-thermal,,0',
+        'params': COMMON,
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok, checked sensors on 1 member.',
@@ -64,6 +69,7 @@ TESTS = [
         # mapped onto the modern sensor-state logic.
         'id': 'crit-legacy-temp-threshold',
         'test': 'stdout/legacy-temp-crit,,0',
+        'params': COMMON,
         'assert-retc': STATE_CRIT,
         'assert-in': [
             'There are critical errors.',
@@ -76,6 +82,7 @@ TESTS = [
         # the chassis-wide power consumption rather than crash.
         'id': 'ok-cisco-powercontrol-dict',
         'test': 'stdout/cisco-powercontrol,,0',
+        'params': COMMON,
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok, checked sensors on 1 member.',
@@ -90,7 +97,7 @@ TESTS = [
         # with `jq --slurp`.
         'id': 'ok-inventory-json',
         'test': 'stdout/healthy-chassis,,0',
-        'params': '--inventory',
+        'params': f'{COMMON} --inventory',
         'assert-retc': STATE_OK,
         'assert-in': ['"sensor":', '"chassi_ids":'],
     },
@@ -99,6 +106,7 @@ TESTS = [
         # readable message, not as a Python traceback.
         'id': 'unknown-missing-fixture',
         'test': 'stdout/does-not-exist,,0',
+        'params': COMMON,
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Test fixture not found'],
     },

@@ -21,10 +21,13 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 # `-memory` (Memory collection), and `-dimm-N` (each memory module, indexed)
 # to the --test path as it walks the Redfish API. Each scenario therefore
 # requires the matching fixture files.
+COMMON = '--url=https://example.com'
+
 TESTS = [
     {
         'id': 'ok-healthy-memory',
         'test': 'stdout/healthy-memory,,0',
+        'params': COMMON,
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok, checked memory on 1 member.',
@@ -38,6 +41,7 @@ TESTS = [
         # OK. redfish-memory must escalate to CRITICAL.
         'id': 'crit-one-dimm-fault',
         'test': 'stdout/one-dimm-fault,,0',
+        'params': COMMON,
         'assert-retc': STATE_CRIT,
         'assert-in': [
             'There are critical errors.',
@@ -49,7 +53,7 @@ TESTS = [
         # check is OK and that module is no longer reported.
         'id': 'ok-ignore-faulty-dimm',
         'test': 'stdout/one-dimm-fault,,0',
-        'params': "--ignore='DIMM Slot 2'",
+        'params': f"{COMMON} --ignore='DIMM Slot 2'",
         'assert-retc': STATE_OK,
         'assert-not-in': ['DIMM Slot 2', '[CRITICAL]'],
     },
@@ -58,7 +62,7 @@ TESTS = [
         # considered and the check stays CRITICAL on it alone.
         'id': 'crit-match-faulty-dimm',
         'test': 'stdout/one-dimm-fault,,0',
-        'params': "--match='DIMM Slot 2'",
+        'params': f"{COMMON} --match='DIMM Slot 2'",
         'assert-retc': STATE_CRIT,
         'assert-in': ['DIMM Slot 2', '[CRITICAL]'],
         'assert-not-in': ['DIMM Slot 1', 'DIMM Slot 3'],
@@ -68,7 +72,7 @@ TESTS = [
         # only the summary remains.
         'id': 'ok-brief-hides-healthy',
         'test': 'stdout/healthy-memory,,0',
-        'params': '--brief',
+        'params': f'{COMMON} --brief',
         'assert-retc': STATE_OK,
         'assert-in': ['Everything is ok, checked memory on 1 member.'],
         'assert-not-in': ['DIMM Slot 1', 'DIMM Slot 2'],
@@ -78,7 +82,7 @@ TESTS = [
         # hiding the healthy ones.
         'id': 'crit-brief-shows-faulty',
         'test': 'stdout/one-dimm-fault,,0',
-        'params': '--brief',
+        'params': f'{COMMON} --brief',
         'assert-retc': STATE_CRIT,
         'assert-in': ['DIMM Slot 2', '[CRITICAL]'],
         'assert-not-in': ['DIMM Slot 1', 'DIMM Slot 3'],
@@ -89,7 +93,7 @@ TESTS = [
         # with `jq --slurp`.
         'id': 'ok-inventory-json',
         'test': 'stdout/healthy-memory,,0',
-        'params': '--inventory',
+        'params': f'{COMMON} --inventory',
         'assert-retc': STATE_OK,
         'assert-in': ['"memory":', '"system_ids":'],
     },
@@ -98,6 +102,7 @@ TESTS = [
         # readable message, not as a Python traceback.
         'id': 'unknown-missing-fixture',
         'test': 'stdout/does-not-exist,,0',
+        'params': COMMON,
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Test fixture not found'],
     },

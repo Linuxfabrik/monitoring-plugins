@@ -40,7 +40,7 @@ usage: redfish-firmwareinventory [-h] [-V] [--always-ok] [--brief]
                                  [--ignore IGNORE] [--insecure] [--inventory]
                                  [--match MATCH] [--no-proxy]
                                  [--password PASSWORD] [--retries RETRIES]
-                                 [--test TEST] [--timeout TIMEOUT] [--url URL]
+                                 [--test TEST] [--timeout TIMEOUT] --url URL
                                  [--username USERNAME]
 
 Reports the firmware inventory of a Redfish-compatible server via the Redfish
@@ -84,7 +84,7 @@ options:
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  --url URL             Redfish API URL. Default: https://localhost:5000
+  --url URL             Redfish API URL.
   --username USERNAME   Redfish API username.
 ```
 

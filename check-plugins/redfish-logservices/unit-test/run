@@ -20,10 +20,13 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # The plugin appends `-root`, `-managers` and `-sel` to the --test path
 # as it walks the Redfish API, so each scenario requires three fixture
 # files: `<name>-root`, `<name>-managers`, `<name>-sel`.
+COMMON = '--url=https://example.com'
+
 TESTS = [
     {
         'id': 'ok-empty-sel',
         'test': 'stdout/empty-sel,,0',
+        'params': COMMON,
         'assert-retc': STATE_OK,
         'assert-in': ['Everything is ok, checked SEL on 1 member.'],
     },
@@ -32,6 +35,7 @@ TESTS = [
         # is always skipped) escalates to CRITICAL and lists both.
         'id': 'crit-sel-entries',
         'test': 'stdout/sel-entries,,0',
+        'params': COMMON,
         'assert-retc': STATE_CRIT,
         'assert-in': [
             'There are critical errors.',
@@ -45,7 +49,7 @@ TESTS = [
         # the fan warning, so the check de-escalates to WARNING.
         'id': 'warn-ignore-temperature',
         'test': 'stdout/sel-entries,,0',
-        'params': "--ignore='(?i)temperature'",
+        'params': f"{COMMON} --ignore='(?i)temperature'",
         'assert-retc': STATE_WARN,
         'assert-in': ['There are warnings.', 'Fan 3 redundancy lost'],
         'assert-not-in': ['[CRITICAL]', 'CPU temperature is critical'],
@@ -55,7 +59,7 @@ TESTS = [
         # considered and the check is CRITICAL on the temperature alone.
         'id': 'crit-match-temperature',
         'test': 'stdout/sel-entries,,0',
-        'params': "--match='(?i)temperature'",
+        'params': f"{COMMON} --match='(?i)temperature'",
         'assert-retc': STATE_CRIT,
         'assert-in': ['CPU temperature is critical', '[CRITICAL]'],
         'assert-not-in': ['Fan 3 redundancy lost'],
@@ -65,7 +69,7 @@ TESTS = [
         # drives the state and the summary reports how many aged out.
         'id': 'ok-max-age-ages-out',
         'test': 'stdout/sel-entries,,0',
-        'params': '--max-age=30',
+        'params': f'{COMMON} --max-age=30',
         'assert-retc': STATE_OK,
         'assert-in': ['Everything is ok, checked SEL on 1 member.', '2 aged out'],
         'assert-not-in': ['[CRITICAL]'],
@@ -75,7 +79,7 @@ TESTS = [
         # does not suppress them and the check stays CRITICAL.
         'id': 'crit-max-age-keeps-entries',
         'test': 'stdout/sel-entries,,0',
-        'params': '--max-age=100000',
+        'params': f'{COMMON} --max-age=100000',
         'assert-retc': STATE_CRIT,
         'assert-in': ['CPU temperature is critical', '[CRITICAL]'],
         'assert-not-in': ['aged out'],
@@ -85,7 +89,7 @@ TESTS = [
         # holds a single warning, so the check is WARNING and labelled MEL.
         'id': 'warn-mel-only',
         'test': 'stdout/sel-entries,,0',
-        'params': '--log-type=mel',
+        'params': f'{COMMON} --log-type=mel',
         'assert-retc': STATE_WARN,
         'assert-in': ['Checked MEL on 1 member.', '(MEL)', 'BMC firmware was updated'],
         'assert-not-in': ['CPU temperature is critical'],
@@ -95,7 +99,7 @@ TESTS = [
         # and both logs are labelled in the output.
         'id': 'crit-both-logs',
         'test': 'stdout/sel-entries,,0',
-        'params': '--log-type=both',
+        'params': f'{COMMON} --log-type=both',
         'assert-retc': STATE_CRIT,
         'assert-in': [
             'Checked SEL and MEL on 1 member.',
@@ -110,6 +114,7 @@ TESTS = [
         # readable message, not as a Python traceback.
         'id': 'unknown-missing-fixture',
         'test': 'stdout/does-not-exist,,0',
+        'params': COMMON,
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Test fixture not found'],
     },

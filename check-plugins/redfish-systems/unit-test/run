@@ -20,22 +20,27 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # The plugin appends `-systems` (collection) and `-system` (member)
 # to the --test path as it walks the Redfish API, so each scenario
 # requires two fixture files: `<name>-systems` and `<name>-system`.
+COMMON = '--url=https://example.com'
+
 TESTS = [
     {
         'id': 'ok-healthy-server',
         'test': 'stdout/healthy-server,,0',
+        'params': COMMON,
         'assert-retc': STATE_OK,
         'assert-in': ['Everything is ok, checked system health on 1 member.'],
     },
     {
         'id': 'warn-inlet-temp-threshold',
         'test': 'stdout/inlet-temp-threshold,,0',
+        'params': COMMON,
         'assert-retc': STATE_WARN,
         'assert-in': ['[WARNING]'],
     },
     {
         'id': 'crit-hardware-fault',
         'test': 'stdout/hardware-fault,,0',
+        'params': COMMON,
         'assert-retc': STATE_CRIT,
         'assert-in': ['[CRITICAL]'],
     },
@@ -45,7 +50,7 @@ TESTS = [
         # with `jq --slurp`.
         'id': 'ok-inventory-json',
         'test': 'stdout/healthy-server,,0',
-        'params': '--inventory',
+        'params': f'{COMMON} --inventory',
         'assert-retc': STATE_OK,
         'assert-in': ['"system":', '"BiosVersion":'],
     },
@@ -54,6 +59,7 @@ TESTS = [
         # readable message, not as a Python traceback.
         'id': 'unknown-missing-fixture',
         'test': 'stdout/does-not-exist,,0',
+        'params': COMMON,
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Test fixture not found'],
     },

@@ -21,10 +21,13 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 # `-firmware-N` (each firmware component, indexed) to the --test path as it
 # walks the Redfish API. Each scenario therefore requires the matching fixture
 # files.
+COMMON = '--url=https://example.com'
+
 TESTS = [
     {
         'id': 'ok-healthy-firmwareinventory',
         'test': 'stdout/healthy-firmwareinventory,,0',
+        'params': COMMON,
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok, checked 3 firmware components.',
@@ -36,6 +39,7 @@ TESTS = [
         # are OK. redfish-firmwareinventory must escalate to CRITICAL.
         'id': 'crit-one-firmware-fault',
         'test': 'stdout/one-firmware-fault,,0',
+        'params': COMMON,
         'assert-retc': STATE_CRIT,
         'assert-in': [
             'There are critical errors.',
@@ -48,7 +52,7 @@ TESTS = [
         # with `jq --slurp`.
         'id': 'ok-inventory-json',
         'test': 'stdout/healthy-firmwareinventory,,0',
-        'params': '--inventory',
+        'params': f'{COMMON} --inventory',
         'assert-retc': STATE_OK,
         'assert-in': ['"firmware":', '"Version":'],
     },
@@ -57,6 +61,7 @@ TESTS = [
         # readable message, not as a Python traceback.
         'id': 'unknown-missing-fixture',
         'test': 'stdout/does-not-exist,,0',
+        'params': COMMON,
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Test fixture not found'],
     },
