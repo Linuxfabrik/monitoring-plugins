@@ -45,8 +45,8 @@ usage: diacos [-h] [-V] [--always-ok] [-c CRITICAL] [--insecure]
               [--search-concept-filter CONCEPT_FILTER]
               [--search-country COUNTRY] [--search-format FORMAT]
               [--search-searchtext SEARCHTEXT] [--search-sort-mode SORT_MODE]
-              [--search-year YEAR] [--test TEST] [--timeout TIMEOUT]
-              [--url URL] [-w WARNING]
+              [--search-year YEAR] [--timeout TIMEOUT] [--url URL]
+              [-w WARNING]
 
 Checks availability and response time of an ID DIACOS installation by
 performing a full login, diagnosis search, and logout cycle. Alerts if the
@@ -90,8 +90,6 @@ options:
                         classification.SearchDiagnoses API call. Default: %25T
   --search-year YEAR    YEAR argument for the classification.SearchDiagnoses
                         API call. Default: 2020
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 7 (seconds)
   --url URL             ID DIACOS base URL. Default: http://localhost:9999
   -w, --warning WARNING

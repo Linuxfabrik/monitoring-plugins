@@ -36,8 +36,8 @@ Submits a URL to VirusTotal for analysis and checks the scan results. Alerts whe
 
 ```text
 usage: virustotal-scan-url [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                           [--severity {warn,crit}] [--test TEST]
-                           [--timeout TIMEOUT] --token TOKEN --url URL
+                           [--severity {warn,crit}] [--timeout TIMEOUT]
+                           --token TOKEN --url URL
 
 Submits a URL to VirusTotal for analysis and checks the scan results. Alerts
 when any antivirus engine flags the URL as malicious or suspicious. Requires a
@@ -52,8 +52,6 @@ options:
   --no-proxy            Do not use a proxy.
   --severity {warn,crit}
                         Severity for alerting. Default: warn
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --token TOKEN         VirusTotal API token.
   --url URL             URL to submit for scanning.

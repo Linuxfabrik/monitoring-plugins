@@ -38,7 +38,7 @@ Checks a Nextcloud installation for available app updates from the configured ap
 ```text
 usage: nextcloud-app-updates [-h] [-V] [--always-ok] [-c CRIT]
                              [--ignore IGNORE] [--match MATCH] [--path PATH]
-                             [--test TEST] [-v] [-w WARN]
+                             [-v] [-w WARN]
 
 Checks a Nextcloud installation for available app updates from the configured
 app store and alerts when an app update has been available for longer than the
@@ -65,8 +65,6 @@ options:
   --path PATH          Local path to the Nextcloud installation, typically the
                        web server document root. Default:
                        /var/www/html/nextcloud
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
   -v, --verbose        Makes this plugin verbose during the operation. Useful
                        for debugging and seeing what is going on under the
                        hood.

@@ -56,7 +56,7 @@ Monitors the Infomaniak status page for open events and incidents. Alerts when a
 ```text
 usage: infomaniak-events [-h] [-V] [--always-ok] [--ignore-regex IGNORE_REGEX]
                          [--insecure] [--no-proxy] [--service SERVICE]
-                         [--timeout TIMEOUT] --token TOKEN [--test TEST]
+                         [--timeout TIMEOUT] --token TOKEN
 
 Monitors the Infomaniak status page for open events and incidents. Alerts when
 active events are reported.
@@ -78,8 +78,6 @@ options:
                         swiss_backup --service public_cloud`.
   --timeout TIMEOUT     Network timeout in seconds. Default: 28 (seconds)
   --token TOKEN         Infomaniak API token.
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
 ```
 
 

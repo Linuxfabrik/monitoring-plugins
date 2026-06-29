@@ -33,8 +33,8 @@ Monitors NodeBB user statistics via the admin API, including total user count, a
 
 ```text
 usage: nodebb-users [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                    [--severity {warn,crit}] [--test TEST] [--timeout TIMEOUT]
-                    -p TOKEN [--url URL]
+                    [--severity {warn,crit}] [--timeout TIMEOUT] -p TOKEN
+                    [--url URL]
 
 Monitors NodeBB user statistics via the admin API, including total user count,
 admins, and banned users.
@@ -49,8 +49,6 @@ options:
   --severity {warn,crit}
                         Severity for alerts that do not depend on thresholds.
                         One of "warn" or "crit". Default: warn
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -p, --token TOKEN     NodeBB API bearer token.
   --url URL             NodeBB API URL. Default: http://localhost:4567/forum

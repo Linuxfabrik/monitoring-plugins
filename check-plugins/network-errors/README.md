@@ -45,7 +45,7 @@ The receive and transmit error types are not symmetric, because the underlying h
 
 ```text
 usage: network-errors [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
-                      [--match MATCH] [--test TEST] [-w WARN]
+                      [--match MATCH] [-w WARN]
 
 Monitors network interface errors per interface and alerts on receive and
 transmit errors. On Linux it additionally shows the receive and transmit error
@@ -71,8 +71,6 @@ options:
                        expression. Case-sensitive by default; use `(?i)` for
                        case-insensitive matching. Can be specified multiple
                        times.
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
   -w, --warning WARN   WARN threshold for the combined per-second error rate
                        of an interface. Supports Nagios ranges. Default: 0
 ```

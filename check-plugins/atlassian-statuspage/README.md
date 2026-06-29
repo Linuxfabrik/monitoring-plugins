@@ -34,8 +34,8 @@ Monitors a public Atlassian Statuspage for incidents, degraded services, and sch
 
 ```text
 usage: atlassian-statuspage [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                            [--service SERVICE] [--test TEST]
-                            [--timeout TIMEOUT] [--url URL]
+                            [--service SERVICE] [--timeout TIMEOUT]
+                            [--url URL]
 
 Monitors a public Atlassian Statuspage for incidents, degraded services, and
 scheduled maintenance windows. Reports the overall status indicator, the name
@@ -59,8 +59,6 @@ options:
                      (logical OR). If not specified, all services are
                      considered. Examples: --service "^API$" --service "^bexio
                      " --service "PostFinance"
-  --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
-                     stderr-file,expected-retc".
   --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
   --url URL          Atlassian Statuspage URL. Default:
                      https://status.atlassian.com

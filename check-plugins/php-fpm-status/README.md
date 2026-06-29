@@ -156,10 +156,8 @@ options:
                         unreachable or whose status JSON cannot be parsed.
                         Saturation and slow-request thresholds are unaffected.
                         Default: warn
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc". Can be specified multiple
-                        times; each entry maps to the URL at the same
-                        position.
+  --test TEST           ==SUPPRESS== Can be specified multiple times; each
+                        entry maps to the URL at the same position.
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   -u, --url URL         PHP-FPM status page URL. Can be specified multiple
                         times to check several pools on the same host; each

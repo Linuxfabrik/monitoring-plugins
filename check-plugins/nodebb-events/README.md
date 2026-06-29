@@ -32,8 +32,8 @@ Retrieves recent events from the NodeBB event log via the admin API. Reports adm
 ## Help
 
 ```text
-usage: nodebb-events [-h] [-V] [--insecure] [--no-proxy] [--test TEST]
-                     [--timeout TIMEOUT] -p TOKEN [--url URL]
+usage: nodebb-events [-h] [-V] [--insecure] [--no-proxy] [--timeout TIMEOUT]
+                     -p TOKEN [--url URL]
 
 Retrieves recent events from the NodeBB event log via the admin API. Reports
 administrative actions such as user bans, plugin activations, and
@@ -44,8 +44,6 @@ options:
   -V, --version      show program's version number and exit
   --insecure         This option explicitly allows insecure SSL connections.
   --no-proxy         Do not use a proxy.
-  --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
-                     stderr-file,expected-retc".
   --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
   -p, --token TOKEN  NodeBB API bearer token.
   --url URL          NodeBB API URL. Default: http://localhost:4567/forum

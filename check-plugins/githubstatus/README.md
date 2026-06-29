@@ -27,7 +27,7 @@ Monitors the GitHub status page for service disruptions. Reports the overall sta
 
 ```text
 usage: githubstatus [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                    [--test TEST] [--timeout TIMEOUT]
+                    [--timeout TIMEOUT]
 
 Monitors the GitHub status page for service disruptions. Reports the overall
 status indicator, individual component states, and any unresolved incidents.
@@ -39,8 +39,6 @@ options:
   --always-ok        Always returns OK.
   --insecure         This option explicitly allows insecure SSL connections.
   --no-proxy         Do not use a proxy.
-  --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
-                     stderr-file,expected-retc".
   --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
 ```
 

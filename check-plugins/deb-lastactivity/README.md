@@ -32,7 +32,7 @@ Checks how long ago the last APT package manager activity occurred (install, upd
 ## Help
 
 ```text
-usage: deb-lastactivity [-h] [-V] [-c CRIT] [--test TEST] [-w WARN]
+usage: deb-lastactivity [-h] [-V] [-c CRIT] [-w WARN]
 
 Checks how long ago the last APT package manager activity occurred (install,
 update, or remove). Alerts if no package management activity has happened
@@ -44,8 +44,6 @@ options:
   -V, --version        show program's version number and exit
   -c, --critical CRIT  CRIT threshold for time since last package manager
                        activity, in days. Default: 365
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
   -w, --warning WARN   WARN threshold for time since last package manager
                        activity, in days. Default: 90
 ```

@@ -32,7 +32,7 @@ Counts the number of currently logged-in users by session type: tty (console) an
 ## Help
 
 ```text
-usage: users [-h] [-V] [-c CRIT] [--test TEST] [-w WARN]
+usage: users [-h] [-V] [-c CRIT] [-w WARN]
 
 Counts the number of currently logged-in users by session type: tty (console)
 and pts (SSH on Linux, RDP on Windows). On Windows, also counts disconnected
@@ -47,8 +47,6 @@ options:
                        threshold for disconnected users in the format
                        "tty,pts,disc". Example: `--critical 3,10`. Default:
                        [None, None, None]
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
   -w, --warning WARN   Threshold for logged-in tty/pts users, in the format
                        "tty,pts". On Windows, you can additionally specify a
                        threshold for disconnected users in the format

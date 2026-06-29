@@ -31,7 +31,7 @@ Checks the current disk usage of all systemd journal files (archived and active 
 ## Help
 
 ```text
-usage: journald-usage [-h] [-V] [--always-ok] [--test TEST] [-w WARN]
+usage: journald-usage [-h] [-V] [--always-ok] [-w WARN]
 
 Checks the current disk usage of all systemd journal files (archived and
 active combined). Alerts when journal disk usage exceeds the configured
@@ -41,8 +41,6 @@ options:
   -h, --help          show this help message and exit
   -V, --version       show program's version number and exit
   --always-ok         Always returns OK.
-  --test TEST         For unit tests. Needs "path-to-stdout-file,path-to-
-                      stderr-file,expected-retc".
   -w, --warning WARN  WARN threshold in GiB. Default: >= 6
 ```
 

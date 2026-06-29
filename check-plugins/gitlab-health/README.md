@@ -33,8 +33,7 @@ Checks whether the GitLab application server is running by querying the `/-/heal
 
 ```text
 usage: gitlab-health [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                     [--severity {warn,crit}] [--test TEST]
-                     [--timeout TIMEOUT] [--url URL]
+                     [--severity {warn,crit}] [--timeout TIMEOUT] [--url URL]
 
 Checks whether the GitLab application server is running by querying the
 /-/health endpoint. This is a lightweight probe that does not hit the database
@@ -50,8 +49,6 @@ options:
   --no-proxy            Do not use a proxy.
   --severity {warn,crit}
                         Severity for alerting. Default: warn
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             GitLab health URL endpoint. Default:
                         http://localhost/-/health

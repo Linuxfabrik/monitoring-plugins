@@ -39,7 +39,7 @@ usage: ipmi-sel [-h] [-V] [--authtype {NONE,PASSWORD,MD2,MD5,OEM}]
                 [-H HOSTNAME] [--ignore IGNORE] [--interface {lan,lanplus}]
                 [--password PASSWORD] [--port PORT]
                 [--privlevel {CALLBACK,USER,OPERATOR,ADMINISTRATOR}]
-                [--test TEST] [--username USERNAME]
+                [--username USERNAME]
 
 Checks the IPMI System Event Log (SEL) for entries and alerts when events are
 found. Entries can be filtered by regex using --ignore. To clear the SEL after
@@ -66,8 +66,6 @@ options:
   --privlevel {CALLBACK,USER,OPERATOR,ADMINISTRATOR}
                         Force session privilege level. Can be CALLBACK, USER,
                         OPERATOR, ADMINISTRATOR. Default: USER
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --username USERNAME   Remote server username. Default: NULL
 ```
 

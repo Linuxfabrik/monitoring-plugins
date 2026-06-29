@@ -31,8 +31,7 @@ Lists all clients currently connected to an OpenVPN server by parsing the status
 ## Help
 
 ```text
-usage: openvpn-client-list [-h] [-V] [-c CRIT] [--filename FILENAME]
-                           [--test TEST] [-w WARN]
+usage: openvpn-client-list [-h] [-V] [-c CRIT] [--filename FILENAME] [-w WARN]
 
 Lists all clients currently connected to an OpenVPN server by parsing the
 status log file. Reports client name, remote address, bytes received and sent,
@@ -45,8 +44,6 @@ options:
                        Default: None
   --filename FILENAME  Path to the OpenVPN status log file. Default:
                        /var/log/openvpn-status.log
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
   -w, --warning WARN   WARN threshold for the number of connected clients.
                        Default: None
 ```

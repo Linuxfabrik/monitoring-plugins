@@ -33,7 +33,7 @@ Monitors virtual services on a KEMP LoadMaster appliance via its REST API and al
 ```text
 usage: kemp-services [-h] [-V] [--always-ok] [--filter FILTER] -H HOSTNAME
                      [--insecure] [--no-proxy] --password PASSWORD
-                     [--port PORT] [--severity {warn,crit}] [--test TEST]
+                     [--port PORT] [--severity {warn,crit}]
                      [--timeout TIMEOUT] -u USERNAME
 
 Monitors virtual services on a KEMP LoadMaster appliance via its REST API.
@@ -56,8 +56,6 @@ options:
   --port PORT           KEMP LoadMaster appliance port. Default: 443
   --severity {warn,crit}
                         Severity for alerting. Default: warn
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --username USERNAME
                         KEMP REST API username.

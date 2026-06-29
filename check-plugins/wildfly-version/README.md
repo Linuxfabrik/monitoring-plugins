@@ -38,8 +38,8 @@ Checks whether a newer version of WildFly is available by comparing the installe
 usage: wildfly-version [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
                        [--insecure] [--instance INSTANCE]
                        [--mode {standalone,domain}] [--no-proxy] [--node NODE]
-                       -p PASSWORD [--test TEST] [--timeout TIMEOUT]
-                       [--url URL] --username USERNAME
+                       -p PASSWORD [--timeout TIMEOUT] [--url URL]
+                       --username USERNAME
 
 Checks if a newer version of WildFly is available by comparing the installed
 version, queried from the HTTP management API, against the latest release on
@@ -62,8 +62,6 @@ options:
   --node NODE           WildFly node (host) when running in domain mode.
   -p, --password PASSWORD
                         WildFly management API password.
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --url URL             WildFly management API URL. Default:
                         http://localhost:9990

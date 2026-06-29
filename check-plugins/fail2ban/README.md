@@ -28,7 +28,7 @@ Checks the number of currently banned IP addresses across all fail2ban jails. Re
 
 ```text
 usage: fail2ban [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
-                [--socket SOCKET] [--test TEST] [-w WARN]
+                [--socket SOCKET] [-w WARN]
 
 Checks the number of currently banned IP addresses across all fail2ban jails.
 Reports the total ban count and a per-jail breakdown. Jails can be excluded
@@ -47,8 +47,6 @@ options:
                        times. Example: `--ignore="^recidive$"`. Default: None
   --socket SOCKET      Path to the fail2ban server Unix socket. Passed to
                        `fail2ban-client --socket`. Default: None
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
   -w, --warning WARN   WARN threshold for the number of banned IPs per jail.
                        Supports Nagios ranges. Default: 2500
 ```

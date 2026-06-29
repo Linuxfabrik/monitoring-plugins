@@ -30,7 +30,6 @@ When no unit is currently failed, the plugin reads the current boot's journal fo
 
 ```text
 usage: systemd-units-failed [-h] [-V] [--always-ok] [--ignore IGNORE]
-                            [--test TEST]
 
 Checks for failed systemd units. Alerts when any unit is in a failed state.
 Specific units can be excluded from the check via --ignore with regular
@@ -46,8 +45,6 @@ options:
                    multiple times. Supports glob patterns according to
                    https://docs.python.org/3/library/fnmatch.html. Example:
                    `--ignore "dhcpd.service"`. Default: []
-  --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
-                   file,expected-retc".
 ```
 
 

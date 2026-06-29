@@ -49,7 +49,7 @@ usage: infomaniak-swiss-backup-devices [-h] [-V] --account-id ACCOUNT_ID
                                        [--ignore-user IGNORE_USER]
                                        [--severity {warn,crit}]
                                        [--timeout TIMEOUT] --token TOKEN
-                                       [--test TEST] [-w WARN]
+                                       [-w WARN]
 
 Checks each backup device (slot) across all Infomaniak Swiss Backup products
 via the Infomaniak API. Alerts when storage usage exceeds the configured
@@ -87,8 +87,6 @@ options:
                         Severity for alerting on locked devices. Default: warn
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --token TOKEN         Infomaniak API token.
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   -w, --warning WARN    WARN threshold in percent. Default: >= 90
 ```
 

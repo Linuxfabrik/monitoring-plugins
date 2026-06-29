@@ -32,7 +32,7 @@ Monitors a [StatusIQ](https://www.site24x7.com/statusiq/) (by Site24x7) status p
 
 ```text
 usage: statusiq [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                [--test TEST] [--timeout TIMEOUT] [--url URL]
+                [--timeout TIMEOUT] [--url URL]
 
 Monitors a StatusIQ (by Site24x7) status page via its RSS feed. Returns OK for
 operational or informational messages, WARN for maintenance windows, and CRIT
@@ -44,8 +44,6 @@ options:
   --always-ok        Always returns OK.
   --insecure         This option explicitly allows insecure SSL connections.
   --no-proxy         Do not use a proxy.
-  --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
-                     stderr-file,expected-retc".
   --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
   --url URL          StatusIQ status page URL. Default:
                      https://status.trustid.ch

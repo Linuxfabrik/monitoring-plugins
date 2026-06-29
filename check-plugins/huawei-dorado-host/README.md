@@ -38,8 +38,8 @@ Checks the health and running status of all hosts attached to a Huawei OceanStor
 usage: huawei-dorado-host [-h] [-V] [--always-ok]
                           [--cache-expire CACHE_EXPIRE] --device-id DEVICE_ID
                           [--insecure] [--no-proxy] --password PASSWORD
-                          [--scope SCOPE] [--test TEST] [--timeout TIMEOUT]
-                          -u URL --username USERNAME
+                          [--scope SCOPE] [--timeout TIMEOUT] -u URL
+                          --username USERNAME
 
 Checks the health and running status of all hosts attached to a Huawei
 OceanStor Dorado storage system via the REST API (/host endpoint). Alerts when
@@ -59,8 +59,6 @@ options:
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Huawei OceanStor Dorado API password.
   --scope SCOPE         Huawei OceanStor Dorado API scope.
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.

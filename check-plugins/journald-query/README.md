@@ -58,8 +58,8 @@ usage: journald-query [-h] [-V] [--always-ok] [--facility FACILITY]
                       [--ignore-pattern IGNORE_PATTERN]
                       [--ignore-regex IGNORE_REGEX] [--insecure] [--no-proxy]
                       [--priority PRIORITY] [--severity {warn,crit}]
-                      [--since SINCE] [--test TEST] [--timeout TIMEOUT]
-                      [--unit UNIT] [--user-unit USER_UNIT]
+                      [--since SINCE] [--timeout TIMEOUT] [--unit UNIT]
+                      [--user-unit USER_UNIT]
 
 Queries the systemd journal using journalctl and alerts when matching entries
 are found. Supports all journalctl filtering options such as --unit,
@@ -112,8 +112,6 @@ options:
                         Default: warn
   --since SINCE         Show entries on or newer than the specified date
                         (passed to journalctl). Default: -8h
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 5 (seconds)
   --unit UNIT           Show messages for the specified systemd unit
                         UNIT|PATTERN (passed to journalctl). Can be specified

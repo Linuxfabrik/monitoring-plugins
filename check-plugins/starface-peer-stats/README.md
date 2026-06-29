@@ -34,8 +34,8 @@ Reports SIP peer statistics of a Starface PBX, including online/offline counts f
 
 ```text
 usage: starface-peer-stats [-h] [-V] [--cache-expire CACHE_EXPIRE]
-                           [-H HOSTNAME] [--port PORT] [--test TEST]
-                           [--timeout TIMEOUT] [--ipv6]
+                           [-H HOSTNAME] [--port PORT] [--timeout TIMEOUT]
+                           [--ipv6]
 
 Monitors SIP peer statistics of a Starface PBX via its monitoring module on
 port 6556. Reports registered, unregistered, and unreachable peers. Supports
@@ -52,8 +52,6 @@ options:
                         Starface PBX hostname or IP address. Default:
                         localhost
   --port PORT           Starface PBX monitoring port. Default: 6556
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --ipv6                Use IPv6.
 ```

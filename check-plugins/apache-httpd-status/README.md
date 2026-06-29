@@ -100,8 +100,7 @@ If you want to configure `/server-status` in a virtual host:
 
 ```text
 usage: apache-httpd-status [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
-                           [--no-proxy] [--test TEST] [--timeout TIMEOUT]
-                           [-u URL] [-w WARN]
+                           [--no-proxy] [--timeout TIMEOUT] [-u URL] [-w WARN]
 
 Monitors Apache httpd performance via the mod_status endpoint (server-
 status?auto). Alerts when worker usage exceeds the configured thresholds.
@@ -118,8 +117,6 @@ options:
                        requests. Default: >= 95
   --insecure           This option explicitly allows insecure SSL connections.
   --no-proxy           Do not use a proxy.
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
   --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
   -u, --url URL        Apache Server Status URL. Default:
                        http://localhost/server-status

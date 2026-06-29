@@ -38,7 +38,7 @@ Checks the state of one or more Windows services. Accepts the case-insensitive s
 usage: service [-h] [-V] [--always-ok] [-c CRIT] --service SERVICE
                [--starttype {automatic,disabled,manual}]
                [--status {continue_pending,pause_pending,paused,running,start_pending,stop_pending,stopped}]
-               [--test TEST] [-w WARN]
+               [-w WARN]
 
 Checks the state of one or more Windows services. Accepts the case-insensitive
 service name (not the display name) and supports regular expressions to match
@@ -58,8 +58,6 @@ options:
   --status {continue_pending,pause_pending,paused,running,start_pending,stop_pending,stopped}
                         Expected service status. Can be specified multiple
                         times. Default: running.
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   -w, --warning WARN    WARN threshold for the number of services in the
                         expected status. Accepts Nagios ranges. Default: 1:
 ```

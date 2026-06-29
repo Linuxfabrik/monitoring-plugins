@@ -81,8 +81,8 @@ usage: by-winrm [-h] [-V] [--always-ok] --command COMMAND [-c CRIT]
                 [--severity-stdout {ok,warn,crit,unknown}]
                 [--severity-timeout {ok,warn,crit,unknown}]
                 [--skip-stderr SKIP_STDERR] [--skip-stdout SKIP_STDOUT]
-                [--test TEST] [--verbose] [-w WARN]
-                [--warning-pattern WARN_PATTERN] [--warning-regex WARN_REGEX]
+                [--verbose] [-w WARN] [--warning-pattern WARN_PATTERN]
+                [--warning-regex WARN_REGEX]
                 [--winrm-configuration-name WINRM_CONFIGURATION_NAME]
                 [--winrm-domain WINRM_DOMAIN] --winrm-hostname WINRM_HOSTNAME
                 [--winrm-password WINRM_PASSWORD]
@@ -128,8 +128,6 @@ options:
   --skip-stdout SKIP_STDOUT
                         Ignore all (0) or first n lines on STDOUT. Default: -1
                         (no ignore)
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --verbose             Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
                         hood. Default: False

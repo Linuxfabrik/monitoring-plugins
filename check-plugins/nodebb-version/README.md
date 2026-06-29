@@ -34,7 +34,7 @@ Checks if a NodeBB update is available by comparing the installed version agains
 
 ```text
 usage: nodebb-version [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                      [--test TEST] [--timeout TIMEOUT] [-p TOKEN] [--url URL]
+                      [--timeout TIMEOUT] [-p TOKEN] [--url URL]
 
 Checks if a NodeBB update is available by comparing the installed version
 against the latest release. Alerts when an update is available.
@@ -45,8 +45,6 @@ options:
   --always-ok        Always returns OK.
   --insecure         This option explicitly allows insecure SSL connections.
   --no-proxy         Do not use a proxy.
-  --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
-                     stderr-file,expected-retc".
   --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
   -p, --token TOKEN  NodeBB API bearer token.
   --url URL          NodeBB API URL. Default: http://localhost:4567/forum

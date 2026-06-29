@@ -35,8 +35,8 @@ Checks whether the GitLab instance is ready to accept traffic by querying the `/
 
 ```text
 usage: gitlab-readiness [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                        [--severity {warn,crit}] [--test TEST]
-                        [--timeout TIMEOUT] [--url URL]
+                        [--severity {warn,crit}] [--timeout TIMEOUT]
+                        [--url URL]
 
 Checks whether the GitLab instance is ready to accept traffic by querying the
 /-/readiness endpoint. Validates the status of all dependent services
@@ -52,8 +52,6 @@ options:
   --no-proxy            Do not use a proxy.
   --severity {warn,crit}
                         Severity for alerting. Default: warn
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             GitLab readiness URL endpoint. Default:
                         http://localhost/-/readiness?all=1

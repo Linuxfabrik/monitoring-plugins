@@ -35,7 +35,7 @@ Checks the security of a Nextcloud (or ownCloud) server using the Nextcloud secu
 
 ```text
 usage: nextcloud-security-scan [-h] [-V] [--insecure] [--no-proxy]
-                               [--path PATH] [--test TEST] [--timeout TIMEOUT]
+                               [--path PATH] [--timeout TIMEOUT]
                                [--trigger TRIGGER] -u URL
 
 Checks the security of a private Nextcloud server using the Nextcloud security
@@ -56,8 +56,6 @@ options:
                      last saw, so the rating no longer lags a Nextcloud
                      update. Requires running on the Nextcloud server with
                      sudo for the UID owning config/config.php.
-  --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
-                     stderr-file,expected-retc".
   --timeout TIMEOUT  Network timeout in seconds. Default: 7 (seconds)
   --trigger TRIGGER  Trigger a re-scan if the result on scan.nextcloud.com is
                      older than this many days. Default: 14 (days)

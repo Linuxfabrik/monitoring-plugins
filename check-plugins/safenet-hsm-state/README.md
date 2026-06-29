@@ -34,7 +34,7 @@ Checks the current state of a Gemalto SafeNet ProtectServer Network HSM via SSH 
 
 ```text
 usage: safenet-hsm-state [-h] [-V] [--always-ok] [-c CRIT] -H HOSTNAME
-                         -p PASSWORD [--severity {warn,crit}] [--test TEST]
+                         -p PASSWORD [--severity {warn,crit}]
                          [--timeout TIMEOUT] [-u {admin,pseoperator}]
                          [-w WARN]
 
@@ -53,8 +53,6 @@ options:
                         SafeNet HSM password.
   --severity {warn,crit}
                         Severity for alerting. Default: crit
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --username {admin,pseoperator}
                         SafeNet HSM username. Example: `--username admin`.

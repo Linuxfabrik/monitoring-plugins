@@ -56,7 +56,7 @@ Monitors HAProxy performance and health via the stats endpoint. Reports frontend
 
 ```text
 usage: haproxy-status [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
-                      [--insecure] [--lengthy] [--no-proxy] [--test TEST]
+                      [--insecure] [--lengthy] [--no-proxy]
                       [--timeout TIMEOUT] [-u URL] [-w WARN]
 
 Monitors HAProxy performance and health via the stats endpoint. Reports
@@ -88,8 +88,6 @@ options:
   --insecure           This option explicitly allows insecure SSL connections.
   --lengthy            Extended reporting.
   --no-proxy           Do not use a proxy.
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
   --timeout TIMEOUT    Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL        HAProxy stats URI. Accepts
                        `unix:///path/to/haproxy.sock` or an HTTP(S) URL. For

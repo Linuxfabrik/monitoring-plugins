@@ -35,8 +35,8 @@ Skeleton plugin demonstrating all standard patterns and library functions: argpa
 ```text
 usage: example [-h] [-V] [--always-ok] [-c CRIT] [--ignore-regex IGNORE_REGEX]
                [--insecure] [--lengthy] [--module MODULE] [--name NAME]
-               [--no-proxy] [--test TEST] [--timeout TIMEOUT] --token TOKEN
-               [--url URL] [-w WARN]
+               [--no-proxy] [--timeout TIMEOUT] --token TOKEN [--url URL]
+               [-w WARN]
 
 Skeleton plugin demonstrating all standard patterns and library functions:
 argparse with append/deprecated/suppress parameters, (success, result) error
@@ -64,8 +64,6 @@ options:
                         multiple times. If not specified, all items are
                         checked.
   --no-proxy            Do not use a proxy.
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --token TOKEN         Software API token.
   --url URL             URL to the endpoint. Default: http://localhost

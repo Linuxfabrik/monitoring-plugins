@@ -30,7 +30,7 @@ Displays system-wide Podman information including container counts, image count,
 ## Help
 
 ```text
-usage: podman-info [-h] [-V] [--always-ok] [--ignore IGNORE] [--test TEST]
+usage: podman-info [-h] [-V] [--always-ok] [--ignore IGNORE]
 
 Displays system-wide Podman information including container counts, image
 count, storage driver, runtime version, available CPUs, and total memory. Also
@@ -51,8 +51,6 @@ options:
                    to cgroup v2. Example: `--ignore="(?i)rootless"` (case-
                    insensitive) to suppress any rootless-related informational
                    warning. Default: None
-  --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
-                   file,expected-retc".
 ```
 
 

@@ -34,7 +34,7 @@ Monitors the health and performance of an Axenita/Achilles installation by query
 
 ```text
 usage: axenita-stats [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                     [--test TEST] [--timeout TIMEOUT] [--url URL]
+                     [--timeout TIMEOUT] [--url URL]
 
 Monitors the health and performance of an Axenita/Achilles installation by
 querying four API endpoints: ReadModel state, active user sessions, build
@@ -48,8 +48,6 @@ options:
   --always-ok        Always returns OK.
   --insecure         This option explicitly allows insecure SSL connections.
   --no-proxy         Do not use a proxy.
-  --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
-                     stderr-file,expected-retc".
   --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
   --url URL          Axenita API URL. Default:
                      http://localhost:10000/achilles/ar

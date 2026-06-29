@@ -43,7 +43,7 @@ Queries SNMP OIDs defined in a CSV file and checks the returned values against o
 ```text
 usage: snmp [-h] [-V] [--community COMMUNITY] [--device DEVICE] [--hide-ok]
             [--hide-table] -H HOSTNAME [--mib MIB] [--mib-dir MIB_DIR]
-            [--snmp-version {1,2c,3}] [--test TEST] [-t TIMEOUT]
+            [--snmp-version {1,2c,3}] [-t TIMEOUT]
             [--v3-auth-prot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}]
             [--v3-auth-prot-password V3_AUTH_PROT_PASSWORD]
             [--v3-boots-time V3_BOOTS_TIME] [--v3-context V3_CONTEXT]
@@ -82,8 +82,6 @@ options:
                         Default: $HOME/.snmp/mibs:/usr/share/snmp/mibs
   --snmp-version {1,2c,3}
                         SNMP version to use. Default: 2c
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   -t, --timeout TIMEOUT
                         Network timeout in seconds. Default: 7 (seconds)
   --v3-auth-prot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}

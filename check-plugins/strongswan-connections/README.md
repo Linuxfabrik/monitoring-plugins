@@ -36,7 +36,6 @@ Checks IPSec connection states on a strongSwan VPN gateway by connecting to the 
 ```text
 usage: strongswan-connections [-h] [-V] [--always-ok] [--ignore IGNORE]
                               [--lengthy] [--match MATCH] [--socket SOCKET]
-                              [--test TEST]
 
 Checks IPSec connection states on a strongSwan VPN gateway. Connects to the
 charon daemon via the VICI interface to retrieve IKE SA and CHILD SA states.
@@ -71,8 +70,6 @@ options:
                    gateway. Default: None
   --socket SOCKET  Path to the Versatile IKE Control Interface (VICI) socket.
                    Default: /run/strongswan/charon.vici
-  --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
-                   file,expected-retc".
 ```
 
 

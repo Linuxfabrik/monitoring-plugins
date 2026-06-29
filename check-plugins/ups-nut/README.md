@@ -49,7 +49,7 @@ usage: ups-nut [-h] [-V] [--always-ok] [--critical-charge CRITICAL_CHARGE]
                [--critical-runtime CRITICAL_RUNTIME]
                [--critical-temperature CRITICAL_TEMPERATURE] [--device DEVICE]
                [-H HOSTNAME] [--lengthy] [--password PASSWORD] [--port PORT]
-               [--test TEST] [--timeout TIMEOUT] [--username USERNAME]
+               [--timeout TIMEOUT] [--username USERNAME]
                [--warning-charge WARNING_CHARGE] [--warning-load WARNING_LOAD]
                [--warning-runtime WARNING_RUNTIME]
                [--warning-temperature WARNING_TEMPERATURE]
@@ -105,8 +105,6 @@ options:
   --lengthy             Extended reporting.
   --password PASSWORD   Password.
   --port PORT           Port number. Default: 3493
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --username USERNAME   Username.
   --warning-charge WARNING_CHARGE

@@ -35,8 +35,8 @@ Counts the number of active DAHDI, SIP, and other channels on a Starface PBX, an
 ```text
 usage: starface-channel-status [-h] [-V] [--always-ok]
                                [--cache-expire CACHE_EXPIRE] [--critical CRIT]
-                               [-H HOSTNAME] [--port PORT] [--test TEST]
-                               [--timeout TIMEOUT] [--warning WARN] [--ipv6]
+                               [-H HOSTNAME] [--port PORT] [--timeout TIMEOUT]
+                               [--warning WARN] [--ipv6]
 
 Counts the number of active DAHDI, SIP, and other channels on a Starface PBX
 via its monitoring module on port 6556. Alerts when channel usage exceeds the
@@ -55,8 +55,6 @@ options:
                         Starface PBX hostname or IP address. Default:
                         localhost
   --port PORT           Starface PBX monitoring port. Default: 6556
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --warning WARN        WARN threshold in percent. Default: >= 80
   --ipv6                Use IPv6.

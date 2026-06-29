@@ -33,7 +33,6 @@ Checks whether a newer version of mydumper/myloader is available by comparing th
 
 ```text
 usage: mydumper-version [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
-                        [--test TEST]
 
 Checks if a newer version of mydumper is available by querying the GitHub
 releases API. Alerts when the installed version is outdated.
@@ -45,8 +44,6 @@ options:
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 24
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
 ```
 
 

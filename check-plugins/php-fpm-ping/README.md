@@ -47,7 +47,7 @@ Checks whether PHP-FPM is alive by fetching its ping monitoring page. Returns OK
 ```text
 usage: php-fpm-ping [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
                     [--response RESPONSE] [--severity {warn,crit}]
-                    [--test TEST] [--timeout TIMEOUT] [-u URL]
+                    [--timeout TIMEOUT] [-u URL]
 
 Checks whether PHP-FPM is alive by fetching its ping monitoring page. Returns
 OK if FPM responds with the expected "pong" reply.
@@ -62,8 +62,6 @@ options:
   --response RESPONSE   Expected PHP-FPM ping response string. Default: pong
   --severity {warn,crit}
                         Severity for alerting. Default: warn
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   -u, --url URL         PHP-FPM ping URL. Default: http://localhost/fpm-ping
 ```

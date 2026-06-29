@@ -35,7 +35,7 @@ Checks OpenStack Swift object storage account statistics, including total contai
 
 ```text
 usage: openstack-swift-stat [-h] [-V] [--always-ok] [-c CRIT]
-                            [--rc-file RC_FILE] [--test TEST] [-w WARN]
+                            [--rc-file RC_FILE] [-w WARN]
 
 Checks OpenStack Swift object storage account statistics, including total
 container count, object count, and bytes used. Alerts when storage usage
@@ -52,8 +52,6 @@ options:
                        on the command line). Example:
                        `/var/spool/icinga2/.openstack.cnf`. Default:
                        /var/spool/icinga2/.openstack.cnf
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
   -w, --warning WARN   WARN threshold for remaining free space, in GiB.
                        Default: <= 50
 ```

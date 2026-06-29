@@ -30,7 +30,7 @@ Monitors OnlyOffice Document Server statistics and license usage via the HTTP AP
 ## Help
 
 ```text
-usage: onlyoffice-stats [-h] [-V] [--insecure] [--no-proxy] [--test TEST]
+usage: onlyoffice-stats [-h] [-V] [--insecure] [--no-proxy]
                         [--timeout TIMEOUT] [--url URL]
 
 Monitors OnlyOffice Document Server statistics and license usage via the HTTP
@@ -42,8 +42,6 @@ options:
   -V, --version      show program's version number and exit
   --insecure         This option explicitly allows insecure SSL connections.
   --no-proxy         Do not use a proxy.
-  --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
-                     stderr-file,expected-retc".
   --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
   --url URL          OnlyOffice API URL. Default: http://localhost
 ```

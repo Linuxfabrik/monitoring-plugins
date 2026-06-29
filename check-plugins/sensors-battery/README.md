@@ -30,8 +30,7 @@ Reports battery status information including charge percentage, time remaining, 
 ## Help
 
 ```text
-usage: sensors-battery [-h] [-V] [--always-ok] [-c CRIT] [--test TEST]
-                       [-w WARN]
+usage: sensors-battery [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
 
 Reports battery status information including charge percentage, time
 remaining, and power source (AC or battery). Returns OK if no battery is
@@ -43,8 +42,6 @@ options:
   --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for battery power left, in percent.
                        Default: 5
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
   -w, --warning WARN   WARN threshold for battery power left, in percent.
                        Default: 20
 ```

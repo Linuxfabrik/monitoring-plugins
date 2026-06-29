@@ -39,8 +39,7 @@ usage: huawei-dorado-backup-power [-h] [-V] [--always-ok]
                                   [--cache-expire CACHE_EXPIRE]
                                   --device-id DEVICE_ID [--insecure]
                                   [--no-proxy] --password PASSWORD
-                                  [--scope SCOPE] [--test TEST]
-                                  [--timeout TIMEOUT] -u URL
+                                  [--scope SCOPE] [--timeout TIMEOUT] -u URL
                                   --username USERNAME
 
 Checks the health status of all backup power modules (BBU) on a Huawei
@@ -61,8 +60,6 @@ options:
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Huawei OceanStor Dorado API password.
   --scope SCOPE         Huawei OceanStor Dorado API scope. Default: 0
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.

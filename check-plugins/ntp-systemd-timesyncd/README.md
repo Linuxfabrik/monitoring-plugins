@@ -31,7 +31,7 @@ Checks the state of systemd-timesyncd, including synchronization status, server 
 ## Help
 
 ```text
-usage: ntp-systemd-timesyncd [-h] [-V] [--stratum STRATUM] [--test TEST]
+usage: ntp-systemd-timesyncd [-h] [-V] [--stratum STRATUM]
 
 Checks the state of systemd-timesyncd, including synchronization status,
 server reachability, and stratum level. Alerts if time synchronization is
@@ -46,8 +46,6 @@ options:
                      computer that is synchronised to a stratum 1 computer is
                      at stratum 2. A computer that is synchronised to a
                      stratum 2 computer is at stratum 3, and so on. Default: 6
-  --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
-                     stderr-file,expected-retc".
 ```
 
 

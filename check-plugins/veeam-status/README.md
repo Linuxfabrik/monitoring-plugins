@@ -40,8 +40,8 @@ usage: veeam-status [-h] [-V] [--always-ok] [-c CRIT]
                     [--insecure]
                     [--max-backup-job-duration MAX_BACKUP_JOB_DURATION]
                     [--max-replica-job-duration MAX_REPLICA_JOB_DURATION]
-                    [--no-proxy] -p PASSWORD [--test TEST] [--timeout TIMEOUT]
-                    [--url URL] --username USERNAME [-w WARN]
+                    [--no-proxy] -p PASSWORD [--timeout TIMEOUT] [--url URL]
+                    --username USERNAME [-w WARN]
                     [--warnings-job-runs WARNINGS_JOB_RUNS]
                     [--warning-vm-lastest-states WARNING_VM_LASTEST_STATES]
 
@@ -71,8 +71,6 @@ options:
   --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
                         Veeam REST API password.
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --url URL             Veeam REST API URL. Default: https://localhost:9398
   --username USERNAME   Veeam REST API username. Default: Administrator

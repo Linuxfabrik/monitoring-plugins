@@ -466,6 +466,7 @@ Rules:
 * Say "Uses Python regular expressions." when the parameter accepts a regex.
 * End every help text with a period.
 * Parameters that are identical across plugins must use identical help texts.
+* The developer-only `--test` parameter is centrally mapped to `argparse.SUPPRESS` in `lib.args`, so it stays accepted on the command line but is hidden from `--help` (and therefore from the generated READMEs and Director baskets), like the deprecated parameters. Declare it with `help=lib.args.help('--test')` like any other standard parameter; never write an inline help text for it.
 
 
 ### Commit Scopes

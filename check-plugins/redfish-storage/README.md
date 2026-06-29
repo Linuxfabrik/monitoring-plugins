@@ -38,7 +38,7 @@ Checks the state of all physical drives, volumes and their storage controllers i
 usage: redfish-storage [-h] [-V] [--always-ok] [--brief]
                        [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
                        [--insecure] [--inventory] [--match MATCH] [--no-proxy]
-                       [--password PASSWORD] [--retries RETRIES] [--test TEST]
+                       [--password PASSWORD] [--retries RETRIES]
                        [--timeout TIMEOUT] --url URL [--username USERNAME]
 
 Checks the state of all physical drives, volumes and their storage controllers
@@ -81,8 +81,6 @@ options:
                         API fails, before the check gives up. Helps against an
                         occasionally slow or flaky management controller.
                         Default: 3
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             Redfish API URL.
   --username USERNAME   Redfish API username.

@@ -27,7 +27,7 @@ Checks for unexpectedly read-only mounted filesystems, such as a root filesystem
 ## Help
 
 ```text
-usage: fs-ro [-h] [-V] [--always-ok] [--ignore IGNORE] [--test TEST]
+usage: fs-ro [-h] [-V] [--always-ok] [--ignore IGNORE]
 
 Checks for unexpectedly read-only mounted filesystems, such as a root
 filesystem that switched to read-only due to disk errors. Ignores ramfs,
@@ -44,8 +44,6 @@ options:
                    times. Example: `--ignore /sys/fs` ignores `/sys/fs/cgroup`
                    and similar. Default: /dev/loop, /proc, /run/credentials,
                    /snap, /sys/fs.
-  --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
-                   file,expected-retc".
 ```
 
 

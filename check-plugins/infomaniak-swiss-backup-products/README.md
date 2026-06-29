@@ -44,7 +44,7 @@ usage: infomaniak-swiss-backup-products [-h] [-V] --account-id ACCOUNT_ID
                                         [--ignore-tag IGNORE_TAG] [--insecure]
                                         [--no-proxy] [--severity {warn,crit}]
                                         [--timeout TIMEOUT] --token TOKEN
-                                        [--test TEST] [-w WARN]
+                                        [-w WARN]
 
 Checks Infomaniak Swiss Backup product details via the Infomaniak API. Alerts
 when products are locked, maintenance window is active, or storage quota is
@@ -74,8 +74,6 @@ options:
                         products. Default: warn
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --token TOKEN         Infomaniak API token.
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   -w, --warning WARN    WARN threshold for the expiration date, in days.
                         Default: 5
 ```

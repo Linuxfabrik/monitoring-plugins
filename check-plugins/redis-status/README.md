@@ -39,8 +39,8 @@ usage: redis-status [-h] [-V] [--always-ok] [--cacert CACERT] [-c CRIT]
                     [-H HOSTNAME] [--ignore-maxmemory0] [--ignore-overcommit]
                     [--ignore-somaxconn] [--ignore-sync-partial-err]
                     [--ignore-thp] [-p PASSWORD] [--port PORT]
-                    [--socket SOCKET] [--test TEST] [--tls]
-                    [--username USERNAME] [--verbose] [-w WARN]
+                    [--socket SOCKET] [--tls] [--username USERNAME]
+                    [--verbose] [-w WARN]
 
 Monitors a Redis server via the INFO command. Reports memory usage,
 fragmentation ratio, keyspace hit rate, connected clients, replication status,
@@ -76,8 +76,6 @@ options:
   --port PORT           Redis server port. Default: 6379
   --socket SOCKET       Redis server Unix socket path. Overrides --hostname
                         and --port.
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --tls                 Establish a secure TLS connection to Redis.
   --username USERNAME   Username for Redis server authentication.
   --verbose             Makes this plugin verbose during the operation. Useful

@@ -36,9 +36,8 @@ Monitors Jitsi Videobridge performance via the COLIBRI REST API. Reports confere
 
 ```text
 usage: jitsi-videobridge-stats [-h] [-V] [--always-ok] [--insecure]
-                               [--no-proxy] [-p PASSWORD] [--test TEST]
-                               [--timeout TIMEOUT] [--url URL]
-                               [--username USERNAME]
+                               [--no-proxy] [-p PASSWORD] [--timeout TIMEOUT]
+                               [--url URL] [--username USERNAME]
 
 Monitors Jitsi Videobridge performance via the COLIBRI REST API. Reports
 conference count, participant count, video channels, bitrates, packet rates,
@@ -53,8 +52,6 @@ options:
   --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
                         Jitsi API password.
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --url URL             Jitsi API URL. Default: http://localhost:8080
   --username USERNAME   Jitsi API username. Default: None

@@ -38,7 +38,7 @@ Checks overall system health, capacity and running status of a Huawei OceanStor 
 usage: huawei-dorado-system [-h] [-V] [--always-ok]
                             [--cache-expire CACHE_EXPIRE] [-c CRIT]
                             --device-id DEVICE_ID [--insecure] [--no-proxy]
-                            --password PASSWORD [--scope SCOPE] [--test TEST]
+                            --password PASSWORD [--scope SCOPE]
                             [--timeout TIMEOUT] -u URL --username USERNAME
                             [-w WARN]
 
@@ -62,8 +62,6 @@ options:
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Huawei OceanStor Dorado API password.
   --scope SCOPE         Huawei OceanStor Dorado API scope.
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.

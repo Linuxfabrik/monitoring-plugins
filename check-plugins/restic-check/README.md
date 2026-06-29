@@ -33,7 +33,6 @@ Verifies the integrity of a restic backup repository by running `restic check`. 
 
 ```text
 usage: restic-check [-h] [-V] [--password-file PASSWORD_FILE] --repo REPO
-                    [--test TEST]
 
 Verifies the integrity of a restic backup repository by running "restic
 check". Alerts when the repository contains errors or inconsistencies.
@@ -45,8 +44,6 @@ options:
   --password-file PASSWORD_FILE
                         Path to the file containing the repository password.
   --repo REPO           Restic repository location.
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
 ```
 
 

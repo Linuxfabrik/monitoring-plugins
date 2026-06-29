@@ -68,7 +68,7 @@ Note the api_identifier and the api_secret. You will need both to configure this
 
 ```text
 usage: whmcs-status [-h] [-V] --identifier IDENTIFIER [--insecure]
-                    [--no-proxy] [-p PASSWORD] --secret SECRET [--test TEST]
+                    [--no-proxy] [-p PASSWORD] --secret SECRET
                     [--timeout TIMEOUT] [--url URL] [--username USERNAME]
 
 Monitors the health status of a WHMCS installation via its system status API.
@@ -86,8 +86,6 @@ options:
   -p, --password PASSWORD
                         HTTP Basic Auth password.
   --secret SECRET       WHMCS API secret.
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             WHMCS API URL. Default: http://127.0.0.1:8080
   --username USERNAME   HTTP Basic Auth username.

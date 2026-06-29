@@ -39,7 +39,7 @@ Collects statistics across multiple snapshots in a restic repository, including 
 usage: restic-stats [-h] [-V] [--host HOST]
                     [--mode {restore-size,files-by-contents,blobs-per-file,raw-data}]
                     [--password-file PASSWORD_FILE] [--path PATH] --repo REPO
-                    [--tag TAG] [--test TEST]
+                    [--tag TAG]
 
 Collects statistics across multiple snapshots in a restic repository,
 including the number of unique files and their total size. Supports different
@@ -62,8 +62,6 @@ options:
   --tag TAG             Only consider snapshots matching this taglist in the
                         format `tag[,tag,...]`. Can be specified multiple
                         times.
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
 ```
 
 

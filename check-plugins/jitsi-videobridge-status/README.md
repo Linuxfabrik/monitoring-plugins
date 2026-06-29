@@ -34,9 +34,8 @@ Checks the Jitsi Videobridge health state via the `/about/health` REST endpoint.
 ```text
 usage: jitsi-videobridge-status [-h] [-V] [--always-ok] [--insecure]
                                 [--no-proxy] [-p PASSWORD]
-                                [--severity {warn,crit}] [--test TEST]
-                                [--timeout TIMEOUT] [--url URL]
-                                [--username USERNAME]
+                                [--severity {warn,crit}] [--timeout TIMEOUT]
+                                [--url URL] [--username USERNAME]
 
 Checks the Jitsi Videobridge health state via the /about/health REST endpoint.
 Returns OK if the bridge is healthy, WARN or CRIT otherwise.
@@ -52,8 +51,6 @@ options:
                         Jitsi API password.
   --severity {warn,crit}
                         Severity for alerting. Default: warn
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --url URL             Jitsi API URL. Default: http://localhost:8080
   --username USERNAME   Jitsi API username. Default: None

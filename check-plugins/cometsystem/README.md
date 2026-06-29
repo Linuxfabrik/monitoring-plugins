@@ -48,8 +48,7 @@ Here, the check raises critical for any channel with "temp" in its name on high 
 
 ```text
 usage: cometsystem [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                   [--severity SEVERITY] [--test TEST] [--timeout TIMEOUT]
-                   -u URL
+                   [--severity SEVERITY] [--timeout TIMEOUT] -u URL
 
 Reads sensor data from Comet System Web Sensors via their JSON API endpoint.
 Monitors channels such as temperature, humidity, and other environmental
@@ -67,8 +66,6 @@ options:
                        for details. Can be specified multiple times. Example:
                        `--severity temp:high:crit --severity dew:low:crit
                        --severity humi:ok --severity warn`. Default: warn.
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
   --timeout TIMEOUT    Network timeout in seconds. Default: 5 (seconds)
   -u, --url URL        Comet System URL pointing to the JSON endpoint.
                        Example: `http://example.com/values.json`.

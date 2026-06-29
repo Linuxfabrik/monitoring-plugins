@@ -35,7 +35,6 @@ Queries SMART (Self-Monitoring, Analysis, and Reporting Technology) data from ha
 
 ```text
 usage: disk-smart [-h] [-V] [--always-ok] [--full] [--ignore IGNORE]
-                  [--test TEST]
 
 Queries SMART (Self-Monitoring, Analysis, and Reporting Technology) data from
 hard disks and solid-state drives using smartctl. Inspects drive health
@@ -54,8 +53,6 @@ options:
                    False
   --ignore IGNORE  Comma-separated list of disk names to ignore. Example:
                    `sda,sdb`. Default: []
-  --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
-                   file,expected-retc".
 ```
 
 

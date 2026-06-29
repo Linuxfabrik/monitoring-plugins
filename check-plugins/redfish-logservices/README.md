@@ -39,8 +39,7 @@ usage: redfish-logservices [-h] [-V] [--always-ok]
                            [--insecure] [--log-type {sel,mel,both}]
                            [--match MATCH] [--max-age MAX_AGE] [--no-proxy]
                            [--password PASSWORD] [--retries RETRIES]
-                           [--test TEST] [--timeout TIMEOUT] --url URL
-                           [--username USERNAME]
+                           [--timeout TIMEOUT] --url URL [--username USERNAME]
 
 Checks the event log entries exposed under the LogServices of a Redfish-
 compatible server via the Redfish API and alerts based on the severity of the
@@ -85,8 +84,6 @@ options:
                         API fails, before the check gives up. Helps against an
                         occasionally slow or flaky management controller.
                         Default: 3
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             Redfish API URL.
   --username USERNAME   Redfish API username.

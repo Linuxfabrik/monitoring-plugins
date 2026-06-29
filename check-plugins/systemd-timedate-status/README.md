@@ -27,7 +27,7 @@ Checks system clock and RTC settings via `timedatectl status`, including whether
 ## Help
 
 ```text
-usage: systemd-timedate-status [-h] [-V] [--always-ok] [--test TEST]
+usage: systemd-timedate-status [-h] [-V] [--always-ok]
 
 Checks system clock and RTC settings via timedatectl, including whether
 network time synchronization is active and whether the system clock is
@@ -37,8 +37,6 @@ options:
   -h, --help     show this help message and exit
   -V, --version  show program's version number and exit
   --always-ok    Always returns OK.
-  --test TEST    For unit tests. Needs "path-to-stdout-file,path-to-stderr-
-                 file,expected-retc".
 ```
 
 

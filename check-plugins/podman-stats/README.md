@@ -41,7 +41,7 @@ Reports CPU and memory usage for all running Podman containers. CPU usage is nor
 ```text
 usage: podman-stats [-h] [-V] [--always-ok] [--count COUNT]
                     [--critical-cpu CRIT_CPU] [--critical-mem CRIT_MEM]
-                    [--full-name] [--test TEST] [--warning-cpu WARN_CPU]
+                    [--full-name] [--warning-cpu WARN_CPU]
                     [--warning-mem WARN_MEM]
 
 Reports CPU and memory usage for all running Podman containers. CPU usage is
@@ -67,8 +67,6 @@ options:
   --full-name           Use the full container name instead of shortening it
                         after the replica number. Example:
                         `traefik_traefik.2.1idw12p2yqp`
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --warning-cpu WARN_CPU
                         WARN threshold for CPU usage, in percent. Default: >=
                         80

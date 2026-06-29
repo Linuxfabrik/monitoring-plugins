@@ -38,7 +38,7 @@ Checks the age of the newest snapshot in a restic repository and alerts when the
 usage: restic-snapshots [-h] [-V] [-c CRIT] [--group-by GROUP_BY]
                         [--host HOST] [--latest LATEST] [--lengthy]
                         [--password-file PASSWORD_FILE] [--path PATH]
-                        --repo REPO [--tag TAG] [--test TEST] [-w WARN]
+                        --repo REPO [--tag TAG] [-w WARN]
 
 Checks the age of the newest snapshot in a restic repository. Alerts when the
 most recent backup is older than the configured thresholds. Useful for
@@ -65,8 +65,6 @@ options:
   --tag TAG             Only consider snapshots matching this taglist in the
                         format `tag[,tag,...]`. Can be specified multiple
                         times.
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   -w, --warning WARN    WARN threshold for the age of the newest snapshot in
                         each group, in hours. Default: 24
 ```

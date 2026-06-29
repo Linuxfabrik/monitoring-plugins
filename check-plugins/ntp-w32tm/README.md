@@ -30,8 +30,7 @@ Checks the Windows Time Service (w32tm) status, including clock offset, stratum,
 ## Help
 
 ```text
-usage: ntp-w32tm [-h] [-V] [-c CRIT] [--stratum STRATUM] [--test TEST]
-                 [-w WARN]
+usage: ntp-w32tm [-h] [-V] [-c CRIT] [--stratum STRATUM] [-w WARN]
 
 Checks the Windows Time Service (w32tm) status, including clock offset,
 stratum, and time source. Useful for diagnosing time synchronization issues on
@@ -50,8 +49,6 @@ options:
                        computer is at stratum 2. A computer that is
                        synchronised to a stratum 2 computer is at stratum 3,
                        and so on. Default: 6
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
   -w, --warning WARN   WARN threshold for the time since "Last Good Sync", in
                        seconds. Default: 28800
 ```

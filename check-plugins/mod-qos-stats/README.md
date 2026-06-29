@@ -34,7 +34,7 @@ Monitors Apache mod_qos status via the machine-readable status handler. Reports 
 
 ```text
 usage: mod-qos-stats [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                     [--test TEST] [--timeout TIMEOUT] [-u URL]
+                     [--timeout TIMEOUT] [-u URL]
 
 Monitors Apache mod_qos status via the machine-readable status handler.
 Reports current connection and request limits, active connections, and quality
@@ -46,8 +46,6 @@ options:
   --always-ok        Always returns OK.
   --insecure         This option explicitly allows insecure SSL connections.
   --no-proxy         Do not use a proxy.
-  --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
-                     stderr-file,expected-retc".
   --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
   -u, --url URL      URL of the mod_qos machine-readable status handler.
                      Default: http://localhost/qos-status

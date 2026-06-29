@@ -47,7 +47,6 @@ server {
 ```text
 usage: nginx-status [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
                     [--no-proxy] [--timeout TIMEOUT] [-u URL] [-w WARN]
-                    [--test TEST]
 
 Monitors NGINX performance via the stub_status module. Reports active
 connections, accepts, handled requests, and connection states (reading,
@@ -67,8 +66,6 @@ options:
                        http://localhost/server-status
   -w, --warning WARN   WARN threshold for the number of active connections.
                        Default: >= 460
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
 ```
 
 

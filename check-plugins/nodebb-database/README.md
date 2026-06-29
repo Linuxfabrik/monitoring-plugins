@@ -33,7 +33,7 @@ Monitors NodeBB database statistics via the admin API, including memory usage an
 
 ```text
 usage: nodebb-database [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
-                       [--no-proxy] [--severity {warn,crit}] [--test TEST]
+                       [--no-proxy] [--severity {warn,crit}]
                        [--timeout TIMEOUT] -p TOKEN [--url URL] [-w WARN]
 
 Monitors NodeBB database statistics via the admin API, including memory usage
@@ -50,8 +50,6 @@ options:
   --severity {warn,crit}
                         Severity for alerts that do not depend on thresholds.
                         One of "warn" or "crit". Default: warn
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -p, --token TOKEN     NodeBB API bearer token.
   --url URL             NodeBB API URL. Default: http://localhost:4567/forum

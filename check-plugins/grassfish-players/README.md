@@ -39,7 +39,7 @@ usage: grassfish-players [-h] [-V] [--always-ok] [--api-version API_VERSION]
                          [--box-state {activated,deleted,new,reserved,undefined}]
                          [--custom-id CUSTOM_ID] -H HOSTNAME [--insecure]
                          [--is-installed {yes,no}] [--is-licensed {yes,no}]
-                         [--lengthy] [--no-proxy] [--port PORT] [--test TEST]
+                         [--lengthy] [--no-proxy] [--port PORT]
                          [--timeout TIMEOUT] --token TOKEN
                          [--transfer-status {complete,overdue,pending}]
                          [-w WARN] [-u URL]
@@ -79,8 +79,6 @@ options:
   --lengthy             Extended reporting.
   --no-proxy            Do not use a proxy.
   --port PORT           Grassfish port number. Default: 443
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --token TOKEN         Grassfish API token.
   --transfer-status {complete,overdue,pending}

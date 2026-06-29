@@ -36,7 +36,7 @@ Checks the health and status of Kubernetes pods by running `kubectl get pods` an
 ```text
 usage: kubectl-get-pods [-h] [-V] [--always-ok] [--all-namespaces]
                         [--kubeconfig KUBECONFIG] [--query QUERY]
-                        [--severity {warn,crit}] [--test TEST]
+                        [--severity {warn,crit}]
 
 Checks the health and status of Kubernetes pods by running "kubectl get pods"
 and parsing the results. Lists namespace, pod name, readiness, status, restart
@@ -60,8 +60,6 @@ options:
                         'prod-%' and status != 'running'`. Default: 1
   --severity {warn,crit}
                         Severity for alerting. Default: crit
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
 ```
 
 

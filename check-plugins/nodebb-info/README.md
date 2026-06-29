@@ -33,8 +33,7 @@ Retrieves NodeBB process and system information via the admin API, including Nod
 
 ```text
 usage: nodebb-info [-h] [-V] [--always-ok] [-c CRIT] [--insecure] [--no-proxy]
-                   [--test TEST] [--timeout TIMEOUT] -p TOKEN [--url URL]
-                   [-w WARN]
+                   [--timeout TIMEOUT] -p TOKEN [--url URL] [-w WARN]
 
 Retrieves NodeBB process and system information via the admin API, including
 Node.js version, uptime, memory usage, and Git commit hash. Alerts when memory
@@ -47,8 +46,6 @@ options:
   -c, --critical CRIT  CRIT threshold in percent. Default: >= 95
   --insecure           This option explicitly allows insecure SSL connections.
   --no-proxy           Do not use a proxy.
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
   --timeout TIMEOUT    Network timeout in seconds. Default: 3 (seconds)
   -p, --token TOKEN    NodeBB API bearer token.
   --url URL            NodeBB API URL. Default: http://localhost:4567/forum

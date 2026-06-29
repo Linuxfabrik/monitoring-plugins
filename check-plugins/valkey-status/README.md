@@ -40,8 +40,8 @@ usage: valkey-status [-h] [-V] [--always-ok] [--cacert CACERT] [-c CRIT]
                      [-H HOSTNAME] [--ignore-maxmemory0] [--ignore-overcommit]
                      [--ignore-somaxconn] [--ignore-sync-partial-err]
                      [--ignore-thp] [-p PASSWORD] [--port PORT]
-                     [--socket SOCKET] [--test TEST] [--tls]
-                     [--username USERNAME] [--verbose] [-w WARN]
+                     [--socket SOCKET] [--tls] [--username USERNAME]
+                     [--verbose] [-w WARN]
 
 Monitors a Valkey server via the INFO command. Reports memory usage,
 fragmentation ratio, keyspace hit rate, connected clients, replication status,
@@ -76,8 +76,6 @@ options:
   --port PORT           Valkey server port. Default: 6379
   --socket SOCKET       Valkey server Unix socket path. Overrides hostname and
                         port.
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --tls                 Establish a secure TLS connection to the Valkey
                         server.
   --username USERNAME   Username for Valkey server authentication.

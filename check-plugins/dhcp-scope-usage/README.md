@@ -35,8 +35,7 @@ Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and 
 
 ```text
 usage: dhcp-scope-usage [-h] [-V] [--always-ok] [--brief] [-c CRIT]
-                        [-H HOSTNAME] [--test TEST] [-w WARN]
-                        [--winrm-domain WINRM_DOMAIN]
+                        [-H HOSTNAME] [-w WARN] [--winrm-domain WINRM_DOMAIN]
                         --winrm-hostname WINRM_HOSTNAME
                         --winrm-password WINRM_PASSWORD
                         [--winrm-transport {basic,ntlm,kerberos,credssp,plaintext}]
@@ -62,8 +61,6 @@ options:
   -H, --hostname HOSTNAME
                         DNS name, IPv4, or IPv6 address of the DHCP server.
                         Default: localhost
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   -w, --warning WARN    WARN threshold in percent. Default: >= 80
   --winrm-domain WINRM_DOMAIN
                         WinRM Domain Name. Default: None

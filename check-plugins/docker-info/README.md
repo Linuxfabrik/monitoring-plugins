@@ -26,7 +26,7 @@ Displays system-wide Docker information including container counts (running, pau
 ## Help
 
 ```text
-usage: docker-info [-h] [-V] [--always-ok] [--ignore IGNORE] [--test TEST]
+usage: docker-info [-h] [-V] [--always-ok] [--ignore IGNORE]
 
 Displays system-wide Docker information including container counts (running,
 paused, stopped), image count, storage and logging driver, Docker version,
@@ -48,8 +48,6 @@ options:
                    `--ignore="(?i)bridge-nf-call"` (case-insensitive) to
                    suppress both `bridge-nf-call-iptables` and `bridge-nf-
                    call-ip6tables` warnings on Debian hosts. Default: None
-  --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
-                   file,expected-retc".
 ```
 
 

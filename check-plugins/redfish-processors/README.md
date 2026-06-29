@@ -39,8 +39,8 @@ usage: redfish-processors [-h] [-V] [--always-ok] [--brief]
                           [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
                           [--insecure] [--inventory] [--match MATCH]
                           [--no-proxy] [--password PASSWORD]
-                          [--retries RETRIES] [--test TEST]
-                          [--timeout TIMEOUT] --url URL [--username USERNAME]
+                          [--retries RETRIES] [--timeout TIMEOUT] --url URL
+                          [--username USERNAME]
 
 Checks the state of all processors (CPUs) in a Redfish-compatible server via
 the Redfish API. Alerts when any processor reports a degraded or failed state.
@@ -81,8 +81,6 @@ options:
                         API fails, before the check gives up. Helps against an
                         occasionally slow or flaky management controller.
                         Default: 3
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             Redfish API URL.
   --username USERNAME   Redfish API username.

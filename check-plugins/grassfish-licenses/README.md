@@ -33,8 +33,7 @@ Monitors available Grassfish digital signage licenses via the Grassfish API. Ale
 ```text
 usage: grassfish-licenses [-h] [-V] [--always-ok] [--api-version API_VERSION]
                           -H HOSTNAME [--insecure] [--no-proxy] [--port PORT]
-                          [--test TEST] [--timeout TIMEOUT] --token TOKEN
-                          [-u URL]
+                          [--timeout TIMEOUT] --token TOKEN [-u URL]
 
 Monitors available Grassfish digital signage licenses via the Grassfish API.
 Alerts when no more licenses are available. Requires a Grassfish hostname and
@@ -52,8 +51,6 @@ options:
                         connections.
   --no-proxy            Do not use a proxy.
   --port PORT           Grassfish port number. Default: 443
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --token TOKEN         Grassfish API token.
   -u, --url URL         Grassfish API URL. Default: /gv2/webservices/API

@@ -33,7 +33,7 @@ Checks for processes that were started before they or one of their dependencies 
 ## Help
 
 ```text
-usage: needs-restarting [-h] [-V] [--test TEST]
+usage: needs-restarting [-h] [-V]
 
 Checks for processes that were started before they or one of their
 dependencies were updated. Returns WARN if a full system reboot is required or
@@ -43,8 +43,6 @@ been patched but not yet rebooted. Requires root or sudo.
 options:
   -h, --help     show this help message and exit
   -V, --version  show program's version number and exit
-  --test TEST    For unit tests. Needs "path-to-stdout-file,path-to-stderr-
-                 file,expected-retc".
 ```
 
 

@@ -39,7 +39,7 @@ usage: ipmi-sensor [-h] [-V] [--authtype {NONE,PASSWORD,MD2,MD5,OEM}]
                    [-H HOSTNAME] [--interface {lan,lanplus}]
                    [--password PASSWORD] [--port PORT]
                    [--privlevel {CALLBACK,USER,OPERATOR,ADMINISTRATOR}]
-                   [--test TEST] [--username USERNAME]
+                   [--username USERNAME]
 
 Checks IPMI sensor readings (temperature, voltage, fan speed, power, etc.)
 using ipmitool. Alerts when any sensor reports a non-ok status. Provides
@@ -64,8 +64,6 @@ options:
   --privlevel {CALLBACK,USER,OPERATOR,ADMINISTRATOR}
                         Force session privilege level. Can be CALLBACK, USER,
                         OPERATOR, ADMINISTRATOR. Default: USER
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --username USERNAME   Remote server username. Default: NULL
 ```
 

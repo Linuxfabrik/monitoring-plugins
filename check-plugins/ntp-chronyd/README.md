@@ -31,8 +31,7 @@ Checks the clock offset of chronyd in milliseconds compared to the configured NT
 ## Help
 
 ```text
-usage: ntp-chronyd [-h] [-V] [-c CRIT] [--stratum STRATUM] [--test TEST]
-                   [-w WARN]
+usage: ntp-chronyd [-h] [-V] [-c CRIT] [--stratum STRATUM] [-w WARN]
 
 Checks the clock offset of chronyd in milliseconds compared to the configured
 NTP servers. Alerts when the offset exceeds the configured thresholds.
@@ -49,8 +48,6 @@ options:
                        computer is at stratum 2. A computer that is
                        synchronised to a stratum 2 computer is at stratum 3,
                        and so on. Default: 6
-  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
-                       stderr-file,expected-retc".
   -w, --warning WARN   WARN threshold for the NTP time offset, in
                        milliseconds. Default: 800ms
 ```

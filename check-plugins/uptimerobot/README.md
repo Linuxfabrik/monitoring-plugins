@@ -28,7 +28,7 @@ Monitors all configured monitors on a given [UptimeRobot](https://uptimerobot.co
 
 ```text
 usage: uptimerobot [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                   [--test TEST] [--timeout TIMEOUT] [--url URL]
+                   [--timeout TIMEOUT] [--url URL]
 
 Monitors all configured UptimeRobot monitors via the UptimeRobot API. Alerts
 on any monitor that is in a down or unknown state.
@@ -39,8 +39,6 @@ options:
   --always-ok        Always returns OK.
   --insecure         This option explicitly allows insecure SSL connections.
   --no-proxy         Do not use a proxy.
-  --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
-                     stderr-file,expected-retc".
   --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
   --url URL          UptimeRobot status page URL. Default:
                      https://status.linuxfabrik.io

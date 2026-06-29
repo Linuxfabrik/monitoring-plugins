@@ -68,7 +68,7 @@ List of public Statuspal sites - USA:
 
 ```text
 usage: statuspal [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                 [--test TEST] [--timeout TIMEOUT] [--url URL]
+                 [--timeout TIMEOUT] [--url URL]
 
 Monitors a Statuspal status page, including overall status, service states,
 active incidents, and scheduled maintenances. Alerts on degraded services,
@@ -80,8 +80,6 @@ options:
   --always-ok        Always returns OK.
   --insecure         This option explicitly allows insecure SSL connections.
   --no-proxy         Do not use a proxy.
-  --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
-                     stderr-file,expected-retc".
   --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
   --url URL          Statuspal API URL pointing to the summary endpoint.
                      Default: https://statuspal.eu/api/v2/status_pages/exoscal

@@ -35,7 +35,7 @@ Monitors a [Spring Boot Actuator](https://docs.spring.io/spring-boot/api/rest/ac
 usage: spring-boot-actuator-health [-h] [-V] [--always-ok]
                                    [--component-severity COMPONENT_NAME,API_STATUS,NAGIOS_STATE]
                                    [--detail-severity COMPONENT_NAME,DETAIL_NAME,WARN,CRIT]
-                                   [--insecure] [--no-proxy] [--test TEST]
+                                   [--insecure] [--no-proxy]
                                    [--timeout TIMEOUT] [--url URL] [--verbose]
 
 Monitors a Spring Boot application via its Actuator /health endpoint. Checks
@@ -64,8 +64,6 @@ options:
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --no-proxy            Do not use a proxy.
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --url URL             Spring Boot Actuator health endpoint URL. Example:
                         `--url http://server:80/health/diskSpace`. Default:

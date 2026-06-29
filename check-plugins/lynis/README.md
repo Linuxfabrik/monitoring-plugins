@@ -48,8 +48,7 @@ usage: lynis [-h] [-V] [--always-ok] [--audit-timeout AUDIT_TIMEOUT]
              [--lynis-test-category LYNIS_TEST_CATEGORY]
              [--lynis-test-group LYNIS_TEST_GROUP] [--max-workers MAX_WORKERS]
              [--network NETWORK] [-p PASSWORD] [--port PORT] [--quiet]
-             [--ssh-option SSH_OPTION] [--test TEST] [-u USERNAME] [--verbose]
-             [-w WARN]
+             [--ssh-option SSH_OPTION] [-u USERNAME] [--verbose] [-w WARN]
 
 Runs a full security audit across the hosts of a subnet and reports each
 host's hardening posture. From a single management host it discovers the
@@ -181,8 +180,6 @@ options:
                         flag. For full details of the options, and their
                         possible values, see ssh_config(5). Can be specified
                         multiple times.
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
   -u, --username USERNAME
                         SSH: Username. If not specified, ssh determines the
                         user from `~/.ssh/config` or falls back to the current
