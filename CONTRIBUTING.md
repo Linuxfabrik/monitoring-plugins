@@ -214,7 +214,9 @@ Plugins must return one of the following POSIX-compliant exit codes. Use the con
 
 Guidelines:
 
+* `STATE_WARN` and `STATE_CRIT` typically trigger notifications (email, SMS, paging) to operators, so pick them deliberately. Reserve them for conditions the user genuinely needs to act on, and avoid raising them for plugin-internal problems that are not the monitored service's fault.
 * Return `STATE_UNKNOWN` on missing dependencies, wrong parameters, or when `--help`/`--version` is requested.
+* Report internal plugin failures such as unhandled exceptions or tracebacks as `STATE_UNKNOWN`. A broken plugin says nothing about the monitored service, and routing these to UNKNOWN keeps them off the operators' alert path instead of spamming them with false CRITs.
 * Return `STATE_WARN` for most alert conditions. Only return `STATE_CRIT` if the situation requires immediate human intervention ("wake up at night").
 * Never return any exit code other than 0, 1, 2, or 3.
 * Use `lib.base.oao()` (output and out) to print the result and exit with the appropriate state in a single call.
