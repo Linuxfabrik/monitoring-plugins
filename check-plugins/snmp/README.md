@@ -271,6 +271,12 @@ The columns in detail:
 
 The `value` returned by `snmpget` for a given *OID* is always a string. If you want to use it for calculations or integer-based comparisons, re-calculate it by specifying `int(value)` in the column (SNMP knows nothing about floats).
 
+Some devices return numeric readings wrapped in double quotes, for example `"9.82"`. Then `int(value)` or `float(value)` fails with `could not convert string to float: '"9.82"'`. Strip the quotes first inside the Re-Calc column:
+
+| OID | Name | Re-Calc | Unit Label | WARN | ... |
+|----|----|----|----|----|----|
+| ENTITY-SENSOR-MIB::entPhySensorValue.1 | Voltage | float(value.strip('"')) | V | value \> 12.6 |  |
+
 Both variables are allowed to be used in Python code in the columns "Re-Calc", "WARN" and "CRIT". This enables you to even warn in the current OID depending on previous values, for example.
 
 In the last three lines of this example we simply calculate "NIC.1 Traffic" as a sum of "NIC.1 rx" and "NIC.1 tx", for which there is no SNMP OID:
