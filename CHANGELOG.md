@@ -32,6 +32,7 @@ Monitoring Plugins:
 * disk-io: iowait is now reported as saturated CPU cores (e.g. `1.02 cores`) instead of a percentage that could exceed 100% on multi-core hosts, and gets its own Grafana panel; the alerting thresholds keep their meaning and defaults, so no reconfiguration is needed
 * disk-io: per-disk performance data now reports read/write throughput per second and disk busy percentage as ready-to-graph values instead of raw cumulative counters; re-import the disk-io Grafana dashboard after updating ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 * disk-usage: mountpoints are now filtered with `--match` and `--ignore`, consistent with the other plugins; the previous `--include-pattern`/`--include-regex`/`--exclude-pattern`/`--exclude-regex` options keep working unchanged
+* mysql-logfile: documents that `--ignore-pattern`/`--ignore-regex` match against the lowercased log line, and shows how to silence the harmless idle-connection-timeout warning (server closing an idle connection after `wait_timeout`) without hiding real connection errors
 * snmp: `--device` now also accepts an absolute path, so the OID definition CSV can be stored outside the plugin directory ([#1308](https://github.com/Linuxfabrik/monitoring-plugins/issues/1308))
 
 ### Fixed

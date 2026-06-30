@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061201'
+__version__ = '2026063001'
 
 DESCRIPTION = """Scans the MySQL/MariaDB error log for errors, warnings, startups and
 shutdowns. On MySQL 8.0.22+ the plugin prefers the `performance_schema.error_log` table
@@ -110,7 +110,7 @@ def parse_args():
     parser.add_argument(
         '--ignore-pattern',
         help='Any line containing this pattern will be ignored. '
-        'Must be lowercase. '
+        'The log line is lowercased before matching, so write the pattern in lowercase. '
         'Can be specified multiple times.',
         action='append',
         default=None,
@@ -119,7 +119,9 @@ def parse_args():
 
     parser.add_argument(
         '--ignore-regex',
-        help=lib.args.help('--ignore-regex'),
+        help=lib.args.help('--ignore-regex')
+        + ' The log line is lowercased before matching, so write the pattern in '
+        'lowercase (or use the `(?i)` flag).',
         action='append',
         default=None,
         dest='IGNORE_REGEX',
