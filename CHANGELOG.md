@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Monitoring Plugins:
 
 * apache-tomcat-version: new check that alerts when the installed Apache Tomcat version is end-of-life or behind the latest release, and ships an "Apache Tomcat" Icinga Director service set ([#126](https://github.com/Linuxfabrik/monitoring-plugins/issues/126))
+* disk-io, disk-usage, fail2ban, network-errors, network-io, nextcloud-app-updates, sensors-temperatures, wildfly-non-xa-datasource-stats, wildfly-xa-datasource-stats: the new `--no-match-severity` parameter lets these checks report WARN, CRIT or UNKNOWN instead of a silent OK when their filters match nothing, so a mistyped filter, a renamed device or a forgotten mount no longer goes unnoticed (default stays OK for backwards compatibility) ([#1308](https://github.com/Linuxfabrik/monitoring-plugins/issues/1308))
 * disk-usage: per-mountpoint warning and critical thresholds can now be set with `--mount`, overriding the global thresholds for a single mountpoint (for example a small volume that needs an absolute free-space threshold) ([#1286](https://github.com/Linuxfabrik/monitoring-plugins/issues/1286))
 * network-errors: new check that alerts on receive and transmit interface errors ([#707](https://github.com/Linuxfabrik/monitoring-plugins/issues/707))
 * nextcloud-app-updates: new check that lists installed Nextcloud apps and alerts when an app update has been available for longer than a configurable grace period ([#62](https://github.com/Linuxfabrik/monitoring-plugins/issues/62))

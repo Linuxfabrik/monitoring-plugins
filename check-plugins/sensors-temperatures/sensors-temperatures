@@ -42,11 +42,12 @@ except ImportError:
         from psutil._common import shwtemp
     except ImportError:
         from collections import namedtuple
+
         shwtemp = namedtuple('shwtemp', ['label', 'current', 'high', 'critical'])
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041302'
+__version__ = '2026063001'
 
 DESCRIPTION = """Reports hardware temperature sensor readings (CPU, disk, chipset, etc.) in Celsius.
 Automatically checks against hardware-defined thresholds. Sensors can be filtered
@@ -81,6 +82,14 @@ def parse_args():
         dest='IGNORE',
         action='append',
         default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default='ok',
     )
 
     parser.add_argument(
@@ -175,7 +184,6 @@ def main():
     if not temps:
         lib.base.oao("Can't read any temperature.", STATE_OK, always_ok=args.ALWAYS_OK)
 
-
     # init some vars
     msg = ''
     state = STATE_OK
@@ -191,7 +199,6 @@ def main():
 
         if not filtered_entries:
             continue
-
 
         # build the message
         msg += f'* {name}: '
@@ -213,9 +220,7 @@ def main():
                 crit=critical,
                 _min=0,
             )
-            sensor_state = lib.base.get_state(
-                entry.current, high, critical, 'ge'
-            )
+            sensor_state = lib.base.get_state(entry.current, high, critical, 'ge')
             msg += f'{entry.label or name} = {entry.current}°C '
             msg += lib.base.state2str(sensor_state)
             msg = msg.strip() + ', '
@@ -224,8 +229,8 @@ def main():
 
     if not msg:
         lib.base.oao(
-            'Everything is ok (all sensors ignored).',
-            STATE_OK,
+            'Nothing checked (all sensors ignored).',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
             always_ok=args.ALWAYS_OK,
         )
 

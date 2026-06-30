@@ -23,6 +23,9 @@
                 "--match": {
                     "value": "$disk_io_match$"
                 },
+                "--no-match-severity": {
+                    "value": "$disk_io_no_match_severity$"
+                },
                 "--top": {
                     "value": "$disk_io_top$"
                 },
@@ -77,6 +80,11 @@
                     "datafield_id": 9,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -112,6 +120,9 @@
                 "--match": {
                     "value": "$disk_io_windows_match$"
                 },
+                "--no-match-severity": {
+                    "value": "$disk_io_windows_no_match_severity$"
+                },
                 "--top": {
                     "value": "$disk_io_windows_top$"
                 },
@@ -122,11 +133,6 @@
             "command": "C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\disk-io.exe",
             "disabled": false,
             "fields": [
-                {
-                    "datafield_id": 10,
-                    "is_required": "n",
-                    "var_filter": null
-                },
                 {
                     "datafield_id": 11,
                     "is_required": "n",
@@ -164,6 +170,16 @@
                 },
                 {
                     "datafield_id": 18,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 19,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 20,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -244,6 +260,7 @@
                 "disk_io_iowait_warning": 80,
                 "disk_io_include_unmounted": false,
                 "disk_io_match": "",
+                "disk_io_no_match_severity": "ok",
                 "disk_io_top": 5,
                 "disk_io_warning": 80
             },
@@ -298,12 +315,77 @@
                 "disk_io_windows_iowait_warning": 80,
                 "disk_io_windows_include_unmounted": false,
                 "disk_io_windows_match": ".*",
+                "disk_io_windows_no_match_severity": "ok",
                 "disk_io_windows_top": 5,
                 "disk_io_windows_warning": 80
             },
             "volatile": null,
             "zone": null,
             "uuid": "21a6bac7-9a30-4bba-9ce6-874556b9a22b"
+        }
+    },
+    "DataList": {
+        "disk_io_no_match_severity_list": {
+            "list_name": "disk_io_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "0f29931b-5e76-471a-b7f5-b1ba589fab2a"
+        },
+        "disk_io_windows_no_match_severity_list": {
+            "list_name": "disk_io_windows_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "edb3de81-a5e6-4189-b527-3bdc40dc6f3d"
         }
     },
     "Datafield": {
@@ -381,6 +463,19 @@
             "uuid": "799caa91-3402-4421-99d8-b24bdf6dce23"
         },
         "8": {
+            "varname": "disk_io_no_match_severity",
+            "caption": "Disk I/O: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "disk_io_no_match_severity_list"
+            },
+            "uuid": "674b8af2-e902-4a75-823c-a25aba72455a"
+        },
+        "9": {
             "varname": "disk_io_top",
             "caption": "Disk I/O: Top",
             "description": "Number of top processes to list by I/O traffic. Use `--top=0` to disable.",
@@ -391,7 +486,7 @@
             },
             "uuid": "11d2ba4f-ae3b-4bda-9ab1-2d16790673c9"
         },
-        "9": {
+        "10": {
             "varname": "disk_io_warning",
             "caption": "Disk I/O: Warning",
             "description": "WARN threshold for disk bandwidth saturation as a percentage of the observed maximum, measured over the last `--count` runs.",
@@ -402,7 +497,7 @@
             },
             "uuid": "648f2e2a-bd9f-45f1-9324-c31819472838"
         },
-        "10": {
+        "11": {
             "varname": "disk_io_windows_always_ok",
             "caption": "Disk I/O: Always OK?",
             "description": "Always returns OK.",
@@ -411,7 +506,7 @@
             "settings": {},
             "uuid": "0aeaffd3-218b-4d59-8338-10a5b21b0849"
         },
-        "11": {
+        "12": {
             "varname": "disk_io_windows_count",
             "caption": "Disk I/O: Count",
             "description": "Number of consecutive checks the threshold must be exceeded before alerting.",
@@ -422,7 +517,7 @@
             },
             "uuid": "6a0f4753-34bc-4d85-a66d-2be17f4b218e"
         },
-        "12": {
+        "13": {
             "varname": "disk_io_windows_critical",
             "caption": "Disk I/O: Critical",
             "description": "CRIT threshold for disk bandwidth saturation as a percentage of the observed maximum, measured over the last `--count` runs.",
@@ -433,7 +528,7 @@
             },
             "uuid": "6feda2a2-3432-4543-937f-f7677d00c604"
         },
-        "13": {
+        "14": {
             "varname": "disk_io_windows_iowait_critical",
             "caption": "Disk I/O: Iowait Critical",
             "description": "CRIT threshold for iowait, in percent of a single CPU core (Linux only). 100 means the equivalent of one core spent the whole interval waiting for I/O, independent of the host total core count, so the same threshold works fleet-wide regardless of how many cores a host has. The measured value is reported as saturated cores (e.g. 1.02 cores).",
@@ -444,7 +539,7 @@
             },
             "uuid": "0bf8b4a9-4736-48c1-907f-3cca8ffad3ea"
         },
-        "14": {
+        "15": {
             "varname": "disk_io_windows_iowait_warning",
             "caption": "Disk I/O: Iowait Warning",
             "description": "WARN threshold for iowait, in percent of a single CPU core (Linux only). 100 means the equivalent of one core spent the whole interval waiting for I/O, independent of the host total core count, so the same threshold works fleet-wide regardless of how many cores a host has. The measured value is reported as saturated cores (e.g. 1.02 cores).",
@@ -455,7 +550,7 @@
             },
             "uuid": "f055e158-db5b-4c47-ab59-0ecbaeaaf282"
         },
-        "15": {
+        "16": {
             "varname": "disk_io_windows_include_unmounted",
             "caption": "Disk I/O: Include Unmounted?",
             "description": "Also monitor block devices that have no mounted filesystem (Linux only). By default only block devices with a mounted filesystem are monitored. Enable this to include raw, unmounted devices such as multipath SAN volumes or disks used directly by a database or storage layer. Combine with `--match`, otherwise every unmounted device shows up. Pseudo devices (loop, ram, zram, floppy, optical) are always excluded.",
@@ -464,7 +559,7 @@
             "settings": {},
             "uuid": "c5bc1a3a-b81f-4e0d-9e0e-f8ffb300a013"
         },
-        "16": {
+        "17": {
             "varname": "disk_io_windows_match",
             "caption": "Disk I/O: Match",
             "description": "Filter by disk name. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and matched against the full device path (e.g. `/dev/sda`), the device-mapper path (e.g. `/dev/mapper/vg-lv`) and the mountpoint, so prefix with `.*` to match anywhere (`.*sda$` instead of `^sda$`). On Linux only block devices with a mounted filesystem are considered by default; add `--include-unmounted` to also match raw, unmounted devices (multipath SAN volumes, raw LUNs).",
@@ -475,7 +570,20 @@
             },
             "uuid": "3889d94e-e928-43d8-994a-fc6bd1dd5716"
         },
-        "17": {
+        "18": {
+            "varname": "disk_io_windows_no_match_severity",
+            "caption": "Disk I/O: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "disk_io_windows_no_match_severity_list"
+            },
+            "uuid": "7184f4d8-c6ff-4df3-a052-cd8f28269651"
+        },
+        "19": {
             "varname": "disk_io_windows_top",
             "caption": "Disk I/O: Top",
             "description": "Number of top processes to list by I/O traffic. Use `--top=0` to disable.",
@@ -486,7 +594,7 @@
             },
             "uuid": "09d50d40-cf5b-4252-9870-f951faf6a90b"
         },
-        "18": {
+        "20": {
             "varname": "disk_io_windows_warning",
             "caption": "Disk I/O: Warning",
             "description": "WARN threshold for disk bandwidth saturation as a percentage of the observed maximum, measured over the last `--count` runs.",

@@ -34,7 +34,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061802'
+__version__ = '2026063001'
 
 DESCRIPTION = """Checks disk I/O bandwidth over time and alerts on sustained saturation, not
 short spikes. The check records per-disk read/write counters and then derives current (R1/W1)
@@ -69,6 +69,7 @@ DEFAULT_COUNT = (
 DEFAULT_CRIT = 90  # %
 DEFAULT_INCLUDE_UNMOUNTED = False
 DEFAULT_MATCH = ''
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_TOP = 5
 DEFAULT_WARN = 80  # %
 
@@ -168,6 +169,14 @@ def parse_args():
         'LUNs). ' + 'Default: %(default)s',
         dest='MATCH',
         default=DEFAULT_MATCH,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -577,7 +586,7 @@ def main():
         lib.db_sqlite.close(conn)
         lib.base.oao(
             'No disks matched.' if args.MATCH else 'No disks found.',
-            state,
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
             '',
             always_ok=args.ALWAYS_OK,
         )

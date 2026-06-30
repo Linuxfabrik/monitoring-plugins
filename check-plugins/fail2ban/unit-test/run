@@ -55,6 +55,22 @@ TESTS = [
         'assert-in': ['Nothing checked.'],
     },
     {
+        # #1308: when the ignore filter drops every jail, --no-match-severity
+        # turns the otherwise-OK "Nothing checked." into the configured state.
+        'id': 'warn-no-match-severity-maps-empty-to-warn',
+        'test': 'stdout/all-jails-empty,,0',
+        'params': '--ignore=".*" --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'unknown-no-match-severity-maps-empty-to-unknown',
+        'test': 'stdout/all-jails-empty,,0',
+        'params': '--ignore=".*" --no-match-severity=unknown',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
         'id': 'unknown-invalid-ignore-regex',
         'test': 'stdout/all-jails-empty,,0',
         'params': '--ignore="["',
@@ -83,7 +99,6 @@ TESTS = [
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../fail2ban'
 
 

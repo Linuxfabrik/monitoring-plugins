@@ -15,6 +15,9 @@
                     "value": "$network_io_ignore$",
                     "repeat_key": true
                 },
+                "--no-match-severity": {
+                    "value": "$network_io_no_match_severity$"
+                },
                 "--warning": {
                     "value": "$network_io_warning$"
                 }
@@ -46,6 +49,11 @@
                     "datafield_id": 5,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -73,6 +81,9 @@
                     "value": "$network_io_windows_ignore$",
                     "repeat_key": true
                 },
+                "--no-match-severity": {
+                    "value": "$network_io_windows_no_match_severity$"
+                },
                 "--warning": {
                     "value": "$network_io_windows_warning$"
                 }
@@ -80,11 +91,6 @@
             "command": "C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\network-io.exe",
             "disabled": false,
             "fields": [
-                {
-                    "datafield_id": 6,
-                    "is_required": "n",
-                    "var_filter": null
-                },
                 {
                     "datafield_id": 7,
                     "is_required": "n",
@@ -102,6 +108,16 @@
                 },
                 {
                     "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -181,6 +197,7 @@
                 "network_io_ignore": [
                     "lo"
                 ],
+                "network_io_no_match_severity": "ok",
                 "network_io_warning": 80
             },
             "volatile": null,
@@ -233,11 +250,76 @@
                 "network_io_windows_ignore": [
                     "lo"
                 ],
+                "network_io_windows_no_match_severity": "ok",
                 "network_io_windows_warning": 80
             },
             "volatile": null,
             "zone": null,
             "uuid": "3493648e-6691-4a53-9667-481e57ff1197"
+        }
+    },
+    "DataList": {
+        "network_io_no_match_severity_list": {
+            "list_name": "network_io_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "73bf7d21-6233-4a52-ade6-b62952ea8c69"
+        },
+        "network_io_windows_no_match_severity_list": {
+            "list_name": "network_io_windows_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "993b582a-0467-4390-ba66-45afbe771ab5"
         }
     },
     "Datafield": {
@@ -284,6 +366,19 @@
             "uuid": "3f82ea81-be25-4cd7-9812-ff893be56bb2"
         },
         "5": {
+            "varname": "network_io_no_match_severity",
+            "caption": "Network I/O: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "network_io_no_match_severity_list"
+            },
+            "uuid": "b32c2aaa-d3a5-449a-8119-18eea2eebb2f"
+        },
+        "6": {
             "varname": "network_io_warning",
             "caption": "Network I/O: Warning",
             "description": "WARN threshold for network I/O rx/tx rate over the entire period as a percentage of the maximum network I/O rate.",
@@ -294,7 +389,7 @@
             },
             "uuid": "3b30c369-a9b9-423f-8da0-9825089c091b"
         },
-        "6": {
+        "7": {
             "varname": "network_io_windows_always_ok",
             "caption": "Network I/O: Always OK?",
             "description": "Always returns OK.",
@@ -303,7 +398,7 @@
             "settings": {},
             "uuid": "709aecfa-6c7d-43b0-976e-df972f356a1e"
         },
-        "7": {
+        "8": {
             "varname": "network_io_windows_count",
             "caption": "Network I/O: Count",
             "description": "Number of consecutive checks the threshold must be exceeded before alerting.",
@@ -314,7 +409,7 @@
             },
             "uuid": "3c3c7347-3c5a-46a4-94ab-f39c77c7e54a"
         },
-        "8": {
+        "9": {
             "varname": "network_io_windows_critical",
             "caption": "Network I/O: Critical",
             "description": "CRIT threshold for network I/O rx/tx rate over the entire period as a percentage of the maximum network I/O rate.",
@@ -325,7 +420,7 @@
             },
             "uuid": "edafc3bd-f0c9-4005-9d22-123b354eca8d"
         },
-        "9": {
+        "10": {
             "varname": "network_io_windows_ignore",
             "caption": "Network I/O: Ignore",
             "description": "Ignore network interfaces starting with this string. Can be specified multiple times. Example: `--ignore tun`.",
@@ -336,7 +431,20 @@
             },
             "uuid": "63a77c30-4972-4169-85c6-2625405a6335"
         },
-        "10": {
+        "11": {
+            "varname": "network_io_windows_no_match_severity",
+            "caption": "Network I/O: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "network_io_windows_no_match_severity_list"
+            },
+            "uuid": "2b89d60c-90dd-47f9-85a3-c5014c083181"
+        },
+        "12": {
             "varname": "network_io_windows_warning",
             "caption": "Network I/O: Warning",
             "description": "WARN threshold for network I/O rx/tx rate over the entire period as a percentage of the maximum network I/O rate.",

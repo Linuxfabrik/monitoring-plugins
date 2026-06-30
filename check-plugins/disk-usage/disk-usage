@@ -43,7 +43,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026062402'
+__version__ = '2026063001'
 
 DESCRIPTION = """Checks used or free disk space for each mounted partition. By default, only physical
 devices are checked (hard disks, USB drives), ignoring pseudo and memory filesystems.
@@ -58,6 +58,7 @@ Alerts when usage exceeds the configured thresholds."""
 
 DEFAULT_WARN = '90%USED'
 DEFAULT_CRIT = '95%USED'
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 
 
 def parse_args():
@@ -196,6 +197,14 @@ def parse_args():
         type=lib.args.csv,
         action='append',
         default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -623,6 +632,7 @@ def main():
     thresholds = f'warn={"".join(args.WARN)} crit={"".join(args.CRIT)}'
     if not table_data:
         msg = 'Nothing checked.'
+        state = lib.base.str2state(args.NO_MATCH_SEVERITY)
     elif args.BRIEF and not display_rows:
         # --brief and nothing worth showing: one-line summary only.
         msg = f'Everything is ok. ({thresholds})'

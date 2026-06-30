@@ -41,8 +41,9 @@ Monitors XA datasource connection pool metrics on a WildFly/JBoss AS server via 
 usage: wildfly-xa-datasource-stats [-h] [-V] [--always-ok] [--critical CRIT]
                                    [--datasource DATASOURCE] [--insecure]
                                    [--instance INSTANCE]
-                                   [--mode {standalone,domain}] [--no-proxy]
-                                   [--node NODE] -p PASSWORD
+                                   [--mode {standalone,domain}]
+                                   [--no-match-severity {ok,warn,crit,unknown}]
+                                   [--no-proxy] [--node NODE] -p PASSWORD
                                    [--timeout TIMEOUT] [--url URL]
                                    --username USERNAME [--warning WARN]
 
@@ -65,6 +66,9 @@ options:
                         in domain mode.
   --mode {standalone,domain}
                         WildFly server mode. Default: standalone
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
   --no-proxy            Do not use a proxy.
   --node NODE           WildFly node (host) when running in domain mode.
   -p, --password PASSWORD
@@ -103,6 +107,7 @@ MyFirstDS: 0.0% active used (0/20), 0.0% max used (0/20); Statistics are not ena
 
 * OK if all connection pool usage percentages are below the warning threshold.
 * WARN or CRIT if active or max-used connection pool percentage is >= `--warning` (default: 80) or >= `--critical` (default: 90).
+* `--no-match-severity` sets the state reported when the filters match no datasource and nothing is checked (default: `ok`); set it to `warn`, `crit`, or `unknown` to alert on an empty selection (for example a filter typo or a missing datasource) instead of silently returning OK.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

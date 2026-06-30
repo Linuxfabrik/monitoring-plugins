@@ -13,8 +13,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
-
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
     # A clean interface table never alerts.
@@ -82,11 +81,26 @@ TESTS = [
         'assert-retc': STATE_CRIT,
         'assert-regex': r'eth0.*9\.0.*\[CRITICAL\]',
     },
+    # #1308: a filter that matches no interface yields "Nothing checked.";
+    # --no-match-severity controls the resulting state (default OK).
+    {
+        'id': 'ok-no-match-default-stays-ok',
+        'test': 'stdout/no-errors,,0',
+        'params': '--match=ZZZNONE',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'unknown-no-match-severity-maps-empty-to-unknown',
+        'test': 'stdout/no-errors,,0',
+        'params': '--match=ZZZNONE --no-match-severity=unknown',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Nothing checked.'],
+    },
 ]
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../network-errors'
 
 

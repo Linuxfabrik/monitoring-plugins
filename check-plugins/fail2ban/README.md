@@ -28,7 +28,8 @@ Checks the number of currently banned IP addresses across all fail2ban jails. Re
 
 ```text
 usage: fail2ban [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
-                [--socket SOCKET] [-w WARN]
+                [--no-match-severity {ok,warn,crit,unknown}] [--socket SOCKET]
+                [-w WARN]
 
 Checks the number of currently banned IP addresses across all fail2ban jails.
 Reports the total ban count and a per-jail breakdown. Jails can be excluded
@@ -36,19 +37,22 @@ from the check with a regular expression. Alerts when the number of banned IPs
 in any jail exceeds the configured thresholds. Requires root or sudo.
 
 options:
-  -h, --help           show this help message and exit
-  -V, --version        show program's version number and exit
-  --always-ok          Always returns OK.
-  -c, --critical CRIT  CRIT threshold for the number of banned IPs per jail.
-                       Supports Nagios ranges. Default: 10000
-  --ignore IGNORE      Exclude jails whose name matches this Python regular
-                       expression. Case-sensitive by default; use `(?i)` for
-                       case-insensitive matching. Can be specified multiple
-                       times. Example: `--ignore="^recidive$"`. Default: None
-  --socket SOCKET      Path to the fail2ban server Unix socket. Passed to
-                       `fail2ban-client --socket`. Default: None
-  -w, --warning WARN   WARN threshold for the number of banned IPs per jail.
-                       Supports Nagios ranges. Default: 2500
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
+  -c, --critical CRIT   CRIT threshold for the number of banned IPs per jail.
+                        Supports Nagios ranges. Default: 10000
+  --ignore IGNORE       Exclude jails whose name matches this Python regular
+                        expression. Case-sensitive by default; use `(?i)` for
+                        case-insensitive matching. Can be specified multiple
+                        times. Example: `--ignore="^recidive$"`. Default: None
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
+  --socket SOCKET       Path to the fail2ban server Unix socket. Passed to
+                        `fail2ban-client --socket`. Default: None
+  -w, --warning WARN    WARN threshold for the number of banned IPs per jail.
+                        Supports Nagios ranges. Default: 2500
 ```
 
 
@@ -78,6 +82,7 @@ portscan ! 1974   ! [OK]
 * UNKNOWN if `fail2ban-client ping` fails or `fail2ban-client status` returns an error.
 * `--warning` and `--critical` accept Nagios range expressions.
 * Jails matching `--ignore` are excluded from both the output and the alerting.
+* `--no-match-severity` sets the state reported when the filters match no jail and nothing is checked (default: `ok`); set it to `warn`, `crit`, or `unknown` to alert on an empty selection (for example a filter typo or a missing jail) instead of silently returning OK.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

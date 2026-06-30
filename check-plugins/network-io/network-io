@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026063001'
 
 DESCRIPTION = """Monitors network I/O throughput per interface over time. Calculates bytes per second
 from cumulative counters using SQLite state persistence between runs. Alerts only if
@@ -46,6 +46,7 @@ DEFAULT_CRIT = 90  # %
 DEFAULT_IGNORE = [
     'lo',
 ]
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 
 
 def parse_args():
@@ -92,6 +93,14 @@ def parse_args():
         dest='IGNORE',
         default=DEFAULT_IGNORE,
         action='append',
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -164,6 +173,15 @@ def main():
 
     lib.base.coe(lib.db_sqlite.cut(conn, _max=args.COUNT * len(interfaces)))
     lib.base.coe(lib.db_sqlite.commit(conn))
+
+    # nothing left after applying the --ignore filter
+    if not interfaces:
+        lib.db_sqlite.close(conn)
+        lib.base.oao(
+            'Nothing checked.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
 
     # init some vars
     msg = 'No I/O.'
@@ -402,7 +420,6 @@ def main():
 
     msg = msg + '\n\n'
     if len(table_values) > 0:
-
         # build the message
         msg += lib.base.get_table(
             table_values,

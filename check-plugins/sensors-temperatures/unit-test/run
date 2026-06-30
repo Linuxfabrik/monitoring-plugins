@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 # The sensors-temperatures plugin calls `psutil.sensors_temperatures()`
 # directly, not a shell command, so there is no natural stdout to
@@ -83,7 +83,23 @@ TESTS = [
         'test': 'stdout/coretemp-and-acpitz-nominal,,0',
         'params': '--ignore=".*"',
         'assert-retc': STATE_OK,
-        'assert-in': ['Everything is ok (all sensors ignored).'],
+        'assert-in': ['Nothing checked (all sensors ignored).'],
+    },
+    {
+        # #1308: with every sensor ignored, --no-match-severity turns the
+        # otherwise-OK "Nothing checked" into the configured state.
+        'id': 'crit-no-match-severity-maps-empty-to-crit',
+        'test': 'stdout/coretemp-and-acpitz-nominal,,0',
+        'params': '--ignore=".*" --no-match-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Nothing checked (all sensors ignored).'],
+    },
+    {
+        'id': 'unknown-no-match-severity-maps-empty-to-unknown',
+        'test': 'stdout/coretemp-and-acpitz-nominal,,0',
+        'params': '--ignore=".*" --no-match-severity=unknown',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Nothing checked (all sensors ignored).'],
     },
     {
         'id': 'ok-always-ok-masks-critical',
@@ -135,7 +151,6 @@ TESTS = [
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../sensors-temperatures'
 
 

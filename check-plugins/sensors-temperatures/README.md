@@ -32,6 +32,7 @@ Reports hardware temperature sensor readings (CPU, disk, chipset, etc.) in Celsi
 
 ```text
 usage: sensors-temperatures [-h] [-V] [--always-ok] [--ignore IGNORE]
+                            [--no-match-severity {ok,warn,crit,unknown}]
 
 Reports hardware temperature sensor readings (CPU, disk, chipset, etc.) in
 Celsius. Automatically checks against hardware-defined thresholds. Sensors can
@@ -39,12 +40,16 @@ be filtered by name using --ignore with regular expressions. Alerts when any
 sensor exceeds its hardware-defined thresholds.
 
 options:
-  -h, --help       show this help message and exit
-  -V, --version    show program's version number and exit
-  --always-ok      Always returns OK.
-  --ignore IGNORE  Ignore sensors matching this Python regular expression on
-                   the sensor name or label. Can be specified multiple times.
-                   Example: `--ignore="iwlwifi_1"` or `--ignore="^acpitz"`.
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
+  --ignore IGNORE       Ignore sensors matching this Python regular expression
+                        on the sensor name or label. Can be specified multiple
+                        times. Example: `--ignore="iwlwifi_1"` or
+                        `--ignore="^acpitz"`.
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
 ```
 
 
@@ -69,6 +74,7 @@ Output:
 * WARN if any sensor reading meets or exceeds its hardware-defined high threshold.
 * CRIT if any sensor reading meets or exceeds its hardware-defined critical threshold.
 * UNKNOWN if the platform is not supported by psutil.
+* `--no-match-severity` sets the state reported when the filters match no sensor and nothing is checked (default: `ok`); set it to `warn`, `crit`, or `unknown` to alert on an empty selection (for example a filter typo or a missing sensor) instead of silently returning OK.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

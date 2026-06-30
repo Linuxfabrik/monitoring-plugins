@@ -76,7 +76,6 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-not-in': ['/boot'],
     },
-
     # --match / --ignore are the canonical, suite-wide filter names
     # (regex, case-insensitive). The deprecated --include-* / --exclude-*
     # aliases must keep behaving identically. The three-mounts-mixed-state
@@ -108,6 +107,22 @@ TESTS = [
         'assert-in': ['Nothing checked.'],
     },
     {
+        # #1308: when the filters match nothing, --no-match-severity turns the
+        # otherwise-OK "Nothing checked." into the configured state.
+        'id': 'unknown-no-match-severity-maps-empty-to-unknown',
+        'test': 'stdout/three-mounts-mixed-state,,0',
+        'params': '--match=(?-i:VAR) --no-match-severity=unknown',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'crit-no-match-severity-maps-empty-to-crit',
+        'test': 'stdout/three-mounts-mixed-state,,0',
+        'params': '--match=(?-i:VAR) --no-match-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
         'id': 'ok-ignore-drops-var-and-home',
         'test': 'stdout/three-mounts-mixed-state,,0',
         'params': '--ignore=var|home',
@@ -123,7 +138,6 @@ TESTS = [
         'assert-in': ['/var'],
         'assert-not-in': ['/home'],
     },
-
     # #782: --brief hides filesystems within the thresholds and only
     # renders rows in WARN/CRIT state. Alerting and perfdata are
     # unaffected: all filesystems still drive the overall state.
@@ -165,10 +179,9 @@ TESTS = [
         'assert-in': ['Everything is ok.'],
         'assert-not-in': [
             'Mountpoint',  # no table header
-            '300.0MiB',    # /boot human-readable used size, table-only
+            '300.0MiB',  # /boot human-readable used size, table-only
         ],
     },
-
     # #662 / #1286: --mount overrides the global thresholds for a single
     # mountpoint (matched exactly, case-insensitively). All other mounts keep
     # the global thresholds. The three-mounts-mixed-state fixture has
@@ -231,7 +244,6 @@ TESTS = [
         'params': '--mount=/var,90%USED',
         'assert-retc': STATE_UNKNOWN,
     },
-
     # Windows drive letters: the override matches `C:\` whether the user types
     # `C`, `C:` or `C:\`. The windows-drives fixture has C:\ (89.4%) and
     # D:\ (9.3%); without --mount both are OK (below the global 90%).
@@ -249,7 +261,6 @@ TESTS = [
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../disk-usage'
 
 

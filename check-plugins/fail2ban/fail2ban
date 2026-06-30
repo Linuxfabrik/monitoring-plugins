@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061201'
+__version__ = '2026063001'
 
 DESCRIPTION = """Checks the number of currently banned IP addresses across all fail2ban jails.
 Reports the total ban count and a per-jail breakdown. Jails can be excluded from the
@@ -30,6 +30,7 @@ check with a regular expression. Alerts when the number of banned IPs in any jai
 exceeds the configured thresholds. Requires root or sudo."""
 
 DEFAULT_CRIT = '10000'
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_WARN = '2500'
 
 
@@ -72,6 +73,14 @@ def parse_args():
         dest='IGNORE',
         action='append',
         default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -221,7 +230,11 @@ def main():
 
     # nothing left after applying the ignore filter
     if not table_data:
-        lib.base.oao('Nothing checked.', STATE_OK, always_ok=args.ALWAYS_OK)
+        lib.base.oao(
+            'Nothing checked.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
 
     # build the message
     msg = f'{count} {lib.txt.pluralize("IP", count)} banned\n\n'

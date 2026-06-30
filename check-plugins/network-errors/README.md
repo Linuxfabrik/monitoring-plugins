@@ -45,7 +45,8 @@ The receive and transmit error types are not symmetric, because the underlying h
 
 ```text
 usage: network-errors [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
-                      [--match MATCH] [-w WARN]
+                      [--match MATCH]
+                      [--no-match-severity {ok,warn,crit,unknown}] [-w WARN]
 
 Monitors network interface errors per interface and alerts on receive and
 transmit errors. On Linux it additionally shows the receive and transmit error
@@ -57,22 +58,25 @@ combined error rate (receive plus transmit errors) of an interface leaves the
 warning or critical range (default: warns on any new errors).
 
 options:
-  -h, --help           show this help message and exit
-  -V, --version        show program's version number and exit
-  --always-ok          Always returns OK.
-  -c, --critical CRIT  CRIT threshold for the combined per-second error rate
-                       of an interface. Supports Nagios ranges. Default: no
-                       critical threshold
-  --ignore IGNORE      Ignore items whose name matches this Python regular
-                       expression. Case-sensitive by default; use `(?i)` for
-                       case-insensitive matching. Can be specified multiple
-                       times.
-  --match MATCH        Only check items whose name matches this Python regular
-                       expression. Case-sensitive by default; use `(?i)` for
-                       case-insensitive matching. Can be specified multiple
-                       times.
-  -w, --warning WARN   WARN threshold for the combined per-second error rate
-                       of an interface. Supports Nagios ranges. Default: 0
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
+  -c, --critical CRIT   CRIT threshold for the combined per-second error rate
+                        of an interface. Supports Nagios ranges. Default: no
+                        critical threshold
+  --ignore IGNORE       Ignore items whose name matches this Python regular
+                        expression. Case-sensitive by default; use `(?i)` for
+                        case-insensitive matching. Can be specified multiple
+                        times.
+  --match MATCH         Only check items whose name matches this Python
+                        regular expression. Case-sensitive by default; use
+                        `(?i)` for case-insensitive matching. Can be specified
+                        multiple times.
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
+  -w, --warning WARN    WARN threshold for the combined per-second error rate
+                        of an interface. Supports Nagios ranges. Default: 0
 ```
 
 
@@ -116,6 +120,7 @@ eth0      ! 5.0       ! 1.0       ! 3.0        ! 2.0          ! 4.0       ! 1.0 
 * WARN if the combined per-second error rate of an interface leaves the `--warning` range (default: `0`, meaning any new error triggers a warning).
 * CRIT if the combined per-second error rate of an interface leaves the `--critical` range (default: no critical threshold).
 * UNKNOWN on missing Python modules (Windows), invalid `--match` or `--ignore` patterns, an unreadable `/proc/net/dev`, or invalid command-line arguments.
+* `--no-match-severity` sets the state reported when the filters match no interface and nothing is checked (default: `ok`); set it to `warn`, `crit`, or `unknown` to alert on an empty selection (for example a filter typo or a missing interface) instead of silently returning OK.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

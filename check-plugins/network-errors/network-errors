@@ -32,7 +32,7 @@ if lib.base.WINDOWS:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061704'
+__version__ = '2026063001'
 
 DESCRIPTION = """Monitors network interface errors per interface and alerts on receive and transmit
 errors. On Linux it additionally shows the receive and transmit error breakdown (the
@@ -72,6 +72,7 @@ METRICS = WINDOWS_METRICS if lib.base.WINDOWS else LINUX_METRICS
 ALERT_METRICS = ['rx_errs', 'tx_errs']
 
 DEFAULT_CRIT = None
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_WARN = '0'
 
 
@@ -122,6 +123,14 @@ def parse_args():
         dest='MATCH',
         action='append',
         default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -324,6 +333,7 @@ def main():
         msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
     else:
         msg = 'Nothing checked.'
+        state = lib.base.str2state(args.NO_MATCH_SEVERITY)
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

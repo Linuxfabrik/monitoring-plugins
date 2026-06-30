@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061901'
+__version__ = '2026063001'
 
 DESCRIPTION = """Checks a Nextcloud installation for available app updates from the configured
 app store and alerts when an app update has been available for longer than the warning
@@ -36,6 +36,7 @@ where updates are applied promptly. Only enabled apps are listed and checked; di
 are ignored. The threshold is configurable. Requires root or sudo."""
 
 DEFAULT_CRIT = None  # hours
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_PATH = '/var/www/html/nextcloud'
 DEFAULT_VERBOSE = False
 DEFAULT_WARN = '72'  # hours (3 x 24h)
@@ -94,6 +95,14 @@ def parse_args():
         dest='MATCH',
         action='append',
         default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -269,6 +278,14 @@ def main():
         for app_id, version in parse_updates(stdout).items()
         if app_id in all_apps
     }
+
+    # nothing left after applying the --match/--ignore filter
+    if not all_apps:
+        lib.base.oao(
+            'Nothing checked.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
 
     # init some vars
     msg = ''

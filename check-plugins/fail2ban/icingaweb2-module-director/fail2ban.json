@@ -12,6 +12,9 @@
                     "value": "$fail2ban_ignore$",
                     "repeat_key": true
                 },
+                "--no-match-severity": {
+                    "value": "$fail2ban_no_match_severity$"
+                },
                 "--socket": {
                     "value": "$fail2ban_socket$"
                 },
@@ -44,6 +47,11 @@
                 },
                 {
                     "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -103,11 +111,45 @@
                 "fail2ban_always_ok": false,
                 "fail2ban_critical": "10000",
                 "fail2ban_ignore": [],
+                "fail2ban_no_match_severity": "ok",
                 "fail2ban_warning": "2500"
             },
             "volatile": null,
             "zone": null,
             "uuid": "4e57737b-3fd7-4067-84eb-7dafbd7b569a"
+        }
+    },
+    "DataList": {
+        "fail2ban_no_match_severity_list": {
+            "list_name": "fail2ban_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "d47295eb-2db1-4dfe-8a3a-f897f65784ac"
         }
     },
     "Datafield": {
@@ -143,6 +185,19 @@
             "uuid": "ce1c6979-3a3a-4ca2-b7a8-7ca155865146"
         },
         "4": {
+            "varname": "fail2ban_no_match_severity",
+            "caption": "Fail2ban: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "fail2ban_no_match_severity_list"
+            },
+            "uuid": "f21adf9e-0567-4daf-8764-a30e4b7c5b58"
+        },
+        "5": {
             "varname": "fail2ban_socket",
             "caption": "Fail2ban: Socket",
             "description": "Path to the fail2ban server Unix socket. Passed to `fail2ban-client --socket`.",
@@ -153,7 +208,7 @@
             },
             "uuid": "20ee9d17-3fbb-4401-b040-5947c0d7e20a"
         },
-        "5": {
+        "6": {
             "varname": "fail2ban_warning",
             "caption": "Fail2ban: Warning",
             "description": "WARN threshold for the number of banned IPs per jail. Supports Nagios ranges.",

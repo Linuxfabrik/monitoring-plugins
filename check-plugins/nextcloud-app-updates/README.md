@@ -37,8 +37,9 @@ Checks a Nextcloud installation for available app updates from the configured ap
 
 ```text
 usage: nextcloud-app-updates [-h] [-V] [--always-ok] [-c CRIT]
-                             [--ignore IGNORE] [--match MATCH] [--path PATH]
-                             [-v] [-w WARN]
+                             [--ignore IGNORE] [--match MATCH]
+                             [--no-match-severity {ok,warn,crit,unknown}]
+                             [--path PATH] [-v] [-w WARN]
 
 Checks a Nextcloud installation for available app updates from the configured
 app store and alerts when an app update has been available for longer than the
@@ -48,29 +49,32 @@ listed and checked; disabled apps are ignored. The threshold is configurable.
 Requires root or sudo.
 
 options:
-  -h, --help           show this help message and exit
-  -V, --version        show program's version number and exit
-  --always-ok          Always returns OK.
-  -c, --critical CRIT  CRIT threshold for how long an app update may stay
-                       available, in hours. Supports Nagios ranges. Default:
-                       no critical threshold
-  --ignore IGNORE      Ignore apps whose app id matches this Python regular
-                       expression. Case-sensitive by default; use `(?i)` for
-                       case-insensitive matching. Can be specified multiple
-                       times.
-  --match MATCH        Only check apps whose app id matches this Python
-                       regular expression. Case-sensitive by default; use
-                       `(?i)` for case-insensitive matching. Can be specified
-                       multiple times.
-  --path PATH          Local path to the Nextcloud installation, typically the
-                       web server document root. Default:
-                       /var/www/html/nextcloud
-  -v, --verbose        Makes this plugin verbose during the operation. Useful
-                       for debugging and seeing what is going on under the
-                       hood.
-  -w, --warning WARN   WARN threshold for how long an app update may stay
-                       available, in hours. Supports Nagios ranges. Default:
-                       72
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
+  -c, --critical CRIT   CRIT threshold for how long an app update may stay
+                        available, in hours. Supports Nagios ranges. Default:
+                        no critical threshold
+  --ignore IGNORE       Ignore apps whose app id matches this Python regular
+                        expression. Case-sensitive by default; use `(?i)` for
+                        case-insensitive matching. Can be specified multiple
+                        times.
+  --match MATCH         Only check apps whose app id matches this Python
+                        regular expression. Case-sensitive by default; use
+                        `(?i)` for case-insensitive matching. Can be specified
+                        multiple times.
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
+  --path PATH           Local path to the Nextcloud installation, typically
+                        the web server document root. Default:
+                        /var/www/html/nextcloud
+  -v, --verbose         Makes this plugin verbose during the operation. Useful
+                        for debugging and seeing what is going on under the
+                        hood.
+  -w, --warning WARN    WARN threshold for how long an app update may stay
+                        available, in hours. Supports Nagios ranges. Default:
+                        72
 ```
 
 
@@ -107,6 +111,7 @@ Executed occ commands:
 * WARN if an app update has been available for longer than `--warning` hours.
 * CRIT if an app update has been available for longer than `--critical` hours (no critical threshold by default).
 * UNKNOWN if the Nextcloud `occ` command cannot be run.
+* `--no-match-severity` sets the state reported when the filters match no app and nothing is checked (default: `ok`); set it to `warn`, `crit`, or `unknown` to alert on an empty selection (for example a filter typo or a missing app) instead of silently returning OK.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

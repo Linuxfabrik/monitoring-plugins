@@ -13,7 +13,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 # Each test reads the `occ app:update --showonly` output from the named fixture
 # and the matching `occ app:list --output=json` inventory from its `-applist`
@@ -91,6 +91,22 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ['Everything is ok.', 'files', "'active'=1", "'pending'=0"],
         'assert-not-in': ['calendar'],
+    },
+    # #1308: a filter that matches no app yields "Nothing checked.";
+    # --no-match-severity controls the resulting state (default OK).
+    {
+        'id': 'ok-no-match-default-stays-ok',
+        'test': 'stdout/one-update,,0',
+        'params': '--match=^ZZZNONE$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'unknown-no-match-severity-maps-empty-to-unknown',
+        'test': 'stdout/one-update,,0',
+        'params': '--match=^ZZZNONE$ --no-match-severity=unknown',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Nothing checked.'],
     },
     # --match keeps only apps whose id matches the regex.
     {

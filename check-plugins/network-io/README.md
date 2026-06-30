@@ -37,7 +37,9 @@ Monitors network I/O throughput per interface over time. Calculates bytes per se
 
 ```text
 usage: network-io [-h] [-V] [--always-ok] [--count COUNT] [--critical CRIT]
-                  [--ignore IGNORE] [--warning WARN]
+                  [--ignore IGNORE]
+                  [--no-match-severity {ok,warn,crit,unknown}]
+                  [--warning WARN]
 
 Monitors network I/O throughput per interface over time. Calculates bytes per
 second from cumulative counters using SQLite state persistence between runs.
@@ -46,20 +48,23 @@ number of consecutive check runs (default: 5), suppressing short spikes. Also
 reports packet rates, errors, and drops per interface.
 
 options:
-  -h, --help       show this help message and exit
-  -V, --version    show program's version number and exit
-  --always-ok      Always returns OK.
-  --count COUNT    Number of consecutive checks the threshold must be exceeded
-                   before alerting. Default: 5
-  --critical CRIT  CRIT threshold for network I/O rx/tx rate over the entire
-                   period as a percentage of the maximum network I/O rate.
-                   Default: >= 90
-  --ignore IGNORE  Ignore network interfaces starting with this string. Can be
-                   specified multiple times. Example: `--ignore tun`. Default:
-                   ['lo']
-  --warning WARN   WARN threshold for network I/O rx/tx rate over the entire
-                   period as a percentage of the maximum network I/O rate.
-                   Default: >= 80
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
+  --count COUNT         Number of consecutive checks the threshold must be
+                        exceeded before alerting. Default: 5
+  --critical CRIT       CRIT threshold for network I/O rx/tx rate over the
+                        entire period as a percentage of the maximum network
+                        I/O rate. Default: >= 90
+  --ignore IGNORE       Ignore network interfaces starting with this string.
+                        Can be specified multiple times. Example: `--ignore
+                        tun`. Default: ['lo']
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
+  --warning WARN        WARN threshold for network I/O rx/tx rate over the
+                        entire period as a percentage of the maximum network
+                        I/O rate. Default: >= 80
 ```
 
 
@@ -94,6 +99,7 @@ The first line always shows the interface with the currently highest throughput.
 * OK if throughput over the measured period is below the warning threshold for all interfaces.
 * OK with "Waiting for more data." on the first run or after a reboot.
 * WARN or CRIT if the throughput over the last n measured values exceeds the specified percentage of the all-time maximum throughput.
+* `--no-match-severity` sets the state reported when the filters match no interface and nothing is checked (default: `ok`); set it to `warn`, `crit`, or `unknown` to alert on an empty selection (for example a filter typo or a missing interface) instead of silently returning OK.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

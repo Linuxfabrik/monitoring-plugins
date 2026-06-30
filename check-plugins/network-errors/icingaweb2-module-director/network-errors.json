@@ -16,6 +16,9 @@
                     "value": "$network_errors_match$",
                     "repeat_key": true
                 },
+                "--no-match-severity": {
+                    "value": "$network_errors_no_match_severity$"
+                },
                 "--warning": {
                     "value": "$network_errors_warning$"
                 }
@@ -47,6 +50,11 @@
                     "datafield_id": 5,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -75,6 +83,9 @@
                     "value": "$network_errors_windows_match$",
                     "repeat_key": true
                 },
+                "--no-match-severity": {
+                    "value": "$network_errors_windows_no_match_severity$"
+                },
                 "--warning": {
                     "value": "$network_errors_windows_warning$"
                 }
@@ -82,11 +93,6 @@
             "command": "C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\network-errors.exe",
             "disabled": false,
             "fields": [
-                {
-                    "datafield_id": 6,
-                    "is_required": "n",
-                    "var_filter": null
-                },
                 {
                     "datafield_id": 7,
                     "is_required": "n",
@@ -104,6 +110,16 @@
                 },
                 {
                     "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -180,6 +196,7 @@
                 "network_errors_always_ok": false,
                 "network_errors_ignore": [],
                 "network_errors_match": [],
+                "network_errors_no_match_severity": "ok",
                 "network_errors_warning": "0"
             },
             "volatile": null,
@@ -229,11 +246,76 @@
                 "network_errors_windows_always_ok": false,
                 "network_errors_windows_ignore": [],
                 "network_errors_windows_match": [],
+                "network_errors_windows_no_match_severity": "ok",
                 "network_errors_windows_warning": "0"
             },
             "volatile": null,
             "zone": null,
             "uuid": "a62d8084-15b3-4191-aa3e-a90425d3abba"
+        }
+    },
+    "DataList": {
+        "network_errors_no_match_severity_list": {
+            "list_name": "network_errors_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "4bff1549-bc2d-42e3-94cb-705dfa64563c"
+        },
+        "network_errors_windows_no_match_severity_list": {
+            "list_name": "network_errors_windows_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "5fa98010-d0df-4d11-96a3-7c8851eceec3"
         }
     },
     "Datafield": {
@@ -280,6 +362,19 @@
             "uuid": "415c634c-6930-410f-b690-b20324bb3b8b"
         },
         "5": {
+            "varname": "network_errors_no_match_severity",
+            "caption": "Network Errors: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "network_errors_no_match_severity_list"
+            },
+            "uuid": "13509c77-576b-4750-a0b6-7fd5ddeccf13"
+        },
+        "6": {
             "varname": "network_errors_warning",
             "caption": "Network Errors: Warning",
             "description": "WARN threshold for the combined per-second error rate of an interface. Supports Nagios ranges.",
@@ -290,7 +385,7 @@
             },
             "uuid": "037777e2-3c27-4bd5-9443-8dffbae1460c"
         },
-        "6": {
+        "7": {
             "varname": "network_errors_windows_always_ok",
             "caption": "Network Errors: Always OK?",
             "description": "Always returns OK.",
@@ -299,7 +394,7 @@
             "settings": {},
             "uuid": "3e8620c4-d8f7-4593-b228-5eda9c7d8642"
         },
-        "7": {
+        "8": {
             "varname": "network_errors_windows_critical",
             "caption": "Network Errors: Critical",
             "description": "CRIT threshold for the combined per-second error rate of an interface. Supports Nagios ranges. Default: no critical threshold",
@@ -310,7 +405,7 @@
             },
             "uuid": "aebb071b-8c94-4159-8e5e-8c76eab5f553"
         },
-        "8": {
+        "9": {
             "varname": "network_errors_windows_ignore",
             "caption": "Network Errors: Ignore",
             "description": "Ignore items whose name matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
@@ -321,7 +416,7 @@
             },
             "uuid": "57b186f2-88ec-4900-b301-a8accf83a0e3"
         },
-        "9": {
+        "10": {
             "varname": "network_errors_windows_match",
             "caption": "Network Errors: Match",
             "description": "Only check items whose name matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
@@ -332,7 +427,20 @@
             },
             "uuid": "a9aa437d-c00b-480f-a4f5-2e88ec05fc61"
         },
-        "10": {
+        "11": {
+            "varname": "network_errors_windows_no_match_severity",
+            "caption": "Network Errors: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "network_errors_windows_no_match_severity_list"
+            },
+            "uuid": "3a228c22-1440-4b88-b162-993a7a548a48"
+        },
+        "12": {
             "varname": "network_errors_windows_warning",
             "caption": "Network Errors: Warning",
             "description": "WARN threshold for the combined per-second error rate of an interface. Supports Nagios ranges.",

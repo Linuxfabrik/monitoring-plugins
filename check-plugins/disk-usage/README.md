@@ -39,6 +39,7 @@ Checks used or free disk space for each mounted partition. By default, only phys
 usage: disk-usage [-h] [-V] [--always-ok] [--brief] [-c CRIT]
                   [--fstype FSTYPE] [--ignore IGNORE] [--list-fstypes]
                   [--match MATCH] [--mount MOUNT]
+                  [--no-match-severity {ok,warn,crit,unknown}]
                   [--perfdata-regex PERFDATA_REGEX] [-w WARN]
 
 Checks used or free disk space for each mounted partition. By default, only
@@ -96,6 +97,9 @@ options:
                         Windows, use drive letters such as `C:` or `C`. Can be
                         specified multiple times. Example:
                         `--mount=/var/log,80%USED,90%USED`
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
   --perfdata-regex PERFDATA_REGEX
                         Only emit perfdata keys matching this Python regex.
                         For a list of perfdata keys, see the README or run
@@ -201,6 +205,7 @@ Some other examples:
 * CRIT if disk usage is >= `--critical` (default: 95%USED).
 * A mountpoint listed in `--mount` uses its own thresholds instead of the global `--warning`/`--critical`. `--mount` only changes thresholds; it does not include a mountpoint that is otherwise not checked. If a `--mount` entry matches no checked filesystem (a typo, or a filesystem not checked by default), the plugin reports it in the output and otherwise ignores it, without changing the state.
 * UNKNOWN on invalid parameter values, a malformed `--mount` entry, or regex compilation errors.
+* `--no-match-severity` sets the state reported when the filters match no filesystem and nothing is checked (default: `ok`); set it to `warn`, `crit`, or `unknown` to alert on an empty selection (for example a filter typo or a missing filesystem) instead of silently returning OK.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

@@ -50,7 +50,8 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 ```text
 usage: disk-io [-h] [-V] [--always-ok] [--count COUNT] [--critical CRIT]
                [--iowait-critical IOWAIT_CRIT] [--iowait-warning IOWAIT_WARN]
-               [--include-unmounted] [--match MATCH] [--top TOP]
+               [--include-unmounted] [--match MATCH]
+               [--no-match-severity {ok,warn,crit,unknown}] [--top TOP]
                [--warning WARN]
 
 Checks disk I/O bandwidth over time and alerts on sustained saturation, not
@@ -126,6 +127,9 @@ options:
                         filesystem are considered by default; add `--include-
                         unmounted` to also match raw, unmounted devices
                         (multipath SAN volumes, raw LUNs). Default:
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
   --top TOP             Number of top processes to list by I/O traffic. Use
                         `--top=0` to disable. Default: 5
   --warning WARN        WARN threshold for disk bandwidth saturation as a
@@ -189,6 +193,7 @@ Top 5 processes that generate the most I/O traffic (r/w):
 * CRIT if the bandwidth period average is >= `--critical` (default: 90%) of the observed maximum for `--count` (default: 5) consecutive runs.
 * WARN if iowait reaches `--iowait-warning` (default: 80% of one core, i.e. 0.8 saturated cores) for `--count` (default: 5) consecutive runs (Linux only).
 * CRIT if iowait reaches `--iowait-critical` (default: 90% of one core, i.e. 0.9 saturated cores) for `--count` (default: 5) consecutive runs (Linux only).
+* `--no-match-severity` sets the state reported when the filters match no disk and nothing is checked (default: `ok`); set it to `warn`, `crit`, or `unknown` to alert on an empty selection (for example a filter typo or a missing disk) instead of silently returning OK.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
