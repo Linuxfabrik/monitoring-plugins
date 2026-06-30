@@ -8,6 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import os
 import sys
 
 sys.path.insert(0, '..')
@@ -16,6 +17,11 @@ import unittest
 
 import lib.lftest
 from lib.globals import STATE_CRIT, STATE_WARN
+
+# Absolute path to a device CSV outside the bundled `device-oids` directory,
+# used to exercise the `--device` absolute-path branch. The tests run from the
+# `unit-test` directory, so the fixture resolves relative to the cwd.
+_ABS_DEVICE = os.path.abspath('stdout/generic-appliance-over-threshold-v1')
 
 # The snmp plugin normally queries a device via snmpget/snmpwalk. In
 # test mode `--test` replaces all SNMP calls with fixture data; the
@@ -119,6 +125,21 @@ TESTS = [
         ],
     },
     {
+        # An absolute --device path loads a device CSV from outside the
+        # bundled `device-oids` directory. Same fixture and expectations as
+        # the device-v1 case above, but the CSV is addressed by absolute path.
+        'id': 'crit-generic-appliance-over-threshold-device-absolute-path',
+        'test': 'stdout/generic-appliance-over-threshold,,0',
+        'params': f'--hostname 127.0.0.3 --device={_ABS_DEVICE}',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'System Name              ! My Appliance ! [OK]',
+            'System Location          ! My Location  ! [OK]',
+            'Supply Air Temperature   ! 27.0         ! [WARNING]',
+            'Rack Inlet Temperature 1 ! 36.0         ! [CRITICAL]',
+        ],
+    },
+    {
         # A malformed "Perfdata Alert Thresholds" entry (here "26", which is
         # not a two-element tuple) must be surfaced as UNKNOWN, but it must
         # not mask the genuine CRITICAL coming from the WARN/CRIT columns.
@@ -153,7 +174,6 @@ TESTS = [
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../snmp'
 
 

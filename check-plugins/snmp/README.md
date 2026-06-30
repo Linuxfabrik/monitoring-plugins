@@ -63,11 +63,20 @@ options:
   -V, --version         show program's version number and exit
   --community COMMUNITY
                         SNMP v1/v2c community string. Default: public
-  --device DEVICE       Name of a CSV file containing the SNMP OIDs, located
-                        under `./device-oids`. The recommended naming
+  --device DEVICE       CSV file containing the SNMP OIDs. A bare filename is
+                        looked up under the bundled `./device-oids` directory.
+                        An absolute path loads a CSV from anywhere on the
+                        filesystem, so the OID definitions can live outside
+                        the plugin directory. The recommended naming
                         convention is `class-vendor-model.csv`. `any-any-
                         any.csv` is a good starting point showing some
-                        features. Example: `--device switch-fs-s3900.csv`.
+                        features. The file is trusted input: its recalculation
+                        and threshold fields are evaluated as Python
+                        expressions, so it must be writable only by trusted,
+                        privileged users. The monitoring user (for example
+                        `icinga` or `nagios`) only needs read access. Example:
+                        `--device switch-fs-s3900.csv`. Example: `--device
+                        /etc/icinga2/snmp-devices/switch-fs-s3900.csv`.
                         Default: any-any-any.csv
   --hide-ok             Suppress OIDs with OK state from output. Default:
                         False
@@ -195,7 +204,7 @@ Create an OID list in `/usr/lib64/nagios/plugins/device-oids/...` using CSV form
 
 ## Defining a Device via CSV file
 
-If you want to define a device-specific list of OIDs, including any calculations, warning and critical thresholds, create a CSV file located at `device-oids`, using `,` as delimiter and `"` as quoting character. A minimal example for nearly any device:
+If you want to define a device-specific list of OIDs, including any calculations, warning and critical thresholds, create a CSV file located at `device-oids`, using `,` as delimiter and `"` as quoting character. Pass a bare filename to `--device` to load it from the bundled `device-oids` directory, or an absolute path to load it from anywhere on the filesystem (for example `--device=/etc/icinga2/snmp-devices/switch-fs-s3900.csv`). Because the Re-Calc and threshold columns are evaluated as Python expressions, the file must be writable only by trusted, privileged users; the monitoring user (for example `icinga` or `nagios`) only needs read access. A minimal example for nearly any device:
 
 | OID | Name | Re-Calc | Unit Label | WARN | CRIT | Show in 1st Line | Report Change as | Ignore in Perfdata | Perfdata Alert Thresholds | Skip Output |
 |----|----|----|----|----|----|----|----|----|----|----|
