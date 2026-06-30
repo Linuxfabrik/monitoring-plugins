@@ -1,0 +1,298 @@
+{
+    "Command": {
+        "cmd-check-docker-container": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$docker_container_always_ok$"
+                },
+                "--critical-restarts": {
+                    "value": "$docker_container_critical_restarts$"
+                },
+                "--critical-uptime": {
+                    "value": "$docker_container_critical_uptime$"
+                },
+                "--full-name": {
+                    "set_if": "$docker_container_full_name$"
+                },
+                "--ignore": {
+                    "value": "$docker_container_ignore$",
+                    "repeat_key": true
+                },
+                "--match": {
+                    "value": "$docker_container_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$docker_container_no_match_severity$"
+                },
+                "--status": {
+                    "value": "$docker_container_status$"
+                },
+                "--warning-restarts": {
+                    "value": "$docker_container_warning_restarts$"
+                },
+                "--warning-uptime": {
+                    "value": "$docker_container_warning_uptime$"
+                }
+            },
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/docker-container",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-docker-container",
+            "object_type": "object",
+            "timeout": 20,
+            "vars": {},
+            "zone": null,
+            "uuid": "d5569fbc-1d73-4927-8d7f-53dd5632f85e"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-docker-container": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-docker-container",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "docker-container.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks the lifecycle and health of Docker containers: the container status (running, exited, paused, ...), the result of the container health check (healthy, unhealthy, starting), and the number of automatic restarts. Containers can be selected or excluded by name using regular expressions, and the presence of expected containers can be enforced. For per-container CPU and memory usage, use the docker-stats check. For Podman, use the podman-container check instead. Requires root or sudo.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-container/",
+            "object_name": "tpl-service-docker-container",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "docker_container_always_ok": false,
+                "docker_container_full_name": false,
+                "docker_container_ignore": [],
+                "docker_container_match": [],
+                "docker_container_no_match_severity": "ok"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "950a8ba2-3d1e-418e-bd26-2e53a36aef3a"
+        }
+    },
+    "DataList": {
+        "docker_container_no_match_severity_list": {
+            "list_name": "docker_container_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "2cff6eea-071a-4887-9706-b485b3da9052"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "docker_container_always_ok",
+            "caption": "Docker Container: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "ba7f7b81-2219-4b80-b42f-b6b99cc5ce82"
+        },
+        "2": {
+            "varname": "docker_container_critical_restarts",
+            "caption": "Docker Container: Critical Restarts",
+            "description": "CRIT threshold for the number of automatic restarts a container has performed, compared as a Nagios range. Example: `--critical-restarts=5` alerts when a container has restarted more than 5 times. By default, the restart count is reported but not alerted on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "4f1428e6-3cf9-4729-989b-5672a4da5ba5"
+        },
+        "3": {
+            "varname": "docker_container_critical_uptime",
+            "caption": "Docker Container: Critical Uptime",
+            "description": "CRIT threshold for the container uptime in a human-readable format (s = seconds, m = minutes, h = hours, D = days, W = weeks, M = months, Y = years). Supports Nagios ranges. Example: `5m:` alerts if a running container has been up for less than 5 minutes (catches a crash-looping or flapping container). By default, the uptime is reported but not alerted on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "69d31c14-d598-4041-8d37-48dfd3b3dbbf"
+        },
+        "4": {
+            "varname": "docker_container_full_name",
+            "caption": "Docker Container: Full Name?",
+            "description": "Use the full container name, for example `traefik_traefik.2.1idw12p2yqp`. Without this flag, the name is shortened after the replica number.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "065bd779-1661-48b0-9417-29398a002b21"
+        },
+        "5": {
+            "varname": "docker_container_ignore",
+            "caption": "Docker Container: Ignore",
+            "description": "Ignore containers whose name matches this Python regular expression. Matched against the full container name, even when the displayed name is shortened (see --full-name). Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Example: `--ignore=\"^k8s_\"` to skip Kubernetes pod infrastructure containers. Example: `--ignore=\"(?i)test\"` (case-insensitive) to skip any container with \"test\" in its name.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2e4a247e-084e-4372-97e8-666f1c4c05bf"
+        },
+        "6": {
+            "varname": "docker_container_match",
+            "caption": "Docker Container: Match",
+            "description": "Only check containers whose name matches this Python regular expression. Matched against the full container name, even when the displayed name is shortened (see --full-name). Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, a container must match `--match` AND not match `--ignore` to be checked (include first, exclude second). Example: `--match=\"^traefik$\"` to pin a service to one specific container. Example: `--match=\"(?i)^web\"` (case-insensitive) to check every web container.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "f72b80df-3b78-43f5-aa66-f9e2edf666fb"
+        },
+        "7": {
+            "varname": "docker_container_no_match_severity",
+            "caption": "Docker Container: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "docker_container_no_match_severity_list"
+            },
+            "uuid": "d86eed76-9c11-4bf8-a700-8f68eb92da6a"
+        },
+        "8": {
+            "varname": "docker_container_status",
+            "caption": "Docker Container: Status",
+            "description": "Desired container status, for example `running`, `exited` or `paused`. A container whose status differs is reported as CRITICAL. If not specified, the status is reported but not alerted on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "5578852e-3ca2-4987-a2e9-81bc06ccf1bd"
+        },
+        "9": {
+            "varname": "docker_container_warning_restarts",
+            "caption": "Docker Container: Warning Restarts",
+            "description": "WARN threshold for the number of automatic restarts a container has performed, compared as a Nagios range. Example: `--warning-restarts=3` alerts when a container has restarted more than 3 times. By default, the restart count is reported but not alerted on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a1868513-fa8a-412d-a894-fa945a7a7903"
+        },
+        "10": {
+            "varname": "docker_container_warning_uptime",
+            "caption": "Docker Container: Warning Uptime",
+            "description": "WARN threshold for the container uptime in a human-readable format (s = seconds, m = minutes, h = hours, D = days, W = weeks, M = months, Y = years). Supports Nagios ranges. Example: `5m:` alerts if a running container has been up for less than 5 minutes (catches a crash-looping or flapping container). By default, the uptime is reported but not alerted on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "7f8ac382-4860-4f00-889b-fa604c19e1c1"
+        }
+    }
+}

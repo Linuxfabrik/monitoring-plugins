@@ -1,0 +1,317 @@
+{
+    "Command": {
+        "cmd-check-podman-container": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$podman_container_always_ok$"
+                },
+                "--critical-restarts": {
+                    "value": "$podman_container_critical_restarts$"
+                },
+                "--critical-uptime": {
+                    "value": "$podman_container_critical_uptime$"
+                },
+                "--full-name": {
+                    "set_if": "$podman_container_full_name$"
+                },
+                "--ignore": {
+                    "value": "$podman_container_ignore$",
+                    "repeat_key": true
+                },
+                "--match": {
+                    "value": "$podman_container_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$podman_container_no_match_severity$"
+                },
+                "--status": {
+                    "value": "$podman_container_status$"
+                },
+                "--user": {
+                    "value": "$podman_container_user$"
+                },
+                "--warning-restarts": {
+                    "value": "$podman_container_warning_restarts$"
+                },
+                "--warning-uptime": {
+                    "value": "$podman_container_warning_uptime$"
+                }
+            },
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/podman-container",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-podman-container",
+            "object_type": "object",
+            "timeout": 20,
+            "vars": {},
+            "zone": null,
+            "uuid": "452ff712-1788-4405-96d4-ec08d880d9e7"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-podman-container": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-podman-container",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "podman-container.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks the lifecycle and health of Podman containers: the container status (running, exited, paused, ...), the result of the container health check (healthy, unhealthy, starting), and the number of automatic restarts. Containers can be selected or excluded by name using regular expressions, and the presence of expected containers can be enforced. For per-container CPU and memory usage, use the podman-stats check. For Docker, use the docker-container check instead. Requires root or sudo.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/podman-container/",
+            "object_name": "tpl-service-podman-container",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "podman_container_always_ok": false,
+                "podman_container_full_name": false,
+                "podman_container_ignore": [],
+                "podman_container_match": [],
+                "podman_container_no_match_severity": "ok"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "8ecd6922-6b03-4ead-93f1-0fed390089af"
+        }
+    },
+    "DataList": {
+        "podman_container_no_match_severity_list": {
+            "list_name": "podman_container_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "7da756ef-0c05-4b12-ac8c-7e437304ec24"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "podman_container_always_ok",
+            "caption": "Podman Container: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "585c4020-af62-481f-a815-cb1f341e9803"
+        },
+        "2": {
+            "varname": "podman_container_critical_restarts",
+            "caption": "Podman Container: Critical Restarts",
+            "description": "CRIT threshold for the number of automatic restarts a container has performed, compared as a Nagios range. Example: `--critical-restarts=5` alerts when a container has restarted more than 5 times. By default, the restart count is reported but not alerted on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "cd4dc8e4-5297-4fa6-afe7-e04ece9d2919"
+        },
+        "3": {
+            "varname": "podman_container_critical_uptime",
+            "caption": "Podman Container: Critical Uptime",
+            "description": "CRIT threshold for the container uptime in a human-readable format (s = seconds, m = minutes, h = hours, D = days, W = weeks, M = months, Y = years). Supports Nagios ranges. Example: `5m:` alerts if a running container has been up for less than 5 minutes (catches a crash-looping or flapping container). By default, the uptime is reported but not alerted on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "5989dfe2-fe2b-48d7-babc-11256ff732be"
+        },
+        "4": {
+            "varname": "podman_container_full_name",
+            "caption": "Podman Container: Full Name?",
+            "description": "Use the full container name, for example `traefik_traefik.2.1idw12p2yqp`. Without this flag, the name is shortened after the replica number.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "789786ef-8276-41f0-af28-8c73d90a977c"
+        },
+        "5": {
+            "varname": "podman_container_ignore",
+            "caption": "Podman Container: Ignore",
+            "description": "Ignore containers whose name matches this Python regular expression. Matched against the full container name, even when the displayed name is shortened (see --full-name). Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Example: `--ignore=\"^k8s_\"` to skip Kubernetes pod infrastructure containers. Example: `--ignore=\"(?i)test\"` (case-insensitive) to skip any container with \"test\" in its name.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "aba7dbd2-f624-479e-aa44-2d13de7c447e"
+        },
+        "6": {
+            "varname": "podman_container_match",
+            "caption": "Podman Container: Match",
+            "description": "Only check containers whose name matches this Python regular expression. Matched against the full container name, even when the displayed name is shortened (see --full-name). Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, a container must match `--match` AND not match `--ignore` to be checked (include first, exclude second). Example: `--match=\"^traefik$\"` to pin a service to one specific container. Example: `--match=\"(?i)^web\"` (case-insensitive) to check every web container.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "f0c02ee8-3ca0-4500-b338-07d052b117b3"
+        },
+        "7": {
+            "varname": "podman_container_no_match_severity",
+            "caption": "Podman Container: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "podman_container_no_match_severity_list"
+            },
+            "uuid": "b1e47def-fc3d-4f8a-8f04-3cca130bafaf"
+        },
+        "8": {
+            "varname": "podman_container_status",
+            "caption": "Podman Container: Status",
+            "description": "Desired container status, for example `running`, `exited` or `paused`. A container whose status differs is reported as CRITICAL. If not specified, the status is reported but not alerted on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "dc81e9be-035d-47e8-b17c-da1eaa2e23d5"
+        },
+        "9": {
+            "varname": "podman_container_user",
+            "caption": "Podman Container: User",
+            "description": "Inspect the rootless containers of this user instead of those visible to the executing user. Podman keeps each user's rootless containers in that user's own storage, so root (the monitoring user runs the check via sudo) does not see them. With --user, the check runs podman as that user. Requires the right to `sudo -u <user>` (root has this by default). Example: `--user=rocketchat`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "96756a80-4f8e-4cff-9672-137faa70db7a"
+        },
+        "10": {
+            "varname": "podman_container_warning_restarts",
+            "caption": "Podman Container: Warning Restarts",
+            "description": "WARN threshold for the number of automatic restarts a container has performed, compared as a Nagios range. Example: `--warning-restarts=3` alerts when a container has restarted more than 3 times. By default, the restart count is reported but not alerted on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "b03e1cce-19dd-427e-95a1-a6293c964ee6"
+        },
+        "11": {
+            "varname": "podman_container_warning_uptime",
+            "caption": "Podman Container: Warning Uptime",
+            "description": "WARN threshold for the container uptime in a human-readable format (s = seconds, m = minutes, h = hours, D = days, W = weeks, M = months, Y = years). Supports Nagios ranges. Example: `5m:` alerts if a running container has been up for less than 5 minutes (catches a crash-looping or flapping container). By default, the uptime is reported but not alerted on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "779f5d7f-30da-41d2-9e9f-7bfee5816bbb"
+        }
+    }
+}

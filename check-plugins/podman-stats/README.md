@@ -10,7 +10,7 @@ Reports CPU and memory usage for all running Podman containers. CPU usage is nor
 * Memory usage is relative to the container's memory limit if one is set, otherwise relative to the total host memory.
 * Per-container CPU and memory perfdata are most useful for long-lived containers with stable names (e.g. `traefik_traefik.2`, named systemd-managed services). For ever-changing workloads (e.g. GitLab runner jobs, CI builders), the per-container labels churn between check runs and are useless for trending. The aggregate perfdata is the right signal there.
 * Plugin execution may take up to 10 seconds.
-* Podman runs rootless by default. Without `sudo`, the check only sees containers of the executing user. To monitor containers across all users, run the check via `sudo` (the Icinga Director basket and sudoers file are pre-configured for this).
+* Podman runs rootless by default, and every user keeps their containers in their own storage. Running the check as root (via `sudo`) reports on root's own Podman, not on the rootless containers of other users. To report on a rootless user's containers, pass `--user=<name>`: the check then runs podman as that user. Every line of output names the inspected user, so an empty result against root's storage is obvious.
 * Since `podman stats` only returns byte-level data in a human-readable format (e.g. *221.2kB*), calculating network I/O and block I/O is imprecise. Therefore, these values are only reported as aggregate perfdata.
 
 **Data Collection:**
@@ -41,7 +41,7 @@ Reports CPU and memory usage for all running Podman containers. CPU usage is nor
 ```text
 usage: podman-stats [-h] [-V] [--always-ok] [--count COUNT]
                     [--critical-cpu CRIT_CPU] [--critical-mem CRIT_MEM]
-                    [--full-name] [--warning-cpu WARN_CPU]
+                    [--full-name] [--user USER] [--warning-cpu WARN_CPU]
                     [--warning-mem WARN_MEM]
 
 Reports CPU and memory usage for all running Podman containers. CPU usage is
@@ -67,6 +67,14 @@ options:
   --full-name           Use the full container name instead of shortening it
                         after the replica number. Example:
                         `traefik_traefik.2.1idw12p2yqp`
+  --user USER           Report on the rootless containers of this user instead
+                        of those visible to the executing user. Podman keeps
+                        each user's rootless containers in that user's own
+                        storage, so root (the monitoring user runs the check
+                        via sudo) does not see them. With --user, the check
+                        runs podman as that user. Requires the right to `sudo
+                        -u <user>` (root has this by default). Example:
+                        `--user=rocketchat`. Default: None
   --warning-cpu WARN_CPU
                         WARN threshold for CPU usage, in percent. Default: >=
                         80

@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+TESTS = [
+    {
+        'id': 'ok-empty-no-containers',
+        'test': 'stdout/empty-no-containers,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No containers to check (user:'],
+    },
+    {
+        'id': 'ok-one-container-shortname',
+        'test': 'stdout/one-container-traefik,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok, 1 container checked (user: `',
+            'Container         ! Status  ! Health  ! Restarts ! Uptime ! State',
+            'traefik_traefik.2 ! running ! healthy ! 0        ! 4W 1D  ! [OK]',
+            "'containers_checked'=1;;;0",
+            "'containers_running'=1;;;0",
+            "'containers_unhealthy'=0;;;0",
+        ],
+    },
+    {
+        'id': 'ok-one-container-full-name',
+        'test': 'stdout/one-container-traefik,,0',
+        'params': '--full-name',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'traefik_traefik.2.1idw12p2yqpxutlzkcwign4at ! running ! healthy ! 0        ! 4W 1D  ! [OK]',
+        ],
+    },
+    {
+        'id': 'crit-mixed-unhealthy-by-default',
+        'test': 'stdout/mixed-states,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'app-unhealthy: health unhealthy [CRITICAL]',
+            'app-no-healthcheck ! running ! -         ! 0        ! 4W 1D  ! [OK]',
+            'app-unhealthy      ! running ! unhealthy ! 3        ! 4W 1D  ! [CRITICAL]',
+            "'containers_checked'=5;;;0",
+            "'containers_unhealthy'=1;;;0",
+        ],
+    },
+    {
+        'id': 'crit-mixed-status-running',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--status=running',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['app-exited: status exited (want running) [CRITICAL]'],
+    },
+    {
+        'id': 'warn-mixed-restarts',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--warning-restarts=5 --ignore=app-unhealthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['app-flapping: 12 restarts [WARNING]'],
+    },
+    {
+        'id': 'warn-mixed-min-uptime',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--warning-uptime=2D: --ignore=app-unhealthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['app-flapping: up 1D [WARNING]'],
+    },
+    {
+        'id': 'ok-match-filter',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--match=^app-healthy$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok, 1 container checked'],
+    },
+    {
+        'id': 'ok-ignore-filter',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--ignore=app-unhealthy --ignore=app-exited',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok, 3 containers checked'],
+    },
+    {
+        'id': 'ok-no-match-default',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--match=^nope$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No containers to check (user:'],
+    },
+    {
+        'id': 'crit-no-match-severity',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--match=^nope$ --no-match-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['No containers to check (user:'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../podman-container'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

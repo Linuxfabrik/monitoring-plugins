@@ -7,7 +7,7 @@ Displays system-wide Podman information including container counts, image count,
 
 **Important Notes:**
 
-* Podman runs rootless by default. Without `sudo`, the check only sees containers of the executing user. To monitor containers across all users, run the check via `sudo` (the Icinga Director basket and sudoers file are pre-configured for this).
+* Podman runs rootless by default, and every user keeps their containers and images in their own storage. Running the check as root (via `sudo`) reports on root's own Podman, not on the rootless containers of other users. To report on a rootless user's Podman, pass `--user=<name>`: the check then runs podman as that user. Every line of output names the inspected user, so an empty result against root's storage is obvious.
 
 **Data Collection:**
 
@@ -30,7 +30,7 @@ Displays system-wide Podman information including container counts, image count,
 ## Help
 
 ```text
-usage: podman-info [-h] [-V] [--always-ok] [--ignore IGNORE]
+usage: podman-info [-h] [-V] [--always-ok] [--ignore IGNORE] [--user USER]
 
 Displays system-wide Podman information including container counts, image
 count, storage driver, runtime version, available CPUs, and total memory. Also
@@ -51,6 +51,13 @@ options:
                    to cgroup v2. Example: `--ignore="(?i)rootless"` (case-
                    insensitive) to suppress any rootless-related informational
                    warning. Default: None
+  --user USER      Report on the rootless Podman of this user instead of the
+                   one visible to the executing user. Podman keeps each user's
+                   rootless containers and images in that user's own storage,
+                   so root (the monitoring user runs the check via sudo) does
+                   not see them. With --user, the check runs podman as that
+                   user. Requires the right to `sudo -u <user>` (root has this
+                   by default). Example: `--user=rocketchat`. Default: None
 ```
 
 

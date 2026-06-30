@@ -12,6 +12,8 @@
 
 import argparse
 import json
+import os
+import pwd
 import re
 import sys
 
@@ -24,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061201'
+__version__ = '2026063001'
 
 DESCRIPTION = """Displays system-wide Podman information including container counts, image count,
 storage driver, runtime version, available CPUs, and total memory. Also monitors the
@@ -75,6 +77,20 @@ def parse_args():
         type=lib.args.csv,
     )
 
+    parser.add_argument(
+        '--user',
+        help='Report on the rootless Podman of this user instead of the one visible to '
+        'the executing user. '
+        "Podman keeps each user's rootless containers and images in that user's own "
+        'storage, so root (the monitoring user runs the check via sudo) does not see '
+        'them. With --user, the check runs podman as that user. '
+        'Requires the right to `sudo -u <user>` (root has this by default). '
+        'Example: `--user=rocketchat`. '
+        'Default: %(default)s',
+        dest='USER',
+        default=None,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -102,7 +118,10 @@ def main():
     # fetch data
     if args.TEST is None:
         stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['podman', 'info', '--format', 'json']),
+            lib.shell.shell_exec(
+                ['podman', 'info', '--format', 'json'],
+                run_as=args.USER,
+            ),
         )
         if retc != 0:
             lib.base.oao(f'{stderr}\n{stdout}', STATE_CRIT)
@@ -221,6 +240,10 @@ def main():
     msg += f', Podman v{ver}'
     msg += f', {cpus} CPUs'
     msg += f', {memory_human} Memory'
+    # name the inspected user. Rootless Podman is per-user, so making the user
+    # explicit removes any doubt about whose storage these counts came from.
+    inspected_user = args.USER or pwd.getpwuid(os.geteuid()).pw_name
+    msg += f' (user: `{inspected_user}`)'
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

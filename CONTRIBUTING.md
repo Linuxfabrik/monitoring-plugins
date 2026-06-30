@@ -160,7 +160,7 @@ When creating a new plugin, make sure to deliver:
 * Optional: `unit-test/run` - the unittest file (see [Unit Tests](#unit-tests))
 * Optional: extend the repo-root `requirements.in` with new Python deps; the per-Python lockfiles under `lockfiles/pyXX/requirements.txt` are regenerated from it
 * If providing performance data: Grafana dashboard (see [GRAFANA.md](GRAFANA.md)) and `.ini` file for the Icinga Web 2 Grafana Module
-* Icinga Director Basket Config for the check plugin (`build-basket`)
+* Icinga Director Basket Config for the check plugin. Run `tools/build-basket --auto` before every commit (not just for new plugins) so all basket JSONs stay in sync; a forgotten regeneration after a parameter change leaves a stale basket that only surfaces as an unrelated diff in a later contributor's `--auto` run.
 * Icinga Service Set in `all-the-rest.json` if appropriate (see [Service Set vs. Service Template](#service-set-vs-service-template))
 * Optional: sudoers file (see [sudoers File](#sudoers-file))
 * Optional: A screenshot of the plugins' output from within Icinga, resized to 423x106, using background-color `#f5f9fa`, hosted on [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/), and listed alphabetically in [POSTER.md](POSTER.md).

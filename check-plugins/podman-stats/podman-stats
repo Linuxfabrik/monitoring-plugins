@@ -12,6 +12,8 @@
 
 import argparse
 import json
+import os
+import pwd
 import sys
 
 import lib.args
@@ -19,10 +21,11 @@ import lib.base
 import lib.db_sqlite
 import lib.lftest
 import lib.shell
+import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061201'
+__version__ = '2026063001'
 
 DESCRIPTION = """Reports CPU and memory usage for all running Podman containers. CPU usage is
 normalized by dividing by the number of available host CPU cores. CPU alerts only
@@ -99,6 +102,20 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--user',
+        help='Report on the rootless containers of this user instead of those visible '
+        'to the executing user. '
+        "Podman keeps each user's rootless containers in that user's own storage, so "
+        'root (the monitoring user runs the check via sudo) does not see them. With '
+        '--user, the check runs podman as that user. '
+        'Requires the right to `sudo -u <user>` (root has this by default). '
+        'Example: `--user=rocketchat`. '
+        'Default: %(default)s',
+        dest='USER',
+        default=None,
+    )
+
+    parser.add_argument(
         '--warning-cpu',
         help='WARN threshold for CPU usage, in percent. Default: >= %(default)s',
         default=DEFAULT_WARN_CPU,
@@ -167,7 +184,10 @@ def main():
     if args.TEST is None:
         # get the number of host CPUs
         stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['podman', 'info', '--format', 'json']),
+            lib.shell.shell_exec(
+                ['podman', 'info', '--format', 'json'],
+                run_as=args.USER,
+            ),
         )
         if retc != 0:
             lib.db_sqlite.close(conn)
@@ -184,7 +204,8 @@ def main():
         # get the container statistics for all running containers
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(
-                ['podman', 'stats', '--no-stream', '--format', '{{json .}}']
+                ['podman', 'stats', '--no-stream', '--format', '{{json .}}'],
+                run_as=args.USER,
             ),
         )
         if retc != 0:
@@ -351,11 +372,19 @@ def main():
         _min=0,
     )
 
-    # create output
+    # create output. Name the inspected user on the summary line. Rootless
+    # Podman is per-user, so making the user explicit removes any doubt about
+    # whose containers these stats came from.
+    inspected_user = args.USER or pwd.getpwuid(os.geteuid()).pw_name
+    user_note = f'(user: `{inspected_user}`)'
     if state == STATE_OK:
-        msg = f'Everything is ok, {len(table_values)} containers checked.\n\n'
+        checked = len(table_values)
+        msg = (
+            f'Everything is ok, {checked} '
+            f'{lib.txt.pluralize("container", checked)} checked {user_note}.\n\n'
+        )
     else:
-        msg = msg[:-2] + '\n\n'
+        msg = f'{msg[:-2]} {user_note}\n\n'
     if len(table_values) > 0:
         msg += lib.base.get_table(
             table_values,
