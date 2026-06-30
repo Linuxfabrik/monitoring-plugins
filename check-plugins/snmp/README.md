@@ -7,13 +7,15 @@ Queries SNMP OIDs defined in a CSV file and checks the returned values against o
 
 **Important Notes:**
 
-* Only use SNMP if there is no other way. SNMP puts much strain on the target system and the monitoring software:
-    * If you can use an agent of your monitoring software (e.g. Icinga) and one of our plugins, do it
-    * If you can't install an agent but there is a good (REST-)API available, use that
-    * If you can't install an agent and there is no good API, then use SNMP
-    * If possible, use a specialized SNMP solution like [LibreNMS](https://www.librenms.org/) instead of this check
-    * Prefer SNMPv2. Although completely insecure, it is fast and keeps the load on your appliance low
-* The check divides the OID list automatically into blocks of 25 OIDs per SNMPGET request
+* SNMP is a dated and comparatively complex protocol. Use it only as a last resort, when you can neither run an agent on the target nor reach it through a good API:
+
+    * If you can use an agent of your monitoring software (e.g. Icinga) together with one of our plugins, do that.
+    * If you cannot install an agent but the device offers a good (REST) API, use the API.
+    * If you can neither install an agent nor reach a good API (typical for switches, PDUs, UPS units, printers or sensors), fall back to SNMP.
+    * For a pure SNMP estate, consider a specialized solution like [LibreNMS](https://www.librenms.org/) instead of this check.
+
+* SNMPv2c is widely used because it is simple, but its community string travels in cleartext. Prefer SNMPv3 where the device supports it, and restrict v2c to trusted, read-only management networks.
+* This check sends targeted `snmpget` requests for a defined OID list, which is light on the device. Broad SNMP walks are what put real load on hardware, and this check avoids them. The OID list is split automatically into blocks of 25 OIDs per request.
 * If you acknowledge a value change in Icinga, the desired WARN or CRIT state remains. Delete `$TEMP/linuxfabrik-monitoring-plugins-snmp.db` to reset the inventory.
 
 **Data Collection:**
