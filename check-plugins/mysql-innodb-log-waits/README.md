@@ -3,23 +3,27 @@
 
 ## Overview
 
-Checks two related InnoDB log buffer health metrics in MySQL/MariaDB:
+Checks InnoDB redo log buffer health in MySQL/MariaDB:
 
-1. **Log waits** (`Innodb_log_waits` / `Innodb_log_writes`) - how often InnoDB had to wait for log writes to be flushed because the log buffer was full. Anything above 0% indicates that `innodb_log_buffer_size` is too small for the write workload.
-2. **Write log efficiency** (`(Innodb_log_write_requests - Innodb_log_writes) / Innodb_log_write_requests * 100`) - how many log write requests were absorbed by the buffer without needing a physical disk write. Below 90% indicates `innodb_log_buffer_size` is too small for the write workload.
+1. **Log waits** (`Innodb_log_waits` / `Innodb_log_writes`) - how often InnoDB had to wait because the in-memory log buffer was full before its contents could be flushed to disk. Per the MariaDB InnoDB source this counter is the authoritative signal for an undersized log buffer ("Number of log waits due to small log buffer"). Anything above 0 means `innodb_log_buffer_size` was too small for the write workload at some point. This is the only metric the plugin alerts on.
+2. **Write log efficiency** (`(Innodb_log_write_requests - Innodb_log_writes) / Innodb_log_write_requests * 100`) - the share of in-memory log appends that were batched into a shared physical write. This ratio is governed by group commit and `innodb_flush_log_at_trx_commit`, not by buffer size, so the plugin reports it for trending only. It never alerts and never recommends resizing the buffer.
+
+**Deliberate deviation from MySQLTuner:**
+
+The check logic is derived from MySQLTuner, which alerts and recommends increasing `innodb_log_buffer_size` whenever write log efficiency drops below 90%. The MariaDB InnoDB source does not support that link: only `Innodb_log_waits` reflects a too-small buffer, while the write efficiency ratio reflects commit/flush batching. This plugin therefore treats write log efficiency as informational only and alerts solely on log waits.
 
 **Important Notes:**
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * If the InnoDB engine is not available or is disabled, the plugin reports OK with an info message instead of UNKNOWN
-* The Write Log efficiency check is silently skipped on MySQL versions that do not expose `Innodb_log_write_requests` (very old MySQL pre-5.0)
-* When `Innodb_log_writes > Innodb_log_write_requests` (a physically impossible state that can briefly appear during counter resets), the plugin emits an info note instead of alerting
+* The Write Log efficiency line is silently skipped on MySQL versions that do not expose `Innodb_log_write_requests` (very old MySQL pre-5.0)
+* When `Innodb_log_writes > Innodb_log_write_requests` (a physically impossible state that can briefly appear during counter resets), the plugin emits an info note instead of a value
 
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `innodb_log_buffer_size`
 * Queries `SHOW GLOBAL STATUS` for `Innodb_log_waits`, `Innodb_log_writes` and `Innodb_log_write_requests`
-* Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_innodb() (sections "InnoDB Log Waits" and "InnoDB Write Log efficiency") and has been verified in sync with MySQLTuner
+* Logic is derived from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_innodb() (sections "InnoDB Log Waits" and "InnoDB Write Log efficiency"), with the deliberate deviation on write log efficiency described above
 
 
 ## Fact Sheet
@@ -43,15 +47,24 @@ usage: mysql-innodb-log-waits [-h] [-V] [--always-ok]
                               [--defaults-group DEFAULTS_GROUP]
                               [--timeout TIMEOUT]
 
-Checks two related InnoDB log buffer metrics in MySQL/MariaDB: 1. **Log
-waits** (`Innodb_log_waits` / `Innodb_log_writes`) - how often InnoDB had to
-wait for log writes to be flushed because the log buffer was full. Anything
-above 0% indicates that `innodb_log_buffer_size` is too small for the write
-workload. 2. **Write log efficiency** ((`Innodb_log_write_requests` -
-`Innodb_log_writes`) / `Innodb_log_write_requests` * 100) - how many log write
-requests were absorbed by the buffer without needing a physical disk write.
-Below 90% indicates `innodb_log_buffer_size` is too small for the write
-workload. Alerts on either condition.
+Checks InnoDB redo log buffer health in MySQL/MariaDB. Primary check - **Log
+waits** (`Innodb_log_waits` / `Innodb_log_writes`): how often InnoDB had to
+wait because the in-memory log buffer was full before its contents could be
+flushed to disk. Per the MariaDB InnoDB source this counter is the
+authoritative signal for an undersized log buffer ("Number of log waits due to
+small log buffer"). Any value above 0 means `innodb_log_buffer_size` was too
+small for the write workload at some point, so the plugin alerts and
+recommends a larger buffer. Secondary informational metric - **Write log
+efficiency** ((`Innodb_log_write_requests` - `Innodb_log_writes`) /
+`Innodb_log_write_requests` * 100): the share of in-memory log appends that
+were batched into a shared physical write. This ratio is governed by group
+commit and `innodb_flush_log_at_trx_commit`, not by buffer size, so the plugin
+reports it for trending but never alerts on it and never recommends resizing
+the buffer based on it. Deliberate deviation from MySQLTuner: MySQLTuner
+alerts and recommends increasing `innodb_log_buffer_size` whenever write log
+efficiency drops below 90%. The MariaDB InnoDB source does not support that
+link, so this plugin treats write log efficiency as informational only and
+alerts solely on log waits.
 
 options:
   -h, --help            show this help message and exit
@@ -80,23 +93,26 @@ Output:
 ```text
 InnoDB log waits: 0.0% (0.0 waits / 867.6K writes).
 
-InnoDB Write Log efficiency: 95.6% (12.5M log buffer hits / 13.1M total).
+InnoDB Write Log efficiency: 95.6% (12.5M batched / 13.1M log write requests).
 ```
 
-When the buffer is undersized:
+When the buffer is undersized (only log waits trigger a WARNING; write log efficiency stays informational):
 
 ```text
-InnoDB log waits: 0.05% (450.0 waits / 867.6K writes) [WARNING]. Set `innodb_log_buffer_size` > 16.0MiB.
+InnoDB log waits: 0.05% (450.0 waits / 867.6K writes) [WARNING].
 
-InnoDB Write Log efficiency: 82.3% (5.2M log buffer hits / 6.3M total) [WARNING]. Set `innodb_log_buffer_size` > 16.0MiB.
+InnoDB Write Log efficiency: 82.3% (5.2M batched / 6.3M log write requests).
+
+Recommendations:
+* Set `innodb_log_buffer_size` > 16.0MiB
 ```
 
 
 ## States
 
 * WARN if `Innodb_log_waits > 0` (any wait at all means the buffer was too small at some point).
-* WARN if InnoDB Write Log efficiency is below 90%.
 * OK if the InnoDB engine is not available or is disabled.
+* Write Log efficiency is informational only and never changes the state.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

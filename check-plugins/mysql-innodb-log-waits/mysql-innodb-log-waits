@@ -21,17 +21,27 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060201'
+__version__ = '2026070101'
 
-DESCRIPTION = """Checks two related InnoDB log buffer metrics in MySQL/MariaDB:
-1. **Log waits** (`Innodb_log_waits` / `Innodb_log_writes`) - how often InnoDB had to wait for
-   log writes to be flushed because the log buffer was full. Anything above 0% indicates that
-   `innodb_log_buffer_size` is too small for the write workload.
-2. **Write log efficiency** ((`Innodb_log_write_requests` - `Innodb_log_writes`) /
-   `Innodb_log_write_requests` * 100) - how many log write requests were absorbed by the buffer
-   without needing a physical disk write. Below 90% indicates `innodb_log_buffer_size` is too
-   small for the write workload.
-Alerts on either condition."""
+DESCRIPTION = """Checks InnoDB redo log buffer health in MySQL/MariaDB.
+
+Primary check - **Log waits** (`Innodb_log_waits` / `Innodb_log_writes`): how often InnoDB had to
+wait because the in-memory log buffer was full before its contents could be flushed to disk. Per
+the MariaDB InnoDB source this counter is the authoritative signal for an undersized log buffer
+("Number of log waits due to small log buffer"). Any value above 0 means `innodb_log_buffer_size`
+was too small for the write workload at some point, so the plugin alerts and recommends a larger
+buffer.
+
+Secondary informational metric - **Write log efficiency** ((`Innodb_log_write_requests` -
+`Innodb_log_writes`) / `Innodb_log_write_requests` * 100): the share of in-memory log appends that
+were batched into a shared physical write. This ratio is governed by group commit and
+`innodb_flush_log_at_trx_commit`, not by buffer size, so the plugin reports it for trending but
+never alerts on it and never recommends resizing the buffer based on it.
+
+Deliberate deviation from MySQLTuner: MySQLTuner alerts and recommends increasing
+`innodb_log_buffer_size` whenever write log efficiency drops below 90%. The MariaDB InnoDB source
+does not support that link, so this plugin treats write log efficiency as informational only and
+alerts solely on log waits."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
@@ -112,10 +122,20 @@ def get_status(conn):
 def main():
     """The main function. This is where the magic happens."""
 
-    # logic taken from mysqltuner.pl:mysql_innodb(), sections "InnoDB Write Log
-    # efficiency" and "InnoDB Log Waits", verified in sync with MySQLTuner
-    # (the < 90% write-efficiency threshold and the "any waits at all" log-wait
-    # threshold are unchanged upstream since the original port).
+    # Logic derived from mysqltuner.pl:mysql_innodb(), sections "InnoDB Write Log
+    # efficiency" and "InnoDB Log Waits". Deliberate deviation from MySQLTuner:
+    # only `Innodb_log_waits > 0` alerts and recommends a larger
+    # `innodb_log_buffer_size`. Per the MariaDB InnoDB source, `Innodb_log_waits`
+    # (`log_sys.waits`, incremented only on the WRITE_BACKOFF path when an append
+    # must wait for a full buffer) is the sole counter that signals a too-small
+    # log buffer - srv0mon.cc labels it "Number of log waits due to small log
+    # buffer". The Write Log efficiency ratio Innodb_log_writes /
+    # Innodb_log_write_requests instead measures how many in-memory log appends
+    # were batched into a shared physical write (group commit /
+    # `innodb_flush_log_at_trx_commit` behavior), which is unrelated to buffer
+    # capacity. MySQLTuner alerts and recommends a bigger buffer when that ratio
+    # drops below 90%; since the source does not support that, we emit it as an
+    # informational metric only.
 
     # parse the command line
     try:
@@ -188,10 +208,13 @@ def main():
     else:
         sections.append(f'{log_waits_msg}.')
 
-    # 2. InnoDB Write Log efficiency: only computable when the server exposes
-    #    `Innodb_log_write_requests` (older MySQL did not). mysqltuner emits a
-    #    "metrics not reliable" infoprint when `writes > write_requests` (which
-    #    cannot happen physically); we mirror that as an info line.
+    # 2. InnoDB Write Log efficiency: informational only. Unlike MySQLTuner (see
+    #    the note at the top of main()) this never alerts and never recommends a
+    #    larger buffer, because the ratio reflects group commit /
+    #    `innodb_flush_log_at_trx_commit` batching, not buffer capacity. Only
+    #    computable when the server exposes `Innodb_log_write_requests` (older
+    #    MySQL did not). `writes > write_requests` cannot happen physically and
+    #    briefly appears only during counter resets, so it is reported as info.
     if log_write_requests is not None:
         if log_write_requests == 0:
             sections.append(
@@ -207,25 +230,12 @@ def main():
             pct_write_eff = round(
                 (log_write_requests - log_writes) / log_write_requests * 100, 1
             )
-            absorbed = log_write_requests - log_writes
-            eff_msg = (
+            batched = log_write_requests - log_writes
+            sections.append(
                 f'InnoDB Write Log efficiency: {pct_write_eff}%'
-                f' ({lib.human.number2human(absorbed)} log buffer hits /'
-                f' {lib.human.number2human(log_write_requests)} total)'
+                f' ({lib.human.number2human(batched)} batched /'
+                f' {lib.human.number2human(log_write_requests)} log write requests).'
             )
-            if pct_write_eff < 90:
-                state = lib.base.get_worst(state, STATE_WARN)
-                sections.append(
-                    f'{eff_msg}{lib.base.state2str(STATE_WARN, prefix=" ")}.'
-                )
-                rec = (
-                    f'Set `innodb_log_buffer_size` >'
-                    f' {lib.human.bytes2human(log_buffer_size)}'
-                )
-                if rec not in recommendations:
-                    recommendations.append(rec)
-            else:
-                sections.append(f'{eff_msg}.')
 
     # build the message
     if recommendations:
