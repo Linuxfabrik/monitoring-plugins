@@ -17,6 +17,17 @@
                 "--full-name": {
                     "set_if": "$podman_stats_full_name$"
                 },
+                "--ignore": {
+                    "value": "$podman_stats_ignore$",
+                    "repeat_key": true
+                },
+                "--match": {
+                    "value": "$podman_stats_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$podman_stats_no_match_severity$"
+                },
                 "--user": {
                     "value": "$podman_stats_user$"
                 },
@@ -67,6 +78,21 @@
                 },
                 {
                     "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -128,12 +154,48 @@
                 "podman_stats_critical_cpu": 90,
                 "podman_stats_critical_mem": 95,
                 "podman_stats_full_name": false,
+                "podman_stats_ignore": [],
+                "podman_stats_match": [],
+                "podman_stats_no_match_severity": "ok",
                 "podman_stats_warning_cpu": 80,
                 "podman_stats_warning_mem": 90
             },
             "volatile": null,
             "zone": null,
             "uuid": "50bd0d98-8a7e-4410-b441-ef5e79825dad"
+        }
+    },
+    "DataList": {
+        "podman_stats_no_match_severity_list": {
+            "list_name": "podman_stats_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "75bc5326-bf2d-4393-bfb4-3d8f17ff08e0"
         }
     },
     "Datafield": {
@@ -189,6 +251,41 @@
             "uuid": "ec607876-1052-41ca-b854-a170f10c81c3"
         },
         "6": {
+            "varname": "podman_stats_ignore",
+            "caption": "Podman Stats: Ignore",
+            "description": "Ignore containers whose name matches this Python regular expression. Matched against the full container name, even when the displayed name is shortened (see --full-name). Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Example: `--ignore=\"^k8s_\"` to skip Kubernetes pod infrastructure containers. Example: `--ignore=\"(?i)test\"` (case-insensitive) to skip any container with \"test\" in its name.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "7a0b1f16-d3e1-4841-b6cb-9f1398f59945"
+        },
+        "7": {
+            "varname": "podman_stats_match",
+            "caption": "Podman Stats: Match",
+            "description": "Only check containers whose name matches this Python regular expression. Matched against the full container name, even when the displayed name is shortened (see --full-name). Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, a container must match `--match` AND not match `--ignore` to be checked (include first, exclude second). Example: `--match=\"^traefik$\"` to pin the check to one specific container. Example: `--match=\"(?i)^web\"` (case-insensitive) to check every web container.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "292f2a2d-ab4a-43e5-942e-1979f0138652"
+        },
+        "8": {
+            "varname": "podman_stats_no_match_severity",
+            "caption": "Podman Stats: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "podman_stats_no_match_severity_list"
+            },
+            "uuid": "5b12f209-5e5e-43fe-857c-401389f8af88"
+        },
+        "9": {
             "varname": "podman_stats_user",
             "caption": "Podman Stats: User",
             "description": "Report on the rootless containers of this user instead of those visible to the executing user. Podman keeps each user's rootless containers in that user's own storage, so root (the monitoring user runs the check via sudo) does not see them. With --user, the check runs podman as that user. Requires the right to `sudo -u <user>` (root has this by default). Example: `--user=rocketchat`.",
@@ -199,7 +296,7 @@
             },
             "uuid": "46be914e-a6b2-49ab-b7bb-c0e34d0675ae"
         },
-        "7": {
+        "10": {
             "varname": "podman_stats_warning_cpu",
             "caption": "Podman Stats: Warning CPU",
             "description": "WARN threshold for CPU usage, in percent.",
@@ -210,7 +307,7 @@
             },
             "uuid": "d2580263-e0b7-4637-87a6-32ea6976e2b9"
         },
-        "8": {
+        "11": {
             "varname": "podman_stats_warning_mem",
             "caption": "Podman Stats: Warning Memory",
             "description": "WARN threshold for memory usage, in percent.",

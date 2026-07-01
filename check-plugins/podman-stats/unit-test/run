@@ -15,14 +15,14 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK
+from lib.globals import STATE_CRIT, STATE_OK
 
 TESTS = [
     {
         'id': 'ok-no-containers',
         'test': 'stdout/no-containers,,0',
         'assert-retc': STATE_OK,
-        'assert-in': ['Everything is ok,'],
+        'assert-in': ['No containers to check (user:'],
     },
     {
         'id': 'ok-traefik-idle',
@@ -86,6 +86,30 @@ TESTS = [
             "'runner-7ayh6h5f-project-107-concurrent-0-37b2c7aee9359db9-build_cpu_usage'=95.0%",
             "'runner-7ayh6h5f-project-49-concurrent-0-e180afe41fc754dc-predefined_mem_usage'=0.1%",
         ],
+    },
+    {
+        'id': 'ok-match-filter',
+        'test': 'stdout/elasticsearch-graylog-mongo,,0',
+        'params': '--match=^graylog$ --warning-cpu=9999 --critical-cpu=9999',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok, 1 container checked (user: `',
+            "'graylog_cpu_usage'=204.2%",
+        ],
+    },
+    {
+        'id': 'ok-ignore-filter',
+        'test': 'stdout/elasticsearch-graylog-mongo,,0',
+        'params': '--ignore=mongo --warning-cpu=9999 --critical-cpu=9999',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok, 2 containers checked (user: `'],
+    },
+    {
+        'id': 'crit-no-match-severity',
+        'test': 'stdout/elasticsearch-graylog-mongo,,0',
+        'params': '--match=^nope$ --no-match-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['No containers to check (user:'],
     },
 ]
 

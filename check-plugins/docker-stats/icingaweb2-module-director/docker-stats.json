@@ -17,6 +17,17 @@
                 "--full-name": {
                     "set_if": "$docker_stats_full_name$"
                 },
+                "--ignore": {
+                    "value": "$docker_stats_ignore$",
+                    "repeat_key": true
+                },
+                "--match": {
+                    "value": "$docker_stats_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$docker_stats_no_match_severity$"
+                },
                 "--warning-cpu": {
                     "value": "$docker_stats_warning_cpu$"
                 },
@@ -59,6 +70,21 @@
                 },
                 {
                     "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -120,12 +146,48 @@
                 "docker_stats_critical_cpu": 90,
                 "docker_stats_critical_mem": 95,
                 "docker_stats_full_name": false,
+                "docker_stats_ignore": [],
+                "docker_stats_match": [],
+                "docker_stats_no_match_severity": "ok",
                 "docker_stats_warning_cpu": 80,
                 "docker_stats_warning_mem": 90
             },
             "volatile": null,
             "zone": null,
             "uuid": "1311ed5e-ce62-4f88-80ab-15a3096da59b"
+        }
+    },
+    "DataList": {
+        "docker_stats_no_match_severity_list": {
+            "list_name": "docker_stats_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "519c615d-d6fc-4eda-bd36-81fedfc5c870"
         }
     },
     "Datafield": {
@@ -181,6 +243,41 @@
             "uuid": "4b20fa55-d44a-4bef-8698-b1816882ec2a"
         },
         "6": {
+            "varname": "docker_stats_ignore",
+            "caption": "Docker Stats: Ignore",
+            "description": "Ignore containers whose name matches this Python regular expression. Matched against the full container name, even when the displayed name is shortened (see --full-name). Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Example: `--ignore=\"^k8s_\"` to skip Kubernetes pod infrastructure containers. Example: `--ignore=\"(?i)test\"` (case-insensitive) to skip any container with \"test\" in its name.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "afcaf8bb-4c25-46f4-9f68-38c3ea098bb5"
+        },
+        "7": {
+            "varname": "docker_stats_match",
+            "caption": "Docker Stats: Match",
+            "description": "Only check containers whose name matches this Python regular expression. Matched against the full container name, even when the displayed name is shortened (see --full-name). Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, a container must match `--match` AND not match `--ignore` to be checked (include first, exclude second). Example: `--match=\"^traefik$\"` to pin the check to one specific container. Example: `--match=\"(?i)^web\"` (case-insensitive) to check every web container.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a62c3831-6479-4c57-a800-e75fa914bf39"
+        },
+        "8": {
+            "varname": "docker_stats_no_match_severity",
+            "caption": "Docker Stats: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "docker_stats_no_match_severity_list"
+            },
+            "uuid": "04542725-0f9a-4e5e-81d6-b5065a51a3fb"
+        },
+        "9": {
             "varname": "docker_stats_warning_cpu",
             "caption": "Docker Stats: Warning CPU",
             "description": "WARN threshold for CPU usage in percent.",
@@ -191,7 +288,7 @@
             },
             "uuid": "6d11fc9e-88cc-49e3-812c-91217fd10dfe"
         },
-        "7": {
+        "10": {
             "varname": "docker_stats_warning_mem",
             "caption": "Docker Stats: Warning Memory",
             "description": "WARN threshold for memory usage in percent.",

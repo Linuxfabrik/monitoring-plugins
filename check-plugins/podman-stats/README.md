@@ -8,6 +8,7 @@ Reports CPU and memory usage for all running Podman containers. CPU usage is nor
 **Important Notes:**
 
 * Memory usage is relative to the container's memory limit if one is set, otherwise relative to the total host memory.
+* Containers can be selected or excluded by name with `--match` / `--ignore` (Python regular expressions, matched against the full name); `--no-match-severity` sets the state when nothing matches (default: ok).
 * Per-container CPU and memory perfdata are most useful for long-lived containers with stable names (e.g. `traefik_traefik.2`, named systemd-managed services). For ever-changing workloads (e.g. GitLab runner jobs, CI builders), the per-container labels churn between check runs and are useless for trending. The aggregate perfdata is the right signal there.
 * Plugin execution may take up to 10 seconds.
 * Podman runs rootless by default, and every user keeps their containers in their own storage. Running the check as root (via `sudo`) reports on root's own Podman, not on the rootless containers of other users. To report on a rootless user's containers, pass `--user=<name>`: the check then runs podman as that user. Every line of output names the inspected user, so an empty result against root's storage is obvious.
@@ -41,8 +42,9 @@ Reports CPU and memory usage for all running Podman containers. CPU usage is nor
 ```text
 usage: podman-stats [-h] [-V] [--always-ok] [--count COUNT]
                     [--critical-cpu CRIT_CPU] [--critical-mem CRIT_MEM]
-                    [--full-name] [--user USER] [--warning-cpu WARN_CPU]
-                    [--warning-mem WARN_MEM]
+                    [--full-name] [--ignore IGNORE] [--match MATCH]
+                    [--no-match-severity {ok,warn,crit,unknown}] [--user USER]
+                    [--warning-cpu WARN_CPU] [--warning-mem WARN_MEM]
 
 Reports CPU and memory usage for all running Podman containers. CPU usage is
 normalized by dividing by the number of available host CPU cores. CPU alerts
@@ -67,6 +69,30 @@ options:
   --full-name           Use the full container name instead of shortening it
                         after the replica number. Example:
                         `traefik_traefik.2.1idw12p2yqp`
+  --ignore IGNORE       Ignore containers whose name matches this Python
+                        regular expression. Matched against the full container
+                        name, even when the displayed name is shortened (see
+                        --full-name). Case-sensitive by default; use `(?i)`
+                        for case-insensitive matching. Can be specified
+                        multiple times. Example: `--ignore="^k8s_"` to skip
+                        Kubernetes pod infrastructure containers. Example:
+                        `--ignore="(?i)test"` (case-insensitive) to skip any
+                        container with "test" in its name. Default: None
+  --match MATCH         Only check containers whose name matches this Python
+                        regular expression. Matched against the full container
+                        name, even when the displayed name is shortened (see
+                        --full-name). Case-sensitive by default; use `(?i)`
+                        for case-insensitive matching. Can be specified
+                        multiple times. If both `--match` and `--ignore` are
+                        given, a container must match `--match` AND not match
+                        `--ignore` to be checked (include first, exclude
+                        second). Example: `--match="^traefik$"` to pin the
+                        check to one specific container. Example:
+                        `--match="(?i)^web"` (case-insensitive) to check every
+                        web container. Default: None
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
   --user USER           Report on the rootless containers of this user instead
                         of those visible to the executing user. Podman keeps
                         each user's rootless containers in that user's own
@@ -111,6 +137,7 @@ myconti_ds_1              ! 0.0   ! 11.42
 * CRIT if any container CPU usage is above `--critical-cpu` (default: 90%) during the last `--count` checks (default: 5).
 * CRIT if any container memory usage is above `--critical-mem` (default: 95%).
 * CRIT on `podman info` or `podman stats` return codes != 0.
+* The state reported when no container matches the `--match` / `--ignore` filters (or none are running) is configurable via `--no-match-severity` (default: ok).
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

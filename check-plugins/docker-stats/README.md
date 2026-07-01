@@ -8,6 +8,7 @@ Reports CPU and memory usage for all running Docker containers. CPU usage is nor
 **Important Notes:**
 
 * Container names are shortened after the replica number by default (e.g. `traefik_traefik.2`). Use `--full-name` to show the full container name
+* Containers can be selected or excluded by name with `--match` / `--ignore` (Python regular expressions, matched against the full name); `--no-match-severity` sets the state when nothing matches (default: ok)
 * Per-container CPU and memory perfdata are most useful for long-lived containers with stable names (e.g. `traefik_traefik.2`, named systemd-managed services). For ever-changing workloads (e.g. GitLab runner jobs, CI builders), the per-container labels churn between check runs and are useless for trending. The aggregate perfdata is the right signal there
 * Plugin execution may take up to 10 seconds due to `docker stats --no-stream`
 
@@ -40,8 +41,9 @@ Reports CPU and memory usage for all running Docker containers. CPU usage is nor
 ```text
 usage: docker-stats [-h] [-V] [--always-ok] [--count COUNT]
                     [--critical-cpu CRIT_CPU] [--critical-mem CRIT_MEM]
-                    [--full-name] [--warning-cpu WARN_CPU]
-                    [--warning-mem WARN_MEM]
+                    [--full-name] [--ignore IGNORE] [--match MATCH]
+                    [--no-match-severity {ok,warn,crit,unknown}]
+                    [--warning-cpu WARN_CPU] [--warning-mem WARN_MEM]
 
 Reports CPU and memory usage for all running Docker containers. CPU usage is
 normalized by dividing by the number of available host CPU cores. CPU alerts
@@ -66,6 +68,30 @@ options:
   --full-name           Use the full container name, for example
                         `traefik_traefik.2.1idw12p2yqp`. Without this flag,
                         the name is shortened after the replica number.
+  --ignore IGNORE       Ignore containers whose name matches this Python
+                        regular expression. Matched against the full container
+                        name, even when the displayed name is shortened (see
+                        --full-name). Case-sensitive by default; use `(?i)`
+                        for case-insensitive matching. Can be specified
+                        multiple times. Example: `--ignore="^k8s_"` to skip
+                        Kubernetes pod infrastructure containers. Example:
+                        `--ignore="(?i)test"` (case-insensitive) to skip any
+                        container with "test" in its name. Default: None
+  --match MATCH         Only check containers whose name matches this Python
+                        regular expression. Matched against the full container
+                        name, even when the displayed name is shortened (see
+                        --full-name). Case-sensitive by default; use `(?i)`
+                        for case-insensitive matching. Can be specified
+                        multiple times. If both `--match` and `--ignore` are
+                        given, a container must match `--match` AND not match
+                        `--ignore` to be checked (include first, exclude
+                        second). Example: `--match="^traefik$"` to pin the
+                        check to one specific container. Example:
+                        `--match="(?i)^web"` (case-insensitive) to check every
+                        web container. Default: None
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
   --warning-cpu WARN_CPU
                         WARN threshold for CPU usage in percent. Default: >=
                         80
@@ -102,6 +128,7 @@ myconti_ds_1              ! 0.0   ! 11.42
 * WARN if any container memory usage is >= `--warning-mem` (default: 90%).
 * CRIT if any container memory usage is >= `--critical-mem` (default: 95%).
 * CRIT if `docker info` or `docker stats` returns a non-zero exit code.
+* The state reported when no container matches the `--match` / `--ignore` filters (or none are running) is configurable via `--no-match-severity` (default: ok).
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

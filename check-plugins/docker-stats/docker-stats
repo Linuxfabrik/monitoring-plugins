@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026063001'
+__version__ = '2026070101'
 
 DESCRIPTION = """Reports CPU and memory usage for all running Docker containers. CPU usage is
 normalized by dividing by the number of available host CPU cores. CPU alerts only
@@ -35,6 +35,7 @@ Requires root or sudo."""
 DEFAULT_COUNT = (
     5  # measurements; if check runs once per minute, this is a 5 minute period
 )
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_WARN_CPU = 80  # %
 DEFAULT_CRIT_CPU = 90  # %
 DEFAULT_WARN_MEM = 90  # %
@@ -92,6 +93,47 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore',
+        help='Ignore containers whose name matches this Python regular expression. '
+        'Matched against the full container name, even when the displayed name is '
+        'shortened (see --full-name). '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. '
+        'Example: `--ignore="^k8s_"` to skip Kubernetes pod infrastructure containers. '
+        'Example: `--ignore="(?i)test"` (case-insensitive) to skip any container with '
+        '"test" in its name. '
+        'Default: %(default)s',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only check containers whose name matches this Python regular expression. '
+        'Matched against the full container name, even when the displayed name is '
+        'shortened (see --full-name). '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. If both `--match` and `--ignore` are given, '
+        'a container must match `--match` AND not match `--ignore` to be checked '
+        '(include first, exclude second). '
+        'Example: `--match="^traefik$"` to pin the check to one specific container. '
+        'Example: `--match="(?i)^web"` (case-insensitive) to check every web container. '
+        'Default: %(default)s',
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
         '--test',
         help=lib.args.help('--test'),
         dest='TEST',
@@ -141,6 +183,18 @@ def shorten(name):
     return name.rsplit('.', 1)[0]
 
 
+def keep_container(name, match_patterns, ignore_patterns):
+    """Return True if `name` should be kept by the --match / --ignore filter pair,
+    False if it should be dropped. Include first, then exclude: a name passes if it
+    matches any `match_patterns` entry (or if `match_patterns` is empty) AND does not
+    match any `ignore_patterns` entry. Same semantics as the lib.args canonical
+    --match / --ignore convention.
+    """
+    if match_patterns and not any(p.search(name) for p in match_patterns):
+        return False
+    return not any(p.search(name) for p in ignore_patterns)
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -149,6 +203,22 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # compile --match and --ignore patterns (case-sensitive by default, matching
+    # the lib.args convention; the user can opt into case-insensitive matching
+    # with the inline `(?i)` flag)
+    match_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    ignore_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
 
     # create the db tables
     definition = """
@@ -202,11 +272,18 @@ def main():
 
     # analyze data
     containers = lib.txt.mltext2array(stdout, skip_header=True, sort_key=1)
+    # apply the --match / --ignore name filters up front (and drop the placeholder row
+    # for containers without an ID), so the SQLite trend cut below is sized to the
+    # number of tracked containers
+    containers = [
+        c
+        for c in containers
+        if len(c) > 1
+        and c[0] != '--'
+        and keep_container(c[1], match_patterns, ignore_patterns)
+    ]
     for container in containers:
         try:
-            if container[0] == '--':
-                # container without ID and name == '--'
-                continue
             name = container[1]
             # https://github.com/Linuxfabrik/monitoring-plugins/issues/586
             if not args.FULL_NAME:
@@ -281,6 +358,15 @@ def main():
     # we don't need the database any more: save data and close connection
     lib.db_sqlite.commit(conn)
     lib.db_sqlite.close(conn)
+
+    # nothing left after applying the --match / --ignore filters (or no running
+    # containers); report the configured no-match severity
+    if not table_values:
+        lib.base.oao(
+            'No containers to check.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
 
     # build perfdata
     perfdata += lib.base.get_perfdata(

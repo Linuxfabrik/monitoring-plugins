@@ -14,7 +14,6 @@ import argparse
 import json
 import os
 import pwd
-import re
 import sys
 
 import lib.args
@@ -27,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026063001'
+__version__ = '2026070101'
 
 DESCRIPTION = """Checks the lifecycle and health of Podman containers: the container status
 (running, exited, paused, ...), the result of the container health check (healthy,
@@ -272,11 +271,12 @@ def main():
     # compile --match and --ignore patterns (case-sensitive by default, matching
     # the lib.args convention; the user can opt into case-insensitive matching
     # with the inline `(?i)` flag)
-    try:
-        match_patterns = [re.compile(p) for p in args.MATCH]
-        ignore_patterns = [re.compile(p) for p in args.IGNORE]
-    except re.error as e:
-        lib.base.cu(f'Invalid regular expression: {e}')
+    match_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    ignore_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
 
     # fetch data
     if args.TEST is None:

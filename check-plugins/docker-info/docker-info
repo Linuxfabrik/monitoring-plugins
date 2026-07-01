@@ -11,7 +11,6 @@
 """See the check's README for more details."""
 
 import argparse
-import re
 import sys
 
 import lib.args
@@ -19,10 +18,11 @@ import lib.base
 import lib.human
 import lib.lftest
 import lib.shell
+import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061201'
+__version__ = '2026070101'
 
 DESCRIPTION = """Displays system-wide Docker information including container counts (running,
 paused, stopped), image count, storage and logging driver, Docker version, available
@@ -94,10 +94,9 @@ def main():
     # compile ignore patterns (case-sensitive by default, matching the
     # lib.args convention for --match / --ignore-regex; the user can
     # opt into case-insensitive matching with the inline `(?i)` flag).
-    try:
-        ignore_patterns = [re.compile(p) for p in args.IGNORE]
-    except re.error as e:
-        lib.base.cu(f'Invalid regular expression: {e}')
+    ignore_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
 
     # fetch data
     if args.TEST is None:
@@ -211,7 +210,7 @@ def main():
     if warn:
         msg += f'{warn}'
     if containers != '':
-        msg += f'{containers} Containers'
+        msg += f'{containers} {lib.txt.pluralize("Container", int(containers))}'
     if containers_running != '':
         msg += (
             f' ({containers_running} running,'
@@ -219,7 +218,7 @@ def main():
             f' {containers_stopped} stopped)'
         )
     if images != '':
-        msg += f', {images} Images'
+        msg += f', {images} {lib.txt.pluralize("Image", int(images))}'
     if storage_driver != '':
         msg += f', Storage Driver: {storage_driver}'
     if logging_driver != '':
@@ -227,7 +226,7 @@ def main():
     if registry != '':
         msg += f', Registry: {registry}'
     msg += f', Docker v{ver}'
-    msg += f', {cpus} CPUs'
+    msg += f', {cpus} {lib.txt.pluralize("CPU", int(cpus))}'
     msg += f', {memory_human} Memory'
 
     # over and out
