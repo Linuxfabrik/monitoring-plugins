@@ -43,7 +43,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026063001'
+__version__ = '2026070101'
 
 DESCRIPTION = """Checks used or free disk space for each mounted partition. By default, only physical
 devices are checked (hard disks, USB drives), ignoring pseudo and memory filesystems.
@@ -353,6 +353,28 @@ def _threshold_operands(usage, threshold):
     return value, limit, operator
 
 
+def _perfdata_thresholds(usage, threshold):
+    """Map a `(number, unit, method)` threshold triple onto the numeric warn or
+    crit line for the two threshold-bearing perfdata fields, mirroring how
+    `evaluate_disk_state()` compares. Returns `(percent_limit, usage_limit)`,
+    where each is the value to write into the respective perfdata field or
+    `None` when the threshold does not apply to that field:
+
+    - a `%` threshold drives the `-percent` field (used %); `USED` puts the
+      line at `number`, `FREE` at `100 - number` (the used-% at which free hits
+      the limit).
+    - an absolute (byte) threshold drives the `-usage` field (used bytes);
+      `USED` puts the line at `number` bytes, `FREE` at `total - number` bytes.
+    """
+    number, unit, method = threshold
+    if unit == '%':
+        percent_limit = float(number) if method == 'USED' else 100.0 - float(number)
+        return percent_limit, None
+    limit_bytes = lib.human.human2bytes(''.join(threshold[:2]))
+    usage_limit = limit_bytes if method == 'USED' else usage.total - limit_bytes
+    return None, usage_limit
+
+
 def evaluate_disk_state(usage, warn, crit):
     """Return the WARN/CRIT state for one filesystem. `warn` and `crit` are
     `(number, unit, method)` triples as produced by
@@ -551,6 +573,13 @@ def main():
         disk_state = evaluate_disk_state(usage, warn, crit)
         state = lib.base.get_worst(state, disk_state)
 
+        # Map the effective thresholds onto the perfdata fields they apply to,
+        # so graphing tools can draw warn/crit lines. A percentage threshold
+        # lands on `-percent`, an absolute (byte) threshold on `-usage`; the
+        # other field stays unthresholded.
+        warn_percent, warn_usage = _perfdata_thresholds(usage, warn)
+        crit_percent, crit_usage = _perfdata_thresholds(usage, crit)
+
         # Use% cell: the percentage, the per-mountpoint thresholds when --mount
         # overrides this row (so the table explains why an otherwise-fine row
         # alerts), and the state marker last (kept at the end of the cell for
@@ -568,8 +597,8 @@ def main():
                 perfdata_key,
                 usage.used,
                 uom='B',
-                warn=None,
-                crit=None,
+                warn=warn_usage,
+                crit=crit_usage,
                 _min=0,
                 _max=usage.total,
             )
@@ -594,8 +623,8 @@ def main():
                 perfdata_key,
                 usage.percent,
                 uom='%',
-                warn=None,
-                crit=None,
+                warn=warn_percent,
+                crit=crit_percent,
                 _min=0,
                 _max=100,
             )

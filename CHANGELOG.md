@@ -47,6 +47,7 @@ Build, CI/CD:
 
 Monitoring Plugins:
 
+* disk-usage: performance data now carries the effective warning and critical thresholds again, so graphing tools such as Icinga Graphite can draw the warn/crit lines ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
 * journald-query: a relative `--since` value such as `-8h` configured in the Icinga Director now works instead of making the check fail ([#1264](https://github.com/Linuxfabrik/monitoring-plugins/issues/1264))
 * lynis: audits now produce a report on Debian, Ubuntu and other distributions that keep the lynis plugins outside `/usr/share` ([#1262](https://github.com/Linuxfabrik/monitoring-plugins/issues/1262))
 * lynis: when an audit produces no report, the plugin now shows the underlying lynis error instead of a generic message

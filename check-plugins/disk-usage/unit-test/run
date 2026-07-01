@@ -244,6 +244,48 @@ TESTS = [
         'params': '--mount=/var,90%USED',
         'assert-retc': STATE_UNKNOWN,
     },
+# #1310: the effective warn/crit thresholds must land in the perfdata so
+    # graphing tools can draw the warn/crit lines. Which field carries them
+    # depends on the threshold form: a percentage threshold drives `-percent`,
+    # an absolute (byte) threshold drives `-usage`; the other field stays
+    # unthresholded. single-root-nominal is / at 30% (32212254720 of
+    # 107374182400 bytes).
+    {
+        'id': 'ok-perfdata-percent-used-thresholds',
+        'test': 'stdout/single-root-nominal,,0',
+        # default 90%/95% USED -> percent field carries 90.0/95.0.
+        'params': '--match=/$',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'/-percent'=30.0%;90.0;95.0;0;100"],
+    },
+    {
+        'id': 'ok-perfdata-percent-free-thresholds-inverted',
+        'test': 'stdout/single-root-nominal,,0',
+        # 8%/3% FREE -> the used-% line sits at 100-8 and 100-3.
+        'params': '--match=/$ --warning=8%FREE --critical=3%FREE',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'/-percent'=30.0%;92.0;97.0;0;100"],
+    },
+    {
+        'id': 'ok-perfdata-absolute-used-thresholds-on-usage',
+        'test': 'stdout/single-root-nominal,,0',
+        # 50G/80G USED -> byte thresholds on the -usage field, and the
+        # -percent field stays unthresholded.
+        'params': '--match=/$ --warning=50GUSED --critical=80GUSED',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "'/-usage'=32212254720B;53687091200;85899345920;0;107374182400",
+            "'/-percent'=30.0%;;;0;100",
+        ],
+    },
+    {
+        'id': 'ok-perfdata-absolute-free-thresholds-inverted',
+        'test': 'stdout/single-root-nominal,,0',
+        # 40G/20G FREE -> the used-bytes line sits at total-40G and total-20G.
+        'params': '--match=/$ --warning=40GFREE --critical=20GFREE',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'/-usage'=32212254720B;64424509440;85899345920;0;107374182400"],
+    },
     # Windows drive letters: the override matches `C:\` whether the user types
     # `C`, `C:` or `C:\`. The windows-drives fixture has C:\ (89.4%) and
     # D:\ (9.3%); without --mount both are OK (below the global 90%).
