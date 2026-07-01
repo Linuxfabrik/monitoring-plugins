@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+TESTS = [
+    {
+        'id': 'ok-empty-no-images',
+        'test': 'stdout/empty-no-images,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No images to check (user:'],
+    },
+    {
+        'id': 'crit-mixed-default-thresholds',
+        'test': 'stdout/mixed-images,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'docker.io/library/postgres:16: age 1Y 6M [CRITICAL]',
+            'Image                         ! Age   ! Size     ! State',
+            '333333333333                  ! 1W 3D ! 85.8MiB  ! [OK]',
+            'docker.io/library/nginx:1.27  ! 4W 1D ! 178.3MiB ! [OK]',
+            'docker.io/library/postgres:16 ! 1Y 6M ! 405.3MiB ! [CRITICAL]',
+            "'images_checked'=3;;;0",
+            "'images_dangling'=1;;;0",
+        ],
+    },
+    {
+        'id': 'ok-high-thresholds',
+        'test': 'stdout/mixed-images,,0',
+        'params': '-w 9000D -c 9000D',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok, 3 images checked (thresholds 9000D/9000D; user: `',
+            'docker.io/library/nginx:1.27  ! 4W 1D ! 178.3MiB ! [OK]',
+            'docker.io/library/postgres:16 ! 1Y 6M ! 405.3MiB ! [OK]',
+        ],
+    },
+    {
+        'id': 'warn-custom-threshold',
+        'test': 'stdout/mixed-images,,0',
+        'params': '--match=nginx -w 20D -c 9000D',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['docker.io/library/nginx:1.27: age 4W 1D [WARNING]'],
+    },
+    {
+        'id': 'ok-match-young',
+        'test': 'stdout/mixed-images,,0',
+        'params': '--match=nginx',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok, 1 image checked (thresholds 90D/365D; user: `'
+        ],
+    },
+    {
+        'id': 'ok-ignore-old',
+        'test': 'stdout/mixed-images,,0',
+        'params': '--ignore=postgres',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok, 2 images checked (thresholds 90D/365D; user: `'
+        ],
+    },
+    {
+        'id': 'crit-no-match-severity',
+        'test': 'stdout/mixed-images,,0',
+        'params': '--match=^nope$ --no-match-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['No images to check (user:'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../podman-image'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

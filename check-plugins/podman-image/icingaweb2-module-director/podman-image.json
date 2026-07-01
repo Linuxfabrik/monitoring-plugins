@@ -1,0 +1,244 @@
+{
+    "Command": {
+        "cmd-check-podman-image": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$podman_image_always_ok$"
+                },
+                "--critical": {
+                    "value": "$podman_image_critical$"
+                },
+                "--ignore": {
+                    "value": "$podman_image_ignore$",
+                    "repeat_key": true
+                },
+                "--match": {
+                    "value": "$podman_image_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$podman_image_no_match_severity$"
+                },
+                "--user": {
+                    "value": "$podman_image_user$"
+                },
+                "--warning": {
+                    "value": "$podman_image_warning$"
+                }
+            },
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/podman-image",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-podman-image",
+            "object_type": "object",
+            "timeout": 20,
+            "vars": {},
+            "zone": null,
+            "uuid": "940f3ee4-b48a-4384-a6c4-e73e31b32011"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-podman-image": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-podman-image",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "podman-image.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Lists the container images on a host and checks how old they are. Reports each image's repository tag, age and size, and alerts when an image is older than the configured thresholds, which is a sign that a rebuild or pull was missed. Images can be selected or excluded by name using regular expressions. For Docker, use the docker-image check instead. Requires root or sudo.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/podman-image/",
+            "object_name": "tpl-service-podman-image",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "podman_image_always_ok": false,
+                "podman_image_critical": "365D",
+                "podman_image_ignore": [],
+                "podman_image_match": [],
+                "podman_image_no_match_severity": "ok",
+                "podman_image_warning": "90D"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "ae9b71ac-dc72-4030-8087-fd7730cf89be"
+        }
+    },
+    "DataList": {
+        "podman_image_no_match_severity_list": {
+            "list_name": "podman_image_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "6e52d6b8-729e-4861-b97d-eee8521d2aa0"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "podman_image_always_ok",
+            "caption": "Podman Image: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "20946820-3164-4a93-8bd5-a899f490034b"
+        },
+        "2": {
+            "varname": "podman_image_critical",
+            "caption": "Podman Image: Critical",
+            "description": "CRIT threshold for the image age in a human-readable format (s = seconds, m = minutes, h = hours, D = days, W = weeks, M = months, Y = years). Supports Nagios ranges. Example: `180D` alerts on images older than 180 days.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "b8348e50-0c39-41f8-b8ef-210a147a9fdf"
+        },
+        "3": {
+            "varname": "podman_image_ignore",
+            "caption": "Podman Image: Ignore",
+            "description": "Ignore images whose repository tag matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Example: `--ignore=\"^localhost/\"` to skip locally built images. Example: `--ignore=\"(?i)test\"` (case-insensitive) to skip any image with \"test\" in its tag.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "b2cd8faf-9156-48be-8817-b5bfe0d68813"
+        },
+        "4": {
+            "varname": "podman_image_match",
+            "caption": "Podman Image: Match",
+            "description": "Only check images whose repository tag matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an image must match `--match` AND not match `--ignore` to be checked (include first, exclude second). Example: `--match=\"^docker.io/library/nginx\"` to check only the nginx images.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2d2792d5-9c4d-49f5-94cc-84cc0fb8474e"
+        },
+        "5": {
+            "varname": "podman_image_no_match_severity",
+            "caption": "Podman Image: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "podman_image_no_match_severity_list"
+            },
+            "uuid": "ad54edfd-1695-4ca5-ab99-cc23ccff35f6"
+        },
+        "6": {
+            "varname": "podman_image_user",
+            "caption": "Podman Image: User",
+            "description": "Inspect the rootless images of this user instead of those visible to the executing user. Podman keeps each user's rootless images in that user's own storage, so root (the monitoring user runs the check via sudo) does not see them. With --user, the check runs podman as that user. Requires the right to `sudo -u <user>` (root has this by default). Example: `--user=webapp`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "131d5316-a224-4d3a-b918-802a6c6cfac9"
+        },
+        "7": {
+            "varname": "podman_image_warning",
+            "caption": "Podman Image: Warning",
+            "description": "WARN threshold for the image age in a human-readable format (s = seconds, m = minutes, h = hours, D = days, W = weeks, M = months, Y = years). Supports Nagios ranges. Example: `90D` alerts on images older than 90 days.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "d9976853-63f6-4cec-b94b-7c2c38d56852"
+        }
+    }
+}

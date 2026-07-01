@@ -1,0 +1,225 @@
+{
+    "Command": {
+        "cmd-check-docker-image": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$docker_image_always_ok$"
+                },
+                "--critical": {
+                    "value": "$docker_image_critical$"
+                },
+                "--ignore": {
+                    "value": "$docker_image_ignore$",
+                    "repeat_key": true
+                },
+                "--match": {
+                    "value": "$docker_image_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$docker_image_no_match_severity$"
+                },
+                "--warning": {
+                    "value": "$docker_image_warning$"
+                }
+            },
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/docker-image",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-docker-image",
+            "object_type": "object",
+            "timeout": 20,
+            "vars": {},
+            "zone": null,
+            "uuid": "07e8e15c-e0f6-4a15-85cf-9aed467ac81c"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-docker-image": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-docker-image",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "docker-image.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Lists the container images on a host and checks how old they are. Reports each image's repository tag, age and size, and alerts when an image is older than the configured thresholds, which is a sign that a rebuild or pull was missed. Images can be selected or excluded by name using regular expressions. For Podman, use the podman-image check instead. Requires root or sudo.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-image/",
+            "object_name": "tpl-service-docker-image",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "docker_image_always_ok": false,
+                "docker_image_critical": "365D",
+                "docker_image_ignore": [],
+                "docker_image_match": [],
+                "docker_image_no_match_severity": "ok",
+                "docker_image_warning": "90D"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "dfbf0afe-84df-4cf5-abf8-e46187fcd687"
+        }
+    },
+    "DataList": {
+        "docker_image_no_match_severity_list": {
+            "list_name": "docker_image_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "942e2a40-eeda-4e53-a9f6-17769c9c99fc"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "docker_image_always_ok",
+            "caption": "Docker Image: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "5a49d172-2796-4044-9c16-087ded0ec891"
+        },
+        "2": {
+            "varname": "docker_image_critical",
+            "caption": "Docker Image: Critical",
+            "description": "CRIT threshold for the image age in a human-readable format (s = seconds, m = minutes, h = hours, D = days, W = weeks, M = months, Y = years). Supports Nagios ranges. Example: `180D` alerts on images older than 180 days.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "793be040-170e-4e87-a3b3-f9d5c372eaba"
+        },
+        "3": {
+            "varname": "docker_image_ignore",
+            "caption": "Docker Image: Ignore",
+            "description": "Ignore images whose repository tag matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Example: `--ignore=\"^localhost/\"` to skip locally built images. Example: `--ignore=\"(?i)test\"` (case-insensitive) to skip any image with \"test\" in its tag.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "37d130b2-e3e4-4bca-bd62-23709fba2e60"
+        },
+        "4": {
+            "varname": "docker_image_match",
+            "caption": "Docker Image: Match",
+            "description": "Only check images whose repository tag matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an image must match `--match` AND not match `--ignore` to be checked (include first, exclude second). Example: `--match=\"^docker.io/library/nginx\"` to check only the nginx images.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "cc97b78a-8e95-4702-ab84-e5e36b388538"
+        },
+        "5": {
+            "varname": "docker_image_no_match_severity",
+            "caption": "Docker Image: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "docker_image_no_match_severity_list"
+            },
+            "uuid": "c8b558f1-0747-4398-8201-6e532a95ca78"
+        },
+        "6": {
+            "varname": "docker_image_warning",
+            "caption": "Docker Image: Warning",
+            "description": "WARN threshold for the image age in a human-readable format (s = seconds, m = minutes, h = hours, D = days, W = weeks, M = months, Y = years). Supports Nagios ranges. Example: `90D` alerts on images older than 90 days.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "5b564c4f-b7a1-4717-8194-8f12c1223917"
+        }
+    }
+}

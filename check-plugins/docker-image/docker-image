@@ -1,0 +1,330 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import sys
+
+import lib.args
+import lib.base
+import lib.human
+import lib.lftest
+import lib.shell
+import lib.time
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026070101'
+
+DESCRIPTION = """Lists the container images on a host and checks how old they are. Reports each
+image's repository tag, age and size, and alerts when an image is older than the
+configured thresholds, which is a sign that a rebuild or pull was missed. Images can be
+selected or excluded by name using regular expressions. For Podman, use the podman-image
+check instead.
+Requires root or sudo."""
+
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_WARN_AGE = '90D'
+DEFAULT_CRIT_AGE = '365D'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the image age in a human-readable format '
+        '(s = seconds, m = minutes, h = hours, D = days, W = weeks, M = months, '
+        'Y = years). '
+        'Supports Nagios ranges. '
+        'Example: `180D` alerts on images older than 180 days. '
+        'Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT_AGE,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Ignore images whose repository tag matches this Python regular expression. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. '
+        'Example: `--ignore="^localhost/"` to skip locally built images. '
+        'Example: `--ignore="(?i)test"` (case-insensitive) to skip any image with '
+        '"test" in its tag. '
+        'Default: %(default)s',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only check images whose repository tag matches this Python regular '
+        'expression. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. If both `--match` and `--ignore` are given, '
+        'an image must match `--match` AND not match `--ignore` to be checked '
+        '(include first, exclude second). '
+        'Example: `--match="^docker.io/library/nginx"` to check only the nginx images. '
+        'Default: %(default)s',
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the image age in a human-readable format '
+        '(s = seconds, m = minutes, h = hours, D = days, W = weeks, M = months, '
+        'Y = years). '
+        'Supports Nagios ranges. '
+        'Example: `90D` alerts on images older than 90 days. '
+        'Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN_AGE,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def keep_image(name, match_patterns, ignore_patterns):
+    """Return True if `name` should be kept by the --match / --ignore filter pair,
+    False if it should be dropped. Include first, then exclude: a name passes if it
+    matches any `match_patterns` entry (or if `match_patterns` is empty) AND does not
+    match any `ignore_patterns` entry. Same semantics as the lib.args canonical
+    --match / --ignore convention.
+    """
+    if match_patterns and not any(p.search(name) for p in match_patterns):
+        return False
+    return not any(p.search(name) for p in ignore_patterns)
+
+
+def is_dangling(image):
+    """Return True if the image has lost its repository tag (the engine reports no tags,
+    or the placeholder `<none>:<none>`). Such an image is only reachable by its ID.
+    """
+    return not any(
+        tag and tag != '<none>:<none>' for tag in (image.get('RepoTags') or [])
+    )
+
+
+def get_image_name(image):
+    """Return the image's primary repository tag for display and filtering. A dangling
+    image (one that has lost its tag) has no tag to show, so fall back to its short image
+    ID, which is also what the admin needs to act on it (`docker rmi <id>`).
+    """
+    for tag in image.get('RepoTags') or []:
+        if tag and tag != '<none>:<none>':
+            return tag
+    return image.get('Id', '').split(':')[-1][:12]
+
+
+def get_age(created, now):
+    """Return the image age in seconds, or None if the `Created` timestamp is missing or
+    unusable. `Created` is an RFC 3339 string; only the seconds part is parsed, so
+    fractional seconds and the trailing `Z` (UTC) are handled without extra libraries.
+    """
+    if not created or created.startswith('0001'):
+        return None
+    try:
+        created_epoch = lib.time.timestr2epoch(created[0:19] + 'Z', pattern='iso8601')
+    except ValueError:
+        return None
+    return now - created_epoch
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # compile --match and --ignore patterns (case-sensitive by default, matching
+    # the lib.args convention; the user can opt into case-insensitive matching
+    # with the inline `(?i)` flag)
+    match_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    ignore_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+
+    # convert the human-readable age thresholds to a seconds-based Nagios range,
+    # leaving them as None (no alert) when the admin did not set them
+    warn_age = lib.human.humanrange2seconds(args.WARN) if args.WARN else None
+    crit_age = lib.human.humanrange2seconds(args.CRIT) if args.CRIT else None
+
+    # fetch data
+    if args.TEST is None:
+        # list all image IDs, then inspect them in a single call. `docker image
+        # inspect` errors out when called without arguments, so the empty case is
+        # handled separately below.
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(['docker', 'images', '--quiet', '--no-trunc']),
+        )
+        if retc != 0:
+            lib.base.oao(f'{stderr}\n{stdout}', STATE_CRIT)
+        # `docker images -q` repeats an ID once per tag; inspect each ID only once
+        image_ids = sorted(set(stdout.split()))
+        if image_ids:
+            stdout, stderr, retc = lib.base.coe(
+                lib.shell.shell_exec(['docker', 'image', 'inspect', *image_ids]),
+            )
+            if retc != 0:
+                lib.base.oao(f'{stderr}\n{stdout}', STATE_CRIT)
+        else:
+            stdout = '[]'
+        now = lib.time.now()
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.lftest.test(args.TEST)
+        # pin "now" so the age derived from a fixture's Created is deterministic
+        now = lib.time.timestr2epoch('2026-06-30T08:00:00Z', pattern='iso8601')
+
+    try:
+        inspected = json.loads(stdout)
+    except Exception:
+        lib.base.cu(
+            'Unable to parse docker image inspect output as JSON.'
+            ' If you are using Podman, use the podman-image check instead.'
+        )
+
+    # init some vars
+    msg = ''
+    msg_header = ''
+    state = STATE_OK
+    perfdata = ''
+    table_values = []
+    images_dangling = 0
+
+    # analyze data
+    for image in sorted(inspected, key=get_image_name):
+        name = get_image_name(image)
+        if not keep_image(name, match_patterns, ignore_patterns):
+            continue
+
+        if is_dangling(image):
+            images_dangling += 1
+        age = get_age(image.get('Created', ''), now)
+        size = int(image.get('Size', 0))
+
+        age_state = STATE_OK
+        if age is not None and (warn_age is not None or crit_age is not None):
+            age_state = lib.base.get_state(age, warn_age, crit_age, _operator='range')
+        state = lib.base.get_worst(state, age_state)
+
+        if age_state != STATE_OK:
+            msg_header += (
+                f'{name}: age {lib.human.seconds2human(age)}'
+                f'{lib.base.state2str(age_state, prefix=" ")}, '
+            )
+
+        table_values.append(
+            {
+                'name': name,
+                'age': lib.human.seconds2human(age) if age is not None else '-',
+                'size': lib.human.bytes2human(size),
+                'state': lib.base.state2str(age_state, empty_ok=False),
+            }
+        )
+
+    # nothing left after applying the --match / --ignore filters, or there are no images
+    if not table_values:
+        lib.base.oao(
+            'No images to check.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # build the message. The applied age thresholds go on the first line, like the
+    # updates and rpm-lastactivity checks.
+    note = f'(thresholds {args.WARN}/{args.CRIT})'
+    if msg_header:
+        msg += f'{msg_header[:-2]} {note}\n\n'
+    else:
+        checked = len(table_values)
+        msg += (
+            f'Everything is ok, {checked} '
+            f'{lib.txt.pluralize("image", checked)} checked {note}.\n\n'
+        )
+    perfdata += lib.base.get_perfdata(
+        'images_checked',
+        len(table_values),
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'images_dangling',
+        images_dangling,
+        _min=0,
+    )
+
+    # build table output
+    if len(table_values) > 0:
+        msg += lib.base.get_table(
+            table_values,
+            ['name', 'age', 'size', 'state'],
+            header=['Image', 'Age', 'Size', 'State'],
+        )
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()
