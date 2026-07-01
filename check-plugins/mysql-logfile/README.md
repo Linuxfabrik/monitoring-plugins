@@ -12,7 +12,6 @@ Scans the MySQL/MariaDB error log for errors, warnings, startups and shutdowns. 
 * When reading from an on-disk log file, the check usually needs root/sudo (typical log files are owned by `mysql:mysql`, mode `0640`). The `performance_schema.error_log` path needs only SELECT on that table.
 * Depending on your site's policy, you may want to silence noisy patterns like `aborted connection` or `access denied for user` via `--ignore-pattern` / `--ignore-regex`.
 * Both `--ignore-pattern` and `--ignore-regex` are matched against the lowercased log line, so write your patterns in lowercase (or use the `(?i)` flag in a regex).
-* A common, harmless example is MySQL/MariaDB closing an idle connection after `wait_timeout` (default 8h); the client's connection pool simply reconnects. To silence only that case without hiding real connection errors, anchor the regex on the timeout reason rather than on `aborted connection` alone: `--ignore-regex='aborted connection.*got timeout reading communication packets'`. The variants `got an error reading communication packets` (client died, network glitch, oversized packet) stay visible.
 
 **Data Collection:**
 
@@ -20,7 +19,7 @@ Scans the MySQL/MariaDB error log for errors, warnings, startups and shutdowns. 
 * Otherwise it determines the log file location automatically via `SHOW GLOBAL VARIABLES` (`log_error`, `hostname`, `datadir`), falling back to several well-known paths.
 * Supports reading from a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER`, or `systemd:UNITNAME`.
 * Caches the on-disk log file location in a local SQLite database so the check can still work briefly when the database is down.
-* Lines can be filtered out using `--ignore-pattern` (simple string match) or `--ignore-regex` (Python regular expression). Both are applied to the lowercased log line.
+* Lines can be filtered out using `--ignore-pattern` (simple string match) or `--ignore-regex` (Python regular expression).
 * Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):log_file_recommendations(), verified in sync with v2.8.41.
 
 
