@@ -127,6 +127,7 @@ If you need tags outside of our list, create your own Data List (or rename the s
 ### Criticality
 
 We manage notifications with a custom variable `criticality`, present on both hosts and services. A criticality of `A` triggers notifications 7x24, `B` during `5x12`, `C` never.
+`A+` can be used for important hosts and services to send *additional* notifications, for example SMS notifications. Besides the additional notifications, it acts the same way as `A`.
 
 The host's criticality caps its services' effective criticality. A service tagged `A` on a host tagged `B` is treated as `B`. We try to set reasonable defaults in the Service Templates, so in most cases you only need to set the host criticality.
 
@@ -137,6 +138,7 @@ Host notifications:
 | `A`              | sent during 7x24 |
 | `B`              | sent during 5x12 |
 | `C`              | not sent         |
+| unset            | not sent         |
 
 Service notifications:
 
@@ -151,6 +153,8 @@ Service notifications:
 | `C`              | `A`                 | not sent         |
 | `C`              | `B`                 | not sent         |
 | `C`              | `C`                 | not sent         |
+| any              | unset               | not sent         |
+| unset            | any                 | not sent         |
 
 The criticality behaviour relies on the notification rules in `all-the-rest.json`. If you replace those, the table no longer applies.
 
