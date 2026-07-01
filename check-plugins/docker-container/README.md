@@ -12,6 +12,7 @@ Checks the lifecycle and health of Docker containers: the container status (runn
 * The container status is reported but only alerts when you pin an expected status with `--status` (for example `--status=running`)
 * The restart count is reported for every container, but only alerts when you set `--warning-restarts` or `--critical-restarts`
 * The uptime of running containers is reported, but only alerts when you set `--warning-uptime` or `--critical-uptime` (for example `--warning-uptime=5m:` to catch a container that keeps restarting)
+* On a host with a very large number of containers the check can take a while, since every container is inspected, and may exceed the short check timeout monitoring systems use by default (often 10 seconds); give the check more time if it times out
 
 **Data Collection:**
 

@@ -13,6 +13,7 @@ Checks the lifecycle and health of Podman containers: the container status (runn
 * The restart count is reported for every container, but only alerts when you set `--warning-restarts` or `--critical-restarts`
 * The uptime of running containers is reported, but only alerts when you set `--warning-uptime` or `--critical-uptime` (for example `--warning-uptime=5m:` to catch a container that keeps restarting)
 * Podman runs rootless by default, and every user keeps their containers in their own storage. Running the check as root (via `sudo`) sees root's own containers, not the rootless containers of other users. To check a rootless user's containers, pass `--user=<name>`: the check then runs podman as that user. Every line of output names the inspected user, so an empty result against root's storage is obvious
+* On a host with many containers, or with rootless Podman under `--user`, the check can take a while, since every container is inspected, and may exceed the short check timeout monitoring systems use by default (often 10 seconds); give the check more time if it times out
 
 **Data Collection:**
 
