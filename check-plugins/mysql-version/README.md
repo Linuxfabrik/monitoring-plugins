@@ -35,6 +35,7 @@ Checks the installed MySQL/MariaDB version against the endoflife.date API and al
 usage: mysql-version [-h] [-V] [--always-ok] [--check-major] [--check-minor]
                      [--check-patch] [--insecure] [--no-proxy]
                      [--offset-eol OFFSET_EOL] [--timeout TIMEOUT]
+                     [--unreachable-severity {ok,warn,crit,unknown}]
 
 Checks the installed MySQL/MariaDB version against the endoflife.date API and
 alerts if the version is end-of-life or if newer major, minor, or patch
@@ -62,6 +63,10 @@ options:
                         Alert n days before ("-30") or after an EOL date ("30"
                         or "+30"). Default: -30 days
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --unreachable-severity {ok,warn,crit,unknown}
+                        State to report when the online end-of-life source is
+                        unreachable and the check falls back to the bundled
+                        offline data. Default: ok
 ```
 
 

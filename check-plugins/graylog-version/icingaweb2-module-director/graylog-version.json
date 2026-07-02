@@ -25,6 +25,9 @@
                 },
                 "--timeout": {
                     "value": "$graylog_version_timeout$"
+                },
+                "--unreachable-severity": {
+                    "value": "$graylog_version_unreachable_severity$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/graylog-version",
@@ -69,6 +72,11 @@
                     "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -106,16 +114,14 @@
                 },
                 "--timeout": {
                     "value": "$graylog_version_windows_timeout$"
+                },
+                "--unreachable-severity": {
+                    "value": "$graylog_version_windows_unreachable_severity$"
                 }
             },
             "command": "C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\graylog-version.exe",
             "disabled": false,
             "fields": [
-                {
-                    "datafield_id": 9,
-                    "is_required": "n",
-                    "var_filter": null
-                },
                 {
                     "datafield_id": 10,
                     "is_required": "n",
@@ -148,6 +154,16 @@
                 },
                 {
                     "datafield_id": 16,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 18,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -228,7 +244,8 @@
                 "graylog_version_insecure": false,
                 "graylog_version_no_proxy": false,
                 "graylog_version_offset_eol": -30,
-                "graylog_version_timeout": 8
+                "graylog_version_timeout": 8,
+                "graylog_version_unreachable_severity": "ok"
             },
             "volatile": null,
             "zone": null,
@@ -281,11 +298,76 @@
                 "graylog_version_windows_insecure": false,
                 "graylog_version_windows_no_proxy": false,
                 "graylog_version_windows_offset_eol": -30,
-                "graylog_version_windows_timeout": 8
+                "graylog_version_windows_timeout": 8,
+                "graylog_version_windows_unreachable_severity": "ok"
             },
             "volatile": null,
             "zone": null,
             "uuid": "b7718560-3942-4a50-8b06-c48e63032840"
+        }
+    },
+    "DataList": {
+        "graylog_version_unreachable_severity_list": {
+            "list_name": "graylog_version_unreachable_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "ceb5d601-7ef0-42f6-803b-e4ac927292dd"
+        },
+        "graylog_version_windows_unreachable_severity_list": {
+            "list_name": "graylog_version_windows_unreachable_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "6f2050b3-9a9b-45ce-8da6-890cfc12a010"
         }
     },
     "Datafield": {
@@ -366,6 +448,19 @@
             "uuid": "4ed0281a-9bdd-48c1-9baa-d931ecf574d2"
         },
         "9": {
+            "varname": "graylog_version_unreachable_severity",
+            "caption": "Graylog Version: Unreachable Severity",
+            "description": "State to report when the online end-of-life source is unreachable and the check falls back to the bundled offline data.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "graylog_version_unreachable_severity_list"
+            },
+            "uuid": "5c8d3e3f-32b8-42c9-adf5-4c59631fee2a"
+        },
+        "10": {
             "varname": "graylog_version_windows_always_ok",
             "caption": "Graylog Version: Always OK?",
             "description": "Always returns OK.",
@@ -374,7 +469,7 @@
             "settings": {},
             "uuid": "69b769df-1aa4-41ac-9937-1997c0877760"
         },
-        "10": {
+        "11": {
             "varname": "graylog_version_windows_check_major",
             "caption": "Graylog Version: Check Major?",
             "description": "Alert when a new major release is available, even if the current version is not yet EOL. Example: running v26 (not yet EOL) and v27 is available.",
@@ -383,7 +478,7 @@
             "settings": {},
             "uuid": "5d46685b-3893-4c24-b0d4-5cae68900d46"
         },
-        "11": {
+        "12": {
             "varname": "graylog_version_windows_check_minor",
             "caption": "Graylog Version: Check Minor?",
             "description": "Alert when a new major.minor release is available, even if the current version is not yet EOL. Example: running v26.2 (not yet EOL) and v26.3 is available.",
@@ -392,7 +487,7 @@
             "settings": {},
             "uuid": "1c13a850-d9b5-418b-a855-b88ea57aeb7d"
         },
-        "12": {
+        "13": {
             "varname": "graylog_version_windows_check_patch",
             "caption": "Graylog Version: Check Patch?",
             "description": "Alert when a new major.minor.patch release is available, even if the current version is not yet EOL. Example: running v26.2.7 (not yet EOL) and v26.2.8 is available.",
@@ -401,7 +496,7 @@
             "settings": {},
             "uuid": "a5ffbdf5-07ca-407a-a7ad-2d4f56e09cc0"
         },
-        "13": {
+        "14": {
             "varname": "graylog_version_windows_insecure",
             "caption": "Graylog Version: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -410,7 +505,7 @@
             "settings": {},
             "uuid": "ff06d6a2-1088-44ea-8a63-fb995f1f3f75"
         },
-        "14": {
+        "15": {
             "varname": "graylog_version_windows_no_proxy",
             "caption": "Graylog Version: No Proxy?",
             "description": "Do not use a proxy.",
@@ -419,7 +514,7 @@
             "settings": {},
             "uuid": "d6a0bd36-ada3-434c-be59-38cc91bb109d"
         },
-        "15": {
+        "16": {
             "varname": "graylog_version_windows_offset_eol",
             "caption": "Graylog Version: Offset Eol",
             "description": "Alert n days before (\"-30\") or after an EOL date (\"30\" or \"+30\").",
@@ -430,7 +525,7 @@
             },
             "uuid": "4a8f3c72-23f1-40f1-a4d2-8d604160a09e"
         },
-        "16": {
+        "17": {
             "varname": "graylog_version_windows_timeout",
             "caption": "Graylog Version: Timeout",
             "description": "Network timeout in seconds.",
@@ -440,6 +535,19 @@
                 "visibility": "visible"
             },
             "uuid": "b9d6aa28-4b69-4da6-84b3-3d2aca30e4b6"
+        },
+        "18": {
+            "varname": "graylog_version_windows_unreachable_severity",
+            "caption": "Graylog Version: Unreachable Severity",
+            "description": "State to report when the online end-of-life source is unreachable and the check falls back to the bundled offline data.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "graylog_version_windows_unreachable_severity_list"
+            },
+            "uuid": "71fd72b6-04b7-43ac-ae50-b0ac530573f9"
         }
     }
 }

@@ -37,7 +37,9 @@ Checks the installed Rocket.Chat version against the endoflife.date API and aler
 usage: rocketchat-version [-h] [-V] [--always-ok] [--check-major]
                           [--check-minor] [--check-patch] [--insecure]
                           [--no-proxy] [--offset-eol OFFSET_EOL] -p PASSWORD
-                          [--timeout TIMEOUT] [--url URL] --username USERNAME
+                          [--timeout TIMEOUT]
+                          [--unreachable-severity {ok,warn,crit,unknown}]
+                          [--url URL] --username USERNAME
 
 Checks the installed Rocket.Chat version against the endoflife.date API and
 alerts if the version is end-of-life or if newer major, minor, or patch
@@ -67,6 +69,10 @@ options:
   -p, --password PASSWORD
                         Rocket.Chat API password.
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --unreachable-severity {ok,warn,crit,unknown}
+                        State to report when the online end-of-life source is
+                        unreachable and the check falls back to the bundled
+                        offline data. Default: ok
   --url URL             Rocket.Chat API URL. Default:
                         http://localhost:3000/api/v1
   --username USERNAME   Rocket.Chat API username. Default: rocket-stats

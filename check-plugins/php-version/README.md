@@ -35,6 +35,7 @@ Checks the installed PHP version against the endoflife.date API and alerts if th
 usage: php-version [-h] [-V] [--always-ok] [--check-major] [--check-minor]
                    [--check-patch] [--insecure] [--no-proxy]
                    [--offset-eol OFFSET_EOL] [--path PATH] [--timeout TIMEOUT]
+                   [--unreachable-severity {ok,warn,crit,unknown}]
 
 Checks the installed PHP version against the endoflife.date API and alerts if
 the version is end-of-life or if newer major, minor, or patch releases are
@@ -63,6 +64,10 @@ options:
                         or "+30"). Default: -30 days
   --path PATH           Local path to your PHP binary. Default: /usr/bin/php
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --unreachable-severity {ok,warn,crit,unknown}
+                        State to report when the online end-of-life source is
+                        unreachable and the check falls back to the bundled
+                        offline data. Default: ok
 ```
 
 

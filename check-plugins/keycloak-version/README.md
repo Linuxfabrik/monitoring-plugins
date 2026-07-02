@@ -37,8 +37,9 @@ usage: keycloak-version [-h] [-V] [--always-ok] [--check-major]
                         [--check-minor] [--check-patch]
                         [--client-id CLIENT_ID] [--insecure] [--no-proxy]
                         [--offset-eol OFFSET_EOL] [-p PASSWORD] [--path PATH]
-                        [--realm REALM] [--timeout TIMEOUT] [--url URL]
-                        [--username USERNAME]
+                        [--realm REALM] [--timeout TIMEOUT]
+                        [--unreachable-severity {ok,warn,crit,unknown}]
+                        [--url URL] [--username USERNAME]
 
 Checks the installed Keycloak version against the endoflife.date API and
 alerts if the version is end-of-life or if newer major, minor, or patch
@@ -73,6 +74,10 @@ options:
                         /opt/keycloak
   --realm REALM         Keycloak API realm. Default: master
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --unreachable-severity {ok,warn,crit,unknown}
+                        State to report when the online end-of-life source is
+                        unreachable and the check falls back to the bundled
+                        offline data. Default: ok
   --url URL             Keycloak API URL. Default: http://127.0.0.1:8080
   --username USERNAME   Keycloak API username. Default: admin
 ```

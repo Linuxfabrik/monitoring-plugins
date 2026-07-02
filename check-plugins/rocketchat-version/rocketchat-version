@@ -20,7 +20,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026070201'
 
 DESCRIPTION = """Checks the installed Rocket.Chat version against the endoflife.date API and alerts if
 the version is end-of-life or if newer major, minor, or patch releases are available.
@@ -33,6 +33,7 @@ DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_OFFSET_EOL = -30  # days
 DEFAULT_TIMEOUT = 8
+DEFAULT_UNREACHABLE_SEVERITY = 'ok'
 DEFAULT_URL = 'http://localhost:3000/api/v1'
 DEFAULT_USERNAME = 'rocket-stats'
 
@@ -129,6 +130,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--unreachable-severity',
+        help=lib.args.help('--unreachable-severity') + ' Default: %(default)s',
+        dest='UNREACHABLE_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_UNREACHABLE_SEVERITY,
+    )
+
+    parser.add_argument(
         '--url',
         help='Rocket.Chat API URL. Default: %(default)s',
         dest='URL',
@@ -200,6 +209,7 @@ def main():
         insecure=args.INSECURE,
         no_proxy=args.NO_PROXY,
         timeout=args.TIMEOUT,
+        unreachable_severity=args.UNREACHABLE_SEVERITY,
     )
 
     # over and out

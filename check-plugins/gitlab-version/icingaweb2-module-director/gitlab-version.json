@@ -31,6 +31,9 @@
                 },
                 "--timeout": {
                     "value": "$gitlab_version_timeout$"
+                },
+                "--unreachable-severity": {
+                    "value": "$gitlab_version_unreachable_severity$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/gitlab-version",
@@ -83,6 +86,11 @@
                 },
                 {
                     "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -148,11 +156,45 @@
                 "gitlab_version_no_proxy": false,
                 "gitlab_version_offset_eol": -30,
                 "gitlab_version_path": "/opt/gitlab/version-manifest.txt",
-                "gitlab_version_timeout": 8
+                "gitlab_version_timeout": 8,
+                "gitlab_version_unreachable_severity": "ok"
             },
             "volatile": null,
             "zone": null,
             "uuid": "a5b5125a-d324-41e4-b575-e49fccfa7936"
+        }
+    },
+    "DataList": {
+        "gitlab_version_unreachable_severity_list": {
+            "list_name": "gitlab_version_unreachable_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "59dfef10-3b9a-4068-a9e2-fcdb0dc2da1d"
         }
     },
     "Datafield": {
@@ -251,6 +293,19 @@
                 "visibility": "visible"
             },
             "uuid": "238e1a73-b79f-4814-81a3-81e5ab168e37"
+        },
+        "11": {
+            "varname": "gitlab_version_unreachable_severity",
+            "caption": "Gitlab Version: Unreachable Severity",
+            "description": "State to report when the online end-of-life source is unreachable and the check falls back to the bundled offline data.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "gitlab_version_unreachable_severity_list"
+            },
+            "uuid": "da8beb6e-1a59-4104-8224-c9e650a23083"
         }
     }
 }
