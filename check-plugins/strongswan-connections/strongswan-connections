@@ -33,7 +33,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041407'
+__version__ = '2026070301'
 
 DESCRIPTION = """Checks IPSec connection states on a strongSwan VPN gateway. Connects to the charon
 daemon via the VICI interface to retrieve IKE SA and CHILD SA states. Alerts on
@@ -160,13 +160,15 @@ def format_sas_data(sas):
     values. Both shapes are accepted: `bytes` are decoded via
     `lib.txt.to_text()`, `bytearray` is joined and decoded, and
     anything else (including `str`) is passed through unchanged.
+    Decoding uses the Latin-1 fallback so a non-UTF-8 identity
+    (for example a certificate DN) does not crash the output.
     """
     data = {}
     for key, value in sas.items():
         if isinstance(value, bytes):
-            data[key] = lib.txt.to_text(value)
+            data[key] = lib.txt.to_text(value, errors='strict_or_latin1')
         elif isinstance(value, bytearray):
-            data[key] = lib.txt.to_text(b', '.join(value))
+            data[key] = lib.txt.to_text(b', '.join(value), errors='strict_or_latin1')
         else:
             data[key] = value
         if key == 'integ-alg' and not value:
@@ -218,7 +220,7 @@ def _join_traffic_selectors(values):
     """
     if not values:
         return ''
-    return ', '.join(lib.txt.to_text(v) for v in values)
+    return ', '.join(lib.txt.to_text(v, errors='strict_or_latin1') for v in values)
 
 
 def format_child_data(child):
@@ -237,7 +239,11 @@ def format_child_data(child):
     data['child-life-time'] = int(lib.txt.to_text(child.get('life-time', 0)))
     data['child-local-ts'] = _join_traffic_selectors(child.get('local-ts'))
     data['child-mode'] = lib.txt.to_text(child.get('mode', ''))
-    data['child-name'] = lib.txt.to_text(child.get('name', ''))
+    # child-name is the admin-configured connection name and may carry non-ASCII
+    # bytes, so decode it tolerantly like the SAS scalars (Linuxfabrik/lib#256).
+    data['child-name'] = lib.txt.to_text(
+        child.get('name', ''), errors='strict_or_latin1'
+    )
     data['child-protocol'] = lib.txt.to_text(child.get('protocol', ''))
     data['child-rekey-time'] = int(lib.txt.to_text(child.get('rekey-time', 0)))
     data['child-remote-ts'] = _join_traffic_selectors(child.get('remote-ts'))

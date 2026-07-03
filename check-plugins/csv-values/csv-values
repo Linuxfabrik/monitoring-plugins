@@ -32,7 +32,7 @@ except ModuleNotFoundError as e:
     missing_lib = e.name
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060101'
+__version__ = '2026070301'
 
 DESCRIPTION = """Imports a CSV file (local, remote via URL, or from an SMB share) into a temporary
 SQLite database and runs configurable SQL queries against it. Separate queries can be
@@ -305,7 +305,7 @@ def main():
             with lib.base.coe(
                 lib.smb.open_file(url, args.USERNAME, args.PASSWORD, args.TIMEOUT)
             ) as fd:
-                csv = lib.txt.to_text(fd.read())
+                csv = lib.txt.to_text(fd.read(), errors='strict_or_latin1')
 
         args.FILENAME = lib.base.coe(
             lib.db_sqlite.get_db_path(
