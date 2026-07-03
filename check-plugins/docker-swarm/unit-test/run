@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# The plugin reads two data sources: `docker info` (suffix `-info`) and,
+# on a manager, `docker node ls` (suffix `-nodes`). A single `--test`
+# base path drives both fixtures; a scenario without a `-nodes` file
+# simulates a worker node that cannot list the cluster.
+TESTS = [
+    {
+        'id': 'ok-manager-healthy',
+        'test': 'stdout/manager-healthy,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Swarm is active',
+            '2/2 nodes ready',
+            '1/1 manager reachable',
+        ],
+    },
+    {
+        'id': 'ok-manager-healthy-lengthy',
+        'test': 'stdout/manager-healthy,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'docker-1',
+            'docker-2',
+            'Leader',
+            'Ready',
+        ],
+    },
+    {
+        'id': 'ok-worker-active',
+        'test': 'stdout/worker-active,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Swarm is active', 'worker node'],
+        # a worker cannot list the cluster, so no node/manager counts
+        'assert-not-in': ['nodes ready', 'reachable'],
+    },
+    {
+        'id': 'crit-not-in-swarm',
+        'test': 'stdout/not-in-swarm,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['local node state is "inactive"'],
+    },
+    {
+        'id': 'warn-pending',
+        'test': 'stdout/pending,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['local node state is "pending"'],
+    },
+    {
+        'id': 'warn-node-down',
+        'test': 'stdout/node-down,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'node docker-2 is Down',
+            '1/2 nodes ready',
+        ],
+    },
+    {
+        'id': 'crit-quorum-lost',
+        'test': 'stdout/quorum-lost,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'manager quorum lost',
+            '1/3 reachable',
+        ],
+    },
+    {
+        'id': 'unknown-unparseable-info',
+        # a Podman host answers `docker info` without a Swarm object,
+        # so the JSON is `null` and the swarm state cannot be determined
+        'test': 'stdout/podman-null,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Podman does not support swarm mode'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../docker-swarm'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

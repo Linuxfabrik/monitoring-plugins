@@ -1,0 +1,294 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import os
+import sys
+
+import lib.args
+import lib.base
+import lib.lftest
+import lib.shell
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026070201'
+
+DESCRIPTION = """Checks whether the local node participates in a Docker Swarm and whether the
+cluster is healthy. On every node the local swarm state is verified (active, pending,
+inactive, locked, error). On a manager node the check additionally lists all cluster
+nodes, alerts on nodes that are down and verifies that the managers still form a quorum,
+so a lost or unreachable manager is caught before the control plane fails. Node
+availability (active, pause, drain) is reported for context but does not raise an alert,
+since draining a node is a deliberate operator action. Podman does not support swarm
+mode, so there is no Podman counterpart to this check.
+Requires root or sudo."""
+
+# Maps the local swarm state reported by `docker info` to a monitoring
+# state. `active` is the only healthy value; `pending` is transient
+# (the node is joining or leaving) and only warns, everything else means
+# the node is not usefully participating in the swarm.
+LOCAL_NODE_STATE = {
+    'active': STATE_OK,
+    'pending': STATE_WARN,
+    'inactive': STATE_CRIT,
+    'locked': STATE_CRIT,
+    'error': STATE_CRIT,
+}
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def load_fixture(test_args, suffix):
+    """Read a unit-test fixture for one of the plugin's data sources. The base path
+    is `args.TEST[0]`; `suffix` selects the source (`-info`, `-nodes`), so a single
+    `--test` value drives both the `docker info` and the `docker node ls` fixtures.
+    Returns the raw stdout string, or None if the fixture does not exist (used to
+    simulate a worker node that has no `docker node ls` output).
+    """
+    path = f'{test_args[0]}{suffix}'
+    if not os.path.isfile(path):
+        return None
+    local_args = list(test_args)
+    local_args[0] = path
+    stdout, _, _ = lib.lftest.test(local_args)
+    return stdout
+
+
+def get_swarm_info(test_args):
+    """Return the parsed `docker info` Swarm object. Live it comes from
+    `docker info --format '{{json .}}'`, which works on every node (worker or
+    manager) and reports the local swarm state under the `Swarm` key. The full
+    info object is fetched (rather than `{{json .Swarm}}`) because Podman's
+    docker-compatible `info` has no `Swarm` field, and asking for it directly
+    makes the Go template abort with a non-zero exit code that would otherwise
+    be misread as a daemon failure. Fetching the whole object lets us detect
+    the missing `Swarm` key and report UNKNOWN instead.
+    """
+    if test_args is None:
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(['docker', 'info', '--format', '{{json .}}']),
+        )
+        if retc != 0:
+            lib.base.oao(f'{stderr}\n{stdout}', STATE_CRIT)
+    else:
+        stdout = load_fixture(test_args, '-info') or ''
+    try:
+        info = json.loads(stdout)
+    except (json.JSONDecodeError, ValueError):
+        info = None
+    swarm = info.get('Swarm') if isinstance(info, dict) else None
+    # Podman's docker-compatible `info` carries no `Swarm` object, so a
+    # missing or non-dict value means the host does not support swarm mode
+    if not isinstance(swarm, dict):
+        lib.base.cu(
+            'Unable to determine the swarm state. This check requires Docker;'
+            ' Podman does not support swarm mode.'
+        )
+    return swarm
+
+
+def get_nodes(test_args):
+    """Return the list of swarm nodes as reported by `docker node ls`. This only works
+    on a manager node, so the caller must ensure the local node is a manager before
+    calling. The CLI emits one JSON object per line (not a JSON array); each object
+    carries the human-formatted fields Hostname, Status, Availability and ManagerStatus.
+    """
+    if test_args is None:
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(['docker', 'node', 'ls', '--format', '{{json .}}']),
+        )
+        if retc != 0:
+            lib.base.oao(f'{stderr}\n{stdout}', STATE_WARN)
+    else:
+        stdout = load_fixture(test_args, '-nodes') or ''
+    nodes = []
+    for line in stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            nodes.append(json.loads(line))
+        except (json.JSONDecodeError, ValueError):
+            lib.base.cu('Unable to parse the docker node ls output.')
+    return nodes
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    swarm = get_swarm_info(args.TEST)
+    if 'LocalNodeState' not in swarm:
+        lib.base.cu(
+            'No swarm state reported. This check requires Docker;'
+            ' Podman does not support swarm mode.'
+        )
+    local_state = swarm.get('LocalNodeState', '')
+    is_manager = bool(swarm.get('ControlAvailable', False))
+
+    # node- and manager-level data is only available on a manager whose local
+    # swarm state is active; a worker only knows about itself
+    nodes = []
+    if is_manager and local_state == 'active':
+        nodes = get_nodes(args.TEST)
+
+    # init some vars
+    msg = ''
+    msg_header = ''
+    perfdata = ''
+    table_data = []
+    nodes_total = len(nodes)
+    nodes_ready = nodes_down = 0
+    managers_total = managers_reachable = 0
+
+    # analyze data - local swarm state of this node
+    state = LOCAL_NODE_STATE.get(local_state, STATE_CRIT)
+    if state != STATE_OK:
+        msg_header += (
+            f'local node state is "{local_state}"'
+            f'{lib.base.state2str(state, prefix=" ")}, '
+        )
+
+    # analyze data - cluster nodes and manager quorum (manager only)
+    for node in sorted(nodes, key=lambda n: n.get('Hostname', '')):
+        node_status = node.get('Status', '')
+        availability = node.get('Availability', '')
+        manager_status = node.get('ManagerStatus', '')
+
+        if node_status == 'Ready':
+            nodes_ready += 1
+        else:
+            nodes_down += 1
+            # a down node costs the cluster redundancy but is not a full
+            # outage on its own, so it only warns
+            node_state = STATE_WARN
+            state = lib.base.get_worst(state, node_state)
+            msg_header += (
+                f'node {node.get("Hostname", "?")} is {node_status or "down"}'
+                f'{lib.base.state2str(node_state, prefix=" ")}, '
+            )
+
+        if manager_status:
+            managers_total += 1
+            # Leader and Reachable managers count towards the raft quorum;
+            # an Unreachable manager does not
+            if manager_status in ('Leader', 'Reachable'):
+                managers_reachable += 1
+
+        if args.LENGTHY:
+            table_data.append(
+                {
+                    'hostname': node.get('Hostname', '?'),
+                    'status': node_status or '-',
+                    'availability': availability or '-',
+                    'manager': manager_status or '-',
+                    'state': lib.base.state2str(
+                        STATE_OK if node_status == 'Ready' else STATE_WARN,
+                        empty_ok=False,
+                    ),
+                }
+            )
+
+    # a swarm loses its ability to make control-plane decisions once half or
+    # more of its managers are no longer reachable (raft needs a majority)
+    if managers_total and managers_reachable * 2 <= managers_total:
+        state = lib.base.get_worst(state, STATE_CRIT)
+        msg_header += (
+            f'manager quorum lost, only {managers_reachable}/{managers_total} reachable'
+            f'{lib.base.state2str(STATE_CRIT, prefix=" ")}, '
+        )
+
+    # build the message
+    if msg_header:
+        msg += msg_header[:-2]
+    else:
+        msg += 'Swarm is active'
+    if is_manager and local_state == 'active':
+        msg += (
+            f'. {nodes_ready}/{nodes_total} nodes ready'
+            f', {managers_reachable}/{managers_total} '
+            f'{lib.txt.pluralize("manager", managers_total)} reachable'
+        )
+    elif local_state == 'active':
+        msg += ' (worker node)'
+
+    if is_manager and local_state == 'active':
+        perfdata += lib.base.get_perfdata('nodes_total', nodes_total, _min=0)
+        perfdata += lib.base.get_perfdata('nodes_ready', nodes_ready, _min=0)
+        perfdata += lib.base.get_perfdata('nodes_down', nodes_down, _min=0)
+        perfdata += lib.base.get_perfdata('managers_total', managers_total, _min=0)
+        perfdata += lib.base.get_perfdata(
+            'managers_reachable', managers_reachable, _min=0
+        )
+
+    # build table output
+    if args.LENGTHY and table_data:
+        msg += '\n\n' + lib.base.get_table(
+            table_data,
+            ['hostname', 'status', 'availability', 'manager', 'state'],
+            header=['Hostname', 'Status', 'Availability', 'Manager', 'State'],
+        )
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

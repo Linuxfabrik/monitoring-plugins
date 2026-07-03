@@ -1,0 +1,458 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import math
+import os
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.lftest
+import lib.shell
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026070201'
+
+DESCRIPTION = """Checks the health of Docker Swarm services: how many of the expected tasks
+(containers) of a service are actually running, and optionally whether those tasks are
+spread evenly across the swarm nodes. The number of running tasks is compared against an
+expected count as a percentage, so a service that lost some but not all of its tasks can
+warn before it goes fully down. The expected count defaults to the service's own desired
+replica count, but can be pinned per service with --service, so scaling a service down by
+mistake is still caught against the count the service is supposed to run. With
+--check-distribution the check also warns when more tasks of a service sit on a single
+node than an even spread would place there, which surfaces a node that silently stopped
+taking work. Must be run on a swarm manager node, since only managers can list services.
+Podman does not support swarm mode, so there is no Podman counterpart to this check.
+Requires root or sudo."""
+
+DEFAULT_CRIT = '50:'
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_WARN = '100:'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--check-distribution',
+        help='Also warn when a service has more tasks on a single node than an even '
+        'spread across all swarm nodes would place there (optimal = ceil(expected / '
+        'number of nodes)). Catches an imbalance such as both replicas of a two-replica '
+        'service running on the same node while another node sits idle. '
+        'Off by default, because it inspects the task placement of every checked '
+        'service and adds one call per service. '
+        'Default: %(default)s',
+        dest='CHECK_DISTRIBUTION',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the percentage of expected tasks that are running, '
+        'compared as a Nagios range. '
+        'Default: %(default)s (crit when fewer than 50%% of the expected tasks run). '
+        'Example: `--critical=25:` alerts only once more than three quarters of the '
+        'tasks are gone.',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Ignore services whose name matches this Python regular expression. '
+        'Only applies when no --service is given (all services are checked). '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. '
+        'Example: `--ignore="^test_"` to skip throwaway test services. '
+        'Default: %(default)s',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--service',
+        help='Check this service and, optionally, the number of tasks it is expected to '
+        'run, written as `name=count`. '
+        "Without `=count` the service's own desired replica count is used as the "
+        'expectation. '
+        'Can be specified multiple times; if given at least once, only the named '
+        'services are checked. '
+        'Example: `--service=web=2` alerts when the `web` service does not run its two '
+        'expected tasks, even after someone scaled it down to one. '
+        'Example: `--service=traefik` checks `traefik` against its own desired count. '
+        'Default: %(default)s',
+        dest='SERVICE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the percentage of expected tasks that are running, '
+        'compared as a Nagios range. '
+        'Default: %(default)s (warn when fewer than 100%% of the expected tasks run). '
+        'Example: `--warning=90:` tolerates losing up to 10%% of the tasks before '
+        'warning.',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def parse_service_specs(specs):
+    """Turn the --service values into an ordered {name: expected_count} map. `count`
+    is an int when the spec is `name=count`, or None when only `name` is given (meaning
+    fall back to the service's own desired replica count). Exits UNKNOWN on a malformed
+    count so a typo does not silently disable the expectation.
+    """
+    expected = {}
+    for spec in specs:
+        if '=' in spec:
+            name, _, count = spec.partition('=')
+            name = name.strip()
+            try:
+                expected[name] = int(count)
+            except ValueError:
+                lib.base.cu(
+                    f'Invalid --service count in "{spec}", expected name=count.'
+                )
+        else:
+            expected[spec.strip()] = None
+    return expected
+
+
+def load_fixture(test_args, suffix):
+    """Read a unit-test fixture for one of the plugin's data sources, selected by
+    `suffix` (`-services`, `-nodes`, `-ps-<service>`). The base path is `args.TEST[0]`,
+    so a single --test value drives every source. Returns the raw stdout string, or an
+    empty string if the fixture does not exist (e.g. a scenario without any services).
+    """
+    path = f'{test_args[0]}{suffix}'
+    if not os.path.isfile(path):
+        return ''
+    local_args = list(test_args)
+    local_args[0] = path
+    stdout, _, _ = lib.lftest.test(local_args)
+    return stdout
+
+
+def get_services(test_args):
+    """Return the swarm services as reported by `docker service ls`, one dict per
+    service (Name, Mode, Replicas). Must run on a manager. `docker service ls` emits one
+    JSON object per line, not a JSON array.
+    """
+    if test_args is None:
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(['docker', 'service', 'ls', '--format', '{{json .}}']),
+        )
+        if retc != 0:
+            # a worker cannot list services; that is a placement mistake, not a
+            # service outage, so report UNKNOWN rather than a misleading CRIT
+            if 'not a swarm manager' in stderr.lower():
+                lib.base.cu(
+                    'This node is not a swarm manager. Run docker-service on a manager.'
+                )
+            lib.base.oao(f'{stderr}\n{stdout}', STATE_UNKNOWN)
+    else:
+        stdout = load_fixture(test_args, '-services')
+    return parse_json_lines(stdout, 'docker service ls')
+
+
+def get_service_tasks(test_args, name):
+    """Return the tasks of a single service as reported by `docker service ps`, one dict
+    per task (Node, DesiredState, CurrentState). Used for the distribution check.
+    """
+    if test_args is None:
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                [
+                    'docker',
+                    'service',
+                    'ps',
+                    '--no-trunc',
+                    '--format',
+                    '{{json .}}',
+                    name,
+                ]
+            ),
+        )
+        if retc != 0:
+            lib.base.oao(f'{stderr}\n{stdout}', STATE_UNKNOWN)
+    else:
+        # the service name can contain characters unsafe for a filename, but the
+        # test service names used in fixtures are plain, so a direct suffix is fine
+        stdout = load_fixture(test_args, f'-ps-{name}')
+    return parse_json_lines(stdout, 'docker service ps')
+
+
+def get_node_count(test_args):
+    """Return the total number of swarm nodes, used as the denominator for the even-
+    spread optimum in the distribution check. All nodes count, including a drained one,
+    so that both replicas landing on one node because the other was drained is still
+    flagged as an imbalance the operator should see.
+    """
+    if test_args is None:
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(['docker', 'node', 'ls', '--format', '{{json .}}']),
+        )
+        if retc != 0:
+            lib.base.oao(f'{stderr}\n{stdout}', STATE_UNKNOWN)
+    else:
+        stdout = load_fixture(test_args, '-nodes')
+    return len(parse_json_lines(stdout, 'docker node ls'))
+
+
+def parse_json_lines(stdout, source):
+    """Parse the newline-delimited JSON that the docker CLI emits with
+    `--format '{{json .}}'` into a list of dicts. Exits UNKNOWN on malformed input.
+    """
+    rows = []
+    for line in stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rows.append(json.loads(line))
+        except (json.JSONDecodeError, ValueError):
+            lib.base.cu(f'Unable to parse the {source} output.')
+    return rows
+
+
+def parse_replicas(replicas):
+    """Return (running, desired) from a `docker service ls` Replicas string such as
+    `2/2`, `0/2` or `2/2 (max 1 per node)`. Returns (0, 0) if it cannot be parsed.
+    """
+    match = re.match(r'(\d+)\s*/\s*(\d+)', replicas or '')
+    if not match:
+        return (0, 0)
+    return (int(match.group(1)), int(match.group(2)))
+
+
+def count_tasks_per_node(tasks):
+    """Return {node: running_task_count} for the tasks that are supposed to be running
+    and actually are. Swarm keeps historic shut-down tasks in `docker service ps`
+    output (DesiredState `Shutdown`), so only tasks whose desired state is `Running` and
+    whose current state starts with `Running` are counted.
+    """
+    per_node = {}
+    for task in tasks:
+        if task.get('DesiredState', '') != 'Running':
+            continue
+        if not task.get('CurrentState', '').startswith('Running'):
+            continue
+        node = task.get('Node', '')
+        per_node[node] = per_node.get(node, 0) + 1
+    return per_node
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+
+    # compile the --ignore regexes once (case-sensitive by default, matching the
+    # lib.args convention; opt into case-insensitive matching with inline `(?i)`)
+    ignore_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+
+    # fetch data
+    services = get_services(args.TEST)
+    services_by_name = {s.get('Name', ''): s for s in services}
+
+    # a total node count is only needed for the distribution optimum
+    node_count = get_node_count(args.TEST) if args.CHECK_DISTRIBUTION else 0
+
+    # init some vars
+    msg = ''
+    msg_header = ''
+    state = STATE_OK
+    perfdata = ''
+    table_data = []
+    services_degraded = 0
+    tasks_running_total = 0
+    tasks_expected_total = 0
+
+    # decide which services to check and their expected task count. With --service the
+    # named services are checked (against a pinned count or their own desired count);
+    # without it every service is checked against its own desired count, minus --ignore.
+    if args.SERVICE:
+        expected_map = parse_service_specs(args.SERVICE)
+        check_names = list(expected_map)
+    else:
+        expected_map = {}
+        check_names = [
+            name
+            for name in services_by_name
+            if name and not any(p.search(name) for p in ignore_patterns)
+        ]
+
+    # analyze data
+    for name in sorted(check_names):
+        service = services_by_name.get(name)
+        mode = service.get('Mode', '') if service else ''
+        running, desired = (
+            parse_replicas(service.get('Replicas')) if service else (0, 0)
+        )
+
+        # the expectation is the pinned count if given, otherwise the service's own
+        # desired replica count
+        pinned = expected_map.get(name)
+        expected = pinned if pinned is not None else desired
+
+        # a service with no expected tasks (scaled to zero, no pin) is intentionally
+        # idle and does not alarm; percentage would divide by zero otherwise
+        pct = 100 if expected <= 0 else running / expected * 100
+        service_state = lib.base.get_state(pct, args.WARN, args.CRIT, _operator='range')
+
+        # distribution: warn when more tasks sit on one node than an even spread would
+        max_per_node = 0
+        optimal = 0
+        dist_state = STATE_OK
+        if args.CHECK_DISTRIBUTION and service and mode != 'global' and expected > 0:
+            per_node = count_tasks_per_node(get_service_tasks(args.TEST, name))
+            max_per_node = max(per_node.values()) if per_node else 0
+            optimal = math.ceil(expected / node_count) if node_count else expected
+            if max_per_node > optimal:
+                dist_state = STATE_WARN
+
+        service_worst = lib.base.get_worst(service_state, dist_state)
+        state = lib.base.get_worst(state, service_worst)
+        if service_worst != STATE_OK:
+            services_degraded += 1
+        tasks_running_total += running
+        tasks_expected_total += expected
+
+        # collect a concise problem note for the first output line
+        if service_worst != STATE_OK:
+            problems = []
+            if service_state != STATE_OK:
+                problems.append(f'{running}/{expected} tasks running')
+            if dist_state != STATE_OK:
+                problems.append(f'{max_per_node} tasks on one node (optimal {optimal})')
+            msg_header += (
+                f'{name}: {", ".join(problems)}'
+                f'{lib.base.state2str(service_worst, prefix=" ")}, '
+            )
+
+        table_data.append(
+            {
+                'name': name,
+                'mode': mode or '-',
+                'replicas': f'{running}/{expected}',
+                'distribution': f'{max_per_node}/{optimal}'
+                if args.CHECK_DISTRIBUTION and mode != 'global'
+                else '-',
+                'state': lib.base.state2str(service_worst, empty_ok=False),
+            }
+        )
+
+    # nothing to check: no services exist, or --ignore removed them all, or a named
+    # service list matched nothing; report the configured no-match severity
+    if not table_data:
+        lib.base.oao(
+            'No services to check.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # build the message
+    checked = len(table_data)
+    if msg_header:
+        msg += msg_header[:-2] + '\n\n'
+    else:
+        msg += (
+            f'Everything is ok, {checked} '
+            f'{lib.txt.pluralize("service", checked)} checked.\n\n'
+        )
+    perfdata += lib.base.get_perfdata('services_checked', checked, _min=0)
+    perfdata += lib.base.get_perfdata('services_degraded', services_degraded, _min=0)
+    perfdata += lib.base.get_perfdata('tasks_running', tasks_running_total, _min=0)
+    perfdata += lib.base.get_perfdata('tasks_expected', tasks_expected_total, _min=0)
+
+    # build table output
+    if args.LENGTHY:
+        keys = ['name', 'mode', 'replicas', 'distribution', 'state']
+        headers = ['Service', 'Mode', 'Running/Expected', 'Node max/optimal', 'State']
+    else:
+        keys = ['name', 'replicas', 'state']
+        headers = ['Service', 'Running/Expected', 'State']
+    msg += lib.base.get_table(table_data, keys, header=headers)
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

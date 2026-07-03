@@ -1,0 +1,335 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import os
+import shutil
+import sys
+import tempfile
+import time
+
+# testcontainers-python normally starts a Ryuk side-car to clean up
+# containers on exit. Ryuk needs a long-running TCP socket that rootless
+# podman does not reliably provide, so disable it before any
+# testcontainers code runs; the `with` context managers handle cleanup.
+os.environ.setdefault('TESTCONTAINERS_RYUK_DISABLED', 'true')
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+try:
+    from testcontainers.core.container import DockerContainer
+    from testcontainers.core.network import Network
+except ImportError:
+    DockerContainer = None
+    Network = None
+
+# Fast fixture tests for the four service scenarios from the internal
+# Docker docs (a-d). A single --test base path drives three data
+# sources: `docker service ls` (suffix `-services`), `docker service ps`
+# (suffix `-ps-<service>`) and `docker node ls` (suffix `-nodes`). The
+# live 2-node swarm counterpart lives in the container-based test.
+TESTS = [
+    # a) two replicas, one per node: full and evenly spread -> OK
+    {
+        'id': 'ok-a-distributed',
+        'test': 'stdout/svc-a-distributed,,0',
+        'params': '--service=web=2 --check-distribution',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok', 'web', '2/2'],
+    },
+    # b) scaled down to one task while two are expected -> 50% -> WARN
+    {
+        'id': 'warn-b-scaled-down',
+        'test': 'stdout/svc-b-scaled-down,,0',
+        'params': '--service=web=2',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['web: 1/2 tasks running'],
+    },
+    # c) both replicas on one node (other drained) -> distribution WARN
+    {
+        'id': 'warn-c-imbalanced',
+        'test': 'stdout/svc-c-imbalanced,,0',
+        'params': '--service=web=2 --check-distribution',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 tasks on one node (optimal 1)'],
+    },
+    # c without --check-distribution: replicas are full, so no alarm
+    {
+        'id': 'ok-c-imbalanced-without-distribution-check',
+        'test': 'stdout/svc-c-imbalanced,,0',
+        'params': '--service=web=2',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok'],
+    },
+    # d) scaled to zero while two are expected -> 0% -> CRIT
+    {
+        'id': 'crit-d-scaled-zero',
+        'test': 'stdout/svc-d-scaled-zero,,0',
+        'params': '--service=web=2',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['web: 0/2 tasks running'],
+    },
+    # d) service removed entirely, still expected -> 0 running -> CRIT
+    {
+        'id': 'crit-d-removed',
+        'test': 'stdout/svc-d-removed,,0',
+        'params': '--service=web=2',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['web: 0/2 tasks running'],
+    },
+    # default (no --service): every service checked against its own desired count
+    {
+        'id': 'ok-all-default',
+        'test': 'stdout/all-ok,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok', '2 services checked'],
+    },
+    # --ignore drops a service from the default all-services set
+    {
+        'id': 'ok-ignore-filters-service',
+        'test': 'stdout/all-ok,,0',
+        'params': "--ignore='^redis$'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 service checked', 'web'],
+        'assert-not-in': ['redis'],
+    },
+    # global services have one task per node; distribution never alarms on them
+    {
+        'id': 'ok-global',
+        'test': 'stdout/global-ok,,0',
+        'params': '--check-distribution',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok', 'node-exporter'],
+    },
+    # no services at all: report the default no-match severity (ok)
+    {
+        'id': 'ok-no-services',
+        'test': 'stdout/none,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No services to check'],
+    },
+    # a pinned service that does not exist, with crit no-match escalation is
+    # already covered by crit-d-removed; here verify the crit no-match path for
+    # the default set when nothing matches
+    {
+        'id': 'crit-no-services-escalated',
+        'test': 'stdout/none,,0',
+        'params': '--no-match-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['No services to check'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../docker-service'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+# Live integration test against a real two-node Docker Swarm, built from
+# two docker-in-docker containers exactly as the internal Docker docs
+# describe (network `swarmnet`, `docker:dind` with an empty
+# DOCKER_TLS_CERTDIR, swarm init on node1, worker join from node2). A
+# single swarm is mutated through the four scenarios a-d so the whole
+# walk needs only one cluster:
+#
+#   a) 2 replicas, one per node        -> docker-service OK, docker-swarm OK
+#   b) scaled down to 1, expected 2    -> docker-service WARN (50%)
+#   c) both replicas on one node       -> docker-service WARN (distribution)
+#   d) scaled to 0, expected 2         -> docker-service CRIT (0%)
+#
+# The plugins run inside the manager container (node1), where the docker
+# CLI reaches the swarm, so this exercises the exact code path used in
+# production. python3 plus the local lib/ and both plugin scripts are
+# injected into node1; the fast fixture tests above cover the parsing and
+# state-machine edge cases that a freshly-built clean swarm cannot
+# reproduce. Requires podman (or docker) with a reachable socket; the
+# block is a no-op when testcontainers is not installed.
+HERE = os.path.dirname(os.path.abspath(__file__))
+LIB_DIR = os.path.realpath(os.path.join(HERE, '..', 'lib'))
+PLUGIN_SERVICE = os.path.realpath(os.path.join(HERE, '..', 'docker-service'))
+PLUGIN_SWARM = os.path.realpath(
+    os.path.join(HERE, '..', '..', 'docker-swarm', 'docker-swarm')
+)
+
+DIND_IMAGE = 'docker.io/library/docker:27-dind'
+SERVICE_IMAGE = 'docker.io/library/nginx:alpine'
+
+
+def _sh(container, script):
+    """Run `sh -c <script>` inside `container` and return (exit_code, output_str).
+
+    `exec` blocks until the command finishes, so long-running steps such as an
+    image pull simply take as long as they take.
+    """
+    result = container.exec(['sh', '-c', script])
+    output = (result.output or b'').decode('utf-8', errors='replace')
+    return result.exit_code, output
+
+
+def _wait_for_dockerd(test, container, name, timeout=60):
+    """Poll until the docker daemon inside a dind container is responsive."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        code, _ = _sh(container, 'docker info >/dev/null 2>&1 && echo up')
+        if code == 0:
+            return
+        time.sleep(1)
+    test.fail(f'docker daemon in {name} did not come up within {timeout}s')
+
+
+def _wait_for_replicas(test, node1, want, timeout=180):
+    """Poll `docker service ls` until the `web` service reports `want` (e.g. `2/2`)."""
+    deadline = time.time() + timeout
+    last = ''
+    while time.time() < deadline:
+        code, out = _sh(
+            node1, "docker service ls --filter name=web --format '{{.Replicas}}'"
+        )
+        last = out.strip()
+        if code == 0 and last.startswith(want):
+            return
+        time.sleep(2)
+    test.fail(f'web service did not reach {want} within {timeout}s (last: {last!r})')
+
+
+def _wait_for_max_on_one_node(test, node1, want, timeout=120):
+    """Poll `docker service ps` until `want` running tasks of `web` sit on one node."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        code, out = _sh(
+            node1,
+            'docker service ps web --no-trunc '
+            "--filter desired-state=running --format '{{.Node}}'",
+        )
+        nodes = [line.strip() for line in out.splitlines() if line.strip()]
+        if code == 0 and nodes and max(nodes.count(n) for n in set(nodes)) >= want:
+            return
+        time.sleep(2)
+    test.fail(f'web tasks did not pile up to {want} on one node within {timeout}s')
+
+
+class TestLiveSwarm(unittest.TestCase):
+    def test_two_node_swarm_scenarios(self):
+        if DockerContainer is None:
+            self.skipTest('testcontainers is not installed')
+
+        # Stage lib/ plus both plugin scripts in one directory and bind-mount
+        # that single directory into node1. Mounting individual files into a
+        # dind container is unreliable, and copying the lib tree lets us skip
+        # its `tests/` symlinks (which otherwise recurse) and its __pycache__.
+        staging = tempfile.mkdtemp(prefix='lfmp-docker-swarm-')
+        self.addCleanup(shutil.rmtree, staging, ignore_errors=True)
+        shutil.copytree(
+            LIB_DIR,
+            os.path.join(staging, 'lib'),
+            ignore=shutil.ignore_patterns('tests', '__pycache__', '.git', '*.md'),
+        )
+        shutil.copy(PLUGIN_SERVICE, os.path.join(staging, 'docker-service'))
+        shutil.copy(PLUGIN_SWARM, os.path.join(staging, 'docker-swarm'))
+
+        with Network() as net:
+            node1 = (
+                DockerContainer(DIND_IMAGE)
+                .with_env('DOCKER_TLS_CERTDIR', '')
+                .with_network(net)
+                .with_network_aliases('node1')
+                .with_kwargs(privileged=True, hostname='node1')
+                .with_volume_mapping(staging, '/opt/lfmp', mode='ro,Z')
+            )
+            node2 = (
+                DockerContainer(DIND_IMAGE)
+                .with_env('DOCKER_TLS_CERTDIR', '')
+                .with_network(net)
+                .with_network_aliases('node2')
+                .with_kwargs(privileged=True, hostname='node2')
+            )
+            with node1, node2:
+                _wait_for_dockerd(self, node1, 'node1')
+                _wait_for_dockerd(self, node2, 'node2')
+
+                # form the swarm: node1 is the manager, node2 joins as worker
+                ip = _sh(node1, 'hostname -i')[1].split()[0]
+                code, out = _sh(node1, f'docker swarm init --advertise-addr {ip}')
+                self.assertEqual(code, 0, f'swarm init failed: {out}')
+                token = _sh(node1, 'docker swarm join-token --quiet worker')[1].strip()
+                code, out = _sh(node2, f'docker swarm join --token {token} {ip}:2377')
+                self.assertEqual(code, 0, f'swarm join failed: {out}')
+
+                # install python3 in the manager so the plugins can run there
+                code, out = _sh(node1, 'apk add --no-cache python3')
+                self.assertEqual(code, 0, f'apk add python3 failed: {out}')
+
+                # scenario a) two replicas, evenly spread over the two nodes
+                code, out = _sh(
+                    node1,
+                    'docker service create --name web --detach --replicas 2 '
+                    f'{SERVICE_IMAGE}',
+                )
+                self.assertEqual(code, 0, f'service create failed: {out}')
+                _wait_for_replicas(self, node1, '2/2')
+
+                rc, out = _sh(
+                    node1,
+                    'cd /opt/lfmp && python3 ./docker-service '
+                    '--service=web=2 --check-distribution',
+                )
+                print(f'[a] docker-service:\n{out}', flush=True)
+                self.assertEqual(rc, STATE_OK, out)
+
+                # the swarm itself is healthy, so docker-swarm is OK
+                rc, out = _sh(node1, 'cd /opt/lfmp && python3 ./docker-swarm')
+                print(f'[a] docker-swarm:\n{out}', flush=True)
+                self.assertEqual(rc, STATE_OK, out)
+
+                # scenario b) scaled down to one task while two are expected
+                _sh(node1, 'docker service scale --detach web=1')
+                _wait_for_replicas(self, node1, '1/1')
+                rc, out = _sh(
+                    node1, 'cd /opt/lfmp && python3 ./docker-service --service=web=2'
+                )
+                print(f'[b] docker-service:\n{out}', flush=True)
+                self.assertEqual(rc, STATE_WARN, out)
+                self.assertIn('1/2 tasks running', out)
+
+                # scenario c) drain node2 and scale back to two, so both tasks
+                # land on node1 while node2 sits idle -> uneven distribution
+                _sh(node1, 'docker node update --availability drain node2')
+                _sh(node1, 'docker service scale --detach web=2')
+                _wait_for_replicas(self, node1, '2/2')
+                _wait_for_max_on_one_node(self, node1, 2)
+                rc, out = _sh(
+                    node1,
+                    'cd /opt/lfmp && python3 ./docker-service '
+                    '--service=web=2 --check-distribution',
+                )
+                print(f'[c] docker-service:\n{out}', flush=True)
+                self.assertEqual(rc, STATE_WARN, out)
+                self.assertIn('tasks on one node', out)
+
+                # scenario d) scaled to zero while two are still expected
+                _sh(node1, 'docker service scale --detach web=0')
+                _wait_for_replicas(self, node1, '0/0')
+                rc, out = _sh(
+                    node1, 'cd /opt/lfmp && python3 ./docker-service --service=web=2'
+                )
+                print(f'[d] docker-service:\n{out}', flush=True)
+                self.assertEqual(rc, STATE_CRIT, out)
+                self.assertIn('0/2 tasks running', out)
+
+
+if __name__ == '__main__':
+    unittest.main()

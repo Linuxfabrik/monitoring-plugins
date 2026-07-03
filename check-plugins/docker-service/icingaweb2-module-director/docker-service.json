@@ -1,0 +1,261 @@
+{
+    "Command": {
+        "cmd-check-docker-service": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$docker_service_always_ok$"
+                },
+                "--check-distribution": {
+                    "set_if": "$docker_service_check_distribution$"
+                },
+                "--critical": {
+                    "value": "$docker_service_critical$"
+                },
+                "--ignore": {
+                    "value": "$docker_service_ignore$",
+                    "repeat_key": true
+                },
+                "--lengthy": {
+                    "set_if": "$docker_service_lengthy$"
+                },
+                "--no-match-severity": {
+                    "value": "$docker_service_no_match_severity$"
+                },
+                "--service": {
+                    "value": "$docker_service_service$",
+                    "repeat_key": true
+                },
+                "--warning": {
+                    "value": "$docker_service_warning$"
+                }
+            },
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/docker-service",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-docker-service",
+            "object_type": "object",
+            "timeout": 30,
+            "vars": {},
+            "zone": null,
+            "uuid": "2e00a2fd-81bf-44e4-9461-f8c25ebcad62"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-docker-service": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-docker-service",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "docker-service.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks the health of Docker Swarm services: how many of the expected tasks (containers) of a service are actually running, and optionally whether those tasks are spread evenly across the swarm nodes. The number of running tasks is compared against an expected count as a percentage, so a service that lost some but not all of its tasks can warn before it goes fully down. The expected count defaults to the service's own desired replica count, but can be pinned per service with --service, so scaling a service down by mistake is still caught against the count the service is supposed to run. With --check-distribution the check also warns when more tasks of a service sit on a single node than an even spread would place there, which surfaces a node that silently stopped taking work. Must be run on a swarm manager node, since only managers can list services. Podman does not support swarm mode, so there is no Podman counterpart to this check. Requires root or sudo.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-service/",
+            "object_name": "tpl-service-docker-service",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "docker_service_always_ok": false,
+                "docker_service_check_distribution": false,
+                "docker_service_critical": "50:",
+                "docker_service_ignore": [],
+                "docker_service_lengthy": false,
+                "docker_service_no_match_severity": "ok",
+                "docker_service_service": [],
+                "docker_service_warning": "100:"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "ad457c0e-e64e-48ce-ad48-ffd129c8c120"
+        }
+    },
+    "DataList": {
+        "docker_service_no_match_severity_list": {
+            "list_name": "docker_service_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "73eef8c4-efd3-423a-b4b2-b1b50ba06bd5"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "docker_service_always_ok",
+            "caption": "Docker Service: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "007cc51a-60aa-4301-9de7-22974adee6bc"
+        },
+        "2": {
+            "varname": "docker_service_check_distribution",
+            "caption": "Docker Service: Check Distribution?",
+            "description": "Also warn when a service has more tasks on a single node than an even spread across all swarm nodes would place there (optimal = ceil(expected / number of nodes)). Catches an imbalance such as both replicas of a two-replica service running on the same node while another node sits idle. Off by default, because it inspects the task placement of every checked service and adds one call per service.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "2472bc5f-d9b0-4178-9515-95d5a13f55ae"
+        },
+        "3": {
+            "varname": "docker_service_critical",
+            "caption": "Docker Service: Critical",
+            "description": "CRIT threshold for the percentage of expected tasks that are running, compared as a Nagios range.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "c985a82c-12e6-4d0b-b596-b5070d83865b"
+        },
+        "4": {
+            "varname": "docker_service_ignore",
+            "caption": "Docker Service: Ignore",
+            "description": "Ignore services whose name matches this Python regular expression. Only applies when no --service is given (all services are checked). Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Example: `--ignore=\"^test_\"` to skip throwaway test services.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "b4e292b7-201f-47df-8862-fac80eaff3a6"
+        },
+        "5": {
+            "varname": "docker_service_lengthy",
+            "caption": "Docker Service: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "2f75d6eb-fa55-4d01-acf9-dc3ae7322f38"
+        },
+        "6": {
+            "varname": "docker_service_no_match_severity",
+            "caption": "Docker Service: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "docker_service_no_match_severity_list"
+            },
+            "uuid": "2e8ef592-3ad9-470b-a674-24403727aded"
+        },
+        "7": {
+            "varname": "docker_service_service",
+            "caption": "Docker Service: Service",
+            "description": "Check this service and, optionally, the number of tasks it is expected to run, written as `name=count`. Without `=count` the service's own desired replica count is used as the expectation. Can be specified multiple times; if given at least once, only the named services are checked. Example: `--service=web=2` alerts when the `web` service does not run its two expected tasks, even after someone scaled it down to one. Example: `--service=traefik` checks `traefik` against its own desired count.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "be1a79e2-74ea-4ac4-aaec-8267bd4968e1"
+        },
+        "8": {
+            "varname": "docker_service_warning",
+            "caption": "Docker Service: Warning",
+            "description": "WARN threshold for the percentage of expected tasks that are running, compared as a Nagios range.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a1a25cfd-82f9-47d7-8ada-868d2f205574"
+        }
+    }
+}

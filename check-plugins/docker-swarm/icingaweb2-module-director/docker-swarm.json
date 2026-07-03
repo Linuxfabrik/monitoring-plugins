@@ -1,0 +1,106 @@
+{
+    "Command": {
+        "cmd-check-docker-swarm": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$docker_swarm_always_ok$"
+                },
+                "--lengthy": {
+                    "set_if": "$docker_swarm_lengthy$"
+                }
+            },
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/docker-swarm",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-docker-swarm",
+            "object_type": "object",
+            "timeout": 20,
+            "vars": {},
+            "zone": null,
+            "uuid": "3458bd75-ec24-4bb4-a2c3-bbb3986619d1"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-docker-swarm": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-docker-swarm",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "docker-swarm.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks whether the local node participates in a Docker Swarm and whether the cluster is healthy. On every node the local swarm state is verified (active, pending, inactive, locked, error). On a manager node the check additionally lists all cluster nodes, alerts on nodes that are down and verifies that the managers still form a quorum, so a lost or unreachable manager is caught before the control plane fails. Node availability (active, pause, drain) is reported for context but does not raise an alert, since draining a node is a deliberate operator action. Podman does not support swarm mode, so there is no Podman counterpart to this check. Requires root or sudo.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-swarm/",
+            "object_name": "tpl-service-docker-swarm",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "docker_swarm_always_ok": false,
+                "docker_swarm_lengthy": false
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "24495b29-3b73-4f67-832a-51e987a69e17"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "docker_swarm_always_ok",
+            "caption": "Docker Swarm: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "3a92bbbc-0b42-42f9-9711-677ec5790068"
+        },
+        "2": {
+            "varname": "docker_swarm_lengthy",
+            "caption": "Docker Swarm: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "1f801f8f-65ce-4995-839b-13e680d22c5c"
+        }
+    }
+}
