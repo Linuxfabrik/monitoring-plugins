@@ -1,0 +1,224 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import sys
+
+import lib.args
+import lib.base
+import lib.huawei_pacific
+import lib.human
+import lib.lftest
+from lib.globals import STATE_OK, STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026070301'
+
+DESCRIPTION = """Checks the overall cluster capacity usage of a Huawei OceanStor Pacific storage
+system via the REST API (/system_capacity endpoint). Alerts when the used capacity in percent
+reaches the warning or critical threshold."""
+
+DEFAULT_CACHE_EXPIRE = 15  # minutes
+DEFAULT_CRIT = '90'
+DEFAULT_INSECURE = True
+DEFAULT_NO_PROXY = False
+DEFAULT_SCOPE = '0'
+DEFAULT_TIMEOUT = 3
+DEFAULT_WARN = '80'
+
+# Top-level per-media capacity fields summed for the cluster-wide figures.
+MEDIA = ('ssd', 'sata', 'sas')
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help=lib.args.help('--cache-expire') + ' Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help=lib.args.help('--critical')
+        + ' Supports Nagios ranges. Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='Huawei OceanStor Pacific API password.',
+        dest='PASSWORD',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--scope',
+        help='Huawei OceanStor Pacific API scope.',
+        dest='SCOPE',
+        default=DEFAULT_SCOPE,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-u',
+        '--url',
+        help='Huawei OceanStor Pacific API URL.',
+        dest='URL',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Huawei OceanStor Pacific API username.',
+        dest='USERNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help=lib.args.help('--warning')
+        + ' Supports Nagios ranges. Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if not args.URL.startswith('http'):
+        lib.base.cu('--url parameter has to start with "http://" or https://".')
+
+    # fetch data
+    if args.TEST is None:
+        result = lib.huawei_pacific.get_data('system_capacity', args)
+    else:
+        # do not call the command, put in test data
+        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
+        result = json.loads(stdout)
+
+    # no valuable result?
+    if not result:
+        lib.base.cu(f'Got no valuable response from {args.URL}.')
+    if result.get('result', {}).get('code') != 0:
+        lib.base.oao(
+            f'{result.get("result", {}).get("description")}'
+            f' {result.get("result", {}).get("suggestion", "")}'.strip(),
+            STATE_UNKNOWN,
+        )
+
+    # init some vars
+    state = STATE_OK
+    perfdata = ''
+    data = result.get('data', {})
+
+    # analyze data
+    total = float(data.get('totalClusterCapacity', 0))
+    used = sum(float(data.get(f'{media}_used_capacity', 0)) for media in MEDIA)
+    if total <= 0:
+        lib.base.oao('No capacity data available yet.', STATE_OK)
+
+    used_percent = round(used / total * 100)
+    state = lib.base.get_state(used_percent, args.WARN, args.CRIT, _operator='range')
+
+    # build the message
+    msg = (
+        f'{used_percent}% used'
+        f' ({lib.human.bytes2human(used)}/{lib.human.bytes2human(total)})'
+        f'{lib.base.state2str(state, prefix=" ")}'
+    )
+    perfdata += lib.base.get_perfdata(
+        'usage_percent',
+        used_percent,
+        uom='%',
+        warn=args.WARN,
+        crit=args.CRIT,
+        _min=0,
+        _max=100,
+    )
+    perfdata += lib.base.get_perfdata(
+        'used_capacity', int(used), uom='B', _min=0, _max=int(total)
+    )
+    perfdata += lib.base.get_perfdata('total_capacity', int(total), uom='B', _min=0)
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

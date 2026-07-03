@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.huawei_pacific
+import lib.lftest
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026070301'
+
+DESCRIPTION = """Checks the status of all power supplies on a Huawei OceanStor Pacific storage system
+via the REST API (/hwm/power endpoint). Alerts when any power supply reports a non-normal status."""
+
+DEFAULT_CACHE_EXPIRE = 15  # minutes
+DEFAULT_INSECURE = True
+DEFAULT_NO_PROXY = False
+DEFAULT_SCOPE = '0'
+DEFAULT_TIMEOUT = 3
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help=lib.args.help('--cache-expire') + ' Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='Huawei OceanStor Pacific API password.',
+        dest='PASSWORD',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--scope',
+        help='Huawei OceanStor Pacific API scope.',
+        dest='SCOPE',
+        default=DEFAULT_SCOPE,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-u',
+        '--url',
+        help='Huawei OceanStor Pacific API URL.',
+        dest='URL',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Huawei OceanStor Pacific API username.',
+        dest='USERNAME',
+        required=True,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if not args.URL.startswith('http'):
+        lib.base.cu('--url parameter has to start with "http://" or https://".')
+
+    # fetch data
+    if args.TEST is None:
+        # the hardware endpoint is node-scoped: enumerate the cluster nodes and
+        # query the power supplies on all of them
+        server_list = lib.huawei_pacific.get_management_ips(args)
+        result = lib.huawei_pacific.get_data(
+            'hwm/power',
+            args,
+            payload={'server_list': server_list},
+        )
+    else:
+        # do not call the command, put in test data
+        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
+        result = json.loads(stdout)
+
+    # no valuable result?
+    if not result:
+        lib.base.cu(f'Got no valuable response from {args.URL}.')
+    if result.get('result', {}).get('code') != 0:
+        lib.base.oao(
+            f'{result.get("result", {}).get("description")}'
+            f' {result.get("result", {}).get("suggestion", "")}'.strip(),
+            STATE_UNKNOWN,
+        )
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # analyze data
+    table_data = []
+    for power in result.get('data', []):
+        power_state = STATE_OK
+        if power.get('status') != 'normal':
+            power_state = STATE_WARN
+            state = lib.base.get_worst(state, power_state)
+
+        frame_sn = power.get('frame_sn', '')
+        label = re.sub(r'\W+', '_', f'{frame_sn}_{power.get("name", "")}')
+        perfdata += lib.base.get_perfdata(
+            f'{label}_status',
+            0 if power.get('status') == 'normal' else 1,
+            warn=1,
+            _min=0,
+            _max=1,
+        )
+
+        power['state'] = lib.base.state2str(power_state, empty_ok=False)
+        table_data.append(power)
+
+    # build the message
+    if table_data:
+        keys = ['frame_sn', 'name', 'status', 'state']
+        headers = ['Chassis SN', 'Name', 'Status', 'State']
+        msg += lib.base.get_table(table_data, keys, header=headers)
+    else:
+        msg += 'Nothing checked.'
+
+    counter = result.get('counter', 0)
+    msg += f'\n\nFetched API {counter} {lib.txt.pluralize("time", counter)}'
+
+    if state == STATE_CRIT:
+        msg = 'There are critical errors.\n\n' + msg
+    elif state == STATE_WARN:
+        msg = 'There are warnings.\n\n' + msg
+    else:
+        msg = 'Everything is ok.\n\n' + msg
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

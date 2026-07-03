@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+# One fixture (42% used) drives three threshold combinations.
+TESTS = [
+    {
+        'id': 'ok-below-warn',
+        'test': 'stdout/capacity-42-percent,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin '
+        '--warning 80 --critical 90',
+        'assert-retc': STATE_OK,
+        'assert-in': ['42% used'],
+    },
+    {
+        'id': 'warn-above-warn',
+        'test': 'stdout/capacity-42-percent,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin '
+        '--warning 40 --critical 90',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'42% used.*\[WARNING\]',
+    },
+    {
+        'id': 'crit-above-crit',
+        'test': 'stdout/capacity-42-percent,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin '
+        '--warning 30 --critical 40',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'42% used.*\[CRITICAL\]',
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../huawei-pacific-system-capacity'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

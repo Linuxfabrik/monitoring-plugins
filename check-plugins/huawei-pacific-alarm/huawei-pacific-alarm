@@ -1,0 +1,222 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import sys
+
+import lib.args
+import lib.base
+import lib.huawei_pacific
+import lib.lftest
+import lib.time
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026070301'
+
+DESCRIPTION = """Lists active (unrecovered) alarms on a Huawei OceanStor Pacific storage system via
+the REST API (/common/alarms endpoint). Alerts when unrecovered alarms are present: critical if any
+critical alarm exists, warning for major or warning alarms."""
+
+DEFAULT_CACHE_EXPIRE = 15  # minutes
+DEFAULT_INSECURE = True
+DEFAULT_NO_PROXY = False
+DEFAULT_SCOPE = '0'
+DEFAULT_TIMEOUT = 3
+
+# Map the alarm severity code to the state the plugin reports for it.
+SEVERITY_STATE = {
+    6: STATE_CRIT,  # critical
+    5: STATE_WARN,  # major
+    3: STATE_WARN,  # warning
+    2: STATE_OK,  # information
+}
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help=lib.args.help('--cache-expire') + ' Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='Huawei OceanStor Pacific API password.',
+        dest='PASSWORD',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--scope',
+        help='Huawei OceanStor Pacific API scope.',
+        dest='SCOPE',
+        default=DEFAULT_SCOPE,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-u',
+        '--url',
+        help='Huawei OceanStor Pacific API URL.',
+        dest='URL',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Huawei OceanStor Pacific API username.',
+        dest='USERNAME',
+        required=True,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if not args.URL.startswith('http'):
+        lib.base.cu('--url parameter has to start with "http://" or https://".')
+
+    # fetch data
+    if args.TEST is None:
+        # only unrecovered alarms (alarmStatus::1)
+        result = lib.huawei_pacific.get_data(
+            'common/alarms?range=[0-100]&filter=alarmStatus::1',
+            args,
+        )
+    else:
+        # do not call the command, put in test data
+        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
+        result = json.loads(stdout)
+
+    # no valuable result?
+    if not result:
+        lib.base.cu(f'Got no valuable response from {args.URL}.')
+    if result.get('result', {}).get('code') != 0:
+        lib.base.oao(
+            f'{result.get("result", {}).get("description")}'
+            f' {result.get("result", {}).get("suggestion", "")}'.strip(),
+            STATE_UNKNOWN,
+        )
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    counts = {6: 0, 5: 0, 3: 0, 2: 0}
+
+    # analyze data
+    table_data = []
+    for alarm in result.get('data', []):
+        severity = int(alarm.get('severity', -1))
+        counts[severity] = counts.get(severity, 0) + 1
+        alarm_state = SEVERITY_STATE.get(severity, STATE_WARN)
+        state = lib.base.get_worst(state, alarm_state)
+
+        alarm['severity'] = lib.huawei_pacific.get_alarm_severity(severity)
+        alarm['create_time'] = lib.time.epoch2iso(alarm.get('create_time', 0))
+        alarm['state'] = lib.base.state2str(alarm_state, empty_ok=False)
+
+        table_data.append(alarm)
+
+    # build the message
+    if table_data:
+        keys = ['alarm_id', 'create_time', 'severity', 'alarm_name', 'state']
+        headers = ['Alarm ID', 'Time', 'Severity', 'Name', 'State']
+        msg += lib.base.get_table(table_data, keys, header=headers)
+    else:
+        msg += 'No active alarms.'
+
+    counter = result.get('counter', 0)
+    msg += f'\n\nFetched API {counter} {lib.txt.pluralize("time", counter)}'
+
+    perfdata += lib.base.get_perfdata('critical_alarms', counts[6], _min=0)
+    perfdata += lib.base.get_perfdata('major_alarms', counts[5], _min=0)
+    perfdata += lib.base.get_perfdata('warning_alarms', counts[3], _min=0)
+
+    if state == STATE_CRIT:
+        msg = 'There are critical alarms.\n\n' + msg
+    elif state == STATE_WARN:
+        msg = 'There are alarms.\n\n' + msg
+    else:
+        msg = 'Everything is ok.\n\n' + msg
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()
