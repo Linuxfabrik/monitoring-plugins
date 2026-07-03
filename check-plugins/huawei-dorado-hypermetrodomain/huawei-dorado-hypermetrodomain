@@ -16,13 +16,13 @@ import sys
 
 import lib.args
 import lib.base
-import lib.huawei
+import lib.huawei_dorado
 import lib.lftest
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026070301'
 
 DESCRIPTION = """Checks the health and running status of all HyperMetro domains on a Huawei OceanStor
 Dorado storage system via the REST API (/hypermetrodomain endpoint). Alerts when any
@@ -147,7 +147,7 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        result = lib.huawei.get_data('hypermetrodomain', args)
+        result = lib.huawei_dorado.get_data('hypermetrodomain', args)
     else:
         # do not call the command, put in test data
         stdout, _stderr, _retc = lib.lftest.test(args.TEST)
@@ -173,13 +173,13 @@ def main():
     for hypermetrodomain in result.get('data'):
         running_state = STATE_OK
         if (
-            lib.huawei.get_running_status(hypermetrodomain.get('RUNNINGSTATUS'))
+            lib.huawei_dorado.get_running_status(hypermetrodomain.get('RUNNINGSTATUS'))
             != 'Normal (1)'
         ):
             running_state = STATE_WARN
             state = lib.base.get_worst(state, running_state)
 
-        hypermetrodomain['UUID'] = lib.huawei.get_uuid(hypermetrodomain)
+        hypermetrodomain['UUID'] = lib.huawei_dorado.get_uuid(hypermetrodomain)
 
         perfdata += lib.base.get_perfdata(
             f'{hypermetrodomain["UUID"]}_RUNNINGSTATUS',
@@ -190,7 +190,7 @@ def main():
         hypermetrodomain['running_state'] = lib.base.state2str(
             running_state, empty_ok=False
         )
-        hypermetrodomain['CPTYPE'] = lib.huawei.get_cp_type(hypermetrodomain['CPTYPE'])
+        hypermetrodomain['CPTYPE'] = lib.huawei_dorado.get_cp_type(hypermetrodomain['CPTYPE'])
 
         table_data.append(hypermetrodomain)
 

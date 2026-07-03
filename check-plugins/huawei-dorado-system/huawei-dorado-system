@@ -16,14 +16,14 @@ import sys
 
 import lib.args
 import lib.base
-import lib.huawei
+import lib.huawei_dorado
 import lib.human
 import lib.lftest
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026070301'
 
 DESCRIPTION = """Checks overall system health, capacity, and performance of a Huawei OceanStor Dorado
 storage system via the REST API (/system endpoint). Reports health status, running
@@ -170,7 +170,7 @@ def main():
     # fetch data
     if args.TEST is None:
         # Do not miss the last slash (/) at the end of the URL.
-        result = lib.huawei.get_data('system/', args)
+        result = lib.huawei_dorado.get_data('system/', args)
     else:
         # do not call the command, put in test data
         stdout, _stderr, _retc = lib.lftest.test(args.TEST)
@@ -194,12 +194,12 @@ def main():
 
     # analyze data
     health_state = STATE_OK
-    if lib.huawei.get_health_status(data.get('HEALTHSTATUS')) != 'Normal (1)':
+    if lib.huawei_dorado.get_health_status(data.get('HEALTHSTATUS')) != 'Normal (1)':
         health_state = STATE_CRIT
         state = lib.base.get_worst(state, health_state)
 
     running_state = STATE_OK
-    if lib.huawei.get_running_status(data.get('RUNNINGSTATUS')) != 'Normal (1)':
+    if lib.huawei_dorado.get_running_status(data.get('RUNNINGSTATUS')) != 'Normal (1)':
         running_state = STATE_WARN
         state = lib.base.get_worst(state, running_state)
 
@@ -218,7 +218,7 @@ def main():
     state = lib.base.get_worst(state, capa_state)
 
     # build the message
-    health_status = lib.huawei.get_health_status(
+    health_status = lib.huawei_dorado.get_health_status(
         data.get('HEALTHSTATUS'),
     )
     health_str = lib.base.state2str(
@@ -226,7 +226,7 @@ def main():
         prefix=' ',
         empty_ok=True,
     )
-    running_status = lib.huawei.get_running_status(
+    running_status = lib.huawei_dorado.get_running_status(
         data.get('RUNNINGSTATUS'),
     )
     running_str = lib.base.state2str(
@@ -237,7 +237,7 @@ def main():
     msg += (
         f'{data.get("productModeString")}'
         f' {data.get("pointRelease")},'
-        f' UUID: {lib.huawei.get_uuid(data)},'
+        f' UUID: {lib.huawei_dorado.get_uuid(data)},'
         f' Name: {data.get("NAME")},'
         f' Location: {data.get("LOCATION")},'
         f' Health Status: {health_status}{health_str},'

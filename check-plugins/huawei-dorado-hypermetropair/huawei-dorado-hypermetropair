@@ -16,7 +16,7 @@ import sys
 
 import lib.args
 import lib.base
-import lib.huawei
+import lib.huawei_dorado
 import lib.human
 import lib.lftest
 import lib.time
@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026070301'
 
 DESCRIPTION = """Checks the health and running status of all HyperMetro pairs on a Huawei OceanStor
 Dorado storage system via the REST API (/hypermetropair endpoint). Alerts when any
@@ -149,7 +149,7 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        result = lib.huawei.get_data('hypermetropair', args)
+        result = lib.huawei_dorado.get_data('hypermetropair', args)
     else:
         # do not call the command, put in test data
         stdout, _stderr, _retc = lib.lftest.test(args.TEST)
@@ -175,7 +175,7 @@ def main():
     for hypermetropair in result.get('data'):
         health_state = STATE_OK
         if (
-            lib.huawei.get_health_status(hypermetropair.get('HEALTHSTATUS'))
+            lib.huawei_dorado.get_health_status(hypermetropair.get('HEALTHSTATUS'))
             != 'Normal (1)'
         ):
             health_state = STATE_WARN
@@ -183,9 +183,9 @@ def main():
 
         running_state = STATE_OK
         if (
-            lib.huawei.get_running_status(hypermetropair.get('RUNNINGSTATUS'))
+            lib.huawei_dorado.get_running_status(hypermetropair.get('RUNNINGSTATUS'))
             != 'Normal (1)'
-            and lib.huawei.get_running_status(hypermetropair.get('RUNNINGSTATUS'))
+            and lib.huawei_dorado.get_running_status(hypermetropair.get('RUNNINGSTATUS'))
             != 'Synchronizing (23)'
         ):
             running_state = STATE_WARN
@@ -206,7 +206,7 @@ def main():
             remotedata_state = STATE_WARN
             state = lib.base.get_worst(state, remotedata_state)
 
-        hypermetropair['UUID'] = lib.huawei.get_uuid(hypermetropair)
+        hypermetropair['UUID'] = lib.huawei_dorado.get_uuid(hypermetropair)
         hypermetropair['sync_duration'] = int(hypermetropair['ENDTIME']) - int(
             hypermetropair['STARTTIME']
         )
@@ -284,13 +284,13 @@ def main():
         hypermetropair['LOCALDATASTATE'] = lib.base.state2str(
             localdata_state, empty_ok=False
         )
-        hypermetropair['LOCALHOSTACCESSSTATE'] = lib.huawei.get_host_access_state(
+        hypermetropair['LOCALHOSTACCESSSTATE'] = lib.huawei_dorado.get_host_access_state(
             hypermetropair['LOCALHOSTACCESSSTATE']
         )
         hypermetropair['REMOTEDATASTATE'] = lib.base.state2str(
             remotedata_state, empty_ok=False
         )
-        hypermetropair['REMOTEHOSTACCESSSTATE'] = lib.huawei.get_host_access_state(
+        hypermetropair['REMOTEHOSTACCESSSTATE'] = lib.huawei_dorado.get_host_access_state(
             hypermetropair['REMOTEHOSTACCESSSTATE']
         )
 
