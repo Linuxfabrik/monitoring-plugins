@@ -235,6 +235,14 @@ The theory:
 * **Use unicode throughout your plugin.**
 * When outputting data, use library functions, they should do output conversions for you. Library functions like `base.oao` or `url.fetch_json` will take care of the conversion to and from bytes.
 
+When you decode external bytes whose real encoding is not reliably known (subprocess output, a file read over SMB, a sensor payload) and that will end up in the plugin's printed result, pass `errors='strict_or_latin1'`:
+
+```python
+text = lib.txt.to_text(raw_bytes, errors='strict_or_latin1')
+```
+
+This decodes as UTF-8 and, on any invalid byte, retries the whole input as Latin-1, which maps every byte one-to-one to a real Unicode scalar. The default handler (`surrogateescape`) does not fail at decode either, but it produces lone surrogates that raise `UnicodeEncodeError` later when the plugin prints its result, moving the crash away from its cause (see [Linuxfabrik/lib#256](https://github.com/Linuxfabrik/lib/issues/256)). Values that are always ASCII or already declare their encoding do not need the handler.
+
 See <https://nedbatchelder.com/text/unipain.html> for details.
 
 

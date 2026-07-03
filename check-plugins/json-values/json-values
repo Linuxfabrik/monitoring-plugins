@@ -30,7 +30,7 @@ except ModuleNotFoundError as e:
     missing_lib = e.name
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041401'
+__version__ = '2026070301'
 
 DESCRIPTION = """Parses a JSON object from a file, URL, or SMB share and extracts message, state,
 and perfdata values from configurable keys. Useful for integrating custom applications or
@@ -362,7 +362,7 @@ def load_source(args):
             lib.smb.open_file(url, args.USERNAME, args.PASSWORD, args.TIMEOUT)
         ) as fd:
             try:
-                return json.loads(lib.txt.to_text(fd.read()))
+                return json.loads(lib.txt.to_text(fd.read(), errors='strict_or_latin1'))
             except Exception:
                 lib.base.cu('ValueError: No JSON object could be decoded')
     lib.base.cu(f'The protocol "{proto}" is not supported.')
@@ -420,11 +420,17 @@ def main():
     state_crit = STATE_OK
     if args.WARNING_KEY:
         state_warn = evaluate_key_threshold(
-            result, args.WARNING_KEY, args.WARN, 'warn',
+            result,
+            args.WARNING_KEY,
+            args.WARN,
+            'warn',
         )
     if args.CRITICAL_KEY:
         state_crit = evaluate_key_threshold(
-            result, args.CRITICAL_KEY, args.CRIT, 'crit',
+            result,
+            args.CRITICAL_KEY,
+            args.CRIT,
+            'crit',
         )
 
     state = lib.base.get_worst(state, state_warn, state_crit)
