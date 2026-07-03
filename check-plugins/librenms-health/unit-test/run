@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the librenms-health check plugin.
+
+The fixtures in `stdout/` are JSON arrays of sensor rows, shaped exactly
+like the plugin's SELECT against the LibreNMS database returns them. In
+test mode (`--test`) the plugin skips the database and loads these rows
+instead, so the full state machine can be exercised without a live
+MySQL/MariaDB instance.
+
+The plugin mirrors LibreNMS' own `Sensor::currentStatus()`:
+
+* discrete state-class sensors carry a pre-computed `state_generic_value`
+  (0 = ok, 1 = warn, 2 = crit, 3 = unknown)
+* numeric sensors are compared against their four limits, inclusively:
+  CRITICAL at/beyond `sensor_limit` / `sensor_limit_low`, WARNING at/beyond
+  `sensor_limit_warn` / `sensor_limit_low_warn`
+
+The humidity fixtures share one limit set (low crit 30, low warn 35, high
+warn 65, high crit 70) and only vary the current reading.
+"""
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+TESTS = [
+    {
+        # Numeric sensor above its high critical limit (71.7 >= 70). No
+        # state_translations row exists for numeric sensors, so the plugin
+        # must evaluate the limits itself. This is the exact scenario that
+        # used to be silently reported as OK.
+        'id': 'crit-over-high-limit',
+        'test': 'stdout/humidity-crit-over,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'lgpEnvSupplyAirHumidity',
+            '71.7 (35.0..65.0/30.0..70.0)',
+            '[CRITICAL]',
+        ],
+    },
+    {
+        # Numeric sensor below its low critical limit (25.0 <= 30).
+        'id': 'crit-under-low-limit',
+        'test': 'stdout/humidity-crit-under,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['25.0 (35.0..65.0/30.0..70.0)', '[CRITICAL]'],
+    },
+    {
+        # Boundary: current equals the high critical limit (70.0). LibreNMS'
+        # currentStatus() compares inclusively, so this is CRITICAL.
+        'id': 'crit-at-high-limit-boundary',
+        'test': 'stdout/humidity-crit-at-limit,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['[CRITICAL]'],
+    },
+    {
+        # Numeric sensor in the warning band above the high warn limit
+        # (67.0 >= 65) but below the critical limit (67.0 < 70).
+        'id': 'warn-over-high-warn-limit',
+        'test': 'stdout/humidity-warn-over,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['67.0 (35.0..65.0/30.0..70.0)', '[WARNING]'],
+    },
+    {
+        # Numeric sensor in the warning band below the low warn limit
+        # (33.0 <= 35) but above the critical limit (33.0 > 30).
+        'id': 'warn-under-low-warn-limit',
+        'test': 'stdout/humidity-warn-under,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['33.0 (35.0..65.0/30.0..70.0)', '[WARNING]'],
+    },
+    {
+        # Boundary: current equals the high warn limit (65.0). Inclusive
+        # comparison makes this WARNING, not OK.
+        'id': 'warn-at-high-warn-boundary',
+        'test': 'stdout/humidity-warn-at-limit,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['[WARNING]'],
+    },
+    {
+        # Numeric sensor comfortably inside every limit: OK.
+        'id': 'ok-in-range',
+        'test': 'stdout/humidity-ok-in-range,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', 'Checked 1 sensor.'],
+    },
+    {
+        # Only the critical limits are set (both warn columns NULL) and the
+        # value breaches the high critical limit. The warn checks must be
+        # skipped, not crash, and the empty warn range shows as `-`.
+        'id': 'crit-only-critical-limits-set',
+        'test': 'stdout/numeric-only-crit-limits,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['80.0 (-/30.0..70.0)', '[CRITICAL]'],
+    },
+    {
+        # Only the warn limits are set (both critical columns NULL) and the
+        # value breaches the high warn limit. The empty crit range shows as `-`.
+        'id': 'warn-only-warn-limits-set',
+        'test': 'stdout/numeric-only-warn-limits,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['67.0 (35.0..65.0/-)', '[WARNING]'],
+    },
+    {
+        # Only high limits are configured (both low columns NULL): the range
+        # annotation opens with `..` to signal no lower bound.
+        'id': 'warn-high-limits-only-range',
+        'test': 'stdout/numeric-high-limits-only,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['31.0 (..30.0/..35.0)', '[WARNING]'],
+    },
+    {
+        # A numeric sensor without a current reading is UNKNOWN, as in
+        # LibreNMS' currentStatus().
+        'id': 'unknown-no-reading',
+        'test': 'stdout/numeric-no-reading,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['[UNKNOWN]'],
+    },
+    {
+        # Discrete state-class sensor: severity comes straight from
+        # state_generic_value (1 = warn), and the state description is shown
+        # instead of the raw numeric value.
+        'id': 'warn-state-sensor',
+        'test': 'stdout/state-sensor-warn,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['NotInitialized', '[WARNING]'],
+    },
+    {
+        # Mixed batch: a critical numeric breach and a warning state sensor.
+        # The overall state is the worst (CRITICAL) and both count as alerts.
+        'id': 'crit-mixed-worst-wins',
+        'test': 'stdout/mixed,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['There are 2 alerts.', 'Checked 2 sensors.', '[CRITICAL]'],
+    },
+    {
+        # Everything within limits: OK, with the verdict printed first.
+        'id': 'ok-all-within-limits',
+        'test': 'stdout/all-ok,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', 'Checked 2 sensors.'],
+    },
+    {
+        # --always-ok masks the critical breach in the return code, but the
+        # offending sensor is still shown as [CRITICAL] in the output.
+        'id': 'ok-always-ok-masks-crit',
+        'test': 'stdout/humidity-crit-over,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'71\.7 \(35\.0\.\.65\.0/30\.0\.\.70\.0\).*\[CRITICAL\]',
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../librenms-health'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

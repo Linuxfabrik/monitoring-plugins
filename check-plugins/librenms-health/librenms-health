@@ -11,19 +11,20 @@
 """See the check's README for more details."""
 
 import argparse
+import json
 import sys
 
 import lib.args
 import lib.base
 import lib.db_mysql
 import lib.human
-import lib.librenms
+import lib.lftest
 import lib.time
 import lib.txt
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026050801'
+__version__ = '2026070301'
 
 DESCRIPTION = """Retrieves hardware sensor information (temperature, humidity, voltage, power, etc.)
 for each device from a LibreNMS instance. Alerts when sensor values exceed their
@@ -33,11 +34,8 @@ Supports extended reporting via --lengthy."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
-DEFAULT_INSECURE = False
 DEFAULT_LENGTHY = False
-DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 3
-DEFAULT_URL = 'http://localhost'
 
 
 def parse_args():
@@ -93,7 +91,8 @@ def parse_args():
         help='Filter by LibreNMS device type. Can be specified multiple times.',
         dest='DEVICE_TYPE',
         action='append',
-        choices=[  # taken from the librenms source file resources/definitions/config_definitions.json
+        # choices from the librenms source resources/definitions/config_definitions.json
+        choices=[
             'appliance',
             'collaboration',
             'environment',
@@ -119,6 +118,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -130,6 +136,75 @@ def parse_args():
     return args
 
 
+def get_sensor_state(sensor):
+    """Determine the Nagios state for a single LibreNMS sensor row.
+
+    This mirrors LibreNMS' own `Sensor::currentStatus()`, so the plugin agrees
+    with the severity LibreNMS shows on its device health and sensors pages.
+
+    * Discrete state-class sensors (fan ok/fail, psu present/absent, ...) carry
+      a pre-computed severity in `state_generic_value`, which shares the Nagios
+      numbering (0 = ok, 1 = warn, 2 = crit, 3 = unknown). A state sensor
+      without a matching translation is UNKNOWN, as in LibreNMS.
+    * Numeric sensors (temperature, humidity, voltage, power, ...) are compared
+      against their four configured limits: CRITICAL when at or beyond the
+      hard `sensor_limit` / `sensor_limit_low`, WARNING when at or beyond the
+      softer `sensor_limit_warn` / `sensor_limit_low_warn`. Comparisons are
+      inclusive, matching LibreNMS. A sensor without a current reading is
+      UNKNOWN.
+    """
+    if sensor['sensor_class'] == 'state':
+        generic = sensor['state_generic_value']
+        return int(generic) if generic is not None else STATE_UNKNOWN
+
+    current = sensor['sensor_current']
+    if current is None:
+        return STATE_UNKNOWN
+    current = float(current)
+
+    limit = sensor['sensor_limit']
+    limit_low = sensor['sensor_limit_low']
+    over_crit = limit is not None and current >= float(limit)
+    under_crit = limit_low is not None and current <= float(limit_low)
+    if over_crit or under_crit:
+        return STATE_CRIT
+
+    limit_warn = sensor['sensor_limit_warn']
+    limit_low_warn = sensor['sensor_limit_low_warn']
+    over_warn = limit_warn is not None and current >= float(limit_warn)
+    under_warn = limit_low_warn is not None and current <= float(limit_low_warn)
+    if over_warn or under_warn:
+        return STATE_WARN
+
+    return STATE_OK
+
+
+def format_sensor_range(sensor):
+    """Build the `warn/crit` range annotation shown next to a sensor value.
+
+    Renders the warning range and the critical range side by side as
+    `low_warn..high_warn/low_crit..high_crit`, matching the
+    `Val (warn/crit Range)` column header. The warning range is always on the
+    left and the critical range on the right; a range that is not configured at
+    all is shown as `-` so the remaining one stays unambiguous (LibreNMS'
+    auto-discovery commonly sets only the critical limits). A range with a
+    limit on only one side is left open on the other (e.g. `..70.0`). Returns
+    an empty string when the sensor has no numeric limits at all (e.g. discrete
+    state sensors).
+    """
+
+    def _range(low, high):
+        if low is None and high is None:
+            return ''
+        return f'{"" if low is None else low}..{"" if high is None else high}'
+
+    warn = _range(sensor['sensor_limit_low_warn'], sensor['sensor_limit_warn'])
+    crit = _range(sensor['sensor_limit_low'], sensor['sensor_limit'])
+    if not warn and not crit:
+        return ''
+    return f'{warn or "-"}/{crit or "-"}'
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -139,88 +214,86 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    mysql_connection = {
-        'defaults_file': args.DEFAULTS_FILE,
-        'defaults_group': args.DEFAULTS_GROUP,
-        'timeout': args.TIMEOUT,
-    }
-    conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
-    lib.base.coe(lib.db_mysql.check_privileges(conn))
+    # fetch data
+    if args.TEST is None:
+        mysql_connection = {
+            'defaults_file': args.DEFAULTS_FILE,
+            'defaults_group': args.DEFAULTS_GROUP,
+            'timeout': args.TIMEOUT,
+        }
+        conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
+        lib.base.coe(lib.db_mysql.check_privileges(conn))
+        sql = """
+            SELECT
+                d.hostname,
+                d.sysName,
+                d.sysDescr,
+                d.type,
+                l.location,
+                s.sensor_descr,
+                s.sensor_current,
+                s.sensor_limit,
+                s.sensor_limit_warn,
+                s.sensor_limit_low,
+                s.sensor_limit_low_warn,
+                s.lastupdate,
+                s.sensor_class,
+                st.state_descr,
+                st.state_generic_value
+            FROM
+                devices AS d
+                    LEFT JOIN
+                locations AS l ON d.location_id = l.id
+                    LEFT JOIN
+                device_group_device AS dgd ON d.device_id = dgd.device_id
+                    LEFT JOIN
+                device_groups AS dg ON dgd.device_group_id = dg.id
+                    LEFT JOIN
+                sensors AS s ON d.device_id = s.device_id
+                    LEFT JOIN
+                sensors_to_state_indexes AS stsi ON s.sensor_id = stsi.sensor_id
+                    LEFT JOIN
+                state_translations AS st ON stsi.state_index_id = st.state_index_id
+                    AND st.state_value = s.sensor_current
+            WHERE
+                disable_notify = 0
+                AND s.sensor_alert = 1
+        """
+        data = []
+        if args.DEVICE_GROUP:
+            sql += ' AND dg.name LIKE %s '
+            data.append(args.DEVICE_GROUP)
+        if args.DEVICE_HOSTNAME:
+            sql += (
+                f' AND d.hostname IN ({", ".join("%s" for _ in args.DEVICE_HOSTNAME)}) '
+            )
+            data += args.DEVICE_HOSTNAME
+        if args.DEVICE_TYPE:
+            sql += f' AND d.type IN ({", ".join("%s" for _ in args.DEVICE_TYPE)}) '
+            data += args.DEVICE_TYPE
+        sql += ' ORDER BY d.hostname, s.sensor_class'
+        sensors = lib.base.coe(lib.db_mysql.select(conn, sql, data))
+        lib.db_mysql.close(conn)
+    else:
+        # do not query the database, put in test data (a JSON array of rows,
+        # shaped exactly like the SELECT above returns them)
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        sensors = json.loads(stdout)
 
     # init some vars
     state = STATE_OK
     perfdata = ''
     alert_count = 0
-    sensors_count = 0
-
-    # fetch data
-    sql = """
-        SELECT
-            d.hostname,
-            d.sysName,
-            d.sysDescr,
-            d.type,
-            l.location,
-            s.sensor_descr,
-            s.sensor_current,
-            s.sensor_limit,
-            s.sensor_limit_low,
-            s.lastupdate,
-            s.sensor_class,
-            st.state_descr,
-            st.state_generic_value
-        FROM
-            devices AS d
-                LEFT JOIN
-            locations AS l ON d.location_id = l.id
-                LEFT JOIN
-            device_group_device AS dgd ON d.device_id = dgd.device_id
-                LEFT JOIN
-            device_groups AS dg ON dgd.device_group_id = dg.id
-                LEFT JOIN
-            sensors AS s ON d.device_id = s.device_id
-                LEFT JOIN
-            sensors_to_state_indexes AS stsi ON s.sensor_id = stsi.sensor_id
-                LEFT JOIN
-            state_translations AS st ON stsi.state_index_id = st.state_index_id
-                AND st.state_value = s.sensor_current
-        WHERE
-            disable_notify = 0
-            AND s.sensor_alert = 1
-    """
-    data = []
-    if args.DEVICE_GROUP:
-        sql += ' AND dg.name LIKE %s '
-        data.append(args.DEVICE_GROUP)
-    if args.DEVICE_HOSTNAME:
-        sql += f' AND d.hostname IN ({", ".join("%s" for _ in args.DEVICE_HOSTNAME)}) '
-        data += args.DEVICE_HOSTNAME
-    if args.DEVICE_TYPE:
-        sql += f' AND d.type IN ({", ".join("%s" for _ in args.DEVICE_TYPE)}) '
-        data += args.DEVICE_TYPE
-    sql += ' ORDER BY d.hostname, s.sensor_class'
-    sensors = lib.base.coe(lib.db_mysql.select(conn, sql, data))
-    lib.db_mysql.close(conn)
     sensors_count = len(sensors)
 
-    # enrich and analyse data
+    # analyze data
     for i, sensor in enumerate(sensors):
         if not sensor['sysName']:
             sensors[i]['sysName'] = sensor['sysDescr']
-        if sensor['sensor_class'] == 'state':
-            sensors[i]['sensor_current'] = sensor['state_descr']
-        if all([sensor['sensor_limit_low'], sensor['sensor_limit']]):
-            sensor['sensor_current'] = (
-                f'{sensor["sensor_current"]} ({sensor["sensor_limit_low"]}..{sensor["sensor_limit"]})'
-            )
-        if sensor['lastupdate']:
-            delta = lib.time.now(as_type='datetime') - sensor['lastupdate']
-            sensor['lastupdate'] = lib.human.seconds2human(delta.total_seconds())
-        local_state = sensor[
-            'state_generic_value'
-        ]  # 0 = ok, 1 = warn, 2 = crit, 3 = unknown
-        if not local_state:  # including "None"
-            local_state = STATE_OK
+
+        # determine the state from the raw values before the display strings
+        # below overwrite sensor_current
+        local_state = get_sensor_state(sensor)
         if local_state != STATE_OK:
             alert_count += 1
         sensors[i]['state'] = lib.base.state2str(
@@ -228,6 +301,16 @@ def main():
             empty_ok=False,
         )
         state = lib.base.get_worst(local_state, state)
+
+        # turn raw values into human-readable display strings
+        if sensor['sensor_class'] == 'state':
+            sensors[i]['sensor_current'] = sensor['state_descr']
+        sensor_range = format_sensor_range(sensor)
+        if sensor_range:
+            sensor['sensor_current'] = f'{sensor["sensor_current"]} ({sensor_range})'
+        if sensor['lastupdate']:
+            delta = lib.time.now(as_type='datetime') - sensor['lastupdate']
+            sensor['lastupdate'] = lib.human.seconds2human(delta.total_seconds())
 
     # filter data if compact layout is choosen (just get everything that is not ok)
     if not args.LENGTHY:
@@ -271,7 +354,7 @@ def main():
                     'Hostname',
                     'SysName',
                     'Sensor',
-                    'Val (Range)',
+                    'Val (warn/crit Range)',
                     'State',
                 ],
             )
@@ -297,7 +380,7 @@ def main():
                     'Sensor',
                     'Class',
                     'Changed',
-                    'Val (Range)',
+                    'Val (warn/crit Range)',
                     'State',
                 ],
             )
