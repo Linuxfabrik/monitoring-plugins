@@ -15,9 +15,20 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_WARN
+from lib.globals import STATE_OK, STATE_WARN
 
 TESTS = [
+    {
+        # A charging backup battery unit (RUNNINGSTATUS 48) is a normal
+        # operating state and must not raise a warning. Regression guard for
+        # the running-status translation, which previously returned 'Unknown'
+        # for code 48 and therefore flagged charging BBUs as WARN.
+        'id': 'ok-bbu-charging',
+        'test': 'stdout/bbu-charging,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+    },
     {
         'id': 'warn-psu-running-warning',
         'test': 'stdout/psu-running-warning,,0',
@@ -37,7 +48,6 @@ TESTS = [
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../huawei-dorado-backup-power'
 
 
