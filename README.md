@@ -55,13 +55,15 @@ A public demo with the plugins wired into Icinga Web 2 and Grafana:
 
 ## Installation
 
-On Linux, install with the one-liner. It registers our signed package repository and installs the package:
+**On Linux**, install with the one-liner. It registers our signed package repository and installs the package:
 
 ```bash
 curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash
 ```
 
-Then run a plugin directly to verify it works:
+**On Windows**, download [lfmp-latest.signed-packaged.windows.x86_64.zip](https://download.linuxfabrik.ch/monitoring-plugins/lfmp-latest.signed-packaged.windows.x86_64.zip), extract the signed MSI it contains and run it (double-click or `msiexec /i lfmp-*.msi /qn`).
+
+Then run a plugin directly to verify it works, for example on Linux:
 
 ```text
 $ /usr/lib64/nagios/plugins/cpu-usage
@@ -72,7 +74,7 @@ ctx_switches: 8.5G, interrupts: 6.8G, soft_interrupts: 1.7G|'cpu-usage'=5.1%;80;
 
 Every plugin supports `--help` and prints its version with `--version`.
 
-For the verify-then-run variant and other installation paths (Windows, source, air-gapped, per-distribution, sudoers drop-ins, SELinux), see [INSTALL.md](INSTALL.md).
+For more installation paths, see [INSTALL.md](INSTALL.md): the LFOps Ansible role for fleets (Linux and Windows), the source install for running the latest state in production, air-gapped and per-distribution setups, sudoers drop-ins and SELinux.
 
 Plugins that share setup steps:
 

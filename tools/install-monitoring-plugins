@@ -17,9 +17,11 @@
 #                        monitoring-plugins repo pulls in the shared `lib` from a SEPARATE
 #                        repo via a symlink, this fetches TWO tarballs (monitoring-plugins +
 #                        lib) and assembles them.
-#   --zip                Install the signed, frozen source zip from download.linuxfabrik.ch
-#                        (sha256 + GPG verified) into a venv. For air-gapped or version-pinned
-#                        production hosts that cannot or do not want to reach the repository.
+#   --zip                Install the signed source zip from download.linuxfabrik.ch
+#                        (sha256 + GPG verified) into a venv. Defaults to the 'latest' alias
+#                        on the download server; pin an exact release with --version. For
+#                        air-gapped or version-pinned production hosts that cannot or do not
+#                        want to reach the repository.
 #   --uninstall          Reverse a previous install (package, source or zip).
 #
 # Usage (recommended path):
@@ -117,13 +119,15 @@ Modes (mutually exclusive; --package is the default):
   --source             Install the latest source from GitHub into a venv (no git client,
                        no package manager), instead of the package repository.
                        (--git is accepted as an alias.)
-  --zip                Install the signed, frozen source zip from download.linuxfabrik.ch
-                       (sha256 + GPG verified) into a venv. For air-gapped or pinned hosts.
+  --zip                Install the signed source zip from download.linuxfabrik.ch
+                       (sha256 + GPG verified) into a venv. Defaults to the latest release;
+                       pin with --version. For air-gapped or pinned hosts.
   --uninstall          Reverse a previous package, source or zip install.
 
 Options:
   --ref=REF            Branch or tag to install with --source (default: main).
-  --version=VER        <version>-<iteration> for --zip (or set LFMP_VERSION), e.g. 2.2.1-1.
+  --version=VER        Release for --zip (or set LFMP_VERSION): 'latest' (default) for the
+                       newest release, or a pinned <version>-<iteration>, e.g. 2.2.1-1.
   --plugin-dir=DIR     Target plugin directory (default: /usr/lib64/nagios/plugins).
   --python=BIN         Interpreter for the source/zip dependency venv (default: python3).
                        Use a newer Python where the system python3 is too old,
@@ -137,6 +141,7 @@ Environment:
 Examples:
   install-monitoring-plugins
   install-monitoring-plugins --source
+  install-monitoring-plugins --zip
   install-monitoring-plugins --zip --version=2.2.1-1
   install-monitoring-plugins --source --python=python3.12
   install-monitoring-plugins --uninstall
@@ -529,7 +534,13 @@ install_from_zip() {
     require_root
     detect_os
     require_python39
-    [ -n "${ZIP_VERSION}" ] || die 'specify the release with --version=<version>-<iteration> (or LFMP_VERSION), e.g. --version=2.2.1-1'
+    # Default to the 'latest' alias on the download server when no release is pinned, so
+    # `--zip` works without looking up a version. Pin --version=<version>-<iteration> for a
+    # reproducible rollout.
+    if [ -z "${ZIP_VERSION}" ]; then
+        ZIP_VERSION='latest'
+        log "no --version given, using the latest release"
+    fi
 
     local workdir
     workdir="$(mktemp -d)"

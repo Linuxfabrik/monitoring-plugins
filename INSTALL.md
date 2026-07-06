@@ -1,15 +1,52 @@
 # Installing the Linuxfabrik Monitoring Plugins Collection
 
 Pick the path that matches your platform. On Linux, the one-liner installer is the fastest
-way and the recommended path. On Windows, prefer the MSI installer. Everything else (manual
-repository setup, source tarball, Git checkout) is for corner cases such as air-gapped hosts
-or testing a development build.
+way and the recommended path. On Windows, prefer the MSI installer. The source paths (the
+signed source zip, a GitHub source download, or the installer's `--source` / `-Source` mode)
+are the supported way to run the **latest state** of the plugins on a production host, for
+example when a fix or a plugin is not yet part of a released package or MSI. They also cover
+air-gapped hosts and version-pinned setups. Manual repository setup is the underlying
+detail behind the one-liner.
+
+For rollouts across many hosts, on Linux and Windows alike, use the LFOps Ansible role; see
+[Any Operating System](#any-operating-system) below.
 
 Supported Python: 3.9 or newer. The RPM and DEB packages depend on the system Python, so
 the plugins run on every currently supported RHEL, SLE, Debian and Ubuntu release
 out of the box. On Windows, the MSI and ZIP ship plugins pre-compiled to native
 executables with [Nuitka](https://nuitka.net/) (a Python-to-C ahead-of-time compiler),
 so no separate Python installation is required.
+
+
+## Any Operating System
+
+
+### Ansible (LFOps)
+
+For fleet-wide rollouts, pinned versions, and downtime scheduling on both Linux and Windows,
+use the
+[linuxfabrik.lfops.monitoring_plugins](https://github.com/Linuxfabrik/lfops/tree/main/roles/monitoring_plugins)
+role. It registers the Linuxfabrik repository, installs the package, enables version
+lock and, on Windows, stops and restarts the Icinga 2 service while plugins are being
+replaced. It can also deploy custom plugins from your inventory.
+
+Put the target hosts into the `lfops_monitoring_plugins` inventory group, then run the LFOps
+playbook. With a local Ansible installation:
+
+```bash
+ansible-playbook linuxfabrik.lfops.monitoring_plugins \
+  --inventory path/to/inventory \
+  --limit myhost
+```
+
+Or through the LFOps Execution Environment (a container image, no local Ansible or Python
+dependencies needed) with `ansible-navigator`:
+
+```bash
+ansible-navigator run linuxfabrik.lfops.monitoring_plugins \
+  --inventory path/to/inventory \
+  --limit myhost
+```
 
 
 ## Linux
@@ -39,16 +76,20 @@ The same script can also install without the package repository, into a self-con
 (the layout the RPM and DEB packages use), instead of registering the repository. There are
 two such modes.
 
-Install the latest source from GitHub into a venv, without a git client or package manager:
+`--source` installs the source from GitHub, which carries the newest development state (the
+current `main`, or a branch or tag via `--ref`), so it can be ahead of any release. No git
+client or package manager needed:
 
 ```bash
 curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s -- --source
 ```
 
-Install a signed, version-pinned source zip from the download server, for air-gapped or
-pinned hosts:
+`--zip` installs the source too, but from the download server, which only carries released
+versions (not the newest development state). The zip is sha256- and GPG-verified. Use
+`--version=latest` for the newest release, or pin an exact `<version>-<iteration>`:
 
 ```bash
+curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s -- --zip --version=latest
 curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s -- --zip --version=<version>-<iteration>
 ```
 
@@ -89,8 +130,6 @@ sudo apt update
 sudo apt install linuxfabrik-monitoring-plugins
 ```
 
-Tested on: Debian 11 (bullseye), Debian 12 (bookworm), Debian 13 (trixie).
-
 
 #### RHEL 8, 9, 10 (Rocky, AlmaLinux, CentOS Stream, Oracle Linux)
 
@@ -107,8 +146,6 @@ The `linuxfabrik-monitoring-plugins-selinux` sub-package pulls in the base packa
 domain without manual `semanage`/`setsebool` tuning. Install just
 `linuxfabrik-monitoring-plugins` instead if SELinux is permissive or disabled.
 
-Tested on: Rocky 8, Rocky 9, Rocky 10.
-
 
 #### SLE 15, SLE 16 and openSUSE Leap
 
@@ -118,8 +155,6 @@ sudo zypper install linuxfabrik-monitoring-plugins
 ```
 
 SLE 15 requires at least Service Pack 5 (openSUSE Leap 15.5 or SLES 15 SP5).
-
-Tested on: SLE 15.5.
 
 
 #### Ubuntu 20.04, 22.04, 24.04, 26.04
@@ -136,31 +171,22 @@ sudo apt update
 sudo apt install linuxfabrik-monitoring-plugins
 ```
 
-Tested on: Ubuntu 20.04 (focal), Ubuntu 22.04 (jammy), Ubuntu 24.04 (noble).
 
+### Source (latest, air-gapped, or pinned)
 
-### Ansible (LFOps)
+Use this path to run the latest state of the plugins (a fix or plugin not yet in a released
+package), on a host that cannot reach `repo.linuxfabrik.ch` directly, or on one that must
+stay on a frozen plugin version. You still need Python 3.9 or newer on the target. The
+one-liner installer automates everything below via `--zip` (sha256- and GPG-verified); the
+manual steps here are the underlying detail.
 
-For fleet-wide rollouts, pinned versions, and downtime scheduling, use the
-[linuxfabrik.lfops.monitoring_plugins](https://github.com/Linuxfabrik/lfops/tree/main/roles/monitoring_plugins)
-role. It registers the Linuxfabrik repository, installs the package, enables version
-lock and, on Windows, stops and restarts the Icinga 2 service while plugins are being
-replaced. It can also deploy custom plugins from your inventory.
-
-
-### Source Tarball
-
-Use this path if a host cannot reach `repo.linuxfabrik.ch` directly or must stay on a
-frozen plugin version. You still need Python 3.9 or newer on the target. The one-liner
-installer automates everything below via `--zip` (sha256- and GPG-verified); the manual
-steps here are the underlying detail.
-
-Download `lfmp-<version>-<iteration>.source.noarch.zip` from the
-[download server](https://download.linuxfabrik.ch/monitoring-plugins/) and extract it
-into the standard plugin directory:
+Download the source zip from the
+[download server](https://download.linuxfabrik.ch/monitoring-plugins/) and extract it into
+the standard plugin directory. Use `release=latest` for the newest release, or pin an exact
+`<version>-<iteration>` (for example `release=2.2.1-1`) for a reproducible rollout:
 
 ```bash
-release=2.2.1-1
+release=latest
 wget https://download.linuxfabrik.ch/monitoring-plugins/lfmp-${release}.source.noarch.zip
 sudo unzip -d /usr/lib64/nagios/plugins lfmp-${release}.source.noarch.zip
 sudo chmod -R +x /usr/lib64/nagios/plugins
@@ -185,6 +211,7 @@ sudo -u icinga python3 -m pip install --user \
     --requirement /usr/lib64/nagios/plugins/lockfiles/${PY_TAG}/requirements.txt --require-hashes
 ```
 
+
 #### Escaping the py39 freeze
 
 The `lockfiles/py39/requirements.txt` is frozen on package versions that still support
@@ -192,7 +219,7 @@ Python 3.9 (RHEL 8, Debian 11). Over 2025/2026, most upstream packages dropped P
 3.9, so security-relevant updates for `urllib3`, `requests` and friends only ship in
 versions that require Python >= 3.10.
 
-This freeze only affects the source-tarball and Git-checkout paths described above. The
+This freeze only affects the source-zip and GitHub source paths described above. The
 **RPM package on RHEL 8 is built against Python 3.9 by design** (`BuildRequires:
 python39`, `Requires: python39`) and stays on the frozen py39 lockfile regardless of
 what else is installed on the host.
@@ -200,7 +227,7 @@ what else is installed on the host.
 ##### RHEL 8
 
 The AppStream offers `python3.11` and `python3.12` as regular RPMs alongside the system
-`python3.9`. A source-tarball install can run the plugins against the newer interpreter
+`python3.9`. A source install can run the plugins against the newer interpreter
 and pick the matching lockfile, getting all upstream security updates:
 
 ```bash
@@ -222,62 +249,60 @@ are an in-place upgrade to Debian 12 (Python 3.11) or Debian 13 (Python 3.13), o
 self-compiled Python (pyenv) without distro package support.
 
 
-### From Git (Development)
+### Latest from GitHub (no git client)
 
-Use this for testing a branch, verifying a bug fix before it is released, or running
-against the current `main`. Not recommended for production. The one-liner installer
-automates this via `--source` (optionally with `--ref` to pick a branch or tag); the
-manual `rsync`-based steps below are the underlying detail.
+Use this to run the current `main` or a specific tag (a fix or plugin not yet in a released
+package). No git client is needed on the target. Pin a tag for a reproducible rollout; track
+`main` for the very latest. Unlike the packaged installs, plugins deployed this way are not
+managed by the system package manager, so upgrades are a manual re-run.
+
+**One-liner (recommended).** The `--source` mode downloads the monitoring-plugins and lib
+source zips straight from GitHub, flattens the plugins into the plugin directory and installs
+lib and the Python dependencies. Add `--ref` to pick a branch or tag:
 
 ```bash
-release=2.2.1
-git clone https://github.com/Linuxfabrik/monitoring-plugins.git
-cd monitoring-plugins
-git checkout "tags/${release}"
+curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s -- --source
+curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s -- --source --ref=<tag>
 ```
 
-Copy the plugins to the remote host. The following runs on your deployment machine and
-syncs every plugin directory via `rsync`:
+On a host whose system `python3` is older than 3.9, add `--python=python3.12` (see
+[One-Liner Installer](#one-liner-installer-recommended)).
+
+**Manual GitHub zip.** If the host may not pipe a script to `bash`, download the archive zips
+yourself. GitHub serves any branch or tag at `/archive/<ref>.zip`. Fetch both repositories,
+because `lib` lives in a separate repo:
 
 ```bash
-plugin_source_dir=/path/to/monitoring-plugins/check-plugins
-remote_user=root
-remote_host=192.0.2.74
-remote_target_dir=/usr/lib64/nagios/plugins
+ref=main   # or a release tag, e.g. 2.2.1
+curl -fsSL -o monitoring-plugins.zip https://github.com/Linuxfabrik/monitoring-plugins/archive/${ref}.zip
+curl -fsSL -o lib.zip https://github.com/Linuxfabrik/lib/archive/${ref}.zip
+unzip -q monitoring-plugins.zip
+unzip -q lib.zip
+```
 
-ssh "${remote_user}@${remote_host}" "sudo mkdir -p ${remote_target_dir}/lib"
-for dir in $(find "${plugin_source_dir}" -maxdepth 1 -type d); do
-    file=$(basename "${dir}")
-    rsync \
-        --archive \
-        --progress \
-        --human-readable \
-        --rsync-path='sudo rsync' \
-        "${dir}/${file}" \
-        "${remote_user}@${remote_host}:${remote_target_dir}/${file}"
+The archives keep the repository layout, so flatten the plugins into the plugin directory
+(each executable sits one level deep under `check-plugins/<name>/<name>` and
+`notification-plugins/<name>/<name>`) and copy the `lib` modules alongside them:
+
+```bash
+sudo mkdir -p /usr/lib64/nagios/plugins/lib
+for dir in monitoring-plugins-${ref}/check-plugins/*/ monitoring-plugins-${ref}/notification-plugins/*/; do
+    name=$(basename "${dir}")
+    [ -f "${dir}${name}" ] && sudo install -m 0755 "${dir}${name}" "/usr/lib64/nagios/plugins/${name}"
 done
-scp -r "${plugin_source_dir}/../lockfiles" "${remote_user}@${remote_host}:/tmp"
+sudo cp -a lib-${ref}/. /usr/lib64/nagios/plugins/lib/
+sudo rm -rf /usr/lib64/nagios/plugins/lib/tests /usr/lib64/nagios/plugins/lib/lockfiles
 ```
 
-Once complete, the remote directory looks like this:
-
-```text
-/usr/lib64/nagios/plugins
-├── about-me
-├── apache-httpd-status
-├── apache-httpd-version
-├── ...
-└── xml
-```
-
-Install the Python dependencies for the user that runs the plugins (`icinga` on RHEL,
-`nagios` on Debian/Ubuntu). Pick the lockfile that matches the host's Python LTS:
+Then install the Python dependencies for the user that runs the plugins (`icinga` on RHEL,
+`nagios` on Debian/Ubuntu), using the lockfile from the extracted tree that matches the host
+Python:
 
 ```bash
 PY_TAG="py$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')"
 sudo -u icinga python3 -m pip install --user --upgrade pip
 sudo -u icinga python3 -m pip install --user \
-    --requirement /tmp/lockfiles/${PY_TAG}/requirements.txt --require-hashes
+    --requirement monitoring-plugins-${ref}/lockfiles/${PY_TAG}/requirements.txt --require-hashes
 ```
 
 
@@ -299,8 +324,8 @@ Install the file for your family into `/etc/sudoers.d/` on every monitored host:
   Alma, Amazon, CentOS, CloudLinux, Fedora, Oracle Linux, RedHat, Rocky, Scientific.
 
 When the Linuxfabrik RPM or DEB package is installed, you will already find the
-appropriate sudoers drop-in in `/etc/sudoers.d/` (it is part of the package). Source
-tarball and Git installs must add it manually.
+appropriate sudoers drop-in in `/etc/sudoers.d/` (it is part of the package). Source-zip and
+GitHub source installs must add it manually.
 
 When you call plugins with sudo from Icinga, also preserve the proxy environment
 variables you care about, for example:
@@ -316,7 +341,7 @@ On RHEL and derivatives, the `linuxfabrik-monitoring-plugins-selinux` sub-packag
 installs a dedicated SELinux policy module and labels the plugin files correctly. No
 extra steps are required.
 
-For the source tarball and Git installs, apply the minimal settings manually:
+For the source-zip and GitHub source installs, apply the minimal settings manually:
 
 ```bash
 sudo restorecon -Fvr /usr/lib64/nagios
@@ -329,9 +354,10 @@ sudo setsebool -P nagios_run_sudo on
 
 ### MSI Installer (recommended)
 
-1. Download `lfmp-<version>-<iteration>.signed-packaged.windows.<arch>.zip` from the
-   [download server](https://download.linuxfabrik.ch/monitoring-plugins/).
-   `x86_64` is for Intel/AMD, `aarch64` is for ARM.
+1. Download `lfmp-latest.signed-packaged.windows.x86_64.zip` from the
+   [download server](https://download.linuxfabrik.ch/monitoring-plugins/) for the newest
+   release, or `lfmp-<version>-<iteration>.signed-packaged.windows.x86_64.zip` to pin an
+   exact release. Only an x86_64 Windows build is published.
 2. Extract the zip. Inside you find a signed MSI.
 3. Run the MSI (double-click or `msiexec /i lfmp-*.msi /qn`).
 
@@ -346,31 +372,116 @@ All binaries and the MSI are signed; free code signing is provided by
 [SignPath Foundation](https://signpath.org).
 
 
+### One-Liner Installer (PowerShell)
+
+The scriptable way to install on Windows, the counterpart of the Linux one-liner. By default
+it downloads the signed MSI, verifies its Authenticode signature and installs it silently.
+Run this default path in an **elevated** PowerShell, since the MSI writes to
+`C:\Program Files` (the `-Source` path below needs no elevation):
+
+```powershell
+& ([scriptblock]::Create((irm https://repo.linuxfabrik.ch/install-monitoring-plugins.ps1)))
+```
+
+This installs the latest release. Pass `-Version <version>-<iteration>` to pin an exact
+release for a reproducible rollout (see the download server for the available releases):
+
+```powershell
+& ([scriptblock]::Create((irm https://repo.linuxfabrik.ch/install-monitoring-plugins.ps1))) -Version <version>-<iteration>
+```
+
+To review the script before running it, download it, verify it against the published
+checksum and read it:
+
+```powershell
+irm https://repo.linuxfabrik.ch/install-monitoring-plugins.ps1 -OutFile install-monitoring-plugins.ps1
+irm https://repo.linuxfabrik.ch/install-monitoring-plugins.ps1.sha256 -OutFile install-monitoring-plugins.ps1.sha256
+(Get-FileHash install-monitoring-plugins.ps1 -Algorithm SHA256).Hash   # compare against the .sha256
+Get-Content install-monitoring-plugins.ps1 | more
+```
+
+Run it (latest release, or add `-Version <version>-<iteration>` to pin):
+
+```powershell
+.\install-monitoring-plugins.ps1
+```
+
+The same script can also install the latest source from GitHub instead of the MSI, into a
+Python 3.13 virtual environment. This is the supported way to run the latest state on
+Windows (a fix or plugin not yet in a released MSI); pass `-Ref <tag>` for a pinned,
+reproducible rollout. It downloads the monitoring-plugins and lib source zips, creates the
+venv and installs the plugin dependencies into it (this path needs Python 3.13, and requires
+neither git nor an elevated shell):
+
+```powershell
+.\install-monitoring-plugins.ps1 -Source -TargetDir C:\path\to\workdir
+```
+
+Add `-DryRun` to print every action without executing it, or `-Ref <branch-or-tag>` to
+install a specific version. Run the plugins with the virtual environment's Python, for example:
+
+```powershell
+& "<TargetDir>\.venv\Scripts\python.exe" "<TargetDir>\monitoring-plugins\check-plugins\cpu-usage\cpu-usage"
+```
+
+The sections below document the manual equivalents and the platform-specific details.
+
+
 ### ZIP Archive
 
 If you cannot or do not want to run an MSI, download
-`lfmp-<version>-<iteration>.signed-compiled.windows.<arch>.zip` from the
+`lfmp-latest.signed-compiled.windows.x86_64.zip` (or a pinned
+`lfmp-<version>-<iteration>.signed-compiled.windows.x86_64.zip`) from the
 [download server](https://download.linuxfabrik.ch/monitoring-plugins/) and extract it
 to a folder of your choice. The conventional location is
 `C:\Program Files\ICINGA2\sbin\linuxfabrik\`. Plugins are single-file EXEs; no Python
 installation is required.
 
 
-### From Source (Python 3.9+)
+### Source (latest)
 
-On Windows, running the `.py` files directly requires a local Python 3.13
-installation and the dependencies from `lockfiles/py313-windows/requirements.txt` (the
-lockfile matches the version the Windows binary build is pinned to; see `BUILD.md`).
-Clone the repository and point the Icinga 2 agent at the `.py` files:
+Run the latest state from GitHub by executing the `.py` files directly. This needs a local
+Python 3.13 and the dependencies from `lockfiles/py313-windows/requirements.txt` (the
+lockfile matches the version the Windows binary build is pinned to; see `BUILD.md`). No git
+client is required.
+
+**One-liner (recommended).** The PowerShell installer's `-Source` mode downloads the
+monitoring-plugins and lib source zips from GitHub into a Python 3.13 virtual environment and
+wires up `lib`; see [One-Liner Installer (PowerShell)](#one-liner-installer-powershell)
+above. Add `-Ref <tag>` for a pinned rollout.
+
+**Manual GitHub zip.** Download the archive zips yourself. GitHub serves any branch or tag at
+`/archive/<ref>.zip`. Fetch both repositories, because `lib` lives in a separate repo:
 
 ```powershell
-git clone https://github.com/Linuxfabrik/monitoring-plugins.git `
-    "C:\Program Files\ICINGA2\sbin\linuxfabrik"
+$ref = 'main'   # or a release tag, e.g. 2.2.1
+Invoke-WebRequest "https://github.com/Linuxfabrik/monitoring-plugins/archive/$ref.zip" `
+    -OutFile monitoring-plugins.zip -UseBasicParsing
+Invoke-WebRequest "https://github.com/Linuxfabrik/lib/archive/$ref.zip" `
+    -OutFile lib.zip -UseBasicParsing
+Expand-Archive monitoring-plugins.zip -DestinationPath . -Force
+Expand-Archive lib.zip -DestinationPath . -Force
+```
+
+The plugins are the `.py` files under `monitoring-plugins-$ref\check-plugins\<name>\<name>`.
+Copy the extracted `lib-$ref` modules into a `lib` folder next to the plugins so `import lib`
+resolves, then install the dependencies with a local Python 3.13:
+
+```powershell
 python -m pip install --upgrade pip
 python -m pip install --requirement `
-    "C:\Program Files\ICINGA2\sbin\linuxfabrik\lockfiles\py313-windows\requirements.txt" `
-    --require-hashes
+    "monitoring-plugins-$ref\lockfiles\py313-windows\requirements.txt" --require-hashes
 ```
+
+**Signed zip.** For an air-gapped or reproducible install, the
+`lfmp-latest.source.noarch.zip` (or a pinned `lfmp-<version>-<iteration>.source.noarch.zip`)
+from the [download server](https://download.linuxfabrik.ch/monitoring-plugins/) works on
+Windows too:
+it is architecture-independent, already flattened, and bundles `lib` and every lockfile
+(including `py313-windows`). Download and sha256-verify it as shown under
+[Linux > Source](#source-latest-air-gapped-or-pinned), extract it to
+`C:\Program Files\ICINGA2\sbin\linuxfabrik\`, then install the `py313-windows` dependencies
+as above. Unlike on Linux, the PowerShell one-liner does not automate this signed-zip path.
 
 
 ### Post-Install (Windows)
