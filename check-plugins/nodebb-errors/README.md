@@ -79,8 +79,8 @@ HTTP Status today: 0x 503 too busy, 1x 404 not found
 
 | Name | Type | Description |
 |----|----|----|
-| err404 | Continuous Counter | Number of 404 responses from today. |
-| err503 | Continuous Counter | Number of 503 responses from today. |
+| err404 | Number | Number of 404 responses today (daily counter that resets at midnight). |
+| err503 | Number | Number of 503 responses today (daily counter that resets at midnight). |
 
 
 ## Credits, License
