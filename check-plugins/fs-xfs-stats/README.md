@@ -3,12 +3,13 @@
 
 ## Overview
 
-Reports internal XFS filesystem statistics from `/proc/fs/xfs/stat`. Useful for understanding I/O characteristics and identifying performance bottlenecks on XFS volumes. This is a data-collection plugin that does not perform threshold-based alerting. For further information, see <https://xfs.org/index.php/Runtime_Stats>.
+Reports XFS filesystem activity from `/proc/fs/xfs/stat` as per-second rates: read and write system calls, inode cache hit ratio, inode reclaim activity, and directory operations, plus the current number of active inodes. Intended for trending I/O and metadata workload on XFS volumes. This check is informational and does not perform threshold-based alerting. For further information, see <https://xfs.org/index.php/Runtime_Stats>.
 
 **Data Collection:**
 
-* Reads `/proc/fs/xfs/stat` and parses the following statistic groups: extent allocation, allocation B-tree, block mapping, block map B-tree, directory operations, inode operations, vnode, and read/write calls
-* All metrics are reported as continuous counters
+* Reads `/proc/fs/xfs/stat` and computes per-second rates for the read/write system calls (`rw`), inode cache operations (`ig`) and directory operations (`dir`), plus the current number of active inodes.
+* Rates are calculated in the plugin from the difference between two consecutive check runs, using a local SQLite cache. The first run reports `Waiting for more data.`
+* The remaining `/proc/fs/xfs/stat` groups (allocator, B-tree and block-mapping internals) are omitted: they are XFS-internal debugging counters, and several legacy `vnodes` fields are unused slots that always read zero on modern kernels.
 
 
 ## Fact Sheet
@@ -21,6 +22,7 @@ Reports internal XFS filesystem statistics from `/proc/fs/xfs/stat`. Useful for 
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |
+| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-fs-xfs-stats.db` |
 
 
 ## Help
@@ -28,9 +30,11 @@ Reports internal XFS filesystem statistics from `/proc/fs/xfs/stat`. Useful for 
 ```text
 usage: fs-xfs-stats [-h] [-V]
 
-Reports internal XFS filesystem statistics from /proc/fs/xfs/stat. Useful for
-understanding I/O characteristics and identifying performance bottlenecks on
-XFS volumes.
+Reports XFS filesystem activity from /proc/fs/xfs/stat as per-second rates:
+read and write system calls, inode cache hit ratio, inode reclaim activity,
+and directory operations, plus the current number of active inodes. Intended
+for trending I/O and metadata workload on XFS volumes. This check is
+informational and does not raise alerts.
 
 options:
   -h, --help     show this help message and exit
@@ -47,61 +51,29 @@ options:
 Output:
 
 ```text
-Everything is ok. Extent allocation, btree, block mapping, btree, directory operation, inode operation, vnode and read write stats collected.
+824.0 read/s, 25.0 write/s, inode cache hit 50.0%, 1.8K active inodes
 ```
 
 
 ## States
 
-* OK if all statistic groups are parsed successfully.
-* WARN if any statistic group has an unexpected number of values (malformed data in `/proc/fs/xfs/stat`).
-* UNKNOWN if `/proc/fs/xfs/stat` does not exist (no mounted XFS filesystem).
+* Always OK. This check is informational and only collects performance data.
+* UNKNOWN if `/proc/fs/xfs/stat` does not exist (no mounted XFS filesystem) or contains unexpected data.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| allocation_btree_compares_total | Continuous Counter | Number of allocation B-tree compares. |
-| allocation_btree_lookups_total | Continuous Counter | Number of allocation B-tree lookups. |
-| allocation_btree_records_deleted_total | Continuous Counter | Number of allocation B-tree records deleted. |
-| allocation_btree_records_inserted_total | Continuous Counter | Number of allocation B-tree records inserted. |
-| block_map_btree_compares_total | Continuous Counter | Number of block map B-tree compares. |
-| block_map_btree_lookups_total | Continuous Counter | Number of block map B-tree lookups. |
-| block_map_btree_records_deleted_total | Continuous Counter | Number of block map B-tree records deleted. |
-| block_map_btree_records_inserted_total | Continuous Counter | Number of block map B-tree records inserted. |
-| block_mapping_extent_list_compares_total | Continuous Counter | Number of extent list compares. |
-| block_mapping_extent_list_deletions_total | Continuous Counter | Number of extent list deletions. |
-| block_mapping_extent_list_insertions_total | Continuous Counter | Number of extent list insertions. |
-| block_mapping_extent_list_lookups_total | Continuous Counter | Number of extent list lookups. |
-| block_mapping_reads_total | Continuous Counter | Number of block map read operations. |
-| block_mapping_unmaps_total | Continuous Counter | Number of block unmaps (deletes). |
-| block_mapping_writes_total | Continuous Counter | Number of block map write operations. |
-| directory_operation_create_total | Continuous Counter | Number of directory entry creations. |
-| directory_operation_getdents_total | Continuous Counter | Number of directory getdents operations. |
-| directory_operation_lookup_total | Continuous Counter | Number of directory name lookups that missed the OS cache. |
-| directory_operation_remove_total | Continuous Counter | Number of directory entry removals. |
-| extent_allocation_blocks_allocated_total | Continuous Counter | Number of blocks allocated. |
-| extent_allocation_blocks_freed_total | Continuous Counter | Number of blocks freed. |
-| extent_allocation_extents_allocated_total | Continuous Counter | Number of extents allocated. |
-| extent_allocation_extents_freed_total | Continuous Counter | Number of extents freed. |
-| inode_operation_attempts_total | Continuous Counter | Number of inode cache lookup attempts. |
-| inode_operation_attribute_changes_total | Continuous Counter | Number of explicit inode attribute changes. |
-| inode_operation_duplicates_total | Continuous Counter | Number of duplicate inode cache insertions (added by another process). |
-| inode_operation_found_total | Continuous Counter | Number of successful inode cache lookups. |
-| inode_operation_missed_total | Continuous Counter | Number of inode cache lookup misses. |
-| inode_operation_reclaims_total | Continuous Counter | Number of inode cache reclaims to free memory. |
-| inode_operation_recycled_total | Continuous Counter | Number of inode cache hits where the inode was being recycled. |
-| read_calls_total | Continuous Counter | Number of read(2) system calls to XFS files. |
-| vnode_active_total | Continuous Counter | Number of vnodes not on free lists. |
-| vnode_allocate_total | Continuous Counter | Number of vn_alloc calls. |
-| vnode_free_total | Continuous Counter | Number of vn_free calls. |
-| vnode_get_total | Continuous Counter | Number of vn_get calls. |
-| vnode_hold_total | Continuous Counter | Number of vn_hold calls. |
-| vnode_reclaim_total | Continuous Counter | Number of vn_reclaim calls. |
-| vnode_release_total | Continuous Counter | Number of vn_rele calls. |
-| vnode_remove_total | Continuous Counter | Number of vn_remove calls. |
-| write_calls_total | Continuous Counter | Number of write(2) system calls to XFS files. |
+| active_inodes | Number | Current number of active (in-use) XFS inodes. This is a gauge, not a rate. |
+| dir_create_per_second | Number | Directory entry creations per second. |
+| dir_lookup_per_second | Number | Directory name lookups per second. |
+| dir_remove_per_second | Number | Directory entry removals per second. |
+| inode_attempts_per_second | Number | Inode cache lookup attempts per second. |
+| inode_cache_hit_percent | Percentage | Inode cache hit ratio over the interval (found / attempts). |
+| inode_reclaims_per_second | Number | Inode cache reclaims per second (indicates memory pressure). |
+| read_calls_per_second | Number | read(2) system calls to XFS files per second. |
+| write_calls_per_second | Number | write(2) system calls to XFS files per second. |
 
 
 ## Troubleshooting
@@ -109,6 +81,10 @@ Everything is ok. Extent allocation, btree, block mapping, btree, directory oper
 ### `No mounted XFS filesystem found.`
 
 The system does not have any mounted XFS filesystem. `/proc/fs/xfs/stat` does not exist. Disable this check for this machine.
+
+### `Waiting for more data.`
+
+The plugin needs two consecutive runs to calculate per-second rates. This message is expected on the first run (or after a reboot) and clears on the next check.
 
 
 ## Credits, License

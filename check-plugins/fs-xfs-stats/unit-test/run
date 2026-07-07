@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+import os
+import sys
+import time
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.db_sqlite
+import lib.lftest
+from lib.globals import STATE_OK
+
+
+def _cache_db():
+    # Resolve via the lib so the reset below removes the exact file the plugin
+    # uses for its previous-value cache.
+    ok, db_path = lib.db_sqlite.get_db_path(
+        filename='linuxfabrik-monitoring-plugins-fs-xfs-stats.db',
+    )
+    return db_path if ok else None
+
+
+CACHE_DB = _cache_db()
+
+
+# fs-xfs-stats parses /proc/fs/xfs/stat and converts the cumulative counters to
+# per-second rates against the previous run, stored in a local SQLite cache.
+# Realistic coverage therefore needs sequences of fixture files that simulate
+# consecutive invocations:
+#
+#   call 1 -> "Waiting for more data."   (no previous sample yet)
+#   call 2 -> the real per-second rates
+#
+# The rate is derived from the wall-clock time between the two runs (there is
+# no timestamp in /proc/fs/xfs/stat), so the second step sleeps briefly to make
+# the elapsed time non-zero. Fixtures were captured from real XFS hosts:
+#
+#   - active-io-* : a repository host under read load
+#   - low-io-*    : a mostly idle host
+#
+# The cache DB is deleted before each scenario so the sequences do not bleed
+# into each other.
+
+SCENARIOS = [
+    {
+        'id': 'ok-first-run-waits-for-baseline',
+        'steps': [
+            {
+                'test': 'stdout/active-io-1,,0',
+                'assert-retc': STATE_OK,
+                'assert-in': ['Waiting for more data.', "'active_inodes'=1761"],
+            },
+        ],
+    },
+    {
+        'id': 'ok-emits-rates-on-second-run',
+        'steps': [
+            {
+                'test': 'stdout/active-io-1,,0',
+                'assert-retc': STATE_OK,
+                'assert-in': ['Waiting for more data.'],
+            },
+            {
+                'test': 'stdout/active-io-2,,0',
+                'sleep': 1.1,
+                'assert-retc': STATE_OK,
+                'assert-in': [
+                    'read_calls_per_second',
+                    'write_calls_per_second',
+                    "'inode_cache_hit_percent'=",
+                    'active inodes',
+                ],
+                'assert-not-in': ['Waiting for more data.', 'c;'],
+            },
+        ],
+    },
+    {
+        'id': 'ok-parses-low-io-host',
+        'steps': [
+            {
+                'test': 'stdout/low-io-1,,0',
+                'assert-retc': STATE_OK,
+                'assert-in': ['Waiting for more data.', "'active_inodes'=34583"],
+            },
+        ],
+    },
+]
+
+
+def _run_scenario(test, scenario):
+    """Replay a scenario's steps against a freshly reset cache."""
+    if CACHE_DB and os.path.exists(CACHE_DB):
+        os.remove(CACHE_DB)
+    for step in scenario['steps']:
+        if step.get('sleep'):
+            time.sleep(step['sleep'])
+        lib.lftest.run(test, test.check, step)
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../fs-xfs-stats'
+
+
+lib.lftest.attach_each(TestCheck, SCENARIOS, _run_scenario, id_func=lambda s: s['id'])
+
+
+if __name__ == '__main__':
+    unittest.main()

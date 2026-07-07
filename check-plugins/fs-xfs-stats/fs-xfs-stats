@@ -11,19 +11,24 @@
 """See the check's README for more details."""
 
 import argparse
-import os
 import sys
 
+import lib.args
 import lib.base
+import lib.db_sqlite
 import lib.disk
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.human
+import lib.lftest
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026070701'
 
-DESCRIPTION = """Reports internal XFS filesystem statistics from /proc/fs/xfs/stat. Useful for
-understanding I/O characteristics and identifying performance bottlenecks on XFS
-volumes."""
+DESCRIPTION = """Reports XFS filesystem activity from /proc/fs/xfs/stat as per-second rates: read
+and write system calls, inode cache hit ratio, inode reclaim activity, and directory operations,
+plus the current number of active inodes. Intended for trending I/O and metadata workload on XFS
+volumes. This check is informational and does not raise alerts."""
 
 
 def parse_args():
@@ -37,8 +42,28 @@ def parse_args():
         version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
     args, _ = parser.parse_known_args()
     return args
+
+
+def field(stats, label, idx, count):
+    """Return one integer value from a parsed /proc/fs/xfs/stat line, or fail
+    with UNKNOWN if the line is missing or has fewer values than expected.
+
+    The value layout of /proc/fs/xfs/stat is defined by the kernel in
+    fs/xfs/xfs_stats.c; callers pass the field index according to that layout.
+    """
+    values = stats.get(label)
+    if not values or len(values) < count:
+        lib.base.cu(f'Unexpected format for XFS "{label}" statistics.')
+    return int(values[idx])
 
 
 def main():
@@ -50,387 +75,96 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    if not os.path.exists('/proc/fs/xfs/stat'):
-        lib.base.cu('No mounted XFS filesystem found.')
+    # fetch data
+    if args.TEST is None:
+        # /proc/fs/xfs/stat reports a size of 0 like most proc files, so
+        # allow_empty=True is required to detect its presence.
+        if not lib.disk.file_exists('/proc/fs/xfs/stat', allow_empty=True):
+            lib.base.cu('No mounted XFS filesystem found.')
+        raw = lib.base.coe(lib.disk.read_file('/proc/fs/xfs/stat'))
+    else:
+        raw, _, _ = lib.lftest.test(args.TEST)
 
-    # init some vars
-    msg = ''
-    state = STATE_OK
-    perfdata = ''
+    # map each /proc/fs/xfs/stat line to its label: {'rw': ['123', '456'], ...}
+    stats = {row[0]: row[1:] for row in lib.txt.mltext2array(raw) if row}
 
-    # analyze data
-    xfs_stat = lib.base.coe(lib.disk.read_file('/proc/fs/xfs/stat'))
-    for row in xfs_stat.strip().split('\n'):
-        stat = row.split(' ')
+    # We only read the fields that are actually meaningful to a Linux admin.
+    # The rest of /proc/fs/xfs/stat (allocator, btree and block-mapping
+    # internals) is XFS-developer debugging territory, and several "vnodes"
+    # fields are unused legacy slots that always read zero on modern kernels.
+    #
+    # vnodes: xs_inodes_active is a gauge (current active inodes), not a
+    # counter, and is always available, even on the first run.
+    active_inodes = field(stats, 'vnodes', 0, 8)
+    perfdata = lib.base.get_perfdata('active_inodes', active_inodes, uom=None, _min=0)
 
-        # ExtentAllocationStats
-        if stat[0] == 'extent_alloc':
-            if len(stat) != 5:
-                lib.base.oao(
-                    'Incorrect number of values for XFS extent allocation stats.',
-                    STATE_WARN,
-                    perfdata,
-                    always_ok=args.ALWAYS_OK,
-                )
-            extents_allocated = stat[1]
-            blocks_allocated = stat[2]
-            extents_freed = stat[3]
-            blocks_freed = stat[4]
-            perfdata += lib.base.get_perfdata(
-                'extent_allocation_blocks_allocated_total',
-                blocks_allocated,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'extent_allocation_blocks_freed_total',
-                blocks_freed,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'extent_allocation_extents_allocated_total',
-                extents_allocated,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'extent_allocation_extents_freed_total',
-                extents_freed,
-                uom='c',
-                _min=0,
-            )
+    # Convert the cumulative counters to per-second rates against the previous
+    # run, stored in this plugin's own SQLite cache, instead of emitting
+    # uom='c' continuous counters (issue #320). The field offsets follow the
+    # /proc/fs/xfs/stat layout defined in the kernel (fs/xfs/xfs_stats.c):
+    #   rw:  write_calls read_calls
+    #   ig:  attempts found recycle missed dup reclaims attrchg
+    #   dir: lookup create remove getdents
+    rates = lib.db_sqlite.per_second_deltas(
+        'linuxfabrik-monitoring-plugins-fs-xfs-stats.db',
+        'fs-xfs-stats',
+        {
+            'dir_create': field(stats, 'dir', 1, 4),
+            'dir_lookup': field(stats, 'dir', 0, 4),
+            'dir_remove': field(stats, 'dir', 2, 4),
+            'ig_attempts': field(stats, 'ig', 0, 7),
+            'ig_found': field(stats, 'ig', 1, 7),
+            'ig_reclaims': field(stats, 'ig', 5, 7),
+            'read_calls': field(stats, 'rw', 1, 2),
+            'write_calls': field(stats, 'rw', 0, 2),
+        },
+    )
+    if rates is None:
+        # first run, cache wiped, or counter reset (fresh mount): no delta yet
+        lib.base.oao('Waiting for more data.', STATE_OK, perfdata)
 
-        # BTreeStats
-        if stat[0] == 'abt':
-            if len(stat) != 5:
-                lib.base.oao(
-                    'Incorrect number of values for XFS btree stats.',
-                    STATE_WARN,
-                    perfdata,
-                    always_ok=args.ALWAYS_OK,
-                )
-            lookups = stat[1]
-            compares = stat[2]
-            records_inserted = stat[3]
-            records_deleted = stat[4]
-            perfdata += lib.base.get_perfdata(
-                'allocation_btree_compares_total',
-                compares,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'allocation_btree_lookups_total',
-                lookups,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'allocation_btree_records_deleted_total',
-                records_deleted,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'allocation_btree_records_inserted_total',
-                records_inserted,
-                uom='c',
-                _min=0,
-            )
+    # inode cache hit ratio over the interval (delta-based, so it reflects the
+    # current workload instead of converging to a lifetime average)
+    if rates['ig_attempts'] > 0:
+        inode_cache_hit_percent = round(rates['ig_found'] / rates['ig_attempts'] * 100, 1)
+    else:
+        inode_cache_hit_percent = 100.0
 
-        # BlockMappingStats
-        if stat[0] == 'blk_map':
-            if len(stat) != 8:
-                lib.base.oao(
-                    'Incorrect number of values for XFS block mapping stats.',
-                    STATE_WARN,
-                    perfdata,
-                    always_ok=args.ALWAYS_OK,
-                )
-            reads = stat[1]
-            writes = stat[2]
-            unmaps = stat[3]
-            extent_list_insertions = stat[4]
-            extent_list_deletions = stat[5]
-            extent_list_lookups = stat[6]
-            extent_list_compares = stat[7]
-            perfdata += lib.base.get_perfdata(
-                'block_mapping_extent_list_compares_total',
-                extent_list_compares,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'block_mapping_extent_list_deletions_total',
-                extent_list_deletions,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'block_mapping_extent_list_insertions_total',
-                extent_list_insertions,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'block_mapping_extent_list_lookups_total',
-                extent_list_lookups,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'block_mapping_reads_total',
-                reads,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'block_mapping_unmaps_total',
-                unmaps,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'block_mapping_writes_total',
-                writes,
-                uom='c',
-                _min=0,
-            )
-
-        # BTreeStats
-        if stat[0] == 'bmbt':
-            if len(stat) != 5:
-                lib.base.oao(
-                    'Incorrect number of values for XFS btree stats.',
-                    STATE_WARN,
-                    perfdata,
-                    always_ok=args.ALWAYS_OK,
-                )
-            lookups = stat[1]
-            compares = stat[2]
-            recordsinserted = stat[3]
-            recordsdeleted = stat[4]
-            perfdata += lib.base.get_perfdata(
-                'block_map_btree_compares_total',
-                compares,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'block_map_btree_lookups_total',
-                lookups,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'block_map_btree_records_deleted_total',
-                recordsdeleted,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'block_map_btree_records_inserted_total',
-                recordsinserted,
-                uom='c',
-                _min=0,
-            )
-
-        # DirectoryOperationStats
-        if stat[0] == 'dir':
-            if len(stat) != 5:
-                lib.base.oao(
-                    'Incorrect number of values for XFS directory operation stats.',
-                    STATE_WARN,
-                    perfdata,
-                    always_ok=args.ALWAYS_OK,
-                )
-            lookups = stat[1]
-            creates = stat[2]
-            removes = stat[3]
-            getdents = stat[4]
-            perfdata += lib.base.get_perfdata(
-                'directory_operation_create_total',
-                creates,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'directory_operation_getdents_total',
-                getdents,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'directory_operation_lookup_total',
-                lookups,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'directory_operation_remove_total',
-                removes,
-                uom='c',
-                _min=0,
-            )
-
-        # InodeOperationStats
-        if stat[0] == 'ig':
-            if len(stat) != 8:
-                lib.base.oao(
-                    'Incorrect number of values for XFS inode operation stats.',
-                    STATE_WARN,
-                    perfdata,
-                    always_ok=args.ALWAYS_OK,
-                )
-            attempts = stat[1]
-            found = stat[2]
-            recycle = stat[3]
-            missed = stat[4]
-            duplicate = stat[5]
-            reclaims = stat[6]
-            attributechange = stat[7]
-            perfdata += lib.base.get_perfdata(
-                'inode_operation_attempts_total',
-                attempts,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'inode_operation_attribute_changes_total',
-                attributechange,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'inode_operation_duplicates_total',
-                duplicate,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'inode_operation_found_total',
-                found,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'inode_operation_missed_total',
-                missed,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'inode_operation_reclaims_total',
-                reclaims,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'inode_operation_recycled_total',
-                recycle,
-                uom='c',
-                _min=0,
-            )
-
-        # VnodeStats
-        if stat[0] == 'vnodes':
-            # The attribute "Free" appears to not be available on older XFS
-            # stats versions.  Therefore, 7 or 8 elements may appear in
-            # this slice.
-            if len(stat) != 9:
-                lib.base.oao(
-                    'Incorrect number of values for XFS vnode stats.',
-                    STATE_WARN,
-                    perfdata,
-                    always_ok=args.ALWAYS_OK,
-                )
-            active = stat[1]
-            allocate = stat[2]
-            get = stat[3]
-            hold = stat[4]
-            release = stat[5]
-            reclaim = stat[6]
-            remove = stat[7]
-            free = stat[8]
-            perfdata += lib.base.get_perfdata(
-                'vnode_active_total',
-                active,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'vnode_allocate_total',
-                allocate,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'vnode_free_total',
-                free,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'vnode_get_total',
-                get,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'vnode_hold_total',
-                hold,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'vnode_reclaim_total',
-                reclaim,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'vnode_release_total',
-                release,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'vnode_remove_total',
-                remove,
-                uom='c',
-                _min=0,
-            )
-
-        # ReadWriteStats
-        if stat[0] == 'rw':
-            if len(stat) != 3:
-                lib.base.oao(
-                    'Incorrect number of values for XFS read write stats.',
-                    STATE_WARN,
-                    perfdata,
-                    always_ok=args.ALWAYS_OK,
-                )
-            writes = stat[1]
-            reads = stat[2]
-            perfdata += lib.base.get_perfdata(
-                'read_calls_total',
-                reads,
-                uom='c',
-                _min=0,
-            )
-            perfdata += lib.base.get_perfdata(
-                'write_calls_total',
-                writes,
-                uom='c',
-                _min=0,
-            )
+    perfdata += lib.base.get_perfdata(
+        'dir_create_per_second', round(rates['dir_create'], 1), uom=None, _min=0
+    )
+    perfdata += lib.base.get_perfdata(
+        'dir_lookup_per_second', round(rates['dir_lookup'], 1), uom=None, _min=0
+    )
+    perfdata += lib.base.get_perfdata(
+        'dir_remove_per_second', round(rates['dir_remove'], 1), uom=None, _min=0
+    )
+    perfdata += lib.base.get_perfdata(
+        'inode_attempts_per_second', round(rates['ig_attempts'], 1), uom=None, _min=0
+    )
+    perfdata += lib.base.get_perfdata(
+        'inode_cache_hit_percent', inode_cache_hit_percent, uom='%', _min=0, _max=100
+    )
+    perfdata += lib.base.get_perfdata(
+        'inode_reclaims_per_second', round(rates['ig_reclaims'], 1), uom=None, _min=0
+    )
+    perfdata += lib.base.get_perfdata(
+        'read_calls_per_second', round(rates['read_calls'], 1), uom=None, _min=0
+    )
+    perfdata += lib.base.get_perfdata(
+        'write_calls_per_second', round(rates['write_calls'], 1), uom=None, _min=0
+    )
 
     # build the message
-    msg = 'Everything is ok. Extent allocation, btree, block mapping, btree, directory operation, inode operation, vnode and read write stats collected.'
+    msg = (
+        f'{lib.human.number2human(rates["read_calls"])} read/s, '
+        f'{lib.human.number2human(rates["write_calls"])} write/s, '
+        f'inode cache hit {inode_cache_hit_percent}%, '
+        f'{lib.human.number2human(active_inodes)} active inodes'
+    )
 
     # over and out
-    lib.base.oao(msg, state, perfdata)
+    lib.base.oao(msg, STATE_OK, perfdata)
 
 
 if __name__ == '__main__':
