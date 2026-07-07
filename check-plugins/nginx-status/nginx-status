@@ -15,6 +15,7 @@ import sys
 
 import lib.args
 import lib.base
+import lib.db_sqlite
 import lib.human
 import lib.lftest
 import lib.txt
@@ -22,7 +23,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026070701'
 
 DESCRIPTION = """Monitors NGINX performance via the stub_status module. Reports active connections,
 accepts, handled requests, and connection states (reading, writing, waiting). Alerts
@@ -205,23 +206,25 @@ def main():
         f' keep-alive'
         f' {lib.txt.pluralize("conn", connections_waiting)}'
     )
-    perfdata += lib.base.get_perfdata(
-        'nginx_connections_accepted',
-        total_connections_accepted,
-        uom='c',
-        _min=0,
+    # Convert the cumulative stub_status counters (accepts, handled, requests)
+    # to per-second rates against the previous run, stored in this plugin's own
+    # SQLite cache, instead of emitting uom='c' continuous counters (issue #320).
+    rates = lib.db_sqlite.per_second_deltas(
+        'linuxfabrik-monitoring-plugins-nginx-status.db',
+        'nginx-status',
+        {
+            'connections_accepted': int(total_connections_accepted),
+            'connections_handled': int(total_connections_handled),
+            'requests': int(total_requests),
+        },
     )
+
+    # gauges are always available, even on the first run
     perfdata += lib.base.get_perfdata(
         'nginx_connections_active',
         active_connections,
         warn=args.WARN,
         crit=args.CRIT,
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'nginx_connections_handled',
-        total_connections_handled,
-        uom='c',
         _min=0,
     )
     perfdata += lib.base.get_perfdata(
@@ -240,16 +243,26 @@ def main():
         _min=0,
     )
     perfdata += lib.base.get_perfdata(
-        'nginx_http_requests_total',
-        total_requests,
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
         'nginx_requests_per_connection',
         requests_per_connection,
         _min=0,
     )
+    if rates is not None:
+        perfdata += lib.base.get_perfdata(
+            'nginx_connections_accepted_per_second',
+            round(rates['connections_accepted'], 2),
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'nginx_connections_handled_per_second',
+            round(rates['connections_handled'], 2),
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'nginx_http_requests_per_second',
+            round(rates['requests'], 2),
+            _min=0,
+        )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
