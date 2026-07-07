@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060708'
+__version__ = '2026070701'
 
 DESCRIPTION = """Checks the state of all physical drives, volumes and their storage controllers in a
 Redfish-compatible server via the Redfish API. Alerts when any drive, volume or storage controller
@@ -272,7 +272,7 @@ def main():
             # "/redfish/v1/Systems/437XR1138R2"
             systems = lib.base.coe(
                 lib.url.fetch_json(
-                    f'{args.URL}{member["@odata.id"]}',
+                    lib.base.coe(lib.redfish.build_url(args.URL, member['@odata.id'])),
                     header=header,
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,
@@ -309,7 +309,9 @@ def main():
             # "/redfish/v1/Systems/437XR1138R2/Storage"
             storages = lib.base.coe(
                 lib.url.fetch_json(
-                    f'{args.URL}{systems["Storage_@odata.id"]}',
+                    lib.base.coe(
+                        lib.redfish.build_url(args.URL, systems['Storage_@odata.id'])
+                    ),
                     header=header,
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,
@@ -327,7 +329,9 @@ def main():
                 # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1"
                 storage_data = lib.base.coe(
                     lib.url.fetch_json(
-                        f'{args.URL}{storage["@odata.id"]}',
+                        lib.base.coe(
+                            lib.redfish.build_url(args.URL, storage['@odata.id'])
+                        ),
                         header=header,
                         insecure=args.INSECURE,
                         no_proxy=args.NO_PROXY,
@@ -344,7 +348,9 @@ def main():
                     # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1/Drives/Disk.Bay.0"
                     drive_data = lib.base.coe(
                         lib.url.fetch_json(
-                            f'{args.URL}{drive["@odata.id"]}',
+                            lib.base.coe(
+                                lib.redfish.build_url(args.URL, drive['@odata.id'])
+                            ),
                             header=header,
                             insecure=args.INSECURE,
                             no_proxy=args.NO_PROXY,
@@ -425,7 +431,7 @@ def main():
                     # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1/Volumes"
                     volumes = lib.base.coe(
                         lib.url.fetch_json(
-                            f'{args.URL}{volumes_link}',
+                            lib.base.coe(lib.redfish.build_url(args.URL, volumes_link)),
                             header=header,
                             insecure=args.INSECURE,
                             no_proxy=args.NO_PROXY,
@@ -440,7 +446,9 @@ def main():
                         # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1/Volumes/1"
                         volume_data = lib.base.coe(
                             lib.url.fetch_json(
-                                f'{args.URL}{volume["@odata.id"]}',
+                                lib.base.coe(
+                                    lib.redfish.build_url(args.URL, volume['@odata.id'])
+                                ),
                                 header=header,
                                 insecure=args.INSECURE,
                                 no_proxy=args.NO_PROXY,

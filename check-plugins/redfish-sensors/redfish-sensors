@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060707'
+__version__ = '2026070701'
 
 DESCRIPTION = """Checks hardware sensor readings (temperature, voltage, fan speed, power) from the
 Redfish Chassis collection via the Redfish API. Reads the modern Sensors collection where
@@ -260,7 +260,7 @@ def main():
             # "/redfish/v1/Chassis/1U"
             chassis = lib.base.coe(
                 lib.url.fetch_json(
-                    f'{args.URL}{member["@odata.id"]}',
+                    lib.base.coe(lib.redfish.build_url(args.URL, member['@odata.id'])),
                     header=header,
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,
@@ -295,7 +295,11 @@ def main():
             if args.TEST is None:
                 sensors = lib.base.coe(
                     lib.url.fetch_json(
-                        f'{args.URL}{chassis["Sensors_@odata.id"]}',
+                        lib.base.coe(
+                            lib.redfish.build_url(
+                                args.URL, chassis['Sensors_@odata.id']
+                            )
+                        ),
                         header=header,
                         insecure=args.INSECURE,
                         no_proxy=args.NO_PROXY,
@@ -309,7 +313,9 @@ def main():
                 if args.TEST is None:
                     sensor_data = lib.base.coe(
                         lib.url.fetch_json(
-                            f'{args.URL}{sensor["@odata.id"]}',
+                            lib.base.coe(
+                                lib.redfish.build_url(args.URL, sensor['@odata.id'])
+                            ),
                             header=header,
                             insecure=args.INSECURE,
                             no_proxy=args.NO_PROXY,
@@ -360,7 +366,9 @@ def main():
         # endpoint must not abort the check.
         if args.TEST is None:
             success, thermal = lib.url.fetch_json(
-                f'{args.URL}{member["@odata.id"]}/Thermal',
+                lib.base.coe(
+                    lib.redfish.build_url(args.URL, f'{member["@odata.id"]}/Thermal')
+                ),
                 header=header,
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
@@ -379,7 +387,9 @@ def main():
         if not table_data:
             if args.TEST is None:
                 success, power = lib.url.fetch_json(
-                    f'{args.URL}{member["@odata.id"]}/Power',
+                    lib.base.coe(
+                        lib.redfish.build_url(args.URL, f'{member["@odata.id"]}/Power')
+                    ),
                     header=header,
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,

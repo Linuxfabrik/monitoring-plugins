@@ -25,7 +25,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060705'
+__version__ = '2026070701'
 
 DESCRIPTION = """Checks the event log entries exposed under the LogServices of a Redfish-compatible
 server via the Redfish API and alerts based on the severity of the log entries. By default it reads
@@ -313,7 +313,9 @@ def main():
             if args.TEST is None:
                 # a missing or unknown log path must not abort the check
                 success, entries = lib.url.fetch_json(
-                    f'{args.URL}{member["@odata.id"]}{path}',
+                    lib.base.coe(
+                        lib.redfish.build_url(args.URL, f'{member["@odata.id"]}{path}')
+                    ),
                     header=header,
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,

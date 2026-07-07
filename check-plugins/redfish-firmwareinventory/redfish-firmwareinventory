@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060706'
+__version__ = '2026070701'
 
 DESCRIPTION = """Reports the firmware inventory of a Redfish-compatible server via the Redfish API.
 Lists every firmware component with its installed version and identification, and alerts whenever a
@@ -262,7 +262,9 @@ def main():
             # "/redfish/v1/UpdateService/FirmwareInventory/BIOS"
             firmware_data = lib.base.coe(
                 lib.url.fetch_json(
-                    f'{args.URL}{firmware["@odata.id"]}',
+                    lib.base.coe(
+                        lib.redfish.build_url(args.URL, firmware['@odata.id'])
+                    ),
                     header=header,
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,

@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060706'
+__version__ = '2026070701'
 
 DESCRIPTION = """Checks the state of all processors (CPUs) in a Redfish-compatible server via the
 Redfish API. Alerts when any processor reports a degraded or failed state. System-level health
@@ -264,7 +264,7 @@ def main():
             # "/redfish/v1/Systems/437XR1138R2"
             systems = lib.base.coe(
                 lib.url.fetch_json(
-                    f'{args.URL}{member["@odata.id"]}',
+                    lib.base.coe(lib.redfish.build_url(args.URL, member['@odata.id'])),
                     header=header,
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,
@@ -301,7 +301,9 @@ def main():
             # "/redfish/v1/Systems/437XR1138R2/Processors"
             processors = lib.base.coe(
                 lib.url.fetch_json(
-                    f'{args.URL}{systems["Processors_@odata.id"]}',
+                    lib.base.coe(
+                        lib.redfish.build_url(args.URL, systems['Processors_@odata.id'])
+                    ),
                     header=header,
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,
@@ -317,7 +319,7 @@ def main():
                 # "/redfish/v1/Systems/437XR1138R2/Processors/CPU1"
                 cpu_data = lib.base.coe(
                     lib.url.fetch_json(
-                        f'{args.URL}{cpu["@odata.id"]}',
+                        lib.base.coe(lib.redfish.build_url(args.URL, cpu['@odata.id'])),
                         header=header,
                         insecure=args.INSECURE,
                         no_proxy=args.NO_PROXY,

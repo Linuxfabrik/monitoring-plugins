@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060706'
+__version__ = '2026070701'
 
 DESCRIPTION = """Checks the state of all Ethernet interfaces in a Redfish-compatible server via the
 Redfish API. Alerts when any enabled Ethernet interface reports a degraded or failed health state.
@@ -264,7 +264,7 @@ def main():
             # "/redfish/v1/Systems/437XR1138R2"
             systems = lib.base.coe(
                 lib.url.fetch_json(
-                    f'{args.URL}{member["@odata.id"]}',
+                    lib.base.coe(lib.redfish.build_url(args.URL, member['@odata.id'])),
                     header=header,
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,
@@ -301,7 +301,11 @@ def main():
             # "/redfish/v1/Systems/437XR1138R2/EthernetInterfaces"
             interfaces = lib.base.coe(
                 lib.url.fetch_json(
-                    f'{args.URL}{systems["EthernetInterfaces_@odata.id"]}',
+                    lib.base.coe(
+                        lib.redfish.build_url(
+                            args.URL, systems['EthernetInterfaces_@odata.id']
+                        )
+                    ),
                     header=header,
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,
@@ -317,7 +321,7 @@ def main():
                 # "/redfish/v1/Systems/437XR1138R2/EthernetInterfaces/12446A3B0411"
                 nic_data = lib.base.coe(
                     lib.url.fetch_json(
-                        f'{args.URL}{nic["@odata.id"]}',
+                        lib.base.coe(lib.redfish.build_url(args.URL, nic['@odata.id'])),
                         header=header,
                         insecure=args.INSECURE,
                         no_proxy=args.NO_PROXY,

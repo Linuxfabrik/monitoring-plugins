@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060704'
+__version__ = '2026070701'
 
 DESCRIPTION = """Checks the overall system health reported by a Redfish-compatible server via the
 Redfish API. Reports every enabled system member with its identification (manufacturer, model,
@@ -216,7 +216,7 @@ def main():
             # "/redfish/v1/Systems/437XR1138R2"
             systems = lib.base.coe(
                 lib.url.fetch_json(
-                    f'{args.URL}{member["@odata.id"]}',
+                    lib.base.coe(lib.redfish.build_url(args.URL, member['@odata.id'])),
                     header=header,
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,
