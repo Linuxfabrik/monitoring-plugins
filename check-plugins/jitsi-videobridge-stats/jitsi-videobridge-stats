@@ -15,6 +15,7 @@ import sys
 
 import lib.args
 import lib.base
+import lib.db_sqlite
 import lib.human
 import lib.jitsi
 import lib.lftest
@@ -23,7 +24,7 @@ import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026070701'
 
 DESCRIPTION = """Monitors Jitsi Videobridge performance via the COLIBRI REST API. Reports conference
 count, participant count, video channels, bitrates, packet rates, and other bridge
@@ -176,12 +177,6 @@ def main():
         _min=0,
     )
     perfdata += lib.base.get_perfdata(
-        'dtls_failed_endpoints',
-        result['response_json'].get('dtls_failed_endpoints', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
         'endpoints',
         result['response_json'].get('endpoints', 0),
         _min=0,
@@ -197,9 +192,11 @@ def main():
         _min=0,
     )
     perfdata += lib.base.get_perfdata(
+        # a gauge (current count), not a cumulative counter, unlike the other
+        # "total"/"failed" stats; keep it as a plain value (issue #320)
         'endpoints_with_spurious_remb',
         result['response_json'].get('endpoints_with_spurious_remb', 0),
-        uom='c',
+        uom=None,
         _min=0,
     )
     perfdata += lib.base.get_perfdata(
@@ -283,12 +280,6 @@ def main():
         _min=0,
     )
     perfdata += lib.base.get_perfdata(
-        'preemptive_kfr_sent',
-        result['response_json'].get('preemptive_kfr_sent', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
         'receive_only_endpoints',
         result['response_json'].get('receive_only_endpoints', 0),
         _min=0,
@@ -315,148 +306,60 @@ def main():
         _min=0,
     )
     perfdata += lib.base.get_perfdata(
-        'total_bytes_received',
-        result['response_json'].get('total_bytes_received', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_bytes_received_octo',
-        result['response_json'].get('total_bytes_received_octo', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_bytes_sent',
-        result['response_json'].get('total_bytes_sent', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_bytes_sent_octo',
-        result['response_json'].get('total_bytes_sent_octo', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_colibri_web_socket_messages_received',
-        result['response_json'].get('total_colibri_web_socket_messages_received', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_colibri_web_socket_messages_sent',
-        result['response_json'].get('total_colibri_web_socket_messages_sent', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_conference_seconds',
-        result['response_json'].get('total_conference_seconds', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_conferences_completed',
-        result['response_json'].get('total_conferences_completed', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_conferences_created',
-        result['response_json'].get('total_conferences_created', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_data_channel_messages_received',
-        result['response_json'].get('total_data_channel_messages_received', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_data_channel_messages_sent',
-        result['response_json'].get('total_data_channel_messages_sent', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_dominant_speaker_changes',
-        result['response_json'].get('total_dominant_speaker_changes', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_failed_conferences',
-        result['response_json'].get('total_failed_conferences', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_ice_failed',
-        result['response_json'].get('total_ice_failed', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_ice_succeeded',
-        result['response_json'].get('total_ice_succeeded', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_ice_succeeded_relayed',
-        result['response_json'].get('total_ice_succeeded_relayed', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_packets_dropped_octo',
-        result['response_json'].get('total_packets_dropped_octo', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_packets_received',
-        result['response_json'].get('total_packets_received', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_packets_received_octo',
-        result['response_json'].get('total_packets_received_octo', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_packets_sent',
-        result['response_json'].get('total_packets_sent', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_packets_sent_octo',
-        result['response_json'].get('total_packets_sent_octo', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_partially_failed_conferences',
-        result['response_json'].get('total_partially_failed_conferences', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'total_participants',
-        result['response_json'].get('total_participants', 0),
-        uom='c',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
         'version',
         lib.version.version2float(result['response_json']['version']),
         _min=0,
     )
+
+    # Convert the cumulative /colibri/stats counters to per-second rates
+    # against the previous run, stored in this plugin's own SQLite cache,
+    # instead of emitting uom='c' continuous counters (issue #320).
+    counter_fields = [
+        'dtls_failed_endpoints',
+        'preemptive_kfr_sent',
+        'total_bytes_received',
+        'total_bytes_received_octo',
+        'total_bytes_sent',
+        'total_bytes_sent_octo',
+        'total_colibri_web_socket_messages_received',
+        'total_colibri_web_socket_messages_sent',
+        'total_conference_seconds',
+        'total_conferences_completed',
+        'total_conferences_created',
+        'total_data_channel_messages_received',
+        'total_data_channel_messages_sent',
+        'total_dominant_speaker_changes',
+        'total_failed_conferences',
+        'total_ice_failed',
+        'total_ice_succeeded',
+        'total_ice_succeeded_relayed',
+        'total_packets_dropped_octo',
+        'total_packets_received',
+        'total_packets_received_octo',
+        'total_packets_sent',
+        'total_packets_sent_octo',
+        'total_partially_failed_conferences',
+        'total_participants',
+    ]
+    rates = lib.db_sqlite.per_second_deltas(
+        'linuxfabrik-monitoring-plugins-jitsi-videobridge-stats.db',
+        'jitsi-videobridge-stats',
+        {f: int(result['response_json'].get(f, 0)) for f in counter_fields},
+    )
+    if rates is not None:
+        bytes_fields = {
+            'total_bytes_received',
+            'total_bytes_received_octo',
+            'total_bytes_sent',
+            'total_bytes_sent_octo',
+        }
+        for field in counter_fields:
+            perfdata += lib.base.get_perfdata(
+                f'{field}_per_second',
+                round(rates[field], 2),
+                uom='B' if field in bytes_fields else None,
+                _min=0,
+            )
 
     total_p = result['response_json']['total_participants']
     confs = result['response_json']['conferences']

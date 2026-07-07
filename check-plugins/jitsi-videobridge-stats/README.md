@@ -87,11 +87,11 @@ For details see the [Jitsi Videobridge statistics documentation](https://github.
 | bit_rate_upload | Bits per Second | Current outgoing bitrate (RTP) in kilobits per second. |
 | conferences | Number | Current number of conferences. |
 | current_timestamp | Number | UTC time at which the report was generated. |
-| dtls_failed_endpoints | Continuous Counter | Total number of endpoints which failed to establish a DTLS connection. |
+| dtls_failed_endpoints_per_second | Number | Endpoints which failed to establish a DTLS connection per second. |
 | endpoints | Number | Current number of endpoints, including octo endpoints. |
 | endpoints_sending_audio | Number | Current number of endpoints sending (non-silence) audio. |
 | endpoints_sending_video | Number | Current number of endpoints sending video. |
-| endpoints_with_spurious_remb | Continuous Counter | Total number of endpoints which sent an RTCP REMB packet when REMB was not signaled. |
+| endpoints_with_spurious_remb | Number | Current number of endpoints which sent an RTCP REMB packet when REMB was not signaled (gauge, not a counter). |
 | graceful_shutdown | Number | Whether the bridge is in graceful shutdown mode (1 = yes). |
 | inactive_conferences | Number | Current number of conferences with no endpoints sending audio or video. |
 | inactive_endpoints | Number | Current number of endpoints in inactive conferences. |
@@ -108,34 +108,34 @@ For details see the [Jitsi Videobridge statistics documentation](https://github.
 | p2p_conferences | Number | Current number of peer-to-peer conferences. |
 | packet_rate_download | Number | Current RTP incoming packet rate in packets per second. |
 | packet_rate_upload | Number | Current RTP outgoing packet rate in packets per second. |
-| preemptive_kfr_sent | Continuous Counter | Total number of preemptive keyframe requests sent. |
+| preemptive_kfr_sent_per_second | Number | Preemptive keyframe requests sent per second. |
 | receive_only_endpoints | Number | Current number of endpoints not sending audio or video. |
 | rtt_aggregate | Milliseconds | Round-trip time averaged over all local endpoints with a valid RTT measurement. |
 | stress_level | Number | Current stress level on the bridge (0 = no load, 1 = full capacity, values > 1 permitted). |
 | threads | Number | Current number of JVM threads. |
-| total_bytes_received | Continuous Counter | Total number of bytes received in RTP. |
-| total_bytes_received_octo | Continuous Counter | Total number of bytes received on the octo channel. |
-| total_bytes_sent | Continuous Counter | Total number of bytes sent in RTP. |
-| total_bytes_sent_octo | Continuous Counter | Total number of bytes sent on the octo channel. |
-| total_colibri_web_socket_messages_received | Continuous Counter | Total number of Colibri bridge channel messages received on a WebSocket. |
-| total_colibri_web_socket_messages_sent | Continuous Counter | Total number of Colibri bridge channel messages sent over a WebSocket. |
-| total_conference_seconds | Continuous Counter | Total number of conference-seconds served (updates once a conference expires). |
-| total_conferences_completed | Continuous Counter | Total number of conferences completed. |
-| total_conferences_created | Continuous Counter | Total number of conferences created. |
-| total_data_channel_messages_received | Continuous Counter | Total number of Colibri bridge channel messages received on SCTP data channels. |
-| total_data_channel_messages_sent | Continuous Counter | Total number of Colibri bridge channel messages sent over SCTP data channels. |
-| total_dominant_speaker_changes | Continuous Counter | Total number of times the dominant speaker changed in a conference. |
-| total_failed_conferences | Continuous Counter | Total number of conferences in which no endpoint established an ICE connection. |
-| total_ice_failed | Continuous Counter | Total number of endpoints which failed to establish an ICE connection. |
-| total_ice_succeeded | Continuous Counter | Total number of endpoints which successfully established an ICE connection. |
-| total_ice_succeeded_relayed | Continuous Counter | Total number of endpoints which connected through a TURN relay. |
-| total_packets_dropped_octo | Continuous Counter | Total number of packets dropped on the octo channel. |
-| total_packets_received | Continuous Counter | Total number of RTP packets received. |
-| total_packets_received_octo | Continuous Counter | Total number of packets received on the octo channel. |
-| total_packets_sent | Continuous Counter | Total number of RTP packets sent. |
-| total_packets_sent_octo | Continuous Counter | Total number of packets sent over the octo channel. |
-| total_partially_failed_conferences | Continuous Counter | Total number of conferences in which at least one endpoint failed an ICE connection. |
-| total_participants | Continuous Counter | Total number of endpoints created. |
+| total_bytes_received_per_second | Bytes | Bytes received in RTP per second. |
+| total_bytes_received_octo_per_second | Bytes | Bytes received on the octo channel per second. |
+| total_bytes_sent_per_second | Bytes | Bytes sent in RTP per second. |
+| total_bytes_sent_octo_per_second | Bytes | Bytes sent on the octo channel per second. |
+| total_colibri_web_socket_messages_received_per_second | Number | Colibri bridge channel messages received on a WebSocket per second. |
+| total_colibri_web_socket_messages_sent_per_second | Number | Colibri bridge channel messages sent over a WebSocket per second. |
+| total_conference_seconds_per_second | Number | Conference-seconds served (updates once a conference expires) per second. |
+| total_conferences_completed_per_second | Number | Conferences completed per second. |
+| total_conferences_created_per_second | Number | Conferences created per second. |
+| total_data_channel_messages_received_per_second | Number | Colibri bridge channel messages received on SCTP data channels per second. |
+| total_data_channel_messages_sent_per_second | Number | Colibri bridge channel messages sent over SCTP data channels per second. |
+| total_dominant_speaker_changes_per_second | Number | Times the dominant speaker changed in a conference per second. |
+| total_failed_conferences_per_second | Number | Conferences in which no endpoint established an ICE connection per second. |
+| total_ice_failed_per_second | Number | Endpoints which failed to establish an ICE connection per second. |
+| total_ice_succeeded_per_second | Number | Endpoints which successfully established an ICE connection per second. |
+| total_ice_succeeded_relayed_per_second | Number | Endpoints which connected through a TURN relay per second. |
+| total_packets_dropped_octo_per_second | Number | Packets dropped on the octo channel per second. |
+| total_packets_received_per_second | Number | RTP packets received per second. |
+| total_packets_received_octo_per_second | Number | Packets received on the octo channel per second. |
+| total_packets_sent_per_second | Number | RTP packets sent per second. |
+| total_packets_sent_octo_per_second | Number | Packets sent over the octo channel per second. |
+| total_partially_failed_conferences_per_second | Number | Conferences in which at least one endpoint failed an ICE connection per second. |
+| total_participants_per_second | Number | Endpoints created per second. |
 | version | Number | The version of jitsi-videobridge as float. |
 
 
