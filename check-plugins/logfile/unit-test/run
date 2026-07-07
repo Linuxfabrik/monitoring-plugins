@@ -52,13 +52,6 @@ def _db_glob(fixture_basename):
     )
 
 
-def _legacy_db_path(fixture_basename):
-    return os.path.join(
-        _db_dir(),
-        f'linuxfabrik-monitoring-plugins-logfile-{fixture_basename}.db',
-    )
-
-
 # The `test` field is a dummy (the plugin has no `--test` hook) but it
 # is required by lib.lftest.run. `params` carries the real CLI, built
 # from `--filename=stdout/<fixture>` plus whatever pattern/threshold
@@ -146,14 +139,11 @@ class TestCheck(unittest.TestCase):
 def _run_logfile_test(test, testcase):
     # Delete every stateful cache DB for this fixture so the test is
     # reproducible and always starts from offset 0. The plugin derives a
-    # per-check hash from the pattern arguments, so we wipe both the
-    # legacy per-file DB and any per-check DBs already sitting in /tmp.
+    # per-check hash from the pattern arguments, so we wipe every per-check
+    # DB for this fixture.
     fixture_basename = (
         testcase['params'].split('--filename=stdout/', 1)[1].split(' ', 1)[0]
     )
-    legacy_db = _legacy_db_path(fixture_basename)
-    if os.path.exists(legacy_db):
-        os.remove(legacy_db)
     for db_file in glob.glob(_db_glob(fixture_basename)):
         os.remove(db_file)
     lib.lftest.run(test, test.check, testcase)
@@ -173,9 +163,6 @@ class TestMultipleChecksSameFile(unittest.TestCase):
     def setUp(self):
         # Start from a clean slate for both hypothetical checks.
         fixture_basename = os.path.basename(self.fixture)
-        legacy_db = _legacy_db_path(fixture_basename)
-        if os.path.exists(legacy_db):
-            os.remove(legacy_db)
         for db_file in glob.glob(_db_glob(fixture_basename)):
             os.remove(db_file)
 
@@ -255,8 +242,8 @@ def _per_check_db_path(basename, **hash_kwargs):
 class TestOffsetSurvivesAcrossRuns(unittest.TestCase):
     """Regression tests for issue #1035 fallout: the offset comparison
     must continue to match across runs for both the current TEXT-inode
-    schema AND legacy INTEGER-inode schemas migrated forward by the
-    #698 state-DB rename. Otherwise the plugin resets the offset to 0
+    schema AND older INTEGER-inode schema DBs left behind by earlier
+    plugin versions. Otherwise the plugin resets the offset to 0
     on every run and re-reads the whole file each time, which shows up
     as a steadily growing `scanned_lines` in Grafana."""
 
@@ -275,16 +262,10 @@ class TestOffsetSurvivesAcrossRuns(unittest.TestCase):
         shutil.copy(self.source_fixture, self.scratch_file)
         self.scratch_basename = os.path.basename(self.scratch_file)
         # Paranoid: remove any lingering state DB for this basename.
-        legacy = _legacy_db_path(self.scratch_basename)
-        if os.path.exists(legacy):
-            os.remove(legacy)
         for db_file in glob.glob(_db_glob(self.scratch_basename)):
             os.remove(db_file)
 
     def tearDown(self):
-        legacy = _legacy_db_path(self.scratch_basename)
-        if os.path.exists(legacy):
-            os.remove(legacy)
         for db_file in glob.glob(_db_glob(self.scratch_basename)):
             os.remove(db_file)
         shutil.rmtree(self.scratch_dir, ignore_errors=True)
@@ -322,10 +303,9 @@ class TestOffsetSurvivesAcrossRuns(unittest.TestCase):
         self._run(expected_new_lines=1)
 
     def test_legacy_integer_inode_schema_does_not_reset_offset(self):
-        # Seed a legacy-schema DB (pre-#1035: inode INTEGER) at the new
-        # per-check path so the plugin picks it up without triggering
-        # the transparent rename. Inode stored as int to mimic what the
-        # old plugin would have written.
+        # Seed an older-schema DB (pre-#1035: inode INTEGER) at the
+        # per-check path so the plugin picks it up. Inode stored as int
+        # to mimic what the old plugin would have written.
         db_path = _per_check_db_path(self.scratch_basename, **self.hash_kwargs)
         stat = os.stat(self.scratch_file)
         conn = sqlite3.connect(db_path)

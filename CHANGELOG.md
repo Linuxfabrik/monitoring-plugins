@@ -70,6 +70,12 @@ Monitoring Plugins:
 * lynis: when an audit produces no report, the plugin now shows the underlying lynis error instead of a generic message
 * redfish-\*: the Redfish API URL is now a mandatory `--url` parameter; the previous placeholder default silently pointed unconfigured checks at `localhost` instead of the target BMC, producing misleading connection errors ([#1306](https://github.com/Linuxfabrik/monitoring-plugins/issues/1306))
 
+### Security
+
+Monitoring Plugins:
+
+* logfile: dropped the transparent migration of state databases left by older versions. On a host with the non-default `fs.protected_symlinks=0`, a local user could plant a symlink that the root-run check followed while migrating, overwriting or corrupting a root-owned file. After the update the check no longer carries over the read offset from a pre-v6.0.0 state database, so its first run re-scans the whole logfile once ([GHSA-w2gg-hx6w-24w3](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-w2gg-hx6w-24w3))
+
 
 ## [v6.0.0] - 2026-06-14
 

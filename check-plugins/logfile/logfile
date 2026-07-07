@@ -21,14 +21,13 @@ import sys
 import lib.args
 import lib.base
 import lib.db_sqlite
-import lib.disk
 import lib.icinga
 import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060101'
+__version__ = '2026070701'
 
 DESCRIPTION = """Scans a logfile for matching patterns or regular expressions and alerts based on the
 number of matches found. Reads the file backwards from the end and supports Icinga
@@ -321,35 +320,6 @@ def main():
     db_filename = (
         f'linuxfabrik-monitoring-plugins-logfile-{basename}-{instance_hash}.db'
     )
-    new_db_path = lib.base.coe(lib.db_sqlite.get_db_path(filename=db_filename))
-
-    # Transparent migration of state DBs written by older versions, which stored
-    # them directly in the temp dir (optionally with a `-uid<uid>` suffix) and,
-    # before issue #698, under a per-file name without the instance hash. Move the
-    # first matching legacy DB into the secured per-user directory so the read
-    # offset and pending matches survive the upgrade.
-    if not os.path.exists(new_db_path):
-        tmpdir = lib.disk.get_tmpdir()
-        legacy_candidates = [
-            os.path.join(tmpdir, db_filename),
-            os.path.join(
-                tmpdir,
-                f'linuxfabrik-monitoring-plugins-logfile-{basename}.db',
-            ),
-        ]
-        if hasattr(os, 'getuid'):
-            stem, ext = os.path.splitext(db_filename)
-            legacy_candidates.insert(
-                0, os.path.join(tmpdir, f'{stem}-uid{os.getuid()}{ext}')
-            )
-        for legacy_db_path in legacy_candidates:
-            if os.path.exists(legacy_db_path):
-                try:
-                    os.rename(legacy_db_path, new_db_path)
-                except OSError:
-                    pass
-                break
-
     # create the db table
     conn = lib.base.coe(
         lib.db_sqlite.connect(
