@@ -103,6 +103,7 @@ Monitoring Plugins:
 * php-status: OPcache alerting is more tolerant (warns at 95% by default) and now flags cache thrashing, while a full interned strings buffer no longer warns
 * php-status: when the monitoring.php helper cannot be read, the output names the actual cause instead of a generic "not found"
 * php-status: the raw OPcache hits and misses counters are no longer emitted as performance data (the hit-rate percentage stays)
+* procs: the age of the oldest process is now reported as a plain value in seconds instead of a continuous counter, so Grafana graphs and aggregations are correct ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 * redfish-\*: a `--brief` option lists only the components in WARN/CRIT state, to keep the output short on large systems
 * redfish-\*: individual components can be included or excluded by regular expression, so noisy hardware no longer drives the check state (`--match`, `--ignore`)
 * redfish-\*: frequent checks no longer flood a management controller's session table or audit log
