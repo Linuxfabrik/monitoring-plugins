@@ -12,69 +12,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Monitoring Plugins:
 
-* apache-httpd-version, apache-solr-version, apache-tomcat-version, composer-version, fedora-version, fortios-version, gitlab-version, grafana-version, graylog-version, icinga-version, keycloak-version, mastodon-version, matomo-version, mediawiki-version, moodle-version, mysql-version, nextcloud-version, openjdk-redhat-version, openvpn-version, php-version, postfix-version, postgresql-version, python-version, redis-version, rhel-version, rocketchat-version, valkey-version, wordpress-version: the new `--unreachable-severity` parameter lets these checks report WARN, CRIT or UNKNOWN instead of a silent OK when endoflife.date cannot be reached and the bundled offline data is used, so a server that has quietly lost internet access no longer keeps reporting a possibly outdated OK (default stays OK for backwards compatibility) ([#750](https://github.com/Linuxfabrik/monitoring-plugins/issues/750))
-* apache-tomcat-version: new check that alerts when the installed Apache Tomcat version is end-of-life or behind the latest release, and ships an "Apache Tomcat" Icinga Director service set ([#126](https://github.com/Linuxfabrik/monitoring-plugins/issues/126))
-* disk-io, disk-usage, fail2ban, network-errors, network-io, nextcloud-app-updates, sensors-temperatures, wildfly-non-xa-datasource-stats, wildfly-xa-datasource-stats: the new `--no-match-severity` parameter lets these checks report WARN, CRIT or UNKNOWN instead of a silent OK when their filters match nothing, so a mistyped filter, a renamed device or a forgotten mount no longer goes unnoticed (default stays OK for backwards compatibility) ([#1308](https://github.com/Linuxfabrik/monitoring-plugins/issues/1308))
-* disk-usage: per-mountpoint warning and critical thresholds can now be set with `--mount`, overriding the global thresholds for a single mountpoint (for example a small volume that needs an absolute free-space threshold) ([#1286](https://github.com/Linuxfabrik/monitoring-plugins/issues/1286))
-* docker-container, podman-container: new checks that alert when a container is unhealthy, not in its expected state, restarting too often, or up for too short a time. For rootless Podman, `podman-container` can check a specific user's containers with `--user`
-* docker-image, podman-image: new checks that list a host's container images and alert on images older than a configurable age. For rootless Podman, `podman-image` can check a specific user's images with `--user`
-* docker-service: new check that alerts when a Docker Swarm service runs fewer than its expected tasks (warning below full, critical below half) and, optionally, when a service's tasks are unevenly spread across the nodes. Podman has no swarm mode, so there is no Podman counterpart
-* docker-swarm: new check that verifies the local node is an active swarm member and, on a manager, alerts when a cluster node is down or the managers lose their quorum. Podman has no swarm mode, so there is no Podman counterpart
-* network-errors: new check that alerts on receive and transmit interface errors ([#707](https://github.com/Linuxfabrik/monitoring-plugins/issues/707))
-* nextcloud-app-updates: new check that lists installed Nextcloud apps and alerts when an app update has been available for longer than a configurable grace period ([#62](https://github.com/Linuxfabrik/monitoring-plugins/issues/62))
-* wildfly-version: new check that alerts when the installed WildFly version is behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))
+* apache-httpd-version, apache-solr-version, apache-tomcat-version, composer-version, fedora-version, fortios-version, gitlab-version, grafana-version, graylog-version, icinga-version, keycloak-version, mastodon-version, matomo-version, mediawiki-version, moodle-version, mysql-version, nextcloud-version, openjdk-redhat-version, openvpn-version, php-version, postfix-version, postgresql-version, python-version, redis-version, rhel-version, rocketchat-version, valkey-version, wordpress-version: `--unreachable-severity` can alert instead of silently reporting OK when endoflife.date is unreachable and the bundled offline data is used (default stays OK) ([#750](https://github.com/Linuxfabrik/monitoring-plugins/issues/750))
+* apache-tomcat-version: new check for an end-of-life or outdated Apache Tomcat, with an Icinga Director service set ([#126](https://github.com/Linuxfabrik/monitoring-plugins/issues/126))
+* disk-io, disk-usage, fail2ban, network-errors, network-io, nextcloud-app-updates, sensors-temperatures, wildfly-non-xa-datasource-stats, wildfly-xa-datasource-stats: `--no-match-severity` can alert instead of silently reporting OK when the filters match nothing (default stays OK) ([#1308](https://github.com/Linuxfabrik/monitoring-plugins/issues/1308))
+* disk-usage: per-mountpoint warning and critical thresholds via `--mount` ([#1286](https://github.com/Linuxfabrik/monitoring-plugins/issues/1286))
+* docker-container, podman-container: new checks alerting on unhealthy, unexpected-state, frequently restarting or too-young containers; `podman-container --user` covers a rootless user
+* docker-image, podman-image: new checks listing images and alerting on images older than a configurable age; `podman-image --user` covers a rootless user
+* docker-service: new check alerting when a Docker Swarm service runs fewer tasks than expected
+* docker-swarm: new check alerting on swarm membership, a down node, or lost manager quorum
+* network-errors: new check alerting on interface receive and transmit errors ([#707](https://github.com/Linuxfabrik/monitoring-plugins/issues/707))
+* nextcloud-app-updates: new check alerting when a Nextcloud app update has been pending longer than a grace period ([#62](https://github.com/Linuxfabrik/monitoring-plugins/issues/62))
+* wildfly-version: new check alerting when WildFly is behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))
 
 ### Changed
 
 Build, CI/CD:
 
-* Bump pinned `linuxfabrik-lib` dependency from 5.0.0 to 5.1.0, bundling offline Apache Tomcat end-of-life data and keeping plugins importable on RHEL 8 / Rocky 8 system Python
+* Bump pinned `linuxfabrik-lib` to 5.1.0
 
 Monitoring Plugins:
 
-* about-me: now recognizes an installed Apache Tomcat when guessing Icinga Director tags
-* all plugins: the internal `--test` parameter, used only by the unit-test suite, is no longer listed in `--help` output
-* cpu-usage: context switches, interrupts and soft interrupts are now reported as per-second rates instead of continuous counters, so Grafana graphs and aggregations are correct; re-import the cpu-usage Grafana dashboard after updating ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
-* disk-io: iowait is now reported as saturated CPU cores (e.g. `1.02 cores`) instead of a percentage that could exceed 100% on multi-core hosts, and gets its own Grafana panel; the alerting thresholds keep their meaning and defaults, so no reconfiguration is needed
-* disk-io: per-disk performance data now reports read/write throughput per second and disk busy percentage as ready-to-graph values instead of raw cumulative counters; re-import the disk-io Grafana dashboard after updating ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
-* disk-usage: mountpoints are now filtered with `--match` and `--ignore`, consistent with the other plugins; the previous `--include-pattern`/`--include-regex`/`--exclude-pattern`/`--exclude-regex` options keep working unchanged
-* docker-stats, podman-stats: containers can now be selected or excluded by name with `--match` / `--ignore`, consistent with the docker-container/podman-container checks, and `--no-match-severity` sets the state when nothing matches
-* fs-xfs-stats: now reports a focused set of useful XFS metrics as per-second rates (read/write system calls, inode cache hit ratio, directory operations) plus the current active inode count, instead of dozens of raw internal counters; the performance data metric names have changed accordingly ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
-* jitsi-videobridge-stats: the cumulative colibri stats counters (traffic, packets, conferences, participants, ICE, messages) are now reported as per-second rates instead of continuous counters, and endpoints_with_spurious_remb (a current gauge that was mislabeled as a counter) is now a plain value, so Grafana graphs and aggregations are correct; the performance data metric names have changed accordingly ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
-* mysql-innodb-log-waits: no longer warns on a low InnoDB write log efficiency, which does not actually indicate an undersized log buffer and cannot be improved by raising `innodb_log_buffer_size`; the check now alerts only on real InnoDB log waits, so the buffer-size recommendation appears only when it will help
-* mysql-logfile: documents that `--ignore-pattern`/`--ignore-regex` match against the lowercased log line, and shows how to silence the harmless idle-connection-timeout warning (server closing an idle connection after `wait_timeout`) without hiding real connection errors
-* network-io: packet, error and drop counts are now reported as per-second rates instead of continuous counters, and the redundant raw byte counters were dropped in favor of the existing throughput rates, so Grafana graphs and aggregations are correct; re-import the network-io Grafana dashboard after updating ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
-* nginx-status: the cumulative stub_status counters (accepted and handled connections, total requests) are now reported as per-second rates instead of continuous counters, so Grafana graphs and aggregations are correct; the performance data metric names have changed accordingly ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
-* nodebb-cache: per-cache hits and misses are now reported as per-second rates instead of continuous counters, so Grafana graphs and aggregations are correct; the hit-ratio and cache-usage metrics are unchanged ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
-* nodebb-errors: the daily 404 and 503 counts are no longer emitted as continuous counters; they are per-day values that reset at midnight, which broke Grafana's difference calculation, so they are now plain numbers ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
-* podman-info, podman-stats: gained `--user` to report on a specific rootless user's Podman. Running these checks as root only sees root's own containers, so use `--user` for rootless setups (running via sudo does not cover other users)
-* procs: the age of the oldest process is now reported as a plain value in seconds instead of a continuous counter, so Grafana graphs and aggregations are correct ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
-* redis-status: the cumulative INFO stats counters (keyspace hits and misses, processed commands, received connections, evicted and expired keys, network bytes) are now reported as per-second rates and the CPU times as a percentage, instead of continuous counters, so Grafana graphs and aggregations are correct; the constant total-system-memory metric and a few always-empty niche metrics (pub/sub, migrate sockets) were dropped ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
-* snmp: `--device` now also accepts an absolute path, so the OID definition CSV can be stored outside the plugin directory ([#1308](https://github.com/Linuxfabrik/monitoring-plugins/issues/1308))
-* starface-database-stats: opened and closed connection counts are now reported as per-second rates instead of continuous counters, so Grafana graphs and aggregations are correct; the active and idle connection gauges are unchanged ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
-* valkey-status: the cumulative INFO stats counters (keyspace hits and misses, processed commands, received connections, evicted and expired keys, network bytes) are now reported as per-second rates and the CPU times as a percentage, instead of continuous counters, so Grafana graphs and aggregations are correct; the constant total-system-memory metric and a few always-empty niche metrics (pub/sub, migrate sockets) were dropped ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
-* wildfly-gc-status: garbage collections are now reported as a per-second rate and the GC time as a percentage of wall-clock time (GC overhead) instead of continuous counters, so Grafana graphs and aggregations are correct; the performance data metric names have changed accordingly ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
+* about-me: recognizes an installed Apache Tomcat when guessing Icinga Director tags
+* all plugins: the internal `--test` parameter is no longer shown in `--help`
+* cpu-usage, disk-io, fs-xfs-stats, jitsi-videobridge-stats, network-io, nginx-status, nodebb-cache, nodebb-errors, procs, redis-status, starface-database-stats, valkey-status, wildfly-gc-status: cumulative counters are now reported as per-second rates (or plain values) instead of ever-growing totals, fixing Grafana graphs and aggregations; some performance-data metric names changed, so re-import the affected Grafana dashboards after updating ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
+* disk-io: iowait is reported as saturated CPU cores instead of a percentage that could exceed 100% on multi-core hosts
+* disk-usage: mountpoints are now filtered with `--match`/`--ignore`; the old `--include-*`/`--exclude-*` options keep working
+* docker-stats, podman-stats: select or exclude containers by name with `--match`/`--ignore`, plus `--no-match-severity`
+* mysql-innodb-log-waits: alerts only on real InnoDB log waits, no longer on a low write-log efficiency that raising `innodb_log_buffer_size` cannot fix
+* mysql-logfile: documents case-insensitive ignore matching and how to silence harmless idle-connection-timeout warnings
+* podman-info, podman-stats: `--user` reports on a specific rootless user's Podman
+* snmp: `--device` also accepts an absolute path ([#1308](https://github.com/Linuxfabrik/monitoring-plugins/issues/1308))
 
 ### Fixed
 
 Build, CI/CD:
 
-* installer: a source install (`--source`) on a host whose system Python is too old now picks the newest installed Python automatically and rebuilds the dependency environment cleanly, instead of aborting or installing mismatched dependencies
+* installer: `--source` on a host with too-old system Python now picks the newest installed Python and rebuilds cleanly
 
 Monitoring Plugins:
 
-* csv-values, json-values, strongswan-connections: a source that returns non-UTF-8 bytes (a Latin-1 CSV or JSON file, or a VPN peer identity that is not valid UTF-8) no longer makes the check crash while printing its result ([#256](https://github.com/Linuxfabrik/lib/issues/256))
-* disk-usage: performance data now carries the effective warning and critical thresholds again, so graphing tools such as Icinga Graphite can draw the warn/crit lines ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
-* journald-query: a relative `--since` value such as `-8h` configured in the Icinga Director now works instead of making the check fail ([#1264](https://github.com/Linuxfabrik/monitoring-plugins/issues/1264))
-* lynis: audits now produce a report on Debian, Ubuntu and other distributions that keep the lynis plugins outside `/usr/share` ([#1262](https://github.com/Linuxfabrik/monitoring-plugins/issues/1262))
-* lynis: when an audit produces no report, the plugin now shows the underlying lynis error instead of a generic message
-* redfish-\*: the Redfish API URL is now a mandatory `--url` parameter; the previous placeholder default silently pointed unconfigured checks at `localhost` instead of the target BMC, producing misleading connection errors ([#1306](https://github.com/Linuxfabrik/monitoring-plugins/issues/1306))
+* csv-values, json-values, strongswan-connections: non-UTF-8 input no longer crashes the check ([#256](https://github.com/Linuxfabrik/lib/issues/256))
+* disk-usage: performance data carries the warning and critical thresholds again ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
+* journald-query: a relative `--since` such as `-8h` from the Icinga Director works again ([#1264](https://github.com/Linuxfabrik/monitoring-plugins/issues/1264))
+* lynis: audits produce a report on Debian, Ubuntu and other distributions that keep lynis outside `/usr/share` ([#1262](https://github.com/Linuxfabrik/monitoring-plugins/issues/1262))
+* lynis: shows the underlying lynis error when an audit produces no report
+* redfish-\*: the Redfish API URL is now a mandatory `--url`, dropping the misleading localhost default ([#1306](https://github.com/Linuxfabrik/monitoring-plugins/issues/1306))
 
 ### Security
 
 Monitoring Plugins:
 
-* logfile: dropped the transparent migration of state databases left by older versions. On a host with the non-default `fs.protected_symlinks=0`, a local user could plant a symlink that the root-run check followed while migrating, overwriting or corrupting a root-owned file. After the update the check no longer carries over the read offset from a pre-v6.0.0 state database, so its first run re-scans the whole logfile once ([GHSA-w2gg-hx6w-24w3](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-w2gg-hx6w-24w3))
+* logfile: closed a local privilege-escalation path in the legacy state-database migration, exploitable only with the non-default `fs.protected_symlinks=0`; the first run after updating re-scans the whole logfile once ([GHSA-w2gg-hx6w-24w3](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-w2gg-hx6w-24w3))
 
 
 ## [v6.0.0] - 2026-06-14
