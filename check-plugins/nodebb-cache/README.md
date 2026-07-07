@@ -91,10 +91,10 @@ objectCache ! True    ! 5.97%  ! 2.4K / 40.0K  ! 3.2M   ! 147.5K ! 95.6%
 | Name | Type | Description |
 |----|----|----|
 | cache_CACHENAME_hitRatio | Percentage | Cache hit ratio. |
-| cache_CACHENAME_hits | Continuous Counter | Number of cache hits. |
+| cache_CACHENAME_hits_per_second | Number | Cache hits per second. |
 | cache_CACHENAME_itemCount | Number | Number of items in the cache. |
 | cache_CACHENAME_length | Number | Current cache size. |
-| cache_CACHENAME_misses | Continuous Counter | Number of cache misses. |
+| cache_CACHENAME_misses_per_second | Number | Cache misses per second. |
 | cache_CACHENAME_percentFull | Percentage | Cache usage in percent. |
 
 
