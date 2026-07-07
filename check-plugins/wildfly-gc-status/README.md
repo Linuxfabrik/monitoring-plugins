@@ -3,7 +3,7 @@
 
 ## Overview
 
-Reports garbage collector statistics from a WildFly/JBoss AS server via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode. Reports collection count and total collection time for each garbage collector.
+Reports garbage collector activity from a WildFly/JBoss AS server via its HTTP-JSON based management API (JBossAS REST Management API). This approach requires no additional agents or WAR deployments like Jolokia. The plugin supports both standalone mode and domain mode. Reports the collection rate and the share of wall-clock time spent in garbage collection (GC overhead) for each garbage collector.
 
 **Important Notes:**
 
@@ -35,8 +35,9 @@ usage: wildfly-gc-status [-h] [-V] [--insecure] [--instance INSTANCE]
                          [--node NODE] -p PASSWORD [--timeout TIMEOUT]
                          [--url URL] --username USERNAME
 
-Reports garbage collector statistics from a WildFly/JBoss AS server via its
-HTTP management API, including GC count and total GC time for each collector.
+Reports garbage collector activity from a WildFly/JBoss AS server via its HTTP
+management API, reporting the collection rate and the share of wall-clock time
+spent in garbage collection (GC overhead) for each collector.
 
 options:
   -h, --help            show this help message and exit
@@ -68,21 +69,22 @@ options:
 Output:
 
 ```text
-MarkSweepCompact: CollectionCount 2.0, CollectionTime 1s; Copy: CollectionCount 32.0, CollectionTime 4s
+MarkSweepCompact: 0.02/s collections, 0.4% GC time; Copy: 0.53/s collections, 1.8% GC time
 ```
 
 
 ## States
 
 * Always returns OK.
+* On the first run (or after a JVM restart) it returns OK with "Waiting for more data.", because the per-second rates need two consecutive runs.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| garbage-collector-NAME-collection-count | Continuous Counter | Total number of collections that have occurred. |
-| garbage-collector-NAME-collection-time | Milliseconds | Approximate accumulated collection elapsed time. |
+| garbage-collector-NAME-collection-count-per-second | Number | Garbage collections per second. |
+| garbage-collector-NAME-collection-time-percent | Percentage | Share of wall-clock time spent in garbage collection (GC overhead). |
 
 NAME is the name of the garbage collector (e.g. "MarkSweepCompact", "Copy").
 

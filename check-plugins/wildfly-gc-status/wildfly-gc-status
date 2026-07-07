@@ -11,19 +11,21 @@
 """See the check's README for more details."""
 
 import argparse
+import re
 import sys
 
 import lib.args
 import lib.base
-import lib.human
+import lib.db_sqlite
 import lib.wildfly
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026042301'
+__version__ = '2026070701'
 
-DESCRIPTION = """Reports garbage collector statistics from a WildFly/JBoss AS server via its HTTP
-management API, including GC count and total GC time for each collector."""
+DESCRIPTION = """Reports garbage collector activity from a WildFly/JBoss AS server via its HTTP
+management API, reporting the collection rate and the share of wall-clock time spent in garbage
+collection (GC overhead) for each collector."""
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
@@ -135,35 +137,54 @@ def main():
     }
     res = lib.wildfly.get_data(args, data)
 
+    # collection-count and collection-time from the JVM GarbageCollectorMXBean
+    # are cumulative since JVM start. Convert them to a per-second collection
+    # rate and a GC overhead percentage (share of wall-clock time spent in GC)
+    # against the previous run, stored in this plugin's own SQLite cache,
+    # instead of emitting continuous counters (issue #320). All collectors are
+    # kept in a single cache row (one column per collector) so a two-collector
+    # JVM (young + old) still gets a valid delta.
+    collectors = []
+    counters = {}
+    for name, value in res['name'].items():
+        key = re.sub(r'\W+', '_', name).strip('_').lower()
+        collectors.append((name, key))
+        counters[f'{key}_count'] = int(value['collection-count'])
+        counters[f'{key}_time'] = int(value['collection-time'])
+
+    rates = lib.db_sqlite.per_second_deltas(
+        'linuxfabrik-monitoring-plugins-wildfly-gc-status.db',
+        'wildfly-gc-status',
+        counters,
+    )
+    if rates is None:
+        # first run or counter reset (JVM restart): no delta yet
+        lib.base.oao('Waiting for more data.', STATE_OK)
 
     # init some vars
     msg = ''
     perfdata = ''
     state = STATE_OK
 
-    for name, value in res['name'].items():
-        gc_time = value['collection-time']
-        gc_count = value['collection-count']
+    for name, key in collectors:
+        gc_count_rate = round(rates[f'{key}_count'], 2)
+        # ms of GC per wall-second / 1000 * 100 = percent of time spent in GC
+        gc_overhead = round(rates[f'{key}_time'] / 10, 2)
         perfdata += lib.base.get_perfdata(
-            f'garbage-collector-{name}-collection-time',
-            gc_time,
-            uom='ms',
+            f'garbage-collector-{name}-collection-count-per-second',
+            gc_count_rate,
+            uom=None,
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
-            f'garbage-collector-{name}-collection-count',
-            gc_count,
-            uom='c',
+            f'garbage-collector-{name}-collection-time-percent',
+            gc_overhead,
+            uom='%',
             _min=0,
         )
 
         # build the message
-        msg += (
-            f'{name}: '
-            f'CollectionCount {lib.human.number2human(gc_count)}, '
-            f'CollectionTime '
-            f'{lib.human.seconds2human(float(gc_time) / 1000)}; '
-        )
+        msg += f'{name}: {gc_count_rate}/s collections, {gc_overhead}% GC time; '
 
     # over and out
     lib.base.oao(msg[:-2], state, perfdata)
