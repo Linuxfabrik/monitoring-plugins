@@ -81,9 +81,9 @@ Connections: 26.7M opened, 26.7M closed, 19.0 active, 0.0 idle
 | Name | Type | Description |
 |----|----|----|
 | active_connections | Number | Number of currently active database connections |
-| closed_connections | Continuous Counter | Total number of closed database connections |
+| closed_connections_per_second | Number | Closed database connections per second |
 | idle_connections | Number | Number of currently idle database connections |
-| opened_connections | Continuous Counter | Total number of opened database connections |
+| opened_connections_per_second | Number | Opened database connections per second |
 
 
 ## Credits, License
