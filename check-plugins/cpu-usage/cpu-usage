@@ -30,7 +30,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026050801'
+__version__ = '2026070701'
 
 DESCRIPTION = """Reports CPU utilization percentages for all available time categories
 (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall
@@ -200,6 +200,53 @@ def cpu_times_percent_nonblocking(conn):
     return psutil.cpu_times_percent(interval=0.25, percpu=False)
 
 
+def cpu_stats_rates(conn, now_stats):
+    """Compute per-second rates for the cumulative psutil.cpu_stats() counters
+    (ctx_switches, interrupts, soft_interrupts), which are counters since boot.
+
+    The two most recent raw samples are kept in the local SQLite DB. Returns a
+    dict of per-second rates, or None on the first run (only one sample so far)
+    or after a counter reset (reboot), so the caller can skip the extended-stats
+    output until a valid delta is available. This emits absolute rates instead
+    of uom='c' continuous counters (issue #320).
+    """
+    definition = """
+        ctx_switches REAL NOT NULL,
+        interrupts REAL NOT NULL,
+        soft_interrupts REAL NOT NULL,
+        timestamp REAL NOT NULL
+    """
+    lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='extstats'))
+
+    # store the current sample and keep only the two most recent
+    now = lib.time.now('float')
+    lib.base.coe(
+        lib.db_sqlite.insert(conn, {**now_stats, 'timestamp': now}, table='extstats')
+    )
+    lib.base.coe(lib.db_sqlite.cut(conn, table='extstats', _max=2))
+    lib.base.coe(lib.db_sqlite.commit(conn))
+
+    rows = lib.base.coe(
+        lib.db_sqlite.select(conn, 'SELECT * FROM extstats ORDER BY timestamp DESC')
+    )
+    if len(rows) < 2:
+        # first run: only one sample so far
+        return None
+
+    delta_time = rows[0]['timestamp'] - rows[1]['timestamp']
+    if delta_time <= 0:
+        return None
+
+    rates = {}
+    for key in now_stats:
+        delta = rows[0][key] - rows[1][key]
+        if delta < 0:
+            # counter reset (reboot); wait for a fresh baseline
+            return None
+        rates[key] = round(delta / delta_time, 1)
+    return rates
+
+
 def get_from_db(conn, threshold):
     """Return the number of perfdata rows where CPU usage fields exceed the given threshold.
 
@@ -337,11 +384,16 @@ def main():
     # soft_interrupts: number of software interrupts since boot. Always set to 0 on Windows and
     # SunOS.
     # syscalls: number of system calls since boot. Always set to 0 on Linux.
+    extstats_rates = None
     if lib.version.version(psutil.__version__) >= lib.version.version('4.1.0'):
         cpu_stats = psutil.cpu_stats()
         extstats['ctx_switches'] = getattr(cpu_stats, 'ctx_switches', 0)
         extstats['interrupts'] = getattr(cpu_stats, 'interrupts', 0)
         extstats['soft_interrupts'] = getattr(cpu_stats, 'soft_interrupts', 0)
+        # These counters are cumulative since boot. Convert them to per-second
+        # rates against the previous run (conn is still open here) instead of
+        # emitting uom='c' continuous counters (issue #320).
+        extstats_rates = cpu_stats_rates(conn, extstats)
 
     # this is for msg and perfdata
     cpu_usage = stats['cpu_usage'] + getattr(cpu_times_percent, 'nice', 0)
@@ -397,14 +449,14 @@ def main():
     if msg_body:
         msg += '\n' + ', '.join(msg_body)
 
-    if extstats:
+    if extstats_rates:
         ext_parts = []
-        for key, val in extstats.items():
-            ext_parts.append(f'{key}: {lib.human.number2human(val)}')
+        for key, val in extstats_rates.items():
+            ext_parts.append(f'{key}: {lib.human.number2human(val)}/s')
             perfdata += lib.base.get_perfdata(
-                key,
+                f'{key}_per_second',
                 val,
-                uom='c',
+                uom=None,
                 _min=0,
             )
         msg += '\n' + ', '.join(ext_parts)

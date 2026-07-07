@@ -73,7 +73,7 @@ Output:
 ```text
 2.6% - user: 1.6%, system: 0.7%, irq: 0.2%, softirq: 0.1%
 guest: 0.0%, iowait: 0.0%, guest_nice: 0.0%, steal: 0.0%, nice: 0.0%
-interrupts: 582.9M, soft_interrupts: 343.6M, ctx_switches: 1.1G
+ctx_switches: 26.8K/s, interrupts: 9.8K/s, soft_interrupts: 2.6K/s
 ```
 
 
@@ -91,14 +91,14 @@ interrupts: 582.9M, soft_interrupts: 343.6M, ctx_switches: 1.1G
 | Name | Type | Description |
 |----|----|----|
 | cpu-usage | Percentage | The overall CPU usage (100 - `idle` - `nice`). |
-| ctx_switches | Continuous Counter | Number of context switches (voluntary + involuntary) since boot. |
+| ctx_switches_per_second | Number | Context switches (voluntary + involuntary) per second, calculated in the plugin from two consecutive runs. |
 | guest | Percentage | Time spent running a virtual CPU (Linux 2.6.24+). |
 | guest_nice | Percentage | Time spent running a niced guest (Linux 3.2.0+). |
-| interrupts | Continuous Counter | Number of interrupts since boot. |
+| interrupts_per_second | Number | Interrupts per second, calculated in the plugin from two consecutive runs. |
 | iowait | Percentage | Time spent waiting for I/O to complete. |
 | irq | Percentage | Time spent servicing hardware interrupts. |
 | nice | Percentage | Time spent by niced (prioritized) processes executing in user mode. |
-| soft_interrupts | Continuous Counter | Number of software interrupts since boot. |
+| soft_interrupts_per_second | Number | Software interrupts per second, calculated in the plugin from two consecutive runs. |
 | steal | Percentage | Time a virtual CPU waits for a real CPU while the hypervisor is servicing another virtual processor (Linux 2.6.11+). |
 | system | Percentage | Time spent in kernel space. |
 | user | Percentage | Time spent in user space. |
