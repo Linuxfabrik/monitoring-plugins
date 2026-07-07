@@ -47,6 +47,7 @@ Monitoring Plugins:
 * procs: the age of the oldest process is now reported as a plain value in seconds instead of a continuous counter, so Grafana graphs and aggregations are correct ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 * redis-status: the cumulative INFO stats counters (keyspace hits and misses, processed commands, received connections, evicted and expired keys, network bytes) are now reported as per-second rates and the CPU times as a percentage, instead of continuous counters, so Grafana graphs and aggregations are correct; the constant total-system-memory metric and a few always-empty niche metrics (pub/sub, migrate sockets) were dropped ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 * snmp: `--device` now also accepts an absolute path, so the OID definition CSV can be stored outside the plugin directory ([#1308](https://github.com/Linuxfabrik/monitoring-plugins/issues/1308))
+* valkey-status: the cumulative INFO stats counters (keyspace hits and misses, processed commands, received connections, evicted and expired keys, network bytes) are now reported as per-second rates and the CPU times as a percentage, instead of continuous counters, so Grafana graphs and aggregations are correct; the constant total-system-memory metric and a few always-empty niche metrics (pub/sub, migrate sockets) were dropped ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 
 ### Fixed
 

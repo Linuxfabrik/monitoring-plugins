@@ -130,10 +130,10 @@ Latest info can be found [here](https://valkey.io/commands/info/).
 |----|----|----|
 | clients_blocked_clients | Number | Number of clients pending on a blocking call. |
 | clients_connected_clients | Number | Number of client connections (excluding connections from replicas). |
-| cpu_used_cpu_sys | Number | System CPU consumed by the Valkey server (main thread and background threads). |
-| cpu_used_cpu_sys_children | Number | System CPU consumed by background processes. |
-| cpu_used_cpu_user | Number | User CPU consumed by the Valkey server (main thread and background threads). |
-| cpu_used_cpu_user_children | Number | User CPU consumed by background processes. |
+| cpu_used_cpu_sys_percent | Percentage | System (kernel) CPU consumed by the server, in percent. |
+| cpu_used_cpu_sys_children_percent | Percentage | System CPU consumed by child processes, in percent. |
+| cpu_used_cpu_user_percent | Percentage | User CPU consumed by the server, in percent. |
+| cpu_used_cpu_user_children_percent | Percentage | User CPU consumed by child processes, in percent. |
 | db_count | Number | Number of Valkey databases. |
 | key_count | Number | Sum of all keys across all databases. |
 | keyspace_DBNAME_avg_ttl | Seconds | Average TTL for keys in this database. |
@@ -143,7 +143,6 @@ Latest info can be found [here](https://valkey.io/commands/info/).
 | mem_usage | Percentage | Memory usage relative to `maxmemory` (or total system memory if `maxmemory` is 0). |
 | memory_maxmemory | Bytes | Configured maximum memory limit. |
 | memory_mem_fragmentation_ratio | Number | Ratio between `used_memory_rss` and `used_memory`. |
-| memory_total_system_memory | Bytes | Total amount of memory on the Valkey host. |
 | memory_used_memory | Bytes | Total bytes allocated by Valkey using its allocator. |
 | memory_used_memory_lua | Bytes | Bytes used by the Lua engine. |
 | memory_used_memory_rss | Bytes | Bytes allocated as seen by the OS (resident set size). |
@@ -158,25 +157,22 @@ Latest info can be found [here](https://valkey.io/commands/info/).
 | replication_repl_backlog_histlen | Bytes | Size of the data in the replication backlog buffer. |
 | replication_repl_backlog_size | Bytes | Total size of the replication backlog buffer. |
 | server_uptime_in_seconds | Seconds | Number of seconds since Valkey server start. |
-| stats_evicted_keys | Continuous Counter | Number of evicted keys due to maxmemory limit. |
-| stats_expired_keys | Continuous Counter | Total number of key expiration events. |
+| stats_evicted_keys_per_second | Number | Evicted keys per second (due to maxmemory limit). |
+| stats_expired_keys_per_second | Number | Key expiration events per second. |
 | stats_instantaneous_input | Bytes | Network read rate per second. |
 | stats_instantaneous_ops_per_sec | Number | Number of commands processed per second. |
 | stats_instantaneous_output | Bytes | Network write rate per second. |
-| stats_keyspace_hits | Number | Number of successful key lookups. |
-| stats_keyspace_misses | Number | Number of failed key lookups. |
+| stats_keyspace_hits_per_second | Number | Successful key lookups per second. |
+| stats_keyspace_misses_per_second | Number | Failed key lookups per second. |
 | stats_latest_fork_usec | Microseconds | Duration of the latest fork operation. |
-| stats_migrate_cached_sockets | Number | Number of sockets open for MIGRATE purposes. |
-| stats_pubsub_channels | Number | Global number of pub/sub channels with client subscriptions. |
-| stats_pubsub_patterns | Number | Global number of pub/sub patterns with client subscriptions. |
 | stats_rejected_connections | Number | Number of connections rejected because of maxclients limit. |
 | stats_sync_full | Number | Number of full resyncs with replicas. |
 | stats_sync_partial_err | Number | Number of denied partial resync requests. |
 | stats_sync_partial_ok | Number | Number of accepted partial resync requests. |
-| stats_total_commands_processed | Continuous Counter | Total number of commands processed by the server. |
-| stats_total_connections_received | Continuous Counter | Total number of connections accepted by the server. |
-| stats_total_net_input_bytes | Continuous Counter | Total number of bytes read from the network. |
-| stats_total_net_output_bytes | Continuous Counter | Total number of bytes written to the network. |
+| stats_total_commands_processed_per_second | Number | Commands processed per second. |
+| stats_total_connections_received_per_second | Number | Connections accepted per second. |
+| stats_total_net_input_bytes_per_second | Bytes | Bytes read from the network per second. |
+| stats_total_net_output_bytes_per_second | Bytes | Bytes written to the network per second. |
 
 
 ## Troubleshooting
