@@ -134,8 +134,6 @@ spec:
           type: field
         - params: []
           type: mean
-        - params: []
-          type: non_negative_difference
       tags:
       - key: hostname
         operator: '='
@@ -165,8 +163,6 @@ spec:
           type: field
         - params: []
           type: mean
-        - params: []
-          type: non_negative_difference
       tags:
       - key: hostname
         operator: '='
@@ -196,8 +192,6 @@ spec:
           type: field
         - params: []
           type: mean
-        - params: []
-          type: non_negative_difference
       tags:
       - key: hostname
         operator: '='
@@ -227,8 +221,6 @@ spec:
           type: field
         - params: []
           type: mean
-        - params: []
-          type: non_negative_difference
       tags:
       - key: hostname
         operator: '='
@@ -258,8 +250,6 @@ spec:
           type: field
         - params: []
           type: mean
-        - params: []
-          type: non_negative_difference
       tags:
       - key: hostname
         operator: '='
@@ -289,8 +279,6 @@ spec:
           type: field
         - params: []
           type: mean
-        - params: []
-          type: non_negative_difference
       tags:
       - key: hostname
         operator: '='
@@ -304,7 +292,7 @@ spec:
         value: /^${metric}_throughput15/
 
 
-  - title: Network I/O - $metric - Bytes
+  - title: Network I/O - $metric - Packets
     type: timeseries
     gridPos:
       h: 8
@@ -325,7 +313,7 @@ spec:
         decimals: 1
         mappings: []
         min: 0
-        unit: bytes
+        unit: pps
     options:
       legend:
         calcs:
@@ -340,7 +328,7 @@ spec:
 
     targets:
 
-    - alias: bytes_recv
+    - alias: packets_recv_per_second
       groupBy:
       - params:
         - $interval
@@ -349,7 +337,7 @@ spec:
         - previous
         type: fill
       measurement: $command
-      refId: network-io-bytes_recv
+      refId: network-io-packets_recv_per_second
       resultFormat: time_series
       select:
       - - params:
@@ -357,8 +345,6 @@ spec:
           type: field
         - params: []
           type: mean
-        - params: []
-          type: non_negative_difference
       tags:
       - key: hostname
         operator: '='
@@ -369,9 +355,9 @@ spec:
         value: $service
       - key: metric
         operator: =~
-        value: /^${metric}_bytes_recv/
+        value: /^${metric}_packets_recv_per_second/
 
-    - alias: bytes_sent
+    - alias: packets_sent_per_second
       groupBy:
       - params:
         - $interval
@@ -380,7 +366,7 @@ spec:
         - previous
         type: fill
       measurement: $command
-      refId: network-io-bytes_sent
+      refId: network-io-packets_sent_per_second
       resultFormat: time_series
       select:
       - - params:
@@ -388,8 +374,6 @@ spec:
           type: field
         - params: []
           type: mean
-        - params: []
-          type: non_negative_difference
       tags:
       - key: hostname
         operator: '='
@@ -400,106 +384,7 @@ spec:
         value: $service
       - key: metric
         operator: =~
-        value: /^${metric}_bytes_sent/
-
-
-  - title: Network I/O - $metric - Packets
-    type: timeseries
-    gridPos:
-      h: 8
-      w: 12
-      x: 0
-      y: 9
-    fieldConfig:
-      defaults:
-        color:
-          mode: palette-classic
-        custom:
-          drawStyle: line
-          lineInterpolation: smooth
-          lineWidth: 1
-          pointSize: 3
-          showPoints: always
-          spanNulls: false
-        decimals: 1
-        mappings: []
-        min: 0
-        unit: short
-    options:
-      legend:
-        calcs:
-        - first
-        - min
-        - mean
-        - max
-        - last
-        displayMode: table
-        placement: bottom
-        showLegend: true
-
-    targets:
-
-    - alias: packets_recv
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      refId: network-io-packets_recv
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-        - params: []
-          type: non_negative_difference
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - key: metric
-        operator: =~
-        value: /^${metric}_packets_recv/
-
-    - alias: packets_sent
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      refId: network-io-packets_sent
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-        - params: []
-          type: non_negative_difference
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - key: metric
-        operator: =~
-        value: /^${metric}_packets_sent/
+        value: /^${metric}_packets_sent_per_second/
 
 
   - title: Network I/O - $metric - Stats
@@ -507,7 +392,7 @@ spec:
     gridPos:
       h: 8
       w: 12
-      x: 12
+      x: 0
       y: 9
     fieldConfig:
       defaults:
@@ -537,7 +422,7 @@ spec:
 
     targets:
 
-    - alias: dropin
+    - alias: dropin_per_second
       groupBy:
       - params:
         - $interval
@@ -546,7 +431,7 @@ spec:
         - previous
         type: fill
       measurement: $command
-      refId: network-io-dropin
+      refId: network-io-dropin_per_second
       resultFormat: time_series
       select:
       - - params:
@@ -554,11 +439,6 @@ spec:
           type: field
         - params: []
           type: mean
-        - params: []
-          type: non_negative_difference
-        - params:
-          - / 1000
-          type: math
       tags:
       - key: hostname
         operator: '='
@@ -569,9 +449,9 @@ spec:
         value: $service
       - key: metric
         operator: =~
-        value: /^${metric}_dropin/
+        value: /^${metric}_dropin_per_second/
 
-    - alias: dropout
+    - alias: dropout_per_second
       groupBy:
       - params:
         - $interval
@@ -580,7 +460,7 @@ spec:
         - previous
         type: fill
       measurement: $command
-      refId: network-io-dropout
+      refId: network-io-dropout_per_second
       resultFormat: time_series
       select:
       - - params:
@@ -588,11 +468,6 @@ spec:
           type: field
         - params: []
           type: mean
-        - params: []
-          type: non_negative_difference
-        - params:
-          - / 1000
-          type: math
       tags:
       - key: hostname
         operator: '='
@@ -603,9 +478,9 @@ spec:
         value: $service
       - key: metric
         operator: =~
-        value: /^${metric}_dropout/
+        value: /^${metric}_dropout_per_second/
 
-    - alias: errin
+    - alias: errin_per_second
       groupBy:
       - params:
         - $interval
@@ -614,7 +489,7 @@ spec:
         - previous
         type: fill
       measurement: $command
-      refId: network-io-errin
+      refId: network-io-errin_per_second
       resultFormat: time_series
       select:
       - - params:
@@ -622,11 +497,6 @@ spec:
           type: field
         - params: []
           type: mean
-        - params: []
-          type: non_negative_difference
-        - params:
-          - / 1000
-          type: math
       tags:
       - key: hostname
         operator: '='
@@ -637,9 +507,9 @@ spec:
         value: $service
       - key: metric
         operator: =~
-        value: /^${metric}_errin/
+        value: /^${metric}_errin_per_second/
 
-    - alias: errout
+    - alias: errout_per_second
       groupBy:
       - params:
         - $interval
@@ -648,7 +518,7 @@ spec:
         - previous
         type: fill
       measurement: $command
-      refId: network-io-errout
+      refId: network-io-errout_per_second
       resultFormat: time_series
       select:
       - - params:
@@ -656,11 +526,6 @@ spec:
           type: field
         - params: []
           type: mean
-        - params: []
-          type: non_negative_difference
-        - params:
-          - / 1000
-          type: math
       tags:
       - key: hostname
         operator: '='
@@ -671,4 +536,4 @@ spec:
         value: $service
       - key: metric
         operator: =~
-        value: /^${metric}_errout/
+        value: /^${metric}_errout_per_second/

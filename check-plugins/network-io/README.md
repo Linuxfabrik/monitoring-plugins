@@ -3,7 +3,7 @@
 
 ## Overview
 
-Monitors network I/O throughput per interface over time. Calculates bytes per second from cumulative counters using SQLite state persistence between runs. Alerts only if bandwidth thresholds have been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes. Also reports packet rates, errors, and drops per interface.
+Monitors network I/O throughput per interface over time. Calculates bytes per second from cumulative counters using SQLite state persistence between runs. Alerts only if bandwidth thresholds have been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes. Also reports packet, error, and drop rates per interface.
 
 **Important Notes:**
 
@@ -45,7 +45,7 @@ Monitors network I/O throughput per interface over time. Calculates bytes per
 second from cumulative counters using SQLite state persistence between runs.
 Alerts only if bandwidth thresholds have been exceeded for a configurable
 number of consecutive check runs (default: 5), suppressing short spikes. Also
-reports packet rates, errors, and drops per interface.
+reports packet, error, and drop rates per interface.
 
 options:
   -h, --help            show this help message and exit
@@ -109,18 +109,16 @@ Per interface:
 
 | Name | Type | Description |
 |----|----|----|
-| \<interface\>\_bytes_recv | Continuous Counter | Number of bytes received. |
 | \<interface\>\_bytes_recv_per_second1 | Bytes | Current bytes received per second. |
 | \<interface\>\_bytes_recv_per_second15 | Bytes | Averaged bytes received per second over the configured count. |
-| \<interface\>\_bytes_sent | Continuous Counter | Number of bytes sent. |
 | \<interface\>\_bytes_sent_per_second1 | Bytes | Current bytes sent per second. |
 | \<interface\>\_bytes_sent_per_second15 | Bytes | Averaged bytes sent per second over the configured count. |
-| \<interface\>\_dropin | Continuous Counter | Total number of incoming packets which were dropped. |
-| \<interface\>\_dropout | Continuous Counter | Total number of outgoing packets which were dropped (always 0 on macOS and BSD). |
-| \<interface\>\_errin | Continuous Counter | Total number of errors while receiving. |
-| \<interface\>\_errout | Continuous Counter | Total number of errors while sending. |
-| \<interface\>\_packets_recv | Continuous Counter | Number of packets received. |
-| \<interface\>\_packets_sent | Continuous Counter | Number of packets sent. |
+| \<interface\>\_dropin_per_second | Number | Incoming packets dropped per second. |
+| \<interface\>\_dropout_per_second | Number | Outgoing packets dropped per second (always 0 on macOS and BSD). |
+| \<interface\>\_errin_per_second | Number | Receive errors per second. |
+| \<interface\>\_errout_per_second | Number | Send errors per second. |
+| \<interface\>\_packets_recv_per_second | Number | Packets received per second. |
+| \<interface\>\_packets_sent_per_second | Number | Packets sent per second. |
 | \<interface\>\_throughput1 | None | Current bytes per second (bytes_recv_per_second1 + bytes_sent_per_second1). |
 | \<interface\>\_throughput15 | None | Averaged bytes per second over the configured count. |
 

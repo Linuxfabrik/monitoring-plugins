@@ -29,13 +29,13 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026063001'
+__version__ = '2026070701'
 
 DESCRIPTION = """Monitors network I/O throughput per interface over time. Calculates bytes per second
 from cumulative counters using SQLite state persistence between runs. Alerts only if
 bandwidth thresholds have been exceeded for a configurable number of consecutive check
-runs (default: 5), suppressing short spikes. Also reports packet rates, errors, and
-drops per interface."""
+runs (default: 5), suppressing short spikes. Also reports packet, error, and drop
+rates per interface."""
 
 DEFAULT_CACHE_EXPIRE = 90
 DEFAULT_COUNT = (
@@ -114,6 +114,14 @@ def parse_args():
 
     args, _ = parser.parse_known_args()
     return args
+
+
+def per_second(newer, older, field, timestamp_diff):
+    """Return the per-second rate of a cumulative counter field between two
+    consecutive samples. Clamped to zero, because a counter reset (reboot)
+    produces a negative delta and there is no meaningful rate to report.
+    """
+    return max(0, int(float(newer[field] - older[field]) / timestamp_diff))
 
 
 def main():
@@ -262,25 +270,35 @@ def main():
         else:
             throughput_max = int(throughput_db)
 
-        # perfdata
-        perfdata += lib.base.get_perfdata(
-            f'{interface}_bytes_recv',
-            interfacedata[0]['bytes_recv'],
-            uom='c',
-            _min=0,
+        # per-second rates for the remaining cumulative counters (packets,
+        # errors, drops), computed like the byte rates above instead of
+        # emitting uom='c' continuous counters (issue #320)
+        packets_recv_per_second = per_second(
+            interfacedata[0], interfacedata[1], 'packets_recv', timestamp_diff
         )
+        packets_sent_per_second = per_second(
+            interfacedata[0], interfacedata[1], 'packets_sent', timestamp_diff
+        )
+        errin_per_second = per_second(
+            interfacedata[0], interfacedata[1], 'errin', timestamp_diff
+        )
+        errout_per_second = per_second(
+            interfacedata[0], interfacedata[1], 'errout', timestamp_diff
+        )
+        dropin_per_second = per_second(
+            interfacedata[0], interfacedata[1], 'dropin', timestamp_diff
+        )
+        dropout_per_second = per_second(
+            interfacedata[0], interfacedata[1], 'dropout', timestamp_diff
+        )
+
+        # perfdata
         perfdata += lib.base.get_perfdata(
             f'{interface}_bytes_recv_per_second1',
             bytes_recv_per_second1,
             uom='B',
             _min=0,
             _max=throughput_max,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{interface}_bytes_sent',
-            interfacedata[0]['bytes_sent'],
-            uom='c',
-            _min=0,
         )
         perfdata += lib.base.get_perfdata(
             f'{interface}_bytes_sent_per_second1',
@@ -290,39 +308,39 @@ def main():
             _max=throughput_max,
         )
         perfdata += lib.base.get_perfdata(
-            f'{interface}_packets_sent',
-            interfacedata[0]['packets_sent'],
-            uom='c',
+            f'{interface}_packets_recv_per_second',
+            packets_recv_per_second,
+            uom=None,
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
-            f'{interface}_packets_recv',
-            interfacedata[0]['packets_recv'],
-            uom='c',
+            f'{interface}_packets_sent_per_second',
+            packets_sent_per_second,
+            uom=None,
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
-            f'{interface}_errin',
-            interfacedata[0]['errin'],
-            uom='c',
+            f'{interface}_errin_per_second',
+            errin_per_second,
+            uom=None,
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
-            f'{interface}_errout',
-            interfacedata[0]['errout'],
-            uom='c',
+            f'{interface}_errout_per_second',
+            errout_per_second,
+            uom=None,
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
-            f'{interface}_dropin',
-            interfacedata[0]['dropin'],
-            uom='c',
+            f'{interface}_dropin_per_second',
+            dropin_per_second,
+            uom=None,
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
-            f'{interface}_dropout',
-            interfacedata[0]['dropout'],
-            uom='c',
+            f'{interface}_dropout_per_second',
+            dropout_per_second,
+            uom=None,
             _min=0,
         )
 

@@ -99,6 +99,7 @@ Monitoring Plugins:
 * cert: can scan a whole subnet for expiring or untrusted TLS certificates across many common ports, not just a single endpoint or local files (now the default when run without parameters)
 * cert: warning/critical thresholds also accept a percentage of the lifetime or a duration, and the full certificate chain is checked, not just the leaf
 * ipmi-sensor: performance data is grouped by sensor type, so temperatures, fan speeds, voltages and power show up in separate graphs (existing IPMI graph history resets once) ([#22](https://github.com/Linuxfabrik/monitoring-plugins/issues/22))
+* network-io: packet, error and drop counts are now reported as per-second rates instead of continuous counters, and the redundant raw byte counters were dropped in favor of the existing throughput rates, so Grafana graphs and aggregations are correct; re-import the network-io Grafana dashboard after updating ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 * nextcloud-security-scan: reports a fresh rating right after a Nextcloud update instead of a stale one (`--path`) ([#118](https://github.com/Linuxfabrik/monitoring-plugins/issues/118))
 * php-status: also reports the active php.ini runtime settings and the largest OPcache scripts (`--top`), and flags PHP-FPM services a single check does not cover
 * php-status: OPcache alerting is more tolerant (warns at 95% by default) and now flags cache thrashing, while a full interned strings buffer no longer warns
