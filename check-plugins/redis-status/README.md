@@ -140,10 +140,10 @@ Latest info can be found [here](https://redis.io/commands/INFO).
 |----|----|----|
 | clients_blocked_clients | Number | Number of clients pending on a blocking call |
 | clients_connected_clients | Number | Number of client connections (excluding connections from replicas) |
-| cpu_used_cpu_sys | Number | System CPU consumed by the Redis server, which is the sum of system CPU consumed by all threads of the server process (main thread and background threads) |
-| cpu_used_cpu_sys_children | Number | System CPU consumed by the background processes |
-| cpu_used_cpu_user | Number | User CPU consumed by the Redis server, which is the sum of user CPU consumed by all threads of the server process (main thread and background threads) |
-| cpu_used_cpu_user_children | Number | User CPU consumed by the background processes |
+| cpu_used_cpu_sys_percent | Percentage | System (kernel) CPU consumed by the server, in percent |
+| cpu_used_cpu_sys_children_percent | Percentage | System CPU consumed by child processes, in percent |
+| cpu_used_cpu_user_percent | Percentage | User CPU consumed by the server, in percent |
+| cpu_used_cpu_user_children_percent | Percentage | User CPU consumed by child processes, in percent |
 | db_count | Number | Number of Redis databases |
 | key_count | Number | Sum of all keys across all databases |
 | keyspace_DBNAME_avg_ttl | Seconds | Average TTL for keys in this database |
@@ -153,7 +153,6 @@ Latest info can be found [here](https://redis.io/commands/INFO).
 | mem_usage | Percentage | How close the working set size is to reaching the maxmemory limit |
 | memory_maxmemory | Bytes | Configured maximum memory limit |
 | memory_mem_fragmentation_ratio | Number | Ratio between used_memory_rss and used_memory |
-| memory_total_system_memory | Bytes | The total amount of memory that the Redis host has |
 | memory_used_memory | Bytes | Total number of bytes allocated by Redis using its allocator |
 | memory_used_memory_lua | Bytes | Number of bytes used by the Lua engine |
 | memory_used_memory_rss | Bytes | Number of bytes that Redis allocated as seen by the operating system (resident set size) |
@@ -168,25 +167,22 @@ Latest info can be found [here](https://redis.io/commands/INFO).
 | replication_repl_backlog_histlen | Bytes | Size in bytes of the data in the replication backlog buffer |
 | replication_repl_backlog_size | Bytes | Total size in bytes of the replication backlog buffer |
 | server_uptime_in_seconds | Seconds | Number of seconds since Redis server start |
-| stats_evicted_keys | Continuous Counter | Number of evicted keys due to maxmemory limit |
-| stats_expired_keys | Continuous Counter | Total number of key expiration events |
+| stats_evicted_keys_per_second | Number | Evicted keys per second (due to maxmemory limit) |
+| stats_expired_keys_per_second | Number | Key expiration events per second |
 | stats_instantaneous_input | Number | The network read rate per second in KB/sec |
 | stats_instantaneous_ops_per_sec | Number | Number of commands processed per second |
 | stats_instantaneous_output | Number | The network write rate per second in KB/sec |
-| stats_keyspace_hits | Number | Number of successful lookup of keys in the main dictionary |
-| stats_keyspace_misses | Number | Number of failed lookup of keys in the main dictionary |
+| stats_keyspace_hits_per_second | Number | Successful key lookups per second |
+| stats_keyspace_misses_per_second | Number | Failed key lookups per second |
 | stats_latest_fork_usec | Number | Duration of the latest fork operation in microseconds |
-| stats_migrate_cached_sockets | Number | The number of sockets open for MIGRATE purposes |
-| stats_pubsub_channels | Number | Global number of pub/sub channels with client subscriptions |
-| stats_pubsub_patterns | Number | Global number of pub/sub patterns with client subscriptions |
 | stats_rejected_connections | Number | Number of connections rejected because of maxclients limit |
 | stats_sync_full | Number | The number of full resyncs with replicas |
 | stats_sync_partial_err | Number | The number of denied partial resync requests |
 | stats_sync_partial_ok | Number | The number of accepted partial resync requests |
-| stats_total_commands_processed | Number | Total number of commands processed by the server |
-| stats_total_connections_received | Number | Total number of connections accepted by the server |
-| stats_total_net_input_bytes | Bytes | The total number of bytes read from the network |
-| stats_total_net_output_bytes | Bytes | The total number of bytes written to the network |
+| stats_total_commands_processed_per_second | Number | Commands processed per second |
+| stats_total_connections_received_per_second | Number | Connections accepted per second |
+| stats_total_net_input_bytes_per_second | Bytes | Bytes read from the network per second |
+| stats_total_net_output_bytes_per_second | Bytes | Bytes written to the network per second |
 
 
 ## Troubleshooting

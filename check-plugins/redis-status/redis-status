@@ -15,6 +15,7 @@ import sys
 
 import lib.args
 import lib.base
+import lib.db_sqlite
 import lib.disk
 import lib.human
 import lib.lftest
@@ -548,6 +549,11 @@ def main():
         )
         state = lib.base.get_worst(state, local_state)
 
+    # effective memory ceiling: maxmemory if set, otherwise total system memory
+    mem_ceiling = int(float(result['maxmemory'])) or int(
+        float(result['total_system_memory'])
+    )
+
     # prepare perfdata
     perfdata += lib.base.get_perfdata(
         'mem_usage',
@@ -588,43 +594,6 @@ def main():
     )
 
     perfdata += lib.base.get_perfdata(
-        'cpu_used_cpu_sys',
-        result['used_cpu_sys'],
-        uom=None,
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'cpu_used_cpu_sys_children',
-        result['used_cpu_sys_children'],
-        uom=None,
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'cpu_used_cpu_user',
-        result['used_cpu_user'],
-        uom=None,
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'cpu_used_cpu_user_children',
-        result['used_cpu_user_children'],
-        uom=None,
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-
-    perfdata += lib.base.get_perfdata(
         'memory_maxmemory',
         result['maxmemory'],
         uom='B',
@@ -643,22 +612,13 @@ def main():
         _max=None,
     )
     perfdata += lib.base.get_perfdata(
-        'memory_total_system_memory',
-        result.get('total_system_memory', 0),
-        uom='B',
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
         'memory_used_memory',
         result['used_memory'],
         uom='B',
         warn=None,
         crit=None,
         _min=0,
-        _max=None,
+        _max=mem_ceiling,
     )
     perfdata += lib.base.get_perfdata(
         'memory_used_memory_lua',
@@ -782,24 +742,6 @@ def main():
     )
 
     perfdata += lib.base.get_perfdata(
-        'stats_evicted_keys',
-        result['evicted_keys'],
-        uom='c',
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'stats_expired_keys',
-        result['expired_keys'],
-        uom='c',
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
         'stats_instantaneous_input',
         int(float(result['instantaneous_input_kbps']) / 8000),
         uom='B',
@@ -827,54 +769,9 @@ def main():
         _max=None,
     )
     perfdata += lib.base.get_perfdata(
-        'stats_keyspace_hits',
-        result['keyspace_hits'],
-        uom='c',
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'stats_keyspace_misses',
-        result['keyspace_misses'],
-        uom='c',
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
         'stats_latest_fork_usec',
         result['latest_fork_usec'],
         uom='us',
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'stats_migrate_cached_sockets',
-        result['migrate_cached_sockets'],
-        uom=None,
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'stats_pubsub_channels',
-        result['pubsub_channels'],
-        uom=None,
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'stats_pubsub_patterns',
-        result['pubsub_patterns'],
-        uom=None,
         warn=None,
         crit=None,
         _min=0,
@@ -916,42 +813,60 @@ def main():
         _min=0,
         _max=None,
     )
-    perfdata += lib.base.get_perfdata(
-        'stats_total_commands_processed',
-        result['total_commands_processed'],
-        uom='c',
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
+
+    # Convert the cumulative INFO counters to per-second rates against the
+    # previous run, stored in this plugin's own SQLite cache, instead of
+    # emitting them as continuous counters (issue #320). CPU times are
+    # cumulative seconds; they are stored as microseconds so the integer cache
+    # keeps sub-second precision, then turned into a CPU percentage.
+    stats_counters = {
+        'evicted_keys': int(result['evicted_keys']),
+        'expired_keys': int(result['expired_keys']),
+        'keyspace_hits': int(result['keyspace_hits']),
+        'keyspace_misses': int(result['keyspace_misses']),
+        'total_commands_processed': int(result['total_commands_processed']),
+        'total_connections_received': int(result['total_connections_received']),
+        'total_net_input_bytes': int(result['total_net_input_bytes']),
+        'total_net_output_bytes': int(result['total_net_output_bytes']),
+    }
+    cpu_counters = {
+        'used_cpu_sys': int(float(result['used_cpu_sys']) * 1_000_000),
+        'used_cpu_sys_children': int(
+            float(result['used_cpu_sys_children']) * 1_000_000
+        ),
+        'used_cpu_user': int(float(result['used_cpu_user']) * 1_000_000),
+        'used_cpu_user_children': int(
+            float(result['used_cpu_user_children']) * 1_000_000
+        ),
+    }
+    rates = lib.db_sqlite.per_second_deltas(
+        'linuxfabrik-monitoring-plugins-redis-status.db',
+        'redis-status',
+        {**stats_counters, **cpu_counters},
     )
-    perfdata += lib.base.get_perfdata(
-        'stats_total_connections_received',
-        result['total_connections_received'],
-        uom='c',
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'stats_total_net_input_bytes',
-        result['total_net_input_bytes'],
-        uom='c',
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'stats_total_net_output_bytes',
-        result['total_net_output_bytes'],
-        uom='c',
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
+    if rates is not None:
+        bytes_rates = ('total_net_input_bytes', 'total_net_output_bytes')
+        for key in stats_counters:
+            perfdata += lib.base.get_perfdata(
+                f'stats_{key}_per_second',
+                round(rates[key], 1),
+                uom='B' if key in bytes_rates else None,
+                warn=None,
+                crit=None,
+                _min=0,
+                _max=None,
+            )
+        # microseconds-of-CPU per wall-second / 1e6 * 100 = CPU percent
+        for key in cpu_counters:
+            perfdata += lib.base.get_perfdata(
+                f'cpu_{key}_percent',
+                round(rates[key] / 10000, 1),
+                uom='%',
+                warn=None,
+                crit=None,
+                _min=0,
+                _max=None,
+            )
 
     # over and out
     lib.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
