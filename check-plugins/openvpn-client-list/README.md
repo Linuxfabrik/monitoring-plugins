@@ -8,6 +8,7 @@ Lists all clients currently connected to an OpenVPN server by parsing the status
 **Important Notes:**
 
 * Requires root or sudo to read the OpenVPN status log file.
+* By design this check reads the contents of whatever `--filename` it is pointed at, with root privileges when run via sudo. That is inherent to its purpose, so the file path cannot be confined to a fixed directory: anyone who can invoke the check through sudo can read any root-readable file. Securing that capability is the operator's responsibility. Restrict the permitted arguments in your sudoers entry if your threat model requires it.
 
 **Data Collection:**
 

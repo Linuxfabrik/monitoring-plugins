@@ -10,6 +10,7 @@ Scans the MySQL/MariaDB error log for errors, warnings, startups and shutdowns. 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * Severity is detected from MySQL/MariaDB's bracketed log tags (`[ERROR]`, `[Warning]`); lines that only mention the words "error" / "warning" elsewhere are not counted.
 * When reading from an on-disk log file, the check usually needs root/sudo (typical log files are owned by `mysql:mysql`, mode `0640`). The `performance_schema.error_log` path needs only SELECT on that table.
+* By design this check reads the contents of whatever `--server-log` file it is pointed at, with root privileges when run via sudo. That is inherent to its purpose, so the file path cannot be confined to a fixed directory: anyone who can invoke the check through sudo can read any root-readable file. Securing that capability is the operator's responsibility. Restrict the permitted arguments in your sudoers entry if your threat model requires it.
 * Depending on your site's policy, you may want to silence noisy patterns like `aborted connection` or `access denied for user` via `--ignore-pattern` / `--ignore-regex`.
 * Both `--ignore-pattern` and `--ignore-regex` are matched against the lowercased log line, so write your patterns in lowercase (or use the `(?i)` flag in a regex).
 

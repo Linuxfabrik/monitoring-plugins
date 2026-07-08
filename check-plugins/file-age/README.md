@@ -7,6 +7,7 @@ Checks the time since last modification of one or more files or directories. Sup
 
 **Important Notes:**
 
+* By design this check inspects the metadata (existence, timestamps) of whatever path it is pointed at, with root privileges when run via sudo. That is inherent to its purpose, so the path cannot be confined to a fixed directory: anyone who can invoke the check through sudo can probe any path on the system. Securing that capability is the operator's responsibility. Restrict the permitted arguments in your sudoers entry if your threat model requires it.
 * SMB share access requires the optional `PySmbClient` and `smbprotocol` Python modules
 * Recursive globs (`**`) can cause high memory usage on large directory trees
 * The `--filename` and `--url` parameters are mutually exclusive

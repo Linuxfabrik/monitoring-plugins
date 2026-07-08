@@ -8,6 +8,7 @@ Tests if a path is writable and readable by creating, writing, reading, and dele
 **Data Collection:**
 
 * May require root or sudo depending on the paths being tested
+* By design this check creates, writes, reads and deletes a probe file in whatever directory it is pointed at, with root privileges when run via sudo. That is inherent to its purpose, so the path cannot be confined to a fixed directory: anyone who can invoke the check through sudo can test write access anywhere on the system. Securing that capability is the operator's responsibility. Restrict the permitted arguments in your sudoers entry if your threat model requires it.
 
 * Creates a temporary file in each specified path (and always in the system's temp directory)
 * Writes a test string, reads it back, then deletes the temporary file
