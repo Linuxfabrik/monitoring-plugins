@@ -105,11 +105,10 @@ def main():
                 f'log directory {ALLOWED_LOG_ROOTS[0]}; bind-mount it under '
                 f'{ALLOWED_LOG_ROOTS[0]} if intended.'
             )
-        try:
-            with open(args.FILENAME, 'r') as file:
-                lines = file.readlines()
-        except OSError:
+        success, content = lib.disk.read_file(args.FILENAME)
+        if not success:
             lib.base.cu(f'Failed to read file {args.FILENAME}.')
+        lines = content.splitlines(keepends=True)
     else:
         stdout, _, _ = lib.lftest.test(args.TEST)
         lines = stdout.splitlines(keepends=True)

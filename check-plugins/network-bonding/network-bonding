@@ -90,8 +90,9 @@ def main():
 
     for bonding_interface in bonding_interfaces:
         if args.TEST is None:
-            with open(f'/proc/net/bonding/{bonding_interface}', 'r', encoding='utf-8') as f:
-                rows = f.read().splitlines()
+            rows = lib.base.coe(
+                lib.disk.read_file(f'/proc/net/bonding/{bonding_interface}')
+            ).splitlines()
         else:
             # do not read a real interface, put in test data
             stdout, _, _ = lib.lftest.test(args.TEST)

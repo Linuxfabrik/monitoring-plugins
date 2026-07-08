@@ -16,6 +16,7 @@ import sys
 
 import lib.args
 import lib.base
+import lib.disk
 import lib.txt
 import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN
@@ -30,7 +31,7 @@ except ModuleNotFoundError as e:
     missing_lib = e.name
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070301'
+__version__ = '2026070801'
 
 DESCRIPTION = """Parses a JSON object from a file, URL, or SMB share and extracts message, state,
 and perfdata values from configurable keys. Useful for integrating custom applications or
@@ -334,8 +335,7 @@ def load_source(args):
     function instead of inflating the main control flow.
     """
     if args.FILENAME:
-        with open(args.FILENAME, encoding='utf-8') as json_file:
-            return json.load(json_file)
+        return json.loads(lib.base.coe(lib.disk.read_file(args.FILENAME)))
 
     if not args.URL:
         return None

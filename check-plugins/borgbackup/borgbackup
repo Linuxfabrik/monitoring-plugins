@@ -15,12 +15,13 @@ import os
 import sys
 
 import lib.base
+import lib.disk
 import lib.human
 import lib.time
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041001'
+__version__ = '2026070801'
 
 DESCRIPTION = """Checks the status of the last borgbackup run by parsing the borg logfile. Alerts on
 non-zero return codes from the create or prune steps, and warns if the last successful
@@ -89,10 +90,9 @@ def main():
         lib.base.cu(f'Logfile {path} not found or empty.')
 
     mount_lines = ''
-    with open('/proc/mounts', encoding='utf-8') as mountlist:
-        for line in mountlist:
-            if 'borgfs' in line:
-                mount_lines += '* ' + line
+    for line in lib.base.coe(lib.disk.read_file('/proc/mounts')).splitlines(keepends=True):
+        if 'borgfs' in line:
+            mount_lines += '* ' + line
 
     if mount_lines:
         lib.base.oao(f'There are active borg mounts.\n\n{mount_lines}', STATE_WARN)
@@ -101,19 +101,18 @@ def main():
     endtime = None
     create_retc = None
     prune_retc = None
-    with open(path, 'r', encoding='utf-8') as logfile:
-        for line in logfile:
-            if line.startswith('start'):
-                starttime = line.split(': ')[1].strip()
+    for line in lib.base.coe(lib.disk.read_file(path)).splitlines():
+        if line.startswith('start'):
+            starttime = line.split(': ')[1].strip()
 
-            if line.startswith('end'):
-                endtime = line.split(': ')[1].strip()
+        if line.startswith('end'):
+            endtime = line.split(': ')[1].strip()
 
-            if line.startswith('create_retc'):
-                create_retc = int(line.split(': ')[1])
+        if line.startswith('create_retc'):
+            create_retc = int(line.split(': ')[1])
 
-            if line.startswith('prune_retc'):
-                prune_retc = int(line.split(': ')[1])
+        if line.startswith('prune_retc'):
+            prune_retc = int(line.split(': ')[1])
 
     if any(v is None for v in (starttime, endtime, create_retc, prune_retc)):
         lib.base.cu('Could not find all expected values in the logfile.')
