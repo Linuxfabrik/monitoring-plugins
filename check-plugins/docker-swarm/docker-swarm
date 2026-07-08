@@ -12,18 +12,18 @@
 
 import argparse
 import json
-import os
 import sys
 
 import lib.args
 import lib.base
+import lib.disk
 import lib.lftest
 import lib.shell
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070201'
+__version__ = '2026070801'
 
 DESCRIPTION = """Checks whether the local node participates in a Docker Swarm and whether the
 cluster is healthy. On every node the local swarm state is verified (active, pending,
@@ -94,7 +94,7 @@ def load_fixture(test_args, suffix):
     simulate a worker node that has no `docker node ls` output).
     """
     path = f'{test_args[0]}{suffix}'
-    if not os.path.isfile(path):
+    if not lib.disk.file_exists(path, allow_empty=True):
         return None
     local_args = list(test_args)
     local_args[0] = path

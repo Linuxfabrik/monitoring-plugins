@@ -11,11 +11,11 @@
 """See the check's README for more details."""
 
 import argparse
-import os
 import sys
 
 import lib.args
 import lib.base
+import lib.disk
 import lib.human
 import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061201'
+__version__ = '2026070801'
 
 DESCRIPTION = """Checks Linux kernel parameters that affect MySQL/MariaDB stability and
 performance: `vm.swappiness`, the asynchronous-I/O event ceiling `fs.aio-max-nr`, the
@@ -181,7 +181,7 @@ def main():
         )
 
         # sunrpc.tcp_slot_table_entries — only if /proc/sys/sunrpc exists (i.e. NFS in use)
-        if os.path.isdir('/proc/sys/sunrpc'):
+        if lib.disk.dir_exists('/proc/sys/sunrpc'):
             result = get_sysctl('sunrpc.tcp_slot_table_entries')
             if result is not None:
                 if int(result) <= 100:
@@ -204,7 +204,7 @@ def main():
                 )
 
         # fs.aio-max-nr — InnoDB AIO event ceiling, recommend at least 1M
-        if os.path.isfile('/proc/sys/fs/aio-max-nr'):
+        if lib.disk.file_exists('/proc/sys/fs/aio-max-nr', allow_empty=True):
             result = get_sysctl('fs.aio-max-nr')
             if result is not None:
                 if int(result) < 1000000:
@@ -227,7 +227,7 @@ def main():
                 )
 
         # fs.nr_open — per-process file-handle ceiling, recommend at least 1M
-        if os.path.isfile('/proc/sys/fs/nr_open'):
+        if lib.disk.file_exists('/proc/sys/fs/nr_open', allow_empty=True):
             result = get_sysctl('fs.nr_open')
             if result is not None:
                 if int(result) < 1000000:

@@ -38,7 +38,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026062301 / v6.0.0'
+__version__ = '2026070801 / v6.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -140,9 +140,9 @@ def get_birthday():
     # the age of a machine is usually determined by the birthday of the root file system `/`.
     # however, this does not work for cloud systems that are installed from pre-built images.
     # in this case, the age of the cloud-init data must be used.
-    if os.path.exists('/var/lib/cloud/data/instance-id'):
+    birthday = lib.disk.stat('/var/lib/cloud/data/instance-id')
+    if birthday is not None:
         # cloud-init based VM
-        birthday = os.stat('/var/lib/cloud/data/instance-id')
         return f'born {lib.time.epoch2iso(birthday.st_ctime)}. '
     # no way to do this in python - getting the birthday of a folder
     success, result = lib.shell.shell_exec(['stat', '/'])
@@ -158,7 +158,7 @@ def get_birthday():
 
 
 def get_boot_mode():
-    return 'UEFI boot, ' if os.path.isdir('/sys/firmware/efi') else 'BIOS boot, '
+    return 'UEFI boot, ' if lib.disk.dir_exists('/sys/firmware/efi') else 'BIOS boot, '
 
 
 def get_crontab():
@@ -337,7 +337,7 @@ def get_lftags(distro):
         dependencies.
       - `expr`:    list of expressions evaluated at function call time
         (truthy/falsy). Typical: `run_cmd(['systemctl', 'is-enabled', '<unit>'],
-        ignore_output=True)` or `os.path.isfile(...)` /  `os.path.isdir(...)`.
+        ignore_output=True)` or `lib.disk.file_exists(..., allow_empty=True)` /  `lib.disk.dir_exists(...)`.
 
     If you add software that no package manager tracks and you only spot
     it via a directory or binary, mirror it in `get_software_found()` so
@@ -406,8 +406,8 @@ def get_lftags(distro):
                 run_cmd(
                     ['systemctl', 'is-enabled', 'tomcat10.service'], ignore_output=True
                 ),
-                os.path.isdir('/opt/apache-tomcat'),
-                os.path.isdir('/opt/tomcat'),
+                lib.disk.dir_exists('/opt/apache-tomcat'),
+                lib.disk.dir_exists('/opt/tomcat'),
             ],
         },
         {
@@ -419,7 +419,7 @@ def get_lftags(distro):
                 )
             ],
         },
-        {'sw': 'Bonding', 'package': [], 'expr': [os.path.isdir('/proc/net/bonding')]},
+        {'sw': 'Bonding', 'package': [], 'expr': [lib.disk.dir_exists('/proc/net/bonding')]},
         {
             'sw': 'BorgBackup',
             'package': [],
@@ -670,7 +670,7 @@ def get_lftags(distro):
                 )
             ],
         },
-        {'sw': 'LibreNMS', 'package': [], 'expr': [os.path.isdir('/opt/librenms')]},
+        {'sw': 'LibreNMS', 'package': [], 'expr': [lib.disk.dir_exists('/opt/librenms')]},
         {
             'sw': 'Logstash Client',
             'package': [],
@@ -732,19 +732,19 @@ def get_lftags(distro):
             'sw': 'Matomo',
             'package': [],
             'expr': [
-                os.path.isdir('/var/www/matomo'),
-                os.path.isdir('/var/www/html/matomo'),
-                os.path.isdir('/var/www/html/piwik'),
+                lib.disk.dir_exists('/var/www/matomo'),
+                lib.disk.dir_exists('/var/www/html/matomo'),
+                lib.disk.dir_exists('/var/www/html/piwik'),
             ],
         },
         {
             'sw': 'MediaWiki',
             'package': [],
             'expr': [
-                os.path.isdir('/var/www/html/mediawiki'),
-                os.path.isdir('/var/www/html/wiki'),
-                os.path.isdir('/var/www/mediawiki'),
-                os.path.isdir('/var/www/wiki'),
+                lib.disk.dir_exists('/var/www/html/mediawiki'),
+                lib.disk.dir_exists('/var/www/html/wiki'),
+                lib.disk.dir_exists('/var/www/mediawiki'),
+                lib.disk.dir_exists('/var/www/wiki'),
             ],
         },
         {
@@ -752,8 +752,8 @@ def get_lftags(distro):
             'package': ['mod_qos'],
             # httpd writes DUMP_MODULES to stderr, so cmd_output_contains checks both streams
             'expr': [
-                os.path.isfile('/usr/lib64/httpd/modules/mod_qos.so'),
-                os.path.isdir('/var/lib/mod_security'),
+                lib.disk.file_exists('/usr/lib64/httpd/modules/mod_qos.so', allow_empty=True),
+                lib.disk.dir_exists('/var/lib/mod_security'),
                 cmd_output_contains(['httpd', '-t', '-D', 'DUMP_MODULES'], 'mod_qos'),
                 cmd_output_contains(['apache2', '-t', '-D', 'DUMP_MODULES'], 'mod_qos'),
             ],
@@ -780,8 +780,8 @@ def get_lftags(distro):
             'sw': 'mydumper',
             'package': ['mydumper'],
             'expr': [
-                os.path.isfile('/etc/mydumper.cnf'),
-                os.path.isfile('/usr/bin/mydumper'),
+                lib.disk.file_exists('/etc/mydumper.cnf', allow_empty=True),
+                lib.disk.file_exists('/usr/bin/mydumper', allow_empty=True),
             ],
         },
         {
@@ -798,7 +798,7 @@ def get_lftags(distro):
         {
             'sw': 'Needs Restarting',
             'package': ['dnf-utils', 'yum-utils'],
-            'expr': [os.path.isfile('/usr/bin/needs-restarting')],
+            'expr': [lib.disk.file_exists('/usr/bin/needs-restarting', allow_empty=True)],
         },
         {
             'sw': 'networking.service',
@@ -839,7 +839,7 @@ def get_lftags(distro):
                 )
             ],
         },
-        {'sw': 'NodeBB', 'package': [], 'expr': [os.path.isdir('/opt/nodebb')]},
+        {'sw': 'NodeBB', 'package': [], 'expr': [lib.disk.dir_exists('/opt/nodebb')]},
         {
             'sw': 'NTPd',
             'package': [],
@@ -850,7 +850,7 @@ def get_lftags(distro):
         {
             'sw': 'OnlyOffice',
             'package': [],
-            'expr': [os.path.isdir('/var/log/onlyoffice')],
+            'expr': [lib.disk.dir_exists('/var/log/onlyoffice')],
         },
         {
             'sw': 'OpenVAS',
@@ -874,7 +874,7 @@ def get_lftags(distro):
             'package': [],
             'expr': [True],  # always check this
         },
-        {'sw': 'PHP', 'package': ['php'], 'expr': [os.path.isfile('/etc/php.ini')]},
+        {'sw': 'PHP', 'package': ['php'], 'expr': [lib.disk.file_exists('/etc/php.ini', allow_empty=True)]},
         {
             'sw': 'PHP-FPM',
             'package': [],
@@ -923,7 +923,7 @@ def get_lftags(distro):
                 )
             ],
         },
-        {'sw': 'Proxmox', 'package': [], 'expr': [os.path.isdir('/etc/pve')]},
+        {'sw': 'Proxmox', 'package': [], 'expr': [lib.disk.dir_exists('/etc/pve')]},
         {'sw': 'Python', 'package': ['python3', 'python2'], 'expr': []},
         # {'sw': 'QNAP QTS', 'package': [], 'expr': []},
         {
@@ -1080,14 +1080,14 @@ def get_lftags(distro):
                 )
             ],
         },
-        {'sw': 'Wildfly', 'package': [], 'expr': [os.path.isdir('/opt/wildfly')]},
+        {'sw': 'Wildfly', 'package': [], 'expr': [lib.disk.dir_exists('/opt/wildfly')]},
         {
             'sw': 'Wordpress',
             'package': [],
             'expr': [
-                os.path.isdir('/var/www/html/wordpress'),
-                os.path.isdir('/var/www/html/wp-config.php'),
-                os.path.isdir('/var/www/wordpress'),
+                lib.disk.dir_exists('/var/www/html/wordpress'),
+                lib.disk.dir_exists('/var/www/html/wp-config.php'),
+                lib.disk.dir_exists('/var/www/wordpress'),
             ],
         },
         # {'sw': 'XFS', 'package': [], 'expr': []},
@@ -1295,120 +1295,120 @@ def get_software_found():
     guessed = [
         {
             'sw': 'Apache Solr',
-            'expr': [os.path.isdir('/opt/apache-solr'), os.path.isdir('/opt/solr')],
+            'expr': [lib.disk.dir_exists('/opt/apache-solr'), lib.disk.dir_exists('/opt/solr')],
         },
         {
             'sw': 'Apache Tomcat',
-            'expr': [os.path.isdir('/opt/apache-tomcat'), os.path.isdir('/opt/tomcat')],
+            'expr': [lib.disk.dir_exists('/opt/apache-tomcat'), lib.disk.dir_exists('/opt/tomcat')],
         },
         {
             'sw': 'Atlassian Bitbucket',
-            'expr': [os.path.isdir('/opt/atlassian/bitbucket')],
+            'expr': [lib.disk.dir_exists('/opt/atlassian/bitbucket')],
         },
         {
             'sw': 'Atlassian Confluence',
-            'expr': [os.path.isdir('/opt/atlassian/confluence')],
+            'expr': [lib.disk.dir_exists('/opt/atlassian/confluence')],
         },
-        {'sw': 'Atlassian Jira', 'expr': [os.path.isdir('/opt/atlassian/jira')]},
-        {'sw': 'Atomicorp', 'expr': [os.path.isdir('/opt/atomicorp')]},
-        {'sw': 'Bacchus', 'expr': [os.path.isdir('/opt/bacchus')]},
-        {'sw': 'Contao', 'expr': [os.path.isdir('/var/www/html/contao')]},
-        {'sw': 'DCM4CHEE', 'expr': [os.path.isdir('/opt/dcm4chee')]},
-        {'sw': 'Django', 'expr': [os.path.isdir('/opt/django')]},
+        {'sw': 'Atlassian Jira', 'expr': [lib.disk.dir_exists('/opt/atlassian/jira')]},
+        {'sw': 'Atomicorp', 'expr': [lib.disk.dir_exists('/opt/atomicorp')]},
+        {'sw': 'Bacchus', 'expr': [lib.disk.dir_exists('/opt/bacchus')]},
+        {'sw': 'Contao', 'expr': [lib.disk.dir_exists('/var/www/html/contao')]},
+        {'sw': 'DCM4CHEE', 'expr': [lib.disk.dir_exists('/opt/dcm4chee')]},
+        {'sw': 'Django', 'expr': [lib.disk.dir_exists('/opt/django')]},
         {
             'sw': 'Grav',
             'expr': [
-                os.path.isdir('/var/www/html/grav'),
-                os.path.isdir('/var/www/grav'),
+                lib.disk.dir_exists('/var/www/html/grav'),
+                lib.disk.dir_exists('/var/www/grav'),
             ],
         },
         {
             'sw': 'H-Net eFaktura',
-            'expr': [os.path.isdir('/home/hnet/HnetSecureService')],
+            'expr': [lib.disk.dir_exists('/home/hnet/HnetSecureService')],
         },
-        {'sw': 'Hostbill', 'expr': [os.path.isdir('/home/hostbill')]},
-        {'sw': 'HTMLy', 'expr': [os.path.isdir('/var/www/html/htmly')]},
-        {'sw': 'JBoss', 'expr': [os.path.isdir('/opt/jboss')]},
-        {'sw': 'JumpCloud Agent', 'expr': [os.path.isdir('/opt/jc')]},
-        {'sw': 'KeeWeb', 'expr': [os.path.isdir('/opt/KeeWeb')]},
+        {'sw': 'Hostbill', 'expr': [lib.disk.dir_exists('/home/hostbill')]},
+        {'sw': 'HTMLy', 'expr': [lib.disk.dir_exists('/var/www/html/htmly')]},
+        {'sw': 'JBoss', 'expr': [lib.disk.dir_exists('/opt/jboss')]},
+        {'sw': 'JumpCloud Agent', 'expr': [lib.disk.dir_exists('/opt/jc')]},
+        {'sw': 'KeeWeb', 'expr': [lib.disk.dir_exists('/opt/KeeWeb')]},
         {
             'sw': 'Keycloak',
             'expr': [
-                os.path.isdir('/opt/keycloak'),
-                os.path.isdir('/var/log/keycloak'),
+                lib.disk.dir_exists('/opt/keycloak'),
+                lib.disk.dir_exists('/var/log/keycloak'),
             ],
         },
-        {'sw': 'LibreNMS', 'expr': [os.path.isdir('/opt/librenms')]},
+        {'sw': 'LibreNMS', 'expr': [lib.disk.dir_exists('/opt/librenms')]},
         {
             'sw': 'MariaDB ColumnStore',
-            'expr': [os.path.isdir('/usr/local/mariadb/columnstore')],
+            'expr': [lib.disk.dir_exists('/usr/local/mariadb/columnstore')],
         },
         {
             'sw': 'Matomo',
             'expr': [
-                os.path.isdir('/var/www/matomo'),
-                os.path.isdir('/var/www/html/matomo'),
-                os.path.isdir('/var/www/html/piwik'),
+                lib.disk.dir_exists('/var/www/matomo'),
+                lib.disk.dir_exists('/var/www/html/matomo'),
+                lib.disk.dir_exists('/var/www/html/piwik'),
             ],
         },
         {
             'sw': 'MediaWiki',
             'expr': [
-                os.path.isdir('/var/www/mediawiki'),
-                os.path.isdir('/var/www/html/mediawiki'),
+                lib.disk.dir_exists('/var/www/mediawiki'),
+                lib.disk.dir_exists('/var/www/html/mediawiki'),
             ],
         },
-        {'sw': 'Medidata (eFaktura)', 'expr': [os.path.isdir('/opt/MPCommunicator')]},
-        {'sw': 'Metabase', 'expr': [os.path.isdir('/opt/metabase')]},
+        {'sw': 'Medidata (eFaktura)', 'expr': [lib.disk.dir_exists('/opt/MPCommunicator')]},
+        {'sw': 'Metabase', 'expr': [lib.disk.dir_exists('/opt/metabase')]},
         {
             'sw': 'Nextcloud',
             'expr': [
-                os.path.isdir('/var/www/html/nextcloud'),
-                os.path.isdir('/var/www/nextcloud'),
-                os.path.isfile('/var/www/html/nextcloud/occ'),
+                lib.disk.dir_exists('/var/www/html/nextcloud'),
+                lib.disk.dir_exists('/var/www/nextcloud'),
+                lib.disk.file_exists('/var/www/html/nextcloud/occ', allow_empty=True),
             ],
         },
-        {'sw': 'NodeBB', 'expr': [os.path.isdir('/opt/nodebb')]},
-        {'sw': 'OnlyOffice', 'expr': [os.path.isdir('/var/log/onlyoffice')]},
+        {'sw': 'NodeBB', 'expr': [lib.disk.dir_exists('/opt/nodebb')]},
+        {'sw': 'OnlyOffice', 'expr': [lib.disk.dir_exists('/var/log/onlyoffice')]},
         {
             'sw': 'ownCloud',
             'expr': [
-                os.path.isdir('/var/www/owncloud'),
-                os.path.isdir('/var/www/html/owncloud'),
+                lib.disk.dir_exists('/var/www/owncloud'),
+                lib.disk.dir_exists('/var/www/html/owncloud'),
             ],
         },
-        {'sw': 'Rambox', 'expr': [os.path.isdir('/opt/Rambox')]},
+        {'sw': 'Rambox', 'expr': [lib.disk.dir_exists('/opt/Rambox')]},
         {
             'sw': 'Rocket.Chat',
             'expr': [
-                os.path.isdir('/opt/Rocket.Chat'),
-                os.path.isdir('/opt/rocket.chat'),
+                lib.disk.dir_exists('/opt/Rocket.Chat'),
+                lib.disk.dir_exists('/opt/rocket.chat'),
             ],
         },
-        {'sw': 'Roundcube', 'expr': [os.path.isdir('/var/www/html/roundcubemail')]},
-        {'sw': 'Tarifpool v2', 'expr': [os.path.isdir('/opt/tarifpool')]},
-        {'sw': 'VMware Tools', 'expr': [os.path.isdir('/etc/vmware-tools')]},
-        {'sw': 'Vtiger', 'expr': [os.path.isdir('/var/www/html/vtigercrm')]},
-        {'sw': 'WHMCS', 'expr': [os.path.isdir('/home/whmcs')]},
-        {'sw': 'Wildfly', 'expr': [os.path.isdir('/opt/wildfly')]},
+        {'sw': 'Roundcube', 'expr': [lib.disk.dir_exists('/var/www/html/roundcubemail')]},
+        {'sw': 'Tarifpool v2', 'expr': [lib.disk.dir_exists('/opt/tarifpool')]},
+        {'sw': 'VMware Tools', 'expr': [lib.disk.dir_exists('/etc/vmware-tools')]},
+        {'sw': 'Vtiger', 'expr': [lib.disk.dir_exists('/var/www/html/vtigercrm')]},
+        {'sw': 'WHMCS', 'expr': [lib.disk.dir_exists('/home/whmcs')]},
+        {'sw': 'Wildfly', 'expr': [lib.disk.dir_exists('/opt/wildfly')]},
         {
             'sw': 'Wordpress',
             'expr': [
-                os.path.isdir('/var/www/html/wordpress'),
-                os.path.isdir('/var/www/html/wp-config.php'),
-                os.path.isdir('/var/www/wordpress'),
+                lib.disk.dir_exists('/var/www/html/wordpress'),
+                lib.disk.dir_exists('/var/www/html/wp-config.php'),
+                lib.disk.dir_exists('/var/www/wordpress'),
             ],
         },
         {
             'sw': 'Yii2',
             'expr': [
-                os.path.isdir('/var/www/html/yii2'),
-                os.path.isdir('/var/www/html/yii2-advanced'),
-                os.path.isdir('/var/www/html/yii2-basic'),
-                os.path.isdir('/var/www/html/yii'),
+                lib.disk.dir_exists('/var/www/html/yii2'),
+                lib.disk.dir_exists('/var/www/html/yii2-advanced'),
+                lib.disk.dir_exists('/var/www/html/yii2-basic'),
+                lib.disk.dir_exists('/var/www/html/yii'),
             ],
         },
-        {'sw': 'Zimbra', 'expr': [os.path.isdir('/opt/zimbra')]},
+        {'sw': 'Zimbra', 'expr': [lib.disk.dir_exists('/opt/zimbra')]},
     ]
     output = ''
     for item in guessed:

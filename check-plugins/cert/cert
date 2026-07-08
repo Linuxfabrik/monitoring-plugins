@@ -13,7 +13,6 @@
 import argparse
 import concurrent.futures
 import ipaddress
-import os
 import re
 import socket
 import ssl
@@ -673,7 +672,7 @@ def get_certs_from_files(args):
     items = []
     matched_files = 0
     for match in matches:
-        if not os.path.isfile(match):
+        if not lib.disk.file_exists(match, allow_empty=True):
             continue
         matched_files += 1
         success, data = lib.disk.read_file(match, binary=True)

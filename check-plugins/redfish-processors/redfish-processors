@@ -12,11 +12,11 @@
 
 import argparse
 import json
-import os
 import sys
 
 import lib.args
 import lib.base
+import lib.disk
 import lib.lftest
 import lib.redfish
 import lib.txt
@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070701'
+__version__ = '2026070801'
 
 DESCRIPTION = """Checks the state of all processors (CPUs) in a Redfish-compatible server via the
 Redfish API. Alerts when any processor reports a degraded or failed state. System-level health
@@ -178,7 +178,7 @@ def load_test_fixture(test_args, path):
     # fixture path, read it via lib.lftest.test() and return the parsed
     # JSON. On a missing file or malformed JSON, exit STATE_UNKNOWN with
     # a helpful message instead of letting json.loads raise a traceback.
-    if not os.path.isfile(path):
+    if not lib.disk.file_exists(path, allow_empty=True):
         lib.base.cu(f'Test fixture not found: "{path}".')
     test_args[0] = path
     stdout, _, _ = lib.lftest.test(test_args)

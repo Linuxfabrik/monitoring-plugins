@@ -13,19 +13,19 @@
 import argparse
 import json
 import math
-import os
 import re
 import sys
 
 import lib.args
 import lib.base
+import lib.disk
 import lib.lftest
 import lib.shell
 import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070201'
+__version__ = '2026070801'
 
 DESCRIPTION = """Checks the health of Docker Swarm services: how many of the expected tasks
 (containers) of a service are actually running, and optionally whether those tasks are
@@ -188,7 +188,7 @@ def load_fixture(test_args, suffix):
     empty string if the fixture does not exist (e.g. a scenario without any services).
     """
     path = f'{test_args[0]}{suffix}'
-    if not os.path.isfile(path):
+    if not lib.disk.file_exists(path, allow_empty=True):
         return ''
     local_args = list(test_args)
     local_args[0] = path

@@ -12,15 +12,15 @@
 
 import argparse
 import grp
-import os
 import pwd
 import sys
 
 import lib.base
+import lib.disk
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040101'
+__version__ = '2026070801'
 
 DESCRIPTION = """Verifies that critical system files have the expected owner and group. Ships with a
 built-in list of important files (GRUB, SSH, sudoers, PAM, cron, etc.) and supports
@@ -141,9 +141,8 @@ def check_file(file_spec):
     except ValueError:
         lib.base.cu('--filename parameter seems to be in the wrong format.')
 
-    try:
-        stat_info = os.stat(path)
-    except OSError:
+    stat_info = lib.disk.stat(path)
+    if stat_info is None:
         return None
 
     try:
