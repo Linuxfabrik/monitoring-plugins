@@ -13,6 +13,7 @@
 import argparse
 import concurrent.futures
 import ipaddress
+import os
 import re
 import socket
 import ssl
@@ -20,7 +21,6 @@ import sys
 import time
 import urllib.parse
 import warnings
-from pathlib import Path
 
 import lib.args
 import lib.base
@@ -47,7 +47,7 @@ warnings.filterwarnings('ignore', category=CryptographyDeprecationWarning)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060804'
+__version__ = '2026070801'
 
 DESCRIPTION = """Inspects X.509 certificates and alerts on days remaining until expiry,
 hostname mismatch and chain verification failures. Sources via --source: `url` fetches the
@@ -669,18 +669,16 @@ def get_certs_from_files(args):
     even when they hit private keys or trust bundles. Files that look like certificates
     but fail to parse are reported as a real error so corrupt certs surface clearly.
     """
-    path = Path(args.FILENAME)
-    matches = sorted(Path(path.anchor).glob(str(path.relative_to(path.anchor))))
+    matches = lib.disk.glob(args.FILENAME)
     items = []
     matched_files = 0
     for match in matches:
-        if not match.is_file():
+        if not os.path.isfile(match):
             continue
         matched_files += 1
-        try:
-            data = match.read_bytes()
-        except OSError as e:
-            return False, f'Cannot read {match}: {e}'
+        success, data = lib.disk.read_file(match, binary=True)
+        if not success:
+            return False, f'Cannot read {match}: {data}'
         if not _looks_like_cert(data):
             continue
         try:
@@ -693,7 +691,7 @@ def get_certs_from_files(args):
                     'cert_der': cert_der,
                     'chain_verdict': None,
                     'handshake_seconds': None,
-                    'label': str(match),
+                    'label': match,
                     'tls_version': None,
                 }
             )

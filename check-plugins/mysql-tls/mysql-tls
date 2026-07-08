@@ -17,13 +17,14 @@ import sys
 import lib.args
 import lib.base
 import lib.db_mysql
+import lib.disk
 import lib.time
 import lib.txt
 import lib.version
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051802'
+__version__ = '2026070801'
 
 DESCRIPTION = """Checks MySQL/MariaDB TLS/SSL posture: the current connection itself, the
 server's TLS capability (`have_ssl`), enforcement (`require_secure_transport`), enabled TLS
@@ -184,9 +185,10 @@ def cert_days_until_expiry(path):
         from cryptography import x509
     except ImportError:
         return None, 'python module "cryptography" not installed'
+    success, data = lib.disk.read_file(path, binary=True)
+    if not success:
+        return None, data
     try:
-        with open(path, 'rb') as fh:
-            data = fh.read()
         if b'-----BEGIN CERTIFICATE-----' in data:
             cert = x509.load_pem_x509_certificate(data)
         else:

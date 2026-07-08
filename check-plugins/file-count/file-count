@@ -13,10 +13,10 @@
 import argparse
 import stat
 import sys
-from pathlib import Path
 
 import lib.args
 import lib.base
+import lib.disk
 import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
@@ -31,7 +31,7 @@ except ModuleNotFoundError as e:
     missing_lib = e.name
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041001'
+__version__ = '2026070801'
 
 DESCRIPTION = """Counts the number of files matching a glob pattern and alerts when the count exceeds
 the configured thresholds. Can filter by modification time range, restrict to files
@@ -205,12 +205,10 @@ def main():
     early_break_at = get_early_break_threshold(args.WARN, args.CRIT)
 
     if args.FILENAME:
-        path = Path(args.FILENAME)
-        for item in Path(path.anchor).glob(str(path.relative_to(path.anchor))):
+        for item in lib.disk.glob(args.FILENAME):
             # Get stat info once to avoid multiple syscalls
-            try:
-                stat_info = item.stat()
-            except (OSError, PermissionError):
+            stat_info = lib.disk.stat(item)
+            if stat_info is None:
                 # Skip files we can't stat
                 continue
 

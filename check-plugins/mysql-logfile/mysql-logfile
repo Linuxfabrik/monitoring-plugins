@@ -13,6 +13,7 @@
 import argparse
 import os
 import re
+import stat
 import sys
 
 import lib.args
@@ -380,7 +381,8 @@ def main():
                     f'log directories (/var/log, /var/lib/mysql); bind-mount it under '
                     f'/var/log if intended.'
                 )
-            if not os.path.isfile(log_error):
+            log_stat = lib.disk.stat(log_error)
+            if log_stat is None or not stat.S_ISREG(log_stat.st_mode):
                 lib.base.oao(
                     f'Logging seems to be configured, but `{log_error}` does'
                     f' not seem to be an existing regular file. Check the path'
@@ -388,7 +390,7 @@ def main():
                     f' parameter.',
                     STATE_WARN,
                 )
-            source_size = lib.disk.get_size(log_error)
+            source_size = log_stat.st_size
             if source_size == 0:
                 # An empty log file is a deterministic "no errors / warnings
                 # observed" state, not an unknown one - typical right after

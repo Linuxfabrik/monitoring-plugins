@@ -11,7 +11,7 @@
 """See the check's README for more details."""
 
 import argparse
-import os
+import stat
 import sys
 
 import lib.args
@@ -190,14 +190,15 @@ def main():
     # fetch data from local
     if args.FILENAME:
         for item in lib.disk.glob(args.FILENAME):
+            item_stat = lib.disk.stat(item)
             # ignoring directories as the size of a directory is not consistently defined across
             # filesystems, and never is the size of the contents
-            if os.path.isdir(item):
+            if item_stat is None or stat.S_ISDIR(item_stat.st_mode):
                 continue
             table_data.append(
                 {
                     'filename': item,
-                    'size': lib.disk.get_size(item),
+                    'size': item_stat.st_size,
                 }
             )
 
