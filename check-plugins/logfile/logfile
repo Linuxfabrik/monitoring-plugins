@@ -21,13 +21,14 @@ import sys
 import lib.args
 import lib.base
 import lib.db_sqlite
+import lib.disk
 import lib.icinga
 import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070701'
+__version__ = '2026070801'
 
 DESCRIPTION = """Scans a logfile for matching patterns or regular expressions and alerts based on the
 number of matches found. Reads the file backwards from the end and supports Icinga
@@ -41,6 +42,12 @@ as fallback if the compact file does not exist. Read offset and pending matches 
 over when the filename changes on the next day, no wrapper script needed.
 
 Requires root or sudo."""
+
+# The plugin runs as root via sudo on many hosts, so it only opens files that
+# resolve inside the system log directory. To monitor logs stored elsewhere,
+# bind-mount that location under /var/log (see the README); a symlink is
+# rejected because the confinement resolves symlinks.
+ALLOWED_LOG_ROOTS = ['/var/log']
 
 DEFAULT_ALARM_DURATION = 60  # minutes (1 hour)
 DEFAULT_CRIT = 1
@@ -274,6 +281,23 @@ def main():
         iso_path = lib.time.macro2timestr(args.FILENAME, format='%Y-%m-%d')
         if iso_path != scan_path and os.path.exists(iso_path):
             scan_path = iso_path
+
+    # Refuse to open anything outside the system log directory: the plugin runs
+    # as root via sudo, so an unconfined path would be an arbitrary root file
+    # read. is_within() resolves symlinks and `..`, so neither can escape. The
+    # plugin's own unit-test/ directory is also allowed so the fixture-based
+    # tests work; on a deployed host that directory does not exist next to the
+    # flat, root-owned plugin, so it grants nothing (and needs no environment
+    # flag that a misconfigured sudoers could leak).
+    allowed_roots = ALLOWED_LOG_ROOTS + [
+        os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
+    ]
+    if not lib.disk.is_within(scan_path, allowed_roots):
+        lib.base.cu(
+            f'Refusing to read "{scan_path}": resolved path is outside the allowed log '
+            f'directory {ALLOWED_LOG_ROOTS[0]}; bind-mount it under {ALLOWED_LOG_ROOTS[0]} '
+            f'if intended.'
+        )
 
     try:
         file_stat = os.stat(scan_path)

@@ -15,16 +15,23 @@ import sys
 
 import lib.args
 import lib.base
+import lib.disk
 import lib.lftest
 import lib.txt
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041301'
+__version__ = '2026070801'
 
 DESCRIPTION = """Lists all clients currently connected to an OpenVPN server by parsing the status log file. Reports client name, remote address, bytes received and sent, and connection time.\nRequires root or sudo."""
 
 DEFAULT_FILENAME = '/var/log/openvpn-status.log'
+
+# The plugin runs as root via sudo on many hosts, so it only opens files that
+# resolve inside the system log directory. To read a status file stored
+# elsewhere, bind-mount that location under /var/log (see the README); a symlink
+# is rejected because the confinement resolves symlinks.
+ALLOWED_LOG_ROOTS = ['/var/log']
 
 DEFAULT_WARN = None
 DEFAULT_CRIT = None
@@ -89,6 +96,15 @@ def main():
 
     # fetch data
     if args.TEST is None:
+        # The plugin runs as root via sudo, so an unconfined path would be an
+        # arbitrary root file read. is_within() resolves symlinks and `..`, so
+        # neither can escape; bind-mount an external location under /var/log.
+        if not lib.disk.is_within(args.FILENAME, ALLOWED_LOG_ROOTS):
+            lib.base.cu(
+                f'Refusing to read "{args.FILENAME}": resolved path is outside the allowed '
+                f'log directory {ALLOWED_LOG_ROOTS[0]}; bind-mount it under '
+                f'{ALLOWED_LOG_ROOTS[0]} if intended.'
+            )
         try:
             with open(args.FILENAME, 'r') as file:
                 lines = file.readlines()

@@ -8,14 +8,19 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import os
+import shutil
 import sys
+import tempfile
 
 sys.path.insert(0, '..')
 
 import unittest
 
+import lib.base
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+import lib.shell
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
     {
@@ -53,6 +58,29 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+class TestPathConfinement(unittest.TestCase):
+    """A --filename outside /var/log is refused, so a root-run plugin cannot be
+    turned into an arbitrary file read (GHSA-f54c-p5vg-mr5c). Invoked without
+    --test so the real file-reading path and its confinement run."""
+
+    def setUp(self):
+        self.scratch_dir = tempfile.mkdtemp(prefix='openvpn-confine-')
+        self.scratch_file = os.path.join(self.scratch_dir, 'status.log')
+        with open(self.scratch_file, 'w', encoding='utf-8') as handle:
+            handle.write('CLIENT_LIST,secret,203.0.113.5:1194,10.8.0.2,\n')
+
+    def tearDown(self):
+        shutil.rmtree(self.scratch_dir, ignore_errors=True)
+
+    def test_filename_outside_var_log_is_refused(self):
+        stdout, _, retc = lib.base.coe(
+            lib.shell.shell_exec(['../openvpn-client-list', f'--filename={self.scratch_file}'])
+        )
+        self.assertEqual(retc, STATE_UNKNOWN)
+        self.assertIn('Refusing to read', stdout)
+        self.assertNotIn('secret', stdout)
 
 
 if __name__ == '__main__':

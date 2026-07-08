@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026063001'
+__version__ = '2026070801'
 
 DESCRIPTION = """Scans the MySQL/MariaDB error log for errors, warnings, startups and
 shutdowns. On MySQL 8.0.22+ the plugin prefers the `performance_schema.error_log` table
@@ -361,6 +361,25 @@ def main():
             # plain on-disk file
             if not os.path.isabs(log_error):
                 log_error = os.path.join(myvar.get('datadir', ''), log_error)
+            # The plugin runs as root via sudo, so restrict the on-disk log to
+            # the system log directory and the default MySQL data directory;
+            # is_within() resolves symlinks and `..` so neither can escape. The
+            # datadir reported by the server is deliberately NOT trusted here,
+            # because an attacker controls which server the check connects to
+            # (`--defaults-file`/`--hostname`) and could report `datadir=/etc`.
+            # The plugin's own unit-test/ directory is allowed so the fixture
+            # tests work; it does not exist next to the flat, root-owned plugin
+            # in production. Bind-mount a custom data/log directory under
+            # /var/log to include it (see the README).
+            allowed_roots = ['/var/log', '/var/lib/mysql'] + [
+                os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
+            ]
+            if not lib.disk.is_within(log_error, allowed_roots):
+                lib.base.cu(
+                    f'Refusing to read "{log_error}": resolved path is outside the allowed '
+                    f'log directories (/var/log, /var/lib/mysql); bind-mount it under '
+                    f'/var/log if intended.'
+                )
             if not os.path.isfile(log_error):
                 lib.base.oao(
                     f'Logging seems to be configured, but `{log_error}` does'

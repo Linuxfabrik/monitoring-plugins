@@ -163,6 +163,22 @@ A: In Bash, use `/usr/lib64/nagios/plugins/check-command | cut -f1 -d'|'`
 
 For installation-related issues (sudoers drop-ins, SELinux, Windows `0x80070005` under the Icinga Agent) see [INSTALL.md](INSTALL.md). For Icinga-specific quirks (passing `http_proxy` through Icinga, escaping special characters like `$` and leading `-` in Director-dispatched parameters) see [ICINGA.md](ICINGA.md).
 
+Q: **A log-reading check (`logfile`, `mysql-logfile`, `openvpn-client-list`) exits UNKNOWN with "Refusing to read ...: resolved path is outside the allowed log directory". How do I monitor a log stored elsewhere?**
+
+A: These checks run as root via sudo, so they only open files inside `/var/log` (`mysql-logfile` also allows `/var/lib/mysql`). This prevents a compromised monitoring account from turning the check into an arbitrary root file read (e.g. `--filename=/etc/shadow`). To monitor a log that lives outside `/var/log`, make it reachable *inside* `/var/log` with a bind mount, then point the check at the path under `/var/log`:
+
+```bash
+mount --bind /opt/myapp/logs /var/log/myapp
+```
+
+Persist it across reboots with an `/etc/fstab` entry:
+
+```text
+/opt/myapp/logs  /var/log/myapp  none  bind  0 0
+```
+
+Use a bind mount, not a symlink. The check resolves the path with `realpath()` before opening it, which follows symlinks: a symlink `/var/log/myapp` pointing to `/opt/myapp/logs` therefore resolves back to `/opt/myapp/logs`, lands outside `/var/log`, and is rejected. A bind mount is not a symlink, so the path stays `/var/log/myapp` and passes the check while still reading the real file. And because only root can create a bind mount, an attacker on the monitoring account cannot use one to escape the confinement.
+
 Q: **After an update, I get "Operational Error: no such column: ..., state UNKNOWN". On the next run, this disappears. What happened?**
 
 A: Some check plugins require SQLite database files to cache data or to calculate data over time. After an update it is possible that the check plugin uses a new schema, but the database file on disk hasn't been updated (we don't implement database migrations). So in case of an "OperationalError", which happens for example when the plugin tries to INSERT into an outdated table, the database library simply deletes the sqlite database file. It will then be recreated from scratch by the plugin on the next run, with the updated database structure.

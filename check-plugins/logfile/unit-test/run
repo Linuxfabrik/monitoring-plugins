@@ -36,7 +36,13 @@ sys.path.insert(0, '..')
 import lib.db_sqlite
 import lib.disk
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# The plugin confines --filename to /var/log plus its own unit-test/ directory.
+# Tests that need a writable scratch logfile therefore create it under HERE
+# (this unit-test/ directory), not in /tmp, so the confinement allows it without
+# any environment flag. HERE also anchors the confinement's allowed root.
+HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def _db_dir():
@@ -257,7 +263,7 @@ class TestOffsetSurvivesAcrossRuns(unittest.TestCase):
     def setUp(self):
         # Work on a scratch copy of the fixture so we can safely append
         # to it without polluting the tracked fixture file.
-        self.scratch_dir = tempfile.mkdtemp(prefix='logfile-offset-')
+        self.scratch_dir = tempfile.mkdtemp(prefix='logfile-offset-', dir=HERE)
         self.scratch_file = os.path.join(self.scratch_dir, 'scan.log')
         shutil.copy(self.source_fixture, self.scratch_file)
         self.scratch_basename = os.path.basename(self.scratch_file)
@@ -371,7 +377,7 @@ class TestMacroFilenameExpansion(unittest.TestCase):
     source_fixture = 'stdout/django-app-one-warning-one-error'
 
     def setUp(self):
-        self.scratch_dir = tempfile.mkdtemp(prefix='logfile-macro-')
+        self.scratch_dir = tempfile.mkdtemp(prefix='logfile-macro-', dir=HERE)
         self.today = datetime.date.today()
         # Clean any stale state DB from prior runs.
         for template_basename in (
@@ -526,6 +532,39 @@ class TestMacroFilenameExpansion(unittest.TestCase):
             'assert-in': ['(0 lines)'],
         }
         lib.lftest.run(self, self.check, second)
+
+
+class TestPathConfinement(unittest.TestCase):
+    """A --filename that resolves outside /var/log (here a /tmp scratch file, not
+    under the plugin's unit-test/ directory) is refused, so a root-run plugin
+    cannot be turned into an arbitrary file read (GHSA-f54c-p5vg-mr5c)."""
+
+    check = '../logfile'
+
+    def setUp(self):
+        # Deliberately create the scratch file in /tmp, outside both allowed
+        # roots (/var/log and the plugin's unit-test/ directory).
+        self.scratch_dir = tempfile.mkdtemp(prefix='logfile-confine-')
+        self.scratch_file = os.path.join(self.scratch_dir, 'app.log')
+        with open(self.scratch_file, 'w', encoding='utf-8') as handle:
+            handle.write('secret line\n')
+
+    def tearDown(self):
+        shutil.rmtree(self.scratch_dir, ignore_errors=True)
+
+    def test_filename_outside_var_log_is_refused(self):
+        lib.lftest.run(
+            self,
+            self.check,
+            {
+                'id': 'confine-refuses-outside-var-log',
+                'test': f'{self.scratch_file},,0',
+                'params': f'--filename={self.scratch_file} --warning-regex=.',
+                'assert-retc': STATE_UNKNOWN,
+                'assert-in': ['Refusing to read'],
+                'assert-not-in': ['secret line'],
+            },
+        )
 
 
 if __name__ == '__main__':

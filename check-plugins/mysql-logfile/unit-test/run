@@ -19,13 +19,15 @@ testcontainers ships a suitable MySQL 8 image.
 """
 
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, '..')
 
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 FIXTURES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fixtures')
 PLUGIN = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'mysql-logfile')
@@ -159,6 +161,29 @@ def _make_test(case):
 for _case in CASES:
     _method = 'test_' + _case['id'].replace('-', '_')
     setattr(TestCheck, _method, _make_test(_case))
+
+
+class TestPathConfinement(unittest.TestCase):
+    """A --server-log that resolves outside /var/log and /var/lib/mysql (here a
+    /tmp scratch file) is refused, so a root-run plugin cannot be turned into an
+    arbitrary file read (GHSA-f54c-p5vg-mr5c)."""
+
+    def setUp(self):
+        self.scratch_dir = tempfile.mkdtemp(prefix='mysql-logfile-confine-')
+        self.scratch_file = os.path.join(self.scratch_dir, 'error.log')
+        with open(self.scratch_file, 'w', encoding='utf-8') as handle:
+            handle.write('2026-07-08T00:00:00 [ERROR] secret\n')
+
+    def tearDown(self):
+        shutil.rmtree(self.scratch_dir, ignore_errors=True)
+
+    def test_server_log_outside_allowed_roots_is_refused(self):
+        cmd = [PLUGIN, f'--server-log={self.scratch_file}']
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        combined = result.stdout + result.stderr
+        self.assertEqual(result.returncode, STATE_UNKNOWN, combined)
+        self.assertIn('Refusing to read', combined)
+        self.assertNotIn('secret', combined)
 
 
 if __name__ == '__main__':
