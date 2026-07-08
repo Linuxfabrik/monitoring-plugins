@@ -60,6 +60,10 @@ Monitoring Plugins:
 
 ### Security
 
+Build, CI/CD:
+
+* installer: the source install no longer makes the monitoring user own the plugins, the bundled library and the dependency venv; they stay owned by root, closing a local root code-execution path (the monitoring user could otherwise edit a plugin or library that runs as root via sudo)
+
 Monitoring Plugins:
 
 * all plugins: the internal `--test` argument can no longer be abused to read arbitrary root-owned files on hosts that grant the checks passwordless sudo ([GHSA-rh9c-rqvg-f7pr](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-rh9c-rqvg-f7pr))

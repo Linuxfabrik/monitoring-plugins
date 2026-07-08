@@ -335,14 +335,17 @@ install_sudoers() {
 # plugins, the tree is relabelled, and plugins may call sudo. Each step is applied only when its
 # user or tool is present, so the install still succeeds on a host without a monitoring agent.
 finalize_permissions() {
+    # The monitoring user must be able to traverse, read and execute the plugins, the bundled
+    # lib and the dependency venv, but must NOT own or be able to write them: the whitelisted
+    # plugins run as root via sudo, so a writable plugin, lib module or venv interpreter would
+    # be arbitrary root code execution. Force root ownership (the earlier `cp -a` may have
+    # preserved a non-root owner from the source tree) and leave the install-time modes
+    # (0755 directories and executables, 0644 lib files) in place.
     if command -v chown >/dev/null 2>&1; then
-        local u
-        for u in icinga nagios; do
-            if id "${u}" >/dev/null 2>&1; then
-                log "setting ownership of ${PLUGIN_DIR} to ${u}"
-                run chown -R "${u}:${u}" "${PLUGIN_DIR}" || warn "chown to ${u} failed"
-            fi
-        done
+        log "setting ownership of ${PLUGIN_DIR} and ${STATE_DIR} to root"
+        run chown --recursive root:root "${PLUGIN_DIR}" || warn 'chown to root failed'
+        [ -d "${STATE_DIR}" ] \
+            && { run chown --recursive root:root "${STATE_DIR}" || warn 'chown of the venv to root failed'; }
     fi
     if command -v selinuxenabled >/dev/null 2>&1 && selinuxenabled; then
         if command -v restorecon >/dev/null 2>&1; then
