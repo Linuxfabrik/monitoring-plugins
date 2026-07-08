@@ -62,6 +62,7 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
+* all plugins: the internal `--test` argument can no longer be abused to read arbitrary root-owned files on hosts that grant the checks passwordless sudo ([GHSA-rh9c-rqvg-f7pr](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-rh9c-rqvg-f7pr))
 * logfile: closed a local privilege-escalation path in the legacy state-database migration, exploitable only with the non-default `fs.protected_symlinks=0`; the first run after updating re-scans the whole logfile once ([GHSA-w2gg-hx6w-24w3](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-w2gg-hx6w-24w3))
 * redfish-\*: a malicious controller can no longer redirect a check to another host (SSRF / auth-token leak) ([GHSA-96fx-pqc3-28xv](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-96fx-pqc3-28xv))
 

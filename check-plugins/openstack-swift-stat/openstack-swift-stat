@@ -31,7 +31,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041201'
+__version__ = '2026070801'
 
 DESCRIPTION = """Checks OpenStack Swift object storage account statistics, including total container
 count, object count, and bytes used. Alerts when storage usage exceeds the configured
@@ -145,18 +145,16 @@ def main():
         # do not call the command, put in test data
         # general statistics
         stat_account = json.loads(
-            lib.base.coe(lib.disk.read_file(f'{args.TEST[0]}-stat_account'))
+            lib.lftest.test([f'{args.TEST[0]}-stat_account'])[0]
         )
         # get stat for each container
         containers = {}
         list_account_part = json.loads(
-            lib.base.coe(lib.disk.read_file(f'{args.TEST[0]}-list_account_part'))
+            lib.lftest.test([f'{args.TEST[0]}-list_account_part'])[0]
         )
         for lap in list_account_part['listing']:
             stat_container = json.loads(
-                lib.base.coe(
-                    lib.disk.read_file(f'{args.TEST[0]}-stat_container-{lap["name"]}')
-                )
+                lib.lftest.test([f'{args.TEST[0]}-stat_container-{lap["name"]}'])[0]
             )
             if stat_container['success']:
                 containers[lap['name']] = stat_container['headers']
