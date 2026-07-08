@@ -30,6 +30,10 @@ Build, CI/CD:
 
 * Bump pinned `linuxfabrik-lib` to 5.1.0
 
+Icinga Director:
+
+* the shipped Service and Host templates default to the master zone, so host and service configuration, including credentials on those objects, stays on the master instead of being distributed to every agent. Single-node and flat master to agent setups are unaffected; distributed setups with satellite- or agent-authoritative hosts must unset the zone on the two base templates and accept that configuration is then distributed to every agent (see ICINGA.md) ([#721](https://github.com/Linuxfabrik/monitoring-plugins/issues/721))
+
 Monitoring Plugins:
 
 * about-me: recognizes an installed Apache Tomcat when guessing Icinga Director tags
@@ -718,7 +722,7 @@ Icinga Director:
 
 * [atlassian-statuspage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/atlassian-statuspage/): Increase timeout from 8 to 30 secs
 * [uptimerobot](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/uptimerobot/): Increase timeout from 8 to 30 secs
-* Path to notification plugins changed back to `/usr/lib64/nagios/plugins` 
+* Path to notification plugins changed back to `/usr/lib64/nagios/plugins`
 
 
 Monitoring Plugins:
@@ -1532,7 +1536,7 @@ Monitoring Plugins:
 * about-me3: Add Maker and Model ([#637](https://github.com/Linuxfabrik/monitoring-plugins/issues/637))
 * about-me3: Improve detection of coturn
 * about-me3: Improve psutil error handling
-* about-me3: Make external IP search configurable with 3rd party providers (and disabled by default) ([#645](https://github.com/Linuxfabrik/monitoring-plugins/issues/645)) 
+* about-me3: Make external IP search configurable with 3rd party providers (and disabled by default) ([#645](https://github.com/Linuxfabrik/monitoring-plugins/issues/645))
 * about-me3: Re-written from scratch, now also recommends tags for our Icinga Director Basket. New parameter `--tags`.
 * about-me3: Remove unstable bonding detection
 * [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/): Move state output to usage column
@@ -1679,7 +1683,7 @@ Monitoring Plugins:
 * [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Add swanctl ([#575](https://github.com/Linuxfabrik/monitoring-plugins/issues/575))
 * [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Print its own version ([#439](https://github.com/Linuxfabrik/monitoring-plugins/issues/439))
 * [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Report active tuned-Profile in first line if tuned.service is found and running ([#374](https://github.com/Linuxfabrik/monitoring-plugins/issues/374))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Report Boot Mode ([#562](https://github.com/Linuxfabrik/monitoring-plugins/issues/562)) 
+* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Report Boot Mode ([#562](https://github.com/Linuxfabrik/monitoring-plugins/issues/562))
 * [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Show key features of the Machine ([#561](https://github.com/Linuxfabrik/monitoring-plugins/issues/561))
 * All checks using SQLite databases: More unique sqlite db names ([#333](https://github.com/Linuxfabrik/monitoring-plugins/issues/333))
 * [apache-httpd-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status/): New parameter `--insecure`
