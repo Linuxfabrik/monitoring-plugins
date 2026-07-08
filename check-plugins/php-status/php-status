@@ -11,7 +11,6 @@
 """See the check's README for more details."""
 
 import argparse
-import glob
 import os
 import re
 import sys
@@ -25,7 +24,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061201'
+__version__ = '2026070801'
 
 DESCRIPTION = """Checks PHP configuration and health, including startup errors, missing modules, and
 misconfigured php.ini directives. Optionally reads extended PHP information from a
@@ -407,7 +406,7 @@ def parse_fpm_pools(master_config):
         if stripped.startswith('include') and '=' in stripped:
             key, _, pattern = stripped.partition('=')
             if key.strip() == 'include':
-                files.extend(sorted(glob.glob(pattern.strip())))
+                files.extend(lib.disk.glob(pattern.strip()))
     for path in files:
         success, pool_text = lib.disk.read_file(path)
         if not success:
