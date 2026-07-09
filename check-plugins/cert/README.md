@@ -9,7 +9,9 @@ Inspects X.509 certificates and alerts on days remaining until expiry, hostname 
 
 * `--source=url`: Hostname mismatch and chain verification failures share one `--severity` (default WARN), so operators running internal CAs are not paged for trust issues that are expected in their environment. Set `--severity=crit` to enforce strict trust.
 * `--source=file`: chain and hostname checks are not performed. Only days remaining is evaluated. With a glob that matches many files, the worst state across all matches drives the plugin state. The File column abbreviates each path zsh-style (`/etc/ssl/certs/web1.pem` becomes `/e/s/c/web1.pem`) so wide cert-directory listings stay readable; the full path is shown in `--lengthy` output.
-* `--source=scan`: each reachable certificate is checked for expiry **and** for chain/trust (does it chain to a CA in the system trust store, or one added via `--ca-file`?). Hostname verification is not done, because a subnet scan reaches IP addresses whose certificates legitimately do not match. A valid self-signed certificate is tolerated (it is cryptographically as sound as a publicly trusted one); other trust failures (unknown CA, expired or broken chain) raise the state via `--severity` (default WARN, `crit` to enforce). `--insecure` turns trust verification off entirely for pure expiry monitoring. Counting follows the `lynis` check and is done per host, not per host/port: a `/24` reports `X/254 hosts responded`, not one count per host/port target. Hosts (or host/port combinations) that do not answer within `--timeout` are skipped silently, so an empty subnet returns OK with `0/N hosts responded`. The worst state across all reachable certificates drives the plugin state. Scan a large subnet from a host that can actually reach it, and tune `--max-workers` (parallelism) and `--timeout` so the run finishes within the check interval.
+* `--source=scan`: each reachable certificate is checked for expiry **and** for chain/trust (does it chain to a CA in the system trust store, or one added via `--ca-file`?). Hostname verification is not done, because a subnet scan reaches IP addresses whose certificates legitimately do not match. A valid self-signed certificate is tolerated (it is cryptographically as sound as a publicly trusted one); other trust failures (unknown CA, expired or broken chain) raise the state via `--severity` (default WARN, `crit` to enforce). `--insecure` turns trust verification off entirely for pure expiry monitoring. Counting follows the `lynis` check and is done per host, not per host/port: a `/24` reports `X/254 hosts responded`, not one count per host/port target. Hosts (or host/port combinations) that do not answer within `--timeout` are skipped silently, so a subnet without a single TLS endpoint returns OK. The worst state across all reachable certificates drives the plugin state. Scan a large subnet from a host that can actually reach it.
+* `--source=scan`: the parallelism is capped on purpose and rarely needs tuning, because a scan is expensive for the host it runs on, not for the hosts it probes. A `/24` on the default port list is more than 4000 connects, and on a normally populated subnet almost all of them go to addresses where nothing answers. That cost lands in the kernel (resolving a neighbour that does not exist, retransmitting, handling the ICMP replies), it is **system** time, and it grows with how many connects are in flight at once. Measured on a two-core host: at 2000 concurrent connects a `/24` burns about 64 seconds of system time and drives the load past 40, which is enough to make every other check on that host run into its own timeout. At the capped default the same scan costs about 22 seconds of system time, leaves the load near 2, and takes roughly 170 seconds, well within the 600-second command timeout of the shipped Icinga Director basket. Raising `--max-workers` shortens the run and pays for it out of the other checks on the same host. Lowering the plugin's scheduling priority is not a substitute: system time spent in the kernel on the plugin's behalf is not what `nice` hands out, and a scan's many threads outweigh a single normal-priority process regardless.
+* `--source=scan`: the headline closes with the number of parallel workers the run actually used, so a scan that was held back is recognisable without re-running it with `--verbose`. Each worker holds one socket while it probes, so `--max-workers` is clamped a second time, to what the file-descriptor limit of the plugin process allows; the plugin first raises its own soft limit as far as the hard limit permits, and reports the clamp under `--verbose`. Should descriptors run out anyway, the plugin exits UNKNOWN instead of counting the targets it never probed as hosts that did not answer.
 * `--source=url`: the plugin inspects the full certificate chain the server sends, not just the leaf. The leaf carries the chain/hostname verdict; every intermediate is additionally checked for expiry, so a soon-to-expire intermediate raises the state and shows up as the soonest-expiring certificate in the output. Capturing the chain requires Python 3.13 or newer (`ssl.SSLSocket.get_unverified_chain()`); on older Python only the leaf is inspected. The chain is shown one block per certificate in `--lengthy`.
 * `--warning` and `--critical` accept three forms: a Nagios range in days (`14:`), a percentage of the certificate's total validity period (`25%`, alert when less than 25% of the lifetime is left), or a duration with a unit (`14d`, `12h`, `2W`, `1M`). The percentage form matches the convention of other X.509 scanners and adapts to short-lived (90-day) and long-lived certificates alike.
 * Expired certificates are unconditionally reported as CRIT, regardless of the `--warning` and `--critical` thresholds.
@@ -70,10 +72,13 @@ verification only applies to --source url; chain/trust verification applies to
 while a valid self-signed certificate is tolerated. Expired certificates are
 unconditionally reported as CRIT. With --source file and --source scan the
 worst state across all inspected certificates drives the plugin state; targets
-that do not answer within --timeout are skipped. The default source is `scan`,
-so without any parameter the plugin scans the default interface's subnet on a
-set of common data-center TLS ports (HTTPS, mail, LDAPS, AMQPS, MQTTS and
-common management interfaces); see --ports for the full default list.
+that do not answer within --timeout are skipped. A scan probes its targets in
+parallel, with the parallelism deliberately bounded so that scanning a subnet
+does not starve the other checks running on the same host (see --max-workers).
+The default source is `scan`, so without any parameter the plugin scans the
+default interface's subnet on a set of common data-center TLS ports (HTTPS,
+mail, LDAPS, AMQPS, MQTTS and common management interfaces); see --ports for
+the full default list.
 
 options:
   -h, --help            show this help message and exit
@@ -133,7 +138,13 @@ options:
   --lengthy             Extended reporting.
   --max-workers MAX_WORKERS
                         Maximum number of targets to scan in parallel. Only
-                        applies to --source=scan. Default: 10
+                        applies to --source=scan. Raising this shortens the
+                        run but multiplies the system time the kernel spends
+                        on connects to addresses where no host answers, which
+                        slows down every other check on the same host. Each
+                        worker also holds one socket, so the value is clamped
+                        to what the file-descriptor limit of the process
+                        allows. Default: derived from that limit, at most 200.
   --network NETWORK     Network in CIDR notation to scan for targets via auto-
                         discovery. Only applies to --source=scan. Takes
                         precedence over --interface. Can be specified multiple
@@ -338,7 +349,7 @@ Scan a subnet and trust your internal CA, so internally-issued certificates coun
 Output (scan, one host answered on two ports, one certificate close to expiry):
 
 ```text
-1/254 hosts responded, 2 certificates, worst 9d left (b.example.com) [WARNING]
+1/254 hosts responded, 2 certificates, worst 9d left (b.example.com), 200 workers [WARNING]
 
 Target            ! Subject CN    ! Status   ! State
 ------------------+---------------+----------+----------
@@ -394,6 +405,18 @@ The server rejected the TLS handshake, usually a TLS version mismatch, an unsupp
 `chain unverified (...)`
 
 The chain did not verify against the system trust store. The text in parentheses is the OpenSSL verification message; common values are `self-signed certificate`, `unable to get local issuer certificate`, `certificate has expired`, and `Hostname mismatch, certificate is not valid for ...`. Pass `--ca-file` for internal CAs, `--sni-hostname` for hostname mismatches caused by SNI, or `--insecure` to bypass the check entirely.
+
+### Scan runs out of file descriptors
+
+`Ran out of file descriptors while scanning: Too many open files.`
+
+A scan holds one socket per worker. The plugin clamps `--max-workers` to the descriptor limit and raises its own soft limit first, so this only appears when the hard limit itself is too low, or when something else in the process consumed descriptors. The scan probed only part of its targets, which is why the plugin reports UNKNOWN instead of a green result over an incomplete subnet. Lower `--max-workers`, shorten `--ports`, or raise `LimitNOFILE` for the monitoring agent that starts the plugin.
+
+### TLS context cannot be set up
+
+`Cannot set up the TLS context: ...`
+
+A scan builds its TLS contexts once, before probing. The message means `--ca-file`, `--client-cert` or `--client-key` could not be read or parsed. Check the paths, the file permissions of the account the plugin runs as, and that each file is valid PEM.
 
 ### Glob matches no files
 

@@ -36,7 +36,7 @@ Monitoring Plugins:
 * all plugins: the internal `--test` parameter is no longer shown in `--help`
 * cert: a `/24` scan on the default ports finishes within the check timeout instead of taking about 20 minutes
 * cert: scan output reports how many parallel workers the run used
-* cert: scan parallelism adapts to the file-descriptor limit, so `--max-workers` no longer needs tuning
+* cert: scan parallelism is bounded so that scanning a subnet no longer drives the load up and makes other checks time out; `--max-workers` rarely needs tuning
 * cpu-usage, disk-io, fs-xfs-stats, jitsi-videobridge-stats, network-io, nginx-status, nodebb-cache, nodebb-errors, procs, redis-status, starface-database-stats, valkey-status, wildfly-gc-status: cumulative counters are now reported as per-second rates (or plain values) instead of ever-growing totals, fixing Grafana graphs and aggregations; some performance-data metric names changed, so re-import the affected Grafana dashboards after updating ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 * disk-io: iowait is reported as saturated CPU cores instead of a percentage that could exceed 100% on multi-core hosts
 * disk-usage: mountpoints are now filtered with `--match`/`--ignore`; the old `--include-*`/`--exclude-*` options keep working
@@ -60,7 +60,7 @@ Build, CI/CD:
 
 Monitoring Plugins:
 
-* cert: a subnet scan needs about a quarter of the memory at high parallelism, so it no longer risks an out-of-memory kill on small hosts
+* cert: a subnet scan needs far less memory, so it no longer risks an out-of-memory kill on small hosts
 * cert: a subnet scan that runs out of file descriptors reports UNKNOWN instead of OK for targets it never probed
 * csv-values, json-values, strongswan-connections: non-UTF-8 input no longer crashes the check ([#256](https://github.com/Linuxfabrik/lib/issues/256))
 * disk-usage: performance data carries the warning and critical thresholds again ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))

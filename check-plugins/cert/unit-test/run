@@ -17,8 +17,12 @@ the generated certificate to a temp file (PEM or DER) and run the plugin against
 No external network access is required.
 """
 
+import argparse
 import datetime
+import importlib.machinery
+import importlib.util
 import os
+import resource
 import socket
 import ssl
 import subprocess
@@ -198,14 +202,43 @@ class TLSServer:
                 pass
 
 
-def run_plugin(*args, timeout=10):
-    """Invoke the plugin with the given CLI args and return CompletedProcess."""
+def run_plugin(*args, timeout=10, nofile=None):
+    """Invoke the plugin with the given CLI args and return CompletedProcess. `nofile` sets
+    RLIMIT_NOFILE to a (soft, hard) pair for the plugin process, which is how a scan's
+    worker budget is put under test: a monitoring agent hands its plugins a soft limit far
+    below the hard limit.
+    """
+
+    def _set_fd_limit():
+        resource.setrlimit(resource.RLIMIT_NOFILE, nofile)
+
     return subprocess.run(
         [PLUGIN, *args],
         capture_output=True,
         text=True,
         timeout=timeout,
+        preexec_fn=_set_fd_limit if nofile else None,
     )
+
+
+def closed_port():
+    """Bind a port and close it again, so the next connect attempt to it is refused."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(('127.0.0.1', 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    return port
+
+
+def load_plugin_module():
+    """Import the plugin script as a module so its pure helpers can be called directly.
+    The script carries no `.py` suffix, so the source loader has to be named explicitly.
+    """
+    loader = importlib.machinery.SourceFileLoader('cert_plugin', PLUGIN)
+    spec = importlib.util.spec_from_loader('cert_plugin', loader)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class TestCheck(unittest.TestCase):
@@ -641,15 +674,6 @@ class TestScanSource(unittest.TestCase):
         time.sleep(0.05)  # give the accept thread a moment to bind
         return srv.port
 
-    @staticmethod
-    def _closed_port():
-        # bind a port, close it; the next connect attempt is refused
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.bind(('127.0.0.1', 0))
-        port = sock.getsockname()[1]
-        sock.close()
-        return port
-
     def test_scan_ok_single_host(self):
         cert_pem, key_pem = make_cert('scan.example.com', days_valid=60)
         port = self._serve(cert_pem, key_pem)
@@ -700,7 +724,7 @@ class TestScanSource(unittest.TestCase):
         self.assertIn('expired', result.stdout)
 
     def test_scan_no_responders(self):
-        port = self._closed_port()
+        port = closed_port()
         result = run_plugin(
             '--source', 'scan', '--host', '127.0.0.1', '--ports', str(port),
             '--timeout', '2',
@@ -779,6 +803,159 @@ class TestScanSource(unittest.TestCase):
             '--severity', 'crit',
         )
         self.assertEqual(result.returncode, STATE_CRIT, result.stdout)
+
+
+class TestWorkerBudget(unittest.TestCase):
+    """Tests for the parallelism of --source scan. Every worker holds one socket while it
+    probes, so the file-descriptor limit of the process, not --max-workers, has the last
+    word. Asking for more workers than there are descriptors makes connect() fail with
+    EMFILE, and EMFILE looks exactly like a target that stays silent: the scanner would
+    skip those hosts and report OK for a subnet it never probed.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.plugin = load_plugin_module()
+
+    def _serve(self, cert_pem, key_pem):
+        srv = TLSServer(cert_pem, key_pem)
+        self.addCleanup(srv.close)
+        time.sleep(0.05)  # give the accept thread a moment to bind
+        return srv.port
+
+    def _tight_fd_limit(self):
+        """A descriptor limit low enough that it, and not the cap, bounds the workers."""
+        return self.plugin.MAX_WORKERS_CAP + self.plugin.FD_RESERVE - 1
+
+    def test_default_is_derived_from_the_fd_limit(self):
+        fd_limit = self._tight_fd_limit()
+        budget = self.plugin.get_max_workers(None, fd_limit)
+        self.assertEqual(budget, fd_limit - self.plugin.FD_RESERVE)
+        self.assertLess(budget, self.plugin.MAX_WORKERS_CAP)
+
+    def test_default_never_exceeds_the_cap(self):
+        # a roomy descriptor limit must not raise the parallelism past the cap: past it,
+        # the kernel's system time for connects to dead addresses starves the other checks
+        budget = self.plugin.get_max_workers(None, 1000000)
+        self.assertEqual(budget, self.plugin.MAX_WORKERS_CAP)
+
+    def test_unknown_fd_limit_falls_back_to_the_cap(self):
+        # platforms without RLIMIT_NOFILE, and limits reported as unlimited
+        budget = self.plugin.get_max_workers(None, None)
+        self.assertEqual(budget, self.plugin.MAX_WORKERS_CAP)
+
+    def test_explicit_request_is_clamped_to_the_cap(self):
+        self.assertEqual(
+            self.plugin.get_max_workers(5000, 1000000), self.plugin.MAX_WORKERS_CAP
+        )
+
+    def test_explicit_request_is_clamped_to_the_fd_limit(self):
+        fd_limit = self._tight_fd_limit()
+        budget = self.plugin.get_max_workers(5000, fd_limit)
+        self.assertEqual(budget, fd_limit - self.plugin.FD_RESERVE)
+
+    def test_explicit_request_within_the_budget_is_honoured(self):
+        self.assertEqual(self.plugin.get_max_workers(10, 1024), 10)
+
+    def test_never_fewer_than_one_worker(self):
+        for requested, fd_limit in ((None, 1), (None, 0), (0, 1024), (-5, 1024)):
+            self.assertEqual(self.plugin.get_max_workers(requested, fd_limit), 1)
+
+    def test_scan_reports_the_clamp_under_verbose(self):
+        cert_pem, key_pem = make_cert('scan.example.com', days_valid=60)
+        port = self._serve(cert_pem, key_pem)
+        result = run_plugin(
+            '--source', 'scan', '--host', '127.0.0.1', '--ports', str(port),
+            '--insecure', '--max-workers', '5000', '--verbose',
+            nofile=(128, 128),
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        self.assertIn('exceeds the file-descriptor budget', result.stdout)
+
+    def test_scan_reports_the_worker_count(self):
+        cert_pem, key_pem = make_cert('scan.example.com', days_valid=60)
+        port = self._serve(cert_pem, key_pem)
+        result = run_plugin(
+            '--source', 'scan', '--host', '127.0.0.1', '--ports', str(port), '--insecure',
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        # one target, so the scan needs exactly one worker, and the noun is singular
+        self.assertIn(', 1 worker', result.stdout.splitlines()[0])
+
+    def test_worker_count_stays_left_of_the_state_marker(self):
+        # IcingaWeb replaces [WARNING] with an icon, so the state has to remain last
+        cert_pem, key_pem = make_cert('scan.example.com', days_valid=10)
+        port = self._serve(cert_pem, key_pem)
+        result = run_plugin(
+            '--source', 'scan', '--host', '127.0.0.1', '--ports', str(port), '--insecure',
+        )
+        self.assertEqual(result.returncode, STATE_WARN, result.stdout)
+        self.assertRegex(result.stdout.splitlines()[0], r', 1 worker \[WARNING\]$')
+
+    def test_scan_without_any_response_reports_the_worker_count(self):
+        result = run_plugin(
+            '--source', 'scan', '--host', '127.0.0.1',
+            '--ports', str(closed_port()), '--timeout', '2',
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        self.assertIn('0/1 host responded, 1 worker', result.stdout)
+
+    def test_scan_never_builds_a_context_per_target(self):
+        """The TLS contexts are built once and shared by all workers. One context per
+        target would load the system trust store per target, which costs about 840 kB
+        under OpenSSL 1.1 and puts a 2000-worker scan at roughly 1.6 GB of RAM.
+        """
+        plugin = self.plugin
+        args = argparse.Namespace(
+            CA_FILE=[], CLIENT_CERT=None, CLIENT_KEY=None, INSECURE=False,
+            MAX_WORKERS=4, TIMEOUT=1, VERBOSE=False,
+        )
+        ok, contexts = plugin.build_scan_contexts(args)
+        self.assertTrue(ok, contexts)
+        verify_ctx, insecure_ctx = contexts
+
+        original = plugin.ssl.create_default_context
+        plugin.ssl.create_default_context = lambda *a, **kw: self.fail(
+            'scan_targets built a TLS context per target instead of reusing the shared one'
+        )
+        self.addCleanup(setattr, plugin.ssl, 'create_default_context', original)
+
+        ports = [closed_port() for _ in range(4)]
+        items, workers = plugin.scan_targets(
+            args, ['127.0.0.1'], ports, verify_ctx, insecure_ctx,
+        )
+        self.assertEqual(items, [])
+        self.assertEqual(workers, 4)
+
+    def test_build_scan_contexts_skips_verification_with_insecure(self):
+        args = argparse.Namespace(
+            CA_FILE=[], CLIENT_CERT=None, CLIENT_KEY=None, INSECURE=True,
+        )
+        ok, (verify_ctx, insecure_ctx) = self.plugin.build_scan_contexts(args)
+        self.assertTrue(ok)
+        self.assertIsNone(verify_ctx)
+        self.assertEqual(insecure_ctx.verify_mode, ssl.CERT_NONE)
+
+    def test_build_scan_contexts_reports_a_broken_ca_file(self):
+        args = argparse.Namespace(
+            CA_FILE=['/nonexistent/ca.pem'], CLIENT_CERT=None, CLIENT_KEY=None,
+            INSECURE=False,
+        )
+        ok, result = self.plugin.build_scan_contexts(args)
+        self.assertFalse(ok)
+        self.assertIn('Cannot set up the TLS context', result)
+
+    def test_scan_survives_a_low_fd_limit(self):
+        # the clamp keeps the scan inside its descriptor budget, so the certificate is
+        # found instead of the host being skipped as unreachable
+        cert_pem, key_pem = make_cert('scan.example.com', days_valid=60)
+        port = self._serve(cert_pem, key_pem)
+        result = run_plugin(
+            '--source', 'scan', '--host', '127.0.0.1', '--ports', str(port), '--insecure',
+            nofile=(128, 128),
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        self.assertIn('1/1 host responded', result.stdout)
 
 
 if __name__ == '__main__':

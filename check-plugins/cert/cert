@@ -12,6 +12,7 @@
 
 import argparse
 import concurrent.futures
+import errno
 import ipaddress
 import re
 import socket
@@ -20,6 +21,13 @@ import sys
 import time
 import urllib.parse
 import warnings
+
+try:
+    import resource
+except ImportError:
+    # platforms without POSIX resource limits (Windows); the scan then relies on
+    # MAX_WORKERS_CAP alone to bound its parallelism
+    resource = None
 
 import lib.args
 import lib.base
@@ -46,7 +54,7 @@ warnings.filterwarnings('ignore', category=CryptographyDeprecationWarning)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070901'
+__version__ = '2026070902'
 
 DESCRIPTION = """Inspects X.509 certificates and alerts on days remaining until expiry,
 hostname mismatch and chain verification failures. Sources via --source: `url` fetches the
@@ -67,17 +75,15 @@ applies to --source url and --source scan and its failures use --severity (warn 
 while a valid self-signed certificate is tolerated. Expired certificates are unconditionally
 reported as CRIT. With --source file and --source scan the worst state across all inspected
 certificates
-drives the plugin state; targets that do not answer within --timeout are skipped. The default
+drives the plugin state; targets that do not answer within --timeout are skipped. A scan probes
+its targets in parallel, with the parallelism deliberately bounded so that scanning a subnet
+does not starve the other checks running on the same host (see --max-workers). The default
 source is `scan`, so without any parameter the plugin scans the default interface's subnet on a
 set of common data-center TLS ports (HTTPS, mail, LDAPS, AMQPS, MQTTS and common management
 interfaces); see --ports for the full default list."""
 
 DEFAULT_CRIT = '5:'
 DEFAULT_LENGTHY = False
-# A scan spends nearly all of its time blocked on connects to addresses where no host answers,
-# so the thread count, not the CPU, decides whether a sparsely populated subnet finishes inside
-# the check timeout. Every host of the scanned subnet is probed on every port of --ports.
-DEFAULT_MAX_WORKERS = 100
 # Common TLS ports in a data center: HTTPS (443), SMTPS (465), LDAPS (636),
 # FTPS (990), IMAPS (993), POP3S (995), LDAPS global catalog (3269), AMQPS (5671),
 # WinRM (5986), Kubernetes API (6443), Proxmox (8006), Vault (8200), HTTPS-alt /
@@ -107,8 +113,37 @@ DEFAULT_SOURCE = 'scan'
 DEFAULT_TIMEOUT = 8
 DEFAULT_WARN = '14:'
 
+# Errors that mean "this process may not open another socket right now". They say nothing
+# about the target and must never be counted as "host does not answer".
+FD_EXHAUSTED_ERRNOS = frozenset((errno.EMFILE, errno.ENFILE))
+# File descriptors a scan needs beside the one socket per worker: stdio, the system trust
+# store, every --ca-file and the client certificate. Held back generously on purpose, an
+# unused descriptor costs nothing next to a scan that dies with "Too many open files".
+FD_RESERVE = 64
+# Every host of the scanned subnet is probed on every port of --ports, so a /24 on the
+# default port list is over 4000 connects, nearly all of them to addresses where no host
+# answers. Their cost falls almost entirely on the kernel: resolving a neighbour that does
+# not exist, retransmitting, handling the ICMP replies. That system time grows with how
+# many of those connects are in flight at once, not with the number of threads, and it is
+# system time, so neither a lower thread count nor nice(2) can hand it back to the other
+# checks sharing the host. On a two-core host a /24 at 2000 in-flight connects burns about
+# 64 seconds of system time and pushes the load past 40, which starves the other plugins
+# until they hit their own timeouts. At 200 the same scan costs about 22 seconds of CPU and
+# leaves the load near 3, in exchange for a longer run (roughly 170 seconds for a /24,
+# well inside the check timeout the Icinga Director sets for this check).
+MAX_WORKERS_CAP = 200
+
 VALID_SEVERITIES = ('crit', 'warn')
 VALID_SOURCES = ('file', 'scan', 'url')
+
+
+class FileDescriptorExhausted(Exception):
+    """Raised when a scan cannot open another socket because the process ran out of file
+    descriptors. Deliberately kept apart from the ordinary connection errors: those
+    describe the target (down, filtered, not listening) and make the plugin skip it, while
+    this one describes the local process. Skipping on it would silently shrink the scan's
+    coverage and report OK for a subnet that was never fully probed.
+    """
 
 
 def parse_args():
@@ -236,10 +271,16 @@ def parse_args():
     parser.add_argument(
         '--max-workers',
         help='Maximum number of targets to scan in parallel. '
-        'Only applies to --source=scan. Default: %(default)s',
+        'Only applies to --source=scan. '
+        'Raising this shortens the run but multiplies the system time the kernel spends on '
+        'connects to addresses where no host answers, which slows down every other check '
+        'on the same host. '
+        'Each worker also holds one socket, so the value is clamped to what the '
+        'file-descriptor limit of the process allows. '
+        f'Default: derived from that limit, at most {MAX_WORKERS_CAP}.',
         dest='MAX_WORKERS',
         type=int,
-        default=DEFAULT_MAX_WORKERS,
+        default=None,
     )
 
     parser.add_argument(
@@ -499,35 +540,71 @@ def discover_hosts(args):
 _SELF_SIGNED_VERIFY_CODES = (18, 19)
 
 
-def _grab_cert_insecure(host, port, server_hostname, args):
+def build_scan_contexts(args):
+    """Build the two TLS contexts a scan reuses for all of its targets, and return them as
+    (verify_ctx, insecure_ctx). `verify_ctx` is None with --insecure.
+
+    An SSLContext holds no per-connection state (the peer name goes to wrap_socket(), not
+    to the context), so every worker can share one. Building a context per target instead
+    would load the system trust store once per target: under OpenSSL 1.1 a context holding
+    the trust store costs roughly 840 kB, so the memory of a scan would grow with its
+    parallelism and could get the plugin killed on a small host. OpenSSL 3 is far cheaper
+    here, which hides the problem on newer distributions.
+    """
+    try:
+        insecure_ctx = ssl.create_default_context()
+        insecure_ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        insecure_ctx.check_hostname = False
+        insecure_ctx.verify_mode = ssl.CERT_NONE
+        if args.CLIENT_CERT:
+            insecure_ctx.load_cert_chain(args.CLIENT_CERT, keyfile=args.CLIENT_KEY)
+
+        verify_ctx = None
+        if not args.INSECURE:
+            verify_ctx = ssl.create_default_context()
+            for ca_file in args.CA_FILE:
+                verify_ctx.load_verify_locations(cafile=ca_file)
+            verify_ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+            # an IP scan never matches the certificate names
+            verify_ctx.check_hostname = False
+            if args.CLIENT_CERT:
+                verify_ctx.load_cert_chain(args.CLIENT_CERT, keyfile=args.CLIENT_KEY)
+    except (OSError, ssl.SSLError) as e:
+        return False, f'Cannot set up the TLS context: {e}'
+    return True, (verify_ctx, insecure_ctx)
+
+
+def _grab_cert_insecure(host, port, server_hostname, args, insecure_ctx):
     """Open a TLS connection without any verification and return (cert_der, tls_version),
     or (None, None) on a connection/TLS error. Used to read the certificate for expiry
-    reporting even when trust verification failed or was skipped.
+    reporting even when trust verification failed or was skipped. `insecure_ctx` is shared
+    by every worker, see build_scan_contexts().
     """
-    ctx = ssl.create_default_context()
-    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    if args.CLIENT_CERT:
-        ctx.load_cert_chain(args.CLIENT_CERT, keyfile=args.CLIENT_KEY)
     try:
         with (
             socket.create_connection((host, port), timeout=args.TIMEOUT) as sock,
-            ctx.wrap_socket(sock, server_hostname=server_hostname) as tls_sock,
+            insecure_ctx.wrap_socket(sock, server_hostname=server_hostname) as tls_sock,
         ):
             return tls_sock.getpeercert(True), tls_sock.version()
-    except (OSError, ssl.SSLError):
+    # ssl.SSLError derives from OSError, so it has to be caught first
+    except ssl.SSLError:
+        return None, None
+    except OSError as e:
+        if e.errno in FD_EXHAUSTED_ERRNOS:
+            raise FileDescriptorExhausted(e.strerror or e) from e
         return None, None
 
 
-def get_cert_from_target(host, port, args):
+def get_cert_from_target(host, port, args, verify_ctx, insecure_ctx):
     """Probe host:port, verify the certificate chain against the system trust store (plus
     any --ca-file) and capture the peer certificate. Hostname verification is intentionally
     not done: a subnet scan hits IP addresses whose certificates legitimately do not match.
     A valid self-signed certificate is tolerated (verdict "self-signed"); any other trust
-    failure becomes "unverified (...)" and drives the state via --severity. --insecure skips
-    verification entirely. Returns (True, dict) on success, or (False, None) when the target
-    does not answer or speaks no TLS, so non-responding hosts are skipped.
+    failure becomes "unverified (...)" and drives the state via --severity. `verify_ctx` is
+    None with --insecure, which skips verification entirely. Both contexts are shared by
+    every worker, see build_scan_contexts(). Returns (True, dict) on success, or
+    (False, None) when the target does not answer or speaks no TLS, so non-responding
+    hosts are skipped.
     """
     # SNI must be a hostname; for a bare IP literal no SNI is sent (RFC 6066)
     try:
@@ -540,18 +617,13 @@ def get_cert_from_target(host, port, args):
     tls_version = None
     chain_verdict = 'verification skipped'
 
-    if not args.INSECURE:
+    if verify_ctx is not None:
         try:
-            ctx = ssl.create_default_context()
-            for ca_file in args.CA_FILE:
-                ctx.load_verify_locations(cafile=ca_file)
-            ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-            ctx.check_hostname = False  # an IP scan never matches the certificate names
-            if args.CLIENT_CERT:
-                ctx.load_cert_chain(args.CLIENT_CERT, keyfile=args.CLIENT_KEY)
             with (
                 socket.create_connection((host, port), timeout=args.TIMEOUT) as sock,
-                ctx.wrap_socket(sock, server_hostname=server_hostname) as tls_sock,
+                verify_ctx.wrap_socket(
+                    sock, server_hostname=server_hostname
+                ) as tls_sock,
             ):
                 cert_der = tls_sock.getpeercert(True)
                 tls_version = tls_sock.version()
@@ -563,13 +635,21 @@ def get_cert_from_target(host, port, args):
                 chain_verdict = f'unverified ({e.verify_message or e})'
         except ssl.SSLError as e:
             chain_verdict = f'unverified ({e})'
-        except (socket.timeout, OSError):
+        except (socket.timeout, OSError) as e:
+            if e.errno in FD_EXHAUSTED_ERRNOS:
+                raise FileDescriptorExhausted(e.strerror or e) from e
             return False, None  # target down, filtered, or not listening
 
     # read the certificate when trust verification failed or was skipped; a target that
     # answered the verified handshake already yielded the certificate above
     if cert_der is None:
-        cert_der, tls_version = _grab_cert_insecure(host, port, server_hostname, args)
+        cert_der, tls_version = _grab_cert_insecure(
+            host,
+            port,
+            server_hostname,
+            args,
+            insecure_ctx,
+        )
     if not cert_der:
         return False, None
     return True, {
@@ -579,18 +659,63 @@ def get_cert_from_target(host, port, args):
     }
 
 
-def scan_targets(args, hosts, ports):
-    """Probe every host/port combination in parallel and return the list of certificate
-    items. Each item has the same shape as a file-source item, plus a `host` key, and the
-    label is `host:port`. The chain verdict comes from a trust check (without hostname
-    verification). Non-responding host/port combinations are skipped.
+def raise_fd_soft_limit():
+    """Raise the soft file-descriptor limit of the process as far as the hard limit allows,
+    up to what a fully parallel scan needs, and return the resulting soft limit. Returns
+    None where the platform knows no such limit or where it is unlimited. A monitoring
+    agent commonly starts its plugins with a soft limit of 1024 while the hard limit is
+    orders of magnitude higher; raising the soft limit within the hard limit needs no
+    privileges. It is not raised any further than a full scan needs, because a needlessly
+    high limit slows down every child process that later walks the descriptor table.
+    """
+    if resource is None:
+        return None
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    if hard == resource.RLIM_INFINITY:
+        return None
+    wanted = min(hard, MAX_WORKERS_CAP + FD_RESERVE)
+    if soft < wanted:
+        try:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (wanted, hard))
+            soft = wanted
+        except (OSError, ValueError):
+            pass  # not permitted, carry on with the soft limit we already have
+    return soft
+
+
+def get_max_workers(requested, fd_limit):
+    """Return the number of threads a scan may run, the lowest of three bounds:
+    MAX_WORKERS_CAP, what the file-descriptor limit leaves after FD_RESERVE, and
+    `requested` (the value of --max-workers, or None for the derived default).
+
+    The cap is the one that normally binds; the descriptor limit is the second ceiling,
+    because each worker holds one socket while it probes and crossing the limit makes
+    connect() fail with EMFILE. An explicit request is clamped by both, since a request
+    the descriptors cannot back is not a faster scan, only a scan that runs into errors.
+    """
+    budget = MAX_WORKERS_CAP
+    if fd_limit is not None:
+        budget = min(budget, fd_limit - FD_RESERVE)
+    if requested is not None:
+        budget = min(budget, requested)
+    return max(1, budget)
+
+
+def scan_targets(args, hosts, ports, verify_ctx, insecure_ctx):
+    """Probe every host/port combination in parallel and return a (items, workers) tuple.
+    Each item has the same shape as a file-source item, plus a `host` key, and the label is
+    `host:port`. The chain verdict comes from a trust check (without hostname
+    verification). Non-responding host/port combinations are skipped. Both TLS contexts are
+    built once by the caller and shared by all workers. `workers` is the parallelism the
+    scan actually ran with, which the caller reports so that a scan held back by a tight
+    file-descriptor limit is recognisable from the plugin output alone.
     """
     targets = [(host, port) for host in hosts for port in ports]
 
     def probe(target):
         host, port = target
         verbose(args, f'{host}:{port}: probing TLS connection...')
-        ok, info = get_cert_from_target(host, port, args)
+        ok, info = get_cert_from_target(host, port, args, verify_ctx, insecure_ctx)
         if not ok:
             verbose(args, f'{host}:{port}: not reachable, skipping')
             return None
@@ -604,14 +729,31 @@ def scan_targets(args, hosts, ports):
             'tls_version': info['tls_version'],
         }
 
+    fd_limit = raise_fd_soft_limit()
+    allowed = get_max_workers(args.MAX_WORKERS, fd_limit)
+    if args.MAX_WORKERS is not None and allowed < args.MAX_WORKERS:
+        verbose(
+            args,
+            f'--max-workers={args.MAX_WORKERS} exceeds the file-descriptor budget '
+            f'(limit {fd_limit}, {FD_RESERVE} reserved), using {allowed} instead',
+        )
+    workers = min(allowed, len(targets)) if targets else 1
+    verbose(args, f'probing {len(targets)} target(s) with {workers} worker(s)')
+
     items = []
-    workers = max(1, min(args.MAX_WORKERS, len(targets))) if targets else 1
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
         # map() preserves input order, so the output table is deterministic
-        for item in pool.map(probe, targets):
-            if item is not None:
-                items.append(item)
-    return items
+        results = pool.map(probe, targets)
+        try:
+            for item in results:
+                if item is not None:
+                    items.append(item)
+        except FileDescriptorExhausted:
+            # every queued probe would run into the same wall; dropping them keeps the
+            # plugin from blocking until each remaining target has hit its --timeout
+            pool.shutdown(wait=False, cancel_futures=True)
+            raise
+    return items, workers
 
 
 def _looks_like_cert(data):
@@ -954,8 +1096,20 @@ def main():
     if args.SOURCE == 'scan':
         ports = lib.base.coe(parse_ports(args.PORTS))
         hosts = lib.base.coe(discover_hosts(args))
+        # built once and shared by every worker; one context per target would load the
+        # system trust store thousands of times over
+        verify_ctx, insecure_ctx = lib.base.coe(build_scan_contexts(args))
         verbose(args, f'{len(hosts)} host(s) x {len(ports)} port(s) to scan')
-        items = scan_targets(args, hosts, ports)
+        try:
+            items, workers = scan_targets(args, hosts, ports, verify_ctx, insecure_ctx)
+        except FileDescriptorExhausted as e:
+            lib.base.oao(
+                f'Ran out of file descriptors while scanning: {e}. '
+                f'The scan covered only part of the targets. Lower --max-workers, '
+                f'shorten --ports, or raise the file-descriptor limit of the monitoring '
+                f'agent.',
+                STATE_UNKNOWN,
+            )
         # count by host (like the lynis check), not by host/port: a /24 has 254 hosts,
         # not 254 x len(ports) "targets". responded = hosts that returned a certificate.
         total_hosts = len(hosts)
@@ -964,6 +1118,7 @@ def main():
         items = lib.base.coe(collect_items(args))
         total_hosts = None
         responded_hosts = None
+        workers = None
 
     # init some vars
     severity_state = STATE_CRIT if args.SEVERITY == 'crit' else STATE_WARN
@@ -1025,6 +1180,9 @@ def main():
         msg += lib.base.state2str(state, prefix=' ')
     elif args.SOURCE == 'scan':
         hosts_word = lib.txt.pluralize('host', total_hosts)
+        # the parallelism the scan got, so a run held back by a tight file-descriptor
+        # limit is visible without having to re-run the plugin with --verbose
+        workers_word = lib.txt.pluralize('worker', workers)
         if items:
             worst_subject = summary_table[worst_idx]['subject_cn']
             certs_word = lib.txt.pluralize('certificate', len(items))
@@ -1032,10 +1190,11 @@ def main():
                 f'{responded_hosts}/{total_hosts} {hosts_word} responded'
                 f', {len(items)} {certs_word}'
                 f', worst {_format_days_left(min(days_left_values))} ({worst_subject})'
+                f', {workers} {workers_word}'
                 f'{lib.base.state2str(state, prefix=" ")}'
             )
         else:
-            msg = f'0/{total_hosts} {hosts_word} responded'
+            msg = f'0/{total_hosts} {hosts_word} responded, {workers} {workers_word}'
     else:  # file source with more than one certificate
         worst_subject = summary_table[worst_idx]['subject_cn']
         msg = (
