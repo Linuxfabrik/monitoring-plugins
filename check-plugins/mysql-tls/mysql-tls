@@ -20,11 +20,10 @@ import lib.db_mysql
 import lib.disk
 import lib.time
 import lib.txt
-import lib.version
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070801'
+__version__ = '2026070901'
 
 DESCRIPTION = """Checks MySQL/MariaDB TLS/SSL posture: the current connection itself, the
 server's TLS capability (`have_ssl`), enforcement (`require_secure_transport`), enabled TLS
@@ -255,10 +254,8 @@ def main():
     lib.base.coe(lib.db_mysql.check_privileges(conn, 'SELECT'))
 
     myvar = lib.db_mysql.get_all_variables(conn)
-    version = (myvar.get('version') or '').lower()
-    is_mariadb_10_4_plus = (
-        'mariadb' in version and lib.version.version(version) >= (10, 4, 0)
-    )
+    flavor, server_version = lib.db_mysql.get_version(conn)
+    is_mariadb_10_4_plus = flavor == 'mariadb' and server_version >= (10, 4, 0)
 
     session_cipher = get_session_cipher(conn)
     have_ssl = (myvar.get('have_ssl') or '').upper()
@@ -313,8 +310,7 @@ def main():
     if have_ssl == 'DISABLED':
         state = lib.base.get_worst(state, severity_state)
         findings.append(
-            f'`have_ssl` = DISABLED'
-            f'{lib.base.state2str(severity_state, prefix=" ")}'
+            f'`have_ssl` = DISABLED{lib.base.state2str(severity_state, prefix=" ")}'
         )
         recommendations.append(
             'Enable SSL support on the server: configure `ssl_cert`, '
@@ -368,8 +364,7 @@ def main():
                 f'{lib.base.state2str(severity_state, prefix=" ")}'
             )
             recommendations.append(
-                'Enable TLSv1.2 and/or TLSv1.3 via `tls_version` in your '
-                'server config.'
+                'Enable TLSv1.2 and/or TLSv1.3 via `tls_version` in your server config.'
             )
         if not weak_tls and modern_tls:
             findings.append(f'TLS versions: {tls_versions_display}')
@@ -394,7 +389,10 @@ def main():
     if ssl_cert_path:
         if cert_days is not None:
             cert_state = lib.base.get_state(
-                cert_days, args.WARN, args.CRIT, _operator='range',
+                cert_days,
+                args.WARN,
+                args.CRIT,
+                _operator='range',
             )
             if cert_days < 0:
                 cert_state = STATE_CRIT
@@ -412,8 +410,7 @@ def main():
                 )
             if cert_state != STATE_OK:
                 recommendations.append(
-                    f'Renew `ssl_cert` ({ssl_cert_path}) and reload the '
-                    'server.'
+                    f'Renew `ssl_cert` ({ssl_cert_path}) and reload the server.'
                 )
         else:
             findings.append(
@@ -425,7 +422,10 @@ def main():
     if ssl_ca_path:
         if ca_days is not None:
             ca_state = lib.base.get_state(
-                ca_days, args.WARN, args.CRIT, _operator='range',
+                ca_days,
+                args.WARN,
+                args.CRIT,
+                _operator='range',
             )
             if ca_days < 0:
                 ca_state = STATE_CRIT
@@ -446,8 +446,7 @@ def main():
                 )
         else:
             findings.append(
-                f'`ssl_ca` ({ssl_ca_path}) expiry check skipped '
-                f'({ca_skip_reason})'
+                f'`ssl_ca` ({ssl_ca_path}) expiry check skipped ({ca_skip_reason})'
             )
 
     # 7. Remote users without REQUIRE SSL.

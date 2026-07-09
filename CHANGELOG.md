@@ -35,6 +35,8 @@ Monitoring Plugins:
 * about-me: recognizes an installed Apache Tomcat when guessing Icinga Director tags
 * all plugins: the internal `--test` parameter is no longer shown in `--help`
 * cert: a `/24` scan on the default ports finishes within the check timeout instead of taking about 20 minutes
+* cert: scan output reports how many parallel workers the run used
+* cert: scan parallelism adapts to the file-descriptor limit, so `--max-workers` no longer needs tuning
 * cpu-usage, disk-io, fs-xfs-stats, jitsi-videobridge-stats, network-io, nginx-status, nodebb-cache, nodebb-errors, procs, redis-status, starface-database-stats, valkey-status, wildfly-gc-status: cumulative counters are now reported as per-second rates (or plain values) instead of ever-growing totals, fixing Grafana graphs and aggregations; some performance-data metric names changed, so re-import the affected Grafana dashboards after updating ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 * disk-io: iowait is reported as saturated CPU cores instead of a percentage that could exceed 100% on multi-core hosts
 * disk-usage: mountpoints are now filtered with `--match`/`--ignore`; the old `--include-*`/`--exclude-*` options keep working
@@ -42,6 +44,7 @@ Monitoring Plugins:
 * docker-stats, podman-stats: select or exclude containers by name with `--match`/`--ignore`, plus `--no-match-severity`
 * mysql-innodb-log-waits: alerts only on real InnoDB log waits, no longer on a low write-log efficiency that raising `innodb_log_buffer_size` cannot fix
 * mysql-logfile: documents case-insensitive ignore matching and how to silence harmless idle-connection-timeout warnings
+* mysql-user-security: recommends MariaDB's `parsec` plugin on 11.6+, and prepends the one-time `INSTALL SONAME` that MariaDB needs before the suggested `ALTER USER` can run
 * podman-info, podman-stats: `--user` reports on a specific rootless user's Podman
 * snmp: `--device` also accepts an absolute path ([#1308](https://github.com/Linuxfabrik/monitoring-plugins/issues/1308))
 
@@ -57,11 +60,15 @@ Build, CI/CD:
 
 Monitoring Plugins:
 
+* cert: a subnet scan needs about a quarter of the memory at high parallelism, so it no longer risks an out-of-memory kill on small hosts
+* cert: a subnet scan that runs out of file descriptors reports UNKNOWN instead of OK for targets it never probed
 * csv-values, json-values, strongswan-connections: non-UTF-8 input no longer crashes the check ([#256](https://github.com/Linuxfabrik/lib/issues/256))
 * disk-usage: performance data carries the warning and critical thresholds again ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
 * journald-query: a relative `--since` such as `-8h` from the Icinga Director works again ([#1264](https://github.com/Linuxfabrik/monitoring-plugins/issues/1264))
 * lynis: audits produce a report on Debian, Ubuntu and other distributions that keep lynis outside `/usr/share` ([#1262](https://github.com/Linuxfabrik/monitoring-plugins/issues/1262))
 * lynis: shows the underlying lynis error when an audit produces no report
+* mysql-replica-status: works on MySQL 8.4, which no longer understands `SHOW SLAVE HOSTS` and made the check return UNKNOWN
+* mysql-replica-status: a monitoring account that may not list replicas no longer turns the whole check UNKNOWN
 * redfish-\*: the Redfish API URL is now a mandatory `--url`, dropping the misleading localhost default ([#1306](https://github.com/Linuxfabrik/monitoring-plugins/issues/1306))
 
 ### Security

@@ -23,7 +23,9 @@ its password ("user with username as password"), both root and
 test are defined as `@'%'` ("accounts without hostname
 restriction"), and the `test` user is created on
 `mysql_native_password` ("user on a legacy authentication
-plugin"). All three are real findings worth monitoring; the test
+plugin"). The upstream MySQL images create their accounts on
+`caching_sha2_password` and so only trip the wildcard-host
+finding. All of them are real findings worth monitoring; the test
 pins the WARN state so the plugin's detection logic stays in
 place and a future refactor cannot silently mask either signal.
 
@@ -32,6 +34,11 @@ The test matrix is defined by the Containerfiles under
 one-line `FROM`) and gets built once via testcontainers'
 DockerImage (cached across runs). Add a new MariaDB LTS by
 dropping in a new Containerfile; retire one by deleting the file.
+
+`EXPECTED_AUTH_PLUGIN` pins the modern authentication plugin the
+plugin must recommend per image, so a version-detection regression
+cannot silently advise the wrong plugin: `caching_sha2_password` on
+MySQL 8.0+, `parsec` on MariaDB 11.6+, `ed25519` on older MariaDB.
 
 Requirements:
 - podman (or docker) with a reachable socket
@@ -56,6 +63,20 @@ CONTAINERFILES = sorted(
     name for name in os.listdir(CONTAINERFILES_DIR)
     if os.path.isfile(os.path.join(CONTAINERFILES_DIR, name))
 )
+
+# Modern authentication plugin the check must recommend for the legacy
+# accounts it finds: `parsec` on MariaDB 11.6+ (where it first ships),
+# `ed25519` on older MariaDB. The upstream MySQL images already create
+# their accounts on `caching_sha2_password`, so they hold no legacy
+# account and the check must not emit an auth recommendation at all.
+EXPECTED_AUTH_RECOMMENDATION = {
+    'mariadb-v106': 'IDENTIFIED VIA ed25519',
+    'mariadb-v1011': 'IDENTIFIED VIA ed25519',
+    'mariadb-v114': 'IDENTIFIED VIA ed25519',
+    'mariadb-v118': 'IDENTIFIED VIA parsec',
+    'mysql-v80': None,
+    'mysql-v84': None,
+}
 
 
 class TestCheck(unittest.TestCase):
@@ -101,6 +122,18 @@ def _check_image(test, containerfile):
         test.assertIn('without hostname restriction', combined)
         test.assertIn('on a legacy authentication plugin', combined)
         test.assertIn('mysql_users_on_legacy_auth_plugin', combined)
+
+        # The legacy-auth finding must advise the plugin that the running
+        # server branch actually supports, not just any modern plugin.
+        # MariaDB loads neither parsec nor ed25519 by default, so the
+        # one-time INSTALL has to precede the ALTER USER statements.
+        expected = EXPECTED_AUTH_RECOMMENDATION[containerfile]
+        if expected:
+            test.assertIn(expected, combined)
+            test.assertIn("INSTALL SONAME 'auth_", combined)
+        else:
+            test.assertIn('0 users on a legacy authentication plugin', combined)
+            test.assertNotIn('IDENTIFIED', combined)
 
 
 lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)

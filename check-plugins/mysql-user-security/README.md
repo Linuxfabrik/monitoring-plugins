@@ -9,6 +9,7 @@ Checks MySQL/MariaDB user security: anonymous accounts, empty passwords, account
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * The username-as-password check is skipped when MySQL's `validate_password` plugin is active, because `PASSWORD(user)` calls inside the comparison fail in that case ([MySQL Bug #80860](https://bugs.mysql.com/bug.php?id=80860)). mysqltuner does the same
+* The suggested replacement for a legacy authentication plugin depends on the server branch: `caching_sha2_password` on MySQL 8.0+, [`parsec`](https://mariadb.com/docs/server/reference/plugins/authentication-plugins/authentication-plugin-parsec) on MariaDB 11.6+, and `ed25519` on MariaDB 10.4 to 11.5. MariaDB ships both of its plugins but loads neither by default, so the plugin prefixes its advice with the required one-time `INSTALL SONAME` statement whenever the target plugin is not active yet
 * Roles (MariaDB 10.0.5+, `mysql.user.IS_ROLE = 'Y'`) are excluded from the anonymous-user and username-as-password checks because a role legitimately has no password and an empty `host`
 * The basic-password dictionary check that mysqltuner runs from a local word-list is intentionally not ported - it does not fit a recurring monitoring plugin
 * SQL recommendations show `<replace-with-strong-password>` as a placeholder. Substitute a strong password before running the statements; the literal placeholder is self-evidently not a usable value
@@ -85,7 +86,7 @@ OK output:
 Everything is ok. 12 non-system user accounts, 3 roles. 0 anonymous accounts. 0 users without password. 0 users with username as password. 0 accounts without hostname restriction. 0 users on a legacy authentication plugin.
 ```
 
-WARN output:
+WARN output on MySQL:
 
 ```text
 6 non-system user accounts, 0 roles. 0 anonymous accounts. 0 users without password. 1 user with username as password [WARNING]. 2 accounts without hostname restriction [WARNING]. 1 user on a legacy authentication plugin [WARNING].
@@ -95,6 +96,23 @@ Recommendations:
 * `RENAME USER 'root'@'%' TO 'root'@'LimitedIPRangeOrLocalhost';`
 * `RENAME USER 'test'@'%' TO 'test'@'LimitedIPRangeOrLocalhost';`
 * `ALTER USER 'test'@'%' IDENTIFIED WITH caching_sha2_password BY '<replace-with-strong-password>';`
+```
+
+WARN output on MariaDB 11.6+, where `parsec` replaces the legacy plugin and has to be installed once before the `ALTER USER` statements run:
+
+```text
+6 non-system user accounts, 0 roles. 0 anonymous accounts. 0 users without password. 0 users with username as password. 0 users with a weak default password. 2 accounts without hostname restriction [WARNING]. 6 users on a legacy authentication plugin [WARNING].
+
+Recommendations:
+* `RENAME USER 'appuser'@'%' TO 'appuser'@'LimitedIPRangeOrLocalhost';`
+* `RENAME USER 'root'@'%' TO 'root'@'LimitedIPRangeOrLocalhost';`
+* `INSTALL SONAME 'auth_parsec';`
+* `ALTER USER 'root'@'localhost' IDENTIFIED VIA parsec USING PASSWORD('<replace-with-strong-password>');`
+* `ALTER USER 'root'@'%' IDENTIFIED VIA parsec USING PASSWORD('<replace-with-strong-password>');`
+* `ALTER USER 'healthcheck'@'127.0.0.1' IDENTIFIED VIA parsec USING PASSWORD('<replace-with-strong-password>');`
+* `ALTER USER 'healthcheck'@'::1' IDENTIFIED VIA parsec USING PASSWORD('<replace-with-strong-password>');`
+* `ALTER USER 'healthcheck'@'localhost' IDENTIFIED VIA parsec USING PASSWORD('<replace-with-strong-password>');`
+* `ALTER USER 'appuser'@'%' IDENTIFIED VIA parsec USING PASSWORD('<replace-with-strong-password>');`
 ```
 
 

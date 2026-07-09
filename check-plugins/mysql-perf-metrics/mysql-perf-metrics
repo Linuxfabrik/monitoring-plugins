@@ -19,11 +19,10 @@ import lib.base
 import lib.db_mysql
 import lib.disk
 import lib.txt
-import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070801'
+__version__ = '2026070901'
 
 DESCRIPTION = """Audits MySQL/MariaDB configuration knobs that have a measurable impact
 on performance or correctness but no metric of their own. Highlights settings that
@@ -280,7 +279,7 @@ def find_deprecated_variables_mariadb(conn):
     return rows if success else []
 
 
-def find_deprecated_variables_mysql(conn, myvar):
+def find_deprecated_variables_mysql(conn, myvar, running):
     """Return the list of removed/deprecated MySQL variables that the
     admin has explicitly set. MySQL does not expose a deprecation flag at
     runtime, so we walk a static list ported from MySQLTuner and
@@ -288,12 +287,11 @@ def find_deprecated_variables_mysql(conn, myvar):
     skip compile-time defaults. On MySQL releases without
     `variables_info` (pre-8.0) we fall back to plain presence in
     `SHOW VARIABLES`, which matches mysqltuner's original behaviour.
-    The `removed_in` version on each entry gates the finding so a still-
+    The `removed_in` version on each entry gates the finding against
+    `running` (the server's `(major, minor, patch)` tuple) so a still-
     valid pre-removal release (e.g. `innodb_file_format` on MySQL 5.7)
     does not produce a false positive.
     """
-    running = lib.version.version((myvar.get('version') or '').lower())
-
     sources = {}
     success, rows = lib.db_mysql.select(
         conn,
@@ -353,11 +351,11 @@ def main():
     lib.base.coe(lib.db_mysql.check_privileges(conn))
 
     myvar = lib.db_mysql.get_all_variables(conn)
-    is_mariadb = 'mariadb' in (myvar.get('version') or '').lower()
-    if is_mariadb:
+    flavor, server_version = lib.db_mysql.get_version(conn)
+    if flavor == 'mariadb':
         removed_vars = find_deprecated_variables_mariadb(conn)
     else:
-        removed_vars = find_deprecated_variables_mysql(conn, myvar)
+        removed_vars = find_deprecated_variables_mysql(conn, myvar, server_version)
     lib.db_mysql.close(conn)
 
     # Block-device class behind the data directory. Drives the two
