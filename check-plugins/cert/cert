@@ -54,7 +54,7 @@ warnings.filterwarnings('ignore', category=CryptographyDeprecationWarning)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070902'
+__version__ = '2026070903'
 
 DESCRIPTION = """Inspects X.509 certificates and alerts on days remaining until expiry,
 hostname mismatch and chain verification failures. Sources via --source: `url` fetches the
@@ -135,15 +135,6 @@ MAX_WORKERS_CAP = 200
 
 VALID_SEVERITIES = ('crit', 'warn')
 VALID_SOURCES = ('file', 'scan', 'url')
-
-
-class FileDescriptorExhausted(Exception):
-    """Raised when a scan cannot open another socket because the process ran out of file
-    descriptors. Deliberately kept apart from the ordinary connection errors: those
-    describe the target (down, filtered, not listening) and make the plugin skip it, while
-    this one describes the local process. Skipping on it would silently shrink the scan's
-    coverage and report OK for a subnet that was never fully probed.
-    """
 
 
 def parse_args():
@@ -591,7 +582,7 @@ def _grab_cert_insecure(host, port, server_hostname, args, insecure_ctx):
         return None, None
     except OSError as e:
         if e.errno in FD_EXHAUSTED_ERRNOS:
-            raise FileDescriptorExhausted(e.strerror or e) from e
+            raise  # a local resource problem, not a property of the target
         return None, None
 
 
@@ -637,7 +628,7 @@ def get_cert_from_target(host, port, args, verify_ctx, insecure_ctx):
             chain_verdict = f'unverified ({e})'
         except (socket.timeout, OSError) as e:
             if e.errno in FD_EXHAUSTED_ERRNOS:
-                raise FileDescriptorExhausted(e.strerror or e) from e
+                raise  # a local resource problem, not a property of the target
             return False, None  # target down, filtered, or not listening
 
     # read the certificate when trust verification failed or was skipped; a target that
@@ -702,13 +693,19 @@ def get_max_workers(requested, fd_limit):
 
 
 def scan_targets(args, hosts, ports, verify_ctx, insecure_ctx):
-    """Probe every host/port combination in parallel and return a (items, workers) tuple.
+    """Probe every host/port combination in parallel. Returns (True, (items, workers)), or
+    (False, message) when the process ran out of file descriptors mid-scan.
+
     Each item has the same shape as a file-source item, plus a `host` key, and the label is
     `host:port`. The chain verdict comes from a trust check (without hostname
     verification). Non-responding host/port combinations are skipped. Both TLS contexts are
     built once by the caller and shared by all workers. `workers` is the parallelism the
     scan actually ran with, which the caller reports so that a scan held back by a tight
     file-descriptor limit is recognisable from the plugin output alone.
+
+    Running out of descriptors is the one failure a probe must not swallow: EMFILE looks
+    exactly like a target that stays silent, so skipping it would shrink the scan's
+    coverage and report OK for a subnet that was never fully probed.
     """
     targets = [(host, port) for host in hosts for port in ports]
 
@@ -741,6 +738,7 @@ def scan_targets(args, hosts, ports, verify_ctx, insecure_ctx):
     verbose(args, f'probing {len(targets)} target(s) with {workers} worker(s)')
 
     items = []
+    error = None
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
         # map() preserves input order, so the output table is deterministic
         results = pool.map(probe, targets)
@@ -748,12 +746,21 @@ def scan_targets(args, hosts, ports, verify_ctx, insecure_ctx):
             for item in results:
                 if item is not None:
                     items.append(item)
-        except FileDescriptorExhausted:
+        except OSError as e:
+            if e.errno not in FD_EXHAUSTED_ERRNOS:
+                raise
             # every queued probe would run into the same wall; dropping them keeps the
             # plugin from blocking until each remaining target has hit its --timeout
             pool.shutdown(wait=False, cancel_futures=True)
-            raise
-    return items, workers
+            error = (
+                f'Ran out of file descriptors while scanning: {e.strerror or e}. '
+                f'The scan covered only part of the targets. Lower --max-workers, '
+                f'shorten --ports, or raise the file-descriptor limit of the monitoring '
+                f'agent.'
+            )
+    if error is not None:
+        return False, error
+    return True, (items, workers)
 
 
 def _looks_like_cert(data):
@@ -1100,16 +1107,9 @@ def main():
         # system trust store thousands of times over
         verify_ctx, insecure_ctx = lib.base.coe(build_scan_contexts(args))
         verbose(args, f'{len(hosts)} host(s) x {len(ports)} port(s) to scan')
-        try:
-            items, workers = scan_targets(args, hosts, ports, verify_ctx, insecure_ctx)
-        except FileDescriptorExhausted as e:
-            lib.base.oao(
-                f'Ran out of file descriptors while scanning: {e}. '
-                f'The scan covered only part of the targets. Lower --max-workers, '
-                f'shorten --ports, or raise the file-descriptor limit of the monitoring '
-                f'agent.',
-                STATE_UNKNOWN,
-            )
+        items, workers = lib.base.coe(
+            scan_targets(args, hosts, ports, verify_ctx, insecure_ctx)
+        )
         # count by host (like the lynis check), not by host/port: a /24 has 254 hosts,
         # not 254 x len(ports) "targets". responded = hosts that returned a certificate.
         total_hosts = len(hosts)

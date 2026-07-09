@@ -921,9 +921,11 @@ class TestWorkerBudget(unittest.TestCase):
         self.addCleanup(setattr, plugin.ssl, 'create_default_context', original)
 
         ports = [closed_port() for _ in range(4)]
-        items, workers = plugin.scan_targets(
+        ok, result = plugin.scan_targets(
             args, ['127.0.0.1'], ports, verify_ctx, insecure_ctx,
         )
+        self.assertTrue(ok, result)
+        items, workers = result
         self.assertEqual(items, [])
         self.assertEqual(workers, 4)
 
