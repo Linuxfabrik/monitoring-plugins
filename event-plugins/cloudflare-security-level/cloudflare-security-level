@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
@@ -8,89 +8,70 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""Have a look at the check's README for further details.
-"""
+"""See the check's README for more details."""
 
-import os
+import argparse
+import sys
 
-# considering a virtual environment
-ACTIVATE_THIS = False
-venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
-if os.path.exists(venv_path):
-    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
-
-if os.getenv('MONITORING_PLUGINS_VENV3'):
-    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
-
-if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
-    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
-
-
-import argparse # pylint: disable=C0413
-import sys # pylint: disable=C0413
-from traceback import print_exc # pylint: disable=C0413
-
-from lib.globals import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
-
-try:
-    import requests # pylint: disable=C0413
-except ImportError:
-    print('Python module "requests" is not installed.')
-    sys.exit(STATE_UNKNOWN)
+import lib.base
+import lib.url
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026042301'
+__version__ = '2026070901'
 
-DESCRIPTION = """Event Plugin: Changes the security level for a zone at Cloudflare to "under_attack"
-                if state of the service - from which this event plugin was called - changes to
-                CRITICAL (even in SOFT state).
-                Changes to "medium" when the state is OK. If the zone/site is in "Under Attack
-                Mode", Cloudflare will display a 5sec Delay when you visit this website.
-                This event plugin is useful, for example, when the Apache httpd status check
-                reports overuse."""
+DESCRIPTION = """Event Plugin: Changes the security level for a zone at Cloudflare to
+"under_attack" if the state of the service, from which this event plugin was called, changes
+to CRITICAL (even in SOFT state). Changes it back to "medium" when the state is OK. In "Under
+Attack Mode", Cloudflare displays a 5 second delay when a visitor opens the website. This is
+useful, for example, when the Apache httpd status check reports overuse."""
+
+TIMEOUT = 8  # seconds
 
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
-        '-V', '--version',
+        '-V',
+        '--version',
         action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
+        version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
     parser.add_argument(
         '--key',
-        help='Cloudflare API Key',
+        help='Cloudflare API key.',
         dest='KEY',
         required=True,
     )
 
     parser.add_argument(
         '--servicestate',
-        help='The current Icinga state of the service.',
+        help='The current state of the service.',
         dest='SERVICE_STATE',
         choices=[
-            'OK',
-            'WARNING',
             'CRITICAL',
+            'OK',
             'UNKNOWN',
+            'WARNING',
         ],
         required=True,
     )
 
     parser.add_argument(
         '--username',
-        help='Cloudflare API Username (Email Address)',
+        help='Cloudflare API username (email address).',
         dest='USERNAME',
         required=True,
     )
 
     parser.add_argument(
         '--zone-id',
-        help='Cloudflare API Zone Identifier (from Cloudflare Portal > Home > Choose your site > Overview)',
+        help='Cloudflare API zone identifier '
+        '(from Cloudflare Portal > Home > choose your site > Overview). '
+        'Can be specified multiple times.',
         action='append',
         dest='ZONE_ID',
         required=True,
@@ -109,26 +90,35 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # nothing to do for states other than CRITICAL and OK
+    if args.SERVICE_STATE == 'CRITICAL':
+        security_level = 'under_attack'
+    elif args.SERVICE_STATE == 'OK':
+        security_level = 'medium'
+    else:
+        sys.exit(STATE_OK)
+
     # Cloudflare API:
-    # https://api.cloudflare.com/#zone-settings-change-security-level-setting
-
-    # Python Requests Module:
-    # https://docs.python-requests.org/en/master/
-
+    # https://developers.cloudflare.com/api/resources/zones/subresources/settings/
     header = {
         'Content-Type': 'application/json',
         'X-Auth-Email': args.USERNAME,
         'X-Auth-Key': args.KEY,
     }
     for zone in args.ZONE_ID:
-        # build Cloudflare API URL and Header
-        url = f'https://api.cloudflare.com/client/v4/zones/{zone}/settings/security_level'
-        if args.SERVICE_STATE == 'CRITICAL':
-            json = { 'value': 'under_attack' }
-            r = requests.patch(url, headers=header, json=json)
-        elif args.SERVICE_STATE == 'OK':
-            json = { 'value': 'medium' }
-            r = requests.patch(url, headers=header, json=json)
+        url = (
+            f'https://api.cloudflare.com/client/v4/zones/{zone}/settings/security_level'
+        )
+        lib.base.coe(
+            lib.url.fetch(
+                url,
+                header=header,
+                data={'value': security_level},
+                encoding='serialized-json',
+                method='PATCH',
+                timeout=TIMEOUT,
+            )
+        )
 
     # over and out
     sys.exit(STATE_OK)
@@ -137,6 +127,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+    except Exception:
+        lib.base.cu()

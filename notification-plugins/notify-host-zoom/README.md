@@ -22,18 +22,18 @@ Note: We do not send markdown as this is currently not supported by the Incoming
 ## Help
 
 ```text
-usage: notify-host-zoom [-h] [-V] [--datetime DATETIME]
-                         [--host-displayname HOST_DISPLAYNAME]
-                         [--host-output HOST_OUTPUT] [--host-state HOST_STATE]
-                         [--hostname HOSTNAME]
-                         [--icingaweb2-url ICINGAWEB2_URL]
-                         [--notification-author NOTIFICATION_AUTHOR]
-                         [--notification-comment NOTIFICATION_COMMENT] --token
-                         TOKEN --url URL
+usage: notify-host-zoom [-h] [-V] --datetime DATETIME
+                        --host-displayname HOST_DISPLAYNAME
+                        [--host-output HOST_OUTPUT] --host-state HOST_STATE
+                        [--hostname HOSTNAME]
+                        [--icingaweb2-url ICINGAWEB2_URL]
+                        [--notification-author NOTIFICATION_AUTHOR]
+                        [--notification-comment NOTIFICATION_COMMENT]
+                        --token TOKEN --url URL
 
 Sends notifications for hosts using the Zoom Incoming Webhook API.
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --datetime DATETIME   Set the message timestamp ($icinga.short_date_time$).

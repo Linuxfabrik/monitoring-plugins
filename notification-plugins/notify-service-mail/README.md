@@ -29,50 +29,52 @@ Sends service notifications via email for Icinga/Nagios. Generates an HTML-forma
 ## Help
 
 ```text
-usage: notify-service-mail  [-h] [-V] --datetime DATETIME --host-displayname
-                            HOST_DISPLAYNAME [--host-address HOST_ADDRESS]
-                            [--hostname HOSTNAME]
-                            [--icingaweb2-url ICINGAWEB2_URL]
-                            [--mail-port MAIL_PORT]
-                            [--mail-password MAIL_PASSWORD]
-                            [--mail-user MAIL_USER] --mail-recipient
-                            MAIL_RECIPIENT --mail-sender MAIL_SENDER
-                            [--mail-server MAIL_SERVER] [--notes NOTES]
-                            [--notes-url NOTES_URL]
-                            [--notification-author NOTIFICATION_AUTHOR]
-                            [--notification-comment NOTIFICATION_COMMENT]
-                            [--notification-type NOTIFICATION_TYPE]
-                            [--perfdata PERFDATA] [--short]
-                            --service-displayname SERVICE_DISPLAYNAME
-                            [--service-output SERVICE_OUTPUT] --service-state
-                            SERVICE_STATE [--servicename SERVICENAME]
+usage: notify-service-mail [-h] [-V] --datetime DATETIME
+                           [--host-address HOST_ADDRESS]
+                           --host-displayname HOST_DISPLAYNAME
+                           [--hostname HOSTNAME]
+                           [--icingaweb2-url ICINGAWEB2_URL]
+                           [--mail-password MAIL_PASSWORD]
+                           [--mail-port MAIL_PORT]
+                           --mail-recipient MAIL_RECIPIENT
+                           --mail-sender MAIL_SENDER
+                           [--mail-server MAIL_SERVER] [--mail-user MAIL_USER]
+                           [--notes NOTES] [--notes-url NOTES_URL]
+                           [--notification-author NOTIFICATION_AUTHOR]
+                           [--notification-comment NOTIFICATION_COMMENT]
+                           [--notification-type NOTIFICATION_TYPE]
+                           [--perfdata PERFDATA]
+                           --service-displayname SERVICE_DISPLAYNAME
+                           [--service-output SERVICE_OUTPUT]
+                           --service-state SERVICE_STATE
+                           [--servicename SERVICENAME] [--short]
 
 Sends notifications for services using mail.
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --datetime DATETIME   Set the message timestamp.
-  --host-displayname HOST_DISPLAYNAME
-                        Set the display name of the host.
   --host-address HOST_ADDRESS
                         Set the IPv4 address of the host.
+  --host-displayname HOST_DISPLAYNAME
+                        Set the display name of the host.
   --hostname HOSTNAME   Set the hostname.
   --icingaweb2-url ICINGAWEB2_URL
                         Set the Icinga Web 2 URL, for example
                         "https://example.com/icingaweb2".
-  --mail-port MAIL_PORT
-                        Set the mail server port. Default: 25.
   --mail-password MAIL_PASSWORD
                         Set the mail server login password.
-  --mail-user MAIL_USER
-                        Set the mail server login user.
+  --mail-port MAIL_PORT
+                        Set the mail server port. Default: 25.
   --mail-recipient MAIL_RECIPIENT
                         Set the mail recipient.
   --mail-sender MAIL_SENDER
                         Set the mail sender.
   --mail-server MAIL_SERVER
                         Set the mail server. Default: localhost.
+  --mail-user MAIL_USER
+                        Set the mail server login user.
   --notes NOTES         Set the notes.
   --notes-url NOTES_URL
                         Set the notes url.
@@ -84,8 +86,6 @@ optional arguments:
                         Set the type of notification like "PROBLEM" or
                         "RECOVERY".
   --perfdata PERFDATA   Set the perfdata.
-  --short               Send a short message. This can be useful when using a
-                        SMS relay, for example.
   --service-displayname SERVICE_DISPLAYNAME
                         Set the display name of the service.
   --service-output SERVICE_OUTPUT
@@ -94,6 +94,8 @@ optional arguments:
                         Set the service state.
   --servicename SERVICENAME
                         Set the servicename.
+  --short               Send a short message. This can be useful when using a
+                        SMS relay, for example.
 ```
 
 

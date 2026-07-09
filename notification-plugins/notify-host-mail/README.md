@@ -29,33 +29,33 @@ Sends host notifications via email for Icinga/Nagios. Generates an HTML-formatte
 ## Help
 
 ```text
-usage: notify-host-mail  [-h] [-V] --datetime DATETIME --host-displayname
-                         HOST_DISPLAYNAME [--host-address HOST_ADDRESS]
-                         [--host-output HOST_OUTPUT] --host-state HOST_STATE
-                         [--hostname HOSTNAME]
-                         [--icingaweb2-url ICINGAWEB2_URL]
-                         [--mail-password MAIL_PASSWORD]
-                         [--mail-port MAIL_PORT]
-                         [--mail-recipient MAIL_RECIPIENT]
-                         [--mail-sender MAIL_SENDER]
-                         [--mail-server MAIL_SERVER]
-                         [--mail-user MAIL_USER] [--notes NOTES]
-                         [--notes-url NOTES_URL]
-                         [--notification-author NOTIFICATION_AUTHOR]
-                         [--notification-comment NOTIFICATION_COMMENT]
-                         [--notification-type NOTIFICATION_TYPE]
-                         [--perfdata PERFDATA] [--short]
+usage: notify-host-mail [-h] [-V] --datetime DATETIME
+                        [--host-address HOST_ADDRESS]
+                        --host-displayname HOST_DISPLAYNAME
+                        [--host-output HOST_OUTPUT] --host-state HOST_STATE
+                        [--hostname HOSTNAME]
+                        [--icingaweb2-url ICINGAWEB2_URL]
+                        [--mail-password MAIL_PASSWORD]
+                        [--mail-port MAIL_PORT]
+                        --mail-recipient MAIL_RECIPIENT
+                        --mail-sender MAIL_SENDER [--mail-server MAIL_SERVER]
+                        [--mail-user MAIL_USER] [--notes NOTES]
+                        [--notes-url NOTES_URL]
+                        [--notification-author NOTIFICATION_AUTHOR]
+                        [--notification-comment NOTIFICATION_COMMENT]
+                        [--notification-type NOTIFICATION_TYPE]
+                        [--perfdata PERFDATA] [--short]
 
 Sends notifications for hosts using mail.
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --datetime DATETIME   Set the message timestamp.
-  --host-displayname HOST_DISPLAYNAME
-                        Set the display name of the host.
   --host-address HOST_ADDRESS
                         Set the IPv4 address of the host.
+  --host-displayname HOST_DISPLAYNAME
+                        Set the display name of the host.
   --host-output HOST_OUTPUT
                         Set the host output.
   --host-state HOST_STATE

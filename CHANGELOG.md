@@ -43,6 +43,10 @@ Monitoring Plugins:
 * podman-info, podman-stats: `--user` reports on a specific rootless user's Podman
 * snmp: `--device` also accepts an absolute path ([#1308](https://github.com/Linuxfabrik/monitoring-plugins/issues/1308))
 
+Event Plugins:
+
+* cloudflare-security-level: no longer requires the `requests` Python module
+
 ### Fixed
 
 Build, CI/CD:
@@ -70,6 +74,10 @@ Monitoring Plugins:
 * logfile: closed a local privilege-escalation path in the legacy state-database migration, exploitable only with the non-default `fs.protected_symlinks=0`; the first run after updating re-scans the whole logfile once ([GHSA-w2gg-hx6w-24w3](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-w2gg-hx6w-24w3))
 * logfile, mysql-logfile, openvpn-client-list: the log file to read is confined to `/var/log` (mysql-logfile also allows `/var/lib/mysql`), so the check can no longer be used to read an arbitrary root-owned file; bind-mount a log stored elsewhere under `/var/log` ([GHSA-f54c-p5vg-mr5c](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-f54c-p5vg-mr5c))
 * redfish-\*: a malicious controller can no longer redirect a check to another host (SSRF / auth-token leak) ([GHSA-96fx-pqc3-28xv](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-96fx-pqc3-28xv))
+
+Notification Plugins:
+
+* notify-host-mail, notify-service-mail: the notification email now HTML-escapes host and service output, comments and other values, so content from a monitored service can no longer inject markup into the mail
 
 
 ## [v6.0.0] - 2026-06-14

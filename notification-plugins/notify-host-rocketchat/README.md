@@ -1,9 +1,9 @@
-# Notification notify-service-rocketchat
+# Notification notify-host-rocketchat
 
 
 ## Overview
 
-Sends service notifications using the RocketChat API.
+Sends host notifications using the Rocket.Chat API.
 
 
 ## Fact Sheet
@@ -18,19 +18,21 @@ Sends service notifications using the RocketChat API.
 ## Help
 
 ```text
-usage: notify-host-rocketchat [-h] --datetime DATETIME --host-displayname
-                              HOST_DISPLAYNAME [--host-output HOST_OUTPUT]
+usage: notify-host-rocketchat [-h] [-V] --datetime DATETIME
+                              --host-displayname HOST_DISPLAYNAME
+                              [--host-output HOST_OUTPUT]
                               --host-state HOST_STATE [--hostname HOSTNAME]
                               [--icingaweb2-url ICINGAWEB2_URL]
                               [--notification-author NOTIFICATION_AUTHOR]
                               [--notification-comment NOTIFICATION_COMMENT]
                               [--rocketchat-mentions ROCKETCHAT_MENTIONS]
-                              --rocketchat-url ROCKETCHAT_URL [-V]
+                              --rocketchat-url ROCKETCHAT_URL
 
-Sends host notifications using the RocketChat API.
+Sends host notifications using the Rocket.Chat API.
 
 options:
   -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
   --datetime DATETIME   Set the message timestamp.
   --host-displayname HOST_DISPLAYNAME
                         Set the display name of the host.
@@ -47,10 +49,10 @@ options:
   --notification-comment NOTIFICATION_COMMENT
                         Set the comment.
   --rocketchat-mentions ROCKETCHAT_MENTIONS
-                        Set the Rocket.Chat Mentions (repeating).
+                        Set the Rocket.Chat mentions. Can be specified
+                        multiple times.
   --rocketchat-url ROCKETCHAT_URL
                         Set the Rocket.Chat Webhook API URL.
-  -V, --version         show program's version number and exit
 ```
 
 

@@ -8,38 +8,39 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-"""See the plugins's README for more details.
-"""
+"""See the check's README for more details."""
 
-import argparse                        # pylint: disable=C0413
-import socket                          # pylint: disable=C0413
-import sys                             # pylint: disable=C0413
-import textwrap                        # pylint: disable=C0413
-import urllib.parse                    # pylint: disable=C0413
-import urllib.request                  # pylint: disable=C0413
+import argparse
+import socket
+import sys
 
-import lib.args                       # pylint: disable=C0413
-import lib.base                       # pylint: disable=C0413
-import lib.url                        # pylint: disable=C0413
-from lib.globals import STATE_UNKNOWN # pylint: disable=C0413
+import lib.base
+import lib.icinga
+import lib.rocket
+from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026070901'
 
-DESCRIPTION = 'Sends host notifications using the RocketChat API.'
+DESCRIPTION = """Sends host notifications using the Rocket.Chat API."""
 
-TIMEOUT = 4 # seconds
+TIMEOUT = 4  # seconds
+
 
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
 
     parser.add_argument(
         '--datetime',
         help='Set the message timestamp.',
-        default=None,
-        type=str,
         dest='DATETIME',
         required=True,
     )
@@ -47,8 +48,6 @@ def parse_args():
     parser.add_argument(
         '--host-displayname',
         help='Set the display name of the host.',
-        default=None,
-        type=str,
         dest='HOST_DISPLAYNAME',
         required=True,
     )
@@ -56,16 +55,12 @@ def parse_args():
     parser.add_argument(
         '--host-output',
         help='Set the host output.',
-        default=None,
-        type=str,
         dest='HOST_OUTPUT',
     )
 
     parser.add_argument(
         '--host-state',
         help='Set the host state.',
-        default=None,
-        type=str,
         dest='HOST_STATE',
         required=True,
     )
@@ -73,55 +68,40 @@ def parse_args():
     parser.add_argument(
         '--hostname',
         help='Set the hostname.',
-        default=None,
-        type=str,
         dest='HOSTNAME',
     )
 
     parser.add_argument(
         '--icingaweb2-url',
         help='Set the Icinga Web 2 URL, for example "https://example.com/icingaweb2".',
-        default=None,
-        type=str,
         dest='ICINGAWEB2_URL',
     )
 
     parser.add_argument(
         '--notification-author',
         help='Set the author of the comment.',
-        default=None,
-        type=str,
         dest='NOTIFICATION_AUTHOR',
     )
 
     parser.add_argument(
         '--notification-comment',
         help='Set the comment.',
-        default=None,
-        type=str,
         dest='NOTIFICATION_COMMENT',
     )
 
     parser.add_argument(
         '--rocketchat-mentions',
-        help='Set the Rocket.Chat Mentions (repeating).',
-        type=str,
+        help='Set the Rocket.Chat mentions. Can be specified multiple times.',
         action='append',
+        default=None,
         dest='ROCKETCHAT_MENTIONS',
     )
 
     parser.add_argument(
         '--rocketchat-url',
         help='Set the Rocket.Chat Webhook API URL.',
-        type=str,
         dest='ROCKETCHAT_URL',
         required=True,
-    )
-
-    parser.add_argument(
-        '-V', '--version',
-        action='version',
-        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     args, _ = parser.parse_known_args()
@@ -129,8 +109,7 @@ def parse_args():
 
 
 def main():
-    """The main function. Hier spielt die Musik.
-    """
+    """The main function. This is where the magic happens."""
 
     # parse the command line
     try:
@@ -138,6 +117,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # build the message
     message = (
         f'{args.HOST_STATE:.4}:'
         f' {args.HOST_DISPLAYNAME}'
@@ -148,23 +128,13 @@ def main():
     )
 
     if args.NOTIFICATION_COMMENT:
-        comment = f'\nCOMMENT: {args.NOTIFICATION_COMMENT} ({args.NOTIFICATION_AUTHOR})'
-        message += comment
-
-    notifying_hostname = socket.gethostname().split('.', 1)[0] # short hostname of the icinga2 server sending the notif
-    icingaweb2_url = None
-    if args.ICINGAWEB2_URL and args.HOSTNAME:
-        params = urllib.parse.urlencode(
-            {
-                'name': args.HOSTNAME,
-            },
-            quote_via=urllib.parse.quote
+        message += (
+            f'\nCOMMENT: {args.NOTIFICATION_COMMENT} ({args.NOTIFICATION_AUTHOR})'
         )
 
-        icingaweb2_url = urllib.parse.urljoin(
-            f'{args.ICINGAWEB2_URL}/',
-            f'icingadb/host?{params}'
-        )
+    # short hostname of the monitoring host sending the notification
+    notifying_hostname = socket.gethostname().split('.', 1)[0]
+    icingaweb2_url = lib.icinga.build_icingaweb2_url(args.ICINGAWEB2_URL, args.HOSTNAME)
 
     if args.ROCKETCHAT_MENTIONS:
         message += '\n'
@@ -180,35 +150,27 @@ def main():
 
     if icingaweb2_url:
         data = {
-            "icon_emoji": icon,
-            "text": message,
-            "attachments": [
+            'icon_emoji': icon,
+            'text': message,
+            'attachments': [
                 {
-                    "title": notifying_hostname,
-                    "title_link": icingaweb2_url,
+                    'title': notifying_hostname,
+                    'title_link': icingaweb2_url,
                 }
-            ]
+            ],
         }
     else:
         data = {
-            "emoji": icon,
-            "text": message
+            'emoji': icon,
+            'text': message,
         }
 
-    lib.base.coe(lib.url.fetch_json(
-        args.ROCKETCHAT_URL,
-        header={
-            'Content-Type': 'application/json',
-        },
-        data=data,
-        encoding='serialized-json',
-        extended=True,
-        timeout=TIMEOUT,
-    ))
+    # over and out
+    lib.base.coe(lib.rocket.send_message(args.ROCKETCHAT_URL, data, timeout=TIMEOUT))
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:
         lib.base.cu()

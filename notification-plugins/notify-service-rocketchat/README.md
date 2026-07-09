@@ -3,7 +3,7 @@
 
 ## Overview
 
-Sends service notifications using the RocketChat API, falling back to Telegram.
+Sends service notifications using the Rocket.Chat API.
 
 
 ## Fact Sheet
@@ -18,8 +18,9 @@ Sends service notifications using the RocketChat API, falling back to Telegram.
 ## Help
 
 ```text
-usage: notify-service-rocketchat [-h] --datetime DATETIME --host-displayname
-                                 HOST_DISPLAYNAME [--hostname HOSTNAME]
+usage: notify-service-rocketchat [-h] [-V] --datetime DATETIME
+                                 --host-displayname HOST_DISPLAYNAME
+                                 [--hostname HOSTNAME]
                                  [--icingaweb2-url ICINGAWEB2_URL]
                                  [--notification-author NOTIFICATION_AUTHOR]
                                  [--notification-comment NOTIFICATION_COMMENT]
@@ -27,12 +28,13 @@ usage: notify-service-rocketchat [-h] --datetime DATETIME --host-displayname
                                  --rocketchat-url ROCKETCHAT_URL
                                  [--service-output SERVICE_OUTPUT]
                                  --service-state SERVICE_STATE
-                                 [--servicename SERVICENAME] [-V]
+                                 [--servicename SERVICENAME]
 
-Sends service notifications using the RocketChat API.
+Sends service notifications using the Rocket.Chat API.
 
 options:
   -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
   --datetime DATETIME   Set the message timestamp.
   --host-displayname HOST_DISPLAYNAME
                         Set the display name of the host.
@@ -45,7 +47,8 @@ options:
   --notification-comment NOTIFICATION_COMMENT
                         Set the comment.
   --rocketchat-mentions ROCKETCHAT_MENTIONS
-                        Set the Rocket.Chat Mentions (repeating).
+                        Set the Rocket.Chat mentions. Can be specified
+                        multiple times.
   --rocketchat-url ROCKETCHAT_URL
                         Set the Rocket.Chat Webhook API URL.
   --service-output SERVICE_OUTPUT
@@ -54,7 +57,6 @@ options:
                         Set the service state.
   --servicename SERVICENAME
                         Set the servicename.
-  -V, --version         show program's version number and exit
 ```
 
 
