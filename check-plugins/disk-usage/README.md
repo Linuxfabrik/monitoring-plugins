@@ -26,7 +26,7 @@ Checks used or free disk space for each mounted partition. By default, only phys
 |----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-usage> |
 | Nagios/Icinga Check Name              | `check_disk_usage` |
-| Check Interval Recommendation         | Every 5 minutes |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |

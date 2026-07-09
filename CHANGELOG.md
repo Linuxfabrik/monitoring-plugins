@@ -38,6 +38,7 @@ Monitoring Plugins:
 * cpu-usage, disk-io, fs-xfs-stats, jitsi-videobridge-stats, network-io, nginx-status, nodebb-cache, nodebb-errors, procs, redis-status, starface-database-stats, valkey-status, wildfly-gc-status: cumulative counters are now reported as per-second rates (or plain values) instead of ever-growing totals, fixing Grafana graphs and aggregations; some performance-data metric names changed, so re-import the affected Grafana dashboards after updating ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 * disk-io: iowait is reported as saturated CPU cores instead of a percentage that could exceed 100% on multi-core hosts
 * disk-usage: mountpoints are now filtered with `--match`/`--ignore`; the old `--include-*`/`--exclude-*` options keep working
+* disk-usage: runs every minute instead of every 5 minutes, so a filling disk is noticed earlier
 * docker-stats, podman-stats: select or exclude containers by name with `--match`/`--ignore`, plus `--no-match-severity`
 * mysql-innodb-log-waits: alerts only on real InnoDB log waits, no longer on a low write-log efficiency that raising `innodb_log_buffer_size` cannot fix
 * mysql-logfile: documents case-insensitive ignore matching and how to silence harmless idle-connection-timeout warnings
