@@ -46,7 +46,7 @@ warnings.filterwarnings('ignore', category=CryptographyDeprecationWarning)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070801'
+__version__ = '2026070901'
 
 DESCRIPTION = """Inspects X.509 certificates and alerts on days remaining until expiry,
 hostname mismatch and chain verification failures. Sources via --source: `url` fetches the
@@ -74,7 +74,10 @@ interfaces); see --ports for the full default list."""
 
 DEFAULT_CRIT = '5:'
 DEFAULT_LENGTHY = False
-DEFAULT_MAX_WORKERS = 10
+# A scan spends nearly all of its time blocked on connects to addresses where no host answers,
+# so the thread count, not the CPU, decides whether a sparsely populated subnet finishes inside
+# the check timeout. Every host of the scanned subnet is probed on every port of --ports.
+DEFAULT_MAX_WORKERS = 100
 # Common TLS ports in a data center: HTTPS (443), SMTPS (465), LDAPS (636),
 # FTPS (990), IMAPS (993), POP3S (995), LDAPS global catalog (3269), AMQPS (5671),
 # WinRM (5986), Kubernetes API (6443), Proxmox (8006), Vault (8200), HTTPS-alt /

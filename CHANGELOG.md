@@ -34,6 +34,7 @@ Monitoring Plugins:
 
 * about-me: recognizes an installed Apache Tomcat when guessing Icinga Director tags
 * all plugins: the internal `--test` parameter is no longer shown in `--help`
+* cert: a `/24` scan on the default ports finishes within the check timeout instead of taking about 20 minutes
 * cpu-usage, disk-io, fs-xfs-stats, jitsi-videobridge-stats, network-io, nginx-status, nodebb-cache, nodebb-errors, procs, redis-status, starface-database-stats, valkey-status, wildfly-gc-status: cumulative counters are now reported as per-second rates (or plain values) instead of ever-growing totals, fixing Grafana graphs and aggregations; some performance-data metric names changed, so re-import the affected Grafana dashboards after updating ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 * disk-io: iowait is reported as saturated CPU cores instead of a percentage that could exceed 100% on multi-core hosts
 * disk-usage: mountpoints are now filtered with `--match`/`--ignore`; the old `--include-*`/`--exclude-*` options keep working
