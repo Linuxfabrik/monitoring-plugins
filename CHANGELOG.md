@@ -28,7 +28,7 @@ Monitoring Plugins:
 
 Build, CI/CD:
 
-* Bump pinned `linuxfabrik-lib` to 5.1.0
+* Bump pinned `linuxfabrik-lib` to 6.0.0
 
 Monitoring Plugins:
 
@@ -76,6 +76,7 @@ Monitoring Plugins:
 Build, CI/CD:
 
 * installer: the source install no longer makes the monitoring user own the plugins, the bundled library and the dependency venv; they stay owned by root, closing a local root code-execution path (the monitoring user could otherwise edit a plugin or library that runs as root via sudo)
+* requirements: the py39 lockfile (RHEL 8, RHEL 9, Debian 11) bundles a `soupsieve` that is not vulnerable to two denial-of-service issues in its CSS selector parser
 
 Monitoring Plugins:
 

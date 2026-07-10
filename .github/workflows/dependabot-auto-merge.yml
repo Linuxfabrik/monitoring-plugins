@@ -5,6 +5,12 @@ on:
 
 permissions: 'read-all'
 
+env:
+  # Lockfiles that have no `directory:` entry in `.github/dependabot.yml`
+  # because upstream packages keep raising their minimum Python. Dependabot
+  # security updates ignore that allowlist, so a bump can still show up here.
+  FROZEN_LOCKFILES: '["/lockfiles/py39", "/lockfiles/py310"]'
+
 jobs:
   auto-merge:
     runs-on: 'ubuntu-latest'
@@ -17,27 +23,29 @@ jobs:
       - uses: 'dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98' # v3.1.0
         id: 'meta'
 
-      # Block bumps against the py39 lockfile. Python 3.9 has been
-      # dropped by most upstream packages over 2025/2026, and
-      # Dependabot does not honour `Requires-Python` when proposing
-      # versions. Dependabot security updates also ignore the
-      # `directory:` allowlist in `.github/dependabot.yml`, so the
-      # freeze has to be enforced here. The py39 lockfile is
-      # maintained manually via `pip-compile` on a Python 3.9 host.
-      - if: "startsWith(steps.meta.outputs.directory, '/lockfiles/py39')"
+      # A bump against a frozen lockfile is left open for a human. Dependabot
+      # does not honour `Requires-Python`, so it may propose a version that
+      # drops the interpreter the lockfile exists for (py39 -> RHEL 8, RHEL 9,
+      # Debian 11; py310 -> Ubuntu 22.04). It may equally propose a security
+      # fix that still supports it. Only a human can tell the two apart, so
+      # the PR is neither merged nor closed. Regenerate the lockfile with
+      # `pip-compile` on a matching Python host once the bump is accepted.
+      - if: >-
+          contains(fromJSON(env.FROZEN_LOCKFILES), steps.meta.outputs.directory)
+          && github.event.action == 'opened'
         run: |
-          gh pr close "$PR_URL" \
-            --comment 'Auto-closed: `lockfiles/py39` is frozen because Python 3.9 is dropped by most upstream packages. Lockfile is maintained manually via pip-compile when an actual fix lands that still supports 3.9.' \
-            --delete-branch
+          gh pr comment "$PR_URL" --body "Not auto-merged: \`${DIRECTORY}\` is frozen because Dependabot does not honour \`Requires-Python\`. Check whether \`${DEPENDENCY}\` still supports that lockfile's interpreter. If it does, regenerate the lockfile with \`pip-compile\` on a matching Python host. Either way, close this PR afterwards."
         env:
-          PR_URL: '${{ github.event.pull_request.html_url }}'
+          DEPENDENCY: '${{ steps.meta.outputs.dependency-names }}'
+          DIRECTORY: '${{ steps.meta.outputs.directory }}'
           GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          PR_URL: '${{ github.event.pull_request.html_url }}'
 
       - if: >-
-          !startsWith(steps.meta.outputs.directory, '/lockfiles/py39')
+          !contains(fromJSON(env.FROZEN_LOCKFILES), steps.meta.outputs.directory)
           && (steps.meta.outputs.update-type == 'version-update:semver-patch'
               || steps.meta.outputs.update-type == 'version-update:semver-minor')
         run: 'gh pr merge --auto --squash "$PR_URL"'
         env:
-          PR_URL: '${{ github.event.pull_request.html_url }}'
           GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          PR_URL: '${{ github.event.pull_request.html_url }}'
