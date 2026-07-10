@@ -75,6 +75,7 @@ Monitoring Plugins:
 
 Build, CI/CD:
 
+* documentation: the workflow that publishes the documentation site installs mkdocs from a hash-pinned requirements file instead of resolving it at build time
 * installer: the source install no longer makes the monitoring user own the plugins, the bundled library and the dependency venv; they stay owned by root, closing a local root code-execution path (the monitoring user could otherwise edit a plugin or library that runs as root via sudo)
 * requirements: the py39 lockfile (RHEL 8, RHEL 9, Debian 11) bundles a `soupsieve` that is not vulnerable to two denial-of-service issues in its CSS selector parser
 
