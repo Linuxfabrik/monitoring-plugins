@@ -35,7 +35,8 @@ Checks the expiration dates of certificates and CRLs stored in a XCA-managed MyS
 ## Help
 
 ```text
-usage: xca-cert [-h] [-V] [-c CRIT] [--defaults-file DEFAULTS_FILE]
+usage: xca-cert [-h] [-V] [--always-ok] [-c CRIT]
+                [--defaults-file DEFAULTS_FILE]
                 [--defaults-group DEFAULTS_GROUP] [--prefix PREFIX]
                 [--timeout TIMEOUT] [-w WARN]
 
@@ -46,6 +47,7 @@ already expired.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold for certificate expiration in days.
                         Default: 5
   --defaults-file DEFAULTS_FILE

@@ -31,7 +31,8 @@ Checks the state of systemd-timesyncd, including synchronization status, server 
 ## Help
 
 ```text
-usage: ntp-systemd-timesyncd [-h] [-V] [--no-perfdata] [--stratum STRATUM]
+usage: ntp-systemd-timesyncd [-h] [-V] [--always-ok] [--no-perfdata]
+                             [--stratum STRATUM]
 
 Checks the state of systemd-timesyncd, including synchronization status,
 server reachability, and stratum level. Alerts if time synchronization is
@@ -40,6 +41,7 @@ inactive or if the stratum exceeds the configured limit.
 options:
   -h, --help         show this help message and exit
   -V, --version      show program's version number and exit
+  --always-ok        Always returns OK.
   --no-perfdata      Suppress the performance data section from the output.
                      The status message and the exit code are unaffected, so
                      alerting keeps working while trending data is dropped.

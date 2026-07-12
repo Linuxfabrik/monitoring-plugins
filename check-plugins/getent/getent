@@ -18,7 +18,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061202'
+__version__ = '2026071201'
 
 DESCRIPTION = """Queries the Name Service Switch (NSS) for entries in system
 databases such as group, hosts, networks, passwd, protocols, or services.
@@ -36,6 +36,14 @@ def parse_args():
         '--version',
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -115,7 +123,7 @@ def main():
         state = STATE_UNKNOWN
 
     # over and out
-    lib.base.oao(msg, state)
+    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

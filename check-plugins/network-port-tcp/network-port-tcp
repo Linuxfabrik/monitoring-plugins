@@ -19,7 +19,7 @@ import lib.base
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026050801'
+__version__ = '2026071201'
 
 DESCRIPTION = """Checks whether a TCP network port is reachable by attempting to establish a connection.
 Measures and reports the connection time. Useful for monitoring service availability
@@ -42,6 +42,14 @@ def parse_args():
         '--version',
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -133,6 +141,7 @@ def main():
     lib.base.oao(
         f'{args.HOSTNAME}:{port_display}/{args.TYPE} is {reachability}.',
         state,
+        always_ok=args.ALWAYS_OK,
     )
 
 

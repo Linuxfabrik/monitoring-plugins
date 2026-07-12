@@ -22,7 +22,7 @@ import lib.time
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026071201'
 
 DESCRIPTION = """Retrieves recent events from the NodeBB event log via the admin API. Reports
 administrative actions such as user bans, plugin activations, and configuration
@@ -43,6 +43,14 @@ def parse_args():
         '--version',
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -166,7 +174,7 @@ def main():
             msg += lib.base.get_table(table_data, keys, header=headers)
 
     # over and out
-    lib.base.oao(msg, STATE_OK)
+    lib.base.oao(msg, STATE_OK, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

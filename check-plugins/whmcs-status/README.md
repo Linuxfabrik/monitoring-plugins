@@ -67,9 +67,10 @@ Note the api_identifier and the api_secret. You will need both to configure this
 ## Help
 
 ```text
-usage: whmcs-status [-h] [-V] --identifier IDENTIFIER [--insecure]
-                    [--no-perfdata] [--no-proxy] [-p PASSWORD] --secret SECRET
-                    [--timeout TIMEOUT] [--url URL] [--username USERNAME]
+usage: whmcs-status [-h] [-V] [--always-ok] --identifier IDENTIFIER
+                    [--insecure] [--no-perfdata] [--no-proxy] [-p PASSWORD]
+                    --secret SECRET [--timeout TIMEOUT] [--url URL]
+                    [--username USERNAME]
 
 Monitors the health status of a WHMCS installation via its system status API.
 Reports module versions, license status, and system health indicators. Alerts
@@ -78,6 +79,7 @@ when the server reports an unhealthy state.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --identifier IDENTIFIER
                         WHMCS API identifier.
   --insecure            This option explicitly allows insecure SSL

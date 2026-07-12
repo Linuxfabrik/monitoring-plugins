@@ -2,6 +2,9 @@
     "Command": {
         "cmd-check-getent": {
             "arguments": {
+                "--always-ok": {
+                    "set_if": "$getent_always_ok$"
+                },
                 "--database": {
                     "value": "$getent_database$"
                 },
@@ -20,6 +23,11 @@
                 },
                 {
                     "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -76,6 +84,7 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
+                "getent_always_ok": false,
                 "getent_database": "group",
                 "getent_key": []
             },
@@ -86,6 +95,15 @@
     },
     "Datafield": {
         "1": {
+            "varname": "getent_always_ok",
+            "caption": "Getent: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "2c4bdb2e-4018-45e2-ab82-459b73924d8f"
+        },
+        "2": {
             "varname": "getent_database",
             "caption": "Getent: Database",
             "description": "NSS database to query. May be any database supported by \"getent\". Example: `--database passwd`.",
@@ -96,7 +114,7 @@
             },
             "uuid": "2f61446a-f0b4-4d8b-a590-cbd2d726d4eb"
         },
-        "2": {
+        "3": {
             "varname": "getent_key",
             "caption": "Getent: Key",
             "description": "Lookup key to search for in the database. If not specified, all entries are fetched (unless the database does not support enumeration). Can be specified multiple times. Example: `--key root --key nobody`.",

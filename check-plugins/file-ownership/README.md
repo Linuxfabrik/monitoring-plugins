@@ -91,23 +91,16 @@ Default files checked:
 ## Help
 
 ```text
-usage: file-ownership [-h] [-V] [--filename FILES] [--no-default-files]
-
-Verifies that critical system files have the expected owner and group. Ships
-with a built-in list of important files (GRUB, SSH, sudoers, PAM, cron, etc.)
-and supports custom entries. Alerts when the actual ownership does not match
-the expected values.
-
-options:
-  -h, --help          show this help message and exit
-  -V, --version       show program's version number and exit
-  --filename FILES    File to be checked. Format: `owner:group,path`. Can be
-                      specified multiple times. User-supplied entries are
-                      merged with the default file list. If the same path
-                      appears in both, the user-supplied entry wins. Example:
-                      `--filename root:root,/etc/passwd`.
-  --no-default-files  Only check files specified via `--filename`, skip the
-                      built-in default file list.
+Traceback (most recent call last):
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/file-ownership/file-ownership", line 230, in 'module'
+    main()
+    ~~~~^^
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/file-ownership/file-ownership", line 183, in main
+    args = parse_args()
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/file-ownership/file-ownership", line 106, in parse_args
+    help=lib.args.help('--always-ok'),
+         ^^^^^^^^
+AttributeError: module 'lib' has no attribute 'args'
 ```
 
 

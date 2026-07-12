@@ -32,9 +32,9 @@ Monitors Rocket.Chat server statistics via the API, including total users, activ
 ## Help
 
 ```text
-usage: rocketchat-stats [-h] [-V] [--insecure] [--no-perfdata] [--no-proxy]
-                        -p PASSWORD [--timeout TIMEOUT] [--url URL]
-                        --username USERNAME
+usage: rocketchat-stats [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
+                        [--no-proxy] -p PASSWORD [--timeout TIMEOUT]
+                        [--url URL] --username USERNAME
 
 Monitors Rocket.Chat server statistics via the API, including total users,
 active users, online users, channels, messages, uploads, and file storage
@@ -43,6 +43,7 @@ usage. Requires a user with "view-statistics" permission.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --no-perfdata         Suppress the performance data section from the output.

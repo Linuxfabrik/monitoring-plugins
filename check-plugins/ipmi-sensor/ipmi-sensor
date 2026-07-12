@@ -52,6 +52,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '--authtype',
         help='Authentication type for IPMIv1.5 lan session activation. '
         'Supported types are NONE, PASSWORD, MD2, MD5, or OEM. '
@@ -291,7 +299,9 @@ def main():
         )
 
     # over and out
-    lib.base.oao(msg, state, perfdata, no_perfdata=args.NO_PERFDATA)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

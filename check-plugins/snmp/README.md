@@ -43,9 +43,10 @@ Queries SNMP OIDs defined in a CSV file and checks the returned values against o
 ## Help
 
 ```text
-usage: snmp [-h] [-V] [--community COMMUNITY] [--device DEVICE] [--hide-ok]
-            [--hide-table] -H HOSTNAME [--mib MIB] [--mib-dir MIB_DIR]
-            [--no-perfdata] [--snmp-version {1,2c,3}] [-t TIMEOUT]
+usage: snmp [-h] [-V] [--always-ok] [--community COMMUNITY] [--device DEVICE]
+            [--hide-ok] [--hide-table] -H HOSTNAME [--mib MIB]
+            [--mib-dir MIB_DIR] [--no-perfdata] [--snmp-version {1,2c,3}]
+            [-t TIMEOUT]
             [--v3-auth-prot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}]
             [--v3-auth-prot-password V3_AUTH_PROT_PASSWORD]
             [--v3-boots-time V3_BOOTS_TIME] [--v3-context V3_CONTEXT]
@@ -63,6 +64,7 @@ authentication and privacy protocols.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --community COMMUNITY
                         SNMP v1/v2c community string. Default: public
   --device DEVICE       CSV file containing the SNMP OIDs. A bare filename is

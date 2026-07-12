@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061202'
+__version__ = '2026071201'
 
 DESCRIPTION = """Checks how long ago the last APT package manager activity occurred (install, update, or remove). Alerts if no package management activity has happened within the configured thresholds (default: WARN after 90 days, CRIT after 365 days). Useful for detecting servers that have not been patched in a long time."""
 
@@ -40,6 +40,14 @@ def parse_args():
         '--version',
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -95,6 +103,7 @@ def main():
             lib.base.oao(
                 f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
                 STATE_WARN,
+                always_ok=args.ALWAYS_OK,
             )
     else:
         # do not call the command, put in test data
@@ -113,6 +122,7 @@ def main():
             'been deleted. The best thing to do is to reinstall '
             'these packages.',
             STATE_WARN,
+            always_ok=args.ALWAYS_OK,
         )
     except Exception:
         lib.base.cu('Unable to get dpkg-query info, maybe an update never happened.')
@@ -132,6 +142,7 @@ def main():
             f' (thresholds {args.WARN}D/{args.CRIT}D).'
         ),
         state,
+        always_ok=args.ALWAYS_OK,
     )
 
 

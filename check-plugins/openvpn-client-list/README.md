@@ -32,8 +32,8 @@ Lists all clients currently connected to an OpenVPN server by parsing the status
 ## Help
 
 ```text
-usage: openvpn-client-list [-h] [-V] [-c CRIT] [--filename FILENAME]
-                           [--no-perfdata] [-w WARN]
+usage: openvpn-client-list [-h] [-V] [--always-ok] [-c CRIT]
+                           [--filename FILENAME] [--no-perfdata] [-w WARN]
 
 Lists all clients currently connected to an OpenVPN server by parsing the
 status log file. Reports client name, remote address, bytes received and sent,
@@ -42,6 +42,7 @@ and connection time. Requires root or sudo.
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
+  --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for the number of connected clients.
                        Default: None
   --filename FILENAME  Path to the OpenVPN status log file. Default:

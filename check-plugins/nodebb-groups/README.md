@@ -32,8 +32,8 @@ Monitors NodeBB group statistics via the admin API, including group count and me
 ## Help
 
 ```text
-usage: nodebb-groups [-h] [-V] [--insecure] [--no-perfdata] [--no-proxy]
-                     [--timeout TIMEOUT] -p TOKEN [--url URL]
+usage: nodebb-groups [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
+                     [--no-proxy] [--timeout TIMEOUT] -p TOKEN [--url URL]
 
 Monitors NodeBB group statistics via the admin API, including group count and
 membership numbers.
@@ -41,6 +41,7 @@ membership numbers.
 options:
   -h, --help         show this help message and exit
   -V, --version      show program's version number and exit
+  --always-ok        Always returns OK.
   --insecure         This option explicitly allows insecure SSL connections.
   --no-perfdata      Suppress the performance data section from the output.
                      The status message and the exit code are unaffected, so

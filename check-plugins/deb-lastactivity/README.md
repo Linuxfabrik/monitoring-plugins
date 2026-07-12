@@ -32,7 +32,7 @@ Checks how long ago the last APT package manager activity occurred (install, upd
 ## Help
 
 ```text
-usage: deb-lastactivity [-h] [-V] [-c CRIT] [-w WARN]
+usage: deb-lastactivity [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
 
 Checks how long ago the last APT package manager activity occurred (install,
 update, or remove). Alerts if no package management activity has happened
@@ -42,6 +42,7 @@ days). Useful for detecting servers that have not been patched in a long time.
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
+  --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for time since last package manager
                        activity, in days. Default: 365
   -w, --warning WARN   WARN threshold for time since last package manager

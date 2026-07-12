@@ -2,6 +2,9 @@
     "Command": {
         "cmd-check-restic-stats": {
             "arguments": {
+                "--always-ok": {
+                    "set_if": "$restic_stats_always_ok$"
+                },
                 "--host": {
                     "value": "$restic_stats_host$",
                     "repeat_key": true
@@ -57,11 +60,16 @@
                 },
                 {
                     "datafield_id": 6,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 7,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -118,6 +126,7 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
+                "restic_stats_always_ok": false,
                 "restic_stats_host": [],
                 "restic_stats_mode": "restore-size",
                 "restic_stats_no_perfdata": false,
@@ -164,6 +173,15 @@
     },
     "Datafield": {
         "1": {
+            "varname": "restic_stats_always_ok",
+            "caption": "Restic Stats: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "f1a2f212-1186-4402-9ac2-896e63d65692"
+        },
+        "2": {
             "varname": "restic_stats_host",
             "caption": "Restic Stats: Host",
             "description": "Only consider snapshots for this host. Can be specified multiple times.",
@@ -174,7 +192,7 @@
             },
             "uuid": "ccbcd454-8a91-4f07-bd41-4f15427dd806"
         },
-        "2": {
+        "3": {
             "varname": "restic_stats_mode",
             "caption": "Restic Stats: Mode",
             "description": "Counting mode for the statistics calculation.",
@@ -187,7 +205,7 @@
             },
             "uuid": "84007f0a-f84c-4b51-abf7-acbece83df66"
         },
-        "3": {
+        "4": {
             "varname": "restic_stats_no_perfdata",
             "caption": "Restic Stats: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -196,7 +214,7 @@
             "settings": {},
             "uuid": "9462adbe-8f4c-4410-9de1-226ca5e95a80"
         },
-        "4": {
+        "5": {
             "varname": "restic_stats_password_file",
             "caption": "Restic Stats: Password File",
             "description": "Path to the file containing the repository password.",
@@ -207,7 +225,7 @@
             },
             "uuid": "f4ba8e92-6775-473c-a3e8-14ede8f012d4"
         },
-        "5": {
+        "6": {
             "varname": "restic_stats_path",
             "caption": "Restic Stats: Path",
             "description": "Only consider snapshots for this path. Can be specified multiple times.",
@@ -218,7 +236,7 @@
             },
             "uuid": "0f3f29c2-c889-453c-9d5b-6fb2c87308e9"
         },
-        "6": {
+        "7": {
             "varname": "restic_stats_repo",
             "caption": "Restic Stats: Repo",
             "description": "Restic repository location.",
@@ -229,7 +247,7 @@
             },
             "uuid": "0a0184a5-481e-4445-963a-a57896d91172"
         },
-        "7": {
+        "8": {
             "varname": "restic_stats_tag",
             "caption": "Restic Stats: Tag",
             "description": "Only consider snapshots matching this taglist in the format `tag[,tag,...]`. Can be specified multiple times.",

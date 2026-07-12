@@ -35,8 +35,9 @@ Checks the IPMI System Event Log (SEL) for entries and alerts when events are fo
 ## Help
 
 ```text
-usage: ipmi-sel [-h] [-V] [--authtype {NONE,PASSWORD,MD2,MD5,OEM}]
-                [-H HOSTNAME] [--ignore IGNORE] [--interface {lan,lanplus}]
+usage: ipmi-sel [-h] [-V] [--always-ok]
+                [--authtype {NONE,PASSWORD,MD2,MD5,OEM}] [-H HOSTNAME]
+                [--ignore IGNORE] [--interface {lan,lanplus}]
                 [--password PASSWORD] [--port PORT]
                 [--privlevel {CALLBACK,USER,OPERATOR,ADMINISTRATOR}]
                 [--username USERNAME]
@@ -48,6 +49,7 @@ resolving issues, run "ipmitool sel clear". Requires root or sudo.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --authtype {NONE,PASSWORD,MD2,MD5,OEM}
                         Authentication type for IPMIv1.5 lan session
                         activation. Supported types are NONE, PASSWORD, MD2,

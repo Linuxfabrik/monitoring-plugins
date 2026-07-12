@@ -21,7 +21,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061201'
+__version__ = '2026071201'
 
 DESCRIPTION = """Verifies the integrity of a restic backup repository by running "restic check". Alerts
 when the repository contains errors or inconsistencies.
@@ -37,6 +37,14 @@ def parse_args():
         '--version',
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -113,7 +121,7 @@ def main():
         state = STATE_WARN
 
     # over and out
-    lib.base.oao(msg, state)
+    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

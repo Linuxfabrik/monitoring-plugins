@@ -33,8 +33,9 @@ Reports account statistics of a Starface PBX, including ringing, active, availab
 ## Help
 
 ```text
-usage: starface-account-stats [-h] [-V] [--cache-expire CACHE_EXPIRE]
-                              [-H HOSTNAME] [--no-perfdata] [--port PORT]
+usage: starface-account-stats [-h] [-V] [--always-ok]
+                              [--cache-expire CACHE_EXPIRE] [-H HOSTNAME]
+                              [--no-perfdata] [--port PORT]
                               [--timeout TIMEOUT] [--ipv6]
 
 Monitors account statistics of a Starface PBX via its monitoring module on
@@ -45,6 +46,7 @@ to avoid overloading the PBX when multiple checks run in parallel.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 1

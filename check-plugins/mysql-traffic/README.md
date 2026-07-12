@@ -36,7 +36,7 @@ Reports MySQL/MariaDB traffic statistics including uptime, queries per second, t
 ## Help
 
 ```text
-usage: mysql-traffic [-h] [-V] [--defaults-file DEFAULTS_FILE]
+usage: mysql-traffic [-h] [-V] [--always-ok] [--defaults-file DEFAULTS_FILE]
                      [--defaults-group DEFAULTS_GROUP] [--no-perfdata]
                      [--timeout TIMEOUT]
 
@@ -50,6 +50,7 @@ them without `non_negative_difference()` workarounds.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --defaults-file DEFAULTS_FILE
                         MySQL/MariaDB cnf file to read user, host and password
                         from. Example: `--defaults-

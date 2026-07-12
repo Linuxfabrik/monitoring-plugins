@@ -36,9 +36,9 @@ Collects and displays key system information: OS and kernel version, CPU configu
 ## Help
 
 ```text
-usage: about-me [-h] [-V] [--dmidecode] [--insecure] [--no-perfdata]
-                [--no-proxy] [--public-ip-url PUBLIC_IP_URL] [--tags]
-                [--timeout TIMEOUT]
+usage: about-me [-h] [-V] [--always-ok] [--dmidecode] [--insecure]
+                [--no-perfdata] [--no-proxy] [--public-ip-url PUBLIC_IP_URL]
+                [--tags] [--timeout TIMEOUT]
 
 Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk
@@ -51,6 +51,7 @@ alerts. Requires root or sudo.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --dmidecode           Gather additional hardware information via the
                         `dmidecode` command, such as system components, serial
                         numbers, and BIOS revisions. Requires sudo

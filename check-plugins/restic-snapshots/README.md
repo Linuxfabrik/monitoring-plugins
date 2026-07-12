@@ -35,10 +35,11 @@ Checks the age of the newest snapshot in a restic repository and alerts when the
 ## Help
 
 ```text
-usage: restic-snapshots [-h] [-V] [-c CRIT] [--group-by GROUP_BY]
-                        [--host HOST] [--latest LATEST] [--lengthy]
-                        [--no-perfdata] [--password-file PASSWORD_FILE]
-                        [--path PATH] --repo REPO [--tag TAG] [-w WARN]
+usage: restic-snapshots [-h] [-V] [--always-ok] [-c CRIT]
+                        [--group-by GROUP_BY] [--host HOST] [--latest LATEST]
+                        [--lengthy] [--no-perfdata]
+                        [--password-file PASSWORD_FILE] [--path PATH]
+                        --repo REPO [--tag TAG] [-w WARN]
 
 Checks the age of the newest snapshot in a restic repository. Alerts when the
 most recent backup is older than the configured thresholds. Useful for
@@ -48,6 +49,7 @@ detecting failed or missing backup runs. Supports extended reporting via
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold for the age of the newest snapshot in
                         each group, in hours. Default: None
   --group-by GROUP_BY   Comma-separated list of fields to group snapshots by.

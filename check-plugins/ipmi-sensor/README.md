@@ -35,8 +35,9 @@ Checks IPMI sensor readings (temperature, voltage, fan speed, power, etc.) using
 ## Help
 
 ```text
-usage: ipmi-sensor [-h] [-V] [--authtype {NONE,PASSWORD,MD2,MD5,OEM}]
-                   [-H HOSTNAME] [--interface {lan,lanplus}] [--no-perfdata]
+usage: ipmi-sensor [-h] [-V] [--always-ok]
+                   [--authtype {NONE,PASSWORD,MD2,MD5,OEM}] [-H HOSTNAME]
+                   [--interface {lan,lanplus}] [--no-perfdata]
                    [--password PASSWORD] [--port PORT]
                    [--privlevel {CALLBACK,USER,OPERATOR,ADMINISTRATOR}]
                    [--username USERNAME]
@@ -49,6 +50,7 @@ Requires root or sudo.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --authtype {NONE,PASSWORD,MD2,MD5,OEM}
                         Authentication type for IPMIv1.5 lan session
                         activation. Supported types are NONE, PASSWORD, MD2,

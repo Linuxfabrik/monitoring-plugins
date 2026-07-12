@@ -2,6 +2,9 @@
     "Command": {
         "cmd-check-borgbackup": {
             "arguments": {
+                "--always-ok": {
+                    "set_if": "$borgbackup_always_ok$"
+                },
                 "--critical": {
                     "value": "$borgbackup_critical$"
                 },
@@ -27,6 +30,11 @@
                 },
                 {
                     "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -83,6 +91,7 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
+                "borgbackup_always_ok": false,
                 "borgbackup_no_perfdata": false,
                 "borgbackup_warning": 24
             },
@@ -93,6 +102,15 @@
     },
     "Datafield": {
         "1": {
+            "varname": "borgbackup_always_ok",
+            "caption": "BorgBackup: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "9eb16f9f-c17e-40a0-8519-73e55b2344c3"
+        },
+        "2": {
             "varname": "borgbackup_critical",
             "caption": "BorgBackup: Critical",
             "description": "CRIT threshold for the time since the last backup started, in hours.",
@@ -103,7 +121,7 @@
             },
             "uuid": "ca2d032e-4267-40e7-8775-61981c3d80a7"
         },
-        "2": {
+        "3": {
             "varname": "borgbackup_no_perfdata",
             "caption": "BorgBackup: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -112,7 +130,7 @@
             "settings": {},
             "uuid": "f33e5ca0-a7fe-4db8-b72c-8fb8a36df258"
         },
-        "3": {
+        "4": {
             "varname": "borgbackup_warning",
             "caption": "BorgBackup: Warning",
             "description": "WARN threshold for the time since the last backup started, in hours.",

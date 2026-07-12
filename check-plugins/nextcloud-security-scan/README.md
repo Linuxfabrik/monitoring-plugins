@@ -34,8 +34,8 @@ Checks the security of a Nextcloud (or ownCloud) server using the Nextcloud secu
 ## Help
 
 ```text
-usage: nextcloud-security-scan [-h] [-V] [--insecure] [--no-proxy]
-                               [--path PATH] [--timeout TIMEOUT]
+usage: nextcloud-security-scan [-h] [-V] [--always-ok] [--insecure]
+                               [--no-proxy] [--path PATH] [--timeout TIMEOUT]
                                [--trigger TRIGGER] -u URL
 
 Checks the security of a private Nextcloud server using the Nextcloud security
@@ -47,6 +47,7 @@ fresh scan after an update, so the rating never lags behind.
 options:
   -h, --help         show this help message and exit
   -V, --version      show program's version number and exit
+  --always-ok        Always returns OK.
   --insecure         This option explicitly allows insecure SSL connections.
   --no-proxy         Do not use a proxy.
   --path PATH        Local path to the Nextcloud installation, typically the

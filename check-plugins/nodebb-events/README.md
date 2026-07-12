@@ -32,8 +32,8 @@ Retrieves recent events from the NodeBB event log via the admin API. Reports adm
 ## Help
 
 ```text
-usage: nodebb-events [-h] [-V] [--insecure] [--no-proxy] [--timeout TIMEOUT]
-                     -p TOKEN [--url URL]
+usage: nodebb-events [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
+                     [--timeout TIMEOUT] -p TOKEN [--url URL]
 
 Retrieves recent events from the NodeBB event log via the admin API. Reports
 administrative actions such as user bans, plugin activations, and
@@ -42,6 +42,7 @@ configuration changes.
 options:
   -h, --help         show this help message and exit
   -V, --version      show program's version number and exit
+  --always-ok        Always returns OK.
   --insecure         This option explicitly allows insecure SSL connections.
   --no-proxy         Do not use a proxy.
   --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)

@@ -35,6 +35,7 @@ Checks the state of a specific systemd unit (service, socket, device, mount, tim
 ```text
 usage: systemd-unit [-h] [-V]
                     [--activestate {None,activating,active,deactivating,failed,inactive}]
+                    [--always-ok]
                     [--loadstate {None,activating,active,deactivating,failed,inactive,loaded,maintenance,masked,not-found,reloading}]
                     [--machine MACHINE] [--severity {warn,crit}]
                     [--substate {None,abandoned,activating,activating-done,active,auto-restart,cleaning,condition,deactivating,deactivating-sigkill,deactivating-sigterm,dead,elapsed,exited,failed,final-sigkill,final-sigterm,final-watchdog,listening,mounted,mounting,mounting-done,plugged,reload,remounting,remounting-sigkill,remounting-sigterm,running,start,start-chown,start-post,start-pre,stop,stop-post,stop-pre,stop-pre-sigkill,stop-pre-sigterm,stop-sigkill,stop-sigterm,stop-watchdog,tentative,unmounting,unmounting-sigkill,unmounting-sigterm,waiting}]
@@ -55,6 +56,7 @@ options:
                         activation state, i.e. generalization of SUB). Can be
                         specified multiple times. If omitted or set to "None",
                         the unit's active state will not be checked.
+  --always-ok           Always returns OK.
   --loadstate {None,activating,active,deactivating,failed,inactive,loaded,maintenance,masked,not-found,reloading}
                         Expected systemd LoadState, reflecting whether the
                         unit definition was properly loaded. If omitted or set

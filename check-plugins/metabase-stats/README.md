@@ -33,10 +33,10 @@ Retrieves recent activity and usage statistics from a Metabase instance via its 
 ## Help
 
 ```text
-usage: metabase-stats [-h] [-V] [--cache-expire CACHE_EXPIRE] [-c CRIT]
-                      [--insecure] [--no-perfdata] [--no-proxy] -p PASSWORD
-                      [--timeout TIMEOUT] [--url URL] [--username USERNAME]
-                      [-w WARN]
+usage: metabase-stats [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
+                      [-c CRIT] [--insecure] [--no-perfdata] [--no-proxy]
+                      -p PASSWORD [--timeout TIMEOUT] [--url URL]
+                      [--username USERNAME] [-w WARN]
 
 Retrieves recent activity and usage statistics from a Metabase instance via
 its API. Reports active users, executed queries, dashboards, and other
@@ -45,6 +45,7 @@ operational metrics. Credentials are cached to reduce API calls.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
                         Time after which the credential cache expires, in
                         hours. Default: 335

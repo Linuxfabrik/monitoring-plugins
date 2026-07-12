@@ -32,8 +32,8 @@ Reports statistics from a Keycloak server via its HTTP API, including uptime, Ja
 ## Help
 
 ```text
-usage: keycloak-stats [-h] [-V] [--client-id CLIENT_ID] [--insecure]
-                      [--no-perfdata] [--no-proxy] [-p PASSWORD]
+usage: keycloak-stats [-h] [-V] [--always-ok] [--client-id CLIENT_ID]
+                      [--insecure] [--no-perfdata] [--no-proxy] [-p PASSWORD]
                       [--realm REALM] [--timeout TIMEOUT] [--url URL]
                       [--username USERNAME]
 
@@ -44,6 +44,7 @@ and later.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --client-id CLIENT_ID
                         Keycloak API Client-ID. Default: admin-cli
   --insecure            This option explicitly allows insecure SSL

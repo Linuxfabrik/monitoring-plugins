@@ -35,13 +35,13 @@ Checks the status of the last borgbackup run by parsing the borg logfile. Alerts
 
 ```text
 Traceback (most recent call last):
-  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/borgbackup/borgbackup", line 188, in 'module'
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/borgbackup/borgbackup", line 204, in 'module'
     main()
     ~~~~^^
-  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/borgbackup/borgbackup", line 84, in main
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/borgbackup/borgbackup", line 92, in main
     args = parse_args()
-  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/borgbackup/borgbackup", line 59, in parse_args
-    help=lib.args.help('--no-perfdata'),
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/borgbackup/borgbackup", line 49, in parse_args
+    help=lib.args.help('--always-ok'),
          ^^^^^^^^
 AttributeError: module 'lib' has no attribute 'args'
 ```

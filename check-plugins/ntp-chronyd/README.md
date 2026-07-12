@@ -31,8 +31,8 @@ Checks the clock offset of chronyd in milliseconds compared to the configured NT
 ## Help
 
 ```text
-usage: ntp-chronyd [-h] [-V] [-c CRIT] [--no-perfdata] [--stratum STRATUM]
-                   [-w WARN]
+usage: ntp-chronyd [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata]
+                   [--stratum STRATUM] [-w WARN]
 
 Checks the clock offset of chronyd in milliseconds compared to the configured
 NTP servers. Alerts when the offset exceeds the configured thresholds.
@@ -40,6 +40,7 @@ NTP servers. Alerts when the offset exceeds the configured thresholds.
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
+  --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for the NTP time offset, in
                        milliseconds. Default: 86400000ms
   --no-perfdata        Suppress the performance data section from the output.

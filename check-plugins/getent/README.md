@@ -30,21 +30,16 @@ Queries the Name Service Switch (NSS) for entries in system databases such as gr
 ## Help
 
 ```text
-usage: getent [-h] [-V] [--database DATABASE] [--key KEY]
-
-Queries the Name Service Switch (NSS) for entries in system databases such as
-group, hosts, networks, passwd, protocols, or services. Alerts if the lookup
-fails or if a specific key is not found.
-
-options:
-  -h, --help           show this help message and exit
-  -V, --version        show program's version number and exit
-  --database DATABASE  NSS database to query. May be any database supported by
-                       "getent". Example: `--database passwd`. Default: group
-  --key KEY            Lookup key to search for in the database. If not
-                       specified, all entries are fetched (unless the database
-                       does not support enumeration). Can be specified
-                       multiple times. Example: `--key root --key nobody`.
+Traceback (most recent call last):
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/getent/getent", line 131, in 'module'
+    main()
+    ~~~~^^
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/getent/getent", line 78, in main
+    args = parse_args()
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/getent/getent", line 43, in parse_args
+    help=lib.args.help('--always-ok'),
+         ^^^^^^^^
+AttributeError: module 'lib' has no attribute 'args'
 ```
 
 

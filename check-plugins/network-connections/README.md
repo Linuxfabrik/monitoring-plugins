@@ -52,7 +52,7 @@ Meaning of connection status `--conn-status` parameter:
 ## Help
 
 ```text
-usage: network-connections [-h] [-V]
+usage: network-connections [-h] [-V] [--always-ok]
                            [--conn-status {all,close,close_wait,closing,established,fin_wait1,fin_wait2,last_ack,listen,none,syn_recv,syn_sent,time_wait}]
                            [--conn-type {all,tcp,tcp6,udp,udp6}] [-c CRIT]
                            [--no-perfdata] [-w WARN]
@@ -65,6 +65,7 @@ applications that do not properly close sockets.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --conn-status {all,close,close_wait,closing,established,fin_wait1,fin_wait2,last_ack,listen,none,syn_recv,syn_sent,time_wait}
                         Filter connections by status. Can be specified
                         multiple times. Default: None

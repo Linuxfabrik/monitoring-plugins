@@ -30,8 +30,8 @@ Monitors OnlyOffice Document Server statistics and license usage via the HTTP AP
 ## Help
 
 ```text
-usage: onlyoffice-stats [-h] [-V] [--insecure] [--no-perfdata] [--no-proxy]
-                        [--timeout TIMEOUT] [--url URL]
+usage: onlyoffice-stats [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
+                        [--no-proxy] [--timeout TIMEOUT] [--url URL]
 
 Monitors OnlyOffice Document Server statistics and license usage via the HTTP
 API. Reports active connections, document editing sessions, and license
@@ -40,6 +40,7 @@ consumption. Alerts when license usage exceeds the configured thresholds.
 options:
   -h, --help         show this help message and exit
   -V, --version      show program's version number and exit
+  --always-ok        Always returns OK.
   --insecure         This option explicitly allows insecure SSL connections.
   --no-perfdata      Suppress the performance data section from the output.
                      The status message and the exit code are unaffected, so

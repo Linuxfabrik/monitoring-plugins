@@ -2,6 +2,9 @@
     "Command": {
         "cmd-check-nextcloud-security-scan": {
             "arguments": {
+                "--always-ok": {
+                    "set_if": "$nextcloud_security_scan_always_ok$"
+                },
                 "--insecure": {
                     "set_if": "$nextcloud_security_scan_insecure$"
                 },
@@ -51,6 +54,11 @@
                 },
                 {
                     "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
                     "is_required": "y",
                     "var_filter": null
                 }
@@ -107,6 +115,7 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
+                "nextcloud_security_scan_always_ok": false,
                 "nextcloud_security_scan_insecure": false,
                 "nextcloud_security_scan_no_proxy": false,
                 "nextcloud_security_scan_timeout": 7,
@@ -119,6 +128,15 @@
     },
     "Datafield": {
         "1": {
+            "varname": "nextcloud_security_scan_always_ok",
+            "caption": "Nextcloud Security Scan: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "f19307ef-aea7-44ec-b0ca-5b53e5abaf9b"
+        },
+        "2": {
             "varname": "nextcloud_security_scan_insecure",
             "caption": "Nextcloud Security Scan: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -127,7 +145,7 @@
             "settings": {},
             "uuid": "50687df7-cc40-45cc-aa07-e81a353ee5c2"
         },
-        "2": {
+        "3": {
             "varname": "nextcloud_security_scan_no_proxy",
             "caption": "Nextcloud Security Scan: No Proxy?",
             "description": "Do not use a proxy.",
@@ -136,7 +154,7 @@
             "settings": {},
             "uuid": "c05dfdd0-9c3f-4f80-8ed0-210dbf224bbc"
         },
-        "3": {
+        "4": {
             "varname": "nextcloud_security_scan_path",
             "caption": "Nextcloud Security Scan: Path",
             "description": "Local path to the Nextcloud installation, typically the web server document root. When set, the plugin reads the installed version via `occ` and triggers an immediate re-scan if it differs from the version scan.nextcloud.com last saw, so the rating no longer lags a Nextcloud update. Requires running on the Nextcloud server with sudo for the UID owning config/config.php.",
@@ -147,7 +165,7 @@
             },
             "uuid": "f3e3d02b-6520-48e4-88fd-450eed3e1053"
         },
-        "4": {
+        "5": {
             "varname": "nextcloud_security_scan_timeout",
             "caption": "Nextcloud Security Scan: Timeout",
             "description": "Network timeout in seconds.",
@@ -158,7 +176,7 @@
             },
             "uuid": "f342b8c9-132d-48a2-a871-32e3397c5369"
         },
-        "5": {
+        "6": {
             "varname": "nextcloud_security_scan_trigger",
             "caption": "Nextcloud Security Scan: Trigger",
             "description": "Trigger a re-scan if the result on scan.nextcloud.com is older than this many days.",
@@ -169,7 +187,7 @@
             },
             "uuid": "5d0095fa-03e9-4963-a429-abceb28b8166"
         },
-        "6": {
+        "7": {
             "varname": "nextcloud_security_scan_url",
             "caption": "Nextcloud Security Scan: URL",
             "description": "Nextcloud server URL. Example: `cloud.example.com`.",

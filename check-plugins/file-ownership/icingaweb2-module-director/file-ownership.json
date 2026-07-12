@@ -2,6 +2,9 @@
     "Command": {
         "cmd-check-file-ownership": {
             "arguments": {
+                "--always-ok": {
+                    "set_if": "$file_ownership_always_ok$"
+                },
                 "--filename": {
                     "value": "$file_ownership_filename$",
                     "repeat_key": true
@@ -20,6 +23,11 @@
                 },
                 {
                     "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -76,6 +84,7 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
+                "file_ownership_always_ok": false,
                 "file_ownership_filename": [],
                 "file_ownership_no_default_files": false
             },
@@ -86,6 +95,15 @@
     },
     "Datafield": {
         "1": {
+            "varname": "file_ownership_always_ok",
+            "caption": "File Ownership: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "00578005-23c2-4941-adeb-1129a1eb8a64"
+        },
+        "2": {
             "varname": "file_ownership_filename",
             "caption": "File Ownership: Filename",
             "description": "File to be checked. Format: `owner:group,path`. Can be specified multiple times. User-supplied entries are merged with the default file list. If the same path appears in both, the user-supplied entry wins. Example: `--filename root:root,/etc/passwd`.",
@@ -96,7 +114,7 @@
             },
             "uuid": "2a0ff480-14e2-4a3f-8ee7-2ac5af6a9c7a"
         },
-        "2": {
+        "3": {
             "varname": "file_ownership_no_default_files",
             "caption": "File Ownership: No Default Files?",
             "description": "Only check files specified via `--filename`, skip the built-in default file list.",

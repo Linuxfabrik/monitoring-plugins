@@ -36,7 +36,7 @@ Collects statistics across multiple snapshots in a restic repository, including 
 ## Help
 
 ```text
-usage: restic-stats [-h] [-V] [--host HOST]
+usage: restic-stats [-h] [-V] [--always-ok] [--host HOST]
                     [--mode {restore-size,files-by-contents,blobs-per-file,raw-data}]
                     [--no-perfdata] [--password-file PASSWORD_FILE]
                     [--path PATH] --repo REPO [--tag TAG]
@@ -49,6 +49,7 @@ sudo.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --host HOST           Only consider snapshots for this host. Can be
                         specified multiple times.
   --mode {restore-size,files-by-contents,blobs-per-file,raw-data}

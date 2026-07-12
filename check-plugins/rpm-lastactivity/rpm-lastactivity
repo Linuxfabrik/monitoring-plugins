@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061202'
+__version__ = '2026071201'
 
 DESCRIPTION = """Checks how long ago the last RPM package manager activity occurred (install, update, or remove via yum/dnf). Alerts if no package management activity has happened within the configured thresholds. Useful for detecting servers that have not been patched in a long time."""
 
@@ -38,6 +38,14 @@ def parse_args():
         '--version',
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -80,6 +88,7 @@ def main():
         lib.base.oao(
             f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
             STATE_WARN,
+            always_ok=args.ALWAYS_OK,
         )
 
     # stdout: '1662130946 unbound-libs\n1662130898 NetworkManager-libnm\n'
@@ -104,6 +113,7 @@ def main():
             f' (thresholds {args.WARN}D/{args.CRIT}D).'
         ),
         state,
+        always_ok=args.ALWAYS_OK,
     )
 
 

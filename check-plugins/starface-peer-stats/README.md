@@ -33,9 +33,10 @@ Reports SIP peer statistics of a Starface PBX, including online/offline counts f
 ## Help
 
 ```text
-usage: starface-peer-stats [-h] [-V] [--cache-expire CACHE_EXPIRE]
-                           [-H HOSTNAME] [--no-perfdata] [--port PORT]
-                           [--timeout TIMEOUT] [--ipv6]
+usage: starface-peer-stats [-h] [-V] [--always-ok]
+                           [--cache-expire CACHE_EXPIRE] [-H HOSTNAME]
+                           [--no-perfdata] [--port PORT] [--timeout TIMEOUT]
+                           [--ipv6]
 
 Monitors SIP peer statistics of a Starface PBX via its monitoring module on
 port 6556. Reports registered, unregistered, and unreachable peers. Supports
@@ -45,6 +46,7 @@ checks run in parallel. Alerts when peers are unregistered or unreachable.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 1

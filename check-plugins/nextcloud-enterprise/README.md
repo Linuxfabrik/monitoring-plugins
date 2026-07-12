@@ -33,13 +33,13 @@ Retrieves and displays information about an installed Nextcloud Enterprise subsc
 
 ```text
 Traceback (most recent call last):
-  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/nextcloud-enterprise/nextcloud-enterprise", line 183, in 'module'
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/nextcloud-enterprise/nextcloud-enterprise", line 193, in 'module'
     main()
     ~~~~^^
-  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/nextcloud-enterprise/nextcloud-enterprise", line 68, in main
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/nextcloud-enterprise/nextcloud-enterprise", line 76, in main
     args = parse_args()
   File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/nextcloud-enterprise/nextcloud-enterprise", line 45, in parse_args
-    help=lib.args.help('--no-perfdata'),
+    help=lib.args.help('--always-ok'),
          ^^^^^^^^
 AttributeError: module 'lib' has no attribute 'args'
 ```

@@ -50,6 +50,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '-c',
         '--critical',
         help='CRIT threshold for the age of the newest snapshot in each group, in hours. '
@@ -262,6 +270,7 @@ def main():
             lib.base.oao(
                 f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
                 STATE_WARN,
+                always_ok=args.ALWAYS_OK,
             )
     else:
         # do not call the command, put in test data
@@ -319,7 +328,9 @@ def main():
         msg = 'Everything is ok.' + msg
 
     # over and out
-    lib.base.oao(msg, state, perfdata, no_perfdata=args.NO_PERFDATA)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

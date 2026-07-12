@@ -53,7 +53,8 @@ Scans the system for approximately 170 known rootkits by checking for their char
 ## Help
 
 ```text
-usage: scanrootkit [-h] [-V] [--no-perfdata] [--severity {warn,crit}]
+usage: scanrootkit [-h] [-V] [--always-ok] [--no-perfdata]
+                   [--severity {warn,crit}]
 
 Scans the system for approximately 170 known rootkits by checking for their
 characteristic files, directories, and kernel symbols. Each finding includes
@@ -64,6 +65,7 @@ when rootkit indicators are found.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is

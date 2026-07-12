@@ -41,6 +41,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '--no-perfdata',
         help=lib.args.help('--no-perfdata'),
         dest='NO_PERFDATA',
@@ -84,6 +92,7 @@ def main():
             lib.base.oao(
                 f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
                 STATE_WARN,
+                always_ok=args.ALWAYS_OK,
             )
     else:
         # do not call the command, put in test data
@@ -111,7 +120,7 @@ def main():
                     break
 
     if not peer_used:
-        lib.base.oao('No NTP server used.', STATE_WARN)
+        lib.base.oao('No NTP server used.', STATE_WARN, always_ok=args.ALWAYS_OK)
 
     # build the message
     msg += f'Stratum is {stratum}'
@@ -131,7 +140,13 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg + '\n\n' + stdout, state, perfdata, no_perfdata=args.NO_PERFDATA)
+    lib.base.oao(
+        msg + '\n\n' + stdout,
+        state,
+        perfdata,
+        always_ok=args.ALWAYS_OK,
+        no_perfdata=args.NO_PERFDATA,
+    )
 
 
 if __name__ == '__main__':

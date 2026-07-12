@@ -21,7 +21,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061201'
+__version__ = '2026071201'
 
 DESCRIPTION = """Checks the IPMI System Event Log (SEL) for entries and alerts when events are found.
 Entries can be filtered by regex using --ignore. To clear the SEL after resolving
@@ -38,6 +38,14 @@ def parse_args():
         '--version',
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -177,7 +185,7 @@ def main():
         lib.base.oao('Everything is ok.', STATE_OK)
 
     # over and out
-    lib.base.oao(msg, STATE_WARN)
+    lib.base.oao(msg, STATE_WARN, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

@@ -2,6 +2,9 @@
     "Command": {
         "cmd-check-scanrootkit": {
             "arguments": {
+                "--always-ok": {
+                    "set_if": "$scanrootkit_always_ok$"
+                },
                 "--no-perfdata": {
                     "set_if": "$scanrootkit_no_perfdata$"
                 },
@@ -19,6 +22,11 @@
                 },
                 {
                     "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -75,6 +83,7 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
+                "scanrootkit_always_ok": false,
                 "scanrootkit_no_perfdata": false,
                 "scanrootkit_severity": "crit"
             },
@@ -106,6 +115,15 @@
     },
     "Datafield": {
         "1": {
+            "varname": "scanrootkit_always_ok",
+            "caption": "Scanrootkit: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "2aefb4fc-404d-42cc-9614-0b150c5d071c"
+        },
+        "2": {
             "varname": "scanrootkit_no_perfdata",
             "caption": "Scanrootkit: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -114,7 +132,7 @@
             "settings": {},
             "uuid": "b88fa430-245c-4228-acc0-e3a07e4245ee"
         },
-        "2": {
+        "3": {
             "varname": "scanrootkit_severity",
             "caption": "Scanrootkit: Severity",
             "description": "Severity for alerts when rootkit indicators are found. One of \"warn\" or \"crit\".",

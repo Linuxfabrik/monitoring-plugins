@@ -2,6 +2,9 @@
     "Command": {
         "cmd-check-ntp-systemd-timesyncd": {
             "arguments": {
+                "--always-ok": {
+                    "set_if": "$ntp_systemd_timesyncd_always_ok$"
+                },
                 "--no-perfdata": {
                     "set_if": "$ntp_systemd_timesyncd_no_perfdata$"
                 },
@@ -19,6 +22,11 @@
                 },
                 {
                     "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -75,6 +83,7 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
+                "ntp_systemd_timesyncd_always_ok": false,
                 "ntp_systemd_timesyncd_no_perfdata": false,
                 "ntp_systemd_timesyncd_stratum": 6
             },
@@ -85,6 +94,15 @@
     },
     "Datafield": {
         "1": {
+            "varname": "ntp_systemd_timesyncd_always_ok",
+            "caption": "NTP Systemd Timesyncd: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "077da322-47fe-4af6-a31a-74110cefb41e"
+        },
+        "2": {
             "varname": "ntp_systemd_timesyncd_no_perfdata",
             "caption": "NTP Systemd Timesyncd: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -93,7 +111,7 @@
             "settings": {},
             "uuid": "36a8843b-67ac-4a7a-b672-f337c98f3700"
         },
-        "2": {
+        "3": {
             "varname": "ntp_systemd_timesyncd_stratum",
             "caption": "NTP Systemd Timesyncd: Stratum",
             "description": "Warns if the determined stratum of the time server is greater than or equal to this value. Stratum 1 indicates a computer with a locally attached reference clock. A computer that is synchronised to a stratum 1 computer is at stratum 2. A computer that is synchronised to a stratum 2 computer is at stratum 3, and so on.",

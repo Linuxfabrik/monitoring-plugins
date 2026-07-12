@@ -61,6 +61,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '--community',
         help='SNMP v1/v2c community string. Default: %(default)s',
         default='public',
@@ -683,7 +691,9 @@ def main():
         )
 
     # over and out
-    lib.base.oao(msg, state, perfdata, no_perfdata=args.NO_PERFDATA)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

@@ -30,10 +30,11 @@ Reports garbage collector activity from a WildFly/JBoss AS server via its HTTP-J
 ## Help
 
 ```text
-usage: wildfly-gc-status [-h] [-V] [--insecure] [--instance INSTANCE]
-                         [--mode {standalone,domain}] [--no-perfdata]
-                         [--no-proxy] [--node NODE] -p PASSWORD
-                         [--timeout TIMEOUT] [--url URL] --username USERNAME
+usage: wildfly-gc-status [-h] [-V] [--always-ok] [--insecure]
+                         [--instance INSTANCE] [--mode {standalone,domain}]
+                         [--no-perfdata] [--no-proxy] [--node NODE]
+                         -p PASSWORD [--timeout TIMEOUT] [--url URL]
+                         --username USERNAME
 
 Reports garbage collector activity from a WildFly/JBoss AS server via its HTTP
 management API, reporting the collection rate and the share of wall-clock time
@@ -42,6 +43,7 @@ spent in garbage collection (GC overhead) for each collector.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --instance INSTANCE   WildFly instance (server-config) to check when running

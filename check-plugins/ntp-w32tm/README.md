@@ -30,8 +30,8 @@ Checks the Windows Time Service (w32tm) status, including clock offset, stratum,
 ## Help
 
 ```text
-usage: ntp-w32tm [-h] [-V] [-c CRIT] [--no-perfdata] [--stratum STRATUM]
-                 [-w WARN]
+usage: ntp-w32tm [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata]
+                 [--stratum STRATUM] [-w WARN]
 
 Checks the Windows Time Service (w32tm) status, including clock offset,
 stratum, and time source. Useful for diagnosing time synchronization issues on
@@ -41,6 +41,7 @@ thresholds.
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
+  --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for the time since "Last Good Sync", in
                        seconds. Default: 129600
   --no-perfdata        Suppress the performance data section from the output.

@@ -32,7 +32,8 @@ Verifies the integrity of a restic backup repository by running `restic check`. 
 ## Help
 
 ```text
-usage: restic-check [-h] [-V] [--password-file PASSWORD_FILE] --repo REPO
+usage: restic-check [-h] [-V] [--always-ok] [--password-file PASSWORD_FILE]
+                    --repo REPO
 
 Verifies the integrity of a restic backup repository by running "restic
 check". Alerts when the repository contains errors or inconsistencies.
@@ -41,6 +42,7 @@ Requires root or sudo.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --password-file PASSWORD_FILE
                         Path to the file containing the repository password.
   --repo REPO           Restic repository location.

@@ -27,23 +27,16 @@ Checks the status of a Windows Scheduled Task. Alerts when the task is not in th
 ## Help
 
 ```text
-usage: scheduled-task [-h] [-V] [--severity {warn,crit}]
-                      [--status {Disabled,Queued,Ready,Running,Unknown}]
-                      --task TASK
-
-Checks the status and last result of a Windows Scheduled Task. Alerts when the
-task has failed or returned a non-zero exit code.
-
-options:
-  -h, --help            show this help message and exit
-  -V, --version         show program's version number and exit
-  --severity {warn,crit}
-                        Severity when the task is not in the expected status.
-                        Default: warn
-  --status {Disabled,Queued,Ready,Running,Unknown}
-                        Expected task status. Can be specified multiple times.
-                        Default: ['Ready', 'Running']
-  --task TASK           Name of the Windows scheduled task to check.
+Traceback (most recent call last):
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/scheduled-task/scheduled-task", line 117, in 'module'
+    main()
+    ~~~~^^
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/scheduled-task/scheduled-task", line 86, in main
+    args = parse_args()
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/scheduled-task/scheduled-task", line 44, in parse_args
+    help=lib.args.help('--always-ok'),
+         ^^^^^^^^
+AttributeError: module 'lib' has no attribute 'args'
 ```
 
 

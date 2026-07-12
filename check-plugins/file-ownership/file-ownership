@@ -20,7 +20,7 @@ import lib.disk
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070801'
+__version__ = '2026071201'
 
 DESCRIPTION = """Verifies that critical system files have the expected owner and group. Ships with a
 built-in list of important files (GRUB, SSH, sudoers, PAM, cron, etc.) and supports
@@ -99,6 +99,14 @@ def parse_args():
         '--version',
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -201,7 +209,7 @@ def main():
 
     # build the message
     if not table_values:
-        lib.base.oao('No files checked.', state)
+        lib.base.oao('No files checked.', state, always_ok=args.ALWAYS_OK)
 
     if state == STATE_OK:
         msg = 'Everything is ok.\n\n'
@@ -214,7 +222,7 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg, state)
+    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

@@ -45,6 +45,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '-c',
         '--critical',
         help='CRIT threshold for the time since the last backup started, in hours. '
@@ -105,7 +113,11 @@ def main():
             mount_lines += '* ' + line
 
     if mount_lines:
-        lib.base.oao(f'There are active borg mounts.\n\n{mount_lines}', STATE_WARN)
+        lib.base.oao(
+            f'There are active borg mounts.\n\n{mount_lines}',
+            STATE_WARN,
+            always_ok=args.ALWAYS_OK,
+        )
 
     starttime = None
     endtime = None
@@ -182,7 +194,9 @@ def main():
     msg += f'* Prune retc: {prune_retc}, State: {lib.base.state2str(prune_retc_state)}'
 
     # over and out
-    lib.base.oao(msg, state, perfdata, no_perfdata=args.NO_PERFDATA)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':
