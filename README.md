@@ -15,7 +15,7 @@
 <div align="center" markdown>
 
 ![GitHub Stars](https://img.shields.io/github/stars/linuxfabrik/monitoring-plugins)
-[![Star History Chart](https://api.star-history.com/svg?repos=Linuxfabrik/monitoring-plugins&type=Date)](https://star-history.com/#Linuxfabrik/monitoring-plugins&Date)
+[![Star History Chart](https://api.star-history.com/chart?repos=Linuxfabrik/monitoring-plugins&type=date&legend=top-left&sealed_token=6SUm1801mnVVflh1FjdwjwI1jTKV5frTQxeT9BI5GQvcCSalOiWVA9ZX6pLrUmxtmvs1v6KGVThzjW1gGciZf7jpiQbS4713HMIMiGkG-9v7I5GQhnnPIw)](https://www.star-history.com/?repos=Linuxfabrik%2Fmonitoring-plugins&type=date&legend=top-left)
 ![GitHub](https://img.shields.io/github/license/linuxfabrik/monitoring-plugins)
 ![Version](https://img.shields.io/github/v/release/linuxfabrik/monitoring-plugins?sort=semver)
 ![Python](https://img.shields.io/badge/Python-3.9+-3776ab)
