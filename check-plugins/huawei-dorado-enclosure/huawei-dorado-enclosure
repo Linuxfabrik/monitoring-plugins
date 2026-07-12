@@ -180,7 +180,10 @@ def main():
     table_data = []
     for enclosure in result.get('data'):
         health_state = STATE_OK
-        if lib.huawei_dorado.get_health_status(enclosure.get('HEALTHSTATUS')) != 'Normal (1)':
+        if (
+            lib.huawei_dorado.get_health_status(enclosure.get('HEALTHSTATUS'))
+            != 'Normal (1)'
+        ):
             health_state = STATE_CRIT
             state = lib.base.get_worst(state, health_state)
 
@@ -224,7 +227,9 @@ def main():
 
         enclosure['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         enclosure['running_state'] = lib.base.state2str(running_state, empty_ok=False)
-        enclosure['LOGICTYPE'] = lib.huawei_dorado.get_logic_type(enclosure['LOGICTYPE'])
+        enclosure['LOGICTYPE'] = lib.huawei_dorado.get_logic_type(
+            enclosure['LOGICTYPE']
+        )
         enclosure['MODEL'] = lib.huawei_dorado.get_enclosure_model(enclosure['MODEL'])
         enclosure['SWITCHSTATUS'] = lib.huawei_dorado.get_switch_status(
             enclosure['SWITCHSTATUS']
@@ -276,7 +281,9 @@ def main():
         msg = 'Everything is ok.\n\n' + msg
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

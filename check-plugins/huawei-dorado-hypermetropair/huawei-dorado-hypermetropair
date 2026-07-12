@@ -193,7 +193,9 @@ def main():
         if (
             lib.huawei_dorado.get_running_status(hypermetropair.get('RUNNINGSTATUS'))
             != 'Normal (1)'
-            and lib.huawei_dorado.get_running_status(hypermetropair.get('RUNNINGSTATUS'))
+            and lib.huawei_dorado.get_running_status(
+                hypermetropair.get('RUNNINGSTATUS')
+            )
             != 'Synchronizing (23)'
         ):
             running_state = STATE_WARN
@@ -292,14 +294,18 @@ def main():
         hypermetropair['LOCALDATASTATE'] = lib.base.state2str(
             localdata_state, empty_ok=False
         )
-        hypermetropair['LOCALHOSTACCESSSTATE'] = lib.huawei_dorado.get_host_access_state(
-            hypermetropair['LOCALHOSTACCESSSTATE']
+        hypermetropair['LOCALHOSTACCESSSTATE'] = (
+            lib.huawei_dorado.get_host_access_state(
+                hypermetropair['LOCALHOSTACCESSSTATE']
+            )
         )
         hypermetropair['REMOTEDATASTATE'] = lib.base.state2str(
             remotedata_state, empty_ok=False
         )
-        hypermetropair['REMOTEHOSTACCESSSTATE'] = lib.huawei_dorado.get_host_access_state(
-            hypermetropair['REMOTEHOSTACCESSSTATE']
+        hypermetropair['REMOTEHOSTACCESSSTATE'] = (
+            lib.huawei_dorado.get_host_access_state(
+                hypermetropair['REMOTEHOSTACCESSSTATE']
+            )
         )
 
         table_data.append(hypermetropair)
@@ -352,7 +358,9 @@ def main():
         msg = 'Everything is ok.\n\n' + msg
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

@@ -174,9 +174,7 @@ def main():
     # uptimerobot returns either a single `monitor` dict (one monitor) or a
     # `psp.monitors` list (even if it contains only one entry); normalise both
     # cases to a list so the loop below is uniform
-    monitors = (
-        [result['monitor']] if 'monitor' in result else result['psp']['monitors']
-    )
+    monitors = [result['monitor']] if 'monitor' in result else result['psp']['monitors']
     for item in monitors:
         item_state = uptimerobotstate2state(item['statusClass'])
         state = lib.base.get_worst(state, item_state)
@@ -228,7 +226,9 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

@@ -46,7 +46,8 @@ from lib.globals import STATE_OK
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
 CONTAINERFILES = sorted(
-    name for name in os.listdir(CONTAINERFILES_DIR)
+    name
+    for name in os.listdir(CONTAINERFILES_DIR)
     if os.path.isfile(os.path.join(CONTAINERFILES_DIR, name))
 )
 
@@ -58,9 +59,13 @@ class TestCheck(unittest.TestCase):
 def _check_image(test, containerfile):
     path = os.path.join(CONTAINERFILES_DIR, containerfile)
     print(f'\n=== Testing {containerfile} ===', flush=True)
-    with lib.lftest.run_mysql_compatible_from_containerfile(path) as (_container, defaults_file):
+    with lib.lftest.run_mysql_compatible_from_containerfile(path) as (
+        _container,
+        defaults_file,
+    ):
         cmd = [
-            'python3', '../mysql-slow-queries',
+            'python3',
+            '../mysql-slow-queries',
             f'--defaults-file={defaults_file}',
         ]
         print(f'Run plugin: {" ".join(cmd)}', flush=True)

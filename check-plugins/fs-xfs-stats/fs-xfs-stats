@@ -129,12 +129,16 @@ def main():
     )
     if rates is None:
         # first run, cache wiped, or counter reset (fresh mount): no delta yet
-        lib.base.oao('Waiting for more data.', STATE_OK, perfdata, no_perfdata=args.NO_PERFDATA)
+        lib.base.oao(
+            'Waiting for more data.', STATE_OK, perfdata, no_perfdata=args.NO_PERFDATA
+        )
 
     # inode cache hit ratio over the interval (delta-based, so it reflects the
     # current workload instead of converging to a lifetime average)
     if rates['ig_attempts'] > 0:
-        inode_cache_hit_percent = round(rates['ig_found'] / rates['ig_attempts'] * 100, 1)
+        inode_cache_hit_percent = round(
+            rates['ig_found'] / rates['ig_attempts'] * 100, 1
+        )
     else:
         inode_cache_hit_percent = 100.0
 

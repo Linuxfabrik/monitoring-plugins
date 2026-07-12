@@ -35,6 +35,7 @@ except ImportError:
         from psutil._common import sfan
     except ImportError:
         from collections import namedtuple
+
         sfan = namedtuple('sfan', ['label', 'current'])
 
 
@@ -137,14 +138,12 @@ def main():
     if not fans:
         lib.base.oao('No fans detected.', STATE_OK, always_ok=args.ALWAYS_OK)
 
-
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
 
     for name, entries in fans.items():
-
         # build the message
         msg += f'{name}: '
         for entry in entries:
@@ -161,7 +160,13 @@ def main():
         msg = msg[:-2] + '; '
 
     # over and out
-    lib.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
+    lib.base.oao(
+        msg[:-2],
+        state,
+        perfdata,
+        always_ok=args.ALWAYS_OK,
+        no_perfdata=args.NO_PERFDATA,
+    )
 
 
 if __name__ == '__main__':

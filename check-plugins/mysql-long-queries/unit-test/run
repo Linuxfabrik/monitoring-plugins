@@ -51,7 +51,8 @@ from lib.globals import STATE_OK, STATE_WARN
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
 CONTAINERFILES = sorted(
-    name for name in os.listdir(CONTAINERFILES_DIR)
+    name
+    for name in os.listdir(CONTAINERFILES_DIR)
     if os.path.isfile(os.path.join(CONTAINERFILES_DIR, name))
 )
 
@@ -63,7 +64,8 @@ class TestCheck(unittest.TestCase):
 def _run_plugin(defaults_file, warning='30', critical='300'):
     return subprocess.run(
         [
-            'python3', '../mysql-long-queries',
+            'python3',
+            '../mysql-long-queries',
             f'--defaults-file={defaults_file}',
             f'--warning={warning}',
             f'--critical={critical}',
@@ -85,16 +87,19 @@ def _check_image(test, containerfile):
         # privilege via check_privileges()). The default MYSQL_USER
         # from lib.lftest only has rights on its own DB; grant
         # PROCESS upfront so both phases can run.
-        container.exec([
-            'sh', '-c',
-            'if command -v mariadb >/dev/null 2>&1; then C=mariadb; '
-            'else C=mysql; fi; '
-            'GRANTS="GRANT PROCESS ON *.* TO '
-            "'test'@'%'"
-            '"; '
-            '"$C" -uroot -e "$GRANTS" 2>/dev/null '
-            '|| "$C" -uroot -ptest -e "$GRANTS"',
-        ])
+        container.exec(
+            [
+                'sh',
+                '-c',
+                'if command -v mariadb >/dev/null 2>&1; then C=mariadb; '
+                'else C=mysql; fi; '
+                'GRANTS="GRANT PROCESS ON *.* TO '
+                "'test'@'%'"
+                '"; '
+                '"$C" -uroot -e "$GRANTS" 2>/dev/null '
+                '|| "$C" -uroot -ptest -e "$GRANTS"',
+            ]
+        )
 
         # Phase 1: no long queries on a freshly booted server.
         result = _run_plugin(defaults_file)
@@ -116,7 +121,8 @@ def _check_image(test, containerfile):
         wrapped = container.get_wrapped_container()
         wrapped.exec_run(
             [
-                'sh', '-c',
+                'sh',
+                '-c',
                 'if command -v mariadb >/dev/null 2>&1; then C=mariadb; '
                 'else C=mysql; fi; '
                 '"$C" -utest -ptest -e "SELECT SLEEP(60);"',

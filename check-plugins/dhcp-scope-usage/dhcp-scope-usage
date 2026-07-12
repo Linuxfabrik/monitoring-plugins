@@ -227,9 +227,7 @@ def main():
     # are orthogonal and both can be set at the same time. Perfdata
     # and alerting stay untouched above this point; --brief only
     # reshapes the human-readable output.
-    display_rows = (
-        [row for row in rows if row[2] != STATE_OK] if args.BRIEF else rows
-    )
+    display_rows = [row for row in rows if row[2] != STATE_OK] if args.BRIEF else rows
 
     # build the message
     headers = {
@@ -246,7 +244,9 @@ def main():
     msg = f'{header}\n\n{body}' if body else header
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

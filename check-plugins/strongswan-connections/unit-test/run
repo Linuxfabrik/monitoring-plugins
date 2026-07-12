@@ -56,7 +56,9 @@ TESTS = [
         'id': 'warn-one-inactive-connection',
         'test': 'stdout/one-inactive-connection,,0',
         'assert-retc': STATE_WARN,
-        'assert-in': ['One or more connections are configured but not active [WARNING].'],
+        'assert-in': [
+            'One or more connections are configured but not active [WARNING].'
+        ],
     },
     {
         'id': 'ok-all-connections-active',
@@ -64,7 +66,6 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ['Everything is ok.'],
     },
-
     # #738: --match and --ignore filter on the VICI connection key.
     # The mixed-s2s-and-ra-one-ra-inactive fixture has two permanent
     # site-to-site peers (S2S_SITE-A, S2S_SITE-B, both active) plus
@@ -127,7 +128,6 @@ TESTS = [
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../strongswan-connections'
 
 
@@ -199,7 +199,8 @@ def _python_invocation(container):
     )
     if b'venv' in probe.output:
         return [
-            'sh', '-c',
+            'sh',
+            '-c',
             '. /tmp/venv/bin/activate && cd /tmp && python3 ./strongswan-connections',
         ]
     return ['sh', '-c', 'cd /tmp && python3 ./strongswan-connections']
@@ -234,11 +235,13 @@ def _check_containerfile(test, containerfile):
             # open the VICI socket. charon does not fork itself;
             # redirect stdio and wrap in `sh -c ... &` so the exec
             # call returns immediately.
-            container.exec([
-                'sh',
-                '-c',
-                '/usr/libexec/strongswan/charon > /tmp/charon.log 2>&1 &',
-            ])
+            container.exec(
+                [
+                    'sh',
+                    '-c',
+                    '/usr/libexec/strongswan/charon > /tmp/charon.log 2>&1 &',
+                ]
+            )
 
             # Poll for the VICI socket (up to 10s). RHEL EPEL
             # strongswan writes it to /run/strongswan/charon.vici
@@ -248,7 +251,11 @@ def _check_containerfile(test, containerfile):
             socket_ready = False
             while time.time() < deadline:
                 probe = container.exec(
-                    ['sh', '-c', f'test -S {socket_path} && echo ready || echo waiting'],
+                    [
+                        'sh',
+                        '-c',
+                        f'test -S {socket_path} && echo ready || echo waiting',
+                    ],
                 )
                 if b'ready' in (probe.output or b''):
                     socket_ready = True

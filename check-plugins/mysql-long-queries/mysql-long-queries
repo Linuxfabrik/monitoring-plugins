@@ -207,8 +207,7 @@ def apply_ignore_filter(rows, ignore_regexes):
         return rows
     compiled = [re.compile(p, re.IGNORECASE) for p in ignore_regexes]
     return [
-        r for r in rows
-        if not any(p.search(r.get('statement') or '') for p in compiled)
+        r for r in rows if not any(p.search(r.get('statement') or '') for p in compiled)
     ]
 
 
@@ -279,21 +278,26 @@ def main():
         if runtime > max_runtime:
             max_runtime = runtime
         item_state = lib.base.get_state(
-            runtime, args.WARN, args.CRIT, _operator='range',
+            runtime,
+            args.WARN,
+            args.CRIT,
+            _operator='range',
         )
         state = lib.base.get_worst(state, item_state)
         if item_state == STATE_CRIT:
             crit_count += 1
         elif item_state == STATE_WARN:
             warn_count += 1
-        table_data.append({
-            'id': row.get('id') or '',
-            'user': row.get('user') or '',
-            'db': row.get('db') or '',
-            'runtime': f'{runtime}s',
-            'statement': truncate_statement(row.get('statement'), args.LENGTHY),
-            'state': lib.base.state2str(item_state),
-        })
+        table_data.append(
+            {
+                'id': row.get('id') or '',
+                'user': row.get('user') or '',
+                'db': row.get('db') or '',
+                'runtime': f'{runtime}s',
+                'statement': truncate_statement(row.get('statement'), args.LENGTHY),
+                'state': lib.base.state2str(item_state),
+            }
+        )
 
     # build the message
     n_total = len(rows)
@@ -345,7 +349,9 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

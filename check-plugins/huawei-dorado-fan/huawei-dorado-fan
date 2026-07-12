@@ -186,9 +186,12 @@ def main():
 
         running_state = STATE_OK
         if (
-            lib.huawei_dorado.get_running_status(fan.get('RUNNINGSTATUS')) != 'Normal (1)'
-            and lib.huawei_dorado.get_running_status(fan.get('RUNNINGSTATUS')) != 'Running (2)'
-            and lib.huawei_dorado.get_running_status(fan.get('RUNNINGSTATUS')) != 'Online (27)'
+            lib.huawei_dorado.get_running_status(fan.get('RUNNINGSTATUS'))
+            != 'Normal (1)'
+            and lib.huawei_dorado.get_running_status(fan.get('RUNNINGSTATUS'))
+            != 'Running (2)'
+            and lib.huawei_dorado.get_running_status(fan.get('RUNNINGSTATUS'))
+            != 'Online (27)'
         ):
             running_state = STATE_WARN
             state = lib.base.get_worst(state, running_state)
@@ -241,7 +244,9 @@ def main():
         msg = 'Everything is ok.\n\n' + msg
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

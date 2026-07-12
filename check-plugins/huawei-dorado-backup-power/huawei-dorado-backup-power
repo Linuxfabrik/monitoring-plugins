@@ -181,7 +181,10 @@ def main():
     table_data = []
     for power in result.get('data'):
         health_state = STATE_OK
-        if lib.huawei_dorado.get_health_status(power.get('HEALTHSTATUS')) != 'Normal (1)':
+        if (
+            lib.huawei_dorado.get_health_status(power.get('HEALTHSTATUS'))
+            != 'Normal (1)'
+        ):
             health_state = STATE_WARN
             state = lib.base.get_worst(state, health_state)
 
@@ -189,7 +192,8 @@ def main():
 
         running_state = STATE_OK
         if (
-            lib.huawei_dorado.get_running_status(power.get('RUNNINGSTATUS')) != 'Normal (1)'
+            lib.huawei_dorado.get_running_status(power.get('RUNNINGSTATUS'))
+            != 'Normal (1)'
             and lib.huawei_dorado.get_running_status(power.get('RUNNINGSTATUS'))
             != 'Running (2)'
             and lib.huawei_dorado.get_running_status(power.get('RUNNINGSTATUS'))
@@ -287,7 +291,9 @@ def main():
         msg = 'Everything is ok.\n\n' + msg
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

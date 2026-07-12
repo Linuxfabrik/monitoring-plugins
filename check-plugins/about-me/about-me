@@ -427,13 +427,18 @@ def get_lftags(distro):
                 )
             ],
         },
-        {'sw': 'Bonding', 'package': [], 'expr': [lib.disk.dir_exists('/proc/net/bonding')]},
+        {
+            'sw': 'Bonding',
+            'package': [],
+            'expr': [lib.disk.dir_exists('/proc/net/bonding')],
+        },
         {
             'sw': 'BorgBackup',
             'package': [],
             'expr': [
                 run_cmd(
-                    ['systemctl', 'is-enabled', 'borg-backup-daily.timer'], ignore_output=True
+                    ['systemctl', 'is-enabled', 'borg-backup-daily.timer'],
+                    ignore_output=True,
                 )
             ],
         },
@@ -493,7 +498,8 @@ def get_lftags(distro):
             'package': [],
             'expr': [
                 run_cmd(
-                    ['systemctl', 'is-enabled', 'elasticsearch.service'], ignore_output=True
+                    ['systemctl', 'is-enabled', 'elasticsearch.service'],
+                    ignore_output=True,
                 )
             ],
         },
@@ -544,7 +550,8 @@ def get_lftags(distro):
             'package': [],
             'expr': [
                 run_cmd(
-                    ['systemctl', 'is-enabled', 'gitlab-runsvdir.service'], ignore_output=True
+                    ['systemctl', 'is-enabled', 'gitlab-runsvdir.service'],
+                    ignore_output=True,
                 )
             ],
         },
@@ -562,7 +569,8 @@ def get_lftags(distro):
             'package': [],
             'expr': [
                 run_cmd(
-                    ['systemctl', 'is-enabled', 'grafana-server.service'], ignore_output=True
+                    ['systemctl', 'is-enabled', 'grafana-server.service'],
+                    ignore_output=True,
                 )
             ],
         },
@@ -571,7 +579,8 @@ def get_lftags(distro):
             'package': [],
             'expr': [
                 run_cmd(
-                    ['systemctl', 'is-enabled', 'grav-selfupgrade.timer'], ignore_output=True
+                    ['systemctl', 'is-enabled', 'grav-selfupgrade.timer'],
+                    ignore_output=True,
                 )
             ],
         },
@@ -580,7 +589,8 @@ def get_lftags(distro):
             'package': [],
             'expr': [
                 run_cmd(
-                    ['systemctl', 'is-enabled', 'graylog-server.service'], ignore_output=True
+                    ['systemctl', 'is-enabled', 'graylog-server.service'],
+                    ignore_output=True,
                 )
             ],
         },
@@ -589,7 +599,8 @@ def get_lftags(distro):
             'package': [],
             'expr': [
                 run_cmd(
-                    ['systemctl', 'is-enabled', 'hnet-securesvc.service'], ignore_output=True
+                    ['systemctl', 'is-enabled', 'hnet-securesvc.service'],
+                    ignore_output=True,
                 )
             ],
         },
@@ -678,7 +689,11 @@ def get_lftags(distro):
                 )
             ],
         },
-        {'sw': 'LibreNMS', 'package': [], 'expr': [lib.disk.dir_exists('/opt/librenms')]},
+        {
+            'sw': 'LibreNMS',
+            'package': [],
+            'expr': [lib.disk.dir_exists('/opt/librenms')],
+        },
         {
             'sw': 'Logstash Client',
             'package': [],
@@ -725,14 +740,16 @@ def get_lftags(distro):
             'package': [],
             'expr': [
                 run_cmd(
-                    ['systemctl', 'is-enabled', 'mastodon-sidekiq.service'], ignore_output=True
+                    ['systemctl', 'is-enabled', 'mastodon-sidekiq.service'],
+                    ignore_output=True,
                 ),
                 run_cmd(
                     ['systemctl', 'is-enabled', 'mastodon-streaming.service'],
                     ignore_output=True,
                 ),
                 run_cmd(
-                    ['systemctl', 'is-enabled', 'mastodon-web.service'], ignore_output=True
+                    ['systemctl', 'is-enabled', 'mastodon-web.service'],
+                    ignore_output=True,
                 ),
             ],
         },
@@ -760,7 +777,9 @@ def get_lftags(distro):
             'package': ['mod_qos'],
             # httpd writes DUMP_MODULES to stderr, so cmd_output_contains checks both streams
             'expr': [
-                lib.disk.file_exists('/usr/lib64/httpd/modules/mod_qos.so', allow_empty=True),
+                lib.disk.file_exists(
+                    '/usr/lib64/httpd/modules/mod_qos.so', allow_empty=True
+                ),
                 lib.disk.dir_exists('/var/lib/mod_security'),
                 cmd_output_contains(['httpd', '-t', '-D', 'DUMP_MODULES'], 'mod_qos'),
                 cmd_output_contains(['apache2', '-t', '-D', 'DUMP_MODULES'], 'mod_qos'),
@@ -806,7 +825,9 @@ def get_lftags(distro):
         {
             'sw': 'Needs Restarting',
             'package': ['dnf-utils', 'yum-utils'],
-            'expr': [lib.disk.file_exists('/usr/bin/needs-restarting', allow_empty=True)],
+            'expr': [
+                lib.disk.file_exists('/usr/bin/needs-restarting', allow_empty=True)
+            ],
         },
         {
             'sw': 'networking.service',
@@ -882,7 +903,11 @@ def get_lftags(distro):
             'package': [],
             'expr': [True],  # always check this
         },
-        {'sw': 'PHP', 'package': ['php'], 'expr': [lib.disk.file_exists('/etc/php.ini', allow_empty=True)]},
+        {
+            'sw': 'PHP',
+            'package': ['php'],
+            'expr': [lib.disk.file_exists('/etc/php.ini', allow_empty=True)],
+        },
         {
             'sw': 'PHP-FPM',
             'package': [],
@@ -905,10 +930,12 @@ def get_lftags(distro):
                     ['systemctl', 'is-enabled', 'podman.socket'], ignore_output=True
                 ),
                 run_cmd(
-                    ['systemctl', 'is-enabled', 'podman-auto-update.timer'], ignore_output=True
+                    ['systemctl', 'is-enabled', 'podman-auto-update.timer'],
+                    ignore_output=True,
                 ),
                 run_cmd(
-                    ['systemctl', 'is-enabled', 'podman-restart.service'], ignore_output=True
+                    ['systemctl', 'is-enabled', 'podman-restart.service'],
+                    ignore_output=True,
                 ),
             ],
         },
@@ -939,7 +966,8 @@ def get_lftags(distro):
             'package': [],
             'expr': [
                 run_cmd(
-                    ['systemctl', 'is-enabled', 'rabbitmq-server.service'], ignore_output=True
+                    ['systemctl', 'is-enabled', 'rabbitmq-server.service'],
+                    ignore_output=True,
                 )
             ],
         },
@@ -1038,7 +1066,8 @@ def get_lftags(distro):
             'package': [],
             'expr': [
                 run_cmd(
-                    ['systemctl', 'is-enabled', 'notify-and-schedule.timer'], ignore_output=True
+                    ['systemctl', 'is-enabled', 'notify-and-schedule.timer'],
+                    ignore_output=True,
                 )
             ],
         },
@@ -1047,7 +1076,8 @@ def get_lftags(distro):
             'package': [],
             'expr': [
                 run_cmd(
-                    ['systemctl', 'is-enabled', 'systemd-timesyncd.service'], ignore_output=True
+                    ['systemctl', 'is-enabled', 'systemd-timesyncd.service'],
+                    ignore_output=True,
                 )
             ],
         },
@@ -1303,11 +1333,17 @@ def get_software_found():
     guessed = [
         {
             'sw': 'Apache Solr',
-            'expr': [lib.disk.dir_exists('/opt/apache-solr'), lib.disk.dir_exists('/opt/solr')],
+            'expr': [
+                lib.disk.dir_exists('/opt/apache-solr'),
+                lib.disk.dir_exists('/opt/solr'),
+            ],
         },
         {
             'sw': 'Apache Tomcat',
-            'expr': [lib.disk.dir_exists('/opt/apache-tomcat'), lib.disk.dir_exists('/opt/tomcat')],
+            'expr': [
+                lib.disk.dir_exists('/opt/apache-tomcat'),
+                lib.disk.dir_exists('/opt/tomcat'),
+            ],
         },
         {
             'sw': 'Atlassian Bitbucket',
@@ -1366,7 +1402,10 @@ def get_software_found():
                 lib.disk.dir_exists('/var/www/html/mediawiki'),
             ],
         },
-        {'sw': 'Medidata (eFaktura)', 'expr': [lib.disk.dir_exists('/opt/MPCommunicator')]},
+        {
+            'sw': 'Medidata (eFaktura)',
+            'expr': [lib.disk.dir_exists('/opt/MPCommunicator')],
+        },
         {'sw': 'Metabase', 'expr': [lib.disk.dir_exists('/opt/metabase')]},
         {
             'sw': 'Nextcloud',
@@ -1393,7 +1432,10 @@ def get_software_found():
                 lib.disk.dir_exists('/opt/rocket.chat'),
             ],
         },
-        {'sw': 'Roundcube', 'expr': [lib.disk.dir_exists('/var/www/html/roundcubemail')]},
+        {
+            'sw': 'Roundcube',
+            'expr': [lib.disk.dir_exists('/var/www/html/roundcubemail')],
+        },
         {'sw': 'Tarifpool v2', 'expr': [lib.disk.dir_exists('/opt/tarifpool')]},
         {'sw': 'VMware Tools', 'expr': [lib.disk.dir_exists('/etc/vmware-tools')]},
         {'sw': 'Vtiger', 'expr': [lib.disk.dir_exists('/var/www/html/vtigercrm')]},

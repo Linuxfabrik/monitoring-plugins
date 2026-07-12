@@ -58,7 +58,8 @@ from lib.globals import STATE_OK, STATE_WARN
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
 CONTAINERFILES = sorted(
-    name for name in os.listdir(CONTAINERFILES_DIR)
+    name
+    for name in os.listdir(CONTAINERFILES_DIR)
     if os.path.isfile(os.path.join(CONTAINERFILES_DIR, name))
 )
 
@@ -70,12 +71,16 @@ class TestCheck(unittest.TestCase):
 def _check_image(test, containerfile):
     path = os.path.join(CONTAINERFILES_DIR, containerfile)
     print(f'\n=== Testing {containerfile} ===', flush=True)
-    with lib.lftest.run_mysql_compatible_from_containerfile(path) as (_container, defaults_file):
+    with lib.lftest.run_mysql_compatible_from_containerfile(path) as (
+        _container,
+        defaults_file,
+    ):
         # `--storage-type=skip` so the SSD/HDD-aware checks do not
         # leak the controller host's storage into the assertions; the
         # io_capacity gating is asserted separately below.
         cmd = [
-            'python3', '../mysql-perf-metrics',
+            'python3',
+            '../mysql-perf-metrics',
             f'--defaults-file={defaults_file}',
             '--storage-type=skip',
         ]
@@ -98,7 +103,8 @@ def _check_image(test, containerfile):
         # assertion only checks that the check ran, not the exact number.
         ssd = subprocess.run(
             [
-                'python3', '../mysql-perf-metrics',
+                'python3',
+                '../mysql-perf-metrics',
                 f'--defaults-file={defaults_file}',
                 '--storage-type=ssd',
             ],
@@ -109,7 +115,8 @@ def _check_image(test, containerfile):
         test.assertIn('`innodb_io_capacity` is', ssd.stdout + ssd.stderr)
         auto = subprocess.run(
             [
-                'python3', '../mysql-perf-metrics',
+                'python3',
+                '../mysql-perf-metrics',
                 f'--defaults-file={defaults_file}',
                 '--storage-type=auto',
             ],
@@ -133,7 +140,9 @@ def _check_image(test, containerfile):
         # 11.8 flipped the default to ON, so the WARN no longer fires
         # there. MySQL never had the variable and stays OK on every LTS.
         warns_on_snapshot = containerfile in (
-            'mariadb-v106', 'mariadb-v1011', 'mariadb-v114',
+            'mariadb-v106',
+            'mariadb-v1011',
+            'mariadb-v114',
         )
         if warns_on_snapshot:
             test.assertEqual(result.returncode, STATE_WARN)
