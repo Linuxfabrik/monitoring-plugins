@@ -42,8 +42,9 @@ usage: veeam-status [-h] [-V] [--always-ok] [-c CRIT]
                     [--max-replica-job-duration MAX_REPLICA_JOB_DURATION]
                     [--no-perfdata] [--no-proxy] -p PASSWORD
                     [--timeout TIMEOUT] [--url URL] --username USERNAME
-                    [-w WARN] [--warnings-job-runs WARNINGS_JOB_RUNS]
+                    [-w WARN]
                     [--warning-vm-lastest-states WARNING_VM_LASTEST_STATES]
+                    [--warnings-job-runs WARNINGS_JOB_RUNS]
 
 Monitors Veeam Backup & Replication via PowerShell, checking for failed VMs
 and jobs, jobs running longer than expected, and backup repository usage. Also
@@ -80,11 +81,11 @@ options:
   --username USERNAME   Veeam REST API username. Default: Administrator
   -w, --warning WARN    WARN threshold for backup repository usage as a
                         percentage. Default: >= 80
-  --warnings-job-runs WARNINGS_JOB_RUNS
-                        Veeam threshold for `WarningsJobRuns`. Default: > 0.
   --warning-vm-lastest-states WARNING_VM_LASTEST_STATES
                         Veeam threshold for `WarningVmLastestStates`. Default:
                         > 0.
+  --warnings-job-runs WARNINGS_JOB_RUNS
+                        Veeam threshold for `WarningsJobRuns`. Default: > 0.
 ```
 
 

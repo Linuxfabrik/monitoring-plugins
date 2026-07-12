@@ -38,7 +38,7 @@ Checks the replication status of a MySQL/MariaDB replica: I/O thread state, SQL 
 usage: mysql-replica-status [-h] [-V] [--always-ok]
                             [--defaults-file DEFAULTS_FILE]
                             [--defaults-group DEFAULTS_GROUP]
-                            [--lag-warning LAG_WARN] [--lag-critical LAG_CRIT]
+                            [--lag-critical LAG_CRIT] [--lag-warning LAG_WARN]
                             [--no-perfdata] [--severity {warn,crit}]
                             [--timeout TIMEOUT]
 
@@ -62,13 +62,13 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
+  --lag-critical LAG_CRIT
+                        Seconds of replication lag at which the CRIT flag is
+                        raised. If omitted, lag never escalates to CRIT.
   --lag-warning LAG_WARN
                         Seconds of replication lag at which the WARN flag is
                         raised. A value of 0 means any lag (the historic
                         default; matches the mysqltuner cut-off). Default: 0
-  --lag-critical LAG_CRIT
-                        Seconds of replication lag at which the CRIT flag is
-                        raised. If omitted, lag never escalates to CRIT.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is

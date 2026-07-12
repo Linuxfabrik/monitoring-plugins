@@ -34,7 +34,7 @@ Checks the health and status of Kubernetes pods by running `kubectl get pods` an
 ## Help
 
 ```text
-usage: kubectl-get-pods [-h] [-V] [--always-ok] [--all-namespaces]
+usage: kubectl-get-pods [-h] [-V] [--all-namespaces] [--always-ok]
                         [--kubeconfig KUBECONFIG] [--no-perfdata]
                         [--query QUERY] [--severity {warn,crit}]
 
@@ -47,10 +47,10 @@ Supports all namespaces or a single one.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
-  --always-ok           Always returns OK.
   --all-namespaces      List pods across all namespaces. Namespace in current
                         context is ignored even if specified with
                         `--namespace`. Default: False
+  --always-ok           Always returns OK.
   --kubeconfig KUBECONFIG
                         Path to the kubeconfig file. Default:
                         /var/spool/icinga2/.kubeconfig

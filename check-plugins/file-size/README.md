@@ -39,7 +39,7 @@ Checks file sizes against configurable thresholds using human-readable units (e.
 
 ```text
 usage: file-size [-h] [-V] [--always-ok] [-c CRIT] [--filename FILENAME]
-                 [--no-perfdata] [--pattern PATTERN] [--password PASSWORD]
+                 [--no-perfdata] [--password PASSWORD] [--pattern PATTERN]
                  [--perfdata-mode {mean,median,None}] [--timeout TIMEOUT]
                  [-u URL] [--username USERNAME] [-w WARN]
 
@@ -67,11 +67,11 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
+  --password PASSWORD   Password for SMB authentication.
   --pattern PATTERN     Search string to match against SMB directory or file
                         names. Use `*` as a wildcard for multiple characters
                         and `?` for a single character. Does not support regex
                         patterns. Default: *
-  --password PASSWORD   Password for SMB authentication.
   --perfdata-mode {mean,median,None}
                         Aggregation mode for performance data across matched
                         files. Default: None

@@ -35,8 +35,8 @@ Checks the status of the most recent backup of a Starface PBX, including backup 
 ```text
 usage: starface-backup-status [-h] [-V] [--always-ok]
                               [--cache-expire CACHE_EXPIRE] [-c CRIT]
-                              [-H HOSTNAME] [--no-perfdata] [--port PORT]
-                              [--timeout TIMEOUT] [-w WARN] [--ipv6]
+                              [-H HOSTNAME] [--ipv6] [--no-perfdata]
+                              [--port PORT] [--timeout TIMEOUT] [-w WARN]
 
 Checks the status of the newest backups of a Starface PBX via its monitoring
 module on port 6556. Reports backup age, size, and success state. Supports
@@ -56,6 +56,7 @@ options:
   -H, --hostname HOSTNAME
                         Starface PBX hostname or IP address. Default:
                         localhost
+  --ipv6                Use IPv6.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -64,7 +65,6 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   -w, --warning WARN    WARN threshold for the age of the last backup, in
                         hours. Default: 24
-  --ipv6                Use IPv6.
 ```
 
 

@@ -142,8 +142,8 @@ On the subject of OPcache see also:
 ## Help
 
 ```text
-usage: php-status [-h] [-V] [--always-ok] [-c CRIT] [--config CONFIG] [--dev]
-                  [--module MODULES] [--ignore-multiple-masters] [--insecure]
+usage: php-status [-h] [-V] [--always-ok] [--config CONFIG] [-c CRIT] [--dev]
+                  [--ignore-multiple-masters] [--insecure] [--module MODULES]
                   [--no-perfdata] [--no-proxy] [--timeout TIMEOUT] [--top TOP]
                   [--url URL] [-w WARN]
 
@@ -158,16 +158,13 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   CRIT threshold for OPcache memory and key usage, in
-                        percent. Default: >= None
   --config CONFIG       PHP ini "key=value" pair to check (startswith match).
                         Can be specified multiple times. Example: `--config
                         "memory_limit=128M"`
+  -c, --critical CRIT   CRIT threshold for OPcache memory and key usage, in
+                        percent. Default: >= None
   --dev                 Development mode. Tolerates `display_errors=On` and
                         `display_startup_errors=On`.
-  --module MODULES      PHP module name to check (startswith match). Can be
-                        specified multiple times. Example: `--module json
-                        --module mbstring`
   --ignore-multiple-masters
                         Do not warn when more than one PHP-FPM master is
                         running. Use this on hosts where you intentionally run
@@ -175,6 +172,9 @@ options:
                         own check.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --module MODULES      PHP module name to check (startswith match). Can be
+                        specified multiple times. Example: `--module json
+                        --module mbstring`
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is

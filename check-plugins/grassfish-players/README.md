@@ -42,7 +42,7 @@ usage: grassfish-players [-h] [-V] [--always-ok] [--api-version API_VERSION]
                          [--lengthy] [--no-perfdata] [--no-proxy]
                          [--port PORT] [--timeout TIMEOUT] --token TOKEN
                          [--transfer-status {complete,overdue,pending}]
-                         [-w WARN] [-u URL]
+                         [-u URL] [-w WARN]
 
 Monitors Grassfish digital signage players via the Grassfish API. Lists
 players whose data transfer is overdue, whose last access exceeds the
@@ -88,9 +88,9 @@ options:
   --transfer-status {complete,overdue,pending}
                         Filter by data transfer status. Can be specified
                         multiple times.
+  -u, --url URL         Grassfish API URL. Default: /gv2/webservices/API
   -w, --warning WARN    WARN threshold for last access in hours (player
                         considered offline above this value). Default: > 8 h.
-  -u, --url URL         Grassfish API URL. Default: /gv2/webservices/API
 ```
 
 

@@ -47,7 +47,6 @@ def parse_args():
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
     )
-
     parser.add_argument(
         '--always-ok',
         help=lib.args.help('--always-ok'),
@@ -55,7 +54,6 @@ def parse_args():
         action='store_true',
         default=False,
     )
-
     parser.add_argument(
         '--cache-expire',
         help=lib.args.help('--cache-expire') + ' Default: %(default)s',
@@ -63,7 +61,6 @@ def parse_args():
         type=int,
         default=DEFAULT_CACHE_EXPIRE,
     )
-
     parser.add_argument(
         '-H',
         '--hostname',
@@ -71,7 +68,13 @@ def parse_args():
         dest='HOSTNAME',
         default=DEFAULT_HOSTNAME,
     )
-
+    parser.add_argument(
+        '--ipv6',
+        help=lib.args.help('--ipv6'),
+        dest='USE_IPV6',
+        action='store_true',
+        default=DEFAULT_IPV6,
+    )
     parser.add_argument(
         '--no-perfdata',
         help=lib.args.help('--no-perfdata'),
@@ -79,7 +82,6 @@ def parse_args():
         action='store_true',
         default=False,
     )
-
     parser.add_argument(
         '--port',
         help='Starface PBX monitoring port. Default: %(default)s',
@@ -87,28 +89,18 @@ def parse_args():
         type=int,
         default=DEFAULT_PORT,
     )
-
     parser.add_argument(
         '--test',
         help=lib.args.help('--test'),
         dest='TEST',
         type=lib.args.csv,
     )
-
     parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
-    )
-
-    parser.add_argument(
-        '--ipv6',
-        help=lib.args.help('--ipv6'),
-        dest='USE_IPV6',
-        action='store_true',
-        default=DEFAULT_IPV6,
     )
 
     args, _ = parser.parse_known_args()

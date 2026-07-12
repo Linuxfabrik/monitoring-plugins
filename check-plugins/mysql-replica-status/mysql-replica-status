@@ -46,7 +46,6 @@ def parse_args():
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
     )
-
     parser.add_argument(
         '--always-ok',
         help=lib.args.help('--always-ok'),
@@ -54,7 +53,6 @@ def parse_args():
         action='store_true',
         default=False,
     )
-
     parser.add_argument(
         '--defaults-file',
         help='MySQL/MariaDB cnf file to read user, host and password from. '
@@ -63,14 +61,20 @@ def parse_args():
         dest='DEFAULTS_FILE',
         default=DEFAULT_DEFAULTS_FILE,
     )
-
     parser.add_argument(
         '--defaults-group',
         help=lib.args.help('--defaults-group') + ' Default: %(default)s',
         dest='DEFAULTS_GROUP',
         default=DEFAULT_DEFAULTS_GROUP,
     )
-
+    parser.add_argument(
+        '--lag-critical',
+        help='Seconds of replication lag at which the CRIT flag is raised. '
+        'If omitted, lag never escalates to CRIT.',
+        dest='LAG_CRIT',
+        type=int,
+        default=None,
+    )
     parser.add_argument(
         '--lag-warning',
         help='Seconds of replication lag at which the WARN flag is raised. '
@@ -81,16 +85,6 @@ def parse_args():
         type=int,
         default=DEFAULT_LAG_WARN,
     )
-
-    parser.add_argument(
-        '--lag-critical',
-        help='Seconds of replication lag at which the CRIT flag is raised. '
-        'If omitted, lag never escalates to CRIT.',
-        dest='LAG_CRIT',
-        type=int,
-        default=None,
-    )
-
     parser.add_argument(
         '--no-perfdata',
         help=lib.args.help('--no-perfdata'),
@@ -98,7 +92,6 @@ def parse_args():
         action='store_true',
         default=False,
     )
-
     parser.add_argument(
         '--severity',
         help='Severity for alerts that do not depend on thresholds '
@@ -109,7 +102,6 @@ def parse_args():
         default=DEFAULT_SEVERITY,
         choices=['warn', 'crit'],
     )
-
     parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',

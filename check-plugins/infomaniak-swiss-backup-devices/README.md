@@ -41,13 +41,13 @@ Checks each backup device (slot) across all Infomaniak Swiss Backup products via
 
 ```text
 usage: infomaniak-swiss-backup-devices [-h] [-V] --account-id ACCOUNT_ID
-                                       [--always-ok] [-c CRIT] [--insecure]
-                                       [--no-perfdata] [--no-proxy]
+                                       [--always-ok] [-c CRIT]
                                        [--ignore-customer IGNORE_CUSTOMER]
                                        [--ignore-name IGNORE_NAME]
                                        [--ignore-tag IGNORE_TAG]
                                        [--ignore-user IGNORE_USER]
-                                       [--severity {warn,crit}]
+                                       [--insecure] [--no-perfdata]
+                                       [--no-proxy] [--severity {warn,crit}]
                                        [--timeout TIMEOUT] --token TOKEN
                                        [-w WARN]
 
@@ -63,13 +63,6 @@ options:
                         Infomaniak account ID.
   --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold in percent. Default: >= 95
-  --insecure            This option explicitly allows insecure SSL
-                        connections.
-  --no-perfdata         Suppress the performance data section from the output.
-                        The status message and the exit code are unaffected,
-                        so alerting keeps working while trending data is
-                        dropped.
-  --no-proxy            Do not use a proxy.
   --ignore-customer IGNORE_CUSTOMER
                         Any device whose product customer name matches this
                         Python regex will be ignored. Can be specified
@@ -87,6 +80,13 @@ options:
                         Any device whose username matches this Python regex
                         will be ignored. Can be specified multiple times.
                         Example: `--ignore-user "(?i)testuser"`.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
+  --no-proxy            Do not use a proxy.
   --severity {warn,crit}
                         Severity for alerting on locked devices. Default: warn
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)

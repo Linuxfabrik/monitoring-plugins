@@ -222,6 +222,17 @@ def parse_args():
     )
 
     parser.add_argument(
+        # Deprecated and ignored: the remote command is always passed as a single
+        # argument to the remote shell, which expands globs, pipes and variables.
+        # Kept so existing service definitions keep working.
+        '--shell',
+        help=argparse.SUPPRESS,
+        dest='SHELL',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '--skip-stderr',
         help='Ignore all (0) or first n lines on STDERR. Default: %(default)s (no ignore).',
         dest='SKIP_STDERR',
@@ -245,17 +256,6 @@ def parse_args():
         'and their possible values, see ssh_config(5). Can be specified multiple times.',
         dest='SSH_OPTION',
         action='append',
-    )
-
-    parser.add_argument(
-        # Deprecated and ignored: the remote command is always passed as a single
-        # argument to the remote shell, which expands globs, pipes and variables.
-        # Kept so existing service definitions keep working.
-        '--shell',
-        help=argparse.SUPPRESS,
-        dest='SHELL',
-        action='store_true',
-        default=False,
     )
 
     parser.add_argument(

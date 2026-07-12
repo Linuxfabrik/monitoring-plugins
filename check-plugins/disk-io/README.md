@@ -49,8 +49,8 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 
 ```text
 usage: disk-io [-h] [-V] [--always-ok] [--count COUNT] [--critical CRIT]
-               [--iowait-critical IOWAIT_CRIT] [--iowait-warning IOWAIT_WARN]
-               [--include-unmounted] [--match MATCH]
+               [--include-unmounted] [--iowait-critical IOWAIT_CRIT]
+               [--iowait-warning IOWAIT_WARN] [--match MATCH]
                [--no-match-severity {ok,warn,crit,unknown}] [--no-perfdata]
                [--top TOP] [--warning WARN]
 
@@ -87,6 +87,15 @@ options:
   --critical CRIT       CRIT threshold for disk bandwidth saturation as a
                         percentage of the observed maximum, measured over the
                         last `--count` runs. Default: >= 90
+  --include-unmounted   Also monitor block devices that have no mounted
+                        filesystem (Linux only). By default only block devices
+                        with a mounted filesystem are monitored. Enable this
+                        to include raw, unmounted devices such as multipath
+                        SAN volumes or disks used directly by a database or
+                        storage layer. Combine with `--match`, otherwise every
+                        unmounted device shows up. Pseudo devices (loop, ram,
+                        zram, floppy, optical) are always excluded. Default:
+                        False
   --iowait-critical IOWAIT_CRIT
                         CRIT threshold for iowait, in percent of a single CPU
                         core (Linux only). 100 means the equivalent of one
@@ -103,15 +112,6 @@ options:
                         threshold works fleet-wide regardless of how many
                         cores a host has. The measured value is reported as
                         saturated cores (e.g. 1.02 cores). Default: >= 80
-  --include-unmounted   Also monitor block devices that have no mounted
-                        filesystem (Linux only). By default only block devices
-                        with a mounted filesystem are monitored. Enable this
-                        to include raw, unmounted devices such as multipath
-                        SAN volumes or disks used directly by a database or
-                        storage layer. Combine with `--match`, otherwise every
-                        unmounted device shows up. Pseudo devices (loop, ram,
-                        zram, floppy, optical) are always excluded. Default:
-                        False
   --match MATCH         Filter by disk name. Filter by this Python regular
                         expression. Case-sensitive by default; use `(?i)` for
                         case-insensitive matching. Can be specified multiple

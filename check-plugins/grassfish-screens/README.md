@@ -46,7 +46,7 @@ usage: grassfish-screens [-h] [-V] [--always-ok] [--api-version API_VERSION]
                          [--no-proxy] [--port PORT] [--timeout TIMEOUT]
                          --token TOKEN
                          [--transfer-status {complete,overdue,pending}]
-                         [-w WARN] [-u URL]
+                         [-u URL] [-w WARN]
 
 Checks if screens attached to Grassfish digital signage players are on or off
 via the Grassfish API. The player list can be filtered by box state, customer
@@ -94,9 +94,9 @@ options:
   --transfer-status {complete,overdue,pending}
                         Filter by data transfer status. Can be specified
                         multiple times.
+  -u, --url URL         Grassfish API URL. Default: /gv2/webservices/API
   -w, --warning WARN    WARN threshold for last screen update in hours (screen
                         considered off above this value). Default: > 8 h.
-  -u, --url URL         Grassfish API URL. Default: /gv2/webservices/API
 ```
 
 

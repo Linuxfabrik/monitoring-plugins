@@ -11,14 +11,14 @@
                 "--critical": {
                     "value": "$disk_io_critical$"
                 },
+                "--include-unmounted": {
+                    "set_if": "$disk_io_include_unmounted$"
+                },
                 "--iowait-critical": {
                     "value": "$disk_io_iowait_critical$"
                 },
                 "--iowait-warning": {
                     "value": "$disk_io_iowait_warning$"
-                },
-                "--include-unmounted": {
-                    "set_if": "$disk_io_include_unmounted$"
                 },
                 "--match": {
                     "value": "$disk_io_match$"
@@ -116,14 +116,14 @@
                 "--critical": {
                     "value": "$disk_io_windows_critical$"
                 },
+                "--include-unmounted": {
+                    "set_if": "$disk_io_windows_include_unmounted$"
+                },
                 "--iowait-critical": {
                     "value": "$disk_io_windows_iowait_critical$"
                 },
                 "--iowait-warning": {
                     "value": "$disk_io_windows_iowait_warning$"
-                },
-                "--include-unmounted": {
-                    "set_if": "$disk_io_windows_include_unmounted$"
                 },
                 "--match": {
                     "value": "$disk_io_windows_match$"
@@ -272,9 +272,9 @@
                 "disk_io_always_ok": false,
                 "disk_io_count": 5,
                 "disk_io_critical": 90,
+                "disk_io_include_unmounted": false,
                 "disk_io_iowait_critical": 90,
                 "disk_io_iowait_warning": 80,
-                "disk_io_include_unmounted": false,
                 "disk_io_match": "",
                 "disk_io_no_match_severity": "ok",
                 "disk_io_no_perfdata": false,
@@ -328,9 +328,9 @@
                 "disk_io_windows_always_ok": false,
                 "disk_io_windows_count": 5,
                 "disk_io_windows_critical": 90,
+                "disk_io_windows_include_unmounted": false,
                 "disk_io_windows_iowait_critical": 90,
                 "disk_io_windows_iowait_warning": 80,
-                "disk_io_windows_include_unmounted": false,
                 "disk_io_windows_match": ".*",
                 "disk_io_windows_no_match_severity": "ok",
                 "disk_io_windows_no_perfdata": false,
@@ -439,6 +439,15 @@
             "uuid": "0505cbe8-a414-4c7c-b74e-c3cce3a0f0f8"
         },
         "4": {
+            "varname": "disk_io_include_unmounted",
+            "caption": "Disk I/O: Include Unmounted?",
+            "description": "Also monitor block devices that have no mounted filesystem (Linux only). By default only block devices with a mounted filesystem are monitored. Enable this to include raw, unmounted devices such as multipath SAN volumes or disks used directly by a database or storage layer. Combine with `--match`, otherwise every unmounted device shows up. Pseudo devices (loop, ram, zram, floppy, optical) are always excluded.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "2d6c73fe-fd51-4e4b-b336-7e882bcf408c"
+        },
+        "5": {
             "varname": "disk_io_iowait_critical",
             "caption": "Disk I/O: Iowait Critical",
             "description": "CRIT threshold for iowait, in percent of a single CPU core (Linux only). 100 means the equivalent of one core spent the whole interval waiting for I/O, independent of the host total core count, so the same threshold works fleet-wide regardless of how many cores a host has. The measured value is reported as saturated cores (e.g. 1.02 cores).",
@@ -449,7 +458,7 @@
             },
             "uuid": "5330e912-6319-49dc-bb40-59f1c91517be"
         },
-        "5": {
+        "6": {
             "varname": "disk_io_iowait_warning",
             "caption": "Disk I/O: Iowait Warning",
             "description": "WARN threshold for iowait, in percent of a single CPU core (Linux only). 100 means the equivalent of one core spent the whole interval waiting for I/O, independent of the host total core count, so the same threshold works fleet-wide regardless of how many cores a host has. The measured value is reported as saturated cores (e.g. 1.02 cores).",
@@ -459,15 +468,6 @@
                 "visibility": "visible"
             },
             "uuid": "4d650bc6-1030-40e3-9478-3f0ed404921e"
-        },
-        "6": {
-            "varname": "disk_io_include_unmounted",
-            "caption": "Disk I/O: Include Unmounted?",
-            "description": "Also monitor block devices that have no mounted filesystem (Linux only). By default only block devices with a mounted filesystem are monitored. Enable this to include raw, unmounted devices such as multipath SAN volumes or disks used directly by a database or storage layer. Combine with `--match`, otherwise every unmounted device shows up. Pseudo devices (loop, ram, zram, floppy, optical) are always excluded.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "2d6c73fe-fd51-4e4b-b336-7e882bcf408c"
         },
         "7": {
             "varname": "disk_io_match",
@@ -556,6 +556,15 @@
             "uuid": "6feda2a2-3432-4543-937f-f7677d00c604"
         },
         "15": {
+            "varname": "disk_io_windows_include_unmounted",
+            "caption": "Disk I/O: Include Unmounted?",
+            "description": "Also monitor block devices that have no mounted filesystem (Linux only). By default only block devices with a mounted filesystem are monitored. Enable this to include raw, unmounted devices such as multipath SAN volumes or disks used directly by a database or storage layer. Combine with `--match`, otherwise every unmounted device shows up. Pseudo devices (loop, ram, zram, floppy, optical) are always excluded.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "c5bc1a3a-b81f-4e0d-9e0e-f8ffb300a013"
+        },
+        "16": {
             "varname": "disk_io_windows_iowait_critical",
             "caption": "Disk I/O: Iowait Critical",
             "description": "CRIT threshold for iowait, in percent of a single CPU core (Linux only). 100 means the equivalent of one core spent the whole interval waiting for I/O, independent of the host total core count, so the same threshold works fleet-wide regardless of how many cores a host has. The measured value is reported as saturated cores (e.g. 1.02 cores).",
@@ -566,7 +575,7 @@
             },
             "uuid": "0bf8b4a9-4736-48c1-907f-3cca8ffad3ea"
         },
-        "16": {
+        "17": {
             "varname": "disk_io_windows_iowait_warning",
             "caption": "Disk I/O: Iowait Warning",
             "description": "WARN threshold for iowait, in percent of a single CPU core (Linux only). 100 means the equivalent of one core spent the whole interval waiting for I/O, independent of the host total core count, so the same threshold works fleet-wide regardless of how many cores a host has. The measured value is reported as saturated cores (e.g. 1.02 cores).",
@@ -576,15 +585,6 @@
                 "visibility": "visible"
             },
             "uuid": "f055e158-db5b-4c47-ab59-0ecbaeaaf282"
-        },
-        "17": {
-            "varname": "disk_io_windows_include_unmounted",
-            "caption": "Disk I/O: Include Unmounted?",
-            "description": "Also monitor block devices that have no mounted filesystem (Linux only). By default only block devices with a mounted filesystem are monitored. Enable this to include raw, unmounted devices such as multipath SAN volumes or disks used directly by a database or storage layer. Combine with `--match`, otherwise every unmounted device shows up. Pseudo devices (loop, ram, zram, floppy, optical) are always excluded.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "c5bc1a3a-b81f-4e0d-9e0e-f8ffb300a013"
         },
         "18": {
             "varname": "disk_io_windows_match",
