@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026071202'
 
 DESCRIPTION = """Checks PHP configuration and health, including startup errors, missing modules, and
 misconfigured php.ini directives. Optionally reads extended PHP information from a
@@ -296,12 +296,8 @@ def get_startup_errors():
     return stderr
 
 
-def get_config_errors(args):
-    success, result = lib.shell.shell_exec(['php', '--info'])
-    if not success:
-        lib.base.cu('PHP not found')
-    stdout, _, _ = result
-    php_config = stdout.lower()
+def get_config_errors(args, php_info):
+    php_config = php_info.lower()
     result = ''
     for config in args.CONFIG:
         try:
@@ -454,6 +450,53 @@ def render_ini_section(name, rows):
     return '\n'.join(lines)
 
 
+def parse_cli_ini_values(php_info):
+    """Extract post_max_size and upload_max_filesize from `php --info` output,
+    used as a fallback when the monitoring.php helper is not deployed. `php
+    --info` prints each directive as "name => local_value => master_value"; the
+    local value is returned. Returns a dict shaped like the helper's php.ini
+    section (a directive that is not found is simply absent).
+
+    The CLI php.ini can differ from the web server's, and a non-root run may see
+    PHP's compiled defaults instead of the configured values.
+    """
+    values = {}
+    for key in ('post_max_size', 'upload_max_filesize'):
+        match = re.search(rf'^{key} => (.+?) =>', php_info, re.M)
+        if match:
+            values[key] = match.group(1).strip()
+    return values
+
+
+def upload_limit_warning(php_ini):
+    """Return a WARN message when post_max_size is not larger than
+    upload_max_filesize, otherwise ''.
+
+    An uploaded file is part of the POST body, so PHP checks the whole body
+    against post_max_size and rejects the entire request (leaving $_POST and
+    $_FILES empty) before upload_max_filesize is ever reached (in the PHP
+    source `main/rfc1867.c` the handler bails out on
+    `content_length > post_max_size`). A file the size of upload_max_filesize
+    can therefore only be uploaded when post_max_size is strictly larger (the
+    multipart framing adds a little on top of the file itself). post_max_size=0
+    disables the POST limit (unlimited) and is fine; values that are missing or
+    not a parseable size are skipped.
+    """
+    post_max_raw = php_ini.get('post_max_size', 'N/A')
+    upload_max_raw = php_ini.get('upload_max_filesize', 'N/A')
+    if post_max_raw in ('N/A', False) or upload_max_raw in ('N/A', False):
+        return ''
+    post_max = lib.human.human2bytes(str(post_max_raw))
+    upload_max = lib.human.human2bytes(str(upload_max_raw))
+    if 0 < post_max <= upload_max:
+        return (
+            f'post_max_size ({human_bytes_shorthand(post_max_raw)}) must be larger than '
+            f'upload_max_filesize ({human_bytes_shorthand(upload_max_raw)}), otherwise '
+            f'uploads of that size are silently rejected'
+        )
+    return ''
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -481,6 +524,12 @@ def main():
         no_proxy=args.NO_PROXY,
         timeout=args.TIMEOUT,
     )
+    # `php --info` from the local CLI, fetched once and shared by the config and
+    # the upload-limit checks below.
+    success_info, php_info_result = lib.shell.shell_exec(['php', '--info'])
+    if not success_info:
+        lib.base.cu('PHP not found')
+    php_info, _, _ = php_info_result
 
     # init some vars
     msg = ''
@@ -588,6 +637,24 @@ def main():
                 rows.append((key, shown, shown_default, warned))
             if rows:
                 ini_sections.append((section, rows))
+
+    # post_max_size must be larger than upload_max_filesize, or uploads of that
+    # size are silently rejected. Prefer the web server's runtime php.ini from
+    # monitoring.php; fall back to the PHP CLI (php --info) when the helper is
+    # not deployed, and say so, since the CLI php.ini can differ from the web one.
+    if isinstance(php, dict) and php.get('php.ini'):
+        upload_ini = php.get('php.ini')
+        upload_source = ''
+    else:
+        upload_ini = parse_cli_ini_values(php_info)
+        upload_source = ' (from the PHP CLI, which may differ from your web server)'
+    upload_warning = upload_limit_warning(upload_ini)
+    if upload_warning:
+        state = lib.base.get_worst(state, STATE_WARN)
+        msg += (
+            f'{upload_warning}{upload_source}'
+            f'{lib.base.state2str(STATE_WARN, prefix=" ")}, '
+        )
 
     # checking PHP Opcache module
     # section "opcache_status" from monitoring.php
@@ -952,7 +1019,7 @@ def main():
             _max=3,
         )
 
-    config_errors = get_config_errors(args)
+    config_errors = get_config_errors(args, php_info)
     if config_errors:
         msg += (
             f'Config expected but not found: {config_errors[:-2]} '

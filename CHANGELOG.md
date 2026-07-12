@@ -24,6 +24,7 @@ Monitoring Plugins:
 * docker-swarm: new check alerting on swarm membership, a down node, or lost manager quorum
 * network-errors: new check alerting on interface receive and transmit errors ([#707](https://github.com/Linuxfabrik/monitoring-plugins/issues/707))
 * nextcloud-app-updates: new check alerting when a Nextcloud app update has been pending longer than a grace period ([#62](https://github.com/Linuxfabrik/monitoring-plugins/issues/62))
+* php-status: warns when `post_max_size` is not larger than `upload_max_filesize`, a misconfiguration that silently breaks file uploads ([#516](https://github.com/Linuxfabrik/monitoring-plugins/issues/516))
 * wildfly-version: new check alerting when WildFly is behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))
 
 ### Changed

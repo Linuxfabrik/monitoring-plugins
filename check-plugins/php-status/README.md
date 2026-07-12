@@ -62,7 +62,7 @@ Within one FPM master, each **pool** can override php.ini directives via `php_va
 
 #### upload_max_filesize has nothing to do with memory_limit
 
-A persistent misconception is that uploading a large file needs a correspondingly large `memory_limit`. It does not. PHP streams a multipart file upload **straight to a temporary file on disk** (`upload_tmp_dir`) in small chunks; in the PHP source (`main/rfc1867.c`) the handler opens a temp file with `php_open_temporary_fd_ex(...)` and then `write(fd, buff, blen)` in a loop. The file never accumulates in the script's memory, which is what `memory_limit` bounds. You can run `upload_max_filesize = 2G` with `memory_limit = 128M`. What *is* related: `post_max_size` must be at least `upload_max_filesize` (the file is part of the POST body), and the upload needs **disk** space in `upload_tmp_dir`, not RAM.
+A persistent misconception is that uploading a large file needs a correspondingly large `memory_limit`. It does not. PHP streams a multipart file upload **straight to a temporary file on disk** (`upload_tmp_dir`) in small chunks; in the PHP source (`main/rfc1867.c`) the handler opens a temp file with `php_open_temporary_fd_ex(...)` and then `write(fd, buff, blen)` in a loop. The file never accumulates in the script's memory, which is what `memory_limit` bounds. You can run `upload_max_filesize = 2G` with `memory_limit = 128M`. What *is* related: `post_max_size` must be **larger than** `upload_max_filesize` (the file is part of the POST body, plus a little multipart framing), and the upload needs **disk** space in `upload_tmp_dir`, not RAM. The plugin warns when this ordering is wrong (see the Troubleshooting section).
 
 ### Deploying the monitoring.php helper
 
@@ -273,6 +273,7 @@ On a host with several PHP-FPM masters the first line confirms the read and then
 * WARN if a checked php.ini value does not match the given `--config`.
 * WARN if a required `--module` is missing.
 * WARN if `display_errors` or `display_startup_errors` (both tolerated with `--dev`) or `expose_php` are enabled.
+* WARN if `post_max_size` is not larger than `upload_max_filesize`, because uploads of that size would be silently rejected.
 * WARN if OPcache is not installed or not enabled.
 * WARN if the OPcache is full, or a restart is pending or in progress.
 * WARN if there are OPcache OOM or hash restarts (the cache is thrashing). Manual restarts (for example from a deploy) are shown for information only and do not alert.
@@ -372,6 +373,12 @@ Not an alert. When the buffer fills, OPcache stops deduplicating new strings but
 ### `Config expected but not found: date.timezone = Europe`
 
 The default `--config` check expects `date.timezone` to start with `Europe`. On a host configured for another region this warns; pass your own expectation, for example `--config "date.timezone=UTC"`, or set the directive. Run the plugin via sudo (as the basket does): a non-root run reads PHP's compiled defaults instead of the configured php.ini, so the comparison would use the wrong values.
+
+### `post_max_size ... must be larger than upload_max_filesize ...`
+
+An uploaded file is not sent on its own, it travels inside the request's POST body, together with a little multipart framing. PHP checks that whole body against `post_max_size` first: if it is bigger, PHP aborts the request and hands the script empty `$_POST` and `$_FILES` (in the PHP source `main/rfc1867.c`, the parser bails out as soon as `content_length > post_max_size`). So if `post_max_size` is smaller than, or even equal to, `upload_max_filesize`, a file at that limit can never actually be uploaded, and the failure is silent: the user sees a broken form, not an error. Set `post_max_size` clearly larger than `upload_max_filesize` (for example `upload_max_filesize = 64M` with `post_max_size = 65M` or more). This is independent of `memory_limit`, which does not bound uploads (see the Background section).
+
+The plugin reads these two directives from the web server's runtime php.ini when the `monitoring.php` helper is deployed. Without the helper it falls back to the PHP CLI (`php --info`), and the output then carries a `(from the PHP CLI, which may differ from your web server)` note. The CLI and the web server can use different php.ini files, and a non-root run may see PHP's compiled defaults instead of the configured values, so run the check via sudo and, if in doubt, deploy `monitoring.php` to check the exact values the web server uses.
 
 ### `PHP Warning: PHP Startup: Unable to load dynamic library ...`
 
