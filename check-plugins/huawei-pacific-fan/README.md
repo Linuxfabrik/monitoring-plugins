@@ -36,8 +36,9 @@ Checks the status of all fans on a Huawei OceanStor Pacific storage system via t
 ```text
 usage: huawei-pacific-fan [-h] [-V] [--always-ok]
                           [--cache-expire CACHE_EXPIRE] [--insecure]
-                          [--no-proxy] --password PASSWORD [--scope SCOPE]
-                          [--timeout TIMEOUT] -u URL --username USERNAME
+                          [--no-perfdata] [--no-proxy] --password PASSWORD
+                          [--scope SCOPE] [--timeout TIMEOUT] -u URL
+                          --username USERNAME
 
 Checks the status of all fans on a Huawei OceanStor Pacific storage system via
 the REST API (/hwm/fan endpoint). Alerts when any fan reports a non-normal
@@ -52,6 +53,10 @@ options:
                         cache expires, in minutes. Default: 15
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Huawei OceanStor Pacific API password.
   --scope SCOPE         Huawei OceanStor Pacific API scope.

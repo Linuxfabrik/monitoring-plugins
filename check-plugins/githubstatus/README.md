@@ -26,8 +26,8 @@ Monitors the GitHub status page for service disruptions. Reports the overall sta
 ## Help
 
 ```text
-usage: githubstatus [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                    [--timeout TIMEOUT]
+usage: githubstatus [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
+                    [--no-proxy] [--timeout TIMEOUT]
 
 Monitors the GitHub status page for service disruptions. Reports the overall
 status indicator, individual component states, and any unresolved incidents.
@@ -38,6 +38,9 @@ options:
   -V, --version      show program's version number and exit
   --always-ok        Always returns OK.
   --insecure         This option explicitly allows insecure SSL connections.
+  --no-perfdata      Suppress the performance data section from the output.
+                     The status message and the exit code are unaffected, so
+                     alerting keeps working while trending data is dropped.
   --no-proxy         Do not use a proxy.
   --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
 ```

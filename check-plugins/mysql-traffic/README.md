@@ -37,7 +37,8 @@ Reports MySQL/MariaDB traffic statistics including uptime, queries per second, t
 
 ```text
 usage: mysql-traffic [-h] [-V] [--defaults-file DEFAULTS_FILE]
-                     [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
+                     [--defaults-group DEFAULTS_GROUP] [--no-perfdata]
+                     [--timeout TIMEOUT]
 
 Reports MySQL/MariaDB traffic statistics: uptime, queries per second, total
 connections, bytes transferred, and the SELECT-vs-write ratio. Purely
@@ -57,6 +58,10 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 

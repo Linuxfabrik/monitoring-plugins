@@ -19,7 +19,7 @@ import lib.wildfly
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026063001'
+__version__ = '2026071201'
 
 DESCRIPTION = """Monitors XA datasource connection pool metrics on a WildFly/JBoss AS server via its
 HTTP management API. Reports active, available, and idle connections. Alerts when pool
@@ -99,6 +99,14 @@ def parse_args():
         dest='NO_MATCH_SEVERITY',
         choices=['ok', 'warn', 'crit', 'unknown'],
         default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -281,7 +289,13 @@ def check_xa_datasource(args):
         msg = msg[:-2] + '; '
 
     if msg:
-        lib.base.oao(f'{msg[:-2]}', state, perfdata, always_ok=args.ALWAYS_OK)
+        lib.base.oao(
+            f'{msg[:-2]}',
+            state,
+            perfdata,
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
+        )
     else:
         # over and out
         lib.base.oao(

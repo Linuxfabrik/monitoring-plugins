@@ -33,8 +33,8 @@ Checks if a NodeBB update is available by comparing the installed version agains
 ## Help
 
 ```text
-usage: nodebb-version [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                      [--timeout TIMEOUT] [-p TOKEN] [--url URL]
+usage: nodebb-version [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
+                      [--no-proxy] [--timeout TIMEOUT] [-p TOKEN] [--url URL]
 
 Checks if a NodeBB update is available by comparing the installed version
 against the latest release. Alerts when an update is available.
@@ -44,6 +44,9 @@ options:
   -V, --version      show program's version number and exit
   --always-ok        Always returns OK.
   --insecure         This option explicitly allows insecure SSL connections.
+  --no-perfdata      Suppress the performance data section from the output.
+                     The status message and the exit code are unaffected, so
+                     alerting keeps working while trending data is dropped.
   --no-proxy         Do not use a proxy.
   --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
   -p, --token TOKEN  NodeBB API bearer token.

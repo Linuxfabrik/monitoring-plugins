@@ -144,8 +144,8 @@ On the subject of OPcache see also:
 ```text
 usage: php-status [-h] [-V] [--always-ok] [-c CRIT] [--config CONFIG] [--dev]
                   [--module MODULES] [--ignore-multiple-masters] [--insecure]
-                  [--no-proxy] [--timeout TIMEOUT] [--top TOP] [--url URL]
-                  [-w WARN]
+                  [--no-perfdata] [--no-proxy] [--timeout TIMEOUT] [--top TOP]
+                  [--url URL] [-w WARN]
 
 Checks PHP configuration and health, including startup errors, missing
 modules, and misconfigured php.ini directives. Optionally reads extended PHP
@@ -175,6 +175,10 @@ options:
                         own check.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --top TOP             Number of largest OPcache scripts to list, sorted by

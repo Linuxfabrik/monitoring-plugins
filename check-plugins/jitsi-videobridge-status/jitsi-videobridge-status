@@ -20,7 +20,7 @@ import lib.lftest
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026071201'
 
 DESCRIPTION = """Checks the Jitsi Videobridge health state via the /about/health REST endpoint. Returns
 OK if the bridge is healthy, WARN or CRIT otherwise."""
@@ -57,6 +57,14 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -145,7 +153,12 @@ def main():
             _min=0,
             _max=2,
         )
-        lib.base.oao('Problems with jitsi-videobridge.', state, perfdata)
+        lib.base.oao(
+            'Problems with jitsi-videobridge.',
+            state,
+            perfdata,
+            no_perfdata=args.NO_PERFDATA,
+        )
 
     # over and out
     perfdata = lib.base.get_perfdata(
@@ -154,7 +167,7 @@ def main():
         _min=0,
         _max=2,
     )
-    lib.base.oao('Everything is ok.', STATE_OK, perfdata)
+    lib.base.oao('Everything is ok.', STATE_OK, perfdata, no_perfdata=args.NO_PERFDATA)
 
 
 if __name__ == '__main__':

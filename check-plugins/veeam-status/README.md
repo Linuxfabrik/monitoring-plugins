@@ -40,9 +40,9 @@ usage: veeam-status [-h] [-V] [--always-ok] [-c CRIT]
                     [--insecure]
                     [--max-backup-job-duration MAX_BACKUP_JOB_DURATION]
                     [--max-replica-job-duration MAX_REPLICA_JOB_DURATION]
-                    [--no-proxy] -p PASSWORD [--timeout TIMEOUT] [--url URL]
-                    --username USERNAME [-w WARN]
-                    [--warnings-job-runs WARNINGS_JOB_RUNS]
+                    [--no-perfdata] [--no-proxy] -p PASSWORD
+                    [--timeout TIMEOUT] [--url URL] --username USERNAME
+                    [-w WARN] [--warnings-job-runs WARNINGS_JOB_RUNS]
                     [--warning-vm-lastest-states WARNING_VM_LASTEST_STATES]
 
 Monitors Veeam Backup & Replication via PowerShell, checking for failed VMs
@@ -68,6 +68,10 @@ options:
   --max-replica-job-duration MAX_REPLICA_JOB_DURATION
                         Maximum allowed replica job duration in seconds.
                         Default: > 86400.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
                         Veeam REST API password.

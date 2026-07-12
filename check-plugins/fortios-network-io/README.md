@@ -35,8 +35,9 @@ Monitors network I/O and link states on all interfaces of FortiGate appliances r
 
 ```text
 usage: fortios-network-io [-h] [-V] [--always-ok] [--count COUNT] [-c CRIT]
-                          -H HOSTNAME [--insecure] [--no-proxy]
-                          --password PASSWORD [--timeout TIMEOUT] [-w WARN]
+                          -H HOSTNAME [--insecure] [--no-perfdata]
+                          [--no-proxy] --password PASSWORD [--timeout TIMEOUT]
+                          [-w WARN]
 
 Monitors network I/O and link states on all interfaces of FortiGate appliances
 running FortiOS via the REST API. Alerts only if bandwidth thresholds have
@@ -58,6 +59,10 @@ options:
                         port. Example: `--hostname 192.168.1.1:443`.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   FortiOS REST API single-use access token.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)

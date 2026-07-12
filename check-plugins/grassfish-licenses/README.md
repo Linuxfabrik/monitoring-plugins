@@ -32,8 +32,9 @@ Monitors available Grassfish digital signage licenses via the Grassfish API. Ale
 
 ```text
 usage: grassfish-licenses [-h] [-V] [--always-ok] [--api-version API_VERSION]
-                          -H HOSTNAME [--insecure] [--no-proxy] [--port PORT]
-                          [--timeout TIMEOUT] --token TOKEN [-u URL]
+                          -H HOSTNAME [--insecure] [--no-perfdata]
+                          [--no-proxy] [--port PORT] [--timeout TIMEOUT]
+                          --token TOKEN [-u URL]
 
 Monitors available Grassfish digital signage licenses via the Grassfish API.
 Alerts when no more licenses are available. Requires a Grassfish hostname and
@@ -49,6 +50,10 @@ options:
                         Grassfish hostname.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --port PORT           Grassfish port number. Default: 443
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)

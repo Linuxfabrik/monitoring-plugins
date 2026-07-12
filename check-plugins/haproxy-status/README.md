@@ -56,7 +56,7 @@ Monitors HAProxy performance and health via the stats endpoint. Reports frontend
 
 ```text
 usage: haproxy-status [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
-                      [--insecure] [--lengthy] [--no-proxy]
+                      [--insecure] [--lengthy] [--no-perfdata] [--no-proxy]
                       [--timeout TIMEOUT] [-u URL] [-w WARN]
 
 Monitors HAProxy performance and health via the stats endpoint. Reports
@@ -87,6 +87,9 @@ options:
                        match. Default: None
   --insecure           This option explicitly allows insecure SSL connections.
   --lengthy            Extended reporting.
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   --no-proxy           Do not use a proxy.
   --timeout TIMEOUT    Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL        HAProxy stats URI. Accepts

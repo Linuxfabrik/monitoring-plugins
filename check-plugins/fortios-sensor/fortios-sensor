@@ -21,7 +21,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026071201'
 
 DESCRIPTION = """Checks hardware sensor readings (temperature, voltage, fan speed) on FortiGate
 appliances running FortiOS via the REST API. Alerts when any sensor reports an
@@ -66,6 +66,14 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -189,7 +197,7 @@ def main():
         msg_header = f'Checked {sensor_counter} {lib.txt.pluralize("sensor", sensor_counter)}, all are ok.'
 
     # over and out
-    lib.base.oao(msg_header + msg_body, state, perfdata)
+    lib.base.oao(msg_header + msg_body, state, perfdata, no_perfdata=args.NO_PERFDATA)
 
 
 if __name__ == '__main__':

@@ -32,7 +32,7 @@ Checks the number of messages in the mail queue using the `mailq` command. Alert
 
 ```text
 usage: mailq [-h] [-V] [--always-ok] [-c CRIT]
-             [--mta {auto,postfix,exim,sendmail}] [-w WARN]
+             [--mta {auto,postfix,exim,sendmail}] [--no-perfdata] [-w WARN]
 
 Checks how long the oldest mail in the local mail queue has been waiting and
 alerts when it exceeds the configured duration thresholds. On hosts with
@@ -61,6 +61,10 @@ options:
                         (Exim), and falls back to `mailq` (Sendmail-style)
                         otherwise. Override this if the detection picks the
                         wrong MTA. Default: auto
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   -w, --warning WARN    WARN threshold for the age of the oldest mail in the
                         queue. Accepts a duration with a unit suffix (`Ns`,
                         `Nm`, `Nh`, `ND`, `NW`, `NM`, `NY`, case-sensitive

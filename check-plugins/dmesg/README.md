@@ -33,7 +33,7 @@ Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, ale
 ## Help
 
 ```text
-usage: dmesg [-h] [-V] [--always-ok] [--ignore IGNORE]
+usage: dmesg [-h] [-V] [--always-ok] [--ignore IGNORE] [--no-perfdata]
 
 Checks the kernel ring buffer (dmesg) for messages at severity levels emerg,
 alert, crit, and err. Known false positives and hardware-specific noise are
@@ -52,6 +52,9 @@ options:
                    expression. Can be specified multiple times. Specifying
                    this parameter replaces the bundled default ignore list.
                    Example: `--ignore="^.* unhandled (rd|wr)msr: "`.
+  --no-perfdata    Suppress the performance data section from the output. The
+                   status message and the exit code are unaffected, so
+                   alerting keeps working while trending data is dropped.
 ```
 
 

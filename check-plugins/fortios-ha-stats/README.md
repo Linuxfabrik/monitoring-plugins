@@ -33,8 +33,8 @@ Monitors the high-availability cluster status on FortiGate appliances running Fo
 
 ```text
 usage: fortios-ha-stats [-h] [-V] [--always-ok] [--count COUNT] -H HOSTNAME
-                        [--insecure] [--no-proxy] --password PASSWORD
-                        [--timeout TIMEOUT]
+                        [--insecure] [--no-perfdata] [--no-proxy]
+                        --password PASSWORD [--timeout TIMEOUT]
 
 Monitors the high-availability cluster status on FortiGate appliances running
 FortiOS via the REST API. Alerts if the number of HA members differs from the
@@ -52,6 +52,10 @@ options:
                         port. Example: `--hostname 192.168.1.1:443`.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   FortiOS REST API single-use access token.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)

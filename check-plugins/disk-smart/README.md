@@ -35,6 +35,7 @@ Queries SMART (Self-Monitoring, Analysis, and Reporting Technology) data from ha
 
 ```text
 usage: disk-smart [-h] [-V] [--always-ok] [--full] [--ignore IGNORE]
+                  [--no-perfdata]
 
 Queries SMART (Self-Monitoring, Analysis, and Reporting Technology) data from
 hard disks and solid-state drives using smartctl. Inspects drive health
@@ -53,6 +54,9 @@ options:
                    False
   --ignore IGNORE  Comma-separated list of disk names to ignore. Example:
                    `sda,sdb`. Default: []
+  --no-perfdata    Suppress the performance data section from the output. The
+                   status message and the exit code are unaffected, so
+                   alerting keeps working while trending data is dropped.
 ```
 
 

@@ -51,8 +51,8 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 usage: disk-io [-h] [-V] [--always-ok] [--count COUNT] [--critical CRIT]
                [--iowait-critical IOWAIT_CRIT] [--iowait-warning IOWAIT_WARN]
                [--include-unmounted] [--match MATCH]
-               [--no-match-severity {ok,warn,crit,unknown}] [--top TOP]
-               [--warning WARN]
+               [--no-match-severity {ok,warn,crit,unknown}] [--no-perfdata]
+               [--top TOP] [--warning WARN]
 
 Checks disk I/O bandwidth over time and alerts on sustained saturation, not
 short spikes. The check records per-disk read/write counters and then derives
@@ -130,6 +130,10 @@ options:
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --top TOP             Number of top processes to list by I/O traffic. Use
                         `--top=0` to disable. Default: 5
   --warning WARN        WARN threshold for disk bandwidth saturation as a

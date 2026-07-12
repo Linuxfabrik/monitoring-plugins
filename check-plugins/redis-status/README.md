@@ -38,7 +38,7 @@ Monitors a Redis server via the `INFO` command, reporting memory usage, fragment
 usage: redis-status [-h] [-V] [--always-ok] [--cacert CACERT] [-c CRIT]
                     [-H HOSTNAME] [--ignore-maxmemory0] [--ignore-overcommit]
                     [--ignore-somaxconn] [--ignore-sync-partial-err]
-                    [--ignore-thp] [-p PASSWORD] [--port PORT]
+                    [--ignore-thp] [--no-perfdata] [-p PASSWORD] [--port PORT]
                     [--socket SOCKET] [--tls] [--username USERNAME]
                     [--verbose] [-w WARN]
 
@@ -71,6 +71,10 @@ options:
                         expected. Default: False
   --ignore-thp          Suppress the warning about transparent huge pages
                         being enabled. Default: False
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   -p, --password PASSWORD
                         Password for Redis server authentication.
   --port PORT           Redis server port. Default: 6379

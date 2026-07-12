@@ -33,8 +33,9 @@ Reports statistics from a Keycloak server via its HTTP API, including uptime, Ja
 
 ```text
 usage: keycloak-stats [-h] [-V] [--client-id CLIENT_ID] [--insecure]
-                      [--no-proxy] [-p PASSWORD] [--realm REALM]
-                      [--timeout TIMEOUT] [--url URL] [--username USERNAME]
+                      [--no-perfdata] [--no-proxy] [-p PASSWORD]
+                      [--realm REALM] [--timeout TIMEOUT] [--url URL]
+                      [--username USERNAME]
 
 Reports statistics from a Keycloak server via its HTTP API, including realm
 count, client count, user count, and active sessions. Tested with Keycloak 18
@@ -47,6 +48,10 @@ options:
                         Keycloak API Client-ID. Default: admin-cli
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
                         Keycloak API password. Default: admin

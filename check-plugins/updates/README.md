@@ -26,7 +26,7 @@ Checks the number of pending Windows updates using the Windows Update COM API.
 ## Help
 
 ```text
-usage: updates [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
+usage: updates [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata] [-w WARN]
 
 Checks the number of pending Windows updates. Alerts when the update count
 exceeds the configured thresholds.
@@ -37,6 +37,9 @@ options:
   --always-ok          Always returns OK.
   -c, --critical CRIT  Threshold for the number of pending updates. Default:
                        50
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   -w, --warning WARN   Threshold for the number of pending updates. Default: 2
 ```
 

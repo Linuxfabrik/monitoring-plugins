@@ -32,8 +32,9 @@ Retrieves NodeBB process and system information via the admin API, including Nod
 ## Help
 
 ```text
-usage: nodebb-info [-h] [-V] [--always-ok] [-c CRIT] [--insecure] [--no-proxy]
-                   [--timeout TIMEOUT] -p TOKEN [--url URL] [-w WARN]
+usage: nodebb-info [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
+                   [--no-perfdata] [--no-proxy] [--timeout TIMEOUT] -p TOKEN
+                   [--url URL] [-w WARN]
 
 Retrieves NodeBB process and system information via the admin API, including
 Node.js version, uptime, memory usage, and Git commit hash. Alerts when memory
@@ -45,6 +46,9 @@ options:
   --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold in percent. Default: >= 95
   --insecure           This option explicitly allows insecure SSL connections.
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   --no-proxy           Do not use a proxy.
   --timeout TIMEOUT    Network timeout in seconds. Default: 3 (seconds)
   -p, --token TOKEN    NodeBB API bearer token.

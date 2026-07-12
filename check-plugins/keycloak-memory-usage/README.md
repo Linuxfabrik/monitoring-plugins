@@ -32,10 +32,10 @@ Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP A
 
 ```text
 usage: keycloak-memory-usage [-h] [-V] [--always-ok] [--client-id CLIENT_ID]
-                             [--critical CRIT] [--insecure] [--no-proxy]
-                             [-p PASSWORD] [--realm REALM] [--timeout TIMEOUT]
-                             [--url URL] [--username USERNAME]
-                             [--warning WARN]
+                             [--critical CRIT] [--insecure] [--no-perfdata]
+                             [--no-proxy] [-p PASSWORD] [--realm REALM]
+                             [--timeout TIMEOUT] [--url URL]
+                             [--username USERNAME] [--warning WARN]
 
 Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP
 API. Alerts when memory usage exceeds the configured thresholds. Tested with
@@ -50,6 +50,10 @@ options:
   --critical CRIT       CRIT threshold in percent. Default: >= 90
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
                         Keycloak API password. Default: admin

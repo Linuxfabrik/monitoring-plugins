@@ -32,7 +32,8 @@ Lists all clients currently connected to an OpenVPN server by parsing the status
 ## Help
 
 ```text
-usage: openvpn-client-list [-h] [-V] [-c CRIT] [--filename FILENAME] [-w WARN]
+usage: openvpn-client-list [-h] [-V] [-c CRIT] [--filename FILENAME]
+                           [--no-perfdata] [-w WARN]
 
 Lists all clients currently connected to an OpenVPN server by parsing the
 status log file. Reports client name, remote address, bytes received and sent,
@@ -45,6 +46,9 @@ options:
                        Default: None
   --filename FILENAME  Path to the OpenVPN status log file. Default:
                        /var/log/openvpn-status.log
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   -w, --warning WARN   WARN threshold for the number of connected clients.
                        Default: None
 ```

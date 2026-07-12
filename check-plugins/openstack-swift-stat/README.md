@@ -34,7 +34,7 @@ Checks OpenStack Swift object storage account statistics, including total contai
 ## Help
 
 ```text
-usage: openstack-swift-stat [-h] [-V] [--always-ok] [-c CRIT]
+usage: openstack-swift-stat [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata]
                             [--rc-file RC_FILE] [-w WARN]
 
 Checks OpenStack Swift object storage account statistics, including total
@@ -47,6 +47,9 @@ options:
   --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for remaining free space, in GiB.
                        Default: <= 10
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   --rc-file RC_FILE    Path to a rc file containing OpenStack connection
                        parameters like OS_USERNAME (instead of specifying them
                        on the command line). Example:

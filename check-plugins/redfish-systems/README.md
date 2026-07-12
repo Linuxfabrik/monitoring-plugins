@@ -37,7 +37,7 @@ Checks the overall system health reported by a Redfish-compatible server via the
 
 ```text
 usage: redfish-systems [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
-                       [--insecure] [--inventory] [--no-proxy]
+                       [--insecure] [--inventory] [--no-perfdata] [--no-proxy]
                        [--password PASSWORD] [--retries RETRIES]
                        [--timeout TIMEOUT] --url URL [--username USERNAME]
 
@@ -63,6 +63,10 @@ options:
                         object keyed by component type, so the output of
                         several Redfish checks can be merged into one
                         inventory document with `jq --slurp`. Default: False
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Redfish API password.
   --retries RETRIES     Number of extra attempts if a request to the Redfish

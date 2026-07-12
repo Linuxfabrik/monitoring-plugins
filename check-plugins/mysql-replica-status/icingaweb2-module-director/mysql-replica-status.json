@@ -17,6 +17,9 @@
                 "--lag-critical": {
                     "value": "$mysql_replica_status_lag_critical$"
                 },
+                "--no-perfdata": {
+                    "set_if": "$mysql_replica_status_no_perfdata$"
+                },
                 "--severity": {
                     "value": "$mysql_replica_status_severity$"
                 },
@@ -59,6 +62,11 @@
                 },
                 {
                     "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -119,6 +127,7 @@
                 "mysql_replica_status_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_replica_status_defaults_group": "client",
                 "mysql_replica_status_lag_warning": 0,
+                "mysql_replica_status_no_perfdata": false,
                 "mysql_replica_status_severity": "warn",
                 "mysql_replica_status_timeout": 3
             },
@@ -203,6 +212,15 @@
             "uuid": "4f598eb4-4c3f-457b-8583-90d075f98a04"
         },
         "6": {
+            "varname": "mysql_replica_status_no_perfdata",
+            "caption": "MySQL Replica Status: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "726d5c13-56d5-400a-b0d4-9709fd5b8a37"
+        },
+        "7": {
             "varname": "mysql_replica_status_severity",
             "caption": "MySQL Replica Status: Severity",
             "description": "Severity for alerts that do not depend on thresholds (IO/SQL thread not running, `read_only` disabled). One of `warn` or `crit`.",
@@ -215,7 +233,7 @@
             },
             "uuid": "3485cc0b-4fe0-4598-b318-d99575b40b33"
         },
-        "7": {
+        "8": {
             "varname": "mysql_replica_status_timeout",
             "caption": "MySQL Replica Status: Timeout",
             "description": "Network timeout in seconds.",

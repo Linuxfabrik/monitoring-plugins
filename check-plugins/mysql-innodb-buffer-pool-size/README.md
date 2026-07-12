@@ -45,7 +45,7 @@ Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the 
 usage: mysql-innodb-buffer-pool-size [-h] [-V] [--always-ok]
                                      [--defaults-file DEFAULTS_FILE]
                                      [--defaults-group DEFAULTS_GROUP]
-                                     [--timeout TIMEOUT]
+                                     [--no-perfdata] [--timeout TIMEOUT]
 
 Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares
 the configured `innodb_buffer_pool_size` against the actual InnoDB data and
@@ -70,6 +70,10 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 

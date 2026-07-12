@@ -35,8 +35,8 @@ Skeleton plugin demonstrating all standard patterns and library functions: argpa
 ```text
 usage: example [-h] [-V] [--always-ok] [-c CRIT] [--ignore-regex IGNORE_REGEX]
                [--insecure] [--lengthy] [--module MODULE] [--name NAME]
-               [--no-proxy] [--timeout TIMEOUT] --token TOKEN [--url URL]
-               [-w WARN]
+               [--no-perfdata] [--no-proxy] [--timeout TIMEOUT] --token TOKEN
+               [--url URL] [-w WARN]
 
 Skeleton plugin demonstrating all standard patterns and library functions:
 argparse with append/deprecated/suppress parameters, (success, result) error
@@ -63,6 +63,10 @@ options:
   --name NAME           Only check items with this name. Can be specified
                         multiple times. If not specified, all items are
                         checked.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --token TOKEN         Software API token.

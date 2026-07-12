@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041001'
+__version__ = '2026071201'
 
 DESCRIPTION = """Monitors account statistics of a Starface PBX via its monitoring
 module on port 6556. Reports SIP and DAHDI account states including registered,
@@ -62,6 +62,14 @@ def parse_args():
         help='Starface PBX hostname or IP address. Default: %(default)s',
         dest='HOSTNAME',
         default=DEFAULT_HOSTNAME,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -206,7 +214,7 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg, state, perfdata)
+    lib.base.oao(msg, state, perfdata, no_perfdata=args.NO_PERFDATA)
 
 
 if __name__ == '__main__':

@@ -34,21 +34,16 @@ Checks the status of the last borgbackup run by parsing the borg logfile. Alerts
 ## Help
 
 ```text
-usage: borgbackup [-h] [-V] [-c CRIT] [-w WARN]
-
-Checks the status of the last borgbackup run by parsing the borg logfile.
-Alerts on non-zero return codes from the create or prune steps, and warns if
-the last successful backup is older than a configurable threshold (default: 24
-hours). Also detects active borg mounts in /proc/mounts. Requires root or
-sudo.
-
-options:
-  -h, --help           show this help message and exit
-  -V, --version        show program's version number and exit
-  -c, --critical CRIT  CRIT threshold for the time since the last backup
-                       started, in hours. Default: None
-  -w, --warning WARN   WARN threshold for the time since the last backup
-                       started, in hours. Default: 24
+Traceback (most recent call last):
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/borgbackup/borgbackup", line 188, in 'module'
+    main()
+    ~~~~^^
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/borgbackup/borgbackup", line 84, in main
+    args = parse_args()
+  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/borgbackup/borgbackup", line 59, in parse_args
+    help=lib.args.help('--no-perfdata'),
+         ^^^^^^^^
+AttributeError: module 'lib' has no attribute 'args'
 ```
 
 

@@ -41,7 +41,7 @@ Checks MySQL/MariaDB user security: anonymous accounts, empty passwords, account
 ```text
 usage: mysql-user-security [-h] [-V] [--always-ok]
                            [--defaults-file DEFAULTS_FILE]
-                           [--defaults-group DEFAULTS_GROUP]
+                           [--defaults-group DEFAULTS_GROUP] [--no-perfdata]
                            [--severity {warn,crit}] [--timeout TIMEOUT]
 
 Checks MySQL/MariaDB user security: anonymous accounts (empty user name),
@@ -65,6 +65,10 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --severity {warn,crit}
                         Severity for the threshold-less security findings
                         (anonymous accounts, empty passwords, weak passwords,

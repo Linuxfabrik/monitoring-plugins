@@ -39,7 +39,7 @@ Checks file sizes against configurable thresholds using human-readable units (e.
 
 ```text
 usage: file-size [-h] [-V] [--always-ok] [-c CRIT] [--filename FILENAME]
-                 [--pattern PATTERN] [--password PASSWORD]
+                 [--no-perfdata] [--pattern PATTERN] [--password PASSWORD]
                  [--perfdata-mode {mean,median,None}] [--timeout TIMEOUT]
                  [-u URL] [--username USERNAME] [-w WARN]
 
@@ -63,6 +63,10 @@ options:
                         https://docs.python.org/3/library/glob.html. Recursive
                         globs can cause high memory usage. Mutually exclusive
                         with `-u` / `--url`. Example: `--filename /tmp/*.log`.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --pattern PATTERN     Search string to match against SMB directory or file
                         names. Use `*` as a wildcard for multiple characters
                         and `?` for a single character. Does not support regex

@@ -41,8 +41,8 @@ Checks MySQL/MariaDB TLS/SSL posture: the current connection itself, the server'
 ```text
 usage: mysql-tls [-h] [-V] [--always-ok] [-c CRIT]
                  [--defaults-file DEFAULTS_FILE]
-                 [--defaults-group DEFAULTS_GROUP] [--severity {warn,crit}]
-                 [--timeout TIMEOUT] [-w WARN]
+                 [--defaults-group DEFAULTS_GROUP] [--no-perfdata]
+                 [--severity {warn,crit}] [--timeout TIMEOUT] [-w WARN]
 
 Checks MySQL/MariaDB TLS/SSL posture: the current connection itself, the
 server's TLS capability (`have_ssl`), enforcement
@@ -67,6 +67,10 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --severity {warn,crit}
                         Severity for the threshold-less TLS findings (session
                         not encrypted, `have_ssl=DISABLED`,

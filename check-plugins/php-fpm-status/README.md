@@ -114,8 +114,9 @@ The overall state is the worst of all pools. Perfdata labels are prefixed with t
 ```text
 usage: php-fpm-status [-h] [-V] [--always-ok] [-c CRIT]
                       [--critical-slowreq CRIT_SLOW_REQUESTS] [--insecure]
-                      [--lengthy] [--no-proxy] [--severity {warn,crit}]
-                      [--test TEST] [--timeout TIMEOUT] [-u URL] [-w WARN]
+                      [--lengthy] [--no-perfdata] [--no-proxy]
+                      [--severity {warn,crit}] [--test TEST]
+                      [--timeout TIMEOUT] [-u URL] [-w WARN]
                       [--warning-slowreq WARN_SLOW_REQUESTS]
 
 Monitors PHP-FPM pool performance via the pool status page. Reports pool
@@ -150,6 +151,10 @@ options:
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --lengthy             Extended reporting.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --severity {warn,crit}
                         Severity for alerting. Applied to pools that are

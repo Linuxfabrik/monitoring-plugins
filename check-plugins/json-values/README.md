@@ -35,7 +35,7 @@ Parses a JSON object from a local file, HTTP/HTTPS URL, or SMB share and extract
 usage: json-values [-h] [-V] [--always-ok] [-c CRIT]
                    [--critical-key CRITICAL_KEY] [--filename FILENAME]
                    [--header HEADER] [--insecure] [--message-key MESSAGE_KEY]
-                   [--no-proxy] [--password PASSWORD]
+                   [--no-perfdata] [--no-proxy] [--password PASSWORD]
                    [--perfdata-key PERFDATA_KEY] [--state-key STATE_KEY]
                    [--timeout TIMEOUT] [--token TOKEN] [-u URL]
                    [--username USERNAME] [-w WARN] [--warning-key WARNING_KEY]
@@ -79,6 +79,10 @@ options:
                         Supports dot-notation for nested keys (e.g.
                         `meta.message`). Example: `--message-
                         key=meta.message`. Default: message
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Password for SMB authentication.
   --perfdata-key PERFDATA_KEY

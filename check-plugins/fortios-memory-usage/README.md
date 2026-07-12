@@ -33,8 +33,8 @@ Monitors memory utilization on FortiGate appliances running FortiOS via the REST
 
 ```text
 usage: fortios-memory-usage [-h] [-V] [--always-ok] [-c CRIT] -H HOSTNAME
-                            [--insecure] [--no-proxy] --password PASSWORD
-                            [--timeout TIMEOUT] [-w WARN]
+                            [--insecure] [--no-perfdata] [--no-proxy]
+                            --password PASSWORD [--timeout TIMEOUT] [-w WARN]
 
 Monitors memory utilization on FortiGate appliances running FortiOS via the
 REST API. First checks against the globally configured memory-use-threshold on
@@ -55,6 +55,10 @@ options:
                         port. Example: `--hostname 192.168.1.1:443`.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   FortiOS REST API single-use access token.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)

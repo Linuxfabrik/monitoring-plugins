@@ -39,7 +39,7 @@ Checks MySQL/MariaDB best-practice knobs that do not have a dedicated plugin: `i
 ```text
 usage: mysql-perf-metrics [-h] [-V] [--always-ok]
                           [--defaults-file DEFAULTS_FILE]
-                          [--defaults-group DEFAULTS_GROUP]
+                          [--defaults-group DEFAULTS_GROUP] [--no-perfdata]
                           [--storage-type {auto,ssd,hdd,skip}]
                           [--timeout TIMEOUT]
 
@@ -94,6 +94,10 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --storage-type {auto,ssd,hdd,skip}
                         Storage type of the MySQL data directory. Drives the
                         `innodb_flush_neighbors` and `innodb_io_capacity`

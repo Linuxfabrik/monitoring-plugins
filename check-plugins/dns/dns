@@ -21,7 +21,7 @@ import lib.net
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026071201'
 
 DESCRIPTION = """Performs a DNS lookup and resolves a hostname to one or more IP addresses. Queries the name servers configured on the local machine (e.g. those listed in /etc/resolv.conf). Measures and alerts on the lookup response time. Works with both IPv4 and IPv6."""
 
@@ -63,6 +63,14 @@ def parse_args():
         help='Hostname or IP address to resolve. Default: %(default)s',
         dest='HOSTNAME',
         default=DEFAULT_HOSTNAME,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -187,7 +195,7 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
 
 
 if __name__ == '__main__':

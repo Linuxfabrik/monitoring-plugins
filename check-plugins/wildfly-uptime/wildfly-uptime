@@ -20,7 +20,7 @@ import lib.wildfly
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026071201'
 
 DESCRIPTION = """Reports the uptime of a WildFly/JBoss AS server via its HTTP management API. Alerts
 when the uptime exceeds the configured thresholds (useful for detecting application
@@ -81,6 +81,14 @@ def parse_args():
         dest='MODE',
         choices=['standalone', 'domain'],
         default='standalone',
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -165,7 +173,7 @@ def check_uptime(args):
     )
     state = lib.base.get_state(uptime, WARN, CRIT)
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
 
 
 def main():

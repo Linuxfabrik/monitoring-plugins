@@ -68,7 +68,7 @@ Note the api_identifier and the api_secret. You will need both to configure this
 
 ```text
 usage: whmcs-status [-h] [-V] --identifier IDENTIFIER [--insecure]
-                    [--no-proxy] [-p PASSWORD] --secret SECRET
+                    [--no-perfdata] [--no-proxy] [-p PASSWORD] --secret SECRET
                     [--timeout TIMEOUT] [--url URL] [--username USERNAME]
 
 Monitors the health status of a WHMCS installation via its system status API.
@@ -82,6 +82,10 @@ options:
                         WHMCS API identifier.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
                         HTTP Basic Auth password.

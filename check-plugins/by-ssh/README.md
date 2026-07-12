@@ -41,8 +41,8 @@ usage: by-ssh [-h] [-V] [--always-ok] --command COMMAND
               [--configfile CONFIGFILE] [-c CRIT]
               [--critical-pattern CRIT_PATTERN] [--critical-regex CRIT_REGEX]
               [--disable-pseudo-terminal] -H HOSTNAME [--identity IDENTITY]
-              [--ipv4] [--ipv6] [-p PASSWORD] [--port PORT] [--quiet]
-              [--severity-retc {ok,warn,crit,unknown}]
+              [--ipv4] [--ipv6] [--no-perfdata] [-p PASSWORD] [--port PORT]
+              [--quiet] [--severity-retc {ok,warn,crit,unknown}]
               [--severity-stderr {ok,warn,crit,unknown}]
               [--severity-stdout {ok,warn,crit,unknown}]
               [--severity-timeout {ok,warn,crit,unknown}]
@@ -100,6 +100,10 @@ options:
                         identity filenames.
   --ipv4                SSH: Forces ssh to use IPv4 addresses only.
   --ipv6                SSH: Forces ssh to use IPv6 addresses only.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   -p, --password PASSWORD
                         SSH: Password authentication. NOT RECOMMENDED.
                         Requires `sshpass`. If you need to use password-based

@@ -34,8 +34,8 @@ Reports database connection statistics of a Starface PBX, including opened, clos
 
 ```text
 usage: starface-database-stats [-h] [-V] [--cache-expire CACHE_EXPIRE]
-                               [-H HOSTNAME] [--port PORT] [--timeout TIMEOUT]
-                               [--ipv6]
+                               [-H HOSTNAME] [--no-perfdata] [--port PORT]
+                               [--timeout TIMEOUT] [--ipv6]
 
 Monitors database connection statistics of a Starface PBX via its monitoring
 module on port 6556. Reports active, idle, and total connections. Supports
@@ -52,6 +52,10 @@ options:
   -H, --hostname HOSTNAME
                         Starface PBX hostname or IP address. Default:
                         localhost
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --port PORT           Starface PBX monitoring port. Default: 6556
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --ipv6                Use IPv6.

@@ -32,9 +32,9 @@ Retrieves recent server-side errors from NodeBB via the admin API. Alerts when e
 ## Help
 
 ```text
-usage: nodebb-errors [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                     [--severity {warn,crit}] [--timeout TIMEOUT] -p TOKEN
-                     [--url URL]
+usage: nodebb-errors [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
+                     [--no-proxy] [--severity {warn,crit}] [--timeout TIMEOUT]
+                     -p TOKEN [--url URL]
 
 Retrieves recent server-side errors from NodeBB via the admin API. Alerts when
 errors are found in the error log.
@@ -45,6 +45,10 @@ options:
   --always-ok           Always returns OK.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --severity {warn,crit}
                         Severity for alerts that do not depend on thresholds.

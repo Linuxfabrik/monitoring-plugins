@@ -46,7 +46,8 @@ The receive and transmit error types are not symmetric, because the underlying h
 ```text
 usage: network-errors [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
                       [--match MATCH]
-                      [--no-match-severity {ok,warn,crit,unknown}] [-w WARN]
+                      [--no-match-severity {ok,warn,crit,unknown}]
+                      [--no-perfdata] [-w WARN]
 
 Monitors network interface errors per interface and alerts on receive and
 transmit errors. On Linux it additionally shows the receive and transmit error
@@ -75,6 +76,10 @@ options:
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   -w, --warning WARN    WARN threshold for the combined per-second error rate
                         of an interface. Supports Nagios ranges. Default: 0
 ```

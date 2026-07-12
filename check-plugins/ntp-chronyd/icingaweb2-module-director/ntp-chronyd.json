@@ -5,6 +5,9 @@
                 "--critical": {
                     "value": "$ntp_chronyd_critical$"
                 },
+                "--no-perfdata": {
+                    "set_if": "$ntp_chronyd_no_perfdata$"
+                },
                 "--stratum": {
                     "value": "$ntp_chronyd_stratum$"
                 },
@@ -27,6 +30,11 @@
                 },
                 {
                     "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -84,6 +92,7 @@
             "vars": {
                 "criticality": "C",
                 "ntp_chronyd_critical": 86400000,
+                "ntp_chronyd_no_perfdata": false,
                 "ntp_chronyd_stratum": 6,
                 "ntp_chronyd_warning": 800
             },
@@ -105,6 +114,15 @@
             "uuid": "47e8b431-eaae-4136-8a70-350ce0ca1804"
         },
         "2": {
+            "varname": "ntp_chronyd_no_perfdata",
+            "caption": "NTP Chronyd: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "1f2acce9-aec0-4f26-8000-8fe52a926e60"
+        },
+        "3": {
             "varname": "ntp_chronyd_stratum",
             "caption": "NTP Chronyd: Stratum",
             "description": "Warns if the determined stratum of the time server is greater than or equal to this value. Stratum 1 indicates a computer with a locally attached reference clock. A computer that is synchronised to a stratum 1 computer is at stratum 2. A computer that is synchronised to a stratum 2 computer is at stratum 3, and so on.",
@@ -115,7 +133,7 @@
             },
             "uuid": "61cac0f3-c41b-42f8-a11d-f255d74ece12"
         },
-        "3": {
+        "4": {
             "varname": "ntp_chronyd_warning",
             "caption": "NTP Chronyd: Warning",
             "description": "WARN threshold for the NTP time offset, in milliseconds.",

@@ -33,8 +33,8 @@ Monitors Apache mod_qos status via the machine-readable status handler. Reports 
 ## Help
 
 ```text
-usage: mod-qos-stats [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                     [--timeout TIMEOUT] [-u URL]
+usage: mod-qos-stats [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
+                     [--no-proxy] [--timeout TIMEOUT] [-u URL]
 
 Monitors Apache mod_qos status via the machine-readable status handler.
 Reports current connection and request limits, active connections, and quality
@@ -45,6 +45,9 @@ options:
   -V, --version      show program's version number and exit
   --always-ok        Always returns OK.
   --insecure         This option explicitly allows insecure SSL connections.
+  --no-perfdata      Suppress the performance data section from the output.
+                     The status message and the exit code are unaffected, so
+                     alerting keeps working while trending data is dropped.
   --no-proxy         Do not use a proxy.
   --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
   -u, --url URL      URL of the mod_qos machine-readable status handler.

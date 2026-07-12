@@ -28,7 +28,7 @@ Monitors swap space usage as a percentage of total swap. On Linux, optionally li
 ## Help
 
 ```text
-usage: swap-usage [-h] [-V] [--always-ok] [-c CRIT]
+usage: swap-usage [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata]
                   [--severity-no-swap {ok,warn,crit,unknown}] [--top TOP]
                   [-w WARN]
 
@@ -43,6 +43,10 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   -c, --critical CRIT   Threshold for swap usage, in percent. Default: 90
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --severity-no-swap {ok,warn,crit,unknown}
                         Severity for alerting if no swap is configured.
                         Default: ok

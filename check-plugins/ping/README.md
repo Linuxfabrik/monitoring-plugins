@@ -32,7 +32,7 @@ Sends ICMP ECHO_REQUEST packets to a network host using the system's built-in `p
 
 ```text
 usage: ping [-h] [-V] [--always-ok] [--count COUNT] [-H HOSTNAME]
-            [--interval INTERVAL] [-t DEADLINE]
+            [--interval INTERVAL] [--no-perfdata] [-t DEADLINE]
 
 Sends ICMP ECHO_REQUEST packets to a network host using the system's built-in
 ping command. Reports round-trip time (min, avg, max) and packet loss
@@ -48,6 +48,10 @@ options:
   --interval INTERVAL   Interval between sending each packet, in seconds.
                         Accepts real numbers with dot as decimal separator
                         (regardless of locale). Default: 0.2
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   -t, --timeout DEADLINE
                         Timeout in seconds before ping exits regardless of how
                         many packets have been sent or received. Default: 5

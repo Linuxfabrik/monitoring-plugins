@@ -44,8 +44,8 @@ bind9-dnsutils/stable,stable-security 1:9.18.33-1~deb12u2 amd64 [upgradable from
 ## Help
 
 ```text
-usage: deb-updates [-h] [-V] [--always-ok] [--only-critical] [--query QUERY]
-                   [--timeout TIMEOUT] [-w WARN]
+usage: deb-updates [-h] [-V] [--always-ok] [--no-perfdata] [--only-critical]
+                   [--query QUERY] [--timeout TIMEOUT] [-w WARN]
 
 Checks for available APT package updates on Debian, Ubuntu, and compatible
 systems. Reports the number of pending updates and upgrades, and alerts when
@@ -56,6 +56,9 @@ options:
   -h, --help          show this help message and exit
   -V, --version       show program's version number and exit
   --always-ok         Always returns OK.
+  --no-perfdata       Suppress the performance data section from the output.
+                      The status message and the exit code are unaffected, so
+                      alerting keeps working while trending data is dropped.
   --only-critical     Only report security-critical updates and upgrades.
   --query QUERY       SQL WHERE clause to narrow down results from the
                       internal updates table. Supports regular expressions via

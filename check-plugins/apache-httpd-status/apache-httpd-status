@@ -22,7 +22,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026071201'
 
 DESCRIPTION = """Monitors Apache httpd performance via the mod_status endpoint (server-status?auto).
 Alerts when worker usage exceeds the configured thresholds. Reports busy and idle
@@ -73,6 +73,14 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -332,7 +340,7 @@ def main():
         )
 
         # over and out
-        lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+        lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
 
     # === Second Stage==============================================================================
     # ExtendedStatus is on, but not all values are always present due to different versions of
@@ -420,7 +428,7 @@ def main():
         )
 
         # over and out
-        lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+        lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
 
     # === Third Stage===============================================================================
     # Some more variables in newer versions of mod_status
@@ -747,7 +755,7 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
 
 
 if __name__ == '__main__':

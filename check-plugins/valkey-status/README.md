@@ -39,9 +39,9 @@ Monitors a Valkey server via the `INFO` command and the `MEMORY DOCTOR` subcomma
 usage: valkey-status [-h] [-V] [--always-ok] [--cacert CACERT] [-c CRIT]
                      [-H HOSTNAME] [--ignore-maxmemory0] [--ignore-overcommit]
                      [--ignore-somaxconn] [--ignore-sync-partial-err]
-                     [--ignore-thp] [-p PASSWORD] [--port PORT]
-                     [--socket SOCKET] [--tls] [--username USERNAME]
-                     [--verbose] [-w WARN]
+                     [--ignore-thp] [--no-perfdata] [-p PASSWORD]
+                     [--port PORT] [--socket SOCKET] [--tls]
+                     [--username USERNAME] [--verbose] [-w WARN]
 
 Monitors a Valkey server via the INFO command. Reports memory usage,
 fragmentation ratio, keyspace hit rate, connected clients, replication status,
@@ -71,6 +71,10 @@ options:
                         normal.
   --ignore-thp          Suppress warning about transparent huge pages being
                         set to "always".
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   -p, --password PASSWORD
                         Password for Valkey server authentication.
   --port PORT           Valkey server port. Default: 6379

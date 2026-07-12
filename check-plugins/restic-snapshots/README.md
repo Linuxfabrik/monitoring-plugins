@@ -37,8 +37,8 @@ Checks the age of the newest snapshot in a restic repository and alerts when the
 ```text
 usage: restic-snapshots [-h] [-V] [-c CRIT] [--group-by GROUP_BY]
                         [--host HOST] [--latest LATEST] [--lengthy]
-                        [--password-file PASSWORD_FILE] [--path PATH]
-                        --repo REPO [--tag TAG] [-w WARN]
+                        [--no-perfdata] [--password-file PASSWORD_FILE]
+                        [--path PATH] --repo REPO [--tag TAG] [-w WARN]
 
 Checks the age of the newest snapshot in a restic repository. Alerts when the
 most recent backup is older than the configured thresholds. Useful for
@@ -57,6 +57,10 @@ options:
   --latest LATEST       Number of latest snapshots to show per host and path.
                         Default: 3
   --lengthy             Extended reporting.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --password-file PASSWORD_FILE
                         Path to the file containing the repository password.
   --path PATH           Only consider snapshots for this path. Can be

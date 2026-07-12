@@ -33,9 +33,9 @@ Monitors a public Atlassian Statuspage for incidents, degraded services, and sch
 ## Help
 
 ```text
-usage: atlassian-statuspage [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                            [--service SERVICE] [--timeout TIMEOUT]
-                            [--url URL]
+usage: atlassian-statuspage [-h] [-V] [--always-ok] [--insecure]
+                            [--no-perfdata] [--no-proxy] [--service SERVICE]
+                            [--timeout TIMEOUT] [--url URL]
 
 Monitors a public Atlassian Statuspage for incidents, degraded services, and
 scheduled maintenance windows. Reports the overall status indicator, the name
@@ -51,6 +51,9 @@ options:
   -V, --version      show program's version number and exit
   --always-ok        Always returns OK.
   --insecure         This option explicitly allows insecure SSL connections.
+  --no-perfdata      Suppress the performance data section from the output.
+                     The status message and the exit code are unaffected, so
+                     alerting keeps working while trending data is dropped.
   --no-proxy         Do not use a proxy.
   --service SERVICE  Regex matching the "name" field of a service. Only
                      incidents affecting a matching service, matching degraded

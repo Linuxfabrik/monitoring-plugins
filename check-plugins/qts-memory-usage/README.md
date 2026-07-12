@@ -34,8 +34,9 @@ Monitors system memory utilization on QNAP appliances running QTS via the HTTP A
 
 ```text
 usage: qts-memory-usage [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
-                        [--no-proxy] --password PASSWORD [--timeout TIMEOUT]
-                        --url URL [--username USERNAME] [-w WARN]
+                        [--no-perfdata] [--no-proxy] --password PASSWORD
+                        [--timeout TIMEOUT] --url URL [--username USERNAME]
+                        [-w WARN]
 
 Monitors system memory utilization on QNAP appliances running QTS via the API.
 Alerts when memory usage exceeds the configured thresholds.
@@ -47,6 +48,9 @@ options:
   -c, --critical CRIT  CRIT threshold for memory usage as a percentage.
                        Default: 90
   --insecure           This option explicitly allows insecure SSL connections.
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   --no-proxy           Do not use a proxy.
   --password PASSWORD  QTS API password.
   --timeout TIMEOUT    Network timeout in seconds. Default: 6 (seconds)

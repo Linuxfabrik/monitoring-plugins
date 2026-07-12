@@ -38,7 +38,8 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 ## Help
 
 ```text
-usage: cpu-usage [-h] [-V] [--always-ok] [--count COUNT] [-c CRIT] [-w WARN]
+usage: cpu-usage [-h] [-V] [--always-ok] [--count COUNT] [-c CRIT]
+                 [--no-perfdata] [-w WARN]
 
 Reports CPU utilization percentages for all available time categories (user,
 system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the
@@ -58,6 +59,9 @@ options:
   --count COUNT        Number of consecutive checks the threshold must be
                        exceeded before alerting. Default: 5
   -c, --critical CRIT  CRIT threshold in percent. Default: >= 90
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   -w, --warning WARN   WARN threshold in percent. Default: >= 80
 ```
 

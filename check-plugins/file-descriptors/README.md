@@ -28,8 +28,8 @@ Checks the system-wide file descriptor usage as a percentage of the kernel maxim
 ## Help
 
 ```text
-usage: file-descriptors [-h] [-V] [--always-ok] [-c CRIT] [--top TOP]
-                        [-w WARN]
+usage: file-descriptors [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata]
+                        [--top TOP] [-w WARN]
 
 Checks the system-wide file descriptor usage as a percentage of the kernel
 maximum. Also lists the top processes consuming the most file descriptors to
@@ -42,6 +42,9 @@ options:
   --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for file descriptor usage in percent.
                        Default: 95
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   --top TOP            Number of top processes to list by open file
                        descriptors. Default: 5
   -w, --warning WARN   WARN threshold for file descriptor usage in percent.

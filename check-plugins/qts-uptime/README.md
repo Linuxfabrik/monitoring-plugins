@@ -33,8 +33,9 @@ Reports how long a QNAP appliance running QTS has been running since the last bo
 ## Help
 
 ```text
-usage: qts-uptime [-h] [-V] [--insecure] [--no-proxy] --password PASSWORD
-                  [--timeout TIMEOUT] --url URL [--username USERNAME]
+usage: qts-uptime [-h] [-V] [--insecure] [--no-perfdata] [--no-proxy]
+                  --password PASSWORD [--timeout TIMEOUT] --url URL
+                  [--username USERNAME]
 
 Reports how long a QNAP appliance running QTS has been running since the last
 boot.
@@ -43,6 +44,9 @@ options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --insecure           This option explicitly allows insecure SSL connections.
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   --no-proxy           Do not use a proxy.
   --password PASSWORD  QTS API password.
   --timeout TIMEOUT    Network timeout in seconds. Default: 6 (seconds)

@@ -34,7 +34,7 @@ Checks the current state of a Gemalto SafeNet ProtectServer Network HSM via SSH 
 
 ```text
 usage: safenet-hsm-state [-h] [-V] [--always-ok] [-c CRIT] -H HOSTNAME
-                         -p PASSWORD [--severity {warn,crit}]
+                         [--no-perfdata] -p PASSWORD [--severity {warn,crit}]
                          [--timeout TIMEOUT] [-u {admin,pseoperator}]
                          [-w WARN]
 
@@ -49,6 +49,10 @@ options:
   -c, --critical CRIT   CRIT threshold in percent. Default: >= 90
   -H, --hostname HOSTNAME
                         SafeNet HSM hostname or IP address.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   -p, --password PASSWORD
                         SafeNet HSM password.
   --severity {warn,crit}

@@ -46,7 +46,8 @@ server {
 
 ```text
 usage: nginx-status [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
-                    [--no-proxy] [--timeout TIMEOUT] [-u URL] [-w WARN]
+                    [--no-perfdata] [--no-proxy] [--timeout TIMEOUT] [-u URL]
+                    [-w WARN]
 
 Monitors NGINX performance via the stub_status module. Reports active
 connections, accepts, handled requests, and connection states (reading,
@@ -60,6 +61,9 @@ options:
   -c, --critical CRIT  CRIT threshold for the number of active connections.
                        Default: >= 486
   --insecure           This option explicitly allows insecure SSL connections.
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   --no-proxy           Do not use a proxy.
   --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
   -u, --url URL        NGINX stub_status URL. Default:

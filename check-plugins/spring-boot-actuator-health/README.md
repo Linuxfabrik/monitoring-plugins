@@ -35,7 +35,7 @@ Monitors a [Spring Boot Actuator](https://docs.spring.io/spring-boot/api/rest/ac
 usage: spring-boot-actuator-health [-h] [-V] [--always-ok]
                                    [--component-severity COMPONENT_NAME,API_STATUS,NAGIOS_STATE]
                                    [--detail-severity COMPONENT_NAME,DETAIL_NAME,WARN,CRIT]
-                                   [--insecure] [--no-proxy]
+                                   [--insecure] [--no-perfdata] [--no-proxy]
                                    [--timeout TIMEOUT] [--url URL] [--verbose]
 
 Monitors a Spring Boot application via its Actuator /health endpoint. Checks
@@ -63,6 +63,10 @@ options:
                         hikariConnectionPool,activeConnections,@10:20,@0:9`.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --url URL             Spring Boot Actuator health endpoint URL. Example:

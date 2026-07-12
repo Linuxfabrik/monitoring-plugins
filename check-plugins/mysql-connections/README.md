@@ -38,7 +38,8 @@ Checks the connection usage rate, the rate of aborted connections, and whether n
 usage: mysql-connections [-h] [-V] [--always-ok]
                          [--defaults-file DEFAULTS_FILE]
                          [--defaults-group DEFAULTS_GROUP]
-                         [--ignore-name-resolution] [--timeout TIMEOUT]
+                         [--ignore-name-resolution] [--no-perfdata]
+                         [--timeout TIMEOUT]
 
 Checks the connection usage rate and the rate of aborted connections in
 MySQL/MariaDB. Also verifies whether name resolution is enabled for new
@@ -60,6 +61,10 @@ options:
   --ignore-name-resolution
                         Suppress the warning about active name resolution.
                         Default: False
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 

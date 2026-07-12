@@ -38,7 +38,7 @@ Monitors network I/O throughput per interface over time. Calculates bytes per se
 ```text
 usage: network-io [-h] [-V] [--always-ok] [--count COUNT] [--critical CRIT]
                   [--ignore IGNORE]
-                  [--no-match-severity {ok,warn,crit,unknown}]
+                  [--no-match-severity {ok,warn,crit,unknown}] [--no-perfdata]
                   [--warning WARN]
 
 Monitors network I/O throughput per interface over time. Calculates bytes per
@@ -62,6 +62,10 @@ options:
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --warning WARN        WARN threshold for network I/O rx/tx rate over the
                         entire period as a percentage of the maximum network
                         I/O rate. Default: >= 80

@@ -33,8 +33,8 @@ Monitors the health and performance of an Axenita/Achilles installation by query
 ## Help
 
 ```text
-usage: axenita-stats [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                     [--timeout TIMEOUT] [--url URL]
+usage: axenita-stats [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
+                     [--no-proxy] [--timeout TIMEOUT] [--url URL]
 
 Monitors the health and performance of an Axenita/Achilles installation by
 querying four API endpoints: ReadModel state, active user sessions, build
@@ -47,6 +47,9 @@ options:
   -V, --version      show program's version number and exit
   --always-ok        Always returns OK.
   --insecure         This option explicitly allows insecure SSL connections.
+  --no-perfdata      Suppress the performance data section from the output.
+                     The status message and the exit code are unaffected, so
+                     alerting keeps working while trending data is dropped.
   --no-proxy         Do not use a proxy.
   --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
   --url URL          Axenita API URL. Default:

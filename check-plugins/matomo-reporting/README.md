@@ -34,8 +34,8 @@ Retrieves common analytics values from a Matomo instance, including visits, uniq
 ```text
 usage: matomo-reporting [-h] [-V] [--always-ok] [--date DATE]
                         [--idsite IDSITE] [--insecure] [--metric METRIC]
-                        [--no-proxy] [--password PASSWORD] [--period PERIOD]
-                        [--timeout TIMEOUT] [-u URL]
+                        [--no-perfdata] [--no-proxy] [--password PASSWORD]
+                        [--period PERIOD] [--timeout TIMEOUT] [-u URL]
 
 Retrieves common analytics values from a Matomo instance, including visits,
 unique visitors, bounce rate, and actions. Supports one or multiple websites
@@ -55,6 +55,9 @@ options:
                        `metric_name[,warn_range][,crit_range]`. Can be
                        specified multiple times. Example: `--metric
                        nb_visits,100:,50:`. Default: None
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   --no-proxy           Do not use a proxy.
   --password PASSWORD  Matomo REST API access token. Default: anonymous
   --period PERIOD      Matomo REST API period parameter. Example: `range` or

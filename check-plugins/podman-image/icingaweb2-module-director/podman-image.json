@@ -19,6 +19,9 @@
                 "--no-match-severity": {
                     "value": "$podman_image_no_match_severity$"
                 },
+                "--no-perfdata": {
+                    "set_if": "$podman_image_no_perfdata$"
+                },
                 "--user": {
                     "value": "$podman_image_user$"
                 },
@@ -61,6 +64,11 @@
                 },
                 {
                     "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -122,6 +130,7 @@
                 "podman_image_ignore": [],
                 "podman_image_match": [],
                 "podman_image_no_match_severity": "ok",
+                "podman_image_no_perfdata": false,
                 "podman_image_warning": "90D"
             },
             "volatile": null,
@@ -219,6 +228,15 @@
             "uuid": "ad54edfd-1695-4ca5-ab99-cc23ccff35f6"
         },
         "6": {
+            "varname": "podman_image_no_perfdata",
+            "caption": "Podman Image: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "9b9e8dd5-d6a2-4353-b142-8deb4a1aba70"
+        },
+        "7": {
             "varname": "podman_image_user",
             "caption": "Podman Image: User",
             "description": "Inspect the rootless images of this user instead of those visible to the executing user. Podman keeps each user's rootless images in that user's own storage, so root (the monitoring user runs the check via sudo) does not see them. With --user, the check runs podman as that user. Requires the right to `sudo -u <user>` (root has this by default). Example: `--user=webapp`.",
@@ -229,7 +247,7 @@
             },
             "uuid": "131d5316-a224-4d3a-b918-802a6c6cfac9"
         },
-        "7": {
+        "8": {
             "varname": "podman_image_warning",
             "caption": "Podman Image: Warning",
             "description": "WARN threshold for the image age in a human-readable format (s = seconds, m = minutes, h = hours, D = days, W = weeks, M = months, Y = years). Supports Nagios ranges. Example: `90D` alerts on images older than 90 days.",

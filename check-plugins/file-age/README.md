@@ -42,9 +42,10 @@ Checks the time since last modification of one or more files or directories. Sup
 ```text
 usage: file-age [-h] [-V] [--always-ok] [-c CRIT]
                 [--critical-count CRIT_COUNT] [--filename FILENAME]
-                [--only-dirs] [--only-files] [--password PASSWORD]
-                [--pattern PATTERN] [--perfdata-mode {mean,median,None}]
-                [--timeout TIMEOUT] [-u URL] [--username USERNAME] [-w WARN]
+                [--no-perfdata] [--only-dirs] [--only-files]
+                [--password PASSWORD] [--pattern PATTERN]
+                [--perfdata-mode {mean,median,None}] [--timeout TIMEOUT]
+                [-u URL] [--username USERNAME] [-w WARN]
                 [--warning-count WARN_COUNT]
 
 Checks the time since last modification of one or more files or directories.
@@ -64,6 +65,10 @@ options:
   --filename FILENAME   File or directory name to check (supports glob
                         patterns). Beware of recursive globs. Mutually
                         exclusive with --url.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --only-dirs           Only consider directories, ignoring files.
   --only-files          Only consider files, ignoring directories.
   --password PASSWORD   Password for SMB authentication.

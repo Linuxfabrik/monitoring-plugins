@@ -34,7 +34,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026063001'
+__version__ = '2026071201'
 
 DESCRIPTION = """Checks disk I/O bandwidth over time and alerts on sustained saturation, not
 short spikes. The check records per-disk read/write counters and then derives current (R1/W1)
@@ -177,6 +177,14 @@ def parse_args():
         dest='NO_MATCH_SEVERITY',
         choices=['ok', 'warn', 'crit', 'unknown'],
         default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -589,6 +597,7 @@ def main():
             lib.base.str2state(args.NO_MATCH_SEVERITY),
             '',
             always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
         )
 
     # truncate old data (just keep args.COUNT for each disk) and commit
@@ -823,7 +832,11 @@ def main():
 
     # over and out
     lib.base.oao(
-        msg.replace('\n\n\n', '\n\n'), state, perfdata, always_ok=args.ALWAYS_OK
+        msg.replace('\n\n\n', '\n\n'),
+        state,
+        perfdata,
+        always_ok=args.ALWAYS_OK,
+        no_perfdata=args.NO_PERFDATA,
     )
 
 

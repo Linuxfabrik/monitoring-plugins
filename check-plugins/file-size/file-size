@@ -32,7 +32,7 @@ except ModuleNotFoundError as e:
     PYTHON_MOD = e.name
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070801'
+__version__ = '2026071201'
 
 DESCRIPTION = """Checks file sizes against configurable thresholds using human-readable units (e.g.
 25M, 1G). Supports glob patterns, SMB shares, and optional aggregation (mean or
@@ -89,6 +89,14 @@ def parse_args():
         'Mutually exclusive with `-u` / `--url`. '
         'Example: `--filename /tmp/*.log`.',
         dest='FILENAME',
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -312,7 +320,13 @@ def main():
         )
 
     # over and out
-    lib.base.oao(msg, state, perfdata=perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg,
+        state,
+        perfdata=perfdata,
+        always_ok=args.ALWAYS_OK,
+        no_perfdata=args.NO_PERFDATA,
+    )
 
 
 if __name__ == '__main__':

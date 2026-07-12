@@ -44,8 +44,8 @@ Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 ## Help
 
 ```text
-usage: rpm-updates [-h] [-V] [--always-ok] [--only-critical] [--query QUERY]
-                   [--timeout TIMEOUT] [-w WARN]
+usage: rpm-updates [-h] [-V] [--always-ok] [--no-perfdata] [--only-critical]
+                   [--query QUERY] [--timeout TIMEOUT] [-w WARN]
 
 Checks for available RPM package updates on RHEL, CentOS, Fedora, and
 compatible systems. Reports the number and type of available advisories
@@ -56,6 +56,9 @@ options:
   -h, --help          show this help message and exit
   -V, --version       show program's version number and exit
   --always-ok         Always returns OK.
+  --no-perfdata       Suppress the performance data section from the output.
+                      The status message and the exit code are unaffected, so
+                      alerting keeps working while trending data is dropped.
   --only-critical     Only report security updates and upgrades.
   --query QUERY       SQL WHERE clause to filter the list of available
                       updates. Supports regular expressions via a REGEXP

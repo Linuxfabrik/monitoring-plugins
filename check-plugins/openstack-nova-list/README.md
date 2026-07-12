@@ -34,7 +34,8 @@ Lists all OpenStack Nova compute instances (virtual servers) and checks their st
 ## Help
 
 ```text
-usage: openstack-nova-list [-h] [-V] [--always-ok] [--rc-file RC_FILE]
+usage: openstack-nova-list [-h] [-V] [--always-ok] [--no-perfdata]
+                           [--rc-file RC_FILE]
 
 Lists all OpenStack Nova compute instances (virtual servers) and checks their
 status. Alerts when any instance is in an error state or has been shelved.
@@ -44,6 +45,9 @@ options:
   -h, --help         show this help message and exit
   -V, --version      show program's version number and exit
   --always-ok        Always returns OK.
+  --no-perfdata      Suppress the performance data section from the output.
+                     The status message and the exit code are unaffected, so
+                     alerting keeps working while trending data is dropped.
   --rc-file RC_FILE  Path to a rc file containing OpenStack connection
                      parameters like OS_USERNAME (instead of specifying them
                      on the command line). Example:

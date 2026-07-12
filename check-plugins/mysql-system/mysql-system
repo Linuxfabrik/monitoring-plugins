@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070801'
+__version__ = '2026071201'
 
 DESCRIPTION = """Checks Linux kernel parameters that affect MySQL/MariaDB stability and
 performance: `vm.swappiness`, the asynchronous-I/O event ceiling `fs.aio-max-nr`, the
@@ -68,6 +68,14 @@ def parse_args():
         type=int,
         default=DEFAULT_MAXPORTSALLOWED,
     )
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
 
     args, _ = parser.parse_known_args()
     return args
@@ -257,7 +265,7 @@ def main():
     msg = '\n\n'.join(sections)
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
 
 
 if __name__ == '__main__':

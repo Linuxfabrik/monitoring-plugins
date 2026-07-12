@@ -21,7 +21,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041201'
+__version__ = '2026071201'
 
 DESCRIPTION = """Monitors the health and performance of an Axenita/Achilles installation by querying
 four API endpoints: ReadModel state, active user sessions, build information, and
@@ -59,6 +59,14 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -176,7 +184,13 @@ def main():
                 f'state: {achilles_maintenance["state"]}'
                 f'{lib.base.state2str(state)}'
             )
-            lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+            lib.base.oao(
+                msg,
+                state,
+                perfdata,
+                always_ok=args.ALWAYS_OK,
+                no_perfdata=args.NO_PERFDATA,
+            )
         if achilles_maintenance['data'] is not False:
             state = lib.base.get_worst(STATE_WARN, state)
 
@@ -206,7 +220,13 @@ def main():
                 f'state: {achilles_readmodel["state"]}'
                 f'{lib.base.state2str(state)}'
             )
-            lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+            lib.base.oao(
+                msg,
+                state,
+                perfdata,
+                always_ok=args.ALWAYS_OK,
+                no_perfdata=args.NO_PERFDATA,
+            )
         if achilles_readmodel['data']['readModelState'].upper() != 'DONE':
             state = lib.base.get_worst(STATE_WARN, state)
             rm_state = achilles_readmodel['data']['readModelState']
@@ -215,7 +235,13 @@ def main():
                 f'data.readModelState: {rm_state}'
                 f'{lib.base.state2str(state)}'
             )
-            lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+            lib.base.oao(
+                msg,
+                state,
+                perfdata,
+                always_ok=args.ALWAYS_OK,
+                no_perfdata=args.NO_PERFDATA,
+            )
         msg += f'ReadModel: {achilles_readmodel["data"]["message"]}, '
         perfdata += lib.base.get_perfdata(
             'currentInitRmStep',
@@ -242,7 +268,13 @@ def main():
                 f'state: {achilles_userinfo["state"]}'
                 f'{lib.base.state2str(state)}'
             )
-            lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+            lib.base.oao(
+                msg,
+                state,
+                perfdata,
+                always_ok=args.ALWAYS_OK,
+                no_perfdata=args.NO_PERFDATA,
+            )
         logged_in = achilles_userinfo['data']['loggedInUsers']
         sessions = achilles_userinfo['data']['currentActiveSessions']
         msg += f'{logged_in} users logged in, {sessions} active sessions, '
@@ -265,7 +297,13 @@ def main():
                 f'state: {achilles_buildinfo["state"]}'
                 f'{lib.base.state2str(state)}'
             )
-            lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+            lib.base.oao(
+                msg,
+                state,
+                perfdata,
+                always_ok=args.ALWAYS_OK,
+                no_perfdata=args.NO_PERFDATA,
+            )
         axenita_ver = achilles_buildinfo['data']['version']
         msg += f'{axenita_ver} (timestamp {achilles_buildinfo["data"]["timestamp"]}), '
         # the version field looks like "release-14.0.8-20210312134147-cf77b213090";
@@ -285,7 +323,7 @@ def main():
         )
 
     # over and out
-    lib.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
 
 
 if __name__ == '__main__':

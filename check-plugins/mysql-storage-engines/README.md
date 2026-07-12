@@ -48,7 +48,7 @@ usage: mysql-storage-engines [-h] [-V] [--always-ok]
                              [--defaults-group DEFAULTS_GROUP]
                              [--ignore-schemas IGNORE_SCHEMAS]
                              [--ignore-tables IGNORE_TABLES] [--lengthy]
-                             [--timeout TIMEOUT]
+                             [--no-perfdata] [--timeout TIMEOUT]
                              [--warning-autoincrement-pct WARNING_AI]
                              [--warning-fragmented-tables WARNING_FRAG]
 
@@ -90,6 +90,10 @@ options:
                         Evaluated by MySQL via `NOT REGEXP`. Example:
                         `--ignore-tables=^tmp_`. Default: <none>
   --lengthy             Extended reporting. Default: False
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --warning-autoincrement-pct WARNING_AI
                         WARN threshold for the percentage of the column-type

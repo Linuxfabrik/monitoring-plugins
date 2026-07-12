@@ -43,7 +43,7 @@ usage: librenms-health [-h] [-V] [--always-ok] [--defaults-file DEFAULTS_FILE]
                        [--device-group DEVICE_GROUP]
                        [--device-hostname DEVICE_HOSTNAME]
                        [--device-type {appliance,collaboration,environment,firewall,loadbalancer,management,network,power,printer,server,storage,wireless,workstation}]
-                       [--lengthy] [--timeout TIMEOUT]
+                       [--lengthy] [--no-perfdata] [--timeout TIMEOUT]
 
 Retrieves hardware sensor information (temperature, humidity, voltage, power,
 etc.) for each device from a LibreNMS instance. Alerts when sensor values
@@ -72,6 +72,10 @@ options:
                         Filter by LibreNMS device type. Can be specified
                         multiple times.
   --lengthy             Extended reporting.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 

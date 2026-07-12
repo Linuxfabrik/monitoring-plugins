@@ -45,6 +45,9 @@
                     "value": "$cert_network$",
                     "repeat_key": true
                 },
+                "--no-perfdata": {
+                    "set_if": "$cert_no_perfdata$"
+                },
                 "--ports": {
                     "value": "$cert_ports$",
                     "repeat_key": true
@@ -178,6 +181,11 @@
                     "datafield_id": 21,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 22,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -240,6 +248,7 @@
                 "cert_insecure": false,
                 "cert_lengthy": true,
                 "cert_network": [],
+                "cert_no_perfdata": false,
                 "cert_ports": [],
                 "cert_severity": "warn",
                 "cert_source": "scan",
@@ -437,6 +446,15 @@
             "uuid": "e53d3f87-c83b-48cd-8530-d10e4cec0e4f"
         },
         "14": {
+            "varname": "cert_no_perfdata",
+            "caption": "Cert: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "dc8831c7-77d7-4cf3-9319-2104feba0c30"
+        },
+        "15": {
             "varname": "cert_ports",
             "caption": "Cert: Ports",
             "description": "TCP port to probe on every scanned target. A range is written `start-end`. Only applies to --source=scan. Can be specified multiple times. If not specified, a set of common data-center TLS ports is probed (443, 465, 636, 990, 993, 995, 3269, 5671, 5986, 6443, 8006, 8200, 8443, 8883, 9090, 9443, 10000). Example: `--ports=443 --ports=993 --ports=8000-8100`",
@@ -447,7 +465,7 @@
             },
             "uuid": "e0648a84-95c0-4967-9444-7301dcd154a6"
         },
-        "15": {
+        "16": {
             "varname": "cert_severity",
             "caption": "Cert: Severity",
             "description": "Severity assigned to chain/trust verification failures (--source=url and --source=scan) and to hostname mismatches (--source=url only). A valid self-signed certificate is always tolerated. Defaults to %(default)s so that operators running internal CAs are not paged by trust issues that are expected in their environment. Set to `crit` to enforce strict trust.",
@@ -460,7 +478,7 @@
             },
             "uuid": "87d1027d-8b39-4dab-9539-b8ae3ef09d0b"
         },
-        "16": {
+        "17": {
             "varname": "cert_sni_hostname",
             "caption": "Cert: SNI Hostname",
             "description": "SNI hostname sent during the TLS handshake and used for hostname verification. Useful when --url points at an IP address or a load balancer that needs an explicit SNI. Default uses the hostname from --url.",
@@ -471,7 +489,7 @@
             },
             "uuid": "b5ca62eb-7883-4d08-87c8-d31190c9efad"
         },
-        "17": {
+        "18": {
             "varname": "cert_source",
             "caption": "Cert: Source",
             "description": "Where the certificates are fetched from. `url` fetches one from a TLS endpoint (requires --url). `file` reads one or many from local files (requires --filename, supports glob patterns). `scan` discovers the hosts of a subnet (via --host, --network, --interface or the default interface) and probes each one on --ports. `p12` and `jks` are reserved for future expansion.",
@@ -484,7 +502,7 @@
             },
             "uuid": "584dc1b2-48e8-40cb-82eb-6aa546b5d183"
         },
-        "18": {
+        "19": {
             "varname": "cert_timeout",
             "caption": "Cert: Timeout",
             "description": "Network timeout in seconds.",
@@ -495,7 +513,7 @@
             },
             "uuid": "2ae3b17a-3261-4167-a573-3034ff7c72c5"
         },
-        "19": {
+        "20": {
             "varname": "cert_url",
             "caption": "Cert: URL",
             "description": "URL of the TLS endpoint to inspect. Required when --source=url. Example: `https://www.example.com/`",
@@ -506,7 +524,7 @@
             },
             "uuid": "02140b96-19c6-4d46-8d9a-a50afb1278ea"
         },
-        "20": {
+        "21": {
             "varname": "cert_verbose",
             "caption": "Cert: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood.",
@@ -515,7 +533,7 @@
             "settings": {},
             "uuid": "e67f3663-39f4-4c0e-b565-ab4a4d9959be"
         },
-        "21": {
+        "22": {
             "varname": "cert_warning",
             "caption": "Cert: Warning",
             "description": "WARN threshold for the time remaining until the certificate expires. Accepts a Nagios range in days (`14:`), a percentage of the total validity period (`25%`, WARN when less than 25% of the lifetime is left), or a duration with a unit (`14d`, `12h`, `2W`, `1M`; WARN when less time than that is left). Examples: `14:` `25%` `14d`.",

@@ -36,8 +36,9 @@ Monitors Jitsi Videobridge performance via the COLIBRI REST API. Reports confere
 
 ```text
 usage: jitsi-videobridge-stats [-h] [-V] [--always-ok] [--insecure]
-                               [--no-proxy] [-p PASSWORD] [--timeout TIMEOUT]
-                               [--url URL] [--username USERNAME]
+                               [--no-perfdata] [--no-proxy] [-p PASSWORD]
+                               [--timeout TIMEOUT] [--url URL]
+                               [--username USERNAME]
 
 Monitors Jitsi Videobridge performance via the COLIBRI REST API. Reports
 conference count, participant count, video channels, bitrates, packet rates,
@@ -49,6 +50,10 @@ options:
   --always-ok           Always returns OK.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
                         Jitsi API password.

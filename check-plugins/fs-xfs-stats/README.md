@@ -28,7 +28,7 @@ Reports XFS filesystem activity from `/proc/fs/xfs/stat` as per-second rates: re
 ## Help
 
 ```text
-usage: fs-xfs-stats [-h] [-V]
+usage: fs-xfs-stats [-h] [-V] [--no-perfdata]
 
 Reports XFS filesystem activity from /proc/fs/xfs/stat as per-second rates:
 read and write system calls, inode cache hit ratio, inode reclaim activity,
@@ -39,6 +39,9 @@ informational and does not raise alerts.
 options:
   -h, --help     show this help message and exit
   -V, --version  show program's version number and exit
+  --no-perfdata  Suppress the performance data section from the output. The
+                 status message and the exit code are unaffected, so alerting
+                 keeps working while trending data is dropped.
 ```
 
 

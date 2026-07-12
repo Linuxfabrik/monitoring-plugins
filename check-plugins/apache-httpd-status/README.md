@@ -100,7 +100,8 @@ If you want to configure `/server-status` in a virtual host:
 
 ```text
 usage: apache-httpd-status [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
-                           [--no-proxy] [--timeout TIMEOUT] [-u URL] [-w WARN]
+                           [--no-perfdata] [--no-proxy] [--timeout TIMEOUT]
+                           [-u URL] [-w WARN]
 
 Monitors Apache httpd performance via the mod_status endpoint (server-
 status?auto). Alerts when worker usage exceeds the configured thresholds.
@@ -116,6 +117,9 @@ options:
   -c, --critical CRIT  CRIT threshold for the percentage of workers processing
                        requests. Default: >= 95
   --insecure           This option explicitly allows insecure SSL connections.
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   --no-proxy           Do not use a proxy.
   --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
   -u, --url URL        Apache Server Status URL. Default:

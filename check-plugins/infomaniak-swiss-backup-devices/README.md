@@ -42,7 +42,7 @@ Checks each backup device (slot) across all Infomaniak Swiss Backup products via
 ```text
 usage: infomaniak-swiss-backup-devices [-h] [-V] --account-id ACCOUNT_ID
                                        [--always-ok] [-c CRIT] [--insecure]
-                                       [--no-proxy]
+                                       [--no-perfdata] [--no-proxy]
                                        [--ignore-customer IGNORE_CUSTOMER]
                                        [--ignore-name IGNORE_NAME]
                                        [--ignore-tag IGNORE_TAG]
@@ -65,6 +65,10 @@ options:
   -c, --critical CRIT   CRIT threshold in percent. Default: >= 95
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --ignore-customer IGNORE_CUSTOMER
                         Any device whose product customer name matches this

@@ -38,10 +38,10 @@ Counts the number of files matching a glob pattern and alerts when the count exc
 
 ```text
 usage: file-count [-h] [-V] [--always-ok] [-c CRIT] [--filename FILENAME]
-                  [--only-dirs] [--only-files] [--password PASSWORD]
-                  [--pattern PATTERN] [--timeout TIMEOUT]
-                  [--timerange TIMERANGE] [-u URL] [--username USERNAME]
-                  [-w WARN]
+                  [--no-perfdata] [--only-dirs] [--only-files]
+                  [--password PASSWORD] [--pattern PATTERN]
+                  [--timeout TIMEOUT] [--timerange TIMERANGE] [-u URL]
+                  [--username USERNAME] [-w WARN]
 
 Counts the number of files matching a glob pattern and alerts when the count
 exceeds the configured thresholds. Can filter by modification time range,
@@ -55,6 +55,10 @@ options:
   --filename FILENAME   File or directory name to check (supports glob
                         patterns). Beware of recursive globs. Mutually
                         exclusive with --url.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --only-dirs           Only count directories, ignoring files.
   --only-files          Only count files, ignoring directories.
   --password PASSWORD   Password for SMB authentication.

@@ -35,7 +35,8 @@ Checks IPSec connection states on a strongSwan VPN gateway by connecting to the 
 
 ```text
 usage: strongswan-connections [-h] [-V] [--always-ok] [--ignore IGNORE]
-                              [--lengthy] [--match MATCH] [--socket SOCKET]
+                              [--lengthy] [--match MATCH] [--no-perfdata]
+                              [--socket SOCKET]
 
 Checks IPSec connection states on a strongSwan VPN gateway. Connects to the
 charon daemon via the VICI interface to retrieve IKE SA and CHILD SA states.
@@ -68,6 +69,9 @@ options:
                    specific site-to-site peer. Example: `--match="(?i)^s2s_"`
                    (case-insensitive) to check every site-to-site peer on a
                    gateway. Default: None
+  --no-perfdata    Suppress the performance data section from the output. The
+                   status message and the exit code are unaffected, so
+                   alerting keeps working while trending data is dropped.
   --socket SOCKET  Path to the Versatile IKE Control Interface (VICI) socket.
                    Default: /run/strongswan/charon.vici
 ```

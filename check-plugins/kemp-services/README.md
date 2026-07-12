@@ -32,9 +32,9 @@ Monitors virtual services on a KEMP LoadMaster appliance via its REST API and al
 
 ```text
 usage: kemp-services [-h] [-V] [--always-ok] [--filter FILTER] -H HOSTNAME
-                     [--insecure] [--no-proxy] --password PASSWORD
-                     [--port PORT] [--severity {warn,crit}]
-                     [--timeout TIMEOUT] -u USERNAME
+                     [--insecure] [--no-perfdata] [--no-proxy]
+                     --password PASSWORD [--port PORT]
+                     [--severity {warn,crit}] [--timeout TIMEOUT] -u USERNAME
 
 Monitors virtual services on a KEMP LoadMaster appliance via its REST API.
 Alerts when any virtual service or its real servers are in a non-operational
@@ -51,6 +51,10 @@ options:
                         or IP address.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   KEMP REST API password.
   --port PORT           KEMP LoadMaster appliance port. Default: 443

@@ -100,9 +100,9 @@ usage: csv-values [-h] [-V] [--always-ok] [--chunksize CHUNKSIZE]
                   --columns-query COLUMNS_QUERY [-c CRIT]
                   [--critical-query CRITICAL_QUERY] [--delimiter DELIMITER]
                   [--filename FILENAME] [--insecure] [--newline NEWLINE]
-                  [--no-proxy] [--password PASSWORD] [--quotechar QUOTECHAR]
-                  [--skip-header] [--timeout TIMEOUT] [-u URL]
-                  [--username USERNAME] [-w WARN]
+                  [--no-perfdata] [--no-proxy] [--password PASSWORD]
+                  [--quotechar QUOTECHAR] [--skip-header] [--timeout TIMEOUT]
+                  [-u URL] [--username USERNAME] [-w WARN]
                   [--warning-query WARNING_QUERY]
 
 Imports a CSV file (local, remote via URL, or from an SMB share) into a
@@ -144,6 +144,10 @@ options:
                         the other legal values, input lines are only
                         terminated by the given string, and the line ending is
                         returned to this plugin untranslated. Default: None
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   SMB or HTTP Basic Auth Password.
   --quotechar QUOTECHAR

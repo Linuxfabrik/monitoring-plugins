@@ -26,7 +26,7 @@ Reports the state of network bonding (channel bonding) interfaces. Checks that a
 ## Help
 
 ```text
-usage: network-bonding [-h] [-V] [--always-ok]
+usage: network-bonding [-h] [-V] [--always-ok] [--no-perfdata]
 
 Reports the state of network bonding (channel bonding) interfaces. Checks that
 all slave interfaces are active and that the bonding mode and link status are
@@ -38,6 +38,9 @@ options:
   -h, --help     show this help message and exit
   -V, --version  show program's version number and exit
   --always-ok    Always returns OK.
+  --no-perfdata  Suppress the performance data section from the output. The
+                 status message and the exit code are unaffected, so alerting
+                 keeps working while trending data is dropped.
 ```
 
 

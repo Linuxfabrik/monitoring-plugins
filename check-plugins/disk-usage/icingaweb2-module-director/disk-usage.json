@@ -33,6 +33,9 @@
                 "--no-match-severity": {
                     "value": "$disk_usage_no_match_severity$"
                 },
+                "--no-perfdata": {
+                    "set_if": "$disk_usage_no_perfdata$"
+                },
                 "--perfdata-regex": {
                     "value": "$disk_usage_perfdata_regex$",
                     "repeat_key": true
@@ -98,6 +101,11 @@
                     "datafield_id": 11,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -143,6 +151,9 @@
                 "--no-match-severity": {
                     "value": "$disk_usage_windows_no_match_severity$"
                 },
+                "--no-perfdata": {
+                    "set_if": "$disk_usage_windows_no_perfdata$"
+                },
                 "--perfdata-regex": {
                     "value": "$disk_usage_windows_perfdata_regex$",
                     "repeat_key": true
@@ -154,11 +165,6 @@
             "command": "C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\disk-usage.exe",
             "disabled": false,
             "fields": [
-                {
-                    "datafield_id": 12,
-                    "is_required": "n",
-                    "var_filter": null
-                },
                 {
                     "datafield_id": 13,
                     "is_required": "n",
@@ -206,6 +212,16 @@
                 },
                 {
                     "datafield_id": 22,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 23,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 24,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -288,6 +304,7 @@
                 "disk_usage_match": [],
                 "disk_usage_mount": [],
                 "disk_usage_no_match_severity": "ok",
+                "disk_usage_no_perfdata": false,
                 "disk_usage_perfdata_regex": [],
                 "disk_usage_warning": "90%USED"
             },
@@ -344,6 +361,7 @@
                 "disk_usage_windows_match": [],
                 "disk_usage_windows_mount": [],
                 "disk_usage_windows_no_match_severity": "ok",
+                "disk_usage_windows_no_perfdata": false,
                 "disk_usage_windows_perfdata_regex": [],
                 "disk_usage_windows_warning": "90%USED"
             },
@@ -513,6 +531,15 @@
             "uuid": "c592b347-d6de-42f2-91c8-e56bb95d978d"
         },
         "10": {
+            "varname": "disk_usage_no_perfdata",
+            "caption": "Disk Usage: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "1d7f882b-3b77-47ac-9b8d-3b79fd3323d3"
+        },
+        "11": {
             "varname": "disk_usage_perfdata_regex",
             "caption": "Disk Usage: Perfdata Regex",
             "description": "Only emit perfdata keys matching this Python regex. For a list of perfdata keys, see the README or run this plugin. Can be specified multiple times.",
@@ -523,7 +550,7 @@
             },
             "uuid": "ea299f9c-cfd2-4daa-b103-f0c221c34a27"
         },
-        "11": {
+        "12": {
             "varname": "disk_usage_warning",
             "caption": "Disk Usage: Warning",
             "description": "WARN threshold in the form `<number>[unit][method]`. Unit is one of `%|K|M|G|T|P` (default: `%`). `K` means kibibyte etc. Method is one of `USED|FREE` (default: `USED`). `USED` means \"number or more\", `FREE` means \"number or less\". Examples: `95` = 95% used. `9.5M` = 9.5 MiB used. `5%FREE`. `1400GUSED`.",
@@ -534,7 +561,7 @@
             },
             "uuid": "a4fbfd70-535b-493b-8da5-f357b57c6a70"
         },
-        "12": {
+        "13": {
             "varname": "disk_usage_windows_always_ok",
             "caption": "Disk Usage: Always OK?",
             "description": "Always returns OK.",
@@ -543,7 +570,7 @@
             "settings": {},
             "uuid": "62a785e4-c106-411d-adb3-95a102e3e63e"
         },
-        "13": {
+        "14": {
             "varname": "disk_usage_windows_brief",
             "caption": "Disk Usage: Brief?",
             "description": "Hide table rows for filesystems within the thresholds and show only those in WARN/CRIT state. Perfdata and alerting are unaffected: all filesystems still emit perfdata and still drive the overall check state.",
@@ -552,7 +579,7 @@
             "settings": {},
             "uuid": "b2fbc356-a441-4845-b157-bd5a030f80ad"
         },
-        "14": {
+        "15": {
             "varname": "disk_usage_windows_critical",
             "caption": "Disk Usage: Critical",
             "description": "CRIT threshold in the form `<number>[unit][method]`. Unit is one of `%|K|M|G|T|P` (default: `%`). `K` means kibibyte etc. Method is one of `USED|FREE` (default: `USED`). `USED` means \"number or more\", `FREE` means \"number or less\". Examples: `95` = 95% used. `9.5M` = 9.5 MiB used. `5%FREE`. `1400GUSED`.",
@@ -563,7 +590,7 @@
             },
             "uuid": "e0f6e0b2-ebd1-4fd6-97ef-e52de0cb816f"
         },
-        "15": {
+        "16": {
             "varname": "disk_usage_windows_fstype",
             "caption": "Disk Usage: Fstype",
             "description": "Override the default behaviour (check physical devices only) and check these file system types instead. Can be specified multiple times. Run `disk-usage --list-fstypes` first to see available types (they are machine dependent).",
@@ -574,7 +601,7 @@
             },
             "uuid": "2e456a7a-535c-48c6-9b2f-ea01ad5d9405"
         },
-        "16": {
+        "17": {
             "varname": "disk_usage_windows_ignore",
             "caption": "Disk Usage: Ignore",
             "description": "Ignore mountpoints matching this Python regular expression. Case-insensitive by default (on Windows, drive letters and paths are case-insensitive; use drive letters such as `C:` or `C`). For case-sensitive matching, wrap the pattern in `(?-i:...)`, e.g. `(?-i:Data)`. Can be specified multiple times.",
@@ -585,7 +612,7 @@
             },
             "uuid": "763304df-9f6f-4e43-bf23-e55f480950ba"
         },
-        "17": {
+        "18": {
             "varname": "disk_usage_windows_list_fstypes",
             "caption": "Disk Usage: List Fstypes?",
             "description": "Print available file system types and which ones are checked by default, then exit.",
@@ -594,7 +621,7 @@
             "settings": {},
             "uuid": "66e01b35-4c54-4920-8d32-dde8e9f4f91a"
         },
-        "18": {
+        "19": {
             "varname": "disk_usage_windows_match",
             "caption": "Disk Usage: Match",
             "description": "Only check mountpoints matching this Python regular expression. Case-insensitive by default (on Windows, drive letters and paths are case-insensitive; use drive letters such as `C:` or `C`). For case-sensitive matching, wrap the pattern in `(?-i:...)`, e.g. `(?-i:Data)`. Can be specified multiple times.",
@@ -605,7 +632,7 @@
             },
             "uuid": "e302b5bf-e41f-4e0a-b6cc-c338cea9b69a"
         },
-        "19": {
+        "20": {
             "varname": "disk_usage_windows_mount",
             "caption": "Disk Usage: Mount",
             "description": "Override the global --warning/--critical thresholds for a single mountpoint, in the form `<mountpoint>,<warning>,<critical>`. Each threshold uses the same `<number>[unit][method]` syntax as --warning/--critical. The mountpoint is matched exactly and case-insensitively, so the override always hits exactly one mountpoint and never several. On Windows, use drive letters such as `C:` or `C`. Can be specified multiple times. Example: `--mount=/var/log,80%USED,90%USED`",
@@ -616,7 +643,7 @@
             },
             "uuid": "332cc722-050a-4ba0-af88-a26da7467a34"
         },
-        "20": {
+        "21": {
             "varname": "disk_usage_windows_no_match_severity",
             "caption": "Disk Usage: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -629,7 +656,16 @@
             },
             "uuid": "8bec00c6-e510-49cf-8cf0-2f64dae9a259"
         },
-        "21": {
+        "22": {
+            "varname": "disk_usage_windows_no_perfdata",
+            "caption": "Disk Usage: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "9a3a6903-350c-4265-8174-594a119157bc"
+        },
+        "23": {
             "varname": "disk_usage_windows_perfdata_regex",
             "caption": "Disk Usage: Perfdata Regex",
             "description": "Only emit perfdata keys matching this Python regex. For a list of perfdata keys, see the README or run this plugin. Can be specified multiple times.",
@@ -640,7 +676,7 @@
             },
             "uuid": "f29dde16-8c84-4066-ade9-e75e74c8ca7f"
         },
-        "22": {
+        "24": {
             "varname": "disk_usage_windows_warning",
             "caption": "Disk Usage: Warning",
             "description": "WARN threshold in the form `<number>[unit][method]`. Unit is one of `%|K|M|G|T|P` (default: `%`). `K` means kibibyte etc. Method is one of `USED|FREE` (default: `USED`). `USED` means \"number or more\", `FREE` means \"number or less\". Examples: `95` = 95% used. `9.5M` = 9.5 MiB used. `5%FREE`. `1400GUSED`.",

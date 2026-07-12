@@ -1,10 +1,20 @@
 {
     "Command": {
         "cmd-check-fs-xfs-stats": {
-            "arguments": {},
+            "arguments": {
+                "--no-perfdata": {
+                    "set_if": "$fs_xfs_stats_no_perfdata$"
+                }
+            },
             "command": "/usr/lib64/nagios/plugins/fs-xfs-stats",
             "disabled": false,
-            "fields": [],
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
             "imports": [],
             "is_string": null,
             "methods_execute": "PluginCheck",
@@ -56,11 +66,23 @@
             "use_agent": null,
             "use_var_overrides": null,
             "vars": {
-                "criticality": "C"
+                "criticality": "C",
+                "fs_xfs_stats_no_perfdata": false
             },
             "volatile": null,
             "zone": null,
             "uuid": "a6f2c030-d08a-43dc-aafd-c0302c25f7df"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "fs_xfs_stats_no_perfdata",
+            "caption": "FS Xfs Stats: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "c39911e5-17b5-4259-971c-c5ac5ceb0d6b"
         }
     }
 }

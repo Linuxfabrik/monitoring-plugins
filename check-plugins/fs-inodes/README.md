@@ -30,7 +30,7 @@ Checks the percentage of used inodes on local filesystems. Fetches a list of loc
 ## Help
 
 ```text
-usage: fs-inodes [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
+usage: fs-inodes [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata] [-w WARN]
 
 Checks the percentage of used inodes on local filesystems. Fetches a list of
 local devices that are in use and have a filesystem. Filesystems that do not
@@ -42,6 +42,9 @@ options:
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for inode usage in percent. Default: 95
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   -w, --warning WARN   WARN threshold for inode usage in percent. Default: 90
 ```
 

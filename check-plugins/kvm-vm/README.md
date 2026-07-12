@@ -40,7 +40,7 @@ Lists all virtual machines on a KVM host using `virsh list --all` and checks the
 ## Help
 
 ```text
-usage: kvm-vm [-h] [-V] [--always-ok]
+usage: kvm-vm [-h] [-V] [--always-ok] [--no-perfdata]
 
 Lists all virtual machines on a KVM host using "virsh list" and checks their
 states. Alerts on VMs that are not in the expected running state. Reports VM
@@ -51,6 +51,9 @@ options:
   -h, --help     show this help message and exit
   -V, --version  show program's version number and exit
   --always-ok    Always returns OK.
+  --no-perfdata  Suppress the performance data section from the output. The
+                 status message and the exit code are unaffected, so alerting
+                 keeps working while trending data is dropped.
 ```
 
 

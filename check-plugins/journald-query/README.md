@@ -56,9 +56,10 @@ usage: journald-query [-h] [-V] [--always-ok] [--facility FACILITY]
                       [--icinga-username ICINGA_USERNAME]
                       [--identifier IDENTIFIER]
                       [--ignore-pattern IGNORE_PATTERN]
-                      [--ignore-regex IGNORE_REGEX] [--insecure] [--no-proxy]
-                      [--priority PRIORITY] [--severity {warn,crit}]
-                      [--since SINCE] [--timeout TIMEOUT] [--unit UNIT]
+                      [--ignore-regex IGNORE_REGEX] [--insecure]
+                      [--no-perfdata] [--no-proxy] [--priority PRIORITY]
+                      [--severity {warn,crit}] [--since SINCE]
+                      [--timeout TIMEOUT] [--unit UNIT]
                       [--user-unit USER_UNIT]
 
 Queries the systemd journal using journalctl and alerts when matching entries
@@ -104,6 +105,10 @@ options:
                         times. Example: `--ignore-regex='(?i)linuxfabrik'`.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --priority PRIORITY   Filter output by message priorities or priority ranges
                         (passed to journalctl). Default: emerg..err

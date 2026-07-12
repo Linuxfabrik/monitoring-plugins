@@ -30,7 +30,8 @@ Reports hardware fan speeds in RPM (rounds per minute). Returns OK if no fans ar
 ## Help
 
 ```text
-usage: sensors-fans [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
+usage: sensors-fans [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata]
+                    [-w WARN]
 
 Reports hardware fan speeds in RPM (rounds per minute). Alerts when fan speeds
 fall outside the thresholds reported by the hardware sensors.
@@ -40,6 +41,9 @@ options:
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for fan speed, in RPM. Default: 20000
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   -w, --warning WARN   WARN threshold for fan speed, in RPM. Default: 10000
 ```
 

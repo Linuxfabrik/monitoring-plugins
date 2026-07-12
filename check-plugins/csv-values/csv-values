@@ -32,7 +32,7 @@ except ModuleNotFoundError as e:
     missing_lib = e.name
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070301'
+__version__ = '2026071201'
 
 DESCRIPTION = """Imports a CSV file (local, remote via URL, or from an SMB share) into a temporary
 SQLite database and runs configurable SQL queries against it. Separate queries can be
@@ -136,6 +136,14 @@ def parse_args():
         'Default: %(default)s',
         dest='NEWLINE',
         default=DEFAULT_NEWLINE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -407,7 +415,7 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
 
 
 if __name__ == '__main__':

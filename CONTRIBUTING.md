@@ -337,6 +337,7 @@ For all other options, use long parameters only. Separate words using a `-`. We 
 --module
 --mount
 --no-kthreads
+--no-perfdata
 --no-proxy
 --no-summary
 --node
@@ -466,7 +467,7 @@ parser.add_argument(
 
 Rules:
 
-* Use `%(default)s` for defaults, never hardcode the value. Omit the default for `store_true`/`store_false` switches (e.g. `--always-ok`, `--insecure`, `--no-proxy`, `--lengthy`) since they are always False when not specified.
+* Use `%(default)s` for defaults, never hardcode the value. Omit the default for `store_true`/`store_false` switches (e.g. `--always-ok`, `--insecure`, `--no-perfdata`, `--no-proxy`, `--lengthy`) since they are always False when not specified.
 * Defaults and examples go on their own lines.
 * Say "Can be specified multiple times." for `action='append'` parameters (not "(repeating)").
 * Say "Supports Nagios ranges." when `lib.base.get_state()` is used with the value.

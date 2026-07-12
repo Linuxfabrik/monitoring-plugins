@@ -33,6 +33,7 @@ Reports hardware temperature sensor readings (CPU, disk, chipset, etc.) in Celsi
 ```text
 usage: sensors-temperatures [-h] [-V] [--always-ok] [--ignore IGNORE]
                             [--no-match-severity {ok,warn,crit,unknown}]
+                            [--no-perfdata]
 
 Reports hardware temperature sensor readings (CPU, disk, chipset, etc.) in
 Celsius. Automatically checks against hardware-defined thresholds. Sensors can
@@ -50,6 +51,10 @@ options:
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
 ```
 
 

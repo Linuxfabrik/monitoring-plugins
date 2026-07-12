@@ -37,9 +37,9 @@ Checks whether a newer version of WildFly is available by comparing the installe
 ```text
 usage: wildfly-version [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
                        [--insecure] [--instance INSTANCE]
-                       [--mode {standalone,domain}] [--no-proxy] [--node NODE]
-                       -p PASSWORD [--timeout TIMEOUT] [--url URL]
-                       --username USERNAME
+                       [--mode {standalone,domain}] [--no-perfdata]
+                       [--no-proxy] [--node NODE] -p PASSWORD
+                       [--timeout TIMEOUT] [--url URL] --username USERNAME
 
 Checks if a newer version of WildFly is available by comparing the installed
 version, queried from the HTTP management API, against the latest release on
@@ -58,6 +58,10 @@ options:
                         in domain mode.
   --mode {standalone,domain}
                         WildFly server mode. Default: standalone
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --node NODE           WildFly node (host) when running in domain mode.
   -p, --password PASSWORD

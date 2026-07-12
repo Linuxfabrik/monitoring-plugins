@@ -42,7 +42,8 @@ usage: infomaniak-swiss-backup-products [-h] [-V] --account-id ACCOUNT_ID
                                         [--always-ok] [-c CRIT]
                                         [--ignore-customer IGNORE_CUSTOMER]
                                         [--ignore-tag IGNORE_TAG] [--insecure]
-                                        [--no-proxy] [--severity {warn,crit}]
+                                        [--no-perfdata] [--no-proxy]
+                                        [--severity {warn,crit}]
                                         [--timeout TIMEOUT] --token TOKEN
                                         [-w WARN]
 
@@ -68,6 +69,10 @@ options:
                         `--ignore-tag='(?i)deprecated'`.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --severity {warn,crit}
                         Severity for alerting on locked, maintenance, or busy

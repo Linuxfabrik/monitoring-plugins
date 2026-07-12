@@ -37,9 +37,10 @@ Checks the event log entries exposed under the LogServices of a Redfish-compatib
 usage: redfish-logservices [-h] [-V] [--always-ok]
                            [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
                            [--insecure] [--log-type {sel,mel,both}]
-                           [--match MATCH] [--max-age MAX_AGE] [--no-proxy]
-                           [--password PASSWORD] [--retries RETRIES]
-                           [--timeout TIMEOUT] --url URL [--username USERNAME]
+                           [--match MATCH] [--max-age MAX_AGE] [--no-perfdata]
+                           [--no-proxy] [--password PASSWORD]
+                           [--retries RETRIES] [--timeout TIMEOUT] --url URL
+                           [--username USERNAME]
 
 Checks the event log entries exposed under the LogServices of a Redfish-
 compatible server via the Redfish API and alerts based on the severity of the
@@ -78,6 +79,10 @@ options:
                         so a long-since resolved event would otherwise keep
                         the check in a non-OK state forever. Default: 0 (0
                         disables aging).
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Redfish API password.
   --retries RETRIES     Number of extra attempts if a request to the Redfish

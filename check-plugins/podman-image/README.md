@@ -36,8 +36,8 @@ Lists the container images on a host and checks how old they are. Reports each i
 ```text
 usage: podman-image [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
                     [--match MATCH]
-                    [--no-match-severity {ok,warn,crit,unknown}] [--user USER]
-                    [-w WARN]
+                    [--no-match-severity {ok,warn,crit,unknown}]
+                    [--no-perfdata] [--user USER] [-w WARN]
 
 Lists the container images on a host and checks how old they are. Reports each
 image's repository tag, age and size, and alerts when an image is older than
@@ -73,6 +73,10 @@ options:
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --user USER           Inspect the rootless images of this user instead of
                         those visible to the executing user. Podman keeps each
                         user's rootless images in that user's own storage, so

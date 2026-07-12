@@ -36,8 +36,9 @@ Monitors Java heap and non-heap memory usage of the Starface PBX. If the JVM rep
 usage: starface-java-memory-usage [-h] [-V] [--always-ok]
                                   [--cache-expire CACHE_EXPIRE]
                                   [--critical CRIT] [-H HOSTNAME]
-                                  [--port PORT] [--timeout TIMEOUT]
-                                  [--warning WARN] [--ipv6]
+                                  [--no-perfdata] [--port PORT]
+                                  [--timeout TIMEOUT] [--warning WARN]
+                                  [--ipv6]
 
 Monitors Java heap and non-heap memory usage of a Starface PBX via its
 monitoring module on port 6556. Alerts when memory usage exceeds the
@@ -55,6 +56,10 @@ options:
   -H, --hostname HOSTNAME
                         Starface PBX hostname or IP address. Default:
                         localhost
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --port PORT           Starface PBX monitoring port. Default: 6556
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --warning WARN        WARN threshold in percent. Default: >= 80

@@ -33,6 +33,7 @@ Checks whether a newer version of mydumper/myloader is available by comparing th
 
 ```text
 usage: mydumper-version [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
+                        [--no-perfdata]
 
 Checks if a newer version of mydumper is available by querying the GitHub
 releases API. Alerts when the installed version is outdated.
@@ -44,6 +45,10 @@ options:
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 24
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
 ```
 
 

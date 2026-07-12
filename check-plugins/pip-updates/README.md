@@ -36,8 +36,8 @@ Checks for outdated Python packages installed via pip. Reports the number of pac
 usage: pip-updates [-h] [-V] [--always-ok] [-c CRIT] [--exclude EXCLUDE]
                    [--extra-index-url EXTRA_INDEX_URL]
                    [--find-links FIND_LINKS] [--index-url INDEX_URL] [--local]
-                   [--no-index] [--not-required] [--pre] [--user]
-                   [--virtualenv VIRTUALENV] [-w WARN]
+                   [--no-index] [--no-perfdata] [--not-required] [--pre]
+                   [--user] [--virtualenv VIRTUALENV] [-w WARN]
 
 Checks for outdated Python packages installed via pip. Reports the number of
 packages with available updates and lists them. Alerts when the count exceeds
@@ -69,6 +69,10 @@ options:
                         globally-installed packages.
   --no-index            Ignore the package index and only look at --find-links
                         URLs.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --not-required        Only list packages that are not dependencies of other
                         installed packages.
   --pre                 Include pre-release and development versions. By

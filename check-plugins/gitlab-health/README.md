@@ -32,8 +32,9 @@ Checks whether the GitLab application server is running by querying the `/-/heal
 ## Help
 
 ```text
-usage: gitlab-health [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                     [--severity {warn,crit}] [--timeout TIMEOUT] [--url URL]
+usage: gitlab-health [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
+                     [--no-proxy] [--severity {warn,crit}] [--timeout TIMEOUT]
+                     [--url URL]
 
 Checks whether the GitLab application server is running by querying the
 /-/health endpoint. This is a lightweight probe that does not hit the database
@@ -46,6 +47,10 @@ options:
   --always-ok           Always returns OK.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --severity {warn,crit}
                         Severity for alerting. Default: warn

@@ -22,7 +22,7 @@ import lib.winrm
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041405'
+__version__ = '2026071201'
 
 DESCRIPTION = """Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and
 queries scope statistics using PowerShell. On servers with thousands of scopes, --brief
@@ -84,6 +84,14 @@ def parse_args():
         help='DNS name, IPv4, or IPv6 address of the DHCP server. Default: %(default)s',
         dest='HOSTNAME',
         default=DEFAULT_HOSTNAME,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -238,7 +246,7 @@ def main():
     msg = f'{header}\n\n{body}' if body else header
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
 
 
 if __name__ == '__main__':

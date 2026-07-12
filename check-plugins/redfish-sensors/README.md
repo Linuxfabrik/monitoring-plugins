@@ -39,9 +39,10 @@ Checks hardware sensor readings (temperature, voltage, fan speed, power) from th
 ```text
 usage: redfish-sensors [-h] [-V] [--always-ok] [--brief]
                        [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
-                       [--insecure] [--inventory] [--match MATCH] [--no-proxy]
-                       [--password PASSWORD] [--retries RETRIES]
-                       [--timeout TIMEOUT] --url URL [--username USERNAME]
+                       [--insecure] [--inventory] [--match MATCH]
+                       [--no-perfdata] [--no-proxy] [--password PASSWORD]
+                       [--retries RETRIES] [--timeout TIMEOUT] --url URL
+                       [--username USERNAME]
 
 Checks hardware sensor readings (temperature, voltage, fan speed, power) from
 the Redfish Chassis collection via the Redfish API. Reads the modern Sensors
@@ -75,6 +76,10 @@ options:
                         regular expression. Case-sensitive by default; use
                         `(?i)` for case-insensitive matching. Can be specified
                         multiple times.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Redfish API password.
   --retries RETRIES     Number of extra attempts if a request to the Redfish

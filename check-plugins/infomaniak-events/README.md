@@ -55,8 +55,8 @@ Monitors the Infomaniak status page for open events and incidents. Alerts when a
 
 ```text
 usage: infomaniak-events [-h] [-V] [--always-ok] [--ignore-regex IGNORE_REGEX]
-                         [--insecure] [--no-proxy] [--service SERVICE]
-                         [--timeout TIMEOUT] --token TOKEN
+                         [--insecure] [--no-perfdata] [--no-proxy]
+                         [--service SERVICE] [--timeout TIMEOUT] --token TOKEN
 
 Monitors the Infomaniak status page for open events and incidents. Alerts when
 active events are reported.
@@ -71,6 +71,10 @@ options:
                         Example: `--ignore-regex "(?i)linuxfabrik"`.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --service SERVICE     Only report events for this service category. Can be
                         specified multiple times. If not specified, all

@@ -48,8 +48,8 @@ usage: ups-nut [-h] [-V] [--always-ok] [--critical-charge CRITICAL_CHARGE]
                [--critical-load CRITICAL_LOAD]
                [--critical-runtime CRITICAL_RUNTIME]
                [--critical-temperature CRITICAL_TEMPERATURE] [--device DEVICE]
-               [-H HOSTNAME] [--lengthy] [--password PASSWORD] [--port PORT]
-               [--timeout TIMEOUT] [--username USERNAME]
+               [-H HOSTNAME] [--lengthy] [--no-perfdata] [--password PASSWORD]
+               [--port PORT] [--timeout TIMEOUT] [--username USERNAME]
                [--warning-charge WARNING_CHARGE] [--warning-load WARNING_LOAD]
                [--warning-runtime WARNING_RUNTIME]
                [--warning-temperature WARNING_TEMPERATURE]
@@ -103,6 +103,10 @@ options:
   -H, --hostname HOSTNAME
                         Hostname or IP address. Default: 127.0.0.1
   --lengthy             Extended reporting.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --password PASSWORD   Password.
   --port PORT           Port number. Default: 3493
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)

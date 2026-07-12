@@ -47,8 +47,9 @@ usage: lynis [-h] [-V] [--always-ok] [--audit-timeout AUDIT_TIMEOUT]
              [--lynis-test LYNIS_TEST]
              [--lynis-test-category LYNIS_TEST_CATEGORY]
              [--lynis-test-group LYNIS_TEST_GROUP] [--max-workers MAX_WORKERS]
-             [--network NETWORK] [-p PASSWORD] [--port PORT] [--quiet]
-             [--ssh-option SSH_OPTION] [-u USERNAME] [--verbose] [-w WARN]
+             [--network NETWORK] [--no-perfdata] [-p PASSWORD] [--port PORT]
+             [--quiet] [--ssh-option SSH_OPTION] [-u USERNAME] [--verbose]
+             [-w WARN]
 
 Runs a full security audit across the hosts of a subnet and reports each
 host's hardening posture. From a single management host it discovers the
@@ -163,6 +164,10 @@ options:
                         discovery. Can be specified multiple times. Takes
                         precedence over --interface. Example:
                         `--network=192.0.2.0/24`
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   -p, --password PASSWORD
                         SSH: Password authentication. NOT RECOMMENDED.
                         Requires `sshpass`. If you need to use password-based

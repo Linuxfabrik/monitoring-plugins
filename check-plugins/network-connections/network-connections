@@ -44,7 +44,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041301'
+__version__ = '2026071201'
 
 DESCRIPTION = """Counts system-wide socket connections by type (TCP, TCP6, UDP, UDP6) and state.
 Alerts when the total number of connections in a specific state exceeds the configured
@@ -114,6 +114,14 @@ def parse_args():
         help='CRIT threshold for the number of connections. Default: %(default)s',
         default=DEFAULT_CRIT,
         dest='CRIT',
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -253,7 +261,7 @@ def main():
         )
 
     # over and out
-    lib.base.oao(msg[:-2], state, perfdata)
+    lib.base.oao(msg[:-2], state, perfdata, no_perfdata=args.NO_PERFDATA)
 
 
 if __name__ == '__main__':

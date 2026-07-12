@@ -24,7 +24,7 @@ import lib.wildfly
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026062201'
+__version__ = '2026071201'
 
 DESCRIPTION = """Checks if a newer version of WildFly is available by comparing the installed
 version, queried from the HTTP management API, against the latest release on the GitHub
@@ -85,6 +85,14 @@ def parse_args():
         dest='MODE',
         choices=['standalone', 'domain'],
         default='standalone',
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -226,6 +234,7 @@ def main():
             f'WildFly v{installed_version} is up to date',
             STATE_OK,
             perfdata,
+            no_perfdata=args.NO_PERFDATA,
         )
 
     # over and out
@@ -237,6 +246,7 @@ def main():
         STATE_WARN,
         perfdata,
         always_ok=args.ALWAYS_OK,
+        no_perfdata=args.NO_PERFDATA,
     )
 
 

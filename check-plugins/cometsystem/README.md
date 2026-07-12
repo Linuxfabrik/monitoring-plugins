@@ -47,8 +47,9 @@ Here, the check raises critical for any channel with "temp" in its name on high 
 ## Help
 
 ```text
-usage: cometsystem [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                   [--severity SEVERITY] [--timeout TIMEOUT] -u URL
+usage: cometsystem [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
+                   [--no-proxy] [--severity SEVERITY] [--timeout TIMEOUT]
+                   -u URL
 
 Reads sensor data from Comet System Web Sensors via their JSON API endpoint.
 Monitors channels such as temperature, humidity, and other environmental
@@ -60,6 +61,9 @@ options:
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
   --insecure           This option explicitly allows insecure SSL connections.
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   --no-proxy           Do not use a proxy.
   --severity SEVERITY  Severity for alerting. Order matters, first match on
                        part of a channel name wins. Have a look at the README

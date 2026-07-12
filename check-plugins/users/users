@@ -20,7 +20,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061201'
+__version__ = '2026071201'
 
 DESCRIPTION = """Counts the number of currently logged-in users by session type: tty (console) and pts
 (SSH on Linux, RDP on Windows). On Windows, also counts disconnected sessions (closed
@@ -57,6 +57,14 @@ def parse_args():
         'Example: `--critical 3,10`. '
         'Default: %(default)s',
         type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -237,7 +245,7 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg, state, perfdata)
+    lib.base.oao(msg, state, perfdata, no_perfdata=args.NO_PERFDATA)
 
 
 if __name__ == '__main__':

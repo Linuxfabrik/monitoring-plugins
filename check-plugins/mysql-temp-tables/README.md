@@ -39,8 +39,8 @@ Checks the percentage of MySQL/MariaDB temporary tables that had to spill to dis
 ```text
 usage: mysql-temp-tables [-h] [-V] [--always-ok] [-c CRIT]
                          [--defaults-file DEFAULTS_FILE]
-                         [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
-                         [-w WARN]
+                         [--defaults-group DEFAULTS_GROUP] [--no-perfdata]
+                         [--timeout TIMEOUT] [-w WARN]
 
 Checks the percentage of MySQL/MariaDB temporary tables that had to spill to
 disk (`Created_tmp_disk_tables` divided by `Created_tmp_tables`). A high
@@ -63,6 +63,10 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
                         Default: 25

@@ -38,7 +38,8 @@ Checks metrics of the Aria storage engine in MariaDB, including the page cache s
 
 ```text
 usage: mysql-aria [-h] [-V] [--always-ok] [--defaults-file DEFAULTS_FILE]
-                  [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
+                  [--defaults-group DEFAULTS_GROUP] [--no-perfdata]
+                  [--timeout TIMEOUT]
 
 Checks metrics of the Aria storage engine in MySQL/MariaDB, including the
 page-cache hit rate. Alerts when cache efficiency drops below optimal levels.
@@ -55,6 +56,10 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 

@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061202'
+__version__ = '2026071201'
 
 DESCRIPTION = """Queries SMART (Self-Monitoring, Analysis, and Reporting Technology) data from hard
 disks and solid-state drives using smartctl. Inspects drive health attributes,
@@ -77,6 +77,14 @@ def parse_args():
         dest='IGNORE',
         type=lib.args.csv,
         default=DEFAULT_IGNORE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -1144,7 +1152,11 @@ def main():
         else:
             msg_header += ' All are healthy.'
         lib.base.oao(
-            f'{msg_header}\n{msg_body}', state, perfdata, always_ok=args.ALWAYS_OK
+            f'{msg_header}\n{msg_body}',
+            state,
+            perfdata,
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
         )
     else:
         # over and out

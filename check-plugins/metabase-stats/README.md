@@ -34,7 +34,7 @@ Retrieves recent activity and usage statistics from a Metabase instance via its 
 
 ```text
 usage: metabase-stats [-h] [-V] [--cache-expire CACHE_EXPIRE] [-c CRIT]
-                      [--insecure] [--no-proxy] -p PASSWORD
+                      [--insecure] [--no-perfdata] [--no-proxy] -p PASSWORD
                       [--timeout TIMEOUT] [--url URL] [--username USERNAME]
                       [-w WARN]
 
@@ -51,6 +51,10 @@ options:
   -c, --critical CRIT   CRIT threshold in percent. Default: >= 90
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
                         Password for authenticating against the Metabase API.

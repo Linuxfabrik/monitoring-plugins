@@ -35,7 +35,8 @@ Monitors system memory usage and alerts when the overall usage percentage exceed
 ## Help
 
 ```text
-usage: memory-usage [-h] [-V] [--always-ok] [-c CRIT] [--top TOP] [-w WARN]
+usage: memory-usage [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata]
+                    [--top TOP] [-w WARN]
 
 Monitors system memory usage and alerts when the overall usage percentage
 exceeds the configured thresholds. Reports total, used, available, and free
@@ -48,6 +49,9 @@ options:
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for memory usage in percent. Default: 95
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   --top TOP            Number of top memory-consuming processes to list. Use
                        `--top=0` to disable. Default: 5
   -w, --warning WARN   WARN threshold for memory usage in percent. Default: 90

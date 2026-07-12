@@ -23,7 +23,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041002'
+__version__ = '2026071201'
 
 DESCRIPTION = """Monitors network I/O and link states on all interfaces of FortiGate appliances running FortiOS via the REST API. Alerts only if bandwidth thresholds have been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes. Reports per-interface traffic counters, error rates, and link status."""
 
@@ -90,6 +90,14 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -389,9 +397,14 @@ def main():
     # over and out
     if not msg_link and not msg_saturation:
         # no warnings, so print the interface with the highest load
-        lib.base.oao(msg_header + '\n\n' + table, state, perfdata)
+        lib.base.oao(msg_header + '\n\n' + table, state, perfdata, no_perfdata=args.NO_PERFDATA)
     else:
-        lib.base.oao(msg_link + msg_saturation + '\n' + table, state, perfdata)
+        lib.base.oao(
+            msg_link + msg_saturation + '\n' + table,
+            state,
+            perfdata,
+            no_perfdata=args.NO_PERFDATA,
+        )
 
 
 if __name__ == '__main__':

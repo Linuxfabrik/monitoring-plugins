@@ -30,7 +30,8 @@ Displays system-wide Podman information including container counts, image count,
 ## Help
 
 ```text
-usage: podman-info [-h] [-V] [--always-ok] [--ignore IGNORE] [--user USER]
+usage: podman-info [-h] [-V] [--always-ok] [--ignore IGNORE] [--no-perfdata]
+                   [--user USER]
 
 Displays system-wide Podman information including container counts, image
 count, storage driver, runtime version, available CPUs, and total memory. Also
@@ -51,6 +52,9 @@ options:
                    to cgroup v2. Example: `--ignore="(?i)rootless"` (case-
                    insensitive) to suppress any rootless-related informational
                    warning. Default: None
+  --no-perfdata    Suppress the performance data section from the output. The
+                   status message and the exit code are unaffected, so
+                   alerting keeps working while trending data is dropped.
   --user USER      Report on the rootless Podman of this user instead of the
                    one visible to the executing user. Podman keeps each user's
                    rootless containers and images in that user's own storage,

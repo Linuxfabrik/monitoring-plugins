@@ -34,9 +34,9 @@ Checks disk SMART values on QNAP appliances running QTS via the API. Reports dri
 ## Help
 
 ```text
-usage: qts-disk-smart [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                      --password PASSWORD [--timeout TIMEOUT] --url URL
-                      [--username USERNAME]
+usage: qts-disk-smart [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
+                      [--no-proxy] --password PASSWORD [--timeout TIMEOUT]
+                      --url URL [--username USERNAME]
 
 Checks disk SMART values on QNAP appliances running QTS via the API. Reports
 drive health, temperature, and SMART attribute status. Alerts when any disk
@@ -47,6 +47,9 @@ options:
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
   --insecure           This option explicitly allows insecure SSL connections.
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   --no-proxy           Do not use a proxy.
   --password PASSWORD  QTS API password.
   --timeout TIMEOUT    Network timeout in seconds. Default: 6 (seconds)

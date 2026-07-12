@@ -37,9 +37,9 @@ Monitors CPU utilization on QNAP appliances running QTS via the HTTP API. Alerts
 
 ```text
 usage: qts-cpu-usage [-h] [-V] [--always-ok] [--count COUNT] [-c CRIT]
-                     [--insecure] [--no-proxy] --password PASSWORD
-                     [--timeout TIMEOUT] --url URL [--username USERNAME]
-                     [-w WARN]
+                     [--insecure] [--no-perfdata] [--no-proxy]
+                     --password PASSWORD [--timeout TIMEOUT] --url URL
+                     [--username USERNAME] [-w WARN]
 
 Monitors CPU utilization on QNAP appliances running QTS via the API. Alerts
 only if the threshold has been exceeded for a configurable number of
@@ -53,6 +53,9 @@ options:
                        exceeded before alerting. Default: 5
   -c, --critical CRIT  CRIT threshold in percent. Default: >= 90
   --insecure           This option explicitly allows insecure SSL connections.
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   --no-proxy           Do not use a proxy.
   --password PASSWORD  QTS API password.
   --timeout TIMEOUT    Network timeout in seconds. Default: 6 (seconds)

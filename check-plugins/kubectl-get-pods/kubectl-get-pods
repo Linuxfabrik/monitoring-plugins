@@ -26,7 +26,7 @@ import lib.time
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061202'
+__version__ = '2026071201'
 
 DESCRIPTION = """Checks the health and status of Kubernetes pods by running "kubectl get pods" and
 parsing the results. Lists namespace, pod name, readiness, status, restart count, age,
@@ -74,6 +74,14 @@ def parse_args():
         help='Path to the kubeconfig file. Default: %(default)s',
         dest='KUBECONFIG',
         default=DEFAULT_KUBECONFIG,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -302,7 +310,7 @@ def main():
         )
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
 
 
 if __name__ == '__main__':

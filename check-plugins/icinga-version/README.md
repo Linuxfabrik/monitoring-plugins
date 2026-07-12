@@ -34,8 +34,9 @@ Checks the installed Icinga version against the endoflife.date API and alerts if
 
 ```text
 usage: icinga-version [-h] [-V] [--always-ok] [--check-major] [--check-minor]
-                      [--check-patch] [--insecure] [--no-proxy]
-                      [--offset-eol OFFSET_EOL] [--timeout TIMEOUT]
+                      [--check-patch] [--insecure] [--no-perfdata]
+                      [--no-proxy] [--offset-eol OFFSET_EOL]
+                      [--timeout TIMEOUT]
                       [--unreachable-severity {ok,warn,crit,unknown}]
 
 Checks the installed Icinga version against the endoflife.date API and alerts
@@ -59,6 +60,10 @@ options:
                         available.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --offset-eol OFFSET_EOL
                         Alert n days before ("-30") or after an EOL date ("30"

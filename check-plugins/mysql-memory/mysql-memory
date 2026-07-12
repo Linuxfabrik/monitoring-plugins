@@ -30,7 +30,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051101'
+__version__ = '2026071201'
 
 DESCRIPTION = """Estimates MySQL/MariaDB memory consumption and compares it to the host's
 physical RAM. Reports the currently-reached usage (server-wide buffers + per-thread
@@ -112,6 +112,14 @@ def parse_args():
         'when a WARNING/CRITICAL fires and you need to see which buffer '
         'dominates the footprint.',
         dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
         action='store_true',
         default=False,
     )
@@ -705,7 +713,7 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
 
 
 if __name__ == '__main__':

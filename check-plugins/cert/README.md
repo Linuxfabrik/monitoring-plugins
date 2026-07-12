@@ -46,9 +46,10 @@ usage: cert [-h] [-V] [--always-ok] [--ca-file CA_FILE]
             [--client-cert CLIENT_CERT] [--client-key CLIENT_KEY] [-c CRIT]
             [--exclude EXCLUDE] [--filename FILENAME] [-H HOST] [--insecure]
             [--interface INTERFACE] [--lengthy] [--max-workers MAX_WORKERS]
-            [--network NETWORK] [--ports PORTS] [--severity {crit,warn}]
-            [--sni-hostname SNI_HOSTNAME] [--source {file,scan,url}]
-            [--timeout TIMEOUT] [--url URL] [--verbose] [-w WARN]
+            [--network NETWORK] [--no-perfdata] [--ports PORTS]
+            [--severity {crit,warn}] [--sni-hostname SNI_HOSTNAME]
+            [--source {file,scan,url}] [--timeout TIMEOUT] [--url URL]
+            [--verbose] [-w WARN]
 
 Inspects X.509 certificates and alerts on days remaining until expiry,
 hostname mismatch and chain verification failures. Sources via --source: `url`
@@ -149,6 +150,10 @@ options:
                         discovery. Only applies to --source=scan. Takes
                         precedence over --interface. Can be specified multiple
                         times. Example: `--network=192.0.2.0/24`
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --ports PORTS         TCP port to probe on every scanned target. A range is
                         written `start-end`. Only applies to --source=scan.
                         Can be specified multiple times. If not specified, a

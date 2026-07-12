@@ -35,8 +35,8 @@ Reports MySQL/MariaDB's current open-files count (`Open_files`, a server-wide st
 ```text
 usage: mysql-open-files [-h] [-V] [--always-ok] [-c CRITICAL]
                         [--defaults-file DEFAULTS_FILE]
-                        [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
-                        [-w WARNING]
+                        [--defaults-group DEFAULTS_GROUP] [--no-perfdata]
+                        [--timeout TIMEOUT] [-w WARNING]
 
 Reports MySQL/MariaDB's current open-files count as a percentage of
 `open_files_limit` (the per-process file-descriptor ceiling MySQL was started
@@ -58,6 +58,10 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -w, --warning WARNING
                         WARN threshold in percent. Supports Nagios ranges.

@@ -35,8 +35,8 @@ Checks the health and running status of all fans on a Huawei OceanStor Dorado st
 
 ```text
 usage: huawei-dorado-fan [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
-                         --device-id DEVICE_ID [--insecure] [--no-proxy]
-                         --password PASSWORD [--scope SCOPE]
+                         --device-id DEVICE_ID [--insecure] [--no-perfdata]
+                         [--no-proxy] --password PASSWORD [--scope SCOPE]
                          [--timeout TIMEOUT] -u URL --username USERNAME
 
 Checks the health and running status of all fans on a Huawei OceanStor Dorado
@@ -54,6 +54,10 @@ options:
                         Huawei OceanStor Dorado API device ID.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Huawei OceanStor Dorado API password.
   --scope SCOPE         Huawei OceanStor Dorado API scope.

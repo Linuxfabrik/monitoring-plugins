@@ -75,7 +75,7 @@ When Kerberos credentials are present in the cache, `--winrm-username` and `--wi
 ```text
 usage: by-winrm [-h] [-V] [--always-ok] --command COMMAND [-c CRIT]
                 [--critical-pattern CRIT_PATTERN]
-                [--critical-regex CRIT_REGEX]
+                [--critical-regex CRIT_REGEX] [--no-perfdata]
                 [--severity-retc {ok,warn,crit,unknown}]
                 [--severity-stderr {ok,warn,crit,unknown}]
                 [--severity-stdout {ok,warn,crit,unknown}]
@@ -111,6 +111,10 @@ options:
                         Any line matching this Python regex (case-insensitive)
                         will count as a critical. Can be specified multiple
                         times.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --severity-retc {ok,warn,crit,unknown}
                         Severity for alerting if there is a return code != 0.
                         Default: warn

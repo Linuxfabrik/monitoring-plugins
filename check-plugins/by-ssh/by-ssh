@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061201'
+__version__ = '2026071201'
 
 DESCRIPTION = """Executes a command on a remote host via SSH and evaluates the result. Returns
 STDOUT and, in case of failure, STDERR and the command's exit code. Supports pattern matching
@@ -150,6 +150,14 @@ def parse_args():
         '--ipv6',
         help='SSH: Forces ssh to use IPv6 addresses only.',
         dest='IPV6',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
         action='store_true',
         default=False,
     )
@@ -431,7 +439,7 @@ def main():
     msg += f'{stdout if stdout else "stdout: None"}{lib.base.state2str(stdout_state, prefix=" ")}'
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
 
 
 if __name__ == '__main__':

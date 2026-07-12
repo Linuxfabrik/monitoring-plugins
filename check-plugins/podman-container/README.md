@@ -42,7 +42,7 @@ usage: podman-container [-h] [-V] [--always-ok]
                         [--critical-uptime CRIT_UPTIME] [--full-name]
                         [--ignore IGNORE] [--match MATCH]
                         [--no-match-severity {ok,warn,crit,unknown}]
-                        [--status STATUS] [--user USER]
+                        [--no-perfdata] [--status STATUS] [--user USER]
                         [--warning-restarts WARN_RESTARTS]
                         [--warning-uptime WARN_UPTIME]
 
@@ -101,6 +101,10 @@ options:
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --status STATUS       Desired container status, for example `running`,
                         `exited` or `paused`. A container whose status differs
                         is reported as CRITICAL. If not specified, the status

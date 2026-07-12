@@ -45,9 +45,9 @@ Checks whether PHP-FPM is alive by fetching its ping monitoring page. Returns OK
 ## Help
 
 ```text
-usage: php-fpm-ping [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                    [--response RESPONSE] [--severity {warn,crit}]
-                    [--timeout TIMEOUT] [-u URL]
+usage: php-fpm-ping [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
+                    [--no-proxy] [--response RESPONSE]
+                    [--severity {warn,crit}] [--timeout TIMEOUT] [-u URL]
 
 Checks whether PHP-FPM is alive by fetching its ping monitoring page. Returns
 OK if FPM responds with the expected "pong" reply.
@@ -58,6 +58,10 @@ options:
   --always-ok           Always returns OK.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --response RESPONSE   Expected PHP-FPM ping response string. Default: pong
   --severity {warn,crit}

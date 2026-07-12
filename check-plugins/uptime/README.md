@@ -29,7 +29,7 @@ Reports how long the system has been running since the last boot. Optionally dis
 ## Help
 
 ```text
-usage: uptime [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
+usage: uptime [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata] [-w WARN]
 
 Reports how long the system has been running since the last boot. Optionally
 displays the timestamp and duration of the last downtime - the more frequently
@@ -46,6 +46,9 @@ options:
                        M = months, Y = years). Supports Nagios ranges.
                        Example: `:1Y` alerts if uptime is greater than 1 year.
                        Default: :1Y
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   -w, --warning WARN   Threshold for the uptime in a human-readable format (s
                        = seconds, m = minutes, h = hours, D = days, W = weeks,
                        M = months, Y = years). Supports Nagios ranges.

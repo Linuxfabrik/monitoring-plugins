@@ -31,7 +31,7 @@ Checks the current disk usage of all systemd journal files (archived and active 
 ## Help
 
 ```text
-usage: journald-usage [-h] [-V] [--always-ok] [-w WARN]
+usage: journald-usage [-h] [-V] [--always-ok] [--no-perfdata] [-w WARN]
 
 Checks the current disk usage of all systemd journal files (archived and
 active combined). Alerts when journal disk usage exceeds the configured
@@ -41,6 +41,9 @@ options:
   -h, --help          show this help message and exit
   -V, --version       show program's version number and exit
   --always-ok         Always returns OK.
+  --no-perfdata       Suppress the performance data section from the output.
+                      The status message and the exit code are unaffected, so
+                      alerting keeps working while trending data is dropped.
   -w, --warning WARN  WARN threshold in GiB. Default: >= 6
 ```
 

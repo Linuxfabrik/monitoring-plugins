@@ -38,8 +38,8 @@ Collects statistics across multiple snapshots in a restic repository, including 
 ```text
 usage: restic-stats [-h] [-V] [--host HOST]
                     [--mode {restore-size,files-by-contents,blobs-per-file,raw-data}]
-                    [--password-file PASSWORD_FILE] [--path PATH] --repo REPO
-                    [--tag TAG]
+                    [--no-perfdata] [--password-file PASSWORD_FILE]
+                    [--path PATH] --repo REPO [--tag TAG]
 
 Collects statistics across multiple snapshots in a restic repository,
 including the number of unique files and their total size. Supports different
@@ -54,6 +54,10 @@ options:
   --mode {restore-size,files-by-contents,blobs-per-file,raw-data}
                         Counting mode for the statistics calculation. Default:
                         restore-size
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --password-file PASSWORD_FILE
                         Path to the file containing the repository password.
   --path PATH           Only consider snapshots for this path. Can be

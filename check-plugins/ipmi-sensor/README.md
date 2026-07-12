@@ -36,7 +36,7 @@ Checks IPMI sensor readings (temperature, voltage, fan speed, power, etc.) using
 
 ```text
 usage: ipmi-sensor [-h] [-V] [--authtype {NONE,PASSWORD,MD2,MD5,OEM}]
-                   [-H HOSTNAME] [--interface {lan,lanplus}]
+                   [-H HOSTNAME] [--interface {lan,lanplus}] [--no-perfdata]
                    [--password PASSWORD] [--port PORT]
                    [--privlevel {CALLBACK,USER,OPERATOR,ADMINISTRATOR}]
                    [--username USERNAME]
@@ -59,6 +59,10 @@ options:
   --interface {lan,lanplus}
                         IPMI interface to use. Supported types are "lan" (IPMI
                         v1.5) or "lanplus" (IPMI v2.0). Default: lan
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --password PASSWORD   Remote server password.
   --port PORT           Remote server UDP port to connect to. Default: 623
   --privlevel {CALLBACK,USER,OPERATOR,ADMINISTRATOR}

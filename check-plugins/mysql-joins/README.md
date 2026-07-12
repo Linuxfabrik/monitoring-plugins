@@ -36,7 +36,8 @@ Checks the rate of joins executed without indexes in MySQL/MariaDB (`Select_rang
 
 ```text
 usage: mysql-joins [-h] [-V] [--always-ok] [--defaults-file DEFAULTS_FILE]
-                   [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
+                   [--defaults-group DEFAULTS_GROUP] [--no-perfdata]
+                   [--timeout TIMEOUT]
 
 Checks the rate of joins executed without indexes in MySQL/MariaDB
 (`Select_range_check + Select_full_join`). A high rate (more than 250 such
@@ -55,6 +56,10 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 ```
 

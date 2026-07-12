@@ -32,7 +32,7 @@ Counts the number of currently logged-in users by session type: tty (console) an
 ## Help
 
 ```text
-usage: users [-h] [-V] [-c CRIT] [-w WARN]
+usage: users [-h] [-V] [-c CRIT] [--no-perfdata] [-w WARN]
 
 Counts the number of currently logged-in users by session type: tty (console)
 and pts (SSH on Linux, RDP on Windows). On Windows, also counts disconnected
@@ -47,6 +47,9 @@ options:
                        threshold for disconnected users in the format
                        "tty,pts,disc". Example: `--critical 3,10`. Default:
                        [None, None, None]
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   -w, --warning WARN   Threshold for logged-in tty/pts users, in the format
                        "tty,pts". On Windows, you can additionally specify a
                        threshold for disconnected users in the format

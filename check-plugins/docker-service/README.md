@@ -40,7 +40,7 @@ Checks the health of Docker Swarm services: how many of the expected tasks (cont
 usage: docker-service [-h] [-V] [--always-ok] [--check-distribution] [-c CRIT]
                       [--ignore IGNORE] [--lengthy]
                       [--no-match-severity {ok,warn,crit,unknown}]
-                      [--service SERVICE] [-w WARN]
+                      [--no-perfdata] [--service SERVICE] [-w WARN]
 
 Checks the health of Docker Swarm services: how many of the expected tasks
 (containers) of a service are actually running, and optionally whether those
@@ -83,6 +83,10 @@ options:
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --service SERVICE     Check this service and, optionally, the number of
                         tasks it is expected to run, written as `name=count`.
                         Without `=count` the service's own desired replica

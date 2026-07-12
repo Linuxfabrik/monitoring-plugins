@@ -43,8 +43,8 @@ usage: wildfly-xa-datasource-stats [-h] [-V] [--always-ok] [--critical CRIT]
                                    [--instance INSTANCE]
                                    [--mode {standalone,domain}]
                                    [--no-match-severity {ok,warn,crit,unknown}]
-                                   [--no-proxy] [--node NODE] -p PASSWORD
-                                   [--timeout TIMEOUT] [--url URL]
+                                   [--no-perfdata] [--no-proxy] [--node NODE]
+                                   -p PASSWORD [--timeout TIMEOUT] [--url URL]
                                    --username USERNAME [--warning WARN]
 
 Monitors XA datasource connection pool metrics on a WildFly/JBoss AS server
@@ -69,6 +69,10 @@ options:
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --node NODE           WildFly node (host) when running in domain mode.
   -p, --password PASSWORD

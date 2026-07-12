@@ -39,7 +39,8 @@ usage: mysql-replica-status [-h] [-V] [--always-ok]
                             [--defaults-file DEFAULTS_FILE]
                             [--defaults-group DEFAULTS_GROUP]
                             [--lag-warning LAG_WARN] [--lag-critical LAG_CRIT]
-                            [--severity {warn,crit}] [--timeout TIMEOUT]
+                            [--no-perfdata] [--severity {warn,crit}]
+                            [--timeout TIMEOUT]
 
 Checks the replication status of a MySQL/MariaDB replica: I/O thread state,
 SQL thread state, replication lag (`Seconds_Behind_Master` /
@@ -68,6 +69,10 @@ options:
   --lag-critical LAG_CRIT
                         Seconds of replication lag at which the CRIT flag is
                         raised. If omitted, lag never escalates to CRIT.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --severity {warn,crit}
                         Severity for alerts that do not depend on thresholds
                         (IO/SQL thread not running, `read_only` disabled). One

@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070801'
+__version__ = '2026071201'
 
 DESCRIPTION = """Lists all clients currently connected to an OpenVPN server by parsing the status log file. Reports client name, remote address, bytes received and sent, and connection time.\nRequires root or sudo."""
 
@@ -63,6 +63,14 @@ def parse_args():
         dest='FILENAME',
         type=str,
         default=DEFAULT_FILENAME,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -147,7 +155,7 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg, state, perfdata)
+    lib.base.oao(msg, state, perfdata, no_perfdata=args.NO_PERFDATA)
 
 
 if __name__ == '__main__':

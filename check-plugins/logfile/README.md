@@ -58,7 +58,7 @@ usage: logfile [-h] [-V] [--alarm-duration ALARM_DURATION] [--always-ok]
                [--icinga-service-name ICINGA_SERVICE_NAME]
                [--icinga-url ICINGA_URL] [--icinga-username ICINGA_USERNAME]
                [--ignore-pattern IGNORE_PATTERN] [--ignore-regex IGNORE_REGEX]
-               [--insecure] [--no-proxy] [--suppress-lines]
+               [--insecure] [--no-perfdata] [--no-proxy] [--suppress-lines]
                [--timeout TIMEOUT] [-w WARN] [--warning-pattern WARN_PATTERN]
                [--warning-regex WARN_REGEX]
 
@@ -119,6 +119,10 @@ options:
                         `(?i)linuxfabrik` for a case-insensitive match.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --suppress-lines      Suppress the found lines in the output and only report
                         the number of findings.

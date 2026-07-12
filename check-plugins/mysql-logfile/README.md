@@ -45,8 +45,9 @@ usage: mysql-logfile [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
                      [--defaults-file DEFAULTS_FILE]
                      [--defaults-group DEFAULTS_GROUP] [-H HOSTNAME]
                      [--ignore-pattern IGNORE_PATTERN]
-                     [--ignore-regex IGNORE_REGEX] [--port PORT]
-                     [--server-log SERVER_LOG] [--timeout TIMEOUT]
+                     [--ignore-regex IGNORE_REGEX] [--no-perfdata]
+                     [--port PORT] [--server-log SERVER_LOG]
+                     [--timeout TIMEOUT]
 
 Scans the MySQL/MariaDB error log for errors, warnings, startups and
 shutdowns. On MySQL 8.0.22+ the plugin prefers the
@@ -92,6 +93,10 @@ options:
                         `(?i)linuxfabrik` for a case-insensitive match. The
                         log line is lowercased before matching, so write the
                         pattern in lowercase (or use the `(?i)` flag).
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --port PORT           MySQL/MariaDB port number. Default: 3306
   --server-log SERVER_LOG
                         Log source to read from. Accepts a file path,

@@ -33,7 +33,7 @@ Checks the Jitsi Videobridge health state via the `/about/health` REST endpoint.
 
 ```text
 usage: jitsi-videobridge-status [-h] [-V] [--always-ok] [--insecure]
-                                [--no-proxy] [-p PASSWORD]
+                                [--no-perfdata] [--no-proxy] [-p PASSWORD]
                                 [--severity {warn,crit}] [--timeout TIMEOUT]
                                 [--url URL] [--username USERNAME]
 
@@ -46,6 +46,10 @@ options:
   --always-ok           Always returns OK.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
                         Jitsi API password.

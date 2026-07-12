@@ -30,7 +30,8 @@ Reports battery status information including charge percentage, time remaining, 
 ## Help
 
 ```text
-usage: sensors-battery [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
+usage: sensors-battery [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata]
+                       [-w WARN]
 
 Reports battery status information including charge percentage, time
 remaining, and power source (AC or battery). Returns OK if no battery is
@@ -42,6 +43,9 @@ options:
   --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for battery power left, in percent.
                        Default: 5
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   -w, --warning WARN   WARN threshold for battery power left, in percent.
                        Default: 20
 ```

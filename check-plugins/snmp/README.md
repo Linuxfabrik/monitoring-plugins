@@ -45,7 +45,7 @@ Queries SNMP OIDs defined in a CSV file and checks the returned values against o
 ```text
 usage: snmp [-h] [-V] [--community COMMUNITY] [--device DEVICE] [--hide-ok]
             [--hide-table] -H HOSTNAME [--mib MIB] [--mib-dir MIB_DIR]
-            [--snmp-version {1,2c,3}] [-t TIMEOUT]
+            [--no-perfdata] [--snmp-version {1,2c,3}] [-t TIMEOUT]
             [--v3-auth-prot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}]
             [--v3-auth-prot-password V3_AUTH_PROT_PASSWORD]
             [--v3-boots-time V3_BOOTS_TIME] [--v3-context V3_CONTEXT]
@@ -91,6 +91,10 @@ options:
   --mib-dir MIB_DIR     Colon-separated list of directories to search for
                         MIBs, behaves like the `-M` option of `snmpget`.
                         Default: $HOME/.snmp/mibs:/usr/share/snmp/mibs
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --snmp-version {1,2c,3}
                         SNMP version to use. Default: 2c
   -t, --timeout TIMEOUT

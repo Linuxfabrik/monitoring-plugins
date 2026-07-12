@@ -27,7 +27,7 @@ Reports the average system load per CPU over the last 1, 5, and 15 minutes. Load
 ## Help
 
 ```text
-usage: load [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
+usage: load [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata] [-w WARN]
 
 Reports the average system load per CPU over the last 1, 5, and 15 minutes.
 Load represents the average number of processes waiting in the run queue plus
@@ -39,6 +39,9 @@ options:
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for load15 per CPU. Default: 5.0
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   -w, --warning WARN   WARN threshold for load15 per CPU. Default: 1.15
 ```
 

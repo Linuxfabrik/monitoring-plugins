@@ -36,7 +36,7 @@ Checks whether the local node participates in a Docker Swarm and whether the clu
 ## Help
 
 ```text
-usage: docker-swarm [-h] [-V] [--always-ok] [--lengthy]
+usage: docker-swarm [-h] [-V] [--always-ok] [--lengthy] [--no-perfdata]
 
 Checks whether the local node participates in a Docker Swarm and whether the
 cluster is healthy. On every node the local swarm state is verified (active,
@@ -53,6 +53,9 @@ options:
   -V, --version  show program's version number and exit
   --always-ok    Always returns OK.
   --lengthy      Extended reporting.
+  --no-perfdata  Suppress the performance data section from the output. The
+                 status message and the exit code are unaffected, so alerting
+                 keeps working while trending data is dropped.
 ```
 
 

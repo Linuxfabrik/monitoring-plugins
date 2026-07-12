@@ -37,9 +37,9 @@ Checks the health of all managers (BMCs such as iLO, iDRAC, or a generic BMC) of
 ```text
 usage: redfish-managers [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
                         [--ignore IGNORE] [--insecure] [--inventory]
-                        [--match MATCH] [--no-proxy] [--password PASSWORD]
-                        [--retries RETRIES] [--timeout TIMEOUT] --url URL
-                        [--username USERNAME]
+                        [--match MATCH] [--no-perfdata] [--no-proxy]
+                        [--password PASSWORD] [--retries RETRIES]
+                        [--timeout TIMEOUT] --url URL [--username USERNAME]
 
 Checks the health of all managers (BMCs such as iLO, iDRAC, or a generic BMC)
 of a Redfish-compatible server via the Redfish API. Reports every enabled
@@ -71,6 +71,10 @@ options:
                         regular expression. Case-sensitive by default; use
                         `(?i)` for case-insensitive matching. Can be specified
                         multiple times.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Redfish API password.
   --retries RETRIES     Number of extra attempts if a request to the Redfish

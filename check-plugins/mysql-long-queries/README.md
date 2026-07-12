@@ -38,7 +38,8 @@ Checks for in-flight MySQL/MariaDB queries that have been running longer than `-
 usage: mysql-long-queries [-h] [-V] [--always-ok] [-c CRIT]
                           [--defaults-file DEFAULTS_FILE]
                           [--defaults-group DEFAULTS_GROUP] [--ignore IGNORE]
-                          [--lengthy] [--timeout TIMEOUT] [-w WARN]
+                          [--lengthy] [--no-perfdata] [--timeout TIMEOUT]
+                          [-w WARN]
 
 Checks for in-flight MySQL/MariaDB queries that have been running longer than
 `--warning` / `--critical` seconds. Unlike `mysql-slow-queries` (which trends
@@ -71,6 +72,10 @@ options:
                         patterns. Example: `--ignore=ANALYZE
                         --ignore=^mysqldump`
   --lengthy             Extended reporting.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -w, --warning WARN    Query runtime in seconds that triggers WARN. Supports
                         Nagios ranges. Example: `--warning=15`. Default: 30

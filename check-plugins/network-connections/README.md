@@ -55,7 +55,7 @@ Meaning of connection status `--conn-status` parameter:
 usage: network-connections [-h] [-V]
                            [--conn-status {all,close,close_wait,closing,established,fin_wait1,fin_wait2,last_ack,listen,none,syn_recv,syn_sent,time_wait}]
                            [--conn-type {all,tcp,tcp6,udp,udp6}] [-c CRIT]
-                           [-w WARN]
+                           [--no-perfdata] [-w WARN]
 
 Counts system-wide socket connections by type (TCP, TCP6, UDP, UDP6) and
 state. Alerts when the total number of connections in a specific state exceeds
@@ -73,6 +73,10 @@ options:
                         multiple times. Default: None
   -c, --critical CRIT   CRIT threshold for the number of connections. Default:
                         None
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   -w, --warning WARN    WARN threshold for the number of connections. Default:
                         None
 ```

@@ -24,7 +24,7 @@ from lib.globals import STATE_UNKNOWN
 
 __author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
                 originally written by Dominik Riva, Universitätsspital Basel/Switzerland"""
-__version__ = '2026040801'
+__version__ = '2026071201'
 
 
 DESCRIPTION = """Checks availability and response time of an ID DIACOS installation by performing a
@@ -111,6 +111,14 @@ def parse_args():
         help='NAME argument for the user.Login API call (required).',
         dest='NAME',
         required=True,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -338,7 +346,13 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg, state, perfdata=perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg,
+        state,
+        perfdata=perfdata,
+        always_ok=args.ALWAYS_OK,
+        no_perfdata=args.NO_PERFDATA,
+    )
 
 
 if __name__ == '__main__':

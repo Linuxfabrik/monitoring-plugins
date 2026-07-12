@@ -35,8 +35,8 @@ Checks the health and status of Kubernetes pods by running `kubectl get pods` an
 
 ```text
 usage: kubectl-get-pods [-h] [-V] [--always-ok] [--all-namespaces]
-                        [--kubeconfig KUBECONFIG] [--query QUERY]
-                        [--severity {warn,crit}]
+                        [--kubeconfig KUBECONFIG] [--no-perfdata]
+                        [--query QUERY] [--severity {warn,crit}]
 
 Checks the health and status of Kubernetes pods by running "kubectl get pods"
 and parsing the results. Lists namespace, pod name, readiness, status, restart
@@ -54,6 +54,10 @@ options:
   --kubeconfig KUBECONFIG
                         Path to the kubeconfig file. Default:
                         /var/spool/icinga2/.kubeconfig
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --query QUERY         SQL WHERE clause to narrow down results. Have a look
                         at the README for a list of available columns.
                         Example: `namespace = 'mynamespace' and name like

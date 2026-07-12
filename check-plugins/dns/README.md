@@ -28,8 +28,8 @@ Performs a DNS lookup and resolves a hostname to one or more IP addresses. Queri
 ## Help
 
 ```text
-usage: dns [-h] [-V] [--always-ok] [-c CRIT] [-H HOSTNAME] [-p PORT]
-           [--type {udp,udp6,tcp,tcp6}] [-w WARN]
+usage: dns [-h] [-V] [--always-ok] [-c CRIT] [-H HOSTNAME] [--no-perfdata]
+           [-p PORT] [--type {udp,udp6,tcp,tcp6}] [-w WARN]
 
 Performs a DNS lookup and resolves a hostname to one or more IP addresses.
 Queries the name servers configured on the local machine (e.g. those listed in
@@ -44,6 +44,10 @@ options:
                         Default: None
   -H, --hostname HOSTNAME
                         Hostname or IP address to resolve. Default: localhost
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   -p, --port PORT       Port number to query. Default: 53
   --type {udp,udp6,tcp,tcp6}
                         Connection type to narrow the list of returned

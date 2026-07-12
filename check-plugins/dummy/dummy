@@ -18,7 +18,7 @@ import lib.base
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026071201'
 
 DESCRIPTION = """Returns a freely configurable message, state, and perfdata. Useful for testing
 monitoring configurations, simulating alerts, or generating placeholder data."""
@@ -52,6 +52,14 @@ def parse_args():
         help='Message to return. Default: %(default)s',
         dest='MESSAGE',
         default=DEFAULT_MSG,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -89,6 +97,7 @@ def main():
         lib.base.str2state(args.STATE),
         args.PERFDATA,
         always_ok=args.ALWAYS_OK,
+        no_perfdata=args.NO_PERFDATA,
     )
 
 

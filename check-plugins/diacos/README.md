@@ -41,8 +41,8 @@ ID DIACOS is a coding software for accurate and fast invoicing in hospitals, all
 ```text
 usage: diacos [-h] [-V] [--always-ok] [-c CRITICAL] [--insecure]
               [--login-computer COMPUTER] [--login-ip IP]
-              --login-licence LICENCE --login-name NAME [--no-proxy]
-              [--search-concept-filter CONCEPT_FILTER]
+              --login-licence LICENCE --login-name NAME [--no-perfdata]
+              [--no-proxy] [--search-concept-filter CONCEPT_FILTER]
               [--search-country COUNTRY] [--search-format FORMAT]
               [--search-searchtext SEARCHTEXT] [--search-sort-mode SORT_MODE]
               [--search-year YEAR] [--timeout TIMEOUT] [--url URL]
@@ -71,6 +71,10 @@ options:
                         LICENCE argument for the user.Login API call
                         (required).
   --login-name NAME     NAME argument for the user.Login API call (required).
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --search-concept-filter CONCEPT_FILTER
                         CONCEPT_FILTER argument for the

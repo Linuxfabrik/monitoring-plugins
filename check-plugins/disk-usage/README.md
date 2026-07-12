@@ -39,7 +39,7 @@ Checks used or free disk space for each mounted partition. By default, only phys
 usage: disk-usage [-h] [-V] [--always-ok] [--brief] [-c CRIT]
                   [--fstype FSTYPE] [--ignore IGNORE] [--list-fstypes]
                   [--match MATCH] [--mount MOUNT]
-                  [--no-match-severity {ok,warn,crit,unknown}]
+                  [--no-match-severity {ok,warn,crit,unknown}] [--no-perfdata]
                   [--perfdata-regex PERFDATA_REGEX] [-w WARN]
 
 Checks used or free disk space for each mounted partition. By default, only
@@ -100,6 +100,10 @@ options:
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --perfdata-regex PERFDATA_REGEX
                         Only emit perfdata keys matching this Python regex.
                         For a list of perfdata keys, see the README or run

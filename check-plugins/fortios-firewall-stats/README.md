@@ -34,7 +34,7 @@ Summarizes traffic statistics for all IPv4 and IPv6 firewall policies on FortiGa
 
 ```text
 usage: fortios-firewall-stats [-h] [-V] [--always-ok] -H HOSTNAME [--insecure]
-                              [--no-proxy] --password PASSWORD
+                              [--no-perfdata] [--no-proxy] --password PASSWORD
                               [--timeout TIMEOUT]
 
 Summarizes traffic statistics for all IPv4 and IPv6 firewall policies on
@@ -50,6 +50,10 @@ options:
                         port. Example: `--hostname 192.168.1.1:443`.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   FortiOS REST API single-use access token.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)

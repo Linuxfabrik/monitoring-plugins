@@ -35,7 +35,8 @@ Lists the container images on a host and checks how old they are. Reports each i
 ```text
 usage: docker-image [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
                     [--match MATCH]
-                    [--no-match-severity {ok,warn,crit,unknown}] [-w WARN]
+                    [--no-match-severity {ok,warn,crit,unknown}]
+                    [--no-perfdata] [-w WARN]
 
 Lists the container images on a host and checks how old they are. Reports each
 image's repository tag, age and size, and alerts when an image is older than
@@ -71,6 +72,10 @@ options:
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   -w, --warning WARN    WARN threshold for the image age in a human-readable
                         format (s = seconds, m = minutes, h = hours, D = days,
                         W = weeks, M = months, Y = years). Supports Nagios

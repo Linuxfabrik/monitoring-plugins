@@ -25,6 +25,9 @@
                 "--no-match-severity": {
                     "value": "$docker_container_no_match_severity$"
                 },
+                "--no-perfdata": {
+                    "set_if": "$docker_container_no_perfdata$"
+                },
                 "--status": {
                     "value": "$docker_container_status$"
                 },
@@ -87,6 +90,11 @@
                     "datafield_id": 10,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -145,7 +153,8 @@
                 "docker_container_full_name": false,
                 "docker_container_ignore": [],
                 "docker_container_match": [],
-                "docker_container_no_match_severity": "ok"
+                "docker_container_no_match_severity": "ok",
+                "docker_container_no_perfdata": false
             },
             "volatile": null,
             "zone": null,
@@ -262,6 +271,15 @@
             "uuid": "d86eed76-9c11-4bf8-a700-8f68eb92da6a"
         },
         "8": {
+            "varname": "docker_container_no_perfdata",
+            "caption": "Docker Container: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "284ac3fc-4542-4548-b7f3-f437d4fb69b6"
+        },
+        "9": {
             "varname": "docker_container_status",
             "caption": "Docker Container: Status",
             "description": "Desired container status, for example `running`, `exited` or `paused`. A container whose status differs is reported as CRITICAL. If not specified, the status is reported but not alerted on.",
@@ -272,7 +290,7 @@
             },
             "uuid": "5578852e-3ca2-4987-a2e9-81bc06ccf1bd"
         },
-        "9": {
+        "10": {
             "varname": "docker_container_warning_restarts",
             "caption": "Docker Container: Warning Restarts",
             "description": "WARN threshold for the number of automatic restarts a container has performed, compared as a Nagios range. Example: `--warning-restarts=3` alerts when a container has restarted more than 3 times. By default, the restart count is reported but not alerted on.",
@@ -283,7 +301,7 @@
             },
             "uuid": "a1868513-fa8a-412d-a894-fa945a7a7903"
         },
-        "10": {
+        "11": {
             "varname": "docker_container_warning_uptime",
             "caption": "Docker Container: Warning Uptime",
             "description": "WARN threshold for the container uptime in a human-readable format (s = seconds, m = minutes, h = hours, D = days, W = weeks, M = months, Y = years). Supports Nagios ranges. Example: `5m:` alerts if a running container has been up for less than 5 minutes (catches a crash-looping or flapping container). By default, the uptime is reported but not alerted on.",

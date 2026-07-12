@@ -32,9 +32,10 @@ Checks thread pool utilization on a WildFly/JBoss AS server via its HTTP-JSON ba
 ```text
 usage: wildfly-thread-usage [-h] [-V] [--always-ok] [--critical CRIT]
                             [--insecure] [--instance INSTANCE]
-                            [--mode {standalone,domain}] [--no-proxy]
-                            [--node NODE] -p PASSWORD [--timeout TIMEOUT]
-                            [--url URL] --username USERNAME [--warning WARN]
+                            [--mode {standalone,domain}] [--no-perfdata]
+                            [--no-proxy] [--node NODE] -p PASSWORD
+                            [--timeout TIMEOUT] [--url URL]
+                            --username USERNAME [--warning WARN]
 
 Checks thread pool utilization on a WildFly/JBoss AS server via its HTTP
 management API. Reports current, peak, and daemon thread counts. Alerts when
@@ -51,6 +52,10 @@ options:
                         in domain mode.
   --mode {standalone,domain}
                         WildFly server mode. Default: standalone
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --node NODE           WildFly node (host) when running in domain mode.
   -p, --password PASSWORD

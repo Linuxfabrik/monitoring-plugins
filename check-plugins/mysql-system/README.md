@@ -36,7 +36,7 @@ Checks Linux kernel parameters that affect MySQL/MariaDB stability and performan
 
 ```text
 usage: mysql-system [-h] [-V] [--always-ok]
-                    [--maxportsallowed MAXPORTSALLOWED]
+                    [--maxportsallowed MAXPORTSALLOWED] [--no-perfdata]
 
 Checks Linux kernel parameters that affect MySQL/MariaDB stability and
 performance: `vm.swappiness`, the asynchronous-I/O event ceiling `fs.aio-max-
@@ -52,6 +52,10 @@ options:
   --maxportsallowed MAXPORTSALLOWED
                         Maximum number of TCP ports listening on this host. 0
                         disables the check. Default: 0
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
 ```
 
 

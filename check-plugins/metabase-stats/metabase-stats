@@ -23,7 +23,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026071201'
 
 DESCRIPTION = """Retrieves recent activity and usage statistics from a Metabase instance via its API.
 Reports active users, executed queries, dashboards, and other operational metrics.
@@ -76,6 +76,14 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -308,7 +316,7 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg, state, perfdata)
+    lib.base.oao(msg, state, perfdata, no_perfdata=args.NO_PERFDATA)
 
 
 if __name__ == '__main__':

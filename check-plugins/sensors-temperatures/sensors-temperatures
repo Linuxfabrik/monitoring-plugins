@@ -47,7 +47,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026063001'
+__version__ = '2026071201'
 
 DESCRIPTION = """Reports hardware temperature sensor readings (CPU, disk, chipset, etc.) in Celsius.
 Automatically checks against hardware-defined thresholds. Sensors can be filtered
@@ -90,6 +90,14 @@ def parse_args():
         dest='NO_MATCH_SEVERITY',
         choices=['ok', 'warn', 'crit', 'unknown'],
         default='ok',
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -235,7 +243,7 @@ def main():
         )
 
     # over and out
-    lib.base.oao(msg[:-1], state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg[:-1], state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
 
 
 if __name__ == '__main__':

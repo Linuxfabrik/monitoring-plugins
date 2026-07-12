@@ -31,8 +31,8 @@ Monitors a [StatusIQ](https://www.site24x7.com/statusiq/) (by Site24x7) status p
 ## Help
 
 ```text
-usage: statusiq [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                [--timeout TIMEOUT] [--url URL]
+usage: statusiq [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
+                [--no-proxy] [--timeout TIMEOUT] [--url URL]
 
 Monitors a StatusIQ (by Site24x7) status page via its RSS feed. Returns OK for
 operational or informational messages, WARN for maintenance windows, and CRIT
@@ -43,6 +43,9 @@ options:
   -V, --version      show program's version number and exit
   --always-ok        Always returns OK.
   --insecure         This option explicitly allows insecure SSL connections.
+  --no-perfdata      Suppress the performance data section from the output.
+                     The status message and the exit code are unaffected, so
+                     alerting keeps working while trending data is dropped.
   --no-proxy         Do not use a proxy.
   --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
   --url URL          StatusIQ status page URL. Default:

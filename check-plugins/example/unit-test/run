@@ -57,6 +57,16 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-regex': r'42%.*\[CRITICAL\]',
     },
+    {
+        # --no-perfdata drops the perfdata section but keeps the message and
+        # the exit code: the CRIT state is still reported.
+        'id': 'crit-no-perfdata',
+        'test': 'stdout/humidity-42-percent,,0',
+        'params': '--token=dummy --warning 30 --critical 40 --no-perfdata',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'42%.*\[CRITICAL\]',
+        'assert-not-in': ['|'],
+    },
 ]
 
 

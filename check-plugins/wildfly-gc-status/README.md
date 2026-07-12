@@ -31,9 +31,9 @@ Reports garbage collector activity from a WildFly/JBoss AS server via its HTTP-J
 
 ```text
 usage: wildfly-gc-status [-h] [-V] [--insecure] [--instance INSTANCE]
-                         [--mode {standalone,domain}] [--no-proxy]
-                         [--node NODE] -p PASSWORD [--timeout TIMEOUT]
-                         [--url URL] --username USERNAME
+                         [--mode {standalone,domain}] [--no-perfdata]
+                         [--no-proxy] [--node NODE] -p PASSWORD
+                         [--timeout TIMEOUT] [--url URL] --username USERNAME
 
 Reports garbage collector activity from a WildFly/JBoss AS server via its HTTP
 management API, reporting the collection rate and the share of wall-clock time
@@ -48,6 +48,10 @@ options:
                         in domain mode.
   --mode {standalone,domain}
                         WildFly server mode. Default: standalone
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --node NODE           WildFly node (host) when running in domain mode.
   -p, --password PASSWORD

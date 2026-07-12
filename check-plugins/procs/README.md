@@ -42,7 +42,7 @@ usage: procs [-h] [-V] [--always-ok] [--argument ARGUMENT] [--command COMMAND]
              [--critical-cpu-percent CRIT_CPU_PERCENT]
              [--critical-mem CRIT_MEM]
              [--critical-mem-percent CRIT_MEM_PERCENT] [--lengthy]
-             [--no-kthreads]
+             [--no-kthreads] [--no-perfdata]
              [--status {dead,disk-sleep,idle,locked,parked,running,sleeping,stopped,suspended,tracing-stop,waiting,wake-kill,waking,zombie}]
              [--top TOP] [--username USERNAME] [-w WARN]
              [--warning-age WARN_AGE] [--warning-cpu-percent WARN_CPU_PERCENT]
@@ -82,6 +82,10 @@ options:
                         percent. Default: None
   --lengthy             Extended reporting.
   --no-kthreads         Exclude kernel threads from the scan (Linux only).
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --status {dead,disk-sleep,idle,locked,parked,running,sleeping,stopped,suspended,tracing-stop,waiting,wake-kill,waking,zombie}
                         Filter by process status. Default: None
   --top TOP             Number of top processes by CPU time to display.
