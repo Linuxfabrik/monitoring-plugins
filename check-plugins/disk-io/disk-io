@@ -34,17 +34,24 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071301'
+__version__ = '2026071302'
 
 DESCRIPTION = """Checks disk I/O bandwidth over time and alerts on sustained saturation, not
 short spikes. The check records per-disk read/write counters and then derives current (R1/W1)
 and period averages (R{COUNT}/W{COUNT}). It compares the period's total bandwidth against the
 maximum ever observed for that disk (RWmax). It raises a WARNING when the period average exceeds
---warning percent of RWmax. This check only ever warns, never criticals: sustained I/O is a
-signal to investigate, not an emergency you have to react to at night.
+--warning percent of RWmax. This bandwidth part only ever warns, never criticals: sustained I/O
+is a signal to investigate, not an emergency you have to react to at night.
 
-Perfdata is emitted for each disk (read/write throughput per second, plus disk busy percentage
-on Linux), so you can graph trends. On Linux the check focuses on block devices with a mounted
+The check also reports per-disk I/O latency (await): the average time a read or write took to
+complete over the period, in milliseconds. Unlike disk busy percentage, latency is robust
+against device parallelism, so it is a meaningful "is my storage slow" signal on NVMe, SSD and
+RAID as well. Optional --await-warning and --await-critical thresholds alert on sustained
+latency; both are disabled by default. A critical latency threshold is the place to catch a
+disk that is effectively hung.
+
+Perfdata is emitted for each disk (read/write throughput per second and I/O latency, plus disk
+busy percentage on Linux), so you can graph trends. On Linux the check focuses on block devices with a mounted
 filesystem by default; use `--include-unmounted` to also include raw, unmounted devices such as
 multipath SAN volumes. On Windows it uses psutil's disk counters. Optionally, `--top` lists the
 processes that generated the most I/O traffic (read/write totals) to help identify offenders.
@@ -81,6 +88,31 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+    parser.add_argument(
+        '--await-critical',
+        help='CRIT threshold for per-disk I/O latency (await) in milliseconds, '
+        'averaged over the last `--count` runs. '
+        'await is the average time a read or write took to complete. '
+        'Use this to catch a disk that is effectively hung (sustained latency of '
+        'seconds), not a merely busy one. '
+        'Supports Nagios ranges. '
+        'Disabled by default.',
+        dest='AWAIT_CRIT',
+        default=None,
+    )
+    parser.add_argument(
+        '--await-warning',
+        help='WARN threshold for per-disk I/O latency (await) in milliseconds, '
+        'averaged over the last `--count` runs. '
+        'await is the average time a read or write took to complete. '
+        'A good value depends on the storage (an SSD is well below a millisecond, '
+        'a busy HDD can sustain tens of milliseconds), so set it to what is '
+        'abnormal for your disks. '
+        'Supports Nagios ranges. '
+        'Disabled by default.',
+        dest='AWAIT_WARN',
+        default=None,
     )
     parser.add_argument(
         '--count',
@@ -206,6 +238,22 @@ def get_rate(ts1, ts2, r1, r2, w1, w2):
     return timediff, r, w, r + w
 
 
+def get_await(time1, time2, count1, count2):
+    """Average latency of the completed I/Os between two snapshots, in milliseconds.
+
+    This is iostat's await: the time counter (ms an I/O spent between issue and
+    completion, a cumulative counter) divided by the number of I/Os completed in
+    the interval. Unlike disk-busy percent (%util), latency is robust against
+    device parallelism: it is real time per I/O on any device, whereas %util
+    only tells whether at least one I/O was in flight. Returns 0.0 when no I/O
+    completed in the interval (no latency to report).
+    """
+    count_delta = abs(count1 - count2)
+    if count_delta <= 0:
+        return 0.0
+    return round(abs(time1 - time2) / count_delta, 1)
+
+
 def top(count):
     """Get top X processes that generated the most I/O traffic."""
     # Fast path: nothing to print, so nothing to scan
@@ -329,16 +377,23 @@ def main():
     except Exception:
         pass
 
-    # same structure for Linux and Windows, makes life easier
+    # same structure for Linux and Windows, makes life easier.
+    # read_count/write_count are the number of completed I/Os and feed the await
+    # (latency) calculation together with read_time/write_time. On an existing
+    # cache DB from an older release these columns are missing; lib.db_sqlite
+    # detects the schema mismatch on insert and rebuilds the DB, so the check
+    # self-heals after a single "Waiting for more data." run.
     definition = """
         bd TEXT NOT NULL,
         dmd TEXT,
         mp TEXT,
         busy_time INT DEFAULT 0,
         read_bytes INT DEFAULT 0,
+        read_count INT DEFAULT 0,
         read_merged_count INT DEFAULT 0,
         read_time INT DEFAULT 0,
         write_bytes INT DEFAULT 0,
+        write_count INT DEFAULT 0,
         write_merged_count INT DEFAULT 0,
         write_time INT DEFAULT 0,
         timestamp INT DEFAULT 0
@@ -354,6 +409,8 @@ def main():
     compiled_regex = lib.base.coe(lib.txt.compile_regex(args.MATCH))
     now = lib.time.now()
     busiest_disk = 0  # disk with the highest sum of r/w: show this on top later on
+    alert_state = STATE_OK  # most severe per-disk finding, for the first line
+    alert_msg = ''
     disks = []
 
     # fetch data
@@ -371,18 +428,17 @@ def main():
             ):
                 continue
 
-            # read_count and write_count are the same value for all disks, so simply ignore them
             data = {}
             data['bd'] = disk
             data['dmd'] = ''
             data['mp'] = ''
             data['busy_time'] = getattr(values, 'busy_time', 0)
             data['read_bytes'] = getattr(values, 'read_bytes', 0)
-            # data['read_count'] = getattr(values, 'read_count', 0)
+            data['read_count'] = getattr(values, 'read_count', 0)
             data['read_merged_count'] = getattr(values, 'read_merged_count', 0)
             data['read_time'] = getattr(values, 'read_time', 0)
             data['write_bytes'] = getattr(values, 'write_bytes', 0)
-            # data['write_count'] = getattr(values, 'write_count', 0)
+            data['write_count'] = getattr(values, 'write_count', 0)
             data['write_merged_count'] = getattr(values, 'write_merged_count', 0)
             data['write_time'] = getattr(values, 'write_time', 0)
             data['timestamp'] = now
@@ -415,9 +471,9 @@ def main():
             data['bd'] = disk['bd']
             data['dmd'] = disk['dmd']
             data['mp'] = disk['mp']
-            # read_count and write_count are the same value over all disks, so simply ignore them
             data['busy_time'] = getattr(disk_io_counters[psutil_name], 'busy_time', 0)
             data['read_bytes'] = getattr(disk_io_counters[psutil_name], 'read_bytes', 0)
+            data['read_count'] = getattr(disk_io_counters[psutil_name], 'read_count', 0)
             data['read_merged_count'] = getattr(
                 disk_io_counters[psutil_name],
                 'read_merged_count',
@@ -426,6 +482,9 @@ def main():
             data['read_time'] = getattr(disk_io_counters[psutil_name], 'read_time', 0)
             data['write_bytes'] = getattr(
                 disk_io_counters[psutil_name], 'write_bytes', 0
+            )
+            data['write_count'] = getattr(
+                disk_io_counters[psutil_name], 'write_count', 0
             )
             data['write_merged_count'] = getattr(
                 disk_io_counters[psutil_name],
@@ -524,16 +583,69 @@ def main():
             lib.db_sqlite.close(conn)
             lib.base.oao('Waiting for more data.', state)
 
-        # get state based on max measured I/O values. WARN-only (crit=None):
-        # sustained bandwidth near the disk's own observed maximum is a
-        # saturation/trending signal to investigate, not a wake-up-at-night
-        # event, so this check never escalates to CRIT.
+        # bandwidth state, WARN-only (crit=None): sustained bandwidth near the
+        # disk's own observed maximum is a saturation/trending signal to
+        # investigate, not a wake-up-at-night event.
         local_state = lib.base.get_state(
             bandwidth15,
             bandwidth_max * args.WARN / 100,
             None,
         )
         state = lib.base.get_worst(local_state, state)
+
+        # I/O latency (await) over the period, averaged across reads and writes.
+        # Unlike bandwidth this CAN go critical: --await-critical is meant for a
+        # disk that is effectively hung (sustained multi-second latency). Both
+        # await thresholds are off by default, so with no thresholds set
+        # get_state() returns OK and await is reported for trending only.
+        await_ms = get_await(
+            data[0]['read_time'] + data[0]['write_time'],
+            data[args.COUNT - 1]['read_time'] + data[args.COUNT - 1]['write_time'],
+            data[0]['read_count'] + data[0]['write_count'],
+            data[args.COUNT - 1]['read_count'] + data[args.COUNT - 1]['write_count'],
+        )
+        read_await_ms = get_await(
+            data[0]['read_time'],
+            data[args.COUNT - 1]['read_time'],
+            data[0]['read_count'],
+            data[args.COUNT - 1]['read_count'],
+        )
+        write_await_ms = get_await(
+            data[0]['write_time'],
+            data[args.COUNT - 1]['write_time'],
+            data[0]['write_count'],
+            data[args.COUNT - 1]['write_count'],
+        )
+        await_state = lib.base.get_state(
+            await_ms, args.AWAIT_WARN, args.AWAIT_CRIT, _operator='range'
+        )
+        state = lib.base.get_worst(await_state, state)
+
+        # Remember the most severe disk for the first line: notifications only
+        # show the first line, and a hung disk (await CRIT) is often not the
+        # busiest one, so it must not get buried under a benign busy disk.
+        disk_state = lib.base.get_worst(local_state, await_state)
+        if (
+            lib.base.get_worst(disk_state, alert_state) == disk_state
+            and disk_state != alert_state
+        ):
+            alert_state = disk_state
+            reasons = []
+            if local_state != STATE_OK:
+                reasons.append(
+                    f'{lib.human.bytes2human(bandwidth15)}/s of '
+                    f'{lib.human.bytes2human(bandwidth_max)}/s max'
+                )
+            if await_state != STATE_OK:
+                reasons.append(f'{await_ms:.1f}ms latency')
+            alert_msg = (
+                f'{disk["bd"]}: '
+                + ', '.join(reasons)
+                + lib.base.state2str(disk_state, prefix=' ')
+            )
+            if args.MATCH:
+                alert_msg += f' (disks matching `{args.MATCH}`)'
+            alert_msg += '.'
 
         bd = disk['bd'].replace('/dev/', '')
         table_values.append(
@@ -548,6 +660,8 @@ def main():
                 'w15': lib.human.bytes2human(write_bytes_per_second15),
                 't15': lib.human.bytes2human(bandwidth15)
                 + lib.base.state2str(local_state, prefix=' '),
+                'await': f'{await_ms:.1f}ms'
+                + lib.base.state2str(await_state, prefix=' '),
             }
         )
 
@@ -592,6 +706,29 @@ def main():
             warn=int(bandwidth_max * args.WARN / 100),
             _min=0,
         )
+        # I/O latency (await) in ms, cross-platform: read_time/write_time are
+        # exposed on Windows too, unlike busy_time. warn/crit carry the optional
+        # latency thresholds and are simply omitted when unset (None).
+        perfdata += lib.base.get_perfdata(
+            f'{bd}_await',
+            await_ms,
+            uom='ms',
+            warn=args.AWAIT_WARN,
+            crit=args.AWAIT_CRIT,
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{bd}_read_await',
+            read_await_ms,
+            uom='ms',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{bd}_write_await',
+            write_await_ms,
+            uom='ms',
+            _min=0,
+        )
         # disk utilization (iostat's %util), Linux only: psutil exposes busy_time
         # (the underlying /proc/diskstats field 13 "io_ticks", in ms) only on
         # Linux and FreeBSD, so on Windows it is a constant 0 and must not be
@@ -623,6 +760,12 @@ def main():
 
     lib.db_sqlite.close(conn)
 
+    # first line: lead with the most severe disk when something is in WARN/CRIT
+    # (a hung disk on await is often not the busiest one, so it must not be
+    # buried); otherwise the busiest disk set in the loop above stays.
+    if alert_state != STATE_OK and alert_msg:
+        msg = alert_msg
+
     # build the message
     msg = msg + '\n\n'
     if table_values:
@@ -638,6 +781,7 @@ def main():
                 'r15',
                 'w15',
                 't15',
+                'await',
             ],
             header=[
                 'Name',
@@ -649,6 +793,7 @@ def main():
                 f'R{args.COUNT}/s',
                 f'W{args.COUNT}/s',
                 f'RW{args.COUNT}/s',
+                'Await',
             ],
         )
 

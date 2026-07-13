@@ -5,6 +5,12 @@
                 "--always-ok": {
                     "set_if": "$disk_io_always_ok$"
                 },
+                "--await-critical": {
+                    "value": "$disk_io_await_critical$"
+                },
+                "--await-warning": {
+                    "value": "$disk_io_await_warning$"
+                },
                 "--count": {
                     "value": "$disk_io_count$"
                 },
@@ -69,6 +75,16 @@
                     "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -85,6 +101,12 @@
             "arguments": {
                 "--always-ok": {
                     "set_if": "$disk_io_windows_always_ok$"
+                },
+                "--await-critical": {
+                    "value": "$disk_io_windows_await_critical$"
+                },
+                "--await-warning": {
+                    "value": "$disk_io_windows_await_warning$"
                 },
                 "--count": {
                     "value": "$disk_io_windows_count$"
@@ -112,16 +134,6 @@
             "disabled": false,
             "fields": [
                 {
-                    "datafield_id": 9,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 10,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
                     "datafield_id": 11,
                     "is_required": "n",
                     "var_filter": null
@@ -148,6 +160,26 @@
                 },
                 {
                     "datafield_id": 16,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 18,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 19,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 20,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -210,7 +242,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes. The check records per-disk read/write counters and then derives current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the period's total bandwidth against the maximum ever observed for that disk (RWmax). It raises a WARNING when the period average exceeds --warning percent of RWmax. This check only ever warns, never criticals: sustained I/O is a signal to investigate, not an emergency you have to react to at night. Perfdata is emitted for each disk (read/write throughput per second, plus disk busy percentage on Linux), so you can graph trends. On Linux the check focuses on block devices with a mounted filesystem by default; use `--include-unmounted` to also include raw, unmounted devices such as multipath SAN volumes. On Windows it uses psutil's disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
+            "notes": "Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes. The check records per-disk read/write counters and then derives current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the period's total bandwidth against the maximum ever observed for that disk (RWmax). It raises a WARNING when the period average exceeds --warning percent of RWmax. This bandwidth part only ever warns, never criticals: sustained I/O is a signal to investigate, not an emergency you have to react to at night. The check also reports per-disk I/O latency (await): the average time a read or write took to complete over the period, in milliseconds. Unlike disk busy percentage, latency is robust against device parallelism, so it is a meaningful \"is my storage slow\" signal on NVMe, SSD and RAID as well. Optional --await-warning and --await-critical thresholds alert on sustained latency; both are disabled by default. A critical latency threshold is the place to catch a disk that is effectively hung. Perfdata is emitted for each disk (read/write throughput per second and I/O latency, plus disk busy percentage on Linux), so you can graph trends. On Linux the check focuses on block devices with a mounted filesystem by default; use `--include-unmounted` to also include raw, unmounted devices such as multipath SAN volumes. On Windows it uses psutil's disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/",
             "object_name": "tpl-service-disk-io",
             "object_type": "template",
@@ -263,7 +295,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes. The check records per-disk read/write counters and then derives current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the period's total bandwidth against the maximum ever observed for that disk (RWmax). It raises a WARNING when the period average exceeds --warning percent of RWmax. This check only ever warns, never criticals: sustained I/O is a signal to investigate, not an emergency you have to react to at night. Perfdata is emitted for each disk (read/write throughput per second, plus disk busy percentage on Linux), so you can graph trends. On Linux the check focuses on block devices with a mounted filesystem by default; use `--include-unmounted` to also include raw, unmounted devices such as multipath SAN volumes. On Windows it uses psutil's disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
+            "notes": "Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes. The check records per-disk read/write counters and then derives current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the period's total bandwidth against the maximum ever observed for that disk (RWmax). It raises a WARNING when the period average exceeds --warning percent of RWmax. This bandwidth part only ever warns, never criticals: sustained I/O is a signal to investigate, not an emergency you have to react to at night. The check also reports per-disk I/O latency (await): the average time a read or write took to complete over the period, in milliseconds. Unlike disk busy percentage, latency is robust against device parallelism, so it is a meaningful \"is my storage slow\" signal on NVMe, SSD and RAID as well. Optional --await-warning and --await-critical thresholds alert on sustained latency; both are disabled by default. A critical latency threshold is the place to catch a disk that is effectively hung. Perfdata is emitted for each disk (read/write throughput per second and I/O latency, plus disk busy percentage on Linux), so you can graph trends. On Linux the check focuses on block devices with a mounted filesystem by default; use `--include-unmounted` to also include raw, unmounted devices such as multipath SAN volumes. On Windows it uses psutil's disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/",
             "object_name": "tpl-service-disk-io-windows",
             "object_type": "template",
@@ -363,6 +395,28 @@
             "uuid": "475194d4-97a8-4e17-9c8f-0896c7cb73fd"
         },
         "2": {
+            "varname": "disk_io_await_critical",
+            "caption": "Disk I/O: Await Critical",
+            "description": "CRIT threshold for per-disk I/O latency (await) in milliseconds, averaged over the last `--count` runs. await is the average time a read or write took to complete. Use this to catch a disk that is effectively hung (sustained latency of seconds), not a merely busy one. Supports Nagios ranges. Disabled by default.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "65b2a740-62b5-45b9-b047-3501c18b52aa"
+        },
+        "3": {
+            "varname": "disk_io_await_warning",
+            "caption": "Disk I/O: Await Warning",
+            "description": "WARN threshold for per-disk I/O latency (await) in milliseconds, averaged over the last `--count` runs. await is the average time a read or write took to complete. A good value depends on the storage (an SSD is well below a millisecond, a busy HDD can sustain tens of milliseconds), so set it to what is abnormal for your disks. Supports Nagios ranges. Disabled by default.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "8b92e3db-1f94-4398-836c-22f656448ea5"
+        },
+        "4": {
             "varname": "disk_io_count",
             "caption": "Disk I/O: Count",
             "description": "Number of consecutive checks the threshold must be exceeded before alerting.",
@@ -373,7 +427,7 @@
             },
             "uuid": "ff445a6d-8ea2-4ddb-9e4b-f3f3fbe248ac"
         },
-        "3": {
+        "5": {
             "varname": "disk_io_include_unmounted",
             "caption": "Disk I/O: Include Unmounted?",
             "description": "Also monitor block devices that have no mounted filesystem (Linux only). By default only block devices with a mounted filesystem are monitored. Enable this to include raw, unmounted devices such as multipath SAN volumes or disks used directly by a database or storage layer. Combine with `--match`, otherwise every unmounted device shows up. Pseudo devices (loop, ram, zram, floppy, optical) are always excluded.",
@@ -382,7 +436,7 @@
             "settings": {},
             "uuid": "2d6c73fe-fd51-4e4b-b336-7e882bcf408c"
         },
-        "4": {
+        "6": {
             "varname": "disk_io_match",
             "caption": "Disk I/O: Match",
             "description": "Filter by disk name. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and matched against the full device path (e.g. `/dev/sda`), the device-mapper path (e.g. `/dev/mapper/vg-lv`) and the mountpoint, so prefix with `.*` to match anywhere (`.*sda$` instead of `^sda$`). On Linux only block devices with a mounted filesystem are considered by default; add `--include-unmounted` to also match raw, unmounted devices (multipath SAN volumes, raw LUNs).",
@@ -393,7 +447,7 @@
             },
             "uuid": "799caa91-3402-4421-99d8-b24bdf6dce23"
         },
-        "5": {
+        "7": {
             "varname": "disk_io_no_match_severity",
             "caption": "Disk I/O: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -406,7 +460,7 @@
             },
             "uuid": "674b8af2-e902-4a75-823c-a25aba72455a"
         },
-        "6": {
+        "8": {
             "varname": "disk_io_no_perfdata",
             "caption": "Disk I/O: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -415,7 +469,7 @@
             "settings": {},
             "uuid": "a93c340b-0c28-45c3-9d0a-d83d29bf7186"
         },
-        "7": {
+        "9": {
             "varname": "disk_io_top",
             "caption": "Disk I/O: Top",
             "description": "Number of top processes to list by I/O traffic. Use `--top=0` to disable.",
@@ -426,7 +480,7 @@
             },
             "uuid": "11d2ba4f-ae3b-4bda-9ab1-2d16790673c9"
         },
-        "8": {
+        "10": {
             "varname": "disk_io_warning",
             "caption": "Disk I/O: Warning",
             "description": "WARN threshold for disk bandwidth saturation as a percentage of the observed maximum, measured over the last `--count` runs.",
@@ -437,7 +491,7 @@
             },
             "uuid": "648f2e2a-bd9f-45f1-9324-c31819472838"
         },
-        "9": {
+        "11": {
             "varname": "disk_io_windows_always_ok",
             "caption": "Disk I/O: Always OK?",
             "description": "Always returns OK.",
@@ -446,7 +500,29 @@
             "settings": {},
             "uuid": "0aeaffd3-218b-4d59-8338-10a5b21b0849"
         },
-        "10": {
+        "12": {
+            "varname": "disk_io_windows_await_critical",
+            "caption": "Disk I/O: Await Critical",
+            "description": "CRIT threshold for per-disk I/O latency (await) in milliseconds, averaged over the last `--count` runs. await is the average time a read or write took to complete. Use this to catch a disk that is effectively hung (sustained latency of seconds), not a merely busy one. Supports Nagios ranges. Disabled by default.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "07b5454e-6a0c-493a-ae89-f22a7cc4a9f7"
+        },
+        "13": {
+            "varname": "disk_io_windows_await_warning",
+            "caption": "Disk I/O: Await Warning",
+            "description": "WARN threshold for per-disk I/O latency (await) in milliseconds, averaged over the last `--count` runs. await is the average time a read or write took to complete. A good value depends on the storage (an SSD is well below a millisecond, a busy HDD can sustain tens of milliseconds), so set it to what is abnormal for your disks. Supports Nagios ranges. Disabled by default.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "1f5e88eb-8615-4d4d-a9ac-2be36cd0acac"
+        },
+        "14": {
             "varname": "disk_io_windows_count",
             "caption": "Disk I/O: Count",
             "description": "Number of consecutive checks the threshold must be exceeded before alerting.",
@@ -457,7 +533,7 @@
             },
             "uuid": "6a0f4753-34bc-4d85-a66d-2be17f4b218e"
         },
-        "11": {
+        "15": {
             "varname": "disk_io_windows_include_unmounted",
             "caption": "Disk I/O: Include Unmounted?",
             "description": "Also monitor block devices that have no mounted filesystem (Linux only). By default only block devices with a mounted filesystem are monitored. Enable this to include raw, unmounted devices such as multipath SAN volumes or disks used directly by a database or storage layer. Combine with `--match`, otherwise every unmounted device shows up. Pseudo devices (loop, ram, zram, floppy, optical) are always excluded.",
@@ -466,7 +542,7 @@
             "settings": {},
             "uuid": "c5bc1a3a-b81f-4e0d-9e0e-f8ffb300a013"
         },
-        "12": {
+        "16": {
             "varname": "disk_io_windows_match",
             "caption": "Disk I/O: Match",
             "description": "Filter by disk name. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and matched against the full device path (e.g. `/dev/sda`), the device-mapper path (e.g. `/dev/mapper/vg-lv`) and the mountpoint, so prefix with `.*` to match anywhere (`.*sda$` instead of `^sda$`). On Linux only block devices with a mounted filesystem are considered by default; add `--include-unmounted` to also match raw, unmounted devices (multipath SAN volumes, raw LUNs).",
@@ -477,7 +553,7 @@
             },
             "uuid": "3889d94e-e928-43d8-994a-fc6bd1dd5716"
         },
-        "13": {
+        "17": {
             "varname": "disk_io_windows_no_match_severity",
             "caption": "Disk I/O: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -490,7 +566,7 @@
             },
             "uuid": "7184f4d8-c6ff-4df3-a052-cd8f28269651"
         },
-        "14": {
+        "18": {
             "varname": "disk_io_windows_no_perfdata",
             "caption": "Disk I/O: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -499,7 +575,7 @@
             "settings": {},
             "uuid": "33512218-c1ba-496d-828d-e3714d91ba7c"
         },
-        "15": {
+        "19": {
             "varname": "disk_io_windows_top",
             "caption": "Disk I/O: Top",
             "description": "Number of top processes to list by I/O traffic. Use `--top=0` to disable.",
@@ -510,7 +586,7 @@
             },
             "uuid": "09d50d40-cf5b-4252-9870-f951faf6a90b"
         },
-        "16": {
+        "20": {
             "varname": "disk_io_windows_warning",
             "caption": "Disk I/O: Warning",
             "description": "WARN threshold for disk bandwidth saturation as a percentage of the observed maximum, measured over the last `--count` runs.",
