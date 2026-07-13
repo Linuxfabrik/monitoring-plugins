@@ -30,15 +30,16 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026071301'
 
 DESCRIPTION = """Reports CPU utilization percentages for all available time categories
 (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall
 cpu-usage (100 - idle - nice).
 
-Thresholds (WARN/CRIT) are checked against user, system, iowait, and cpu-usage. An alert is raised
+Thresholds (WARN/CRIT) are checked against user, system, and cpu-usage. An alert is raised
 only if the threshold is exceeded for COUNT consecutive runs, suppressing short spikes and focusing
-on sustained load.
+on sustained load. iowait is reported and graphed but never triggers an alert, because Linux
+iowait is relabelled idle time and unreliable on multi-core systems.
 
 Perfdata is emitted for every field to enable full graphing. Extended stats (context switches,
 interrupts, etc.) are included if supported on this platform.
@@ -265,6 +266,11 @@ def get_from_db(conn, threshold):
     Returns:
         int: Count of rows exceeding the threshold.
     """
+    # iowait is deliberately NOT part of the alerting thresholds. Linux iowait is
+    # relabelled idle time (idle time booked as iowait whenever a task on the CPU
+    # is blocked in io_schedule) and, per the kernel, unreliable on SMP, so it is
+    # not a saturation signal you can page on. It is still reported and graphed as
+    # a CPU-time category, but never drives the check state.
     result = lib.base.coe(
         lib.db_sqlite.select(
             conn,
@@ -273,13 +279,11 @@ def get_from_db(conn, threshold):
         FROM perfdata
         WHERE user > :user
            or system > :system
-           or iowait > :iowait
            or cpu_usage > :cpu_usage
         """,
             {
                 'user': threshold,
                 'system': threshold,
-                'iowait': threshold,
                 'cpu_usage': threshold,
             },
             fetchone=True,

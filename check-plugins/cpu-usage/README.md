@@ -5,7 +5,7 @@
 
 Reports CPU utilization percentages for all available time categories (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall cpu-usage (100 - idle - nice).
 
-Thresholds (WARN/CRIT) are checked against user, system, iowait, and cpu-usage. An alert is raised only if the threshold is exceeded for COUNT consecutive runs, suppressing short spikes and focusing on sustained load.
+Thresholds (WARN/CRIT) are checked against user, system, and cpu-usage. An alert is raised only if the threshold is exceeded for COUNT consecutive runs, suppressing short spikes and focusing on sustained load. iowait is reported and graphed but never triggers an alert, because Linux iowait is relabelled idle time and unreliable on multi-core systems.
 
 Perfdata is emitted for every field to enable full graphing. Extended stats (context switches, interrupts, etc.) are included if supported on this platform.
 
@@ -44,13 +44,15 @@ usage: cpu-usage [-h] [-V] [--always-ok] [--count COUNT] [-c CRIT]
 Reports CPU utilization percentages for all available time categories (user,
 system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the
 overall cpu-usage (100 - idle - nice). Thresholds (WARN/CRIT) are checked
-against user, system, iowait, and cpu-usage. An alert is raised only if the
-threshold is exceeded for COUNT consecutive runs, suppressing short spikes and
-focusing on sustained load. Perfdata is emitted for every field to enable full
-graphing. Extended stats (context switches, interrupts, etc.) are included if
-supported on this platform. This check is cross-platform and works on Linux,
-Windows, and all psutil-supported systems. The check stores its short trend
-state locally in an SQLite DB to evaluate sustained load across runs.
+against user, system, and cpu-usage. An alert is raised only if the threshold
+is exceeded for COUNT consecutive runs, suppressing short spikes and focusing
+on sustained load. iowait is reported and graphed but never triggers an alert,
+because Linux iowait is relabelled idle time and unreliable on multi-core
+systems. Perfdata is emitted for every field to enable full graphing. Extended
+stats (context switches, interrupts, etc.) are included if supported on this
+platform. This check is cross-platform and works on Linux, Windows, and all
+psutil-supported systems. The check stores its short trend state locally in an
+SQLite DB to evaluate sustained load across runs.
 
 options:
   -h, --help           show this help message and exit
@@ -83,7 +85,7 @@ ctx_switches: 26.8K/s, interrupts: 9.8K/s, soft_interrupts: 2.6K/s
 
 ## States
 
-* OK if `user`, `system`, `iowait`, and overall `cpu-usage` are all below the thresholds within the last `--count` checks (default: 5).
+* OK if `user`, `system`, and overall `cpu-usage` are all below the thresholds within the last `--count` checks (default: 5). `iowait` is reported and graphed but is not part of the thresholds.
 * OK with "Waiting for more data (got an all-zero CPU sample, skipping)." if an all-zero sample is detected.
 * WARN if any of the checked fields exceeds `--warning` (default: 80) for `--count` consecutive runs.
 * CRIT if any of the checked fields exceeds `--critical` (default: 90) for `--count` consecutive runs.

@@ -41,6 +41,7 @@ Monitoring Plugins:
 * cert: scan output reports how many parallel workers the run used
 * cert: scan parallelism is bounded so that scanning a subnet no longer drives the load up and makes other checks time out; `--max-workers` rarely needs tuning
 * cpu-usage, disk-io, fs-xfs-stats, jitsi-videobridge-stats, network-io, nginx-status, nodebb-cache, nodebb-errors, procs, redis-status, starface-database-stats, valkey-status, wildfly-gc-status: cumulative counters are now reported as per-second rates (or plain values) instead of ever-growing totals, fixing Grafana graphs and aggregations; some performance-data metric names changed, so re-import the affected Grafana dashboards after updating ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
+* cpu-usage: no longer alerts on iowait (it stays reported and graphed); Linux iowait is relabelled idle time and unreliable on multi-core systems
 * disk-io: now WARN-only (never CRITICAL) and no longer measures I/O wait, which is unreliable on multi-core hosts; re-import the Grafana dashboard after updating. `--critical`, `--iowait-warning` and `--iowait-critical` are deprecated and ignored
 * disk-usage: mountpoints are now filtered with `--match`/`--ignore`; the old `--include-*`/`--exclude-*` options keep working
 * disk-usage: runs every minute instead of every 5 minutes, so a filling disk is noticed earlier
