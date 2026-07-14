@@ -20,11 +20,10 @@ import lib.disk
 import lib.lftest
 import lib.redfish
 import lib.txt
-import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026071404'
 
 DESCRIPTION = """Checks the state of all physical drives, volumes and their storage controllers in a
 Redfish-compatible server via the Redfish API. Alerts when any drive, volume or storage controller
@@ -33,7 +32,7 @@ indicator LED, etc.) is deliberately ignored by this check so that a system warn
 to storage does not mask the storage status; use `redfish-systems` for that."""
 
 API_BASE = '/redfish/v1'
-DEFAULT_CACHE_EXPIRE = 15  # minutes; keep below the controller's session timeout
+DEFAULT_CACHE_EXPIRE = 5  # minutes; also caches API responses, kept below the session timeout
 DEFAULT_INSECURE = True
 DEFAULT_NO_PROXY = False
 DEFAULT_RETRIES = 3  # extra attempts on a failed Redfish request
@@ -224,18 +223,33 @@ def main():
         if not args.URL.startswith('http'):
             lib.base.cu('--url parameter has to start with "http://" or https://".')
         header = {'Accept': 'application/json'}
-        # reuse a cached Redfish session token across requests and runs, so we
-        # do not create (and have the controller log) a new session each time
-        header.update(lib.redfish.get_auth_header(args))
-        # Entry point: the Systems collection
+        # cache_expire (seconds) enables the lib fetch layer's shared per-URL cache,
+        # so sibling Redfish checks on this host share one session and each fetch.
+        cache_expire = args.CACHE_EXPIRE * 60
+        header.update(lib.redfish.get_auth_header(args, cache_expire=cache_expire))
+        expand = lib.redfish.get_expand_suffix(
+            args.URL,
+            header=header,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+            retries=args.RETRIES,
+            cache_expire=cache_expire,
+        )
+        # Entry point: the Systems collection, read in one request via the Redfish
+        # $expand query and cached by the lib fetch layer so the sibling Redfish
+        # checks on this host reuse it within the cache window.
+        systems_url = f'{args.URL}{API_BASE}/Systems'
         result = lib.base.coe(
-            lib.url.fetch_json(
-                f'{args.URL}{API_BASE}/Systems',
+            lib.redfish.fetch_collection(
+                systems_url,
+                expand=expand,
                 header=header,
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
                 timeout=args.TIMEOUT,
                 retries=args.RETRIES,
+                cache_expire=cache_expire,
             )
         )
     else:
@@ -275,21 +289,27 @@ def main():
     # analyze data: follow each "Member" link, aggregate drive and
     # storage-controller health into `state`. System-level health is
     # deliberately not aggregated (see `redfish-systems` for that).
-    for member in result.get('Members', []):
-        if args.TEST is None:
-            # "/redfish/v1/Systems/437XR1138R2"
-            systems = lib.base.coe(
-                lib.url.fetch_json(
-                    lib.base.coe(lib.redfish.build_url(args.URL, member['@odata.id'])),
-                    header=header,
-                    insecure=args.INSECURE,
-                    no_proxy=args.NO_PROXY,
-                    timeout=args.TIMEOUT,
-                    retries=args.RETRIES,
-                )
+    # fetch_members fills in any systems the controller left as bare references
+    # (i.e. when it did not honour $expand on the collection above)
+    if args.TEST is None:
+        system_members = lib.base.coe(
+            lib.redfish.fetch_members(
+                result.get('Members', []),
+                args.URL,
+                header=header,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+                retries=args.RETRIES,
+                cache_expire=cache_expire,
             )
-        else:
-            systems = load_test_fixture(args.TEST, f'{test_base}-system')
+        )
+    else:
+        system_members = [
+            load_test_fixture(args.TEST, f'{test_base}-system')
+            for _ in range(len(result.get('Members', [])))
+        ]
+    for systems in system_members:
         systems = lib.redfish.get_systems(systems)
         if systems['Status_State'] not in ['Enabled', 'Quiesced']:
             continue
@@ -313,10 +333,14 @@ def main():
             msg += '\n\n'
             continue
 
+        # fetch_collection asks the controller to inline the members via the
+        # Redfish $expand query, so the storage controllers are read in one
+        # request instead of one per controller; fetch_members fills in any it
+        # left as bare references.
         if args.TEST is None:
             # "/redfish/v1/Systems/437XR1138R2/Storage"
             storages = lib.base.coe(
-                lib.url.fetch_json(
+                lib.redfish.fetch_collection(
                     lib.base.coe(
                         lib.redfish.build_url(args.URL, systems['Storage_@odata.id'])
                     ),
@@ -325,6 +349,7 @@ def main():
                     no_proxy=args.NO_PROXY,
                     timeout=args.TIMEOUT,
                     retries=args.RETRIES,
+                    cache_expire=cache_expire,
                 )
             )
         else:
@@ -334,9 +359,11 @@ def main():
         table_data_volume = []
         for storage in storages.get('Members', []):
             if args.TEST is None:
-                # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1"
+                # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1". Expanding
+                # the storage resource inlines its Drives and Volumes, collapsing
+                # a shelf of disks into this single request where supported.
                 storage_data = lib.base.coe(
-                    lib.url.fetch_json(
+                    lib.redfish.fetch_collection(
                         lib.base.coe(
                             lib.redfish.build_url(args.URL, storage['@odata.id'])
                         ),
@@ -345,32 +372,33 @@ def main():
                         no_proxy=args.NO_PROXY,
                         timeout=args.TIMEOUT,
                         retries=args.RETRIES,
+                        cache_expire=cache_expire,
                     )
                 )
             else:
                 storage_data = load_test_fixture(args.TEST, f'{test_base}-storage')
 
-            # get drives attached to the storage member
-            for drive_idx, drive in enumerate(storage_data.get('Drives', [])):
-                if args.TEST is None:
-                    # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1/Drives/Disk.Bay.0"
-                    drive_data = lib.base.coe(
-                        lib.url.fetch_json(
-                            lib.base.coe(
-                                lib.redfish.build_url(args.URL, drive['@odata.id'])
-                            ),
-                            header=header,
-                            insecure=args.INSECURE,
-                            no_proxy=args.NO_PROXY,
-                            timeout=args.TIMEOUT,
-                            retries=args.RETRIES,
-                        )
+            # get drives attached to the storage member. fetch_members fills in
+            # any drives the controller left as bare references above.
+            if args.TEST is None:
+                drive_members = lib.base.coe(
+                    lib.redfish.fetch_members(
+                        storage_data.get('Drives', []),
+                        args.URL,
+                        header=header,
+                        insecure=args.INSECURE,
+                        no_proxy=args.NO_PROXY,
+                        timeout=args.TIMEOUT,
+                        retries=args.RETRIES,
+                        cache_expire=cache_expire,
                     )
-                else:
-                    drive_data = load_test_fixture(
-                        args.TEST,
-                        f'{test_base}-drive-{drive_idx}',
-                    )
+                )
+            else:
+                drive_members = [
+                    load_test_fixture(args.TEST, f'{test_base}-drive-{i}')
+                    for i in range(len(storage_data.get('Drives', [])))
+                ]
+            for drive_data in drive_members:
                 drive_data = lib.redfish.get_systems_storage_drives(drive_data)
                 if drive_data['Status_State'] not in ['Enabled', 'Quiesced']:
                     continue
@@ -436,39 +464,39 @@ def main():
             volumes_link = storage_data.get('Volumes', {}).get('@odata.id')
             if volumes_link:
                 if args.TEST is None:
-                    # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1/Volumes"
+                    # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1/Volumes".
+                    # fetch_collection inlines the volume members in one request;
+                    # fetch_members fills in any left as bare references.
                     volumes = lib.base.coe(
-                        lib.url.fetch_json(
+                        lib.redfish.fetch_collection(
                             lib.base.coe(lib.redfish.build_url(args.URL, volumes_link)),
                             header=header,
                             insecure=args.INSECURE,
                             no_proxy=args.NO_PROXY,
                             timeout=args.TIMEOUT,
                             retries=args.RETRIES,
+                            cache_expire=cache_expire,
+                        )
+                    )
+                    volume_members = lib.base.coe(
+                        lib.redfish.fetch_members(
+                            volumes.get('Members', []),
+                            args.URL,
+                            header=header,
+                            insecure=args.INSECURE,
+                            no_proxy=args.NO_PROXY,
+                            timeout=args.TIMEOUT,
+                            retries=args.RETRIES,
+                            cache_expire=cache_expire,
                         )
                     )
                 else:
                     volumes = load_test_fixture(args.TEST, f'{test_base}-volumes')
-                for volume_idx, volume in enumerate(volumes.get('Members', [])):
-                    if args.TEST is None:
-                        # "/redfish/v1/Systems/437XR1138R2/Storage/RAID.SL.7-1/Volumes/1"
-                        volume_data = lib.base.coe(
-                            lib.url.fetch_json(
-                                lib.base.coe(
-                                    lib.redfish.build_url(args.URL, volume['@odata.id'])
-                                ),
-                                header=header,
-                                insecure=args.INSECURE,
-                                no_proxy=args.NO_PROXY,
-                                timeout=args.TIMEOUT,
-                                retries=args.RETRIES,
-                            )
-                        )
-                    else:
-                        volume_data = load_test_fixture(
-                            args.TEST,
-                            f'{test_base}-volume-{volume_idx}',
-                        )
+                    volume_members = [
+                        load_test_fixture(args.TEST, f'{test_base}-volume-{i}')
+                        for i in range(len(volumes.get('Members', [])))
+                    ]
+                for volume_data in volume_members:
                     volume_data = lib.redfish.get_systems_storage_volumes(volume_data)
                     if volume_data['Status_State'] not in ['Enabled', 'Quiesced']:
                         continue

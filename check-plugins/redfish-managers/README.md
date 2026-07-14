@@ -16,6 +16,7 @@ Checks the health of all managers (BMCs such as iLO, iDRAC, or a generic BMC) of
 
 * Queries `/redfish/v1/Managers` to enumerate manager members
 * For each member, reads the manager type, model, firmware version, power state, UUID and rolled-up health status
+* Reads each collection in a single request via the Redfish `$expand` query where the controller supports it, otherwise falls back to one request per member
 * Uses HTTP Basic authentication if `--username` and `--password` are provided
 * Only evaluates managers in "Enabled" or "Quiesced" state
 
@@ -30,6 +31,7 @@ Checks the health of all managers (BMCs such as iLO, iDRAC, or a generic BMC) of
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-redfish.db` |
 
 
 ## Help
@@ -53,7 +55,7 @@ options:
   --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
-                        cache expires, in minutes. Default: 15
+                        cache expires, in minutes. Default: 5
   --ignore IGNORE       Ignore items whose name matches this Python regular
                         expression. Case-sensitive by default; use `(?i)` for
                         case-insensitive matching. Can be specified multiple

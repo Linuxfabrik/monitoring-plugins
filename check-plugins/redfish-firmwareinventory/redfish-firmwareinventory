@@ -20,18 +20,17 @@ import lib.disk
 import lib.lftest
 import lib.redfish
 import lib.txt
-import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026071404'
 
 DESCRIPTION = """Reports the firmware inventory of a Redfish-compatible server via the Redfish API.
 Lists every firmware component with its installed version and identification, and alerts whenever a
 component reports a degraded or failed health state."""
 
 API_BASE = '/redfish/v1'
-DEFAULT_CACHE_EXPIRE = 15  # minutes; keep below the controller's session timeout
+DEFAULT_CACHE_EXPIRE = 5  # minutes; also caches API responses, kept below the session timeout
 DEFAULT_INSECURE = True
 DEFAULT_NO_PROXY = False
 DEFAULT_RETRIES = 3  # extra attempts on a failed Redfish request
@@ -222,18 +221,33 @@ def main():
         if not args.URL.startswith('http'):
             lib.base.cu('--url parameter has to start with "http://" or https://".')
         header = {'Accept': 'application/json'}
-        # reuse a cached Redfish session token across requests and runs, so we
-        # do not create (and have the controller log) a new session each time
-        header.update(lib.redfish.get_auth_header(args))
-        # Entry point: the FirmwareInventory collection
+        # cache_expire (seconds) enables the lib fetch layer's shared per-URL cache,
+        # so sibling Redfish checks on this host share one session and each fetch.
+        cache_expire = args.CACHE_EXPIRE * 60
+        header.update(lib.redfish.get_auth_header(args, cache_expire=cache_expire))
+        expand = lib.redfish.get_expand_suffix(
+            args.URL,
+            header=header,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+            retries=args.RETRIES,
+            cache_expire=cache_expire,
+        )
+        # Entry point: the FirmwareInventory collection, read in one request via the
+        # Redfish $expand query and cached by the lib fetch layer so the sibling
+        # Redfish checks on this host reuse it within the cache window.
+        firmware_url = f'{args.URL}{API_BASE}/UpdateService/FirmwareInventory'
         result = lib.base.coe(
-            lib.url.fetch_json(
-                f'{args.URL}{API_BASE}/UpdateService/FirmwareInventory',
+            lib.redfish.fetch_collection(
+                firmware_url,
+                expand=expand,
                 header=header,
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
                 timeout=args.TIMEOUT,
                 retries=args.RETRIES,
+                cache_expire=cache_expire,
             )
         )
     else:
@@ -265,25 +279,27 @@ def main():
     # health into `state`. Every component is listed regardless of its state,
     # because this check doubles as a firmware version inventory.
     table_data = []
-    for fw_idx, firmware in enumerate(result.get('Members', [])):
-        if args.TEST is None:
-            # "/redfish/v1/UpdateService/FirmwareInventory/BIOS"
-            firmware_data = lib.base.coe(
-                lib.url.fetch_json(
-                    lib.base.coe(
-                        lib.redfish.build_url(args.URL, firmware['@odata.id'])
-                    ),
-                    header=header,
-                    insecure=args.INSECURE,
-                    no_proxy=args.NO_PROXY,
-                    timeout=args.TIMEOUT,
-                    retries=args.RETRIES,
-                )
+    # fetch_members fills in any components the controller left as bare
+    # references (i.e. when it did not honour $expand on the collection above)
+    if args.TEST is None:
+        firmware_members = lib.base.coe(
+            lib.redfish.fetch_members(
+                result.get('Members', []),
+                args.URL,
+                header=header,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+                retries=args.RETRIES,
+                cache_expire=cache_expire,
             )
-        else:
-            firmware_data = load_test_fixture(
-                args.TEST, f'{test_base}-firmware-{fw_idx}'
-            )
+        )
+    else:
+        firmware_members = [
+            load_test_fixture(args.TEST, f'{test_base}-firmware-{i}')
+            for i in range(len(result.get('Members', [])))
+        ]
+    for firmware_data in firmware_members:
         firmware_data = lib.redfish.get_updateservice_firmwareinventory(firmware_data)
         # collect for --inventory before any display filter (--match/--ignore/--brief)
         if args.INVENTORY:

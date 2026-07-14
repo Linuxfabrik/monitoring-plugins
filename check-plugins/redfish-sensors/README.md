@@ -18,6 +18,7 @@ Checks hardware sensor readings (temperature, voltage, fan speed, power) from th
 * For each member, reads the modern Sensors collection to get individual sensor values, thresholds and health status
 * When a chassis exposes no Sensors collection (typical of older BMCs such as iLO4), falls back to the legacy Thermal (temperatures, fans) and Power (voltages, power supplies) endpoints
 * Also queries the Thermal endpoint for fan redundancy information
+* Reads each collection in a single request via the Redfish `$expand` query where the controller supports it, otherwise falls back to one request per member
 * Uses HTTP Basic authentication if `--username` and `--password` are provided
 * Only evaluates sensors and chassis in "Enabled" or "Quiesced" state
 
@@ -32,6 +33,7 @@ Checks hardware sensor readings (temperature, voltage, fan speed, power) from th
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-redfish.db` |
 
 
 ## Help
@@ -58,7 +60,7 @@ options:
                         still drive the overall check state. Default: False
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
-                        cache expires, in minutes. Default: 15
+                        cache expires, in minutes. Default: 5
   --ignore IGNORE       Ignore items whose name matches this Python regular
                         expression. Case-sensitive by default; use `(?i)` for
                         case-insensitive matching. Can be specified multiple

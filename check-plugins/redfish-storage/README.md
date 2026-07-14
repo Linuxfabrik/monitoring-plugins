@@ -16,6 +16,7 @@ Checks the state of all physical drives, volumes and their storage controllers i
 
 * Queries `/redfish/v1/Systems` to enumerate system members
 * For each member, follows the `Storage` link and queries every storage controller, its physical drives and, where present, its volumes (logical drives) for health status
+* Reads each collection in a single request via the Redfish `$expand` query where the controller supports it, otherwise falls back to one request per member
 * Uses HTTP Basic authentication if `--username` and `--password` are provided
 * Only evaluates systems, drives, volumes and storage controllers in "Enabled" or "Quiesced" state
 
@@ -30,6 +31,7 @@ Checks the state of all physical drives, volumes and their storage controllers i
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-redfish.db` |
 
 
 ## Help
@@ -58,7 +60,7 @@ options:
                         still drive the overall check state. Default: False
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
-                        cache expires, in minutes. Default: 15
+                        cache expires, in minutes. Default: 5
   --ignore IGNORE       Ignore items whose name matches this Python regular
                         expression. Case-sensitive by default; use `(?i)` for
                         case-insensitive matching. Can be specified multiple

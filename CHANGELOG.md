@@ -75,6 +75,8 @@ Monitoring Plugins:
 * lynis: shows the underlying lynis error when an audit produces no report
 * mysql-replica-status: works on MySQL 8.4, which no longer understands `SHOW SLAVE HOSTS` and made the check return UNKNOWN
 * mysql-replica-status: a monitoring account that may not list replicas no longer turns the whole check UNKNOWN
+* redfish-\*: `--cache-expire` (default now 5 minutes) also caches the Redfish session and API responses, so the several Redfish checks on a host share one session and fetched data instead of each re-reading it from the controller ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
+* redfish-\*: reads each component collection in one request where the controller supports it, so checks on servers with many sensors, drives or firmware components no longer time out ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 * redfish-\*: the Redfish API URL is now a mandatory `--url`, dropping the misleading localhost default ([#1306](https://github.com/Linuxfabrik/monitoring-plugins/issues/1306))
 
 ### Security

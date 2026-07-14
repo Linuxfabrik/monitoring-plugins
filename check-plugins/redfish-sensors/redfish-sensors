@@ -20,11 +20,10 @@ import lib.disk
 import lib.lftest
 import lib.redfish
 import lib.txt
-import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026071404'
 
 DESCRIPTION = """Checks hardware sensor readings (temperature, voltage, fan speed, power) from the
 Redfish Chassis collection via the Redfish API. Reads the modern Sensors collection where
@@ -32,7 +31,7 @@ available and falls back to the legacy Thermal and Power endpoints otherwise. Al
 sensor reports a non-ok state."""
 
 API_BASE = '/redfish/v1'
-DEFAULT_CACHE_EXPIRE = 15  # minutes; keep below the controller's session timeout
+DEFAULT_CACHE_EXPIRE = 5  # minutes; also caches API responses, kept below the session timeout
 DEFAULT_INSECURE = True
 DEFAULT_NO_PROXY = False
 DEFAULT_RETRIES = 3  # extra attempts on a failed Redfish request
@@ -223,18 +222,33 @@ def main():
         if not args.URL.startswith('http'):
             lib.base.cu('--url parameter has to start with "http://" or https://".')
         header = {'Accept': 'application/json'}
-        # reuse a cached Redfish session token across requests and runs, so we
-        # do not create (and have the controller log) a new session each time
-        header.update(lib.redfish.get_auth_header(args))
-        # Entry point: the Chassis collection
+        # cache_expire (seconds) enables the lib fetch layer's shared per-URL cache,
+        # so sibling Redfish checks on this host share one session and each fetch.
+        cache_expire = args.CACHE_EXPIRE * 60
+        header.update(lib.redfish.get_auth_header(args, cache_expire=cache_expire))
+        expand = lib.redfish.get_expand_suffix(
+            args.URL,
+            header=header,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+            retries=args.RETRIES,
+            cache_expire=cache_expire,
+        )
+        # Entry point: the Chassis collection, read in one request via the Redfish
+        # $expand query and cached by the lib fetch layer so the sibling Redfish
+        # checks on this host reuse it within the cache window.
+        chassis_url = f'{args.URL}{API_BASE}/Chassis'
         result = lib.base.coe(
-            lib.url.fetch_json(
-                f'{args.URL}{API_BASE}/Chassis',
+            lib.redfish.fetch_collection(
+                chassis_url,
+                expand=expand,
                 header=header,
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
                 timeout=args.TIMEOUT,
                 retries=args.RETRIES,
+                cache_expire=cache_expire,
             )
         )
     else:
@@ -267,13 +281,14 @@ def main():
         if args.TEST is None:
             # "/redfish/v1/Chassis/1U"
             chassis = lib.base.coe(
-                lib.url.fetch_json(
+                lib.redfish.fetch_resource(
                     lib.base.coe(lib.redfish.build_url(args.URL, member['@odata.id'])),
                     header=header,
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,
                     timeout=args.TIMEOUT,
                     retries=args.RETRIES,
+                    cache_expire=cache_expire,
                 )
             )
         else:
@@ -297,12 +312,16 @@ def main():
         msg += f'PartNumber: {chassis["PartNumber"]}, ' if chassis['PartNumber'] else ''
         msg = msg[:-2] + lib.base.state2str(chassis_state, prefix=' ')
 
-        # get the modern Sensors collection for the member, if advertised
+        # get the modern Sensors collection for the member, if advertised.
+        # fetch_collection asks the controller to inline the members via the
+        # Redfish $expand query, so a large sensor list costs one request
+        # instead of one per sensor; fetch_members fills in any members the
+        # controller left as bare references.
         table_data = []
         if chassis['Sensors_@odata.id']:
             if args.TEST is None:
                 sensors = lib.base.coe(
-                    lib.url.fetch_json(
+                    lib.redfish.fetch_collection(
                         lib.base.coe(
                             lib.redfish.build_url(
                                 args.URL, chassis['Sensors_@odata.id']
@@ -313,29 +332,28 @@ def main():
                         no_proxy=args.NO_PROXY,
                         timeout=args.TIMEOUT,
                         retries=args.RETRIES,
+                        cache_expire=cache_expire,
+                    )
+                )
+                sensor_members = lib.base.coe(
+                    lib.redfish.fetch_members(
+                        sensors.get('Members', []),
+                        args.URL,
+                        header=header,
+                        insecure=args.INSECURE,
+                        no_proxy=args.NO_PROXY,
+                        timeout=args.TIMEOUT,
+                        retries=args.RETRIES,
+                        cache_expire=cache_expire,
                     )
                 )
             else:
                 sensors = load_test_fixture(args.TEST, f'{test_base}-sensors')
-            for sensor_idx, sensor in enumerate(sensors.get('Members', [])):
-                if args.TEST is None:
-                    sensor_data = lib.base.coe(
-                        lib.url.fetch_json(
-                            lib.base.coe(
-                                lib.redfish.build_url(args.URL, sensor['@odata.id'])
-                            ),
-                            header=header,
-                            insecure=args.INSECURE,
-                            no_proxy=args.NO_PROXY,
-                            timeout=args.TIMEOUT,
-                            retries=args.RETRIES,
-                        )
-                    )
-                else:
-                    sensor_data = load_test_fixture(
-                        args.TEST,
-                        f'{test_base}-sensor-{sensor_idx}',
-                    )
+                sensor_members = [
+                    load_test_fixture(args.TEST, f'{test_base}-sensor-{i}')
+                    for i in range(len(sensors.get('Members', [])))
+                ]
+            for sensor_data in sensor_members:
                 sensor_data = lib.redfish.get_chassis_sensors(sensor_data)
                 if sensor_data['Status_State'] not in ['Enabled', 'Quiesced']:
                     continue
@@ -373,7 +391,7 @@ def main():
         # redundancy). Fetched defensively: a chassis without a Thermal
         # endpoint must not abort the check.
         if args.TEST is None:
-            success, thermal = lib.url.fetch_json(
+            success, thermal = lib.redfish.fetch_resource(
                 lib.base.coe(
                     lib.redfish.build_url(args.URL, f'{member["@odata.id"]}/Thermal')
                 ),
@@ -382,6 +400,7 @@ def main():
                 no_proxy=args.NO_PROXY,
                 timeout=args.TIMEOUT,
                 retries=args.RETRIES,
+                cache_expire=cache_expire,
             )
             if not success or not isinstance(thermal, dict):
                 thermal = {}
@@ -394,7 +413,7 @@ def main():
         # supplies), so without this fallback they would report no readings.
         if not table_data:
             if args.TEST is None:
-                success, power = lib.url.fetch_json(
+                success, power = lib.redfish.fetch_resource(
                     lib.base.coe(
                         lib.redfish.build_url(args.URL, f'{member["@odata.id"]}/Power')
                     ),
@@ -403,6 +422,7 @@ def main():
                     no_proxy=args.NO_PROXY,
                     timeout=args.TIMEOUT,
                     retries=args.RETRIES,
+                    cache_expire=cache_expire,
                 )
                 if not success or not isinstance(power, dict):
                     power = {}

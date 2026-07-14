@@ -16,6 +16,7 @@ Checks the event log entries exposed under the LogServices of a Redfish-compatib
 
 * Reads the service root to detect the vendor, then queries the `Managers` collection (or `Systems` on Supermicro) to locate the log service
 * Reads the SEL log entries and evaluates each entry's severity
+* Reads each collection in a single request via the Redfish `$expand` query where the controller supports it, otherwise falls back to one request per member
 * Uses HTTP Basic authentication if `--username` and `--password` are provided
 
 
@@ -29,6 +30,7 @@ Checks the event log entries exposed under the LogServices of a Redfish-compatib
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-redfish.db` |
 
 
 ## Help
@@ -56,7 +58,7 @@ options:
   --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
-                        cache expires, in minutes. Default: 15
+                        cache expires, in minutes. Default: 5
   --ignore IGNORE       Ignore SEL entries whose message matches this Python
                         regular expression. Case-sensitive by default; use
                         `(?i)` for case-insensitive matching. Can be specified

@@ -17,6 +17,7 @@ Checks the overall system health reported by a Redfish-compatible server via the
 
 * Queries `/redfish/v1/Systems` to enumerate system members
 * For each member, reads the identification, compute summary and rolled-up health status
+* Reads each collection in a single request via the Redfish `$expand` query where the controller supports it, otherwise falls back to one request per member
 * Uses HTTP Basic authentication if `--username` and `--password` are provided
 * Only evaluates systems in "Enabled" or "Quiesced" state
 
@@ -31,6 +32,7 @@ Checks the overall system health reported by a Redfish-compatible server via the
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-redfish.db` |
 
 
 ## Help
@@ -54,7 +56,7 @@ options:
   --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
-                        cache expires, in minutes. Default: 15
+                        cache expires, in minutes. Default: 5
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --inventory           Output the parsed components as JSON on stdout and

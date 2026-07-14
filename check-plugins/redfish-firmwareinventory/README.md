@@ -16,6 +16,7 @@ Reports the firmware inventory of a Redfish-compatible server via the Redfish AP
 
 * Queries `/redfish/v1/UpdateService/FirmwareInventory` to enumerate firmware components
 * For each component, reads the name, installed version, manufacturer, release date and health status
+* Reads each collection in a single request via the Redfish `$expand` query where the controller supports it, otherwise falls back to one request per member
 * Uses HTTP Basic authentication if `--username` and `--password` are provided
 * Lists every component, since this check doubles as a firmware version inventory
 
@@ -30,6 +31,7 @@ Reports the firmware inventory of a Redfish-compatible server via the Redfish AP
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-redfish.db` |
 
 
 ## Help
@@ -57,7 +59,7 @@ options:
                         still drive the overall check state. Default: False
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
-                        cache expires, in minutes. Default: 15
+                        cache expires, in minutes. Default: 5
   --ignore IGNORE       Ignore items whose name matches this Python regular
                         expression. Case-sensitive by default; use `(?i)` for
                         case-insensitive matching. Can be specified multiple
