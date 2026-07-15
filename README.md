@@ -156,7 +156,7 @@ A: Yes, `HTTP_PROXY`, `HTTPS_PROXY`, `http_proxy` and `https_proxy` are automati
 
 Q: **How can I remove the performance data after the `|` from the check output?**
 
-A: In Bash, use `/usr/lib64/nagios/plugins/check-command | cut -f1 -d'|'`
+A: Many plugins support `--no-perfdata`, which suppresses the performance data section while keeping the message and exit code. Alternatively, in Bash, use `/usr/lib64/nagios/plugins/check-command | cut -f1 -d'|'`
 
 
 ## Troubleshooting
