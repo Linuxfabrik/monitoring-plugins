@@ -1,0 +1,207 @@
+{
+    "Command": {
+        "cmd-check-kdump": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$kdump_always_ok$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$kdump_no_perfdata$"
+                },
+                "--path": {
+                    "value": "$kdump_path$"
+                },
+                "--timeout": {
+                    "value": "$kdump_timeout$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/kdump",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-kdump",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "e945313a-f6cf-4584-8249-d2c553845568"
+        },
+        "cmd-check-kdump-sudo": {
+            "arguments": {},
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/kdump",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-kdump"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-kdump-sudo",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "uuid": "ad79fc6f-b57b-4f4f-9880-15f6cfb0a25e"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-kdump": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-kdump-sudo",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "kdump.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks the kernel crash dump (kdump) subsystem. Verifies that the system is ready to capture the next kernel panic (crash kernel memory reserved and the capture kernel loaded), and scans the dump directory for crash dumps that a previous panic left behind. Unlike the volatile kernel ring buffer, these dumps persist across the reboot that follows a panic. For a found dump the plugin provides a first analysis of the panic reason from the captured dmesg and tells the admin how to remove the dump so the check returns to OK. When kdump is not ready, it surfaces the failure reason from the service journal. Alerts if kdump is not ready to capture a panic, or if one or more crash dumps are present. Requires root or sudo.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/kdump/",
+            "object_name": "tpl-service-kdump",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "A",
+                "kdump_always_ok": false,
+                "kdump_no_perfdata": false,
+                "kdump_timeout": 8
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "89088f1b-d277-431a-9986-1cba33b1c2ab"
+        },
+        "tpl-service-kdump-sudo": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-kdump-sudo",
+            "check_interval": null,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": null,
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-kdump"
+            ],
+            "max_check_attempts": null,
+            "notes": null,
+            "notes_url": null,
+            "object_name": "tpl-service-kdump-sudo",
+            "object_type": "template",
+            "retry_interval": null,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "22315eeb-b1f9-4480-943e-d30a05d35b51"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "kdump_always_ok",
+            "caption": "Kdump: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "5db35dcb-4aa2-47ec-bef0-f34e3035ee69"
+        },
+        "2": {
+            "varname": "kdump_no_perfdata",
+            "caption": "Kdump: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "80352b09-26ee-4d5c-8601-0d385c7def18"
+        },
+        "3": {
+            "varname": "kdump_path",
+            "caption": "Kdump: Path",
+            "description": "Directory to scan for kernel crash dumps. If not specified, the plugin reads the configured dump directory from the distribution kdump configuration and falls back to \"/var/crash\". Example: `--path=/var/crash`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ad58e506-5527-4821-87f5-1ffd3866b67a"
+        },
+        "4": {
+            "varname": "kdump_timeout",
+            "caption": "Kdump: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "debde242-4b68-4baf-b4cb-689b8de01726"
+        }
+    }
+}

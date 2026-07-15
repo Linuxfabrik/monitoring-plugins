@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_OK, STATE_WARN
+
+# Each scenario provides one fixture file per data source, suffixed onto the
+# base --test path: `-size` and `-loaded` mimic the two sysfs readiness files,
+# `-service` the systemctl state, `-dumps` the scanned dump directory (one dump
+# per line, "name<TAB>epoch<TAB>size"), and `-dmesg` the captured dmesg of the
+# newest dump. See the redfish-* plugins for the same suffixed-fixture pattern.
+TESTS = [
+    {
+        'id': 'ok-armed-no-dumps',
+        'test': 'stdout/ok-armed,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'kdump is active (',
+            'No crash dumps found in /var/crash',
+        ],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        'id': 'warn-reserved-but-not-loaded',
+        'test': 'stdout/warn-not-loaded,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'capture kernel is not loaded',
+            'kdump.service service reports "failed"',
+            'No crash dumps found in /var/crash',
+            # the actual reason is surfaced from the service journal
+            'Most recent kdump service log:',
+            'Could not unlock the LUKS device',
+            'kexec: failed to prepare for a LUKS target',
+        ],
+    },
+    {
+        'id': 'warn-no-crashkernel-reserved',
+        'test': 'stdout/warn-no-crashkernel,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['No crash kernel memory reserved'],
+    },
+    {
+        # crashkernel= queued in the bootloader but not active until a reboot
+        'id': 'warn-reboot-pending',
+        'test': 'stdout/warn-reboot-pending,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'crashkernel=2G-64G:256M,64G-:512M',
+            'configured in the bootloader but is not active',
+            'Reboot to apply it',
+        ],
+    },
+    {
+        'id': 'warn-kdump-unavailable',
+        'test': 'stdout/warn-kdump-unavailable,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['kdump is not available on this kernel'],
+    },
+    {
+        'id': 'warn-single-dump-with-analysis',
+        'test': 'stdout/warn-dump-found,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 kernel crash dump in /var/crash',
+            # the analysis leads with the command to read the full log
+            'less /var/crash/127.0.0.1-2023-11-14-10:30:45/vmcore-dmesg.txt',
+            'Kernel panic - not syncing: softlockup: hung tasks',
+            'rm -rf /var/crash/127.0.0.1-2023-11-14-10:30:45',
+            'kdump is active (',
+            'Dump',
+            'Size',
+        ],
+        'assert-regex': r'\[WARNING\]',
+    },
+    {
+        'id': 'warn-two-dumps-and-not-loaded',
+        'test': 'stdout/warn-two-dumps-not-loaded,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 kernel crash dumps in /var/crash',
+            'BUG: kernel NULL pointer dereference',
+            'Kernel panic - not syncing: Fatal exception',
+            'rm -rf /var/crash/127.0.0.1-2024-02-01-08:00:00',
+            'older one(s) in /var/crash',
+            'capture kernel is not loaded',
+            'Could not unlock the LUKS device',
+            '2.0GiB',
+            'Dump',
+            'State',
+        ],
+    },
+    {
+        # a long call trace must be shortened to first/last lines, not dumped whole
+        'id': 'warn-long-trace-shortened',
+        'test': 'stdout/warn-long-trace,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Kernel panic - not syncing: stack-protector',
+            'frame_01+0x10/0x40',
+            'frame_30+0x10/0x40',
+            '...',
+        ],
+        'assert-not-in': ['frame_15+0x10/0x40'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../kdump'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

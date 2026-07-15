@@ -1,0 +1,568 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import os
+import sys
+
+import lib.args
+import lib.base
+import lib.disk
+import lib.distro
+import lib.human
+import lib.lftest
+import lib.shell
+import lib.time
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026071501'
+
+DESCRIPTION = """Checks the kernel crash dump (kdump) subsystem. Verifies that the
+system is ready to capture the next kernel panic (crash kernel memory reserved and the
+capture kernel loaded), and scans the dump directory for crash dumps that a previous panic
+left behind. Unlike the volatile kernel ring buffer, these dumps persist across the reboot
+that follows a panic. For a found dump the plugin provides a first analysis of the panic
+reason from the captured dmesg and tells the admin how to remove the dump so the check
+returns to OK. When kdump is not ready, it surfaces the failure reason from the service
+journal. Alerts if kdump is not ready to capture a panic, or if one or more crash dumps
+are present. Requires root or sudo."""
+
+# /sys/kernel/kexec_crash_size holds the bytes reserved for the capture kernel
+# (0 = no crashkernel= reserved). /sys/kernel/kexec_crash_loaded is 1 once the
+# capture kernel is loaded and would capture the next panic, 0 otherwise. Both
+# are exposed by mainline Linux, so the readiness check is distribution-neutral.
+KEXEC_CRASH_LOADED = '/sys/kernel/kexec_crash_loaded'
+KEXEC_CRASH_SIZE = '/sys/kernel/kexec_crash_size'
+
+DEFAULT_PATH = '/var/crash'
+DEFAULT_TIMEOUT = 8
+
+# When kdump is not ready, the authoritative reason is in the service journal
+# (e.g. "Could not unlock the LUKS device", out of memory, unreachable dump
+# target). journalctl does the filtering via --grep so the plugin needs no regex
+# of its own; kdumpctl logs these at notice level, so a priority filter would
+# miss them. Keep the terms broad enough to catch the common failure modes.
+JOURNAL_GREP = (
+    'error|fail|cannot|unable|kexec|luks|no space|out of memory|refused|timed out'
+)
+JOURNAL_MAX_LINES = 4
+
+# Glob patterns that mark a directory as a crash dump. RHEL/Fedora write
+# `vmcore` plus `vmcore-dmesg.txt`; Debian/Ubuntu (kdump-tools) write
+# `dump.<timestamp>` plus `dmesg.<timestamp>`.
+VMCORE_GLOBS = ('vmcore*', 'dump.[0-9]*', 'dmesg.[0-9]*')
+
+# Kernel messages that indicate the reason for a crash, most specific first.
+# Verified against the mainline kernel sources: "Kernel panic - not syncing:"
+# (kernel/panic.c), "Unable to handle kernel ..." (arch/*/mm/fault.c),
+# "general protection fault" (arch/x86/kernel/traps.c GPFSTR), "BUG: ..."
+# (e.g. arch/x86/mm/fault.c, kernel/watchdog.c soft lockup) and "Oops:"
+# (arch/x86/kernel/dumpstack.c).
+PANIC_MARKERS = (
+    'Kernel panic - not syncing:',
+    'Unable to handle kernel',
+    'general protection fault',
+    'BUG:',
+    'Oops:',
+)
+
+# The first analysis is a short teaser, not the full dmesg. Cap the number of
+# lines and the length of each so a huge captured dmesg cannot blow up the
+# plugin output (the admin reads the full log from the file itself).
+ANALYSIS_MAX_LINES = 5
+ANALYSIS_MAX_LINE_LEN = 200
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--path',
+        help='Directory to scan for kernel crash dumps. '
+        'If not specified, the plugin reads the configured dump directory from '
+        'the distribution kdump configuration and falls back to "/var/crash". '
+        'Example: `--path=/var/crash`',
+        dest='PATH',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def read_sysfs_int(path):
+    """Read a single integer from a sysfs file via lib.disk.grep_file. Returns
+    None if the file is absent (kdump not built into the kernel) or holds no
+    integer.
+    """
+    success, value = lib.disk.grep_file(path, r'(-?\d+)')
+    return int(value) if success and value else None
+
+
+def resolve_dump_path(os_family, explicit):
+    """Determine the crash dump directory. An explicit --path always wins.
+    Otherwise read the distribution kdump configuration (RHEL/Fedora
+    "/etc/kdump.conf", Debian/Ubuntu "/etc/default/kdump-tools") and fall back
+    to "/var/crash".
+    """
+    if explicit:
+        return explicit
+    if os_family == 'RedHat':
+        success, dump_path = lib.disk.grep_file(
+            '/etc/kdump.conf', r'(?m)^\s*path\s+(\S+)'
+        )
+        if success and dump_path:
+            return dump_path
+    elif os_family == 'Debian':
+        success, dump_path = lib.disk.grep_file(
+            '/etc/default/kdump-tools', r'(?m)^\s*KDUMP_COREDIR\s*=\s*"?([^"\s]+)'
+        )
+        if success and dump_path:
+            return dump_path
+    return DEFAULT_PATH
+
+
+def get_configured_crashkernel(os_family, timeout):
+    """On RHEL/Fedora, return the crashkernel= value configured in the bootloader
+    for the default kernel (it applies on the next boot), or '' if none is set or
+    grubby is unavailable. This lets the plugin tell the admin that a reboot is
+    pending when no memory is reserved on the running kernel yet (e.g. right after
+    "kdumpctl reset-crashkernel").
+    """
+    if os_family != 'RedHat':
+        return ''
+    success, result = lib.shell.shell_exec(
+        ['grubby', '--info=DEFAULT'], timeout=timeout
+    )
+    if not success:
+        return ''
+    stdout, _, _ = result
+    for line in stdout.splitlines():
+        if not line.startswith('args='):
+            continue
+        for token in line.split():
+            if 'crashkernel=' in token:
+                value = token.split('crashkernel=', 1)[1].strip('"')
+                return value if value not in ('', '0', 'no') else ''
+    return ''
+
+
+def get_service_info(os_family, timeout):
+    """Best-effort lookup of the kdump service state via systemctl. Returns
+    (unit, state) for the supported families, or (None, None) for any other
+    distribution, where the plugin relies on the sysfs signals alone.
+    """
+    if os_family == 'RedHat':
+        unit = 'kdump.service'
+    elif os_family == 'Debian':
+        unit = 'kdump-tools.service'
+    else:
+        return (None, None)
+    success, result = lib.shell.shell_exec(
+        ['systemctl', 'is-active', unit], timeout=timeout
+    )
+    if not success:
+        return (unit, None)
+    stdout, _, _ = result
+    return (unit, stdout.strip() or None)
+
+
+def get_service_journal(unit, timeout):
+    """Best-effort: return the kdump service log lines for the current boot that
+    match a failure term, so the admin sees the actual reason (LUKS key, out of
+    memory, unreachable dump target, ...). journalctl does the matching via
+    --grep. Returns '' when journalctl is unavailable or nothing matches.
+    """
+    success, result = lib.shell.shell_exec(
+        [
+            'journalctl',
+            f'--unit={unit}',
+            '--boot',
+            '--no-pager',
+            '--output=cat',
+            '--case-sensitive=no',
+            f'--grep={JOURNAL_GREP}',
+        ],
+        timeout=timeout,
+    )
+    if not success:
+        return ''
+    stdout, _, _ = result
+    return stdout
+
+
+def select_journal_lines(text):
+    """Reduce raw journal output to the first few non-empty reason lines. kdumpctl
+    logs the actual cause first and the generic systemd epilogue last, so the
+    leading lines carry the useful information.
+    """
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    return '\n'.join(lines[:JOURNAL_MAX_LINES])
+
+
+def dir_has_vmcore(dump_dir):
+    """Return True if the directory contains a crash dump artifact. A directory
+    we are not allowed to inspect is assumed to be a dump, because on most
+    systems only root may read below the dump directory.
+    """
+    if not os.access(dump_dir, os.R_OK | os.X_OK):
+        return True  # cannot look inside; assume it is a dump (needs root to read)
+    return any(
+        lib.disk.glob(os.path.join(dump_dir, pattern), recursive=False)
+        for pattern in VMCORE_GLOBS
+    )
+
+
+def dir_size(dump_dir):
+    """Sum the sizes of the files directly inside a dump directory. Best effort:
+    entries that cannot be stat'd (or the whole directory when unreadable)
+    contribute nothing.
+    """
+    total = 0
+    for entry in lib.disk.glob(os.path.join(dump_dir, '*'), recursive=False):
+        info = lib.disk.stat(entry)
+        if info is not None:
+            total += info.st_size
+    return total
+
+
+def scan_dumps(path):
+    """Scan the dump directory for crash dumps and return them newest first,
+    each as a dict with name, mtime (epoch) and size (bytes).
+    """
+    dumps = []
+    for entry in lib.disk.glob(os.path.join(path, '*'), recursive=False):
+        if not lib.disk.dir_exists(entry):
+            continue
+        if not dir_has_vmcore(entry):
+            continue
+        info = lib.disk.stat(entry)
+        dumps.append(
+            {
+                'name': os.path.basename(entry),
+                'mtime': int(info.st_mtime) if info is not None else 0,
+                'size': dir_size(entry),
+            }
+        )
+    dumps.sort(key=lambda dump: dump['mtime'], reverse=True)
+    return dumps
+
+
+def find_dmesg_file(dump_dir):
+    """Locate the captured dmesg text file inside a dump directory, if any."""
+    for name in ('vmcore-dmesg.txt', 'vmcore-dmesg-incomplete.txt'):
+        candidate = os.path.join(dump_dir, name)
+        if os.path.isfile(candidate):
+            return candidate
+    debian = lib.disk.glob(os.path.join(dump_dir, 'dmesg.*'))
+    return debian[0] if debian else ''
+
+
+def analyze_dmesg_text(content):
+    """Extract a first analysis from a captured dmesg: the crash section from the
+    first panic marker to the end of the log (or the whole log as a fallback).
+    Each line is capped at ANALYSIS_MAX_LINE_LEN characters, and a large section
+    is shortened to the first and last ANALYSIS_MAX_LINES lines with an ellipsis
+    in between, so the plugin output cannot explode.
+    """
+    if not content:
+        return ''
+    lines = [
+        line.rstrip()[:ANALYSIS_MAX_LINE_LEN]
+        for line in content.splitlines()
+        if line.strip()
+    ]
+    if not lines:
+        return ''
+    # start at the first line that mentions any crash marker (BUG/Oops usually
+    # precede the panic line), or fall back to the whole log
+    start = 0
+    for i, line in enumerate(lines):
+        if any(marker in line for marker in PANIC_MARKERS):
+            start = i
+            break
+    section = lines[start:]
+    # shorten the message to first 5 and last 5 lines if it gets large
+    if len(section) > 2 * ANALYSIS_MAX_LINES:
+        section = [
+            *section[:ANALYSIS_MAX_LINES],
+            '...',
+            *section[-ANALYSIS_MAX_LINES:],
+        ]
+    return '\n'.join(section)
+
+
+def analyze_dump(dump_dir):
+    """Return (dmesg_file, analysis) for the crash dump in dump_dir. dmesg_file
+    is the captured dmesg the analysis was read from (so the admin can read the
+    full log), or ('', '') if no captured dmesg is available or readable.
+    """
+    dmesg_file = find_dmesg_file(dump_dir)
+    if not dmesg_file:
+        return ('', '')
+    success, content = lib.disk.read_file(dmesg_file)
+    if not success:
+        return ('', '')
+    return (dmesg_file, analyze_dmesg_text(content))
+
+
+def load_fixture(test_args, path):
+    """Read a suffixed fixture file for --test mode, reusing the base --test
+    channel definition (see the redfish-* plugins for the same pattern).
+    """
+    args_copy = list(test_args)
+    args_copy[0] = path
+    stdout, _, _ = lib.lftest.test(args_copy)
+    return stdout
+
+
+def parse_dumps_fixture(raw):
+    """Parse a `-dumps` fixture (one dump per line, "name<TAB>epoch<TAB>size")
+    into the same structure scan_dumps() returns.
+    """
+    dumps = []
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split('\t')
+        dumps.append(
+            {
+                'name': parts[0],
+                'mtime': int(parts[1]) if len(parts) > 1 and parts[1] else 0,
+                'size': int(parts[2]) if len(parts) > 2 and parts[2] else 0,
+            }
+        )
+    dumps.sort(key=lambda dump: dump['mtime'], reverse=True)
+    return dumps
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        os_family = lib.distro.get_distribution_facts().get('os_family', '')
+        path = resolve_dump_path(os_family, args.PATH)
+        size = read_sysfs_int(KEXEC_CRASH_SIZE)
+        loaded = read_sysfs_int(KEXEC_CRASH_LOADED)
+        # only look up the bootloader when nothing is reserved yet (reboot pending?)
+        configured_crashkernel = (
+            get_configured_crashkernel(os_family, args.TIMEOUT) if size == 0 else ''
+        )
+        service_unit, service_state = get_service_info(os_family, args.TIMEOUT)
+        # only pull the journal when the service is not healthy (saves a call)
+        if service_unit and service_state and service_state != 'active':
+            service_journal = get_service_journal(service_unit, args.TIMEOUT)
+        else:
+            service_journal = ''
+        dumps = scan_dumps(path)
+        if dumps:
+            dmesg_file, analysis = analyze_dump(os.path.join(path, dumps[0]['name']))
+        else:
+            dmesg_file, analysis = ('', '')
+    else:
+        base = args.TEST[0]
+        path = args.PATH or DEFAULT_PATH
+        size_raw = load_fixture(args.TEST, base + '-size').strip()
+        size = int(size_raw) if size_raw else None
+        loaded_raw = load_fixture(args.TEST, base + '-loaded').strip()
+        loaded = int(loaded_raw) if loaded_raw else None
+        configured_crashkernel = load_fixture(args.TEST, base + '-crashkernel').strip()
+        service_unit = 'kdump.service'
+        service_state = load_fixture(args.TEST, base + '-service').strip() or None
+        service_journal = load_fixture(args.TEST, base + '-journal')
+        dumps = parse_dumps_fixture(load_fixture(args.TEST, base + '-dumps'))
+        if dumps:
+            dmesg_file = os.path.join(path, dumps[0]['name'], 'vmcore-dmesg.txt')
+            analysis = analyze_dmesg_text(load_fixture(args.TEST, base + '-dmesg'))
+        else:
+            dmesg_file, analysis = ('', '')
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    table_data = []
+
+    # analyze data: readiness of the kdump subsystem
+    ready = size is not None and size > 0 and loaded == 1
+    if size is None:
+        ready_state = STATE_WARN
+        ready_msg = (
+            f'kdump is not available on this kernel ({KEXEC_CRASH_SIZE} is missing), '
+            'so a kernel panic cannot be captured.'
+        )
+    elif size == 0 and configured_crashkernel:
+        # reservation is queued in the bootloader but not active on this boot yet
+        ready_state = STATE_WARN
+        ready_msg = (
+            f'A crashkernel reservation (`crashkernel={configured_crashkernel}`) is '
+            'configured in the bootloader but is not active on the running kernel. '
+            'Reboot to apply it so kdump can capture a kernel panic.'
+        )
+    elif size == 0:
+        ready_state = STATE_WARN
+        ready_msg = (
+            'No crash kernel memory reserved (`crashkernel=` is unset or 0), '
+            'so a kernel panic cannot be captured. Reserve crash kernel memory '
+            '(RHEL/Fedora: `kdumpctl reset-crashkernel`; Debian/Ubuntu: install '
+            'kdump-tools) and reboot. See the README for details.'
+        )
+    elif loaded != 1:
+        ready_state = STATE_WARN
+        ready_msg = (
+            f'{lib.human.bytes2human(size)} crash kernel memory reserved, but the '
+            'capture kernel is not loaded, so a kernel panic would not be captured. '
+            'Check the kdump service.'
+        )
+    else:
+        ready_state = STATE_OK
+        ready_msg = (
+            'kdump is active '
+            f'({lib.human.bytes2human(size)} reserved, capture kernel loaded).'
+        )
+    state = lib.base.get_worst(state, ready_state)
+
+    # add the service state as a human-readable hint when it is not healthy
+    if service_state and service_state != 'active':
+        ready_msg += f' The {service_unit} service reports "{service_state}".'
+
+    # when kdump is not ready, surface the actual reason from the service journal
+    journal_reason = (
+        select_journal_lines(service_journal) if ready_state != STATE_OK else ''
+    )
+    readiness_block = ready_msg
+    if journal_reason:
+        readiness_block += f'\n\nMost recent kdump service log:\n{journal_reason}'
+
+    # analyze data: crash dumps left behind by a previous panic
+    dump_count = len(dumps)
+    if dump_count > 0:
+        state = lib.base.get_worst(state, STATE_WARN)
+
+    # build the message
+    now = lib.time.now()
+    if dump_count > 0:
+        newest = dumps[0]
+        age = max(0, now - newest['mtime'])
+        age_human = lib.human.seconds2human(age)
+        when = lib.time.epoch2iso(newest['mtime'])
+        # seconds2human() returns '' for an age below one second (a dump captured
+        # moments ago), so fall back to the plain timestamp in that case.
+        newest_str = (
+            f'newest {age_human} ago ({when})' if age_human else f'newest at {when}'
+        )
+        msg = (
+            f'{dump_count} kernel crash {lib.txt.pluralize("dump", dump_count)} '
+            f'in {path}{lib.base.state2str(STATE_WARN, prefix=" ")}'
+            f', {newest_str}.'
+        )
+        # always list every crash dump: whenever a dump exists the admin wants
+        # the full inventory. The dump directory name already carries the
+        # timestamp (e.g. "<host>-2024-02-01-08:00:00" or Debian "202402010800"),
+        # so no separate date column is needed.
+        for dump in dumps:
+            table_data.append(
+                {
+                    'dump': dump['name'],
+                    'size': lib.human.bytes2human(dump['size'])
+                    if dump['size']
+                    else 'n/a',
+                    'state': lib.base.state2str(STATE_WARN),
+                }
+            )
+        keys = ['dump', 'size', 'state']
+        headers = ['Dump', 'Size', 'State']
+        msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers).rstrip(
+            '\n'
+        )
+        if analysis:
+            # lead with the command to read the full log, then a short preview
+            msg += f'\n\n`less {dmesg_file}`\n{analysis}'
+        newest_dir = os.path.join(path, newest['name'])
+        msg += (
+            '\n\nAfter investigating, remove the dump directory to clear this alert '
+            f'(dumps are large): rm -rf {newest_dir}'
+        )
+        if dump_count > 1:
+            msg += f' (and the {dump_count - 1} older one(s) in {path})'
+        msg += f'\n\n{readiness_block}'
+    else:
+        msg = f'{ready_msg} No crash dumps found in {path}.'
+        if journal_reason:
+            msg += f'\n\nMost recent kdump service log:\n{journal_reason}'
+
+    # build perfdata
+    perfdata += lib.base.get_perfdata('dumps', dump_count, uom=None, _min=0)
+    perfdata += lib.base.get_perfdata(
+        'ready', 1 if ready else 0, uom=None, _min=0, _max=1
+    )
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()
