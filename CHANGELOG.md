@@ -79,6 +79,7 @@ Monitoring Plugins:
 * redfish-\*: `--cache-expire` (default now 5 minutes) also caches the Redfish session and API responses, so the several Redfish checks on a host share one session and fetched data instead of each re-reading it from the controller ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 * redfish-\*: reads each component collection in one request where the controller supports it, so checks on servers with many sensors, drives or firmware components no longer time out ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 * redfish-\*: the Redfish API URL is now a mandatory `--url`, dropping the misleading localhost default ([#1306](https://github.com/Linuxfabrik/monitoring-plugins/issues/1306))
+* systemd-unit: the bundled Ubuntu service sets check `ssh.service`, so the SSH unit check works on Ubuntu again instead of reporting the unit as missing ([#1373](https://github.com/Linuxfabrik/monitoring-plugins/issues/1373))
 
 ### Security
 
