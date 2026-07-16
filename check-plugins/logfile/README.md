@@ -26,13 +26,11 @@ object ApiUser "linuxfabrik-check-logfile" {
 
 **Data Collection:**
 
-* Expands time macros in `--filename` on every run, so logfiles whose name contains the current date (`{today}.log`, `app-{today}.log`, `{%Y}{%m}{%d}.log`, etc.) can be monitored directly. For `{today}` and `{yesterday}`, the compact form (`YYYYMMDD`) is tried first and ISO 8601 (`YYYY-MM-DD`) is used as fallback. The state DB is keyed off the unexpanded template, so the read offset and pending matches carry over when the resolved filename changes on the next day and no wrapper script is needed.
-* Reads the logfile forward from the last known offset, only scanning new lines since the previous run
-* Detects logfile rotation by tracking the file's inode and size; resets to the beginning when rotation is detected
-* Uses SQLite state persistence to store the file offset and all matching lines between runs
-* Each combination of logfile plus pattern set (`--warning-pattern`, `--warning-regex`, `--critical-pattern`, `--critical-regex`, `--ignore-pattern`, `--ignore-regex`) gets its own state DB, keyed by a short hash over those arguments. Two Icinga services that point at the same logfile but look for different things therefore maintain independent read offsets and match histories. Changing any pattern argument implicitly creates a new state DB, which means the first run after such a change rescans from offset 0.
-* Pattern arguments use the Python `in` operator for simple substring matching, which is faster than regex in most cases
-* Matches are persisted in the SQLite state DB so alerting continues across runs, even when the logfile stops growing. A match stays active for `--alarm-duration` minutes (default 60) and is then auto-pruned, OR — with `--icinga-callback` — until the admin acknowledges the service in Icinga. Still-active matches from earlier runs show up in the output as "Unacknowledged warning/critical matches from previous runs" and count towards the WARN/CRIT thresholds just like new matches do.
+* Expands time macros in `--filename` on every run, so logfiles whose name contains the current date (`{today}.log`, `app-{today}.log`, `{%Y}{%m}{%d}.log`, etc.) can be monitored directly. For `{today}` and `{yesterday}`, the compact form (`YYYYMMDD`) is tried first and ISO 8601 (`YYYY-MM-DD`) is used as fallback. The read offset and pending matches carry over when the filename changes on the next day, so no wrapper script is needed
+* Scans only the lines that were added since the previous run, and rescans the whole logfile once it was rotated, truncated, or rewritten from the beginning by the application. A rewrite that reproduces the first 256 bytes of the logfile unchanged is not recognized as one
+* Keeps its state in a SQLite database. Each combination of logfile and pattern set gets its own database, so two services watching the same logfile for different things do not interfere. Changing a pattern starts a new database, and the next run therefore reports every match the logfile still holds
+* `--warning-pattern` and `--critical-pattern` search for plain substrings and are faster than their regex counterparts
+* Matches keep alerting across runs, even once the logfile stops growing: for `--alarm-duration` minutes (default 60), or, with `--icinga-callback`, until the service is acknowledged in Icinga. They appear in the output as "Unacknowledged warning/critical matches from previous runs" and count towards the thresholds like new matches do
 
 
 ## Fact Sheet
@@ -63,15 +61,17 @@ usage: logfile [-h] [-V] [--alarm-duration ALARM_DURATION] [--always-ok]
                [--warning-regex WARN_REGEX]
 
 Scans a logfile for matching patterns or regular expressions and alerts based
-on the number of matches found. Reads the file backwards from the end and
-supports Icinga acknowledgement integration to suppress repeated alerts for
-known issues. Configurable alarm duration limits how long matches trigger
-alerts. `--filename` accepts time macros, so logfiles whose name contains the
-current date (`20260422.log`, `app-2026-04-22.log`, etc.) can be monitored
-directly. `{today}` / `{yesterday}` resolve tolerantly: compact (`YYYYMMDD`)
-first, ISO 8601 (`YYYY-MM-DD`) as fallback if the compact file does not exist.
-Read offset and pending matches carry over when the filename changes on the
-next day, no wrapper script needed. Requires root or sudo.
+on the number of matches found. Only the lines added since the previous run
+are scanned, and the whole file is rescanned whenever it was rotated,
+truncated or rewritten in place. Supports Icinga acknowledgement integration
+to suppress repeated alerts for known issues. Configurable alarm duration
+limits how long matches trigger alerts. `--filename` accepts time macros, so
+logfiles whose name contains the current date (`20260422.log`,
+`app-2026-04-22.log`, etc.) can be monitored directly. `{today}` /
+`{yesterday}` resolve tolerantly: compact (`YYYYMMDD`) first, ISO 8601 (`YYYY-
+MM-DD`) as fallback if the compact file does not exist. Read offset and
+pending matches carry over when the filename changes on the next day, no
+wrapper script needed. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -168,7 +168,7 @@ Critical matches:
 * error2
 ```
 
-The `(N lines)` figure is the number of **new** lines scanned since the previous plugin run (the plugin resumes from a stored byte offset and does not re-read the whole file each time). On first run — or after a logfile rotation — this equals the full file length.
+The `(N lines)` figure counts the lines that are **new** since the previous run, not the length of the logfile. Both are the same on the first run and after a rotation.
 
 
 ## States

@@ -72,6 +72,7 @@ Monitoring Plugins:
 * disk-io: no longer produces false CRITICAL alerts from I/O wait on healthy systems, in particular on ZFS/Proxmox ([#1371](https://github.com/Linuxfabrik/monitoring-plugins/issues/1371))
 * disk-usage: performance data carries the warning and critical thresholds again ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
 * journald-query: a relative `--since` such as `-8h` from the Icinga Director works again ([#1264](https://github.com/Linuxfabrik/monitoring-plugins/issues/1264))
+* logfile: detects a logfile that an application rewrites from the beginning instead of appending to, which until now hid every new line from the check ([#1330](https://github.com/Linuxfabrik/monitoring-plugins/issues/1330))
 * lynis: audits produce a report on Debian, Ubuntu and other distributions that keep lynis outside `/usr/share` ([#1262](https://github.com/Linuxfabrik/monitoring-plugins/issues/1262))
 * lynis: shows the underlying lynis error when an audit produces no report
 * mysql-replica-status: works on MySQL 8.4, which no longer understands `SHOW SLAVE HOSTS` and made the check return UNKNOWN

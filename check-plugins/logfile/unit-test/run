@@ -366,6 +366,95 @@ class TestOffsetSurvivesAcrossRuns(unittest.TestCase):
         self._run(expected_new_lines=3)
 
 
+class TestRewrittenLogfile(unittest.TestCase):
+    """Regression tests for issue #1330: an application that rewrites its
+    logfile from the beginning keeps the inode, and the rewritten file can be
+    just as long as what was read before. Neither the inode nor the size
+    reveals that, so the plugin has to recognize the file by its head, or it
+    seeks past the new content and reports nothing."""
+
+    check = '../logfile'
+
+    def setUp(self):
+        self.scratch_dir = tempfile.mkdtemp(prefix='logfile-rewrite-', dir=HERE)
+        self.scratch_file = os.path.join(self.scratch_dir, 'scan.log')
+        self.scratch_basename = os.path.basename(self.scratch_file)
+        for db_file in glob.glob(_db_glob(self.scratch_basename)):
+            os.remove(db_file)
+
+    def tearDown(self):
+        for db_file in glob.glob(_db_glob(self.scratch_basename)):
+            os.remove(db_file)
+        shutil.rmtree(self.scratch_dir, ignore_errors=True)
+
+    def _write(self, content):
+        with open(self.scratch_file, 'w') as fh:
+            fh.write(content)
+
+    def _append(self, content):
+        with open(self.scratch_file, 'a') as fh:
+            fh.write(content)
+
+    def _run(self, testcase_id, expected_retc, expected_lines):
+        lib.lftest.run(
+            self,
+            self.check,
+            {
+                'id': testcase_id,
+                'test': f'{self.scratch_file},,0',
+                'params': (
+                    f'--filename={self.scratch_file} '
+                    '--critical-regex="Das ist ein Fehler" '
+                    # An alarm duration of 0 minutes prunes every match right
+                    # away, so each run only reports what it read itself.
+                    '--alarm-duration=0'
+                ),
+                'assert-retc': expected_retc,
+                'assert-in': [
+                    f'({expected_lines} {"line" if expected_lines == 1 else "lines"})',
+                ],
+            },
+        )
+
+    def test_rewritten_same_length_is_detected(self):
+        # The exact scenario from the issue: same message, only the timestamp
+        # changes, so the file keeps its inode and its size.
+        self._write('2026-07-08 12:43:44 Das ist ein Fehler\n')
+        self._run('crit-first-scan', STATE_CRIT, 1)
+        self._write('2026-07-08 12:46:25 Das ist ein Fehler\n')
+        self._run('crit-rewritten-in-place', STATE_CRIT, 1)
+        self._write('2026-07-08 12:49:07 Das ist ein Fehler\n')
+        self._run('crit-rewritten-again', STATE_CRIT, 1)
+
+    def test_rewritten_longer_is_detected(self):
+        # A rewrite that leaves the file longer than before hides the reset
+        # from the size comparison just as well.
+        self._write('2026-07-08 12:43:44 Nothing to see here\n')
+        self._run('ok-first-scan', STATE_OK, 1)
+        self._write(
+            '2026-07-08 12:46:25 Nothing to see here\n'
+            '2026-07-08 12:46:25 Das ist ein Fehler\n'
+        )
+        self._run('crit-rewritten-longer', STATE_CRIT, 2)
+
+    def test_growing_from_empty_is_scanned(self):
+        # A logfile that was empty on the previous run has no head to compare
+        # against, so the plugin must fall back to its stored offset of 0.
+        self._write('')
+        self._run('ok-empty-logfile', STATE_OK, 0)
+        self._write('2026-07-08 12:46:25 Das ist ein Fehler\n')
+        self._run('crit-first-line-after-empty', STATE_CRIT, 1)
+
+    def test_appending_does_not_rescan_the_whole_file(self):
+        # Counterpart to the tests above: a file whose head is shorter than the
+        # fingerprint size must not look rewritten just because it grew.
+        self._write('2026-07-08 12:43:44 Nothing to see here\n')
+        self._run('ok-first-scan', STATE_OK, 1)
+        self._append('2026-07-08 12:46:25 Still nothing\n')
+        self._run('ok-only-the-appended-line', STATE_OK, 1)
+        self._run('ok-unchanged-file', STATE_OK, 0)
+
+
 class TestMacroFilenameExpansion(unittest.TestCase):
     """Regression tests for issue #678: `--filename` must expand time
     macros so logfiles whose name contains the current date can be

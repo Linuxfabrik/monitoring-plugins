@@ -28,12 +28,13 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026071601'
 
 DESCRIPTION = """Scans a logfile for matching patterns or regular expressions and alerts based on the
-number of matches found. Reads the file backwards from the end and supports Icinga
-acknowledgement integration to suppress repeated alerts for known issues. Configurable
-alarm duration limits how long matches trigger alerts.
+number of matches found. Only the lines added since the previous run are scanned, and the
+whole file is rescanned whenever it was rotated, truncated or rewritten in place. Supports
+Icinga acknowledgement integration to suppress repeated alerts for known issues.
+Configurable alarm duration limits how long matches trigger alerts.
 
 `--filename` accepts time macros, so logfiles whose name contains the current date
 (`20260422.log`, `app-2026-04-22.log`, etc.) can be monitored directly. `{today}` /
@@ -57,6 +58,33 @@ DEFAULT_NO_PROXY = False
 DEFAULT_NO_SUMMARY = False
 DEFAULT_TIMEOUT = 5
 DEFAULT_WARN = 1
+
+
+def is_rewritten(filename, old_fingerprint):
+    """Tell whether the head of a logfile still matches the fingerprint stored
+    on the previous run.
+
+    The head is the part of a logfile that appending does not touch, so it
+    identifies the file: it only changes if the logfile has become a different
+    one. Hashes exactly as many bytes as were hashed back then, so that
+    appending to a logfile whose head was shorter than the fingerprint does not
+    look like a rewrite.
+    """
+    length = old_fingerprint['length']
+    if not length:
+        # The logfile was empty on the previous run, so there is nothing to
+        # compare against - and nothing to miss either, because a read offset
+        # of 0 stays valid no matter what was written since.
+        return (True, False)
+    success, result = lib.disk.get_fingerprint(filename, length=length)
+    if not success:
+        return (False, result)
+    fingerprint, hashed = result
+    if hashed < length:
+        # the file no longer holds the bytes we hashed last time, so it must
+        # have been truncated
+        return (True, True)
+    return (True, fingerprint != old_fingerprint['fingerprint'])
 
 
 def parse_args():
@@ -365,6 +393,19 @@ def main():
         inode TEXT NOT NULL
     """
     lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='file_stats'))
+    # The fingerprint lives in its own table instead of an additional file_stats
+    # column: a DB written by an older release then simply has no fingerprint
+    # row yet, and the stored read offset survives the upgrade. Extending
+    # file_stats would require a schema migration, and rebuilding it from
+    # scratch would re-report every match the logfile still holds.
+    definition = """
+        filename TEXT NOT NULL PRIMARY KEY,
+        fingerprint TEXT NOT NULL,
+        length INTEGER NOT NULL
+    """
+    lib.base.coe(
+        lib.db_sqlite.create_table(conn, definition, table='file_fingerprints')
+    )
     definition = """
         filename TEXT NOT NULL,
         state INTEGER NOT NULL,
@@ -375,6 +416,12 @@ def main():
 
     current_inode = str(file_stat.st_ino)
     current_size = file_stat.st_size
+    # Fingerprint the file before scanning it: if it gets rewritten in between,
+    # the stored fingerprint is the older one, so the next run rescans the file
+    # instead of missing what was written in the meantime.
+    current_fingerprint, current_fingerprint_length = lib.base.coe(
+        lib.disk.get_fingerprint(scan_path)
+    )
 
     old_file_stats = lib.base.coe(
         lib.db_sqlite.select(
@@ -382,6 +429,20 @@ def main():
             """
         SELECT *
         FROM file_stats
+        WHERE filename = :filename
+        """,
+            {
+                'filename': args.FILENAME,
+            },
+            fetchone=True,
+        )
+    )
+    old_fingerprint = lib.base.coe(
+        lib.db_sqlite.select(
+            conn,
+            """
+        SELECT *
+        FROM file_fingerprints
         WHERE filename = :filename
         """,
             {
@@ -402,6 +463,13 @@ def main():
         # file each time.
         if str(old_file_stats.get('inode')) != current_inode or current_size < offset:
             # this means the file has been rotated
+            offset = 0
+        elif old_fingerprint and lib.base.coe(is_rewritten(scan_path, old_fingerprint)):
+            # An application that rewrites its logfile from the beginning
+            # (`> logfile` instead of `>> logfile`) keeps the inode, and if the
+            # new content is at least as long as what we read last time, the
+            # size does not shrink either. Only the head of the file tells us
+            # that everything after our offset is gone (issue #1330).
             offset = 0
     else:
         offset = 0
@@ -469,6 +537,14 @@ def main():
         'inode': current_inode,
     }
     lib.base.coe(lib.db_sqlite.replace(conn, new_file_stats, table='file_stats'))
+    new_file_fingerprint = {
+        'filename': args.FILENAME,
+        'fingerprint': current_fingerprint,
+        'length': current_fingerprint_length,
+    }
+    lib.base.coe(
+        lib.db_sqlite.replace(conn, new_file_fingerprint, table='file_fingerprints')
+    )
 
     # if we are using the alarm duration (aka not using the icinga callback),
     # remove all outdated matches from the db now
