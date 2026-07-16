@@ -29,6 +29,10 @@ Monitoring Plugins:
 * php-status: warns when `post_max_size` is not larger than `upload_max_filesize`, a misconfiguration that silently breaks file uploads ([#516](https://github.com/Linuxfabrik/monitoring-plugins/issues/516))
 * wildfly-version: new check alerting when WildFly is behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))
 
+Grafana:
+
+* disk-usage: graphs the total size of each partition, telling a disk resize apart from a mass file deletion ([#1374](https://github.com/Linuxfabrik/monitoring-plugins/issues/1374))
+
 ### Changed
 
 Build, CI/CD:
