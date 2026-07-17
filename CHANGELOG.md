@@ -23,6 +23,7 @@ Monitoring Plugins:
 * docker-image, podman-image: new checks listing images and alerting on images older than a configurable age; `podman-image --user` covers a rootless user
 * docker-service: new check alerting when a Docker Swarm service runs fewer tasks than expected
 * docker-swarm: new check alerting on swarm membership, a down node, or lost manager quorum
+* huawei-pacific-quota: new check alerting when a share on a Huawei OceanStor Pacific storage system fills up its quota
 * kdump: new check alerting when the kernel crash dump mechanism cannot capture a panic, or when a previous panic left a crash dump behind (with a first analysis of the panic reason)
 * network-errors: new check alerting on interface receive and transmit errors ([#707](https://github.com/Linuxfabrik/monitoring-plugins/issues/707))
 * nextcloud-app-updates: new check alerting when a Nextcloud app update has been pending longer than a grace period ([#62](https://github.com/Linuxfabrik/monitoring-plugins/issues/62))

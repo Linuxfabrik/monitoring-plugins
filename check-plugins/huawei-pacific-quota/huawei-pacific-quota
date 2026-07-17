@@ -1,0 +1,529 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.huawei_pacific
+import lib.human
+import lib.lftest
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026071701'
+
+DESCRIPTION = """Checks how full the quotas of a Huawei OceanStor Pacific storage system are via the
+REST API (/file_service/fs_quota endpoint). Walks all file systems and their dtrees and reports the
+used space of every quota relative to its configured hard quota. Quotas without a hard quota are
+skipped, because there is no limit to compare against. Alerts when the used space in percent reaches
+the warning or critical threshold. Supports extended reporting via --lengthy."""
+
+DEFAULT_CACHE_EXPIRE = 15  # minutes
+DEFAULT_CRIT = '90'
+DEFAULT_INSECURE = True
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_NO_PROXY = False
+DEFAULT_QUOTA_TYPE = ['directory']
+DEFAULT_SCOPE = '0'
+DEFAULT_TIMEOUT = 3
+DEFAULT_WARN = '80'
+
+# The API does not return null for an unset or unavailable value. It returns
+# the maximum of the field's data type instead. Used as a number, that sentinel
+# would produce a nonsensical fill level, so every value is checked against it.
+INVALID_VALUE64 = 18446744073709551615
+
+# Type number of the object a quota belongs to.
+PARENT_TYPE_DTREE = 16445
+PARENT_TYPE_FILESYSTEM = 40
+
+# Maximum number of records the API returns per query.
+RANGE_LIMIT = 100
+
+# Quota types as returned in the quota_type field.
+QUOTA_TYPES = {
+    'directory': 1,
+    'user': 2,
+    'user-group': 3,
+}
+QUOTA_TYPE_NAMES = {code: name for name, code in QUOTA_TYPES.items()}
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help='Hide table rows for quotas within the thresholds and show only those in '
+        'WARN/CRIT state. Perfdata and alerting are unaffected: all quotas still emit '
+        'perfdata and still drive the overall check state. '
+        'Default: %(default)s',
+        dest='BRIEF',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help=lib.args.help('--cache-expire') + ' Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help=lib.args.help('--critical')
+        + ' Supports Nagios ranges. Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--ignore-regex',
+        help=lib.args.help('--ignore-regex'),
+        action='append',
+        default=None,
+        dest='IGNORE_REGEX',
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='Huawei OceanStor Pacific API password.',
+        dest='PASSWORD',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--quota-type',
+        help='Type of quota to check. '
+        'Can be specified multiple times. '
+        'Example: `--quota-type=directory --quota-type=user`. '
+        # An append parameter defaults to None so that user values do not pile
+        # up on the default list, so %(default)s cannot be used here.
+        f'Default: {", ".join(DEFAULT_QUOTA_TYPE)}',
+        dest='QUOTA_TYPE',
+        action='append',
+        choices=sorted(QUOTA_TYPES),
+        default=None,
+    )
+
+    parser.add_argument(
+        '--scope',
+        help='Huawei OceanStor Pacific API scope.',
+        dest='SCOPE',
+        default=DEFAULT_SCOPE,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-u',
+        '--url',
+        help='Huawei OceanStor Pacific API URL.',
+        dest='URL',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Huawei OceanStor Pacific API username.',
+        dest='USERNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help=lib.args.help('--warning')
+        + ' Supports Nagios ranges. Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def check_response(result, args):
+    """Return the API response, or abort the plugin if the API reported a
+    problem. The plugin walks the API in several steps, so every response
+    passes through here.
+    """
+    if not result:
+        lib.base.cu(f'Got no valuable response from {args.URL}.')
+    if result.get('result', {}).get('code') != 0:
+        lib.base.oao(
+            f'{result.get("result", {}).get("description")}'
+            f' {result.get("result", {}).get("suggestion", "")}'.strip(),
+            STATE_UNKNOWN,
+        )
+    return result
+
+
+def load_test_fixture(test_args, path):
+    """Read a single walk step from a test fixture and return the parsed JSON.
+    On a missing file or malformed JSON, exit STATE_UNKNOWN with a helpful
+    message instead of letting json.loads() raise a traceback.
+    """
+    # Copy, so that the caller's args.TEST keeps pointing at the fixture base
+    # path and stays readable for the next walk step.
+    test_args = list(test_args)
+    test_args[0] = path
+    stdout, _stderr, _retc = lib.lftest.test(test_args)
+    if stdout == path:
+        # lib.lftest.test() returns the value unchanged if it does not resolve
+        # to a fixture file. Do not test the path against the file system here:
+        # fixtures are anchored to the plugin's own unit-test directory, not to
+        # the current working directory.
+        lib.base.cu(f'Test fixture not found: "{path}".')
+    try:
+        return json.loads(stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        lib.base.cu(f'Test fixture "{path}" does not contain valid JSON: {e}')
+
+
+def get_file_systems(args, test_path=None):
+    """Return all file systems of the appliance."""
+    if test_path is None:
+        result = lib.huawei_pacific.get_data(
+            'file_service/file_systems',
+            args,
+            method='GET',
+        )
+    else:
+        result = load_test_fixture(args.TEST, test_path)
+    return check_response(result, args).get('data', [])
+
+
+def get_dtrees(args, file_system_id, test_path=None):
+    """Return all dtrees of one file system."""
+    if test_path is None:
+        result = lib.huawei_pacific.get_data(
+            'file_service/dtrees',
+            args,
+            payload={'file_system_id': file_system_id},
+            method='GET',
+        )
+    else:
+        result = load_test_fixture(args.TEST, test_path)
+    return check_response(result, args).get('data', [])
+
+
+def get_quotas(args, parent_type, parent_id, test_path=None):
+    """Return all quotas of one file system or dtree.
+
+    The API caps a single query at RANGE_LIMIT records, so the quotas are
+    fetched page by page until a short page shows that the last one is reached.
+    """
+    if test_path is not None:
+        return check_response(load_test_fixture(args.TEST, test_path), args).get(
+            'data', []
+        )
+
+    quotas = []
+    offset = 0
+    while True:
+        payload = {
+            'parent_type': str(parent_type),
+            'parent_id': str(parent_id),
+            'range': json.dumps({'offset': offset, 'limit': RANGE_LIMIT}),
+        }
+        result = check_response(
+            lib.huawei_pacific.get_data(
+                'file_service/fs_quota',
+                args,
+                payload=payload,
+                method='GET',
+            ),
+            args,
+        )
+        page = result.get('data', [])
+        quotas += page
+        if len(page) < RANGE_LIMIT:
+            break
+        offset += len(page)
+    return quotas
+
+
+def collect_quotas(args):
+    """Walk the file systems and their dtrees and return every quota found,
+    tagged with the share it belongs to.
+    """
+    quotas = []
+    test_base = args.TEST[0] if args.TEST else None
+
+    file_systems = get_file_systems(
+        args,
+        test_path=f'{test_base}-file-systems' if test_base else None,
+    )
+    for i, file_system in enumerate(file_systems):
+        file_system_id = file_system.get('id')
+        file_system_name = file_system.get('name') or str(file_system_id)
+
+        for quota in get_quotas(
+            args,
+            PARENT_TYPE_FILESYSTEM,
+            file_system_id,
+            test_path=f'{test_base}-quota-fs-{i}' if test_base else None,
+        ):
+            quota['share'] = file_system_name
+            quotas.append(quota)
+
+        dtrees = get_dtrees(
+            args,
+            file_system_id,
+            test_path=f'{test_base}-dtrees-{i}' if test_base else None,
+        )
+        for j, dtree in enumerate(dtrees):
+            # A dtree id already carries the "<file system id>@<dtree id>" form
+            # the quota endpoint expects as its parent_id.
+            dtree_name = dtree.get('name') or dtree.get('id')
+            for quota in get_quotas(
+                args,
+                PARENT_TYPE_DTREE,
+                dtree.get('id'),
+                test_path=f'{test_base}-quota-dtree-{i}-{j}' if test_base else None,
+            ):
+                quota['share'] = f'{file_system_name}/{dtree_name}'
+                quotas.append(quota)
+
+    return quotas
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if not args.URL.startswith('http'):
+        lib.base.cu('--url parameter has to start with "http://" or https://".')
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE_REGEX is None:
+        args.IGNORE_REGEX = []
+    if args.QUOTA_TYPE is None:
+        args.QUOTA_TYPE = DEFAULT_QUOTA_TYPE
+
+    # fetch data
+    quotas = collect_quotas(args)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    table_data = []
+
+    # compile user-supplied regex patterns
+    try:
+        compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
+    except re.error:
+        lib.base.cu('Unable to compile regex.')
+
+    wanted_types = {QUOTA_TYPES[item] for item in args.QUOTA_TYPE}
+
+    # analyze data
+    for quota in quotas:
+        quota_type = int(quota.get('quota_type', -1))
+        if quota_type not in wanted_types:
+            continue
+
+        share = quota['share']
+        owner = quota.get('usr_grp_owner_name')
+        if owner:
+            # user and user group quotas repeat per share, so the owner is what
+            # tells them apart
+            share = f'{share} ({owner})'
+        if any(item.search(share) for item in compiled_ignore_regex):
+            continue
+
+        hard_quota = int(quota.get('space_hard_quota', INVALID_VALUE64))
+        used = int(quota.get('space_used', INVALID_VALUE64))
+        if hard_quota in (INVALID_VALUE64, 0) or used == INVALID_VALUE64:
+            # no hard quota configured, or no usable measurement: there is
+            # nothing to calculate a fill level from
+            continue
+
+        used_percent = round(used / hard_quota * 100)
+        quota_state = lib.base.get_state(
+            used_percent,
+            args.WARN,
+            args.CRIT,
+            _operator='range',
+        )
+        state = lib.base.get_worst(state, quota_state)
+
+        label = re.sub(r'\W+', '_', share).strip('_')
+        perfdata += lib.base.get_perfdata(
+            f'{label}_usage_percent',
+            used_percent,
+            uom='%',
+            warn=args.WARN,
+            crit=args.CRIT,
+            _min=0,
+            _max=100,
+        )
+
+        # The file quota is reported for context only and does not alert: the
+        # check is about space.
+        files = '-'
+        file_used = int(quota.get('file_used', INVALID_VALUE64))
+        file_hard_quota = int(quota.get('file_hard_quota', INVALID_VALUE64))
+        if INVALID_VALUE64 not in (file_used, file_hard_quota):
+            files = (
+                f'{lib.human.number2human(file_used)}'
+                f'/{lib.human.number2human(file_hard_quota)}'
+            )
+
+        table_data.append(
+            {
+                'share': share,
+                'quota_type': QUOTA_TYPE_NAMES.get(quota_type, 'unknown'),
+                'used': lib.human.bytes2human(used),
+                'quota': lib.human.bytes2human(hard_quota),
+                'used_percent': f'{used_percent}%',
+                'files': files,
+                'state': lib.base.state2str(quota_state, empty_ok=False),
+                'quota_state': quota_state,
+            }
+        )
+
+    # build the message
+    thresholds = f'warn={args.WARN} crit={args.CRIT}'
+    if not table_data:
+        lib.base.oao(
+            'Nothing checked.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            perfdata,
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
+        )
+
+    if state == STATE_CRIT:
+        msg += f'There are critical errors. ({thresholds})'
+    elif state == STATE_WARN:
+        msg += f'There are warnings. ({thresholds})'
+    else:
+        msg += f'Everything is ok. ({thresholds})'
+    msg += f' Checked {len(table_data)} {lib.txt.pluralize("quota", len(table_data))}.'
+
+    # build table output
+    display_rows = table_data
+    if args.BRIEF:
+        display_rows = [row for row in table_data if row['quota_state'] != STATE_OK]
+    if args.LENGTHY:
+        keys = [
+            'share',
+            'quota_type',
+            'used',
+            'quota',
+            'used_percent',
+            'files',
+            'state',
+        ]
+        headers = ['Share', 'Type', 'Used', 'Quota', 'Use%', 'Files', 'State']
+    else:
+        keys = ['share', 'used', 'quota', 'used_percent', 'state']
+        headers = ['Share', 'Used', 'Quota', 'Use%', 'State']
+    if display_rows:
+        msg += '\n\n' + lib.base.get_table(display_rows, keys, header=headers)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

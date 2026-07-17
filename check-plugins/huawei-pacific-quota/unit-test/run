@@ -1,0 +1,197 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# The plugin walks the API in several steps and appends `-file-systems` (the
+# file system collection), `-quota-fs-N` (the quotas of file system N),
+# `-dtrees-N` (the dtrees of file system N) and `-quota-dtree-N-M` (the quotas
+# of dtree M in file system N) to the --test path.
+#
+# The shares-42-and-95-percent fixture set holds two dtree shares of 1GiB each,
+# one filled to 42% and one to 95%. The testcases below reuse it and only vary
+# the thresholds and switches.
+COMMON = '--url=https://example.com --username=linuxfabrik --password=linuxfabrik'
+
+TESTS = [
+    {
+        'id': 'ok-below-warn',
+        'test': 'stdout/shares-42-and-95-percent,,0',
+        'params': f'{COMMON} --warning 96 --critical 97',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', 'fs1/dt1', 'fs1/dt2', '42%', '95%'],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        'id': 'warn-above-warn',
+        'test': 'stdout/shares-42-and-95-percent,,0',
+        'params': f'{COMMON} --warning 90 --critical 96',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['There are warnings.'],
+        'assert-regex': r'95%.*\[WARNING\]',
+    },
+    {
+        'id': 'crit-above-crit',
+        'test': 'stdout/shares-42-and-95-percent,,0',
+        'params': f'{COMMON} --warning 80 --critical 90',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['There are critical errors.'],
+        'assert-regex': r'95%.*\[CRITICAL\]',
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'test': 'stdout/shares-42-and-95-percent,,0',
+        'params': f'{COMMON} --warning 80 --critical 90 --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'95%.*\[CRITICAL\]',
+    },
+    {
+        # Perfdata is emitted per share, sanitized into a snake_case label.
+        'id': 'crit-perfdata-per-share',
+        'test': 'stdout/shares-42-and-95-percent,,0',
+        'params': f'{COMMON} --warning 80 --critical 90',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            "'fs1_dt1_usage_percent'=42%;80;90;0;100",
+            "'fs1_dt2_usage_percent'=95%;80;90;0;100",
+        ],
+    },
+    {
+        # --no-perfdata drops the perfdata section but keeps the message and
+        # the exit code.
+        'id': 'crit-no-perfdata',
+        'test': 'stdout/shares-42-and-95-percent,,0',
+        'params': f'{COMMON} --warning 80 --critical 90 --no-perfdata',
+        'assert-retc': STATE_CRIT,
+        'assert-not-in': ['|'],
+    },
+    {
+        # --lengthy adds the quota type and the file quota columns.
+        'id': 'crit-lengthy-adds-columns',
+        'test': 'stdout/shares-42-and-95-percent,,0',
+        'params': f'{COMMON} --warning 80 --critical 90 --lengthy',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Type', 'Files', 'directory', '1.2K/10.0K'],
+    },
+    {
+        # --brief hides the rows within the thresholds, but the hidden share
+        # still emits perfdata and still counts as checked.
+        'id': 'crit-brief-hides-ok-rows',
+        'test': 'stdout/shares-42-and-95-percent,,0',
+        'params': f'{COMMON} --warning 80 --critical 90 --brief',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Checked 2 quotas.',
+            'fs1/dt2',
+            "'fs1_dt1_usage_percent'=42%",
+        ],
+        'assert-not-in': ['fs1/dt1 '],
+    },
+    {
+        # --brief with everything within the thresholds: summary line only.
+        'id': 'ok-brief-hides-everything',
+        'test': 'stdout/shares-42-and-95-percent,,0',
+        'params': f'{COMMON} --warning 96 --critical 97 --brief',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', 'Checked 2 quotas.'],
+        'assert-not-in': ['Share', 'fs1/dt1', 'fs1/dt2'],
+    },
+    {
+        'id': 'ok-ignore-regex-skips-share',
+        'test': 'stdout/shares-42-and-95-percent,,0',
+        'params': f'{COMMON} --warning 80 --critical 90 --ignore-regex=dt2$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 1 quota.', 'fs1/dt1'],
+        'assert-not-in': ['fs1/dt2'],
+    },
+    {
+        # The API declares the numeric quota fields as string(int64), so the
+        # same values may arrive quoted.
+        'id': 'crit-values-as-strings',
+        'test': 'stdout/quota-values-as-strings,,0',
+        'params': f'{COMMON} --warning 80 --critical 90',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['42%', '95%', 'Checked 2 quotas.'],
+    },
+    {
+        # No hard quota configured: nothing to compare against, so the shares
+        # are skipped rather than counted as 0%.
+        'id': 'ok-no-hard-quota-configured',
+        'test': 'stdout/no-hard-quota-configured,,0',
+        'params': f'{COMMON} --warning 80 --critical 90',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'unknown-no-hard-quota-with-no-match-severity',
+        'test': 'stdout/no-hard-quota-configured,,0',
+        'params': f'{COMMON} --warning 80 --critical 90 --no-match-severity=unknown',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        # Only directory quotas by default: the user quota at 99% must not
+        # alert.
+        'id': 'ok-default-checks-directory-quotas-only',
+        'test': 'stdout/directory-and-user-quotas,,0',
+        'params': f'{COMMON} --warning 80 --critical 90',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 1 quota.', '42%'],
+        'assert-not-in': ['alice', 'grp-radiology'],
+    },
+    {
+        'id': 'crit-quota-type-user',
+        'test': 'stdout/directory-and-user-quotas,,0',
+        'params': f'{COMMON} --warning 80 --critical 90 --quota-type=user',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Checked 1 quota.', 'alice', '99%'],
+        'assert-not-in': ['grp-radiology'],
+    },
+    {
+        'id': 'crit-quota-type-multiple',
+        'test': 'stdout/directory-and-user-quotas,,0',
+        'params': f'{COMMON} --warning 80 --critical 90'
+        ' --quota-type=directory --quota-type=user --quota-type=user-group',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Checked 3 quotas.', 'alice', 'grp-radiology'],
+    },
+    {
+        'id': 'unknown-invalid-ignore-regex',
+        'test': 'stdout/shares-42-and-95-percent,,0',
+        'params': f'{COMMON} --ignore-regex=*broken',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Unable to compile regex.'],
+    },
+    {
+        'id': 'unknown-missing-test-fixture',
+        'test': 'stdout/does-not-exist,,0',
+        'params': COMMON,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Test fixture not found'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../huawei-pacific-quota'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
