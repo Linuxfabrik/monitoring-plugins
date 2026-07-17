@@ -179,35 +179,48 @@ def format_sas_data(sas):
             data[key] = lib.txt.to_text(b', '.join(value), errors='strict_or_latin1')
         else:
             data[key] = value
-        if key == 'integ-alg' and not value:
+        if key in ('integ-alg', 'encr-alg', 'prf-alg', 'dh-group') and not value:
             continue
         # handle different versions:
         if key == 'reauth-time':  # v5.7
             data['rekey-time'] = data['reauth-time']  # v5.9
 
-    if 'integ-alg' not in data:
-        # If a connection uses AES GCM encryption (or probably an other AEAD algorithm) the vici
-        # interface does not return a "integ-alg" key at all. There is no key without value but the
-        # key is missing in the dictionary.
-        data['integ-alg'] = 'None'
+    # If a connection uses AES GCM encryption (or probably an other AEAD algorithm) the vici
+    # interface does not return several keys at all. There is no key without value but the
+    # key is missing in the dictionary, so we set some defaults here.
+    data.setdefault('integ-alg', 'None')
+    data.setdefault('encr-alg', 'None')
+    data.setdefault('encr-keysize', '')
+    data.setdefault('prf-alg', 'None')
+    data.setdefault('dh-group', 'None')
+
     data['encr'] = (
         f'{data["encr-alg"]}-{data["encr-keysize"]}'
         f'/{data["integ-alg"]}'
         f'/{data["prf-alg"]}'
         f'/{data["dh-group"]}'
     )
-    data['established-hr'] = lib.time.epoch2iso(
-        lib.time.now(as_type='epoch') - int(data['established'])
-    )
+
+    if 'established' in data:
+        data['established-hr'] = lib.time.epoch2iso(
+            lib.time.now(as_type='epoch') - int(data['established'])
+        )
+    else:
+        data['established'] = 'None'
+        data['established-hr'] = 'n/a'
     if data['local-id'] != data['local-host']:
         data['local'] = (
             f'{data["local-host"]}:{data["local-port"]} ("{data["local-id"]}")'
         )
     else:
         data['local'] = f'{data["local-host"]}:{data["local-port"]}'
-    data['rekey-time-hr'] = lib.time.epoch2iso(
-        lib.time.now(as_type='epoch') + int(data['rekey-time'])
-    )
+    if 'rekey-time' in data:
+        data['rekey-time-hr'] = lib.time.epoch2iso(
+            lib.time.now(as_type='epoch') + int(data['rekey-time'])
+        )
+    else:
+        data['rekey-time'] = 'n/a'
+
     if data['remote-id'] != data['remote-host']:
         data['remote'] = (
             f'{data["remote-host"]}:{data["remote-port"]} ("{data["remote-id"]}")'
@@ -407,12 +420,13 @@ def main():
                 continue
             row = format_sas_data(details)
             row['conn'] = key
-            perfdata += lib.base.get_perfdata(
-                f'{key}_established',
-                row['established'],
-                uom='s',
-                _min=0,
-            )
+            if row['established'] is not None:
+                perfdata += lib.base.get_perfdata(
+                    f'{key}_established',
+                    row['established'],
+                    uom='s',
+                    _min=0,
+                )
             perfdata += lib.base.get_perfdata(
                 f'{key}_rekey-time',
                 row['rekey-time'],
