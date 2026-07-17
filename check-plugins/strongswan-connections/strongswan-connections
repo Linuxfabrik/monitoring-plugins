@@ -33,7 +33,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026071701'
 
 DESCRIPTION = """Checks IPSec connection states on a strongSwan VPN gateway. Connects to the charon
 daemon via the VICI interface to retrieve IKE SA and CHILD SA states. Alerts on
@@ -45,6 +45,10 @@ Requires root or sudo."""
 
 DEFAULT_LENGTHY = False
 DEFAULT_SOCKET = '/run/strongswan/charon.vici'
+
+# IKE SA algorithm keys that VICI only sends once the SA has a
+# negotiated proposal, or that depend on the cipher suite in use.
+OPTIONAL_ALG_KEYS = ('dh-group', 'encr-alg', 'encr-keysize', 'integ-alg', 'prf-alg')
 
 
 def parse_args():
@@ -161,7 +165,6 @@ def keep_connection(name, match_patterns, ignore_patterns):
 
 def format_sas_data(sas):
     """Re-format SAS connection details for a single connection.
-    Also handle different VICI versions.
 
     VICI returns all scalars as `bytes` at runtime, while the JSON
     fixtures used by the unit tests hold already-decoded `str`
@@ -170,43 +173,66 @@ def format_sas_data(sas):
     anything else (including `str`) is passed through unchanged.
     Decoding uses the Latin-1 fallback so a non-UTF-8 identity
     (for example a certificate DN) does not crash the output.
+
+    Several keys are optional: VICI omits them instead of sending
+    them empty, so none of them can be accessed directly.
+
+    * The algorithm keys are only sent once a proposal has been
+      negotiated, which happens during IKE_SA_INIT. A connecting SA
+      may therefore carry none of them yet.
+    * `integ-alg` is missing for an AEAD cipher such as AES_GCM,
+      which carries no separate integrity transform (#806).
+    * `encr-keysize` is missing for a fixed-key cipher such as 3DES.
+    * `established`, `rekey-time` and `reauth-time` are only sent for
+      an established SA, so all three are missing not only while the
+      SA is connecting, but also while it is rekeying or being
+      deleted.
+    * `rekey-time` and `reauth-time` are sent independently of each
+      other, and only if the peer config renews the connection that
+      way.
+
+    `established` and `rekey-time` come back as `None` when VICI omits
+    them, so that the caller can skip their performance data instead
+    of emitting a non-numeric value.
     """
     data = {}
     for key, value in sas.items():
         if isinstance(value, bytes):
-            data[key] = lib.txt.to_text(value, errors='strict_or_latin1')
+            value = lib.txt.to_text(value, errors='strict_or_latin1')
         elif isinstance(value, bytearray):
-            data[key] = lib.txt.to_text(b', '.join(value), errors='strict_or_latin1')
-        else:
-            data[key] = value
-        if key in ('integ-alg', 'encr-alg', 'prf-alg', 'dh-group') and not value:
+            value = lib.txt.to_text(b', '.join(value), errors='strict_or_latin1')
+        if key in OPTIONAL_ALG_KEYS and not value:
+            # VICI omits an algorithm key rather than sending it
+            # empty. Drop an empty one anyway, so that both shapes
+            # take the same "not negotiated" path below.
             continue
-        # handle different versions:
-        if key == 'reauth-time':  # v5.7
-            data['rekey-time'] = data['reauth-time']  # v5.9
+        data[key] = value
+        # An SA is renewed either by rekeying or by re-authentication,
+        # depending on the peer config. VICI sends `reauth-time` after
+        # `rekey-time`, so re-authentication wins when both are sent,
+        # which is what the "Re-Authentication" column reports.
+        if key == 'reauth-time':
+            data['rekey-time'] = data['reauth-time']
 
-    # If a connection uses AES GCM encryption (or probably an other AEAD algorithm) the vici
-    # interface does not return several keys at all. There is no key without value but the
-    # key is missing in the dictionary, so we set some defaults here.
-    data.setdefault('integ-alg', 'None')
-    data.setdefault('encr-alg', 'None')
-    data.setdefault('encr-keysize', '')
-    data.setdefault('prf-alg', 'None')
-    data.setdefault('dh-group', 'None')
-
+    # Join the key size to the algorithm only if VICI sent one,
+    # otherwise a fixed-key cipher renders a dangling dash ("3DES-").
+    encr = data.get('encr-alg', 'None')
+    if data.get('encr-keysize'):
+        encr = f'{encr}-{data["encr-keysize"]}'
     data['encr'] = (
-        f'{data["encr-alg"]}-{data["encr-keysize"]}'
-        f'/{data["integ-alg"]}'
-        f'/{data["prf-alg"]}'
-        f'/{data["dh-group"]}'
+        f'{encr}'
+        f'/{data.get("integ-alg", "None")}'
+        f'/{data.get("prf-alg", "None")}'
+        f'/{data.get("dh-group", "None")}'
     )
 
     if 'established' in data:
+        data['established'] = int(data['established'])
         data['established-hr'] = lib.time.epoch2iso(
-            lib.time.now(as_type='epoch') - int(data['established'])
+            lib.time.now(as_type='epoch') - data['established']
         )
     else:
-        data['established'] = 'None'
+        data['established'] = None
         data['established-hr'] = 'n/a'
     if data['local-id'] != data['local-host']:
         data['local'] = (
@@ -215,11 +241,13 @@ def format_sas_data(sas):
     else:
         data['local'] = f'{data["local-host"]}:{data["local-port"]}'
     if 'rekey-time' in data:
+        data['rekey-time'] = int(data['rekey-time'])
         data['rekey-time-hr'] = lib.time.epoch2iso(
-            lib.time.now(as_type='epoch') + int(data['rekey-time'])
+            lib.time.now(as_type='epoch') + data['rekey-time']
         )
     else:
-        data['rekey-time'] = 'n/a'
+        data['rekey-time'] = None
+        data['rekey-time-hr'] = 'n/a'
 
     if data['remote-id'] != data['remote-host']:
         data['remote'] = (
@@ -272,10 +300,14 @@ def format_child_data(child):
 
     data['child-bytes-in-hr'] = lib.human.bytes2human(data['child-bytes-in'])
     data['child-bytes-out-hr'] = lib.human.bytes2human(data['child-bytes-out'])
+    # Join the key size to the algorithm only if VICI sent one,
+    # otherwise a fixed-key cipher renders a dangling dash ("3DES-").
+    child_encr = data['child-encr-alg']
+    if data['child-encr-keysize']:
+        child_encr = f'{child_encr}-{data["child-encr-keysize"]}'
     data['child-encr'] = (
         f'{data["child-protocol"]}:'
-        f'{data["child-encr-alg"]}-'
-        f'{data["child-encr-keysize"]}'
+        f'{child_encr}'
         f'/{data["child-integ-alg"]}'
         f'/{data["child-dh-group"]}'
     )
@@ -420,6 +452,8 @@ def main():
                 continue
             row = format_sas_data(details)
             row['conn'] = key
+            # Both are absent unless the SA is established, and
+            # performance data values have to be numeric.
             if row['established'] is not None:
                 perfdata += lib.base.get_perfdata(
                     f'{key}_established',
@@ -427,12 +461,13 @@ def main():
                     uom='s',
                     _min=0,
                 )
-            perfdata += lib.base.get_perfdata(
-                f'{key}_rekey-time',
-                row['rekey-time'],
-                uom='s',
-                _min=0,
-            )
+            if row['rekey-time'] is not None:
+                perfdata += lib.base.get_perfdata(
+                    f'{key}_rekey-time',
+                    row['rekey-time'],
+                    uom='s',
+                    _min=0,
+                )
 
             children = details.get('child-sas') or None
             if children == {}:

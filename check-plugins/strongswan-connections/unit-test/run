@@ -124,6 +124,35 @@ TESTS = [
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Invalid regular expression'],
     },
+    # #806: VICI omits optional keys instead of sending them empty.
+    # An SA that has not negotiated a proposal yet carries none of the
+    # algorithm keys, and no `established`/`rekey-time` either, which
+    # used to crash the check with a KeyError. The connection has no
+    # child SA yet, so the check warns; the point of the test is that
+    # it renders at all, and that the two absent timers are left out
+    # of the performance data instead of being emitted non-numeric.
+    {
+        'id': 'warn-connecting-connection-has-no-algorithms',
+        'test': 'stdout/connecting-connection,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['S2S_SITE-A not connected at child level'],
+        'assert-not-in': [
+            'S2S_SITE-A_established',
+            'S2S_SITE-A_rekey-time',
+            'Traceback',
+        ],
+    },
+    # #806: a fixed-key cipher such as 3DES has no key size, so VICI
+    # omits `encr-keysize` even for an established SA. The algorithm
+    # has to render without a dangling dash.
+    {
+        'id': 'ok-fixed-key-cipher-omits-keysize',
+        'test': 'stdout/fixed-key-cipher-connection,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', '3DES/HMAC_SHA2_256_128/'],
+        'assert-not-in': ['3DES-/'],
+    },
 ]
 
 

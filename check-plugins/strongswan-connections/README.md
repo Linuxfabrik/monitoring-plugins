@@ -122,8 +122,8 @@ acme      ! EST   ! 2022-05-10 15:03:43 ! 2022-05-11 14:57:14 ! v2  ! 198.51.100
 
 | Name | Type | Description |
 |----|----|----|
-| \<connname\>\_established | Seconds | Seconds the IKE SA has been established |
-| \<connname\>\_rekey-time | Seconds | Seconds before IKE SA gets rekeyed |
+| \<connname\>\_established | Seconds | Seconds the IKE SA has been established. Only reported once the connection is established. |
+| \<connname\>\_rekey-time | Seconds | Seconds before IKE SA gets rekeyed. Only reported once the connection is established, and only if the peer configuration renews the connection. |
 | \<connname\>\_\<childname\>\_bytes-in | Bytes | Number of input bytes processed |
 | \<connname\>\_\<childname\>\_bytes-out | Bytes | Number of output bytes processed |
 | \<connname\>\_\<childname\>\_install-time | Seconds | Seconds the CHILD SA has been installed |
