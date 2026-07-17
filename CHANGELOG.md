@@ -85,8 +85,11 @@ Monitoring Plugins:
 * redfish-\*: `--cache-expire` (default now 5 minutes) also caches the Redfish session and API responses, so the several Redfish checks on a host share one session and fetched data instead of each re-reading it from the controller ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 * redfish-\*: reads each component collection in one request where the controller supports it, so checks on servers with many sensors, drives or firmware components no longer time out ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 * redfish-\*: the Redfish API URL is now a mandatory `--url`, dropping the misleading localhost default ([#1306](https://github.com/Linuxfabrik/monitoring-plugins/issues/1306))
+* strongswan-connections: a connection being rekeyed, or one shared by several peers, no longer raises a false alarm or writes garbled graph data
+* strongswan-connections: a connection that has not carried traffic yet no longer graphs a made-up zero byte count
 * strongswan-connections: a connection that is still connecting, or one using a fixed-key cipher such as 3DES, no longer makes the check crash ([#806](https://github.com/Linuxfabrik/monitoring-plugins/issues/806))
 * strongswan-connections: a connection that never expires no longer graphs a made-up "expires right now", and an overdue re-keying is graphed as the negative value it is
+* strongswan-connections: the re-keying and re-authentication times are graphed as the two separate values they are
 * systemd-unit: the bundled Ubuntu service sets check `ssh.service`, so the SSH unit check works on Ubuntu again instead of reporting the unit as missing ([#1373](https://github.com/Linuxfabrik/monitoring-plugins/issues/1373))
 
 ### Security

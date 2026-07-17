@@ -33,14 +33,14 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071702'
+__version__ = '2026071703'
 
 DESCRIPTION = """Checks IPSec connection states on a strongSwan VPN gateway. Connects to the charon
 daemon via the VICI interface to retrieve IKE SA and CHILD SA states. Alerts on
 connections that are not in the expected established state. Connection names can be
 filtered out with --ignore, which is useful for gateways that mix permanent site-to-site
 peers with transient remote-access clients where only the site-to-site peers should
-drive the alert.
+drive the alert. Supports extended reporting via --lengthy.
 Requires root or sudo."""
 
 DEFAULT_LENGTHY = False
@@ -136,18 +136,61 @@ def parse_args():
 
 
 def _collect_keys(entries):
-    """Return the sorted list of dict keys from a sequence of
+    """Return the sorted list of unique dict keys from a sequence of
     single-key dicts. VICI's `list_conns()` and `list_sas()` both
     yield one-key-per-dict entries, which makes them interchangeable
     for a simple key collection. The production path passes the
     VICI generator directly; the test path passes a pre-loaded
     list from the JSON fixture.
+
+    The keys have to be deduplicated: VICI keys each IKE SA by the
+    connection name it uses, which is not unique, so `list_sas()` can
+    yield the same key more than once (see `_primary_uniqueids()`).
+    `list_conns()` keys are unique, so without the dedup the
+    "configured but not active" comparison of the two lists reports a
+    spurious warning for every connection that has more than one SA.
     """
-    keys = []
+    keys = set()
     for entry in entries:
-        keys.extend(entry.keys())
-    keys.sort()
-    return keys
+        keys.update(entry.keys())
+    return sorted(keys)
+
+
+def _sa_rank(details):
+    """Rank an IKE SA so that the primary one of several SAs sharing a
+    connection name can be picked. An established SA beats one in any
+    other state, and the most recent SA (the highest `uniqueid`) wins
+    if that does not decide it.
+    """
+    state = lib.txt.to_text(details.get('state', ''))
+    try:
+        uniqueid = int(lib.txt.to_text(details.get('uniqueid', 0)))
+    except ValueError:
+        uniqueid = 0
+    return (state == 'ESTABLISHED', uniqueid)
+
+
+def _primary_uniqueids(list_sas, keyset):
+    """Return a dict mapping a connection name to the `uniqueid` of the
+    SA whose performance data is reported for it.
+
+    VICI keys each IKE SA by the connection name the SA uses, and that
+    name is not unique: while an IKE SA is being rekeyed the old and the
+    new SA are both reported under it, and a gateway on which several
+    peers share one connection name reports one SA per peer. Since the
+    performance data labels are built from that name, reporting every SA
+    would emit the same label several times in one line. Report the
+    primary SA per name instead. The table still lists every SA.
+    """
+    primary = {}
+    for sas in list_sas:
+        for key, details in sas.items():
+            if key not in keyset:
+                continue
+            rank = _sa_rank(details)
+            if key not in primary or rank > primary[key]:
+                primary[key] = rank
+    return {key: rank[1] for key, rank in primary.items()}
 
 
 def keep_connection(name, match_patterns, ignore_patterns):
@@ -187,13 +230,13 @@ def format_sas_data(sas):
       an established SA, so all three are missing not only while the
       SA is connecting, but also while it is rekeying or being
       deleted.
-    * `rekey-time` and `reauth-time` are sent independently of each
-      other, and only if the peer config renews the connection that
-      way.
+    * `rekey-time` and `reauth-time` are two different things, and are
+      sent independently of each other: an SA is renewed by rekeying,
+      by re-authentication, or by both, depending on the peer config.
 
-    `established` and `rekey-time` come back as `None` when VICI omits
-    them, so that the caller can skip their performance data instead
-    of emitting a non-numeric value.
+    `established`, `reauth-time` and `rekey-time` come back as `None`
+    when VICI omits them, so that the caller can skip their performance
+    data instead of emitting a non-numeric value.
     """
     data = {}
     for key, value in sas.items():
@@ -207,12 +250,6 @@ def format_sas_data(sas):
             # take the same "not negotiated" path below.
             continue
         data[key] = value
-        # An SA is renewed either by rekeying or by re-authentication,
-        # depending on the peer config. VICI sends `reauth-time` after
-        # `rekey-time`, so re-authentication wins when both are sent,
-        # which is what the "Re-Authentication" column reports.
-        if key == 'reauth-time':
-            data['rekey-time'] = data['reauth-time']
 
     # Join the key size to the algorithm only if VICI sent one,
     # otherwise a fixed-key cipher renders a dangling dash ("3DES-").
@@ -226,28 +263,35 @@ def format_sas_data(sas):
         f'/{data.get("dh-group", "None")}'
     )
 
-    if 'established' in data:
-        data['established'] = int(data['established'])
+    # `established` counts up from the moment the SA was established,
+    # while `reauth-time` and `rekey-time` count down to a deadline.
+    data['established'] = _optional_int(data, 'established')
+    if data['established'] is None:
+        data['established-hr'] = 'n/a'
+    else:
         data['established-hr'] = lib.time.epoch2iso(
             lib.time.now(as_type='epoch') - data['established']
         )
-    else:
-        data['established'] = None
-        data['established-hr'] = 'n/a'
     if data['local-id'] != data['local-host']:
         data['local'] = (
             f'{data["local-host"]}:{data["local-port"]} ("{data["local-id"]}")'
         )
     else:
         data['local'] = f'{data["local-host"]}:{data["local-port"]}'
-    if 'rekey-time' in data:
-        data['rekey-time'] = int(data['rekey-time'])
+    data['reauth-time'] = _optional_int(data, 'reauth-time')
+    if data['reauth-time'] is None:
+        data['reauth-time-hr'] = 'n/a'
+    else:
+        data['reauth-time-hr'] = lib.time.epoch2iso(
+            lib.time.now(as_type='epoch') + data['reauth-time']
+        )
+    data['rekey-time'] = _optional_int(data, 'rekey-time')
+    if data['rekey-time'] is None:
+        data['rekey-time-hr'] = 'n/a'
+    else:
         data['rekey-time-hr'] = lib.time.epoch2iso(
             lib.time.now(as_type='epoch') + data['rekey-time']
         )
-    else:
-        data['rekey-time'] = None
-        data['rekey-time-hr'] = 'n/a'
 
     if data['remote-id'] != data['remote-host']:
         data['remote'] = (
@@ -272,18 +316,26 @@ def _join_traffic_selectors(values):
     return ', '.join(lib.txt.to_text(v, errors='strict_or_latin1') for v in values)
 
 
-def _optional_timer(child, key):
-    """Return a CHILD SA timer in seconds, or `None` if VICI omitted it.
+def _optional_int(details, key):
+    """Return an integer VICI value in seconds or bytes, or `None` if
+    VICI omitted it.
 
-    VICI only sends the timers of a CHILD SA that is installed, and
-    sends `life-time` and `rekey-time` only if the SA expires at all.
-    An absent timer is unknown, which is not the same as zero: a
-    zero `life-time` would read as "expires right now".
+    VICI reports the traffic counters and the timers of a CHILD SA only
+    once the SA is installed, and reports `life-time` and `rekey-time`
+    only if the SA expires at all. It omits a key rather than sending it
+    empty, but an empty value is treated as absent too, so that both
+    shapes take the same path.
+
+    An absent value is unknown, which is not the same as zero: a zero
+    `life-time` reads as "expires right now", and zero `bytes-in` reads
+    as "this SA has carried no traffic".
     """
-    value = child.get(key)
-    if value is None:
+    value = details.get(key)
+    if isinstance(value, bytes):
+        value = lib.txt.to_text(value)
+    if value is None or value == '':
         return None
-    return int(lib.txt.to_text(value))
+    return int(value)
 
 
 def format_child_data(child):
@@ -291,19 +343,20 @@ def format_child_data(child):
     This is much more volatile (depending on the conn state), so list all expected keys manually
     and return empty defaults if necessary.
 
-    `child-install-time`, `child-life-time` and `child-rekey-time` are
-    `None` when VICI omits them, so that the caller can skip their
-    performance data instead of trending a made-up zero.
+    `child-bytes-in`, `child-bytes-out`, `child-install-time`,
+    `child-life-time` and `child-rekey-time` are `None` when VICI omits
+    them, so that the caller can skip their performance data instead of
+    trending a made-up zero.
     """
     data = {}
-    data['child-bytes-in'] = int(lib.txt.to_text(child.get('bytes-in', 0)))
-    data['child-bytes-out'] = int(lib.txt.to_text(child.get('bytes-out', 0)))
+    data['child-bytes-in'] = _optional_int(child, 'bytes-in')
+    data['child-bytes-out'] = _optional_int(child, 'bytes-out')
     data['child-dh-group'] = lib.txt.to_text(child.get('dh-group', ''))
     data['child-encr-alg'] = lib.txt.to_text(child.get('encr-alg', ''))
     data['child-encr-keysize'] = lib.txt.to_text(child.get('encr-keysize', ''))
-    data['child-install-time'] = _optional_timer(child, 'install-time')
+    data['child-install-time'] = _optional_int(child, 'install-time')
     data['child-integ-alg'] = lib.txt.to_text(child.get('integ-alg', 'None'))
-    data['child-life-time'] = _optional_timer(child, 'life-time')
+    data['child-life-time'] = _optional_int(child, 'life-time')
     data['child-local-ts'] = _join_traffic_selectors(child.get('local-ts'))
     data['child-mode'] = lib.txt.to_text(child.get('mode', ''))
     # child-name is the admin-configured connection name and may carry non-ASCII
@@ -312,12 +365,18 @@ def format_child_data(child):
         child.get('name', ''), errors='strict_or_latin1'
     )
     data['child-protocol'] = lib.txt.to_text(child.get('protocol', ''))
-    data['child-rekey-time'] = _optional_timer(child, 'rekey-time')
+    data['child-rekey-time'] = _optional_int(child, 'rekey-time')
     data['child-remote-ts'] = _join_traffic_selectors(child.get('remote-ts'))
     data['child-state'] = lib.txt.to_text(child.get('state', ''))
 
-    data['child-bytes-in-hr'] = lib.human.bytes2human(data['child-bytes-in'])
-    data['child-bytes-out-hr'] = lib.human.bytes2human(data['child-bytes-out'])
+    if data['child-bytes-in'] is None:
+        data['child-bytes-in-hr'] = 'n/a'
+    else:
+        data['child-bytes-in-hr'] = lib.human.bytes2human(data['child-bytes-in'])
+    if data['child-bytes-out'] is None:
+        data['child-bytes-out-hr'] = 'n/a'
+    else:
+        data['child-bytes-out-hr'] = lib.human.bytes2human(data['child-bytes-out'])
     # Join the key size to the algorithm only if VICI sent one,
     # otherwise a fixed-key cipher renders a dangling dash ("3DES-").
     child_encr = data['child-encr-alg']
@@ -473,24 +532,37 @@ def main():
     # `sas[name]` for every `active_connection_keys` item (which was
     # O(n*m) and relied on a bare `except` to probe for presence).
     active_keyset = set(active_connection_keys)
+    # VICI keys each IKE SA by a non-unique connection name, so several
+    # SAs can share one key. Report the performance data of one primary
+    # SA per key, otherwise a rekeying IKE SA or a shared connection
+    # name emits the same label more than once. The table lists them all.
+    primary_uniqueids = _primary_uniqueids(list_sas, active_keyset)
     for sas in list_sas:
         for key, details in sas.items():
             if key not in active_keyset:
                 continue
             row = format_sas_data(details)
             row['conn'] = key
-            # Both are absent unless the SA is established, and
+            uniqueid = lib.txt.to_text(details.get('uniqueid', ''))
+            is_primary = uniqueid == str(primary_uniqueids.get(key, ''))
+            # The timers are absent unless the SA is established, and
             # performance data values have to be numeric.
-            if row['established'] is not None:
+            if is_primary and row['established'] is not None:
                 perfdata += lib.base.get_perfdata(
                     f'{key}_established',
                     row['established'],
                     uom='s',
                     _min=0,
                 )
-            if row['rekey-time'] is not None:
-                # No _min: VICI reports the time left until the rekey,
-                # which goes negative once the rekey is overdue.
+            # No _min on the two below: VICI reports the time left,
+            # which goes negative once the deadline is overdue.
+            if is_primary and row['reauth-time'] is not None:
+                perfdata += lib.base.get_perfdata(
+                    f'{key}_reauth-time',
+                    row['reauth-time'],
+                    uom='s',
+                )
+            if is_primary and row['rekey-time'] is not None:
                 perfdata += lib.base.get_perfdata(
                     f'{key}_rekey-time',
                     row['rekey-time'],
@@ -508,21 +580,25 @@ def main():
                     table_data.append(
                         {k: v for d in (row, child_row) for k, v in d.items()}
                     )
-                    perfdata += lib.base.get_perfdata(
-                        f'{key}_{child_row["child-name"]}_bytes-in',
-                        child_row['child-bytes-in'],
-                        uom='B',
-                        _min=0,
-                    )
-                    perfdata += lib.base.get_perfdata(
-                        f'{key}_{child_row["child-name"]}_bytes-out',
-                        child_row['child-bytes-out'],
-                        uom='B',
-                        _min=0,
-                    )
-                    # The timers are absent unless the CHILD SA is
-                    # installed, and the two lifetimes also depend on
-                    # the SA expiring at all.
+                    if not is_primary:
+                        continue
+                    # The counters and timers are absent unless the
+                    # CHILD SA is installed, and the two lifetimes also
+                    # depend on the SA expiring at all.
+                    if child_row['child-bytes-in'] is not None:
+                        perfdata += lib.base.get_perfdata(
+                            f'{key}_{child_row["child-name"]}_bytes-in',
+                            child_row['child-bytes-in'],
+                            uom='B',
+                            _min=0,
+                        )
+                    if child_row['child-bytes-out'] is not None:
+                        perfdata += lib.base.get_perfdata(
+                            f'{key}_{child_row["child-name"]}_bytes-out',
+                            child_row['child-bytes-out'],
+                            uom='B',
+                            _min=0,
+                        )
                     if child_row['child-install-time'] is not None:
                         perfdata += lib.base.get_perfdata(
                             f'{key}_{child_row["child-name"]}_install-time',
@@ -544,7 +620,10 @@ def main():
                             child_row['child-rekey-time'],
                             uom='s',
                         )
-            else:
+            elif is_primary:
+                # Only the primary SA drives the alert: a transient
+                # second SA under the same name (during an IKE rekey)
+                # may legitimately carry no child yet.
                 child_state = STATE_WARN
                 state = lib.base.get_worst(state, child_state)
                 msg += (
@@ -573,7 +652,7 @@ def main():
             headers = [
                 'Conn.',
                 'State',
-                'Re-Authentication',
+                'IKE Re-Keying',
                 'Child',
                 'Mode:State',
                 'Re-Keying',
@@ -586,6 +665,7 @@ def main():
                 'conn',
                 'state',
                 'established-hr',
+                'reauth-time-hr',
                 'rekey-time-hr',
                 'version',
                 'local',
@@ -607,6 +687,7 @@ def main():
                 'State',
                 'Established',
                 'Re-Authentication',
+                'Re-Keying',
                 'IKE',
                 'Local',
                 'Remote',

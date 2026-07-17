@@ -43,8 +43,8 @@ charon daemon via the VICI interface to retrieve IKE SA and CHILD SA states.
 Alerts on connections that are not in the expected established state.
 Connection names can be filtered out with --ignore, which is useful for
 gateways that mix permanent site-to-site peers with transient remote-access
-clients where only the site-to-site peers should drive the alert. Requires
-root or sudo.
+clients where only the site-to-site peers should drive the alert. Supports
+extended reporting via --lengthy. Requires root or sudo.
 
 options:
   -h, --help       show this help message and exit
@@ -123,9 +123,10 @@ acme      ! EST   ! 2022-05-10 15:03:43 ! 2022-05-11 14:57:14 ! v2  ! 198.51.100
 | Name | Type | Description |
 |----|----|----|
 | \<connname\>\_established | Seconds | Seconds the IKE SA has been established. Only reported once the connection is established. |
-| \<connname\>\_rekey-time | Seconds | Seconds before IKE SA gets rekeyed, negative once the rekey is overdue. Only reported once the connection is established, and only if the peer configuration renews the connection. |
-| \<connname\>\_\<childname\>\_bytes-in | Bytes | Number of input bytes processed |
-| \<connname\>\_\<childname\>\_bytes-out | Bytes | Number of output bytes processed |
+| \<connname\>\_reauth-time | Seconds | Seconds before the IKE SA gets re-authenticated, negative once it is overdue. Only reported once the connection is established, and only if the peer configuration re-authenticates it. |
+| \<connname\>\_rekey-time | Seconds | Seconds before IKE SA gets rekeyed, negative once the rekey is overdue. Only reported once the connection is established, and only if the peer configuration rekeys it. |
+| \<connname\>\_\<childname\>\_bytes-in | Bytes | Number of input bytes processed. Only reported once the CHILD SA is installed. |
+| \<connname\>\_\<childname\>\_bytes-out | Bytes | Number of output bytes processed. Only reported once the CHILD SA is installed. |
 | \<connname\>\_\<childname\>\_install-time | Seconds | Seconds the CHILD SA has been installed. Only reported once the CHILD SA is installed. |
 | \<connname\>\_\<childname\>\_life-time | Seconds | Seconds before CHILD SA expires, negative once it is overdue. Only reported for a CHILD SA that expires. |
 | \<connname\>\_\<childname\>\_rekey-time | Seconds | Seconds before CHILD SA gets rekeyed, negative once the rekey is overdue. Only reported for a CHILD SA that gets rekeyed. |

@@ -168,6 +168,50 @@ TESTS = [
             'conn2_xxxx_rekey-time',
         ],
     },
+    # VICI sends `rekey-time` and `reauth-time` as two independent
+    # values; they must not be conflated. The IKE SA renews by rekeying
+    # in 3600s and re-authenticating in 86000s, so both have to appear
+    # in the performance data with their own value.
+    {
+        'id': 'ok-reauth-and-rekey-reported-separately',
+        'test': 'stdout/reauth-and-rekey-connection,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            "'conn2_rekey-time'=3600s",
+            "'conn2_reauth-time'=86000s",
+        ],
+    },
+    # An IKE SA is keyed by its non-unique connection name, so a
+    # rekeying SA appears twice under the same name. The check must not
+    # report the duplicate as "configured but not active", and must not
+    # emit the same performance data label twice: only the primary
+    # (established) SA drives the perfdata, while the table lists both.
+    {
+        'id': 'ok-rekeying-duplicate-sa-no-false-alarm',
+        'test': 'stdout/rekeying-duplicate-sa,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', "'conn2_xxxx_bytes-in'=114397277B"],
+        'assert-not-in': [
+            'configured',
+            "'conn2_xxxx_bytes-in'=9000000B",
+        ],
+    },
+    # A CHILD SA that is not yet installed carries no traffic counters
+    # at all. An absent counter is unknown, not zero: emitting 0 would
+    # read as "this SA has carried no traffic", so it is left out.
+    {
+        'id': 'ok-child-not-installed-omits-counters',
+        'test': 'stdout/child-not-installed-omits-counters,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+        'assert-not-in': [
+            'conn2_xxxx_bytes-in',
+            'conn2_xxxx_bytes-out',
+        ],
+    },
 ]
 
 
