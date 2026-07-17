@@ -153,6 +153,21 @@ TESTS = [
         'assert-in': ['Everything is ok.', '3DES/HMAC_SHA2_256_128/'],
         'assert-not-in': ['3DES-/'],
     },
+    # A CHILD SA that never expires: VICI omits `rekey-time` and
+    # `life-time`, which are unknown rather than zero. Neither may be
+    # trended as 0 ("expires right now"), while the timers VICI does
+    # send are reported as usual.
+    {
+        'id': 'ok-child-without-lifetime-omits-timers',
+        'test': 'stdout/child-without-lifetime,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', "'conn2_xxxx_install-time'=22444s;;;0"],
+        'assert-not-in': [
+            'conn2_xxxx_life-time',
+            'conn2_xxxx_rekey-time',
+        ],
+    },
 ]
 
 

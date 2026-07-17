@@ -123,12 +123,12 @@ acme      ! EST   ! 2022-05-10 15:03:43 ! 2022-05-11 14:57:14 ! v2  ! 198.51.100
 | Name | Type | Description |
 |----|----|----|
 | \<connname\>\_established | Seconds | Seconds the IKE SA has been established. Only reported once the connection is established. |
-| \<connname\>\_rekey-time | Seconds | Seconds before IKE SA gets rekeyed. Only reported once the connection is established, and only if the peer configuration renews the connection. |
+| \<connname\>\_rekey-time | Seconds | Seconds before IKE SA gets rekeyed, negative once the rekey is overdue. Only reported once the connection is established, and only if the peer configuration renews the connection. |
 | \<connname\>\_\<childname\>\_bytes-in | Bytes | Number of input bytes processed |
 | \<connname\>\_\<childname\>\_bytes-out | Bytes | Number of output bytes processed |
-| \<connname\>\_\<childname\>\_install-time | Seconds | Seconds the CHILD SA has been installed |
-| \<connname\>\_\<childname\>\_life-time | Seconds | Seconds before CHILD SA expires |
-| \<connname\>\_\<childname\>\_rekey-time | Seconds | Seconds before CHILD SA gets rekeyed |
+| \<connname\>\_\<childname\>\_install-time | Seconds | Seconds the CHILD SA has been installed. Only reported once the CHILD SA is installed. |
+| \<connname\>\_\<childname\>\_life-time | Seconds | Seconds before CHILD SA expires, negative once it is overdue. Only reported for a CHILD SA that expires. |
+| \<connname\>\_\<childname\>\_rekey-time | Seconds | Seconds before CHILD SA gets rekeyed, negative once the rekey is overdue. Only reported for a CHILD SA that gets rekeyed. |
 
 
 ## Troubleshooting

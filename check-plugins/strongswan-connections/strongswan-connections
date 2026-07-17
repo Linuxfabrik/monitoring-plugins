@@ -33,7 +33,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071701'
+__version__ = '2026071702'
 
 DESCRIPTION = """Checks IPSec connection states on a strongSwan VPN gateway. Connects to the charon
 daemon via the VICI interface to retrieve IKE SA and CHILD SA states. Alerts on
@@ -272,10 +272,28 @@ def _join_traffic_selectors(values):
     return ', '.join(lib.txt.to_text(v, errors='strict_or_latin1') for v in values)
 
 
+def _optional_timer(child, key):
+    """Return a CHILD SA timer in seconds, or `None` if VICI omitted it.
+
+    VICI only sends the timers of a CHILD SA that is installed, and
+    sends `life-time` and `rekey-time` only if the SA expires at all.
+    An absent timer is unknown, which is not the same as zero: a
+    zero `life-time` would read as "expires right now".
+    """
+    value = child.get(key)
+    if value is None:
+        return None
+    return int(lib.txt.to_text(value))
+
+
 def format_child_data(child):
     """Re-format child connection details for a single sub connection.
     This is much more volatile (depending on the conn state), so list all expected keys manually
     and return empty defaults if necessary.
+
+    `child-install-time`, `child-life-time` and `child-rekey-time` are
+    `None` when VICI omits them, so that the caller can skip their
+    performance data instead of trending a made-up zero.
     """
     data = {}
     data['child-bytes-in'] = int(lib.txt.to_text(child.get('bytes-in', 0)))
@@ -283,9 +301,9 @@ def format_child_data(child):
     data['child-dh-group'] = lib.txt.to_text(child.get('dh-group', ''))
     data['child-encr-alg'] = lib.txt.to_text(child.get('encr-alg', ''))
     data['child-encr-keysize'] = lib.txt.to_text(child.get('encr-keysize', ''))
-    data['child-install-time'] = int(lib.txt.to_text(child.get('install-time', 0)))
+    data['child-install-time'] = _optional_timer(child, 'install-time')
     data['child-integ-alg'] = lib.txt.to_text(child.get('integ-alg', 'None'))
-    data['child-life-time'] = int(lib.txt.to_text(child.get('life-time', 0)))
+    data['child-life-time'] = _optional_timer(child, 'life-time')
     data['child-local-ts'] = _join_traffic_selectors(child.get('local-ts'))
     data['child-mode'] = lib.txt.to_text(child.get('mode', ''))
     # child-name is the admin-configured connection name and may carry non-ASCII
@@ -294,7 +312,7 @@ def format_child_data(child):
         child.get('name', ''), errors='strict_or_latin1'
     )
     data['child-protocol'] = lib.txt.to_text(child.get('protocol', ''))
-    data['child-rekey-time'] = int(lib.txt.to_text(child.get('rekey-time', 0)))
+    data['child-rekey-time'] = _optional_timer(child, 'rekey-time')
     data['child-remote-ts'] = _join_traffic_selectors(child.get('remote-ts'))
     data['child-state'] = lib.txt.to_text(child.get('state', ''))
 
@@ -311,16 +329,25 @@ def format_child_data(child):
         f'/{data["child-integ-alg"]}'
         f'/{data["child-dh-group"]}'
     )
-    data['child-install-time-hr'] = lib.time.epoch2iso(
-        lib.time.now(as_type='epoch') - data['child-install-time']
-    )
-    data['child-life-time-hr'] = lib.time.epoch2iso(
-        lib.time.now(as_type='epoch') + data['child-life-time']
-    )
+    if data['child-install-time'] is None:
+        data['child-install-time-hr'] = 'n/a'
+    else:
+        data['child-install-time-hr'] = lib.time.epoch2iso(
+            lib.time.now(as_type='epoch') - data['child-install-time']
+        )
+    if data['child-life-time'] is None:
+        data['child-life-time-hr'] = 'n/a'
+    else:
+        data['child-life-time-hr'] = lib.time.epoch2iso(
+            lib.time.now(as_type='epoch') + data['child-life-time']
+        )
     data['child-mode-state'] = f'{data["child-mode"]}:{data["child-state"]}'
-    data['child-rekey-time-hr'] = lib.time.epoch2iso(
-        lib.time.now(as_type='epoch') + data['child-rekey-time']
-    )
+    if data['child-rekey-time'] is None:
+        data['child-rekey-time-hr'] = 'n/a'
+    else:
+        data['child-rekey-time-hr'] = lib.time.epoch2iso(
+            lib.time.now(as_type='epoch') + data['child-rekey-time']
+        )
 
     return data
 
@@ -462,11 +489,12 @@ def main():
                     _min=0,
                 )
             if row['rekey-time'] is not None:
+                # No _min: VICI reports the time left until the rekey,
+                # which goes negative once the rekey is overdue.
                 perfdata += lib.base.get_perfdata(
                     f'{key}_rekey-time',
                     row['rekey-time'],
                     uom='s',
-                    _min=0,
                 )
 
             children = details.get('child-sas') or None
@@ -492,24 +520,30 @@ def main():
                         uom='B',
                         _min=0,
                     )
-                    perfdata += lib.base.get_perfdata(
-                        f'{key}_{child_row["child-name"]}_install-time',
-                        child_row['child-install-time'],
-                        uom='s',
-                        _min=0,
-                    )
-                    perfdata += lib.base.get_perfdata(
-                        f'{key}_{child_row["child-name"]}_life-time',
-                        child_row['child-life-time'],
-                        uom='s',
-                        _min=0,
-                    )
-                    perfdata += lib.base.get_perfdata(
-                        f'{key}_{child_row["child-name"]}_rekey-time',
-                        child_row['child-rekey-time'],
-                        uom='s',
-                        _min=0,
-                    )
+                    # The timers are absent unless the CHILD SA is
+                    # installed, and the two lifetimes also depend on
+                    # the SA expiring at all.
+                    if child_row['child-install-time'] is not None:
+                        perfdata += lib.base.get_perfdata(
+                            f'{key}_{child_row["child-name"]}_install-time',
+                            child_row['child-install-time'],
+                            uom='s',
+                            _min=0,
+                        )
+                    # No _min on the two below: VICI reports the time
+                    # left, which goes negative once they are overdue.
+                    if child_row['child-life-time'] is not None:
+                        perfdata += lib.base.get_perfdata(
+                            f'{key}_{child_row["child-name"]}_life-time',
+                            child_row['child-life-time'],
+                            uom='s',
+                        )
+                    if child_row['child-rekey-time'] is not None:
+                        perfdata += lib.base.get_perfdata(
+                            f'{key}_{child_row["child-name"]}_rekey-time',
+                            child_row['child-rekey-time'],
+                            uom='s',
+                        )
             else:
                 child_state = STATE_WARN
                 state = lib.base.get_worst(state, child_state)
