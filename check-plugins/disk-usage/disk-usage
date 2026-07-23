@@ -43,7 +43,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026072201'
 
 DESCRIPTION = """Checks used or free disk space for each mounted partition. By default, only physical
 devices are checked (hard disks, USB drives), ignoring pseudo and memory filesystems.
@@ -567,6 +567,11 @@ def main():
                     'avail': 'N/A',
                     'size': 'N/A',
                     'percent': 'N/A',
+                    # unreadable filesystems do not alert and sort to the
+                    # bottom of the usage-sorted table (see get_table below).
+                    '_state': STATE_OK,
+                    '_override': False,
+                    '_percent': -1.0,
                 }
             )
             continue
@@ -646,11 +651,13 @@ def main():
                 'percent': percent_cell,
                 # internal per-row fields, not rendered because get_table()
                 # uses an explicit column whitelist: per-row state for the
-                # --brief filter below, and whether a --mount override applied
+                # --brief filter below, whether a --mount override applied
                 # (so the single-mountpoint summary does not repeat the
-                # thresholds the Use% value already carries).
+                # thresholds the Use% value already carries), and the numeric
+                # usage percentage the table is sorted by.
                 '_state': disk_state,
                 '_override': is_override,
+                '_percent': usage.percent,
             }
         )
 
@@ -697,8 +704,9 @@ def main():
         table = lib.base.get_table(
             display_rows,
             ['mountpoint', 'type', 'size', 'used', 'avail', 'percent'],
-            ['Mountpoint', 'Type', 'Size', 'Used', 'Avail', 'Use%'],
-            'percent',
+            header=['Mountpoint', 'Type', 'Size', 'Used', 'Avail', 'Use%'],
+            sort_by_key='_percent',
+            sort_order_reverse=True,
         )
         msg = f'{header} ({thresholds})\n\n{table}'
 

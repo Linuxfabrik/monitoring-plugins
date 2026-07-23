@@ -77,6 +77,7 @@ Monitoring Plugins:
 * csv-values, json-values, strongswan-connections: non-UTF-8 input no longer crashes the check ([#256](https://github.com/Linuxfabrik/lib/issues/256))
 * disk-io: no longer produces false CRITICAL alerts from I/O wait on healthy systems, in particular on ZFS/Proxmox ([#1371](https://github.com/Linuxfabrik/monitoring-plugins/issues/1371))
 * disk-usage: performance data carries the warning and critical thresholds again ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
+* disk-usage: the filesystem table is sorted by usage (fullest first) instead of raw mount order
 * fs-inodes: an unreadable mount point (for example a Kubernetes CSI volume that requires root) no longer aborts the whole check; the readable filesystems are still checked ([#1387](https://github.com/Linuxfabrik/monitoring-plugins/issues/1387))
 * journald-query: a relative `--since` such as `-8h` from the Icinga Director works again ([#1264](https://github.com/Linuxfabrik/monitoring-plugins/issues/1264))
 * logfile: detects a logfile that an application rewrites from the beginning instead of appending to, which until now hid every new line from the check ([#1330](https://github.com/Linuxfabrik/monitoring-plugins/issues/1330))
