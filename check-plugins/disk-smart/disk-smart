@@ -11,6 +11,7 @@
 """See the check's README for more details."""
 
 import argparse
+import os
 import re
 import sys
 
@@ -22,22 +23,29 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026072301'
 
 DESCRIPTION = """Queries SMART (Self-Monitoring, Analysis, and Reporting Technology) data from hard
 disks and solid-state drives using smartctl. Inspects drive health attributes,
 error logs, and self-test results to detect failing or degraded drives before data
 loss occurs. Supports both SCSI and ATA drives, including drives behind hardware
-RAID controllers when the correct device type is specified.
+RAID controllers, using the device type reported by the drive scan. Devices smartctl
+cannot open are reported as inaccessible instead of aborting the whole check.
+Supports filtering drives by regular expression via --match and --ignore.
 Alerts when any drive reports failing health attributes, SMART errors, or failed self-tests.
 Requires root or sudo."""
 
-DEFAULT_IGNORE = []
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 
 CMD_LIST_DISKS = ['smartctl', '--scan-open']
-# Without forcing the device type (--device option), smartctl often fails with "Unable to read
-# device ID" (especially for external / USB drives)
+# The device type detected by the scan is appended to this command. Without forcing the device
+# type (--device option), smartctl often fails with "Unable to read device ID" (especially for
+# external / USB drives and for drives behind a hardware RAID controller).
 CMD_SMARTCTL = ['smartctl', '--xall']
+
+# Drive scan used in test mode when the fixture set does not ship its own `<fixture>-scan` file,
+# so the fixtures that only capture `smartctl --xall` output still run through the scan parser.
+DEFAULT_TEST_SCAN = '/dev/sda -d sat # /dev/sda [SAT], ATA device'
 
 
 def parse_args():
@@ -71,12 +79,26 @@ def parse_args():
 
     parser.add_argument(
         '--ignore',
-        help='Comma-separated list of disk names to ignore. '
-        'Example: `sda,sdb`. '
-        'Default: %(default)s',
+        help=lib.args.help('--ignore-regex'),
         dest='IGNORE',
-        type=lib.args.csv,
-        default=DEFAULT_IGNORE,
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match'),
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -96,6 +118,91 @@ def parse_args():
 
     args, _ = parser.parse_known_args()
     return args
+
+
+def parse_scan_line(line):
+    """Parse one line of `smartctl --scan-open` output.
+
+    A line consists of the device name, the options to pass on to smartctl, and a
+    comment holding the name smartctl reports the device under plus its protocol:
+
+        /dev/sda -d sat # /dev/sda [SAT], ATA device
+        /dev/bus/0 -d megaraid,0 # /dev/bus/0 [megaraid_disk_00], SCSI device
+
+    smartctl comments out devices it was unable to open and appends the reason to the
+    comment, which is what every device looks like when the scan runs unprivileged:
+
+        # /dev/nvme0 -d nvme # /dev/nvme0, NVMe device open failed: Permission denied
+
+    Returns a dict describing the device, or None for a line that describes none: a
+    blank line, or a scan diagnostic such as `# scan_smart_devices: <error>`, which
+    smartctl writes as a comment without the ` # ` separator a device line carries.
+    """
+    line = line.strip()
+    accessible = True
+    if line.startswith('#'):
+        accessible = False
+        line = line[1:].strip()
+
+    arguments, separator, comment = line.partition(' # ')
+    argv = arguments.split()
+    if not argv or (not accessible and not separator):
+        return None
+
+    comment = comment.strip()
+    return {
+        'accessible': accessible,
+        'comment': comment,
+        # the name smartctl reports the device under, for example `/dev/sda [SAT]` or
+        # `/dev/bus/0 [megaraid_disk_00]`, which is the only way to tell the drives
+        # behind one RAID controller apart, as they all share a single device name.
+        'info_name': comment.split(', ')[0],
+        'name': argv[0],
+        'options': argv[1:],
+    }
+
+
+def get_scan_open_error(comment):
+    """Return the reason a commented-out drive scan line gives for not opening the device.
+
+    >>> get_scan_open_error('/dev/nvme0, NVMe device open failed: Permission denied')
+    Permission denied
+    """
+    marker = 'open failed:'
+    if marker in comment:
+        return comment.split(marker, 1)[1].strip()
+    return comment or 'Unable to open the device.'
+
+
+def get_smartctl_error(stdout, stderr):
+    """Return smartctl's own error message, skipping its version banner and blank lines.
+
+    smartctl reports why it gave up on a device in plain text, for example
+    "Smartctl open device: /dev/nvme0 failed: Permission denied". That is a lot more
+    useful to an admin than the generic meaning of the exit status bit.
+    """
+    for line in f'{stderr}\n{stdout}'.splitlines():
+        line = line.strip()
+        if not line or line.startswith(('smartctl ', 'Copyright ', '===')):
+            continue
+        return line
+    return 'smartctl did not report a reason.'
+
+
+def get_test_scan(test_args):
+    """Return the drive scan to use in test mode.
+
+    Fixture sets that need a specific scan (inaccessible devices, a drive behind a RAID
+    controller) ship it as `<fixture>-scan` next to the `smartctl --xall` fixture. All
+    others fall back to a single ATA device. `lib.lftest.test()` returns a value that
+    does not resolve to a fixture unchanged, which is how a missing scan is detected.
+    """
+    scan_args = list(test_args)
+    scan_args[0] = f'{test_args[0]}-scan'
+    stdout, _, _ = lib.lftest.test(scan_args)
+    if stdout == scan_args[0]:
+        return DEFAULT_TEST_SCAN
+    return stdout
 
 
 def get_value(line):
@@ -1032,83 +1139,130 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
     # fetch data. `smartctl --scan-open` writes benign warnings about
     # unscannable devices to stderr while still listing the real disks on
     # stdout, so stderr is not treated as a failure here.
     if args.TEST is None:
-        stdout, _stderr, _retc = lib.base.coe(lib.shell.shell_exec(CMD_LIST_DISKS))
+        scan, _stderr, _retc = lib.base.coe(lib.shell.shell_exec(CMD_LIST_DISKS))
     else:
-        stdout, _stderr, _retc = 'sda  disk', '', 0
+        scan = get_test_scan(args.TEST)
 
-    # stdout:
-    # sda  disk
-    # sdb  disk
-    # sdc  disk
-    # sdd  disk
-    # sde  disk
-    # sdf  disk
-    # sdg  disk
-    # sdh  disk
+    # scan:
+    # /dev/sda -d sat # /dev/sda [SAT], ATA device
+    # /dev/sdb -d scsi # /dev/sdb, SCSI device
+    # /dev/nvme0 -d nvme # /dev/nvme0, NVMe device
 
     # init some vars
     msg_body = ''
-    smart_msg = ''
     state = STATE_OK
     perfdata = ''
     disk_count = 0
+    scan_count = 0
+    inaccessible = []
+    scan_errors = []
+    # `--ignore` used to take a comma-separated list of disk names, so keep splitting on
+    # commas to stay compatible with existing service definitions.
+    ignore = [item for entry in args.IGNORE for item in entry.split(',') if item]
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(ignore, '--ignore')
+    ]
 
-    for line in stdout.splitlines():
-        disk, _ = line.strip().split(maxsplit=1)
-        if not disk or disk in args.IGNORE:
+    # analyze data
+    for line in scan.splitlines():
+        device = parse_scan_line(line)
+        if device is None:
+            # a comment that does not describe a device is a diagnostic about the scan
+            # itself, for example `# scan_smart_devices: <error>`
+            if line.strip().startswith('#'):
+                scan_errors.append(line.strip().lstrip('#').strip())
+            continue
+        scan_count += 1
+
+        # Filter devices. --match (include) is applied first, then --ignore (exclude), so a
+        # device hit by --ignore is dropped even if it also matches --match. The device path
+        # (`/dev/sda`), the short device name (`sda`) and the name smartctl reports the
+        # device under (`/dev/bus/0 [megaraid_disk_00]`) are all matched, so an anchored
+        # pattern works against either spelling and a single drive behind a RAID controller
+        # can be filtered although it shares its device name with all the others.
+        names = (device['name'], os.path.basename(device['name']), device['info_name'])
+        if compiled_match and not any(
+            item.search(name) for item in compiled_match for name in names
+        ):
+            continue
+        if any(item.search(name) for item in compiled_ignore for name in names):
             continue
 
-        # fetch data
+        # smartctl comments out the devices it was unable to open. Running without root
+        # privileges comments out every single one of them, so report the reason smartctl
+        # gives instead of running the device name into a misleading follow-up error.
+        if not device['accessible']:
+            inaccessible.append(
+                (device['name'], get_scan_open_error(device['comment']))
+            )
+            state = lib.base.get_worst(STATE_UNKNOWN, state)
+            continue
+
+        # fetch data. smartctl reads the device name off the end of its command line
+        # (`argv[argc-1]`), so the options from the scan have to come first. Relying on
+        # getopt to permute the arguments would break wherever it does not: with
+        # POSIXLY_CORRECT set in the environment, and on a C library that does not
+        # implement the GNU permutation in the first place.
         if args.TEST is None:
-            cmd_smartctl = [*CMD_SMARTCTL, disk]
-            stdout, _stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd_smartctl))
+            cmd_smartctl = [*CMD_SMARTCTL, *device['options'], device['name']]
+            smartctl, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd_smartctl))
         else:
             # do not call the command, put in test data
-            stdout, _stderr, retc = lib.lftest.test(args.TEST)
-        # compare the retc using bitmasks according to the man page of smartctl
-        if retc & 1:
-            lib.base.cu(
-                'smartctl failed with exit status "Command line did not parse."'
-            )
-        if retc & 2:
-            lib.base.cu(
-                'smartctl failed with exit status "Device open '
-                'failed, device did not return an IDENTIFY DEVICE '
-                'structure, or device is in a low-power mode."'
-            )
+            smartctl, stderr, retc = lib.lftest.test(args.TEST)
+
+        # compare the retc using bitmasks according to the man page of smartctl.
+        # Bit 0 ("command line did not parse") in practice means that smartctl was unable to
+        # detect the device type, bit 1 that it could not open the device at all. One device
+        # we cannot talk to must not abort the whole check, so report smartctl's own message
+        # and carry on with the remaining disks.
+        if retc & 3:
+            inaccessible.append((device['name'], get_smartctl_error(smartctl, stderr)))
+            state = lib.base.get_worst(STATE_UNKNOWN, state)
+            continue
 
         disk_msg = ''
         disk_state = STATE_OK
+        smart_msg = ''
 
         # retc 4 is useless
         if retc & 8:
             smart_msg += '  - SMART status check returned DISK FAILING.\n'
-            disk_state = STATE_CRIT
+            disk_state = lib.base.get_worst(STATE_CRIT, disk_state)
         if retc & 16:
             smart_msg += '  - We found prefail Attributes <= threshold.\n'
-            disk_state = STATE_WARN
+            disk_state = lib.base.get_worst(STATE_WARN, disk_state)
         if retc & 32:
             smart_msg += (
                 '  - SMART status check returned DISK OK but we '
                 'found that some (usage or prefail) Attributes have '
                 'been <= threshold at some time in the past.\n'
             )
-            disk_state = STATE_WARN
+            disk_state = lib.base.get_worst(STATE_WARN, disk_state)
         if retc & 64:
             smart_msg += '  - The device error log contains records of errors.\n'
-            disk_state = STATE_WARN
+            disk_state = lib.base.get_worst(STATE_WARN, disk_state)
         if retc & 128:
             smart_msg += (
                 '  - The device self-test log contains records of '
                 'errors. Failed self-tests outdated by a newer '
                 'successful extended self-test are ignored.\n'
             )
+            disk_state = lib.base.get_worst(STATE_WARN, disk_state)
 
-        disk_report = parse_sections(stdout)
+        disk_report = parse_sections(smartctl)
         disk_count += 1
         serial_number = disk_report['general']['serial_number']
 
@@ -1124,43 +1278,67 @@ def main():
                         ' ', '_'
                     )
                     perfdata += lib.base.get_perfdata(
-                        f'{disk}--{device_model}--{serial_number}--{sensor_name}',
+                        f'{device["name"]}--{device_model}--{serial_number}'
+                        f'--{sensor_name}',
                         sensor_value,
                         _min=0,
                     )
 
         msg_body += (
-            f'* {disk}'
+            f'* {device["name"]}'
             f' ({disk_report["general"]["model"]}'
             f', {disk_report["general"]["device_model"]}'
             f', SerNo {disk_report["general"]["serial_number"]})'
-            f'{lib.base.state2str(disk_state, prefix="", suffix=" ")}'
+            f'{lib.base.state2str(disk_state, prefix=" ")}'
             f'\n'
         )
-        if smart_msg:
-            msg_body += smart_msg
+        msg_body += smart_msg
         msg_body += disk_msg
         state = lib.base.get_worst(disk_state, state)
 
     # build the message
+    if not scan_count:
+        msg = 'Did not find any disk.'
+        if scan_errors:
+            msg += ' ' + ' '.join(scan_errors)
+        lib.base.oao(msg, STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
+    if not disk_count and not inaccessible:
+        lib.base.oao(
+            'Nothing checked.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
+    for name, reason in inaccessible:
+        msg_body += (
+            f'* {name}: {reason}{lib.base.state2str(STATE_UNKNOWN, prefix=" ")}\n'
+        )
+
     if disk_count:
         msg_header = f'Checked {disk_count} {lib.txt.pluralize("disk", disk_count)}.'
         if state == STATE_CRIT:
             msg_header += ' There are critical errors.'
         elif state == STATE_WARN:
             msg_header += ' There are warnings.'
-        else:
+        elif not inaccessible:
             msg_header += ' All are healthy.'
-        lib.base.oao(
-            f'{msg_header}\n{msg_body}',
-            state,
-            perfdata,
-            always_ok=args.ALWAYS_OK,
-            no_perfdata=args.NO_PERFDATA,
-        )
     else:
-        # over and out
-        lib.base.oao('Did not find any disk.', STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
+        msg_header = 'Did not check any disk.'
+    if inaccessible:
+        count = len(inaccessible)
+        msg_header += (
+            f' smartctl cannot access {count} {lib.txt.pluralize("device", count)}. '
+            f'Run this plugin as root or via sudo.'
+        )
+
+    # over and out
+    lib.base.oao(
+        f'{msg_header}\n{msg_body}',
+        state,
+        perfdata,
+        always_ok=args.ALWAYS_OK,
+        no_perfdata=args.NO_PERFDATA,
+    )
 
 
 if __name__ == '__main__':

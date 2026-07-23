@@ -16,8 +16,9 @@ Monitoring Plugins:
 * all plugins that report performance data: `--no-perfdata` drops the performance data from the output while keeping the status message and exit code ([#1331](https://github.com/Linuxfabrik/monitoring-plugins/issues/1331))
 * apache-httpd-version, apache-solr-version, apache-tomcat-version, composer-version, fedora-version, fortios-version, gitlab-version, grafana-version, graylog-version, icinga-version, keycloak-version, mastodon-version, matomo-version, mediawiki-version, moodle-version, mysql-version, nextcloud-version, openjdk-redhat-version, openvpn-version, php-version, postfix-version, postgresql-version, python-version, redis-version, rhel-version, rocketchat-version, valkey-version, wordpress-version: `--unreachable-severity` can alert instead of silently reporting OK when endoflife.date is unreachable and the bundled offline data is used (default stays OK) ([#750](https://github.com/Linuxfabrik/monitoring-plugins/issues/750))
 * apache-tomcat-version: new check for an end-of-life or outdated Apache Tomcat, with an Icinga Director service set ([#126](https://github.com/Linuxfabrik/monitoring-plugins/issues/126))
-* disk-io, disk-usage, fail2ban, network-errors, network-io, nextcloud-app-updates, sensors-temperatures, wildfly-non-xa-datasource-stats, wildfly-xa-datasource-stats: `--no-match-severity` can alert instead of silently reporting OK when the filters match nothing (default stays OK) ([#1308](https://github.com/Linuxfabrik/monitoring-plugins/issues/1308))
+* disk-io, disk-smart, disk-usage, fail2ban, network-errors, network-io, nextcloud-app-updates, sensors-temperatures, wildfly-non-xa-datasource-stats, wildfly-xa-datasource-stats: `--no-match-severity` can alert instead of silently reporting OK when the filters match nothing (default stays OK) ([#1308](https://github.com/Linuxfabrik/monitoring-plugins/issues/1308))
 * disk-io: reports per-disk I/O latency (await) and can alert on it with `--await-warning`/`--await-critical` (both off by default); a critical latency threshold catches a disk that is effectively hung
+* disk-smart: filter drives by regular expression with `--match`/`--ignore` ([#1388](https://github.com/Linuxfabrik/monitoring-plugins/issues/1388))
 * disk-usage: per-mountpoint warning and critical thresholds via `--mount` ([#1286](https://github.com/Linuxfabrik/monitoring-plugins/issues/1286))
 * docker-container, podman-container: new checks alerting on unhealthy, unexpected-state, frequently restarting or too-young containers; `podman-container --user` covers a rootless user
 * docker-image, podman-image: new checks listing images and alerting on images older than a configurable age; `podman-image --user` covers a rootless user
@@ -76,6 +77,12 @@ Monitoring Plugins:
 * cert: a subnet scan that runs out of file descriptors reports UNKNOWN instead of OK for targets it never probed
 * csv-values, json-values, strongswan-connections: non-UTF-8 input no longer crashes the check ([#256](https://github.com/Linuxfabrik/lib/issues/256))
 * disk-io: no longer produces false CRITICAL alerts from I/O wait on healthy systems, in particular on ZFS/Proxmox ([#1371](https://github.com/Linuxfabrik/monitoring-plugins/issues/1371))
+* disk-smart: `--ignore` matches the drives again
+* disk-smart: a drive smartctl cannot open is reported with the real reason instead of a misleading parse error, and no longer aborts the whole check ([#1388](https://github.com/Linuxfabrik/monitoring-plugins/issues/1388))
+* disk-smart: a failed drive scan reports the reason smartctl gives instead of inventing a device out of it
+* disk-smart: a failing drive is no longer downgraded from CRITICAL to WARNING by a second finding on the same drive
+* disk-smart: drives behind a hardware RAID controller and external USB drives are read correctly
+* disk-smart: reads the drives again on hosts that have `POSIXLY_CORRECT` set in the environment
 * disk-usage: performance data carries the warning and critical thresholds again ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
 * disk-usage: the filesystem table is sorted by usage (fullest first) instead of raw mount order
 * fs-inodes: an unreadable mount point (for example a Kubernetes CSI volume that requires root) no longer aborts the whole check; the readable filesystems are still checked ([#1387](https://github.com/Linuxfabrik/monitoring-plugins/issues/1387))

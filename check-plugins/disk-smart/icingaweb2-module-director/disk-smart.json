@@ -9,7 +9,15 @@
                     "set_if": "$disk_smart_full$"
                 },
                 "--ignore": {
-                    "value": "$disk_smart_ignore$"
+                    "value": "$disk_smart_ignore$",
+                    "repeat_key": true
+                },
+                "--match": {
+                    "value": "$disk_smart_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$disk_smart_no_match_severity$"
                 },
                 "--no-perfdata": {
                     "set_if": "$disk_smart_no_perfdata$"
@@ -35,6 +43,16 @@
                 },
                 {
                     "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -80,7 +98,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Queries SMART (Self-Monitoring, Analysis, and Reporting Technology) data from hard disks and solid-state drives using smartctl. Inspects drive health attributes, error logs, and self-test results to detect failing or degraded drives before data loss occurs. Supports both SCSI and ATA drives, including drives behind hardware RAID controllers when the correct device type is specified. Alerts when any drive reports failing health attributes, SMART errors, or failed self-tests. Requires root or sudo.",
+            "notes": "Queries SMART (Self-Monitoring, Analysis, and Reporting Technology) data from hard disks and solid-state drives using smartctl. Inspects drive health attributes, error logs, and self-test results to detect failing or degraded drives before data loss occurs. Supports both SCSI and ATA drives, including drives behind hardware RAID controllers, using the device type reported by the drive scan. Devices smartctl cannot open are reported as inaccessible instead of aborting the whole check. Supports filtering drives by regular expression via --match and --ignore. Alerts when any drive reports failing health attributes, SMART errors, or failed self-tests. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-smart/",
             "object_name": "tpl-service-disk-smart",
             "object_type": "template",
@@ -94,11 +112,46 @@
                 "disk_smart_always_ok": false,
                 "disk_smart_full": false,
                 "disk_smart_ignore": [],
+                "disk_smart_match": [],
+                "disk_smart_no_match_severity": "ok",
                 "disk_smart_no_perfdata": false
             },
             "volatile": null,
             "zone": null,
             "uuid": "4c13e674-2aed-4de4-8072-7bca05c994eb"
+        }
+    },
+    "DataList": {
+        "disk_smart_no_match_severity_list": {
+            "list_name": "disk_smart_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "8d0a6a96-8846-420f-8186-60eb7e37a774"
         }
     },
     "Datafield": {
@@ -123,8 +176,8 @@
         "3": {
             "varname": "disk_smart_ignore",
             "caption": "Disk SMART: Ignore",
-            "description": "Comma-separated list of disk names to ignore. Example: `sda,sdb`.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
@@ -132,6 +185,30 @@
             "uuid": "734880fa-1d84-417e-a0aa-0c4b3d4ea4f3"
         },
         "4": {
+            "varname": "disk_smart_match",
+            "caption": "Disk SMART: Match",
+            "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "4d400846-5265-4b0b-b354-50919c54f911"
+        },
+        "5": {
+            "varname": "disk_smart_no_match_severity",
+            "caption": "Disk SMART: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "disk_smart_no_match_severity_list"
+            },
+            "uuid": "0c8d2109-ce7a-4579-a7a9-b78aed210101"
+        },
+        "6": {
             "varname": "disk_smart_no_perfdata",
             "caption": "Disk SMART: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",

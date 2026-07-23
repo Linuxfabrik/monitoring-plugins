@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 # All fixtures in this directory are captured from `smartctl --all` (or
 # `smartctl -a`) on a real disk using smartctl v6 or earlier, which
@@ -94,7 +94,93 @@ FIXTURES = [
 ]
 
 
-TESTS = [tc for fx in FIXTURES for tc in _pair(*fx)]
+# Scenarios that exercise the `smartctl --scan-open` parser and the device filters.
+# A fixture that needs a specific drive scan ships it as `<fixture>-scan`; everything
+# else falls back to a single ATA device. `all-devices-inaccessible` has no `--xall`
+# half on purpose: the plugin never gets to run smartctl against a device it cannot
+# open, so only the scan half of that pair exists.
+SCAN_TESTS = [
+    {
+        'id': 'unknown-all-devices-inaccessible',
+        'test': 'stdout/all-devices-inaccessible,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'smartctl cannot access 2 devices. Run this plugin as root or via sudo.',
+            '/dev/sda: Permission denied [UNKNOWN]',
+            '/dev/nvme0: Permission denied [UNKNOWN]',
+        ],
+    },
+    {
+        'id': 'unknown-one-device-inaccessible',
+        'test': 'stdout/two-devices-one-inaccessible,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Checked 1 disk.',
+            'smartctl cannot access 1 device.',
+            '/dev/nvme0: Permission denied [UNKNOWN]',
+        ],
+    },
+    {
+        'id': 'ok-ignore-inaccessible-device',
+        'test': 'stdout/two-devices-one-inaccessible,,0',
+        'params': '--ignore nvme0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 1 disk. All are healthy.'],
+        'assert-not-in': ['nvme0'],
+    },
+    {
+        'id': 'ok-scan-lists-two-devices',
+        'test': 'stdout/two-devices,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 2 disks. All are healthy.', '/dev/sda', '/dev/nvme0'],
+    },
+    {
+        'id': 'ok-ignore-comma-separated-names',
+        'test': 'stdout/two-devices,,0',
+        'params': '--ignore sda,nvme0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'ok-match-single-device',
+        'test': 'stdout/two-devices,,0',
+        'params': '--match ^/dev/sda$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 1 disk.'],
+        'assert-not-in': ['nvme0'],
+    },
+    {
+        'id': 'unknown-no-match-severity',
+        'test': 'stdout/two-devices,,0',
+        'params': '--match doesnotexist --no-match-severity unknown',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'ok-devices-behind-raid-controller',
+        'test': 'stdout/megaraid-devices,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 2 disks. All are healthy.', '/dev/bus/0'],
+    },
+    {
+        # all drives behind a RAID controller share one device name, so they can only be
+        # told apart by the name smartctl reports them under
+        'id': 'ok-ignore-single-drive-behind-raid-controller',
+        'test': 'stdout/megaraid-devices,,0',
+        'params': '--ignore=megaraid_disk_00',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 1 disk. All are healthy.'],
+    },
+    {
+        'id': 'unknown-scan-failed',
+        'test': 'stdout/scan-failed,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Did not find any disk.', 'scan_smart_devices:'],
+    },
+]
+
+
+TESTS = [tc for fx in FIXTURES for tc in _pair(*fx)] + SCAN_TESTS
 
 
 class TestCheck(unittest.TestCase):
