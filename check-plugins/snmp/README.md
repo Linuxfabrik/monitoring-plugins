@@ -46,7 +46,7 @@ Queries SNMP OIDs defined in a CSV file and checks the returned values against o
 usage: snmp [-h] [-V] [--always-ok] [--community COMMUNITY] [--device DEVICE]
             [--hide-ok] [--hide-table] -H HOSTNAME [--mib MIB]
             [--mib-dir MIB_DIR] [--no-perfdata] [--snmp-version {1,2c,3}]
-            [-t TIMEOUT]
+            [--snmpconf-path SNMPCONF_PATH] [-t TIMEOUT]
             [--v3-auth-prot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}]
             [--v3-auth-prot-password V3_AUTH_PROT_PASSWORD]
             [--v3-boots-time V3_BOOTS_TIME] [--v3-context V3_CONTEXT]
@@ -99,6 +99,18 @@ options:
                         dropped.
   --snmp-version {1,2c,3}
                         SNMP version to use. Default: 2c
+  --snmpconf-path SNMPCONF_PATH
+                        Colon-separated list of directories added to the net-
+                        snmp config search path (`SNMPCONFPATH`), so the
+                        credentials are read from a config file instead of
+                        being exposed on the command line and in the process
+                        list. Put a file named `snmp.conf` (or `snmpget.conf`)
+                        into one of the directories and set `defCommunity`
+                        (v1/v2c) or `defAuthPassphrase`/`defPrivPassphrase`
+                        (v3) in it. When set, `--community`, `--v3-auth-prot-
+                        password` and `--v3-priv-prot-password` are ignored.
+                        Keep the file readable only by the monitoring user.
+                        Example: `--snmpconf-path /var/spool/icinga2/.snmp`.
   -t, --timeout TIMEOUT
                         Network timeout in seconds. Default: 7 (seconds)
   --v3-auth-prot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}
@@ -106,7 +118,9 @@ options:
   --v3-auth-prot-password V3_AUTH_PROT_PASSWORD
                         SNMPv3 authentication protocol passphrase.
   --v3-boots-time V3_BOOTS_TIME
-                        SNMPv3 destination engine boots/time.
+                        SNMPv3 destination engine boots and time, as the
+                        comma-separated pair `boots,time` expected by `snmpget
+                        -Z`. Example: `--v3-boots-time 1,42`.
   --v3-context V3_CONTEXT
                         SNMPv3 context name. Example: `--v3-context bridge1`.
   --v3-context-engine-id V3_CONTEXT_ENGINE_ID
@@ -115,7 +129,9 @@ options:
   --v3-level {noAuthNoPriv,authNoPriv,authPriv}
                         SNMPv3 security level.
   --v3-priv-prot {DES,AES,AES-192,AES-256}
-                        SNMPv3 privacy protocol.
+                        SNMPv3 privacy protocol. `AES-192` and `AES-256`
+                        require a net-snmp built with Blumenthal AES draft
+                        support; a stock build rejects them.
   --v3-priv-prot-password V3_PRIV_PROT_PASSWORD
                         SNMPv3 privacy protocol passphrase.
   --v3-security-engine-id V3_SECURITY_ENGINE_ID

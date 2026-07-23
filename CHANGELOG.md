@@ -30,6 +30,7 @@ Monitoring Plugins:
 * network-errors: new check alerting on interface receive and transmit errors ([#707](https://github.com/Linuxfabrik/monitoring-plugins/issues/707))
 * nextcloud-app-updates: new check alerting when a Nextcloud app update has been pending longer than a grace period ([#62](https://github.com/Linuxfabrik/monitoring-plugins/issues/62))
 * php-status: warns when `post_max_size` is not larger than `upload_max_filesize`, a misconfiguration that silently breaks file uploads ([#516](https://github.com/Linuxfabrik/monitoring-plugins/issues/516))
+* snmp: `--snmpconf-path` keeps the SNMP community and SNMPv3 passphrases out of the process list by reading them from a net-snmp config file
 * wildfly-version: new check alerting when WildFly is behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))
 
 Grafana:
@@ -95,6 +96,9 @@ Monitoring Plugins:
 * redfish-\*: `--cache-expire` (default now 5 minutes) also caches the Redfish session and API responses, so the several Redfish checks on a host share one session and fetched data instead of each re-reading it from the controller ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 * redfish-\*: reads each component collection in one request where the controller supports it, so checks on servers with many sensors, drives or firmware components no longer time out ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 * redfish-\*: the Redfish API URL is now a mandatory `--url`, dropping the misleading localhost default ([#1306](https://github.com/Linuxfabrik/monitoring-plugins/issues/1306))
+* snmp: a harmless net-snmp warning such as a missing MIB module no longer aborts the check
+* snmp: string-indexed OIDs are read correctly
+* snmp: the bundled device profiles work again on current net-snmp instead of aborting with UNKNOWN
 * strongswan-connections: a connection being rekeyed, or one shared by several peers, no longer raises a false alarm or writes garbled graph data
 * strongswan-connections: a connection that has not carried traffic yet no longer graphs a made-up zero byte count
 * strongswan-connections: a connection that is still connecting, or one using a fixed-key cipher such as 3DES, no longer makes the check crash ([#806](https://github.com/Linuxfabrik/monitoring-plugins/issues/806))

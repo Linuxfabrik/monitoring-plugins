@@ -26,9 +26,9 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026071201'
 
-DESCRIPTION = """Queries SNMP OIDs defined in a CSV file and checks the returned values against optional
-warning and critical thresholds. Supports SNMP v1, v2c, and v3 with authentication and
-privacy protocols."""
+DESCRIPTION = """Queries SNMP OIDs defined in a CSV file and checks the returned values
+against optional warning and critical thresholds. Supports SNMP v1, v2c, and v3 with
+authentication and privacy protocols."""
 
 
 CSV_COL_OID = 0
@@ -47,6 +47,10 @@ CSV_COL_SKIPOUTPUT = 10  # added 2025052101
 DEFAULT_HIDE_TABLE = False
 
 MAX_OIDS_PER_REQUEST = 25
+
+# net-snmp only loads a config file whose basename is one of these from each
+# directory on its search path; a differently named file is silently ignored.
+SNMP_CONF_FILENAMES = ('snmp.conf', 'snmpget.conf')
 
 
 def parse_args():
@@ -126,7 +130,8 @@ def parse_args():
 
     parser.add_argument(
         '--mib-dir',
-        help='Colon-separated list of directories to search for MIBs, behaves like the `-M` option of `snmpget`. '
+        help='Colon-separated list of directories to search for MIBs, '
+        'behaves like the `-M` option of `snmpget`. '
         'Default: %(default)s',
         dest='MIB_DIR',
         default='$HOME/.snmp/mibs:/usr/share/snmp/mibs',
@@ -146,6 +151,20 @@ def parse_args():
         dest='SNMP_VERSION',
         choices=['1', '2c', '3'],
         default='2c',
+    )
+
+    parser.add_argument(
+        '--snmpconf-path',
+        help='Colon-separated list of directories added to the net-snmp config search path '
+        '(`SNMPCONFPATH`), so the credentials are read from a config file instead of being '
+        'exposed on the command line and in the process list. '
+        'Put a file named `snmp.conf` (or `snmpget.conf`) into one of the directories and set '
+        '`defCommunity` (v1/v2c) or `defAuthPassphrase`/`defPrivPassphrase` (v3) in it. '
+        'When set, `--community`, `--v3-auth-prot-password` and `--v3-priv-prot-password` are '
+        'ignored. '
+        'Keep the file readable only by the monitoring user. '
+        'Example: `--snmpconf-path /var/spool/icinga2/.snmp`.',
+        dest='SNMPCONF_PATH',
     )
 
     parser.add_argument(
@@ -179,7 +198,9 @@ def parse_args():
 
     parser.add_argument(
         '--v3-boots-time',
-        help='SNMPv3 destination engine boots/time.',
+        help='SNMPv3 destination engine boots and time, as the comma-separated pair '
+        '`boots,time` expected by `snmpget -Z`. '
+        'Example: `--v3-boots-time 1,42`.',
         dest='V3_BOOTS_TIME',
     )
 
@@ -205,7 +226,9 @@ def parse_args():
 
     parser.add_argument(
         '--v3-priv-prot',
-        help='SNMPv3 privacy protocol.',
+        help='SNMPv3 privacy protocol. '
+        '`AES-192` and `AES-256` require a net-snmp built with Blumenthal AES draft support; '
+        'a stock build rejects them.',
         dest='V3_PRIV_PROT',
         choices=['DES', 'AES', 'AES-192', 'AES-256'],
     )
@@ -233,6 +256,19 @@ def parse_args():
     return args
 
 
+def snmpconf_files(snmpconf_path):
+    """Yield the candidate config file paths net-snmp would read for a given SNMPCONFPATH.
+
+    `snmpconf_path` is a colon-separated list of directories; net-snmp reads a file named
+    `snmp.conf` or `snmpget.conf` from each. Used to fail up front when none of them exist,
+    because net-snmp silently ignores a missing config, which then looks like an authentication
+    failure rather than a misconfigured path.
+    """
+    for directory in snmpconf_path.split(os.pathsep):
+        for filename in SNMP_CONF_FILENAMES:
+            yield os.path.join(directory, filename)
+
+
 def build_snmpget_call(args):
     """Build parameters for snmpget:
     -r 0: set the number of retries to zero
@@ -241,16 +277,19 @@ def build_snmpget_call(args):
         S:  print MIB module-id plus last element
         t:  print timeticks unparsed as numeric integers
         U:  don't print units
+
+    With --snmpconf-path the secret-bearing options (`-c`, `-A`, `-X`) are omitted; snmpget
+    reads them from the net-snmp config file instead (see snmpconf_files()).
     """
     if args.SNMP_VERSION in ['1', '2c']:
         cmd = ['snmpget', '-v', args.SNMP_VERSION]
-        if args.COMMUNITY:
+        if args.COMMUNITY and not args.SNMPCONF_PATH:
             cmd += ['-c', args.COMMUNITY]
     else:
         cmd = ['snmpget', '-v', '3']
         if args.V3_AUTH_PROT:
             cmd += ['-a', args.V3_AUTH_PROT]
-        if args.V3_AUTH_PROT_PASSWORD:
+        if args.V3_AUTH_PROT_PASSWORD and not args.SNMPCONF_PATH:
             cmd += ['-A', args.V3_AUTH_PROT_PASSWORD]
         if args.V3_SECURITY_ENGINE_ID:
             cmd += ['-e', args.V3_SECURITY_ENGINE_ID]
@@ -264,7 +303,7 @@ def build_snmpget_call(args):
             cmd += ['-u', args.V3_USERNAME]
         if args.V3_PRIV_PROT:
             cmd += ['-x', args.V3_PRIV_PROT]
-        if args.V3_PRIV_PROT_PASSWORD:
+        if args.V3_PRIV_PROT_PASSWORD and not args.SNMPCONF_PATH:
             cmd += ['-X', args.V3_PRIV_PROT_PASSWORD]
         if args.V3_BOOTS_TIME:
             cmd += ['-Z', args.V3_BOOTS_TIME]
@@ -281,13 +320,66 @@ def build_snmpget_call(args):
     return cmd
 
 
-def index_of_oid(snmp_objects, oid, start=0):
-    """Find the index of "b" in [ ["a", "x"], ["b", "y"], ["c", "z"] ] (would be 1)"""
-    idx = start
-    for snmp_object in snmp_objects[start:]:
-        if snmp_object[0] == oid:
-            return idx
-        idx += 1
+def build_oid_chunks(snmp_objects):
+    """Turn the CSV rows into chunks of OIDs to query via snmpget.
+
+    Rows with an empty OID column are computed rows (their value is derived
+    later from other rows via the Re-Calc column, e.g. total traffic = sent +
+    received). They must not reach snmpget: a bare "" argument is rejected by
+    current net-snmp with "Unknown Object Identifier (Sub-id not found: (top))",
+    which aborts the whole run.
+
+    Max. 128 object identifiers are allowed in one snmp get request, so we
+    divide them into chunks. To avoid "Error in packet. Reason: (tooBig)
+    Response message would have been too large.", we only ask for
+    MAX_OIDS_PER_REQUEST OIDs per request.
+    """
+    oid_chunks = []
+    chunk = []
+    for snmp_object in snmp_objects[1:]:  # ignore the header row in csv
+        oid = snmp_object[CSV_COL_OID]
+        if not oid:
+            # computed row, derived later without an snmpget call
+            continue
+        chunk.append(oid)
+        if len(chunk) == MAX_OIDS_PER_REQUEST:
+            oid_chunks.append(chunk)
+            chunk = []
+    if chunk:
+        oid_chunks.append(chunk)
+    return oid_chunks
+
+
+def snmpget_call_failed(retc):
+    """Decide whether an snmpget invocation must abort the whole check.
+
+    Only a non-zero return code is fatal: snmpget returns non-zero on a real
+    failure (timeout / host down, SNMPv3 authentication failure, a PDU-level
+    SNMP error). A zero return code with a non-empty stderr is NOT fatal:
+    net-snmp logs benign warnings to stderr (for example
+    "Cannot find module (FOO)" or MIB parse warnings) while stdout still holds
+    valid data. Missing OIDs are reported in-band on stdout ("No Such Object /
+    Instance") with a zero return code and are handled per row, not here.
+    """
+    return retc != 0
+
+
+def match_oid(snmp_objects, row, start=0):
+    """Find the queried OID a snmpget output line belongs to, returning `(index, value)`.
+
+    snmpget prints one line per OID as `<oid> <value>` (quick-print, `-Oq`). Matching by the
+    known OID prefix (the OID followed by the delimiter space) instead of splitting on the first
+    space keeps two cases correct: an OCTET STRING value may itself contain spaces, and a
+    string-indexed OID key contains spaces too (for example `IF-MIB::ifName."eth 0"`). The
+    trailing space in the prefix also stops `...ifName.1` from matching a `...ifName.10` line.
+    The search runs forward from `start` so responses stay aligned with the CSV order, skipping
+    computed rows (those have an empty OID column). Returns `None` for a line that starts with
+    no queried OID.
+    """
+    for idx in range(start, len(snmp_objects)):
+        oid = snmp_objects[idx][CSV_COL_OID]
+        if oid and row.startswith(oid + ' '):
+            return idx, row[len(oid) + 1 :]
     return None
 
 
@@ -335,57 +427,55 @@ def main():
                 )
             )
 
-    # Max. 128 object identifiers are allowed in one snmp get request, so divide them into chunks.
-    # To avoid "Error in packet. Reason: (tooBig) Response message would have been too large.", we
-    # only ask for 25 OIDs per request.
-    oid_chunks = []
-    chunk = []
-    for snmp_object in snmp_objects[1:]:  # ignore the header row in csv
-        chunk.append(snmp_object[CSV_COL_OID])
-        if len(chunk) == MAX_OIDS_PER_REQUEST:
-            oid_chunks.append(chunk)
-            chunk = []
-    if chunk:
-        oid_chunks.append(chunk)
+    oid_chunks = build_oid_chunks(snmp_objects)
 
     # the hostname reaches snmpget as a positional argument; reject a value that
     # snmpget could read as an option (leading "-")
     lib.base.coe(lib.shell.safe_cli_value(args.HOSTNAME, '--hostname'))
+
+    # keep the credentials out of the process list by letting snmpget read them from a
+    # net-snmp config file on the given search path (see snmpconf_files())
+    snmpget_env = None
+    if args.SNMPCONF_PATH:
+        if not any(lib.disk.file_exists(f) for f in snmpconf_files(args.SNMPCONF_PATH)):
+            lib.base.cu(
+                f'no `snmp.conf` or `snmpget.conf` found under '
+                f'--snmpconf-path `{args.SNMPCONF_PATH}`'
+            )
+        snmpget_env = {'SNMPCONFPATH': args.SNMPCONF_PATH}
 
     # fetch data
     stdout = ''
     if args.TEST is None:
         cmd = build_snmpget_call(args)
         for oids in oid_chunks:
-            tmp, stderr, retc = lib.base.coe(lib.shell.shell_exec([*cmd, *oids]))
-            if stderr or retc != 0:
-                lib.base.cu(stderr)
+            tmp, stderr, retc = lib.base.coe(
+                lib.shell.shell_exec([*cmd, *oids], env=snmpget_env)
+            )
+            if snmpget_call_failed(retc):
+                # stderr carries the reason (timeout, auth failure, PDU error);
+                # fall back to stdout if snmpget stayed silent on stderr
+                lib.base.cu(stderr or tmp)
             stdout += tmp
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
         args.DEVICE = args.TEST[0]
 
-    # enrich snmp_objects with results from snmpget run
-    value = ''
+    # enrich snmp_objects with results from snmpget. snmpget prints one line per OID as
+    # "<oid> <value>"; match each line against the OIDs we asked for (see match_oid) instead of
+    # splitting on the first space, so a value containing spaces and a string-indexed OID key
+    # are handled correctly. Lines that match no queried OID (the trailing lines of a multi-line
+    # OCTET STRING such as a Cisco sysDescr) are ignored, keeping only the first line of the
+    # value so the output table stays readable.
     oid_index = 0
     for row in stdout.splitlines():
         if not row:
             continue
-        space_index = row.find(
-            ' '
-        )  # find first space char (the delimiter used by snmpget)
-        oid = row[0:space_index]
-        oid_index = index_of_oid(snmp_objects, oid, oid_index + 1)
-        if oid_index is None:
-            # nothing found, oid_index is None
-            oid_index = 0
-        else:
-            value = (
-                row[space_index + 1 :]
-                .replace('Wrong Type (should be Timeticks): ', '')
-                .strip()
-            )
+        matched = match_oid(snmp_objects, row, oid_index + 1)
+        if matched is not None:
+            oid_index, value = matched
+            value = value.replace('Wrong Type (should be Timeticks): ', '').strip()
             snmp_objects[oid_index].append(value)
 
     # init some vars
@@ -476,7 +566,8 @@ def main():
                 table_values.append(
                     {
                         'name': name,
-                        'value': f"The recalc in {args.DEVICE} failed with {type(e).__name__}: '{e}'.",
+                        'value': f'The recalc in {args.DEVICE} failed with '
+                        f"{type(e).__name__}: '{e}'.",
                         'state': lib.base.state2str(STATE_UNKNOWN),
                     }
                 )

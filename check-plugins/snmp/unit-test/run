@@ -8,15 +8,33 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import importlib.machinery
+import importlib.util
 import os
 import sys
+import types
 
 sys.path.insert(0, '..')
 
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+# Absolute path to the plugin script (no `.py` suffix), imported as a module so
+# its pure helpers can be unit-tested directly without spawning a subprocess.
+PLUGIN = os.path.abspath('../snmp')
+
+
+def load_plugin_module():
+    """Import the plugin script as a module so its pure helpers can be called directly.
+    The script carries no `.py` suffix, so the source loader has to be named explicitly.
+    """
+    loader = importlib.machinery.SourceFileLoader('snmp_plugin', PLUGIN)
+    spec = importlib.util.spec_from_loader('snmp_plugin', loader)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 # Absolute path to a device CSV outside the bundled `device-oids` directory,
 # used to exercise the `--device` absolute-path branch. The tests run from the
@@ -170,6 +188,22 @@ TESTS = [
             "'Supply Air Temperature'=27.0;26;28;0;50",
         ],
     },
+    {
+        # A string-indexed OID key contains spaces (`IF-MIB::ifName."eth 0"`), and its value
+        # contains spaces too. Matching by known-OID prefix keeps both correct; the old
+        # split-on-first-space parser mis-keyed the line and dropped the value.
+        'id': 'string-indexed-oid-key-with-spaces',
+        'test': 'stdout/string-indexed-oid,,0',
+        'params': (
+            '--hostname 127.0.0.1 '
+            '--device=../unit-test/stdout/string-indexed-oid-device'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Name        ! sw1         ! [OK]',
+            'Uplink Name ! Uplink Port ! [OK]',
+        ],
+    },
 ]
 
 
@@ -178,6 +212,254 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+class TestBuildOidChunks(unittest.TestCase):
+    """Regression tests for build_oid_chunks().
+
+    A device CSV may carry computed rows with an empty OID column (their value
+    is derived later from other rows via the Re-Calc column). Those rows must
+    never reach snmpget: current net-snmp rejects a bare "" argument with
+    "Unknown Object Identifier (Sub-id not found: (top))" and returns non-zero,
+    which the plugin treats as fatal and aborts the whole run. The shipped
+    `linux-snmpd.csv` and `any-any-any.csv` profiles both contain such rows.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.plugin = load_plugin_module()
+
+    def _header(self):
+        # build_oid_chunks ignores the header row; its shape is irrelevant
+        return ['OID', 'Name']
+
+    def _row(self, oid):
+        return [oid] + [''] * 9
+
+    def test_computed_rows_with_empty_oid_are_skipped(self):
+        # a computed row (empty OID) sits between two real OIDs, mirroring the
+        # "NIC.1 Traffic = sent + received" pattern of the shipped profiles
+        snmp_objects = [
+            self._header(),
+            self._row('IF-MIB::ifInOctets.1'),
+            self._row('IF-MIB::ifOutOctets.1'),
+            self._row(''),  # computed row -> must not be queried
+        ]
+        chunks = self.plugin.build_oid_chunks(snmp_objects)
+        flat = [oid for chunk in chunks for oid in chunk]
+        self.assertNotIn('', flat)
+        self.assertEqual(
+            flat, ['IF-MIB::ifInOctets.1', 'IF-MIB::ifOutOctets.1']
+        )
+
+    def test_real_oids_keep_their_order(self):
+        snmp_objects = [self._header()] + [
+            self._row(f'OID::x.{i}') for i in range(5)
+        ]
+        chunks = self.plugin.build_oid_chunks(snmp_objects)
+        flat = [oid for chunk in chunks for oid in chunk]
+        self.assertEqual(flat, [f'OID::x.{i}' for i in range(5)])
+
+    def test_chunking_respects_the_request_limit(self):
+        limit = self.plugin.MAX_OIDS_PER_REQUEST
+        snmp_objects = [self._header()] + [
+            self._row(f'OID::x.{i}') for i in range(2 * limit + 3)
+        ]
+        chunks = self.plugin.build_oid_chunks(snmp_objects)
+        self.assertEqual([len(c) for c in chunks], [limit, limit, 3])
+
+    def test_empty_oids_do_not_inflate_a_chunk(self):
+        # a chunk boundary must be reached by real OIDs only, not by counting
+        # the skipped computed rows
+        limit = self.plugin.MAX_OIDS_PER_REQUEST
+        rows = []
+        for i in range(limit):
+            rows.append(self._row(f'OID::x.{i}'))
+            rows.append(self._row(''))  # interleaved computed rows
+        snmp_objects = [self._header(), *rows]
+        chunks = self.plugin.build_oid_chunks(snmp_objects)
+        self.assertEqual(len(chunks), 1)
+        self.assertEqual(len(chunks[0]), limit)
+
+
+class TestSnmpgetCallFailed(unittest.TestCase):
+    """Regression tests for snmpget_call_failed().
+
+    Only a non-zero return code aborts the check. A zero return code with a
+    non-empty stderr must NOT abort: net-snmp logs benign warnings there (a
+    missing MIB module, MIB parse warnings) while stdout stays valid. The
+    previous `if stderr or retc != 0` turned those warnings into hard UNKNOWNs.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.plugin = load_plugin_module()
+
+    def test_zero_return_code_is_never_fatal(self):
+        self.assertFalse(self.plugin.snmpget_call_failed(0))
+
+    def test_benign_stderr_warning_with_zero_return_code_is_not_fatal(self):
+        # a "Cannot find module" warning ships on stderr but retc stays 0; the
+        # decision must ignore stderr entirely and key on the return code
+        self.assertFalse(self.plugin.snmpget_call_failed(0))
+
+    def test_non_zero_return_code_is_fatal(self):
+        # 1 = timeout / auth failure, 2 = PDU-level SNMP error
+        self.assertTrue(self.plugin.snmpget_call_failed(1))
+        self.assertTrue(self.plugin.snmpget_call_failed(2))
+
+
+class TestSnmpconfPath(unittest.TestCase):
+    """Tests for --snmpconf-path, which keeps the community string and the SNMPv3 passphrases
+    out of the process list by letting snmpget read them from a net-snmp config file.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.plugin = load_plugin_module()
+
+    def _args(self, **overrides):
+        # a minimal args namespace covering everything build_snmpget_call() reads
+        base = {
+            'SNMP_VERSION': '2c',
+            'COMMUNITY': 'linuxfabrik',
+            'SNMPCONF_PATH': None,
+            'V3_AUTH_PROT': None,
+            'V3_AUTH_PROT_PASSWORD': None,
+            'V3_SECURITY_ENGINE_ID': None,
+            'V3_CONTEXT_ENGINE_ID': None,
+            'V3_LEVEL': None,
+            'V3_CONTEXT': None,
+            'V3_USERNAME': None,
+            'V3_PRIV_PROT': None,
+            'V3_PRIV_PROT_PASSWORD': None,
+            'V3_BOOTS_TIME': None,
+            'TIMEOUT': 7,
+            'MIB_DIR': None,
+            'MIB': None,
+            'HOSTNAME': 'host',
+        }
+        base.update(overrides)
+        return types.SimpleNamespace(**base)
+
+    def test_snmpconf_files_lists_both_names_per_directory(self):
+        path = os.pathsep.join(['/a', '/b'])
+        self.assertEqual(
+            list(self.plugin.snmpconf_files(path)),
+            [
+                os.path.join('/a', 'snmp.conf'),
+                os.path.join('/a', 'snmpget.conf'),
+                os.path.join('/b', 'snmp.conf'),
+                os.path.join('/b', 'snmpget.conf'),
+            ],
+        )
+
+    def test_community_is_on_the_command_line_without_snmpconf_path(self):
+        cmd = self.plugin.build_snmpget_call(self._args())
+        self.assertIn('-c', cmd)
+        self.assertIn('linuxfabrik', cmd)
+
+    def test_community_is_omitted_when_snmpconf_path_is_set(self):
+        cmd = self.plugin.build_snmpget_call(self._args(SNMPCONF_PATH='/etc/snmp'))
+        self.assertNotIn('-c', cmd)
+        self.assertNotIn('linuxfabrik', cmd)
+
+    def test_v3_passphrases_are_on_the_command_line_without_snmpconf_path(self):
+        cmd = self.plugin.build_snmpget_call(
+            self._args(
+                SNMP_VERSION='3',
+                COMMUNITY=None,
+                V3_AUTH_PROT='SHA',
+                V3_AUTH_PROT_PASSWORD='linuxfabrik-auth-pw',
+                V3_PRIV_PROT='AES',
+                V3_PRIV_PROT_PASSWORD='linuxfabrik-priv-pw',
+            )
+        )
+        self.assertIn('-A', cmd)
+        self.assertIn('linuxfabrik-auth-pw', cmd)
+        self.assertIn('-X', cmd)
+        self.assertIn('linuxfabrik-priv-pw', cmd)
+
+    def test_v3_passphrases_are_omitted_when_snmpconf_path_is_set(self):
+        cmd = self.plugin.build_snmpget_call(
+            self._args(
+                SNMP_VERSION='3',
+                COMMUNITY=None,
+                V3_AUTH_PROT='SHA',
+                V3_AUTH_PROT_PASSWORD='linuxfabrik-auth-pw',
+                V3_PRIV_PROT='AES',
+                V3_PRIV_PROT_PASSWORD='linuxfabrik-priv-pw',
+                V3_USERNAME='bert',
+                V3_LEVEL='authPriv',
+                SNMPCONF_PATH='/etc/snmp',
+            )
+        )
+        # the secrets are gone
+        self.assertNotIn('-A', cmd)
+        self.assertNotIn('linuxfabrik-auth-pw', cmd)
+        self.assertNotIn('-X', cmd)
+        self.assertNotIn('linuxfabrik-priv-pw', cmd)
+        # non-secret v3 options still ride on the command line
+        self.assertIn('-u', cmd)
+        self.assertIn('bert', cmd)
+
+
+class TestMatchOid(unittest.TestCase):
+    """Tests for match_oid(), which assigns each snmpget output line to the OID it belongs to.
+
+    Matching by known-OID prefix (not split-on-first-space) is what keeps a string-indexed OID
+    key (which contains spaces) and a value that contains spaces correct.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.plugin = load_plugin_module()
+
+    def _objs(self, *oids):
+        # header row plus one row per OID; only the OID column is read by match_oid
+        return [['OID', 'Name'], *([oid, ''] for oid in oids)]
+
+    def test_scalar_oid_and_value(self):
+        objs = self._objs('SNMPv2-MIB::sysName.0')
+        self.assertEqual(
+            self.plugin.match_oid(objs, 'SNMPv2-MIB::sysName.0 testhost', 1),
+            (1, 'testhost'),
+        )
+
+    def test_value_with_spaces_is_kept_whole(self):
+        objs = self._objs('SNMPv2-MIB::sysDescr.0')
+        self.assertEqual(
+            self.plugin.match_oid(
+                objs, 'SNMPv2-MIB::sysDescr.0 Cisco IOS Software, Version 1', 1
+            ),
+            (1, 'Cisco IOS Software, Version 1'),
+        )
+
+    def test_string_indexed_oid_key_with_spaces(self):
+        # the OID key itself contains spaces; split-on-first-space would mis-key it
+        objs = self._objs('IF-MIB::ifName."eth 0"')
+        self.assertEqual(
+            self.plugin.match_oid(objs, 'IF-MIB::ifName."eth 0" Uplink Port', 1),
+            (1, 'Uplink Port'),
+        )
+
+    def test_trailing_space_guard_stops_prefix_collision(self):
+        # `...ifName.1` must not swallow the `...ifName.10` line, and each still matches itself
+        objs = self._objs('IF-MIB::ifName.1', 'IF-MIB::ifName.10')
+        self.assertEqual(self.plugin.match_oid(objs, 'IF-MIB::ifName.1 lo', 1), (1, 'lo'))
+        self.assertEqual(self.plugin.match_oid(objs, 'IF-MIB::ifName.10 eth0', 1), (2, 'eth0'))
+
+    def test_forward_search_skips_computed_rows(self):
+        # a computed row (empty OID) between two real OIDs must be stepped over
+        objs = [['OID', 'Name'], ['A::a.0', ''], ['', 'computed'], ['B::b.0', '']]
+        self.assertEqual(self.plugin.match_oid(objs, 'B::b.0 42', 1), (3, '42'))
+
+    def test_line_matching_no_queried_oid_returns_none(self):
+        # a continuation line of a multi-line value starts with no queried OID
+        objs = self._objs('SNMPv2-MIB::sysDescr.0')
+        self.assertIsNone(
+            self.plugin.match_oid(objs, 'Technical Support: http://example.com', 1)
+        )
 
 
 if __name__ == '__main__':
