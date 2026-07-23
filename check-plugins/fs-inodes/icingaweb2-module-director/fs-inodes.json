@@ -8,6 +8,20 @@
                 "--critical": {
                     "value": "$fs_inodes_critical$"
                 },
+                "--ignore": {
+                    "value": "$fs_inodes_ignore$",
+                    "repeat_key": true
+                },
+                "--lengthy": {
+                    "set_if": "$fs_inodes_lengthy$"
+                },
+                "--match": {
+                    "value": "$fs_inodes_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$fs_inodes_no_match_severity$"
+                },
                 "--no-perfdata": {
                     "set_if": "$fs_inodes_no_perfdata$"
                 },
@@ -35,6 +49,26 @@
                 },
                 {
                     "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -80,7 +114,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the percentage of used inodes on local filesystems. Fetches a list of local devices that are in use and have a filesystem. Filesystems that do not report inode usage (such as some network filesystems) are skipped automatically. Alerts when inode usage exceeds the configured thresholds.",
+            "notes": "Checks the percentage of used inodes on local filesystems. Fetches a list of local devices that are in use and have a filesystem. Filesystems that do not report inode usage (such as some network filesystems) are skipped automatically, and mount points the plugin cannot read (for example a Kubernetes CSI volume that requires root) are reported as unreadable instead of aborting the whole check. Supports filtering mount points by regular expression via --match and --ignore. Supports extended reporting via --lengthy. Alerts when inode usage exceeds the configured thresholds.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-inodes/",
             "object_name": "tpl-service-fs-inodes",
             "object_type": "template",
@@ -92,13 +126,50 @@
             "vars": {
                 "criticality": "C",
                 "fs_inodes_always_ok": false,
-                "fs_inodes_critical": 95,
+                "fs_inodes_critical": "95",
+                "fs_inodes_ignore": [],
+                "fs_inodes_lengthy": true,
+                "fs_inodes_match": [],
+                "fs_inodes_no_match_severity": "ok",
                 "fs_inodes_no_perfdata": false,
-                "fs_inodes_warning": 90
+                "fs_inodes_warning": "90"
             },
             "volatile": null,
             "zone": null,
             "uuid": "d9a75acd-7436-4fb3-a8bc-239939941f09"
+        }
+    },
+    "DataList": {
+        "fs_inodes_no_match_severity_list": {
+            "list_name": "fs_inodes_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "bafc03d5-7613-4605-8955-3cf8a03be6bb"
         }
     },
     "Datafield": {
@@ -114,7 +185,7 @@
         "2": {
             "varname": "fs_inodes_critical",
             "caption": "FS Inodes: Critical",
-            "description": "CRIT threshold for inode usage in percent.",
+            "description": "CRIT threshold in percent. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -123,6 +194,50 @@
             "uuid": "7b551be1-0aa4-4f81-be7d-a8836a116450"
         },
         "3": {
+            "varname": "fs_inodes_ignore",
+            "caption": "FS Inodes: Ignore",
+            "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "31ea1289-5d21-4c85-8d24-a96ab2eceb0a"
+        },
+        "4": {
+            "varname": "fs_inodes_lengthy",
+            "caption": "FS Inodes: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "d773d6d0-4e76-4670-bdd6-411768d1463b"
+        },
+        "5": {
+            "varname": "fs_inodes_match",
+            "caption": "FS Inodes: Match",
+            "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "418b8605-14e3-4cfc-8c5d-bceffd6e0b1e"
+        },
+        "6": {
+            "varname": "fs_inodes_no_match_severity",
+            "caption": "FS Inodes: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "fs_inodes_no_match_severity_list"
+            },
+            "uuid": "733bde14-a169-40a8-8ce5-846cc8070db5"
+        },
+        "7": {
             "varname": "fs_inodes_no_perfdata",
             "caption": "FS Inodes: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -131,10 +246,10 @@
             "settings": {},
             "uuid": "d9fcd128-4b29-4c71-99f3-fe234153e5da"
         },
-        "4": {
+        "8": {
             "varname": "fs_inodes_warning",
             "caption": "FS Inodes: Warning",
-            "description": "WARN threshold for inode usage in percent.",
+            "description": "WARN threshold in percent. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

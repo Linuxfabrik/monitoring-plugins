@@ -11,25 +11,35 @@
 """See the check's README for more details."""
 
 import argparse
-import os
+import json
 import sys
 
 import lib.args
 import lib.base
 import lib.disk
-from lib.globals import STATE_OK, STATE_UNKNOWN
+import lib.human
+import lib.lftest
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026072301'
 
 DESCRIPTION = """Checks the percentage of used inodes on local filesystems. Fetches a list of local
-devices that are in use and have a filesystem. Filesystems that do not report inode
-usage (such as some network filesystems) are skipped automatically.
+devices that are in use and have a filesystem. Filesystems that do not report inode usage
+(such as some network filesystems) are skipped automatically, and mount points the plugin
+cannot read (for example a Kubernetes CSI volume that requires root) are reported as
+unreadable instead of aborting the whole check. Supports filtering mount points by regular
+expression via --match and --ignore. Supports extended reporting via --lengthy.
 Alerts when inode usage exceeds the configured thresholds."""
 
-DEFAULT_WARN = 90
-DEFAULT_CRIT = 95
-DEFAULT_MOUNT = '/, /tmp, /boot'
+DEFAULT_CRIT = '95'
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_WARN = '90'
+
+# Mount points longer than this are shortened for display only (perfdata keeps
+# the full path). Keeps machine-generated mounts (Kubernetes CSI volumes) readable.
+DISPLAY_PATH_MAXLEN = 40
 
 
 def parse_args():
@@ -54,19 +64,49 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for inode usage in percent. Default: %(default)s',
+        help=lib.args.help('--critical')
+        + ' Supports Nagios ranges. Default: %(default)s',
         dest='CRIT',
-        type=float,
         default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex'),
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match'),
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
         '--mount',
-        # help='The mount point, in the format "mount1,mount2". Default: "%(default)s".',
         help=argparse.SUPPRESS,  # deprecated parameter
         dest='MOUNT',
-        type=lambda s: [str(item).strip() for item in s.split(',')],
-        default=DEFAULT_MOUNT,
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -78,16 +118,43 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for inode usage in percent. Default: %(default)s',
+        help=lib.args.help('--warning')
+        + ' Supports Nagios ranges. Default: %(default)s',
         dest='WARN',
-        type=float,
         default=DEFAULT_WARN,
     )
 
     args, _ = parser.parse_known_args()
     return args
+
+
+def _fixture_inode_usage(disk):
+    """Map a --test fixture disk entry onto the (success, result) contract of
+    `lib.disk.get_inode_usage()`: a `permission_denied` entry fails, a
+    zero-inode entry yields `None`, otherwise the inode counts are returned.
+    """
+    if disk.get('permission_denied'):
+        return False, 'permission denied (test fixture)'
+    total = disk.get('files', 0)
+    if not total:
+        return True, None
+    free = disk.get('ffree', 0)
+    used = total - free
+    return True, {
+        'total': total,
+        'free': free,
+        'used': used,
+        'percent': round(used / total * 100, 1),
+    }
 
 
 def main():
@@ -99,47 +166,125 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # fetch data
+    if args.TEST is None:
+        disks = lib.disk.get_real_disks()
+    else:
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        disks = json.loads(stdout).get('disks', [])
+
     # init some vars
-    msg = []
-    perfdata = ''
     state = STATE_OK
+    perfdata = ''
+    table_data = []
+    compiled_match = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
 
     # analyze data
-    real_disks = lib.disk.get_real_disks()
-    for disk in real_disks:
+    for disk in disks:
+        # a device can be mounted at several places; its inode counts are
+        # identical across all of them, so we look at the first mount point.
         mount = disk['mp'].split(' ')[0]
-        try:
-            st = os.statvfs(mount)
-            inodes_total = float(st.f_files)
-            if not inodes_total:
-                continue
-            inodes_free = float(st.f_ffree)
-            inodes_used = round((inodes_total - inodes_free) / inodes_total * 100, 1)
 
-            local_state = lib.base.get_state(inodes_used, args.WARN, args.CRIT)
-            state = lib.base.get_worst(local_state, state)
+        # Filter mount points. --match (include) is applied first, then
+        # --ignore (exclude), so a mount point hit by --ignore is dropped even
+        # if it also matches --match. Both use case-sensitive Python regex.
+        if compiled_match and not any(item.search(mount) for item in compiled_match):
+            continue
+        if any(item.search(mount) for item in compiled_ignore):
+            continue
 
-            msg.append(
-                f'{mount} {inodes_used}%{lib.base.state2str(local_state, prefix=" ")}'
+        # Read inode usage. An unreadable mount point (for example a Kubernetes
+        # CSI volume under /var/lib/kubelet that requires root) must not abort
+        # the whole check, so mark it as unreadable and carry on.
+        if args.TEST is None:
+            success, usage = lib.disk.get_inode_usage(mount)
+        else:
+            success, usage = _fixture_inode_usage(disk)
+        if not success:
+            table_data.append(
+                {
+                    'mountpoint': lib.disk.shorten_path(mount, max_len=DISPLAY_PATH_MAXLEN),
+                    'device': disk.get('dmd') or disk['bd'],
+                    'iused': 'N/A',
+                    'ifree': 'N/A',
+                    'itotal': 'N/A',
+                    'percent': 'N/A',
+                    # unreadable filesystems sort to the bottom of the
+                    # usage-sorted output (see below).
+                    '_percent': -1.0,
+                }
             )
-            perfdata += lib.base.get_perfdata(
-                mount,
-                inodes_used,
-                uom='%',
-                warn=args.WARN,
-                crit=args.CRIT,
-                _min=0,
-                _max=100,
-            )
-        except Exception:
-            lib.base.cu('Something seems to be wrong with the input parameter')
+            continue
+
+        # filesystems that do not report inodes (btrfs, FAT, some network mounts)
+        if usage is None:
+            continue
+
+        local_state = lib.base.get_state(
+            usage['percent'], args.WARN, args.CRIT, _operator='range'
+        )
+        state = lib.base.get_worst(local_state, state)
+        perfdata += lib.base.get_perfdata(
+            mount,
+            usage['percent'],
+            uom='%',
+            warn=args.WARN,
+            crit=args.CRIT,
+            _min=0,
+            _max=100,
+        )
+        table_data.append(
+            {
+                'mountpoint': lib.disk.shorten_path(mount, max_len=DISPLAY_PATH_MAXLEN),
+                'device': disk.get('dmd') or disk['bd'],
+                'iused': lib.human.number2human(usage['used']),
+                'ifree': lib.human.number2human(usage['free']),
+                'itotal': lib.human.number2human(usage['total']),
+                'percent': f'{usage["percent"]}%{lib.base.state2str(local_state, prefix=" ")}',
+                # numeric usage percentage the output is sorted by (see below).
+                '_percent': usage['percent'],
+            }
+        )
 
     # build the message
-    if not msg:
-        lib.base.oao('Everything is ok (although nothing checked).', state)
-    msg = ', '.join(msg)
-    if state != STATE_OK:
-        msg += '. Have a look at the README on how to find where inodes are being used.'
+    # sort by inode usage, fullest first; unreadable mounts (_percent -1) last.
+    table_data.sort(key=lambda row: row['_percent'], reverse=True)
+    thresholds = f'warn={args.WARN} crit={args.CRIT}'
+    if not table_data:
+        msg = 'Nothing checked.'
+        state = lib.base.str2state(args.NO_MATCH_SEVERITY)
+    elif args.LENGTHY:
+        # extended reporting: a table with the inode counts per mount point.
+        if state == STATE_CRIT:
+            header = 'There are critical errors.'
+        elif state == STATE_WARN:
+            header = 'There are warnings.'
+        else:
+            header = 'Everything is ok.'
+        table = lib.base.get_table(
+            table_data,
+            ['mountpoint', 'device', 'itotal', 'iused', 'ifree', 'percent'],
+            header=['Mountpoint', 'Device', 'ITotal', 'IUsed', 'IFree', 'Use%'],
+        )
+        msg = f'{header} ({thresholds})\n\n{table}'
+    else:
+        # default: a compact single line, one item per mount point.
+        msg = ', '.join(
+            f'{row["mountpoint"]} {row["percent"]}' for row in table_data
+        )
+        if state != STATE_OK:
+            msg += '. Have a look at the README on how to find where inodes are being used.'
 
     # over and out
     lib.base.oao(

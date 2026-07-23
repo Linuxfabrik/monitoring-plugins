@@ -23,6 +23,7 @@ Monitoring Plugins:
 * docker-image, podman-image: new checks listing images and alerting on images older than a configurable age; `podman-image --user` covers a rootless user
 * docker-service: new check alerting when a Docker Swarm service runs fewer tasks than expected
 * docker-swarm: new check alerting on swarm membership, a down node, or lost manager quorum
+* fs-inodes: filter mount points with `--match`/`--ignore` and show a detailed table with `--lengthy` ([#1387](https://github.com/Linuxfabrik/monitoring-plugins/issues/1387))
 * huawei-pacific-quota: new check alerting when a share on a Huawei OceanStor Pacific storage system fills up its quota
 * kdump: new check alerting when the kernel crash dump mechanism cannot capture a panic, or when a previous panic left a crash dump behind (with a first analysis of the panic reason)
 * network-errors: new check alerting on interface receive and transmit errors ([#707](https://github.com/Linuxfabrik/monitoring-plugins/issues/707))
@@ -76,6 +77,7 @@ Monitoring Plugins:
 * csv-values, json-values, strongswan-connections: non-UTF-8 input no longer crashes the check ([#256](https://github.com/Linuxfabrik/lib/issues/256))
 * disk-io: no longer produces false CRITICAL alerts from I/O wait on healthy systems, in particular on ZFS/Proxmox ([#1371](https://github.com/Linuxfabrik/monitoring-plugins/issues/1371))
 * disk-usage: performance data carries the warning and critical thresholds again ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
+* fs-inodes: an unreadable mount point (for example a Kubernetes CSI volume that requires root) no longer aborts the whole check; the readable filesystems are still checked ([#1387](https://github.com/Linuxfabrik/monitoring-plugins/issues/1387))
 * journald-query: a relative `--since` such as `-8h` from the Icinga Director works again ([#1264](https://github.com/Linuxfabrik/monitoring-plugins/issues/1264))
 * logfile: detects a logfile that an application rewrites from the beginning instead of appending to, which until now hid every new line from the check ([#1330](https://github.com/Linuxfabrik/monitoring-plugins/issues/1330))
 * lynis: audits produce a report on Debian, Ubuntu and other distributions that keep lynis outside `/usr/share` ([#1262](https://github.com/Linuxfabrik/monitoring-plugins/issues/1262))

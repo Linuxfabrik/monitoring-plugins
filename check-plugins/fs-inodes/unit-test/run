@@ -1,0 +1,170 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+# The fs-inodes plugin normally enumerates local block devices via
+# `lib.disk.get_real_disks()` and reads inode counts with `os.statvfs()`
+# for each mount point. Its `--test` hook replaces both with a JSON
+# fixture:
+#
+#     {
+#       "disks": [
+#         {"bd": "/dev/vda1", "dmd": null, "mp": "/",
+#          "files": <total inodes>, "ffree": <free inodes>},
+#         {"bd": "/dev/rbd0", "dmd": null, "mp": "/var/lib/kubelet/...",
+#          "permission_denied": true},
+#         ...
+#       ]
+#     }
+#
+# A disk with "permission_denied" simulates a mount point that raises
+# PermissionError (the Kubernetes/Ceph case from issue #1387); one with
+# "files": 0 simulates a filesystem that does not report inodes.
+TESTS = [
+    # Default output (no --lengthy) is a compact single line, one item per
+    # mount point, sorted by inode usage.
+    {
+        'id': 'ok-single-root-nominal',
+        'test': 'stdout/single-root-nominal,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['/ 2.3%'],
+    },
+    {
+        'id': 'warn-single-root-above-warn',
+        'test': 'stdout/single-root-warn,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['93.0%', '[WARNING]'],
+    },
+    {
+        'id': 'crit-single-root-above-crit',
+        'test': 'stdout/single-root-crit,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['98.0%', '[CRITICAL]'],
+    },
+    {
+        'id': 'warn-custom-range-threshold',
+        'test': 'stdout/single-root-nominal,,0',
+        'params': '--warning 1 --critical 5',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2.3%', '[WARNING]'],
+    },
+    {
+        'id': 'ok-three-mounts-default-one-line',
+        'test': 'stdout/three-mounts-one-warn,,0',
+        'params': '--warning 99 --critical 99',
+        'assert-retc': STATE_OK,
+        'assert-in': ['/var 93.0%', '/boot 0.8%'],
+    },
+    {
+        # default output is sorted by inode usage, fullest first: /var (93%)
+        # before /boot (0.8%), regardless of /proc/mounts order.
+        'id': 'ok-default-sorted-by-usage',
+        'test': 'stdout/three-mounts-one-warn,,0',
+        'params': '--warning 99 --critical 99',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'/var 93\.0%.*/boot 0\.8%',
+    },
+    {
+        'id': 'warn-three-mounts-one-over',
+        'test': 'stdout/three-mounts-one-warn,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['/var 93.0%', '[WARNING]', 'Have a look at the README'],
+    },
+    # --lengthy switches to a table with the inode counts per mount point.
+    {
+        'id': 'ok-lengthy-adds-columns',
+        'test': 'stdout/three-mounts-one-warn,,0',
+        'params': '--warning 99 --critical 99 --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', 'Device', 'ITotal', 'IUsed', 'IFree'],
+    },
+    {
+        # the table is sorted the same way: /var (93%) row before /boot (0.8%).
+        'id': 'ok-lengthy-sorted-by-usage',
+        'test': 'stdout/three-mounts-one-warn,,0',
+        'params': '--warning 99 --critical 99 --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'(?s)/var\s+!.*93\.0%.*/boot\s+!.*0\.8%',
+    },
+    {
+        'id': 'ok-match-single-mount',
+        'test': 'stdout/three-mounts-one-warn,,0',
+        'params': '--match /boot',
+        'assert-retc': STATE_OK,
+        'assert-in': ['/boot'],
+        'assert-not-in': ['/var'],
+    },
+    {
+        'id': 'ok-ignore-drops-mount',
+        'test': 'stdout/three-mounts-one-warn,,0',
+        'params': '--ignore /var',
+        'assert-retc': STATE_OK,
+        'assert-in': ['/boot'],
+        'assert-not-in': ['/var'],
+    },
+    # issue #1387: an unreadable Kubernetes/Ceph mount must not abort the
+    # whole check; the other filesystems still get checked, and the long CSI
+    # path is shortened for display.
+    {
+        'id': 'ok-kubelet-permission-denied-does-not-abort',
+        'test': 'stdout/kubelet-permission-denied,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['/ 2.3%', 'N/A', '...'],
+        'assert-not-in': ['Traceback', 'wrong with the input parameter', 'globalmount'],
+    },
+    {
+        'id': 'ok-ignore-silences-kubelet-noise',
+        'test': 'stdout/kubelet-permission-denied,,0',
+        'params': '--ignore /var/lib/kubelet',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['N/A', 'kubelet'],
+    },
+    {
+        'id': 'ok-zero-inode-fs-skipped',
+        'test': 'stdout/zero-inode-fs,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['/'],
+        'assert-not-in': ['/data'],
+    },
+    {
+        'id': 'ok-no-match-nothing-checked',
+        'test': 'stdout/three-mounts-one-warn,,0',
+        'params': '--match doesnotexist',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'warn-no-match-severity',
+        'test': 'stdout/three-mounts-one-warn,,0',
+        'params': '--match doesnotexist --no-match-severity warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../fs-inodes'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
