@@ -462,5 +462,74 @@ class TestMatchOid(unittest.TestCase):
         )
 
 
+class TestEvaluateHelpers(unittest.TestCase):
+    """Tests for the small pure helpers that evaluate_snmp_object() delegates to."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.plugin = load_plugin_module()
+
+    def test_object_name_prefers_the_name_column(self):
+        # [oid, name, ...]; the name wins when set, otherwise the oid is the display name
+        self.assertEqual(self.plugin.object_name(['OID::x.0', 'Uptime']), 'Uptime')
+        self.assertEqual(self.plugin.object_name(['OID::x.0', '']), 'OID::x.0')
+
+    def test_perfdata_uom_percent_pins_the_axis(self):
+        self.assertEqual(self.plugin.perfdata_uom('%'), ('%', 100))
+
+    def test_perfdata_uom_bytes_and_time_leave_the_maximum_open(self):
+        self.assertEqual(self.plugin.perfdata_uom('GB'), ('GB', None))
+        self.assertEqual(self.plugin.perfdata_uom('s'), ('s', None))
+        self.assertEqual(self.plugin.perfdata_uom('c'), ('c', None))
+
+    def test_perfdata_uom_unknown_label_yields_no_uom(self):
+        self.assertEqual(self.plugin.perfdata_uom('bananas'), (None, None))
+
+    def test_format_table_value_dispatches_by_unit(self):
+        self.assertEqual(self.plugin.format_table_value('', '42'), '42')
+        self.assertEqual(self.plugin.format_table_value('x', 42), '42x')
+        # s/b/bps delegate to lib.human; just assert they format rather than echo the raw value
+        self.assertNotEqual(self.plugin.format_table_value('s', 90), '90s')
+
+    def test_read_csv_row_v1_layout_has_no_perfdata_columns(self):
+        # a v1 row ends at CSV_COL_RCA (8 columns); the perfdata columns must stay at default
+        row = ['OID::x.0', 'Name', '', 'b', '', '', '', '']
+        parsed = self.plugin.read_csv_row(row, len(row))
+        self.assertEqual(parsed['unit'], 'b')
+        self.assertFalse(parsed['ignore_perfdata'])
+        self.assertFalse(parsed['perf_thresholds'])
+        self.assertFalse(parsed['skip_output'])
+
+    def test_read_csv_row_v3_layout_reads_all_columns(self):
+        # a v3 row carries every column through CSV_COL_SKIPOUTPUT (11 columns)
+        row = ['OID::x.0', 'Name', '', 's', '', '', '', '', 'True', '80,90', 'True']
+        parsed = self.plugin.read_csv_row(row, len(row))
+        self.assertTrue(parsed['ignore_perfdata'])
+        self.assertEqual(parsed['perf_thresholds'], '80,90')
+        self.assertTrue(parsed['skip_output'])
+
+    def test_parse_perf_thresholds_empty_field_is_a_no_op(self):
+        args = types.SimpleNamespace(DEVICE='any-any-any.csv')
+        perf = self.plugin.parse_perf_thresholds('', 'Uptime', args)
+        self.assertFalse(perf['escalate_unknown'])
+        self.assertEqual(perf['header'], '')
+        self.assertIsNone(perf['w'])
+
+    def test_parse_perf_thresholds_reads_warn_crit_min_max(self):
+        args = types.SimpleNamespace(DEVICE='any-any-any.csv')
+        perf = self.plugin.parse_perf_thresholds('80,90,0,100', 'Uptime', args)
+        self.assertEqual((perf['w'], perf['c']), (80, 90))
+        self.assertEqual((perf['perf_min'], perf['has_min']), (0, True))
+        self.assertEqual((perf['perf_max'], perf['has_max']), (100, True))
+        self.assertFalse(perf['escalate_unknown'])
+
+    def test_parse_perf_thresholds_malformed_field_escalates_to_unknown(self):
+        # a single value is not a (warn, crit[, min[, max]]) tuple
+        args = types.SimpleNamespace(DEVICE='any-any-any.csv')
+        perf = self.plugin.parse_perf_thresholds('26', 'Supply Air Temperature', args)
+        self.assertTrue(perf['escalate_unknown'])
+        self.assertIn('invalid perfdata alert thresholds', perf['header'])
+
+
 if __name__ == '__main__':
     unittest.main()
