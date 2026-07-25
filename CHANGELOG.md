@@ -29,6 +29,7 @@ Monitoring Plugins:
 * kdump: new check alerting when the kernel crash dump mechanism cannot capture a panic, or when a previous panic left a crash dump behind (with a first analysis of the panic reason)
 * network-errors: new check alerting on interface receive and transmit errors ([#707](https://github.com/Linuxfabrik/monitoring-plugins/issues/707))
 * nextcloud-app-updates: new check alerting when a Nextcloud app update has been pending longer than a grace period ([#62](https://github.com/Linuxfabrik/monitoring-plugins/issues/62))
+* ping: optional `--warning`/`--critical` (round-trip average) and `--packet-loss-warning`/`--packet-loss-critical` thresholds alert on latency and packet loss
 * php-status: warns when `post_max_size` is not larger than `upload_max_filesize`, a misconfiguration that silently breaks file uploads ([#516](https://github.com/Linuxfabrik/monitoring-plugins/issues/516))
 * snmp: `--snmpconf-path` keeps the SNMP community and SNMPv3 passphrases out of the process list by reading them from a net-snmp config file
 * wildfly-version: new check alerting when WildFly is behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))
@@ -42,6 +43,7 @@ Grafana:
 Build, CI/CD:
 
 * Bump pinned `linuxfabrik-lib` to 6.0.0
+* Package builds fail fast when the source checkout does not match the requested release version, instead of silently shipping outdated code under a newer version label ([#1406](https://github.com/Linuxfabrik/monitoring-plugins/issues/1406))
 
 Monitoring Plugins:
 

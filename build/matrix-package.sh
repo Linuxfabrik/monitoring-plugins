@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
-# 2025051601
+# 2026072501
 
 set -e -o pipefail -u -x
+
+# Fail fast if the checkout does not contain the code tagged vLFMP_VERSION, so a
+# stale checkout cannot ship outdated code under a newer version label
+# (fix #1406). Runs here on the host because git is not available inside the
+# build containers.
+bash "$LFMP_DIR_REPO_MP/build/verify-version.sh"
 
 for LFMP_TARGET_DISTRO in $LFMP_TARGET_DISTROS; do
      # Create folders for packages by distro
