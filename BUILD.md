@@ -115,6 +115,13 @@ bash $LFMP_DIR_REPO_MP/build/matrix-package.sh
 From each container's perspective, the Python source code is at
 `/repos/monitoring-plugins`.
 
+`matrix-package.sh` first runs `verify-version.sh`, which requires the
+`vLFMP_VERSION` tag to be reachable from the checkout's HEAD. A fresh `git
+clone` fetches all tags, so the recipe above works as long as that tag exists.
+To cut a real release from an exact tree, `git checkout v$LFMP_VERSION` after
+cloning. To package an untagged development checkout under a placeholder
+version, prefix the build with `LFMP_SKIP_VERSION_CHECK=1`.
+
 After the build, the packages directory looks like this:
 
 ```text
@@ -213,7 +220,10 @@ bash "$LFMP_DIR_REPOS/monitoring-plugins/build/compile-one.sh" check-plugins cpu
 
 For a full dry run of the compilation step, call
 `compile-multiple.sh` instead; it loops over every plugin the workflow would
-build. The MSI and the signing steps have no local fallback, so stop there.
+build. It runs `verify-version.sh` first, so export `LFMP_VERSION` (with the
+matching `vLFMP_VERSION` tag reachable from HEAD) or prefix the call with
+`LFMP_SKIP_VERSION_CHECK=1`. The MSI and the signing steps have no local
+fallback, so stop there.
 
 
 ## Appendix: Packaging Decisions
