@@ -11,8 +11,17 @@
                 "--hostname": {
                     "value": "$ping_hostname$"
                 },
+                "--interface": {
+                    "value": "$ping_interface$"
+                },
                 "--interval": {
                     "value": "$ping_interval$"
+                },
+                "--ipv4": {
+                    "set_if": "$ping_ipv4$"
+                },
+                "--ipv6": {
+                    "set_if": "$ping_ipv6$"
                 },
                 "--no-perfdata": {
                     "set_if": "$ping_no_perfdata$"
@@ -22,6 +31,9 @@
                 },
                 "--packet-loss-warning": {
                     "value": "$ping_packet_loss_warning$"
+                },
+                "--packet-size": {
+                    "value": "$ping_packet_size$"
                 },
                 "--rta-critical": {
                     "value": "$ping_rta_critical$"
@@ -37,6 +49,9 @@
                 },
                 "--timeout": {
                     "value": "$ping_timeout$"
+                },
+                "--ttl": {
+                    "value": "$ping_ttl$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/ping",
@@ -101,6 +116,31 @@
                     "datafield_id": 12,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -159,6 +199,8 @@
                 "ping_count": 5,
                 "ping_hostname": "127.0.0.1",
                 "ping_interval": 0.2,
+                "ping_ipv4": false,
+                "ping_ipv6": false,
                 "ping_no_perfdata": false,
                 "ping_timeout": 5
             },
@@ -200,6 +242,17 @@
             "uuid": "fcd9fdac-8264-403b-b4a1-699dcdd70e61"
         },
         "4": {
+            "varname": "ping_interface",
+            "caption": "Ping: Interface",
+            "description": "Interface name or source address to ping from (`ping -I`). Example: `--interface eth0`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "d9122429-0626-4cee-bfaf-30f29a5f8a06"
+        },
+        "5": {
             "varname": "ping_interval",
             "caption": "Ping: Interval",
             "description": "Interval between sending each packet, in seconds. Accepts real numbers with dot as decimal separator (regardless of locale).",
@@ -210,7 +263,25 @@
             },
             "uuid": "c8d8ef18-d76f-4037-acd9-6ce28368c01c"
         },
-        "5": {
+        "6": {
+            "varname": "ping_ipv4",
+            "caption": "Ping: IPv4?",
+            "description": "Force IPv4.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "546d4a49-98aa-417e-a403-cab298d2d3d5"
+        },
+        "7": {
+            "varname": "ping_ipv6",
+            "caption": "Ping: IPv6?",
+            "description": "Use IPv6.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "4b04dc81-4c24-41d9-94b0-002b7a157bc4"
+        },
+        "8": {
             "varname": "ping_no_perfdata",
             "caption": "Ping: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -219,7 +290,7 @@
             "settings": {},
             "uuid": "a128f20b-e3ee-4c3b-ad8f-08b183bf8c66"
         },
-        "6": {
+        "9": {
             "varname": "ping_packet_loss_critical",
             "caption": "Ping: Packet Loss Critical",
             "description": "CRIT threshold for the packet loss, in percent. Supports Nagios ranges. Disabled by default.",
@@ -230,7 +301,7 @@
             },
             "uuid": "b8ef29ea-3725-45c1-b1a9-4615e9df7430"
         },
-        "7": {
+        "10": {
             "varname": "ping_packet_loss_warning",
             "caption": "Ping: Packet Loss Warning",
             "description": "WARN threshold for the packet loss, in percent. Supports Nagios ranges. Disabled by default.",
@@ -241,7 +312,18 @@
             },
             "uuid": "69ddc309-c622-4ff4-b819-570f6844a775"
         },
-        "8": {
+        "11": {
+            "varname": "ping_packet_size",
+            "caption": "Ping: Packet Size",
+            "description": "Number of data bytes to send (`ping -s`), excluding the 8-byte ICMP header. Example: `--packet-size 1472`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6ac46524-c1fe-4c33-ae5b-863f6f80eaaa"
+        },
+        "12": {
             "varname": "ping_rta_critical",
             "caption": "Ping: Rta Critical",
             "description": "CRIT threshold for the round-trip average, in milliseconds. Supports Nagios ranges. Disabled by default.",
@@ -252,7 +334,7 @@
             },
             "uuid": "0563f9d6-4f15-43c5-82df-25b3c00111fd"
         },
-        "9": {
+        "13": {
             "varname": "ping_rta_warning",
             "caption": "Ping: Rta Warning",
             "description": "WARN threshold for the round-trip average, in milliseconds. Supports Nagios ranges. Disabled by default.",
@@ -263,7 +345,7 @@
             },
             "uuid": "f70fc578-aa79-4cb6-a1ed-07238c6aa5c9"
         },
-        "10": {
+        "14": {
             "varname": "ping_rtt_mdev_critical",
             "caption": "Ping: Rtt Mdev Critical",
             "description": "CRIT threshold for the round-trip variability (mdev, a jitter measure), in milliseconds. Supports Nagios ranges. Disabled by default.",
@@ -274,7 +356,7 @@
             },
             "uuid": "63baa8c4-361f-4f1f-a773-589be45bad0f"
         },
-        "11": {
+        "15": {
             "varname": "ping_rtt_mdev_warning",
             "caption": "Ping: Rtt Mdev Warning",
             "description": "WARN threshold for the round-trip variability (mdev, a jitter measure), in milliseconds. Supports Nagios ranges. Disabled by default.",
@@ -285,7 +367,7 @@
             },
             "uuid": "4b70f67e-5d5d-4fee-956c-cbadb34a7fe1"
         },
-        "12": {
+        "16": {
             "varname": "ping_timeout",
             "caption": "Ping: Timeout",
             "description": "Timeout in seconds before ping exits regardless of how many packets have been sent or received.",
@@ -295,6 +377,17 @@
                 "visibility": "visible"
             },
             "uuid": "7a98988f-14de-4d75-a837-514548accc6d"
+        },
+        "17": {
+            "varname": "ping_ttl",
+            "caption": "Ping: Ttl",
+            "description": "IP Time To Live for the outgoing packets (`ping -t`). Example: `--ttl 64`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "8ee4709c-849a-451b-83cb-465c2c9b92f6"
         }
     }
 }

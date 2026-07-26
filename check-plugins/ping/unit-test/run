@@ -12,6 +12,7 @@ import importlib.machinery
 import importlib.util
 import os
 import sys
+import types
 
 sys.path.insert(0, '..')  # Adds higher directory to python modules path.
 
@@ -210,6 +211,48 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
+    def test_control_knobs_together(self):
+        # --ipv4, --ttl, --packet-size and --interface lo all reach the loopback fine
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                [
+                    self.check,
+                    '--hostname',
+                    '127.0.0.1',
+                    '--count',
+                    '2',
+                    '--ipv4',
+                    '--ttl',
+                    '64',
+                    '--packet-size',
+                    '100',
+                    '--interface',
+                    'lo',
+                ]
+            )
+        )
+        self.assertRegex(stdout, r'^PING 127\.0\.0\.1: ')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_ipv4_and_ipv6_are_mutually_exclusive(self):
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                [
+                    self.check,
+                    '--hostname',
+                    '127.0.0.1',
+                    '--count',
+                    '1',
+                    '--ipv4',
+                    '--ipv6',
+                ]
+            )
+        )
+        self.assertIn('Use only one of --ipv4 and --ipv6.', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_UNKNOWN)
+
 
 class TestStatisticsRegex(unittest.TestCase):
     """Tests for STATISTICS_RE against the real iputils summary line.
@@ -250,6 +293,53 @@ class TestStatisticsRegex(unittest.TestCase):
         self.assertEqual(m.group(4), '1')  # duplicates
         self.assertEqual(m.group(6), '2')  # corrupted
         self.assertEqual(m.group(8), '1')  # errors
+
+
+class TestBuildPingCall(unittest.TestCase):
+    """Tests for build_ping_call(), the argv builder for the system ping call."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.plugin = load_plugin_module()
+
+    def _args(self, **overrides):
+        base = {
+            'COUNT': 5,
+            'INTERVAL': 0.2,
+            'DEADLINE': 5,
+            'HOSTNAME': '192.0.2.10',
+            'IPV4': False,
+            'IPV6': False,
+            'TTL': None,
+            'PACKET_SIZE': None,
+            'INTERFACE': None,
+        }
+        base.update(overrides)
+        return types.SimpleNamespace(**base)
+
+    def test_default_call_is_quiet_numeric_and_has_no_optional_flags(self):
+        cmd = self.plugin.build_ping_call(self._args())
+        self.assertEqual(cmd[0], 'ping')
+        self.assertIn('-q', cmd)
+        self.assertIn('-n', cmd)
+        for flag in ('-4', '-6', '-t', '-s', '-I'):
+            self.assertNotIn(flag, cmd)
+        self.assertEqual(cmd[-1], '192.0.2.10')  # the host is always last
+
+    def test_control_knobs_are_appended(self):
+        cmd = self.plugin.build_ping_call(
+            self._args(IPV4=True, TTL=64, PACKET_SIZE=100, INTERFACE='lo')
+        )
+        self.assertIn('-4', cmd)
+        self.assertEqual(cmd[cmd.index('-t') + 1], '64')
+        self.assertEqual(cmd[cmd.index('-s') + 1], '100')
+        self.assertEqual(cmd[cmd.index('-I') + 1], 'lo')
+        self.assertEqual(cmd[-1], '192.0.2.10')
+
+    def test_ipv6_flag(self):
+        cmd = self.plugin.build_ping_call(self._args(IPV6=True))
+        self.assertIn('-6', cmd)
+        self.assertNotIn('-4', cmd)
 
 
 if __name__ == '__main__':

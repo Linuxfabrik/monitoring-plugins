@@ -86,6 +86,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--interface',
+        help='Interface name or source address to ping from (`ping -I`). '
+        'Example: `--interface eth0`.',
+        dest='INTERFACE',
+        default=None,
+    )
+
+    parser.add_argument(
         '--interval',
         help='Interval between sending each packet, in seconds. '
         'Accepts real numbers with dot as decimal separator (regardless of locale). '
@@ -93,6 +101,22 @@ def parse_args():
         default=DEFAULT_INTERVAL,
         dest='INTERVAL',
         type=float,
+    )
+
+    parser.add_argument(
+        '--ipv4',
+        help='Force IPv4.',
+        dest='IPV4',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--ipv6',
+        help=lib.args.help('--ipv6'),
+        dest='IPV6',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -118,6 +142,15 @@ def parse_args():
         'Supports Nagios ranges. '
         'Disabled by default.',
         dest='PACKET_LOSS_WARN',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--packet-size',
+        help='Number of data bytes to send (`ping -s`), excluding the 8-byte ICMP header. '
+        'Example: `--packet-size 1472`.',
+        dest='PACKET_SIZE',
+        type=int,
         default=None,
     )
 
@@ -170,8 +203,50 @@ def parse_args():
         type=int,
     )
 
+    parser.add_argument(
+        '--ttl',
+        help='IP Time To Live for the outgoing packets (`ping -t`). '
+        'Example: `--ttl 64`.',
+        dest='TTL',
+        type=int,
+        default=None,
+    )
+
     args, _ = parser.parse_known_args()
     return args
+
+
+def build_ping_call(args):
+    """Build the argv for the system ping call.
+
+    -n keeps the output numeric (no reverse DNS on replies), so the run is faster and the output
+    deterministic. The optional flags mirror check_icmp's controls: -4/-6 (IP version), -t (TTL),
+    -s (payload size) and -I (interface or source address). Example: ping -c 5 -i 0.2 -w 5 -q -n
+    192.0.2.10
+    """
+    cmd = [
+        'ping',
+        '-c',
+        str(args.COUNT),
+        '-i',
+        str(args.INTERVAL),
+        '-w',
+        str(args.DEADLINE),
+        '-q',
+        '-n',
+    ]
+    if args.IPV4:
+        cmd.append('-4')
+    if args.IPV6:
+        cmd.append('-6')
+    if args.TTL is not None:
+        cmd += ['-t', str(args.TTL)]
+    if args.PACKET_SIZE is not None:
+        cmd += ['-s', str(args.PACKET_SIZE)]
+    if args.INTERFACE:
+        cmd += ['-I', args.INTERFACE]
+    cmd.append(args.HOSTNAME)
+    return cmd
 
 
 def main():
@@ -183,25 +258,14 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    if args.IPV4 and args.IPV6:
+        lib.base.cu('Use only one of --ipv4 and --ipv6.')
+
     # the hostname reaches ping as a positional argument; reject a value that ping
     # could read as an option (e.g. -f for flood)
     lib.base.coe(lib.shell.safe_cli_value(args.HOSTNAME, '--hostname'))
 
-    # ping -c 5 -i 0.2 -w 5 -q -n 192.0.2.10
-    # -n: numeric output only, no reverse DNS on replies, so the run is faster and the output
-    # deterministic
-    cmd = [
-        'ping',
-        '-c',
-        str(args.COUNT),
-        '-i',
-        str(args.INTERVAL),
-        '-w',
-        str(args.DEADLINE),
-        '-q',
-        '-n',
-        args.HOSTNAME,
-    ]
+    cmd = build_ping_call(args)
 
     # fetch data
     stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))

@@ -32,11 +32,12 @@ Sends ICMP ECHO_REQUEST packets to a network host using the system's built-in `p
 
 ```text
 usage: ping [-h] [-V] [--always-ok] [--count COUNT] [-H HOSTNAME]
-            [--interval INTERVAL] [--no-perfdata]
-            [--packet-loss-critical PACKET_LOSS_CRIT]
-            [--packet-loss-warning PACKET_LOSS_WARN] [--rta-critical RTA_CRIT]
+            [--interface INTERFACE] [--interval INTERVAL] [--ipv4] [--ipv6]
+            [--no-perfdata] [--packet-loss-critical PACKET_LOSS_CRIT]
+            [--packet-loss-warning PACKET_LOSS_WARN]
+            [--packet-size PACKET_SIZE] [--rta-critical RTA_CRIT]
             [--rta-warning RTA_WARN] [--rtt-mdev-critical RTT_MDEV_CRIT]
-            [--rtt-mdev-warning RTT_MDEV_WARN] [-t DEADLINE]
+            [--rtt-mdev-warning RTT_MDEV_WARN] [-t DEADLINE] [--ttl TTL]
 
 Sends ICMP ECHO_REQUEST packets to a network host using the system's built-in
 ping command and reports round-trip time, round-trip variability and packet
@@ -54,9 +55,14 @@ options:
   --count COUNT         Number of ECHO_REQUEST packets to send. Default: 5
   -H, --hostname HOSTNAME
                         Hostname or IP address to ping. Default: 127.0.0.1
+  --interface INTERFACE
+                        Interface name or source address to ping from (`ping
+                        -I`). Example: `--interface eth0`.
   --interval INTERVAL   Interval between sending each packet, in seconds.
                         Accepts real numbers with dot as decimal separator
                         (regardless of locale). Default: 0.2
+  --ipv4                Force IPv4.
+  --ipv6                Use IPv6.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -67,6 +73,9 @@ options:
   --packet-loss-warning PACKET_LOSS_WARN
                         WARN threshold for the packet loss, in percent.
                         Supports Nagios ranges. Disabled by default.
+  --packet-size PACKET_SIZE
+                        Number of data bytes to send (`ping -s`), excluding
+                        the 8-byte ICMP header. Example: `--packet-size 1472`.
   --rta-critical RTA_CRIT
                         CRIT threshold for the round-trip average, in
                         milliseconds. Supports Nagios ranges. Disabled by
@@ -86,6 +95,8 @@ options:
   -t, --timeout DEADLINE
                         Timeout in seconds before ping exits regardless of how
                         many packets have been sent or received. Default: 5
+  --ttl TTL             IP Time To Live for the outgoing packets (`ping -t`).
+                        Example: `--ttl 64`.
 ```
 
 
