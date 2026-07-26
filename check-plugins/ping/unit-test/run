@@ -11,6 +11,7 @@
 import importlib.machinery
 import importlib.util
 import os
+import re
 import sys
 import types
 
@@ -114,6 +115,8 @@ class TestCheck(unittest.TestCase):
             )
         )
         self.assertRegex(stdout, r'^PING 127\.0\.0\.1: ')
+        self.assertIn('round-trip average', stdout)
+        self.assertIn('[CRITICAL]', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
 
@@ -132,6 +135,8 @@ class TestCheck(unittest.TestCase):
             )
         )
         self.assertRegex(stdout, r'^PING 127\.0\.0\.1: ')
+        self.assertIn('round-trip average', stdout)
+        self.assertIn('[WARNING]', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
@@ -189,6 +194,8 @@ class TestCheck(unittest.TestCase):
             )
         )
         self.assertRegex(stdout, r'^PING 127\.0\.0\.1: ')
+        self.assertIn('jitter (mdev)', stdout)
+        self.assertIn('[CRITICAL]', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
 
@@ -340,6 +347,96 @@ class TestBuildPingCall(unittest.TestCase):
         cmd = self.plugin.build_ping_call(self._args(IPV6=True))
         self.assertIn('-6', cmd)
         self.assertNotIn('-4', cmd)
+
+
+class TestEvaluateThresholds(unittest.TestCase):
+    """Tests for evaluate_thresholds(), which turns the parsed ping output plus the opt-in
+    thresholds into a state and a list of human-readable breach strings.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.plugin = load_plugin_module()
+
+    def _args(self, **overrides):
+        base = {
+            'PACKET_LOSS_WARN': None,
+            'PACKET_LOSS_CRIT': None,
+            'RTA_WARN': None,
+            'RTA_CRIT': None,
+            'RTT_MDEV_WARN': None,
+            'RTT_MDEV_CRIT': None,
+        }
+        base.update(overrides)
+        return types.SimpleNamespace(**base)
+
+    def _stats(self, line):
+        return self.plugin.STATISTICS_RE.search(line)
+
+    def _rtt(self, line):
+        return re.search(r'= (\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)', line)
+
+    def test_no_thresholds_no_alerts(self):
+        stats = self._stats(
+            '5 packets transmitted, 5 received, 0% packet loss, time 10'
+        )
+        rtt = self._rtt('rtt min/avg/max/mdev = 1.000/2.000/3.000/0.500 ms')
+        state, alerts = self.plugin.evaluate_thresholds(stats, rtt, self._args())
+        self.assertEqual(state, STATE_OK)
+        self.assertEqual(alerts, [])
+
+    def test_packet_loss_breach(self):
+        stats = self._stats(
+            '5 packets transmitted, 3 received, 40% packet loss, time 10'
+        )
+        state, alerts = self.plugin.evaluate_thresholds(
+            stats, None, self._args(PACKET_LOSS_CRIT='10')
+        )
+        self.assertEqual(state, STATE_CRIT)
+        self.assertTrue(
+            any('packet loss 40%' in a and '[CRITICAL]' in a for a in alerts)
+        )
+
+    def test_rta_breach(self):
+        stats = self._stats(
+            '5 packets transmitted, 5 received, 0% packet loss, time 10'
+        )
+        rtt = self._rtt('rtt min/avg/max/mdev = 1.000/250.000/300.000/5.000 ms')
+        state, alerts = self.plugin.evaluate_thresholds(
+            stats, rtt, self._args(RTA_WARN='200')
+        )
+        self.assertEqual(state, STATE_WARN)
+        self.assertTrue(
+            any(
+                'round-trip average 250.000ms' in a and '[WARNING]' in a for a in alerts
+            )
+        )
+
+    def test_mdev_breach(self):
+        stats = self._stats(
+            '5 packets transmitted, 5 received, 0% packet loss, time 10'
+        )
+        rtt = self._rtt('rtt min/avg/max/mdev = 1.000/2.000/3.000/30.000 ms')
+        state, alerts = self.plugin.evaluate_thresholds(
+            stats, rtt, self._args(RTT_MDEV_CRIT='10')
+        )
+        self.assertEqual(state, STATE_CRIT)
+        self.assertTrue(
+            any('jitter (mdev) 30.000ms' in a and '[CRITICAL]' in a for a in alerts)
+        )
+
+    def test_rtt_thresholds_skipped_when_host_unreachable(self):
+        # rtt_match is None when the host is down; only packet loss is evaluated
+        stats = self._stats(
+            '5 packets transmitted, 0 received, 100% packet loss, time 10'
+        )
+        state, alerts = self.plugin.evaluate_thresholds(
+            stats, None, self._args(RTA_CRIT='1')
+        )
+        self.assertEqual(
+            state, STATE_OK
+        )  # rta threshold cannot fire without an rtt line
+        self.assertEqual(alerts, [])
 
 
 if __name__ == '__main__':

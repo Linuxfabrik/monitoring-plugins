@@ -249,6 +249,157 @@ def build_ping_call(args):
     return cmd
 
 
+def evaluate_thresholds(stats_match, rtt_match, args):
+    """Evaluate the opt-in thresholds against the parsed ping output.
+
+    Returns `(state, alerts)`: the worst threshold state and a list of human-readable breach
+    strings (empty when nothing is over threshold). Packet loss comes from the summary line;
+    round-trip average and variability (mdev) need the rtt line, which is absent when the host is
+    unreachable (`rtt_match` is then None).
+    """
+    state = STATE_OK
+    alerts = []
+
+    packet_loss = stats_match.group(9)
+    loss_state = lib.base.get_state(
+        packet_loss, args.PACKET_LOSS_WARN, args.PACKET_LOSS_CRIT, _operator='range'
+    )
+    state = lib.base.get_worst(state, loss_state)
+    if loss_state != STATE_OK:
+        alerts.append(f'packet loss {packet_loss}% {lib.base.state2str(loss_state)}')
+
+    if rtt_match is not None:
+        rtt_avg = rtt_match.group(2)
+        rta_state = lib.base.get_state(
+            rtt_avg, args.RTA_WARN, args.RTA_CRIT, _operator='range'
+        )
+        state = lib.base.get_worst(state, rta_state)
+        if rta_state != STATE_OK:
+            alerts.append(
+                f'round-trip average {rtt_avg}ms {lib.base.state2str(rta_state)}'
+            )
+
+        rtt_mdev = rtt_match.group(4)
+        mdev_state = lib.base.get_state(
+            rtt_mdev, args.RTT_MDEV_WARN, args.RTT_MDEV_CRIT, _operator='range'
+        )
+        state = lib.base.get_worst(state, mdev_state)
+        if mdev_state != STATE_OK:
+            alerts.append(
+                f'jitter (mdev) {rtt_mdev}ms {lib.base.state2str(mdev_state)}'
+            )
+
+    return state, alerts
+
+
+def build_perfdata(stats_match, rtt_match, args):
+    """Build the performance-data string from the parsed ping output.
+
+    rtt_avg, rtt_mdev and packet_loss carry their opt-in warn/crit; the rtt metrics are only
+    emitted when the host is reachable (`rtt_match` is not None).
+    """
+
+    def count(group):
+        # optional "+N" fields (duplicates/corrupted/errors) are absent when zero
+        return group.replace('+', '') if group else 0
+
+    perfdata = lib.base.get_perfdata(
+        'transmitted',
+        stats_match.group(1),
+        uom=None,
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'received',
+        stats_match.group(2),
+        uom=None,
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'duplicates',
+        count(stats_match.group(4)),
+        uom=None,
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'checksum_corrupted',
+        count(stats_match.group(6)),
+        uom=None,
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'errors',
+        count(stats_match.group(8)),
+        uom=None,
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'packet_loss',
+        stats_match.group(9),
+        uom='%',
+        warn=args.PACKET_LOSS_WARN,
+        crit=args.PACKET_LOSS_CRIT,
+        _min=0,
+        _max=100,
+    )
+    perfdata += lib.base.get_perfdata(
+        'time', stats_match.group(10), uom='ms', warn=None, crit=None, _min=0, _max=None
+    )
+    if rtt_match is not None:
+        perfdata += lib.base.get_perfdata(
+            'rtt_min',
+            rtt_match.group(1),
+            uom='ms',
+            warn=None,
+            crit=None,
+            _min=0,
+            _max=None,
+        )
+        perfdata += lib.base.get_perfdata(
+            'rtt_avg',
+            rtt_match.group(2),
+            uom='ms',
+            warn=args.RTA_WARN,
+            crit=args.RTA_CRIT,
+            _min=0,
+            _max=None,
+        )
+        perfdata += lib.base.get_perfdata(
+            'rtt_max',
+            rtt_match.group(3),
+            uom='ms',
+            warn=None,
+            crit=None,
+            _min=0,
+            _max=None,
+        )
+        perfdata += lib.base.get_perfdata(
+            'rtt_mdev',
+            rtt_match.group(4),
+            uom='ms',
+            warn=args.RTT_MDEV_WARN,
+            crit=args.RTT_MDEV_CRIT,
+            _min=0,
+            _max=None,
+        )
+    return perfdata
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -265,10 +416,8 @@ def main():
     # could read as an option (e.g. -f for flood)
     lib.base.coe(lib.shell.safe_cli_value(args.HOSTNAME, '--hostname'))
 
-    cmd = build_ping_call(args)
-
     # fetch data
-    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(build_ping_call(args)))
     if stderr or retc == 2:
         lib.base.cu(stderr)
     # stdout:
@@ -292,167 +441,41 @@ def main():
     # Throwing CRIT instead of WARN beacuse of the fact that this check will mainly be used
     # for checking host-liveliness [OK=UP, CRIT=DOWN].
     state = STATE_CRIT if re.search(r'\b0 received', stdout) else STATE_OK
-    msg = '' if state == STATE_OK else 'Destination host unreachable. '
-    perfdata = ''
+    down = state == STATE_CRIT
 
     # analyze data:
     result = stdout.splitlines()
     if not result[0] or not result[3]:
         lib.base.cu('Unexpected output from ping.')
 
-    # line 0:
-    # "PING %hostname (%ip) [from %sinip %device: ]%datalen(%datalen+28)
-    # 'PING www.linuxfabrik.ch (192.0.2.10) 56(84) bytes of data.'
-    ping = re.search(r'G (.*?)\(', result[0])  # regex: 45 steps
-
-    # build the message
-    msg += f'PING {ping.group(1).strip()}' + ': '
+    # line 0: 'PING www.linuxfabrik.ch (192.0.2.10) 56(84) bytes of data.' -> host
+    host = re.search(r'G (.*?)\(', result[0]).group(1).strip()  # regex: 45 steps
 
     # line 3 (see STATISTICS_RE):
     # '5 packets transmitted, 5 received, 0% packet loss, time 803ms'
-    matches = STATISTICS_RE.search(result[3])
-    msg += result[3] + '. '
+    stats_match = STATISTICS_RE.search(result[3])
+    detail = result[3] + '. '
 
-    # apply the optional packet-loss threshold (opt-in via --packet-loss-warning/-critical)
-    state = lib.base.get_worst(
-        state,
-        lib.base.get_state(
-            matches.group(9),
-            args.PACKET_LOSS_WARN,
-            args.PACKET_LOSS_CRIT,
-            _operator='range',
-        ),
-    )
-
-    perfdata += lib.base.get_perfdata(
-        'transmitted',
-        matches.group(1),
-        uom=None,
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'received',
-        matches.group(2),
-        uom=None,
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'duplicates',
-        matches.group(4).replace('+', '') if matches.group(4) else 0,
-        uom=None,
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'checksum_corrupted',
-        matches.group(6).replace('+', '') if matches.group(6) else 0,
-        uom=None,
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'errors',
-        matches.group(8).replace('+', '') if matches.group(8) else 0,
-        uom=None,
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-    perfdata += lib.base.get_perfdata(
-        'packet_loss',
-        matches.group(9),
-        uom='%',
-        warn=args.PACKET_LOSS_WARN,
-        crit=args.PACKET_LOSS_CRIT,
-        _min=0,
-        _max=100,
-    )
-    perfdata += lib.base.get_perfdata(
-        'time',
-        matches.group(10),
-        uom='ms',
-        warn=None,
-        crit=None,
-        _min=0,
-        _max=None,
-    )
-
-    # line 4:
+    # line 4 (only when the host is reachable):
     # 'rtt min/avg/max/mdev = 8.926/11.367/17.350/3.184 ms'
+    rtt_match = None
     if result[4] and not result[4].startswith('pipe '):
-        # host is reachable
-        matches = re.search(
+        rtt_match = re.search(
             r'= (\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)', result[4]
         )  # regex: 26 steps
-        msg += result[4]
+        detail += result[4]
 
-        # apply the optional round-trip average threshold (opt-in via --rta-warning/-critical)
-        state = lib.base.get_worst(
-            state,
-            lib.base.get_state(
-                matches.group(2), args.RTA_WARN, args.RTA_CRIT, _operator='range'
-            ),
-        )
+    # apply the opt-in thresholds and build the perfdata
+    threshold_state, alerts = evaluate_thresholds(stats_match, rtt_match, args)
+    state = lib.base.get_worst(state, threshold_state)
+    perfdata = build_perfdata(stats_match, rtt_match, args)
 
-        # apply the optional round-trip variability threshold (opt-in via --rtt-mdev-warning/
-        # -critical); mdev is a jitter measure
-        state = lib.base.get_worst(
-            state,
-            lib.base.get_state(
-                matches.group(4),
-                args.RTT_MDEV_WARN,
-                args.RTT_MDEV_CRIT,
-                _operator='range',
-            ),
-        )
-
-        perfdata += lib.base.get_perfdata(
-            'rtt_min',
-            matches.group(1),
-            uom='ms',
-            warn=None,
-            crit=None,
-            _min=0,
-            _max=None,
-        )
-        perfdata += lib.base.get_perfdata(
-            'rtt_avg',
-            matches.group(2),
-            uom='ms',
-            warn=args.RTA_WARN,
-            crit=args.RTA_CRIT,
-            _min=0,
-            _max=None,
-        )
-        perfdata += lib.base.get_perfdata(
-            'rtt_max',
-            matches.group(3),
-            uom='ms',
-            warn=None,
-            crit=None,
-            _min=0,
-            _max=None,
-        )
-        perfdata += lib.base.get_perfdata(
-            'rtt_mdev',
-            matches.group(4),
-            uom='ms',
-            warn=args.RTT_MDEV_WARN,
-            crit=args.RTT_MDEV_CRIT,
-            _min=0,
-            _max=None,
-        )
+    # build the message: lead with any threshold breaches, then the ping detail
+    msg = 'Destination host unreachable. ' if down else ''
+    msg += f'PING {host}: '
+    if alerts:
+        msg += ', '.join(alerts) + '. '
+    msg += detail
 
     # over and out
     lib.base.oao(
