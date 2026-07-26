@@ -17,6 +17,24 @@
                 "--no-perfdata": {
                     "set_if": "$ping_no_perfdata$"
                 },
+                "--packet-loss-critical": {
+                    "value": "$ping_packet_loss_critical$"
+                },
+                "--packet-loss-warning": {
+                    "value": "$ping_packet_loss_warning$"
+                },
+                "--rta-critical": {
+                    "value": "$ping_rta_critical$"
+                },
+                "--rta-warning": {
+                    "value": "$ping_rta_warning$"
+                },
+                "--rtt-mdev-critical": {
+                    "value": "$ping_rtt_mdev_critical$"
+                },
+                "--rtt-mdev-warning": {
+                    "value": "$ping_rtt_mdev_warning$"
+                },
                 "--timeout": {
                     "value": "$ping_timeout$"
                 }
@@ -51,6 +69,36 @@
                 },
                 {
                     "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -96,7 +144,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Sends ICMP ECHO_REQUEST packets to a network host using the system's built-in ping command. Reports round-trip time (min, avg, max) and packet loss percentage. Alerts on packet loss or high latency.",
+            "notes": "Sends ICMP ECHO_REQUEST packets to a network host using the system's built-in ping command and reports round-trip time, round-trip variability and packet loss. By default it reports CRITICAL only when the host is unreachable (no packet returns), so even high packet loss stays OK as long as one reply arrives. The optional --rta-warning/--rta-critical (round-trip average), --rtt-mdev-warning/--rtt-mdev-critical (round-trip variability, a jitter measure) and --packet-loss-warning/--packet-loss-critical thresholds additionally alert on latency, jitter and packet loss.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ping/",
             "object_name": "tpl-service-ping",
             "object_type": "template",
@@ -172,6 +220,72 @@
             "uuid": "a128f20b-e3ee-4c3b-ad8f-08b183bf8c66"
         },
         "6": {
+            "varname": "ping_packet_loss_critical",
+            "caption": "Ping: Packet Loss Critical",
+            "description": "CRIT threshold for the packet loss, in percent. Supports Nagios ranges. Disabled by default.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "b8ef29ea-3725-45c1-b1a9-4615e9df7430"
+        },
+        "7": {
+            "varname": "ping_packet_loss_warning",
+            "caption": "Ping: Packet Loss Warning",
+            "description": "WARN threshold for the packet loss, in percent. Supports Nagios ranges. Disabled by default.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "69ddc309-c622-4ff4-b819-570f6844a775"
+        },
+        "8": {
+            "varname": "ping_rta_critical",
+            "caption": "Ping: Rta Critical",
+            "description": "CRIT threshold for the round-trip average, in milliseconds. Supports Nagios ranges. Disabled by default.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "0563f9d6-4f15-43c5-82df-25b3c00111fd"
+        },
+        "9": {
+            "varname": "ping_rta_warning",
+            "caption": "Ping: Rta Warning",
+            "description": "WARN threshold for the round-trip average, in milliseconds. Supports Nagios ranges. Disabled by default.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "f70fc578-aa79-4cb6-a1ed-07238c6aa5c9"
+        },
+        "10": {
+            "varname": "ping_rtt_mdev_critical",
+            "caption": "Ping: Rtt Mdev Critical",
+            "description": "CRIT threshold for the round-trip variability (mdev, a jitter measure), in milliseconds. Supports Nagios ranges. Disabled by default.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "63baa8c4-361f-4f1f-a773-589be45bad0f"
+        },
+        "11": {
+            "varname": "ping_rtt_mdev_warning",
+            "caption": "Ping: Rtt Mdev Warning",
+            "description": "WARN threshold for the round-trip variability (mdev, a jitter measure), in milliseconds. Supports Nagios ranges. Disabled by default.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "4b70f67e-5d5d-4fee-956c-cbadb34a7fe1"
+        },
+        "12": {
             "varname": "ping_timeout",
             "caption": "Ping: Timeout",
             "description": "Timeout in seconds before ping exits regardless of how many packets have been sent or received.",

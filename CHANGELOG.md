@@ -29,7 +29,7 @@ Monitoring Plugins:
 * kdump: new check alerting when the kernel crash dump mechanism cannot capture a panic, or when a previous panic left a crash dump behind (with a first analysis of the panic reason)
 * network-errors: new check alerting on interface receive and transmit errors ([#707](https://github.com/Linuxfabrik/monitoring-plugins/issues/707))
 * nextcloud-app-updates: new check alerting when a Nextcloud app update has been pending longer than a grace period ([#62](https://github.com/Linuxfabrik/monitoring-plugins/issues/62))
-* ping: optional `--warning`/`--critical` (round-trip average) and `--packet-loss-warning`/`--packet-loss-critical` thresholds alert on latency and packet loss
+* ping: optional `--rta-warning`/`--rta-critical` (latency), `--rtt-mdev-warning`/`--rtt-mdev-critical` (jitter) and `--packet-loss-warning`/`--packet-loss-critical` thresholds alert on latency, jitter and packet loss
 * php-status: warns when `post_max_size` is not larger than `upload_max_filesize`, a misconfiguration that silently breaks file uploads ([#516](https://github.com/Linuxfabrik/monitoring-plugins/issues/516))
 * snmp: `--snmpconf-path` keeps the SNMP community and SNMPv3 passphrases out of the process list by reading them from a net-snmp config file
 * wildfly-version: new check alerting when WildFly is behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))
@@ -95,6 +95,7 @@ Monitoring Plugins:
 * lynis: shows the underlying lynis error when an audit produces no report
 * mysql-replica-status: works on MySQL 8.4, which no longer understands `SHOW SLAVE HOSTS` and made the check return UNKNOWN
 * mysql-replica-status: a monitoring account that may not list replicas no longer turns the whole check UNKNOWN
+* ping: checksum-corrupted packets are counted correctly, and a corrupted reply no longer turns the check UNKNOWN
 * redfish-\*: `--cache-expire` (default now 5 minutes) also caches the Redfish session and API responses, so the several Redfish checks on a host share one session and fetched data instead of each re-reading it from the controller ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 * redfish-\*: reads each component collection in one request where the controller supports it, so checks on servers with many sensors, drives or firmware components no longer time out ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 * redfish-\*: the Redfish API URL is now a mandatory `--url`, dropping the misleading localhost default ([#1306](https://github.com/Linuxfabrik/monitoring-plugins/issues/1306))
@@ -107,6 +108,10 @@ Monitoring Plugins:
 * strongswan-connections: a connection that never expires no longer graphs a made-up "expires right now", and an overdue re-keying is graphed as the negative value it is
 * strongswan-connections: the re-keying and re-authentication times are graphed as the two separate values they are
 * systemd-unit: the bundled Ubuntu service sets check `ssh.service`, so the SSH unit check works on Ubuntu again instead of reporting the unit as missing ([#1373](https://github.com/Linuxfabrik/monitoring-plugins/issues/1373))
+
+Grafana:
+
+* ping: the round-trip time and total-time graphs are scaled in milliseconds instead of seconds, so the values are no longer shown 1000x too large
 
 ### Security
 

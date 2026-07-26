@@ -8,6 +8,9 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import importlib.machinery
+import importlib.util
+import os
 import sys
 
 sys.path.insert(0, '..')  # Adds higher directory to python modules path.
@@ -17,7 +20,22 @@ import unittest
 
 import lib.base
 import lib.shell
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# Absolute path to the plugin script (no `.py` suffix), imported as a module so its pure
+# helpers (STATISTICS_RE) can be unit-tested directly without spawning a subprocess.
+PLUGIN = os.path.abspath('../ping')
+
+
+def load_plugin_module():
+    """Import the plugin script as a module so its pure helpers can be called directly.
+    The script carries no `.py` suffix, so the source loader has to be named explicitly.
+    """
+    loader = importlib.machinery.SourceFileLoader('ping_plugin', PLUGIN)
+    spec = importlib.util.spec_from_loader('ping_plugin', loader)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class TestCheck(unittest.TestCase):
@@ -78,6 +96,160 @@ class TestCheck(unittest.TestCase):
         self.assertRegex(stdout, r'^Destination host unreachable\. PING 99\.99\.99\.99')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
+
+    def test_rta_critical_threshold_triggers(self):
+        # the loopback round-trip average is always well above 0.001 ms
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                [
+                    self.check,
+                    '--hostname',
+                    '127.0.0.1',
+                    '--count',
+                    '2',
+                    '--rta-critical',
+                    '0.001',
+                ]
+            )
+        )
+        self.assertRegex(stdout, r'^PING 127\.0\.0\.1: ')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+
+    def test_rta_warning_threshold_triggers(self):
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                [
+                    self.check,
+                    '--hostname',
+                    '127.0.0.1',
+                    '--count',
+                    '2',
+                    '--rta-warning',
+                    '0.001',
+                ]
+            )
+        )
+        self.assertRegex(stdout, r'^PING 127\.0\.0\.1: ')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_rta_threshold_not_exceeded_stays_ok(self):
+        # the loopback round-trip average is always far below 100000 ms
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                [
+                    self.check,
+                    '--hostname',
+                    '127.0.0.1',
+                    '--count',
+                    '2',
+                    '--rta-critical',
+                    '100000',
+                ]
+            )
+        )
+        self.assertRegex(stdout, r'^PING 127\.0\.0\.1: ')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_packet_loss_threshold_raises_no_false_alarm(self):
+        # loopback has 0% loss, so an opt-in loss threshold must stay OK
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                [
+                    self.check,
+                    '--hostname',
+                    '127.0.0.1',
+                    '--count',
+                    '2',
+                    '--packet-loss-critical',
+                    '0',
+                ]
+            )
+        )
+        self.assertRegex(stdout, r'^PING 127\.0\.0\.1: ')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_rtt_mdev_critical_threshold_triggers(self):
+        # loopback round-trip variability is always above 0.0001 ms across several packets
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                [
+                    self.check,
+                    '--hostname',
+                    '127.0.0.1',
+                    '--count',
+                    '5',
+                    '--rtt-mdev-critical',
+                    '0.0001',
+                ]
+            )
+        )
+        self.assertRegex(stdout, r'^PING 127\.0\.0\.1: ')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+
+    def test_rtt_mdev_threshold_not_exceeded_stays_ok(self):
+        # the loopback round-trip variability is always far below 100000 ms
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                [
+                    self.check,
+                    '--hostname',
+                    '127.0.0.1',
+                    '--count',
+                    '2',
+                    '--rtt-mdev-critical',
+                    '100000',
+                ]
+            )
+        )
+        self.assertRegex(stdout, r'^PING 127\.0\.0\.1: ')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+
+class TestStatisticsRegex(unittest.TestCase):
+    """Tests for STATISTICS_RE against the real iputils summary line.
+
+    iputils words the corrupted-packet field "corrupted", not "checksum corrupted" (see
+    ping_output.c). The previous pattern required "checksum corrupted", so the corrupted count
+    was never captured and a corrupted reply broke the whole match (turning the check UNKNOWN).
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.plugin = load_plugin_module()
+
+    def test_plain_line(self):
+        m = self.plugin.STATISTICS_RE.search(
+            '5 packets transmitted, 5 received, 0% packet loss, time 803ms'
+        )
+        self.assertIsNotNone(m)
+        self.assertEqual(
+            (m.group(1), m.group(2), m.group(9), m.group(10)), ('5', '5', '0', '803')
+        )
+
+    def test_corrupted_field_is_captured(self):
+        m = self.plugin.STATISTICS_RE.search(
+            '5 packets transmitted, 3 received, +2 corrupted, 40% packet loss, time 812ms'
+        )
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(6), '2')  # corrupted count
+        self.assertEqual(m.group(9), '40')  # packet loss
+        self.assertEqual(m.group(10), '812')  # total time
+
+    def test_all_optional_fields(self):
+        m = self.plugin.STATISTICS_RE.search(
+            '9 packets transmitted, 5 received, +1 duplicates, +2 corrupted, +1 errors, '
+            '44% packet loss, time 900ms'
+        )
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(4), '1')  # duplicates
+        self.assertEqual(m.group(6), '2')  # corrupted
+        self.assertEqual(m.group(8), '1')  # errors
 
 
 if __name__ == '__main__':

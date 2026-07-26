@@ -22,14 +22,32 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026071201'
 
-DESCRIPTION = """Sends ICMP ECHO_REQUEST packets to a network host using the system's built-in ping
-command. Reports round-trip time (min, avg, max) and packet loss percentage. Alerts
-on packet loss or high latency."""
+DESCRIPTION = """Sends ICMP ECHO_REQUEST packets to a network host using the system's built-in
+ping command and reports round-trip time, round-trip variability and packet loss. By default it
+reports CRITICAL only when the host is unreachable (no packet returns), so even high packet loss
+stays OK as long as one reply arrives. The optional --rta-warning/--rta-critical (round-trip
+average), --rtt-mdev-warning/--rtt-mdev-critical (round-trip variability, a jitter measure) and
+--packet-loss-warning/--packet-loss-critical thresholds additionally alert on latency, jitter and
+packet loss."""
 
 DEFAULT_COUNT = 5  # icmp packets
 DEFAULT_INTERVAL = 0.2  # seconds
 DEFAULT_DEADLINE = 5  # seconds
 DEFAULT_HOSTNAME = '127.0.0.1'
+
+# iputils prints the summary line as (optional fields in brackets):
+#   "%d packets transmitted, %d received[, +%d duplicates][, +%d corrupted]
+#    [, +%d errors], %g%% packet loss, time %dms"
+# The corrupted field is worded "corrupted" (not "checksum corrupted"); see iputils
+# ping_output.c. Groups: 1 transmitted, 2 received, 4 duplicates, 6 corrupted, 8 errors,
+# 9 packet loss, 10 total time.
+STATISTICS_RE = re.compile(
+    r'(\d+) packets transmitted, (\d+) received'
+    r'(, \+?(\d+) duplicates)?'
+    r'(, \+?(\d+) corrupted)?'
+    r'(, \+?(\d+) errors)?'
+    r', (\d+(?:\.\d+)?)% packet loss, time (\d+)'
+)
 
 
 def parse_args():
@@ -86,6 +104,62 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--packet-loss-critical',
+        help='CRIT threshold for the packet loss, in percent. '
+        'Supports Nagios ranges. '
+        'Disabled by default.',
+        dest='PACKET_LOSS_CRIT',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--packet-loss-warning',
+        help='WARN threshold for the packet loss, in percent. '
+        'Supports Nagios ranges. '
+        'Disabled by default.',
+        dest='PACKET_LOSS_WARN',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--rta-critical',
+        help='CRIT threshold for the round-trip average, in milliseconds. '
+        'Supports Nagios ranges. '
+        'Disabled by default.',
+        dest='RTA_CRIT',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--rta-warning',
+        help='WARN threshold for the round-trip average, in milliseconds. '
+        'Supports Nagios ranges. '
+        'Disabled by default.',
+        dest='RTA_WARN',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--rtt-mdev-critical',
+        help='CRIT threshold for the round-trip variability (mdev, a jitter measure), '
+        'in milliseconds. '
+        'Supports Nagios ranges. '
+        'Disabled by default.',
+        dest='RTT_MDEV_CRIT',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--rtt-mdev-warning',
+        help='WARN threshold for the round-trip variability (mdev, a jitter measure), '
+        'in milliseconds. '
+        'Supports Nagios ranges. '
+        'Disabled by default.',
+        dest='RTT_MDEV_WARN',
+        default=None,
+    )
+
+    parser.add_argument(
         '-t',
         '--timeout',
         help='Timeout in seconds before ping exits regardless of how many packets '
@@ -113,7 +187,9 @@ def main():
     # could read as an option (e.g. -f for flood)
     lib.base.coe(lib.shell.safe_cli_value(args.HOSTNAME, '--hostname'))
 
-    # ping -c 5 -i 0.2 -w 5 -q 192.0.2.10
+    # ping -c 5 -i 0.2 -w 5 -q -n 192.0.2.10
+    # -n: numeric output only, no reverse DNS on replies, so the run is faster and the output
+    # deterministic
     cmd = [
         'ping',
         '-c',
@@ -123,6 +199,7 @@ def main():
         '-w',
         str(args.DEADLINE),
         '-q',
+        '-n',
         args.HOSTNAME,
     ]
 
@@ -167,14 +244,22 @@ def main():
     # build the message
     msg += f'PING {ping.group(1).strip()}' + ': '
 
-    # line 3:
-    # "%ntransmitted packets transmitted, %nreceived received[, +%nrepeats duplicates][, +%nchecksum corrupted][, +%nerrors errors][, %packetloss% packet loss, time %timems]"
+    # line 3 (see STATISTICS_RE):
     # '5 packets transmitted, 5 received, 0% packet loss, time 803ms'
-    matches = re.search(
-        r'(\d+) packets transmitted, (\d+) received(, \+?(\d+) duplicates)?(, \+?(\d+) checksum corrupted)?(, \+?(\d+) errors)?, (\d+(?:\.\d+)?)% packet loss, time (\d+)',  # regex: 92 steps
-        result[3],
-    )
+    matches = STATISTICS_RE.search(result[3])
     msg += result[3] + '. '
+
+    # apply the optional packet-loss threshold (opt-in via --packet-loss-warning/-critical)
+    state = lib.base.get_worst(
+        state,
+        lib.base.get_state(
+            matches.group(9),
+            args.PACKET_LOSS_WARN,
+            args.PACKET_LOSS_CRIT,
+            _operator='range',
+        ),
+    )
+
     perfdata += lib.base.get_perfdata(
         'transmitted',
         matches.group(1),
@@ -224,8 +309,8 @@ def main():
         'packet_loss',
         matches.group(9),
         uom='%',
-        warn=None,
-        crit=None,
+        warn=args.PACKET_LOSS_WARN,
+        crit=args.PACKET_LOSS_CRIT,
         _min=0,
         _max=100,
     )
@@ -247,6 +332,27 @@ def main():
             r'= (\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)', result[4]
         )  # regex: 26 steps
         msg += result[4]
+
+        # apply the optional round-trip average threshold (opt-in via --rta-warning/-critical)
+        state = lib.base.get_worst(
+            state,
+            lib.base.get_state(
+                matches.group(2), args.RTA_WARN, args.RTA_CRIT, _operator='range'
+            ),
+        )
+
+        # apply the optional round-trip variability threshold (opt-in via --rtt-mdev-warning/
+        # -critical); mdev is a jitter measure
+        state = lib.base.get_worst(
+            state,
+            lib.base.get_state(
+                matches.group(4),
+                args.RTT_MDEV_WARN,
+                args.RTT_MDEV_CRIT,
+                _operator='range',
+            ),
+        )
+
         perfdata += lib.base.get_perfdata(
             'rtt_min',
             matches.group(1),
@@ -260,8 +366,8 @@ def main():
             'rtt_avg',
             matches.group(2),
             uom='ms',
-            warn=None,
-            crit=None,
+            warn=args.RTA_WARN,
+            crit=args.RTA_CRIT,
             _min=0,
             _max=None,
         )
@@ -278,8 +384,8 @@ def main():
             'rtt_mdev',
             matches.group(4),
             uom='ms',
-            warn=None,
-            crit=None,
+            warn=args.RTT_MDEV_WARN,
+            crit=args.RTT_MDEV_CRIT,
             _min=0,
             _max=None,
         )
