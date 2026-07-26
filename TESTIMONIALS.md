@@ -10,7 +10,7 @@ Comments from the community about the Linuxfabrik Monitoring Plugins.
 > Thanks for this awesome suite of monitoring plugins!
 
 -- [Ryeera](https://github.com/Ryeera)
-)
+
 
 > First, thank you for providing such an high-quality, really well documented open source project! We are happy to use it in our company in the near future.
 
