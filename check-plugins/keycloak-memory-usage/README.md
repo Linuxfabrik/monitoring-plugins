@@ -7,7 +7,8 @@ Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP A
 
 **Important Notes:**
 
-* Tested with Keycloak 18 and later
+* Verified against Keycloak 17 to 26
+* All API paths are relative to `--url`. An instance that serves below a context path (Keycloak 16 and older by default, or a Quarkus instance started with `--http-relative-path=/auth`) needs that path in `--url`, for example `--url=http://127.0.0.1:8080/auth`
 * See [Creating an API user account to monitor Keycloak](https://linuxfabrik.github.io/monitoring-plugins/plugins-keycloak/) for setting up the required API credentials.
 
 **Data Collection:**
@@ -39,7 +40,7 @@ usage: keycloak-memory-usage [-h] [-V] [--always-ok] [--client-id CLIENT_ID]
 
 Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP
 API. Alerts when memory usage exceeds the configured thresholds. Tested with
-Keycloak 18 and later.
+Keycloak 17 and later.
 
 options:
   -h, --help            show this help message and exit

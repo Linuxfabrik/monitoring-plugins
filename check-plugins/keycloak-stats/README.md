@@ -7,7 +7,8 @@ Reports statistics from a Keycloak server via its HTTP API, including uptime, Ja
 
 **Important Notes:**
 
-* Tested with Keycloak 18 and later
+* Verified against Keycloak 17 to 26
+* All API paths are relative to `--url`. An instance that serves below a context path (Keycloak 16 and older by default, or a Quarkus instance started with `--http-relative-path=/auth`) needs that path in `--url`, for example `--url=http://127.0.0.1:8080/auth`
 * See [Creating an API user account to monitor Keycloak](https://linuxfabrik.github.io/monitoring-plugins/plugins-keycloak/) for setting up the required API credentials.
 
 **Data Collection:**
@@ -38,7 +39,7 @@ usage: keycloak-stats [-h] [-V] [--always-ok] [--client-id CLIENT_ID]
                       [--username USERNAME]
 
 Reports statistics from a Keycloak server via its HTTP API, including realm
-count, client count, user count, and active sessions. Tested with Keycloak 18
+count, client count, user count, and active sessions. Tested with Keycloak 17
 and later.
 
 options:
