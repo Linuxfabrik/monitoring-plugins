@@ -13,6 +13,7 @@
 import argparse
 import sys
 import time
+import urllib.parse
 
 import lib.args
 import lib.base
@@ -24,7 +25,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026073001'
 
 DESCRIPTION = """Submits a URL to VirusTotal for analysis and checks the scan results. Alerts when any
 antivirus engine flags the URL as malicious or suspicious. Requires a VirusTotal API
@@ -34,6 +35,8 @@ DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_SEVERITY = 'warn'  # due to the many false positives
 DEFAULT_TIMEOUT = 8
+
+VT_API_URL = 'https://www.virustotal.com/api/v3'
 
 
 def parse_args():
@@ -179,7 +182,7 @@ def vt_urls(token, url, insecure=False, no_proxy=False, timeout=8):
     data = {'url': url}
 
     success, result = lib.url.fetch_json(
-        'https://www.virustotal.com/api/v3/urls',
+        f'{VT_API_URL}/urls',
         header=header,
         data=data,
         insecure=insecure,
@@ -192,18 +195,18 @@ def vt_urls(token, url, insecure=False, no_proxy=False, timeout=8):
     return True, result
 
 
-def vt_analyses(token, url, insecure=False, no_proxy=False, timeout=8):
+def vt_analyses(token, analysis_id, insecure=False, no_proxy=False, timeout=8):
     """https://docs.virustotal.com/reference/analysis
     Retrieve a URL or file analysis report from VirusTotal.
 
-    This function sends a GET request to a VirusTotal Analysis endpoint (e.g.
-    `https://www.virustotal.com/api/v3/analyses/ANALYSIS_ID`) and returns the
+    This function sends a GET request to the VirusTotal Analysis endpoint
+    (`https://www.virustotal.com/api/v3/analyses/ANALYSIS_ID`) and returns the
     full JSON payload containing the scan results and metadata.
 
     ### Parameters
     - **token** (`str`): Your VirusTotal API key.
-    - **url** (`str`): The full VirusTotal Analysis endpoint URL to query.
-      Example: `"https://www.virustotal.com/api/v3/analyses/ANALYSIS_ID"`.
+    - **analysis_id** (`str`): The Analysis ID returned by `vt_urls()`.
+      Example: `"u-c0...6405"`.
     - **insecure** (`bool`, optional): If `True`, disables SSL certificate verification.
       Defaults to `False`.
     - **no_proxy** (`bool`, optional): If `True`, bypasses any configured HTTP proxy.
@@ -222,16 +225,20 @@ def vt_analyses(token, url, insecure=False, no_proxy=False, timeout=8):
     - A typical response includes fields such as `data.attributes.stats` (detection counts),
       `data.attributes.results` (per-engine verdicts), and timestamps.
     - To initiate a new URL analysis, use `vt_urls()` to obtain an analysis ID first.
+    - The request URL is built from the API base and the URL-encoded Analysis ID. The
+      `data.links.self` field of the submit response points at the same resource, but it is
+      part of the response body and following it would send the API key wherever that field
+      says (CWE-918/CWE-522).
     - This helper relies on `lib.url.fetch_json()` for HTTP interaction.
 
     ### Example
     ```python
     >>> # First submit the URL and get an analysis ID:
     >>> success, submit_result = vt_urls(API_KEY, 'http://example.com')
-    >>> endpoint = submit_result['data']['links']['self'] if success else None
+    >>> analysis_id = submit_result['data']['id'] if success else None
     >>>
     >>> # Then retrieve the full report:
-    >>> success, report = vt_analyses(API_KEY, endpoint)
+    >>> success, report = vt_analyses(API_KEY, analysis_id)
     >>> print('Detections:', report['data']['attributes']['stats'])
     ```
     """
@@ -242,7 +249,7 @@ def vt_analyses(token, url, insecure=False, no_proxy=False, timeout=8):
     }
 
     success, result = lib.url.fetch_json(
-        url,
+        f'{VT_API_URL}/analyses/{urllib.parse.quote(analysis_id, safe="")}',
         header=header,
         insecure=insecure,
         no_proxy=no_proxy,
@@ -250,7 +257,7 @@ def vt_analyses(token, url, insecure=False, no_proxy=False, timeout=8):
     )
 
     if not success or not result:
-        return False, f'Error fetching {url}: {result}'
+        return False, f'Error fetching analysis {analysis_id}: {result}'
     return True, result
 
 
@@ -278,7 +285,7 @@ def main():
         try:
             success, result = vt_analyses(
                 args.TOKEN,
-                result['data']['links']['self'],
+                result['data']['id'],
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
                 timeout=args.TIMEOUT,
