@@ -125,6 +125,9 @@ options:
                         Show messages for the specified user session unit
                         (passed to journalctl). Can be specified multiple
                         times. Default: None
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/journald-query/
 ```
 
 

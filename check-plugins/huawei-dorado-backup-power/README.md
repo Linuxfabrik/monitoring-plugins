@@ -68,6 +68,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-backup-power/
 ```
 
 

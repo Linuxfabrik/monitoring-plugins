@@ -59,6 +59,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             GitLab readiness URL endpoint. Default:
                         http://localhost/-/readiness?all=1
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/gitlab-readiness/
 ```
 
 

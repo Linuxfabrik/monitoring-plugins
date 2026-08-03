@@ -87,6 +87,9 @@ options:
                         hood. Default: False
   -w, --warning WARN    WARN threshold for memory usage as a percentage.
                         Default: >= 90
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redis-status/
 ```
 
 

@@ -52,6 +52,9 @@ options:
   --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
   -u, --url URL      URL of the mod_qos machine-readable status handler.
                      Default: http://localhost/qos-status
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mod-qos-stats/
 ```
 
 

@@ -71,6 +71,9 @@ options:
                         http://localhost:9990
   --username USERNAME   WildFly management API username. Default: wildfly-
                         monitoring
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/wildfly-version/
 ```
 
 

@@ -96,6 +96,9 @@ options:
                         Set the servicename.
   --short               Send a short message. This can be useful when using a
                         SMS relay, for example.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/notification-plugins/notify-service-mail/
 ```
 
 

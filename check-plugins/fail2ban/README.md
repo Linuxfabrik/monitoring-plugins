@@ -57,6 +57,9 @@ options:
                         `fail2ban-client --socket`. Default: None
   -w, --warning WARN    WARN threshold for the number of banned IPs per jail.
                         Supports Nagios ranges. Default: 2500
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fail2ban/
 ```
 
 

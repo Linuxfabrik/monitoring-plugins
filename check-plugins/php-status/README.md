@@ -195,6 +195,9 @@ options:
                         http://localhost/monitoring.php
   -w, --warning WARN    WARN threshold for OPcache memory and key usage, in
                         percent. Default: >= 95
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/
 ```
 
 

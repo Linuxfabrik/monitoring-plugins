@@ -68,8 +68,8 @@ to suppress repeated alerts for known issues. Configurable alarm duration
 limits how long matches trigger alerts. `--filename` accepts time macros, so
 logfiles whose name contains the current date (`20260422.log`,
 `app-2026-04-22.log`, etc.) can be monitored directly. `{today}` /
-`{yesterday}` resolve tolerantly: compact (`YYYYMMDD`) first, ISO 8601 (`YYYY-
-MM-DD`) as fallback if the compact file does not exist. Read offset and
+`{yesterday}` resolve tolerantly: compact (`YYYYMMDD`) first, ISO 8601
+(`YYYY-MM-DD`) as fallback if the compact file does not exist. Read offset and
 pending matches carry over when the filename changes on the next day, no
 wrapper script needed. Requires root or sudo.
 
@@ -135,6 +135,9 @@ options:
   --warning-regex WARN_REGEX
                         Any line matching this Python regex will count as a
                         warning. Can be specified multiple times.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/logfile/
 ```
 
 

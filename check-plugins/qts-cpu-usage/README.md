@@ -63,6 +63,9 @@ options:
                        `https://192.0.2.10:8080`.
   --username USERNAME  QTS API username. Default: admin
   -w, --warning WARN   WARN threshold in percent. Default: >= 80
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/qts-cpu-usage/
 ```
 
 

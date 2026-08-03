@@ -40,9 +40,9 @@ usage: spring-boot-actuator-health [-h] [-V] [--always-ok]
 
 Monitors a Spring Boot application via its Actuator /health endpoint. Checks
 overall health status and individual component states (database, disk, mail,
-etc.). Supports fine-grained severity overrides per component and sub-
-component. Alerts when the application or any component reports an unhealthy
-state.
+etc.). Supports fine-grained severity overrides per component and
+sub-component. Alerts when the application or any component reports an
+unhealthy state.
 
 options:
   -h, --help            show this help message and exit
@@ -75,6 +75,9 @@ options:
   --verbose             Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
                         hood. Default: False
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/spring-boot-actuator-health/
 ```
 
 

@@ -47,8 +47,8 @@ Checks the overall system health reported by a Redfish-compatible server via
 the Redfish API. Reports every enabled system member with its identification
 (manufacturer, model, hostname, SKU, serial number), compute summary
 (processors, BIOS version, power state, indicator LED) and rolled-up health
-status, and alerts whenever any system's status leaves `OK`. Use `redfish-
-storage` for drive- and storage-controller-specific monitoring.
+status, and alerts whenever any system's status leaves `OK`. Use
+`redfish-storage` for drive- and storage-controller-specific monitoring.
 
 options:
   -h, --help            show this help message and exit
@@ -78,6 +78,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             Redfish API URL.
   --username USERNAME   Redfish API username.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-systems/
 ```
 
 

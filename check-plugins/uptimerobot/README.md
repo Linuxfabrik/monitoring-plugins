@@ -45,6 +45,9 @@ options:
   --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
   --url URL          UptimeRobot status page URL. Default:
                      https://status.linuxfabrik.io
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/uptimerobot/
 ```
 
 

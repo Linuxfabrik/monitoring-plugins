@@ -60,6 +60,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --token TOKEN         VirusTotal API token.
   --url URL             URL to submit for scanning.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/virustotal-scan-url/
 ```
 
 

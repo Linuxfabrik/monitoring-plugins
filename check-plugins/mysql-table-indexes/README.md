@@ -46,8 +46,8 @@ usage: mysql-table-indexes [-h] [-V] [--always-ok] [-c CRITICAL]
                            [--ignore-tables IGNORE_TABLES] [--lengthy]
                            [--no-perfdata] [--timeout TIMEOUT] [-w WARNING]
 
-Checks user schemas in MySQL/MariaDB for two replication- and performance-
-relevant defects: base tables with no index at all (mysqltuner's
+Checks user schemas in MySQL/MariaDB for two replication- and
+performance-relevant defects: base tables with no index at all (mysqltuner's
 `mysql_tables()` check) and InnoDB base tables without a user-defined `PRIMARY
 KEY`. The second case is a documented hotspot for ROW-based replication: the
 replica has to materialise each row event against an internal hidden 6-byte
@@ -88,6 +88,9 @@ options:
                         WARN threshold for the number of bad tables (per
                         category: missing indexes / missing primary key).
                         Supports Nagios ranges. Default: 0
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-table-indexes/
 ```
 
 

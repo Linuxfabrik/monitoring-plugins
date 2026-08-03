@@ -52,6 +52,9 @@ options:
                        alerting keeps working while trending data is dropped.
   -w, --warning WARN   WARN threshold for the number of connected clients.
                        Default: None
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openvpn-client-list/
 ```
 
 

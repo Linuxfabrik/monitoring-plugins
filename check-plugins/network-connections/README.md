@@ -80,6 +80,9 @@ options:
                         dropped.
   -w, --warning WARN    WARN threshold for the number of connections. Default:
                         None
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/network-connections/
 ```
 
 

@@ -60,6 +60,9 @@ options:
                         times. Default: running.
   -w, --warning WARN    WARN threshold for the number of services in the
                         expected status. Accepts Nagios ranges. Default: 1:
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/service/
 ```
 
 

@@ -83,6 +83,9 @@ options:
                         `--warning`. If the result contains more than one
                         column, the row count is used. Otherwise the single
                         returned value is used.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-query/
 ```
 
 

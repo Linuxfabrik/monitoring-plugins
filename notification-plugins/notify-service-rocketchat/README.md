@@ -57,6 +57,9 @@ options:
                         Set the service state.
   --servicename SERVICENAME
                         Set the servicename.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/notification-plugins/notify-service-rocketchat/
 ```
 
 

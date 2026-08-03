@@ -70,6 +70,9 @@ options:
   -w, --warning WARNING
                         WARN threshold in percent. Supports Nagios ranges.
                         Default: 95:
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-table-locks/
 ```
 
 

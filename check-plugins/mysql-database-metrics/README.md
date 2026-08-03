@@ -104,6 +104,9 @@ options:
                         index). Supports Nagios ranges with size qualifiers,
                         for example `10G`, `5G:`, `@1G:10G`. Default: report
                         only (no alerting).
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-database-metrics/
 ```
 
 

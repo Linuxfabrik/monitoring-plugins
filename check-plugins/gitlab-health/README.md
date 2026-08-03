@@ -57,6 +57,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             GitLab health URL endpoint. Default:
                         http://localhost/-/health
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/gitlab-health/
 ```
 
 

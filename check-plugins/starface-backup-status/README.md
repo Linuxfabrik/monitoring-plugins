@@ -65,6 +65,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   -w, --warning WARN    WARN threshold for the age of the last backup, in
                         hours. Default: 24
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/starface-backup-status/
 ```
 
 

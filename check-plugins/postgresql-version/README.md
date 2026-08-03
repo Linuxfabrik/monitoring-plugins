@@ -75,6 +75,9 @@ options:
                         offline data. Default: ok
   --username USERNAME   PostgreSQL username for running `psql`. Default:
                         postgres
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/postgresql-version/
 ```
 
 

@@ -62,6 +62,9 @@ options:
                    not see them. With --user, the check runs podman as that
                    user. Requires the right to `sudo -u <user>` (root has this
                    by default). Example: `--user=rocketchat`. Default: None
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/podman-info/
 ```
 
 

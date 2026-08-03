@@ -54,6 +54,9 @@ options:
   --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
   --url URL          Axenita API URL. Default:
                      http://localhost:10000/achilles/ar
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/axenita-stats/
 ```
 
 

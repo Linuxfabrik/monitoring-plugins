@@ -54,6 +54,9 @@ options:
   -p, --token TOKEN    NodeBB API bearer token.
   --url URL            NodeBB API URL. Default: http://localhost:4567/forum
   -w, --warning WARN   WARN threshold in percent. Default: >= 90
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nodebb-info/
 ```
 
 

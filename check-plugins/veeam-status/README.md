@@ -86,6 +86,9 @@ options:
                         > 0.
   --warnings-job-runs WARNINGS_JOB_RUNS
                         Veeam threshold for `WarningsJobRuns`. Default: > 0.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/veeam-status/
 ```
 
 

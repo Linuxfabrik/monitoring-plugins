@@ -97,6 +97,9 @@ options:
   -u, --url URL         Grassfish API URL. Default: /gv2/webservices/API
   -w, --warning WARN    WARN threshold for last screen update in hours (screen
                         considered off above this value). Default: > 8 h.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/grassfish-screens/
 ```
 
 

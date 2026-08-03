@@ -92,6 +92,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --token TOKEN         Infomaniak API token.
   -w, --warning WARN    WARN threshold in percent. Default: >= 90
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/infomaniak-swiss-backup-devices/
 ```
 
 

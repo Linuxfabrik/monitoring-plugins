@@ -49,10 +49,10 @@ usage: procs [-h] [-V] [--always-ok] [--argument ARGUMENT] [--command COMMAND]
              [--warning-mem WARN_MEM] [--warning-mem-percent WARN_MEM_PERCENT]
 
 Monitors running processes and alerts on process count, aggregated memory
-usage, or aggregated CPU usage. Processes can be filtered by name, command-
-line arguments, and user name using regular expressions. Optionally lists the
-top processes by CPU time and memory usage. Supports extended reporting via
---lengthy.
+usage, or aggregated CPU usage. Processes can be filtered by name,
+command-line arguments, and user name using regular expressions. Optionally
+lists the top processes by CPU time and memory usage. Supports extended
+reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -110,6 +110,9 @@ options:
   --warning-mem-percent WARN_MEM_PERCENT
                         WARN threshold for aggregated memory usage, in
                         percent. Default: None
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/
 ```
 
 

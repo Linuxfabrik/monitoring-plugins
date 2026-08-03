@@ -78,6 +78,9 @@ options:
                         (IO/SQL thread not running, `read_only` disabled). One
                         of `warn` or `crit`. Default: warn
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-replica-status/
 ```
 
 

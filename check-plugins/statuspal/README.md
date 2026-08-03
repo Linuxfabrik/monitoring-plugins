@@ -87,6 +87,9 @@ options:
   --url URL          Statuspal API URL pointing to the summary endpoint.
                      Default: https://statuspal.eu/api/v2/status_pages/exoscal
                      estatus/summary
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/statuspal/
 ```
 
 

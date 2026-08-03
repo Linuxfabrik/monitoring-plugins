@@ -74,6 +74,9 @@ options:
                    alerting keeps working while trending data is dropped.
   --socket SOCKET  Path to the Versatile IKE Control Interface (VICI) socket.
                    Default: /run/strongswan/charon.vici
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/strongswan-connections/
 ```
 
 

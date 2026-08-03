@@ -86,6 +86,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             Redfish API URL.
   --username USERNAME   Redfish API username.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-managers/
 ```
 
 

@@ -195,6 +195,9 @@ options:
   -w, --warning WARN    WARN threshold for the per-host hardening index
                         (0-100). Supports Nagios ranges. The default alerts
                         when the index drops below 65. Default: 65:
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/lynis/
 ```
 
 

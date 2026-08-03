@@ -44,6 +44,9 @@ options:
   -h, --help     show this help message and exit
   -V, --version  show program's version number and exit
   --always-ok    Always returns OK.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/needs-restarting/
 ```
 
 

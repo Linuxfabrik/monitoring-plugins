@@ -126,6 +126,9 @@ options:
   --warning-temperature WARNING_TEMPERATURE
                         WARN threshold for UPS temperature in degrees Celsius.
                         Supports Nagios ranges. Default: ~:50
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ups-nut/
 ```
 
 

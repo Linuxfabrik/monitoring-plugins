@@ -41,8 +41,8 @@ usage: huawei-dorado-disk [-h] [-V] [--always-ok]
                           [--timeout TIMEOUT] -u URL --username USERNAME
 
 Checks the health status of all disks on a Huawei OceanStor Dorado storage
-system via the REST API (/disk endpoint). Alerts when any disk reports a non-
-normal health state.
+system via the REST API (/disk endpoint). Alerts when any disk reports a
+non-normal health state.
 
 options:
   -h, --help            show this help message and exit
@@ -65,6 +65,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-disk/
 ```
 
 

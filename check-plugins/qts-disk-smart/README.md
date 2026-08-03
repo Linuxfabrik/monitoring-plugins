@@ -56,6 +56,9 @@ options:
   --url URL            QTS-based appliance URL. Example:
                        `--url=https://192.168.1.1:8080`.
   --username USERNAME  QTS API username. Default: admin
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/qts-disk-smart/
 ```
 
 

@@ -48,6 +48,9 @@ options:
   --no-proxy         Do not use a proxy.
   --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
   --url URL          OnlyOffice API URL. Default: http://localhost
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/onlyoffice-stats/
 ```
 
 

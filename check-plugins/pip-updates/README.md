@@ -85,6 +85,9 @@ options:
                         inside it. Example: `/opt/sphinx-venv/bin/activate`
   -w, --warning WARN    WARN threshold for the number of outdated packages.
                         Default: 10
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/pip-updates/
 ```
 
 

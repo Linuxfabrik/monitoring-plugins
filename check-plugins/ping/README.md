@@ -97,6 +97,9 @@ options:
                         many packets have been sent or received. Default: 5
   --ttl TTL             IP Time To Live for the outgoing packets (`ping -t`).
                         Example: `--ttl 64`.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ping/
 ```
 
 

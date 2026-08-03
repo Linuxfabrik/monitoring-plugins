@@ -69,6 +69,9 @@ options:
   -w, --warning WARNING
                         WARN threshold in percent. Supports Nagios ranges.
                         Default: 10
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-sorts/
 ```
 
 

@@ -64,6 +64,9 @@ options:
                         'prod-%' and status != 'running'`. Default: 1
   --severity {warn,crit}
                         Severity for alerting. Default: crit
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/kubectl-get-pods/
 ```
 
 

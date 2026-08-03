@@ -57,6 +57,9 @@ options:
                        /var/spool/icinga2/.openstack.cnf
   -w, --warning WARN   WARN threshold for remaining free space, in GiB.
                        Default: <= 50
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openstack-swift-stat/
 ```
 
 

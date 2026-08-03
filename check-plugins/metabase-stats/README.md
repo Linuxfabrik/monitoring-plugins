@@ -65,6 +65,9 @@ options:
   --username USERNAME   Username for authenticating against the Metabase API.
                         Default: metabase-admin
   -w, --warning WARN    WARN threshold in percent. Default: >= 80
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/metabase-stats/
 ```
 
 

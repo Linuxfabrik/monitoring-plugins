@@ -49,6 +49,9 @@ options:
                        descriptors. Default: 5
   -w, --warning WARN   WARN threshold for file descriptor usage in percent.
                        Default: 90
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-descriptors/
 ```
 
 

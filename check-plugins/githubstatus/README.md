@@ -43,6 +43,9 @@ options:
                      alerting keeps working while trending data is dropped.
   --no-proxy         Do not use a proxy.
   --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/githubstatus/
 ```
 
 

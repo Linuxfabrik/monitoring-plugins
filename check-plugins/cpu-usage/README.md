@@ -65,6 +65,9 @@ options:
                        The status message and the exit code are unaffected, so
                        alerting keeps working while trending data is dropped.
   -w, --warning WARN   WARN threshold in percent. Default: >= 80
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cpu-usage/
 ```
 
 

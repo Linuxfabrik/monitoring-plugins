@@ -59,6 +59,9 @@ options:
   --username USERNAME  QTS API username. Default: admin
   -w, --warning WARN   WARN threshold for memory usage as a percentage.
                        Default: 80
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/qts-memory-usage/
 ```
 
 

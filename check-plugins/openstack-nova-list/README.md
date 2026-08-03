@@ -53,6 +53,9 @@ options:
                      on the command line). Example:
                      `/var/spool/icinga2/.openstack.cnf`. Default:
                      /var/spool/icinga2/.openstack.cnf
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openstack-nova-list/
 ```
 
 

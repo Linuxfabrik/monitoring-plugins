@@ -99,6 +99,9 @@ options:
   -w, --warning WARNING
                         WARN threshold for the total duration of login,
                         search, and logout, in milliseconds. Default: 3000
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/diacos/
 ```
 
 

@@ -78,6 +78,9 @@ options:
                         WinRM transport type. Default: ntlm
   --winrm-username WINRM_USERNAME
                         WinRM account name. Default: Administrator
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dhcp-scope-usage/
 ```
 
 

@@ -50,6 +50,9 @@ options:
   --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
   --url URL          StatusIQ status page URL. Default:
                      https://status.trustid.ch
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/statusiq/
 ```
 
 

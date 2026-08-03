@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Monitoring Plugins:
 
 * about-me, borgbackup, deb-lastactivity, file-ownership, fs-xfs-stats, getent, ipmi-sel, ipmi-sensor, keycloak-stats, librenms-version, metabase-stats, mysql-traffic, needs-restarting, network-connections, network-port-tcp, nextcloud-enterprise, nextcloud-security-scan, nextcloud-stats, nodebb-events, nodebb-groups, ntp-chronyd, ntp-ntpd, ntp-systemd-timesyncd, ntp-w32tm, onlyoffice-stats, openvpn-client-list, qts-uptime, restic-check, restic-snapshots, restic-stats, rocketchat-stats, rpm-lastactivity, scanrootkit, scheduled-task, snmp, starface-account-stats, starface-database-stats, starface-peer-stats, systemd-unit, users, whmcs-status, wildfly-gc-status, xca-cert: `--always-ok` to force an OK result, consistent with the other plugins
+* all plugins: `--help` ends with a link to the plugin's online documentation ([#161](https://github.com/Linuxfabrik/monitoring-plugins/issues/161))
 * all plugins that report performance data: `--no-perfdata` drops the performance data from the output while keeping the status message and exit code ([#1331](https://github.com/Linuxfabrik/monitoring-plugins/issues/1331))
 * apache-httpd-version, apache-solr-version, apache-tomcat-version, composer-version, fedora-version, fortios-version, gitlab-version, grafana-version, graylog-version, icinga-version, keycloak-version, mastodon-version, matomo-version, mediawiki-version, moodle-version, mysql-version, nextcloud-version, openjdk-redhat-version, openvpn-version, php-version, postfix-version, postgresql-version, python-version, redis-version, rhel-version, rocketchat-version, valkey-version, wordpress-version: `--unreachable-severity` can alert instead of silently reporting OK when endoflife.date is unreachable and the bundled offline data is used (default stays OK) ([#750](https://github.com/Linuxfabrik/monitoring-plugins/issues/750))
 * apache-tomcat-version: new check for an end-of-life or outdated Apache Tomcat, with an Icinga Director service set ([#126](https://github.com/Linuxfabrik/monitoring-plugins/issues/126))
@@ -78,6 +79,7 @@ Build, CI/CD:
 
 Monitoring Plugins:
 
+* borgbackup, file-ownership, getent, nextcloud-enterprise, rpm-lastactivity, scheduled-task: these checks aborted with a Python error on every run and work again
 * cert: a subnet scan needs far less memory, so it no longer risks an out-of-memory kill on small hosts
 * cert: a subnet scan that runs out of file descriptors reports UNKNOWN instead of OK for targets it never probed
 * csv-values, json-values, strongswan-connections: non-UTF-8 input no longer crashes the check ([#256](https://github.com/Linuxfabrik/lib/issues/256))

@@ -66,6 +66,9 @@ options:
   -w, --warning WARNING
                         WARN threshold in percent. Supports Nagios ranges.
                         Default: 85
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-open-files/
 ```
 
 

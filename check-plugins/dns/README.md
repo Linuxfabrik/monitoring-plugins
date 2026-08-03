@@ -54,6 +54,9 @@ options:
                         addresses.
   -w, --warning WARN    WARN threshold for DNS lookup time in milliseconds.
                         Default: None
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dns/
 ```
 
 

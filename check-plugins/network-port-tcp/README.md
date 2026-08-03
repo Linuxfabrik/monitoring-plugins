@@ -54,6 +54,9 @@ options:
                         Network timeout in seconds. Default: 2
   --type {tcp,tcp6}     Connection type, "tcp" for IPv4 or "tcp6" for IPv6.
                         Default: tcp
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/network-port-tcp/
 ```
 
 

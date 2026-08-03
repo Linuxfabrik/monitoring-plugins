@@ -81,6 +81,9 @@ options:
                         W = weeks, M = months, Y = years). Supports Nagios
                         ranges. Example: `90D` alerts on images older than 90
                         days. Default: 90D
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-image/
 ```
 
 

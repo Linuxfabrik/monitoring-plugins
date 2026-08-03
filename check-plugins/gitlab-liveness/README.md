@@ -58,6 +58,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             GitLab liveness URL endpoint. Default:
                         http://localhost/-/liveness
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/gitlab-liveness/
 ```
 
 

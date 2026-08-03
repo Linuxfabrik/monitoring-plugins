@@ -53,14 +53,14 @@ InnoDB refreshes index statistics on every `information_schema` query. Hosts
 with frequent dashboard, backup and monitoring queries pay a noticeable CPU
 cost for this. - `concurrent_insert`: when set to `NEVER` / `0`, MyISAM tables
 can no longer serve SELECTs in parallel with INSERTs. `AUTO` is the modern
-default. - `innodb_snapshot_isolation` (MariaDB only): under `REPEATABLE-
-READ`, OFF lets a transaction see writes other transactions commit during its
-lifetime, breaking the stable-snapshot guarantee the name `REPEATABLE-READ`
-implies. ON makes the snapshot stable. Default flipped to ON in MariaDB 11.8;
-before that, the admin had to opt in. Other isolation levels and non-MariaDB
-servers skip this check. - `innodb_flush_neighbors`: HDD wins from grouping
-seek-adjacent dirty-page flushes, SSD/NVMe pays in extra writes for no latency
-benefit, so the right value depends on the storage class. -
+default. - `innodb_snapshot_isolation` (MariaDB only): under
+`REPEATABLE-READ`, OFF lets a transaction see writes other transactions commit
+during its lifetime, breaking the stable-snapshot guarantee the name
+`REPEATABLE-READ` implies. ON makes the snapshot stable. Default flipped to ON
+in MariaDB 11.8; before that, the admin had to opt in. Other isolation levels
+and non-MariaDB servers skip this check. - `innodb_flush_neighbors`: HDD wins
+from grouping seek-adjacent dirty-page flushes, SSD/NVMe pays in extra writes
+for no latency benefit, so the right value depends on the storage class. -
 `innodb_io_capacity`: caps InnoDB's background flushing rate and should be
 sized to the disk's measured IOPS. Only checked when `--storage-type=ssd` is
 passed explicitly: the storage auto-detection cannot be trusted on virtualised
@@ -112,6 +112,9 @@ options:
                         when `ssd` is set explicitly. Example: `--storage-
                         type=ssd`. Default: auto
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-perf-metrics/
 ```
 
 

@@ -71,6 +71,9 @@ options:
                         Force session privilege level. Can be CALLBACK, USER,
                         OPERATOR, ADMINISTRATOR. Default: USER
   --username USERNAME   Remote server username. Default: NULL
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ipmi-sensor/
 ```
 
 

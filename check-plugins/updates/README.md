@@ -41,6 +41,9 @@ options:
                        The status message and the exit code are unaffected, so
                        alerting keeps working while trending data is dropped.
   -w, --warning WARN   Threshold for the number of pending updates. Default: 2
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/updates/
 ```
 
 

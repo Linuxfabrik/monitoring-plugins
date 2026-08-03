@@ -83,6 +83,9 @@ options:
   --username USERNAME   WildFly management API username. Default: wildfly-
                         monitoring
   --warning WARN        WARN threshold in percent. Default: >= 80
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/wildfly-xa-datasource-stats/
 ```
 
 

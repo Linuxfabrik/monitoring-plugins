@@ -72,6 +72,9 @@ options:
                         first checks against the globally configured `cpu-use-
                         threshold` on the appliance; this value is only used
                         if no global threshold exists. Default: 80
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fortios-cpu-usage/
 ```
 
 

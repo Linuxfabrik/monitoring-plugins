@@ -83,6 +83,9 @@ options:
                         https://www.heise.de/security/rss/alert-news-atom.xml
   -w, --warning WARN    Time window in minutes during which new feed entries
                         trigger a warning. Default: 4320
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/feed/
 ```
 
 

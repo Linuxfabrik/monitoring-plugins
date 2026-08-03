@@ -39,11 +39,11 @@ usage: mysql-system [-h] [-V] [--always-ok]
                     [--maxportsallowed MAXPORTSALLOWED] [--no-perfdata]
 
 Checks Linux kernel parameters that affect MySQL/MariaDB stability and
-performance: `vm.swappiness`, the asynchronous-I/O event ceiling `fs.aio-max-
-nr`, the per-process file-handle ceiling `fs.nr_open`, and (on hosts that
-mount NFS) the sunrpc TCP slot-table size (`sunrpc.tcp_slot_table_entries`).
-Optionally also flags hosts that listen on too many TCP ports. Alerts on
-misconfigured settings.
+performance: `vm.swappiness`, the asynchronous-I/O event ceiling
+`fs.aio-max-nr`, the per-process file-handle ceiling `fs.nr_open`, and (on
+hosts that mount NFS) the sunrpc TCP slot-table size
+(`sunrpc.tcp_slot_table_entries`). Optionally also flags hosts that listen on
+too many TCP ports. Alerts on misconfigured settings.
 
 options:
   -h, --help            show this help message and exit
@@ -56,6 +56,9 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-system/
 ```
 
 

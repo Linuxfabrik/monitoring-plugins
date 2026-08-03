@@ -62,6 +62,9 @@ options:
                         SafeNet HSM username. Example: `--username admin`.
                         Default: pseoperator
   -w, --warning WARN    WARN threshold in percent. Default: >= 80
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/safenet-hsm-state/
 ```
 
 

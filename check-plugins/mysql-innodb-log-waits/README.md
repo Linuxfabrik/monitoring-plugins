@@ -83,6 +83,9 @@ options:
                         so alerting keeps working while trending data is
                         dropped.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-innodb-log-waits/
 ```
 
 

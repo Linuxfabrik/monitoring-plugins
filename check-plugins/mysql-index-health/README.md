@@ -102,6 +102,9 @@ options:
                         WARN threshold for the number of matching items.
                         Applies to unused indexes. Supports Nagios ranges.
                         Example: `--warning-unused=10`. Default: 0
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-index-health/
 ```
 
 

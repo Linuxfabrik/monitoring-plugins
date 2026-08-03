@@ -124,6 +124,9 @@ options:
                         a crash-looping or flapping container). By default,
                         the uptime is reported but not alerted on. Default:
                         None
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-container/
 ```
 
 

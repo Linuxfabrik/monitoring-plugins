@@ -79,6 +79,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -w, --warning WARN    Query runtime in seconds that triggers WARN. Supports
                         Nagios ranges. Example: `--warning=15`. Default: 30
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-long-queries/
 ```
 
 

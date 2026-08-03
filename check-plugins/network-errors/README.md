@@ -82,6 +82,9 @@ options:
                         dropped.
   -w, --warning WARN    WARN threshold for the combined per-second error rate
                         of an interface. Supports Nagios ranges. Default: 0
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/network-errors/
 ```
 
 

@@ -55,6 +55,9 @@ options:
   --top TOP            Number of top memory-consuming processes to list. Use
                        `--top=0` to disable. Default: 5
   -w, --warning WARN   WARN threshold for memory usage in percent. Default: 90
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/memory-usage/
 ```
 
 

@@ -46,6 +46,9 @@ options:
   --password-file PASSWORD_FILE
                         Path to the file containing the repository password.
   --repo REPO           Restic repository location.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/restic-check/
 ```
 
 

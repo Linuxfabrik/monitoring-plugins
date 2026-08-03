@@ -106,6 +106,9 @@ options:
                         (MySQL 8.0.22+) and then falls back to the file from
                         `log_error`.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-logfile/
 ```
 
 

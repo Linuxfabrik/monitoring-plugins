@@ -103,6 +103,9 @@ options:
   --warning-mem WARN_MEM
                         WARN threshold for memory usage in percent. Default:
                         90
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-stats/
 ```
 
 

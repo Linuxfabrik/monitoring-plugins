@@ -73,6 +73,9 @@ options:
                         with `smb://`. Mutually exclusive with --filename.
   --username USERNAME   Username for SMB authentication.
   -w, --warning WARN    WARN threshold for the number of matching files.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-count/
 ```
 
 

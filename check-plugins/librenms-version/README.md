@@ -51,6 +51,9 @@ options:
   --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
   --token TOKEN      LibreNMS API token.
   --url URL          LibreNMS API URL. Default: http://localhost
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/librenms-version/
 ```
 
 

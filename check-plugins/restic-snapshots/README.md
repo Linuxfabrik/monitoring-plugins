@@ -73,6 +73,9 @@ options:
                         times.
   -w, --warning WARN    WARN threshold for the age of the newest snapshot in
                         each group, in hours. Default: 24
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/restic-snapshots/
 ```
 
 

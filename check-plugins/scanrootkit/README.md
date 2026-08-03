@@ -73,6 +73,9 @@ options:
   --severity {warn,crit}
                         Severity for alerts when rootkit indicators are found.
                         One of "warn" or "crit". Default: crit
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/scanrootkit/
 ```
 
 

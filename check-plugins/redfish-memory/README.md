@@ -48,8 +48,8 @@ Checks the state of all memory modules (DIMMs) in a Redfish-compatible server
 via the Redfish API. Alerts when any memory module reports a degraded or
 failed state. System-level health (processors, storage, power, temperature,
 indicator LED, etc.) is deliberately ignored by this check so that a system
-warning unrelated to memory does not mask the module status; use `redfish-
-systems` for that.
+warning unrelated to memory does not mask the module status; use
+`redfish-systems` for that.
 
 options:
   -h, --help            show this help message and exit
@@ -91,6 +91,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             Redfish API URL.
   --username USERNAME   Redfish API username.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-memory/
 ```
 
 

@@ -61,6 +61,9 @@ options:
   --trigger TRIGGER  Trigger a re-scan if the result on scan.nextcloud.com is
                      older than this many days. Default: 14 (days)
   -u, --url URL      Nextcloud server URL. Example: `cloud.example.com`.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-security-scan/
 ```
 
 

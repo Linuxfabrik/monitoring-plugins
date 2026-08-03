@@ -70,6 +70,9 @@ options:
                        http://localhost/server-status
   -w, --warning WARN   WARN threshold for the number of active connections.
                        Default: >= 460
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nginx-status/
 ```
 
 

@@ -63,6 +63,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Pacific API URL.
   --username USERNAME   Huawei OceanStor Pacific API username.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-pacific-fan/
 ```
 
 

@@ -67,6 +67,9 @@ options:
   --tag TAG             Only consider snapshots matching this taglist in the
                         format `tag[,tag,...]`. Can be specified multiple
                         times.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/restic-stats/
 ```
 
 

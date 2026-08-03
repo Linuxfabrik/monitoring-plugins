@@ -56,6 +56,9 @@ options:
                        and so on. Default: 6
   -w, --warning WARN   WARN threshold for the NTP time offset, in
                        milliseconds. Default: 800ms
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ntp-ntpd/
 ```
 
 

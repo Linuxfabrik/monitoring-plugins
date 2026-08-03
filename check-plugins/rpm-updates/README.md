@@ -69,6 +69,9 @@ options:
   --timeout TIMEOUT   Network timeout in seconds. Default: 120 (seconds)
   -w, --warning WARN  Minimum number of available updates to return WARNING.
                       Default: 1
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rpm-updates/
 ```
 
 

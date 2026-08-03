@@ -63,6 +63,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --username USERNAME
                         KEMP REST API username.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/kemp-services/
 ```
 
 

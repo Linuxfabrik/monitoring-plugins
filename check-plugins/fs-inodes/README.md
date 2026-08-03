@@ -75,6 +75,9 @@ options:
                         dropped.
   -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
                         Default: 90
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-inodes/
 ```
 
 

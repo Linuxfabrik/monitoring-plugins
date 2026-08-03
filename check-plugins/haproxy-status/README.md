@@ -102,6 +102,9 @@ options:
                        https://stats:s3cret@webserver:8443/server-status`.
                        Default: unix:///run/haproxy.sock
   -w, --warning WARN   WARN threshold in percent. Default: >= 80
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/haproxy-status/
 ```
 
 

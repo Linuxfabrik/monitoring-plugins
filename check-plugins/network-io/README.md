@@ -69,6 +69,9 @@ options:
   --warning WARN        WARN threshold for network I/O rx/tx rate over the
                         entire period as a percentage of the maximum network
                         I/O rate. Default: >= 80
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/network-io/
 ```
 
 

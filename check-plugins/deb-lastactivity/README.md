@@ -47,6 +47,9 @@ options:
                        activity, in days. Default: 365
   -w, --warning WARN   WARN threshold for time since last package manager
                        activity, in days. Default: 90
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/deb-lastactivity/
 ```
 
 

@@ -55,6 +55,9 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/sensors-temperatures/
 ```
 
 

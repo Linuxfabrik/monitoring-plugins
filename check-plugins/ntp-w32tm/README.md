@@ -56,6 +56,9 @@ options:
                        and so on. Default: 6
   -w, --warning WARN   WARN threshold for the time since "Last Good Sync", in
                        seconds. Default: 28800
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ntp-w32tm/
 ```
 
 

@@ -120,6 +120,9 @@ options:
                         JSON, otherwise the check returns UNKNOWN. Example:
                         `--warning-key=days`. Example: `--warning-
                         key=detailedInfo.count1`. Default: None
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/json-values/
 ```
 
 

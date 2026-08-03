@@ -68,6 +68,9 @@ options:
                         Severity for alerting. Default: warn
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   -u, --url URL         PHP-FPM ping URL. Default: http://localhost/fpm-ping
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-fpm-ping/
 ```
 
 

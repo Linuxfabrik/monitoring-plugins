@@ -71,6 +71,9 @@ options:
                         State to report when the online end-of-life source is
                         unreachable and the check falls back to the bundled
                         offline data. Default: ok
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-version/
 ```
 
 

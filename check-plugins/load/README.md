@@ -43,6 +43,9 @@ options:
                        The status message and the exit code are unaffected, so
                        alerting keeps working while trending data is dropped.
   -w, --warning WARN   WARN threshold for load15 per CPU. Default: 1.15
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/load/
 ```
 
 

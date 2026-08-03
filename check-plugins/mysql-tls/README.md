@@ -81,6 +81,9 @@ options:
   -w, --warning WARN    Days until local `ssl_cert` / `ssl_ca` expiry that
                         trigger WARN. Supports Nagios ranges. Example:
                         `--warning=60:`. Default: 30:
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-tls/
 ```
 
 

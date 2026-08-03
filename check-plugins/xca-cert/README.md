@@ -63,6 +63,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -w, --warning WARN    WARN threshold for certificate expiration in days.
                         Default: 14
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/xca-cert/
 ```
 
 

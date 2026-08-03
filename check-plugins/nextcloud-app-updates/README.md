@@ -79,6 +79,9 @@ options:
   -w, --warning WARN    WARN threshold for how long an app update may stay
                         available, in hours. Supports Nagios ranges. Default:
                         72
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-app-updates/
 ```
 
 

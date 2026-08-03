@@ -63,6 +63,9 @@ options:
   --url URL             Keycloak API URL. Default: http://127.0.0.1:8080
   --username USERNAME   Keycloak API username. Default: admin
   --warning WARN        WARN threshold in percent. Default: >= 80
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/keycloak-memory-usage/
 ```
 
 

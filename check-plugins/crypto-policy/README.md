@@ -32,10 +32,10 @@ Verifies that the system-wide cryptographic policy (as reported by update-crypto
 ```text
 usage: crypto-policy [-h] [-V] [--always-ok] [--policy CRYPTO_POLICY]
 
-Verifies that the system-wide cryptographic policy (as reported by update-
-crypto-policies) matches the expected setting. Returns WARN if the current
-policy differs from the desired one (default: "DEFAULT"). Useful for ensuring
-consistent TLS and cipher configurations across a fleet of servers.
+Verifies that the system-wide cryptographic policy (as reported by
+update-crypto-policies) matches the expected setting. Returns WARN if the
+current policy differs from the desired one (default: "DEFAULT"). Useful for
+ensuring consistent TLS and cipher configurations across a fleet of servers.
 
 options:
   -h, --help            show this help message and exit
@@ -44,6 +44,9 @@ options:
   --policy CRYPTO_POLICY
                         Expected crypto policy name. Case-insensitive.
                         Example: `FUTURE`. Default: DEFAULT
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/crypto-policy/
 ```
 
 

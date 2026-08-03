@@ -54,6 +54,9 @@ options:
                        M = months, Y = years). Supports Nagios ranges.
                        Example: `5m:180D` warns if uptime is not between 5
                        minutes and 180 days. Default: 3m:180D
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/uptime/
 ```
 
 

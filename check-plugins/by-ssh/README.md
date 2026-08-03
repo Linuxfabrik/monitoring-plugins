@@ -153,6 +153,9 @@ options:
                         Any line matching this Python regex (case-insensitive)
                         will count as a warning. Can be specified multiple
                         times.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/by-ssh/
 ```
 
 

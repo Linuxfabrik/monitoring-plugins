@@ -59,6 +59,9 @@ options:
   --no-proxy            Do not use a proxy.
   --password PASSWORD   FortiOS REST API single-use access token.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fortios-ha-stats/
 ```
 
 

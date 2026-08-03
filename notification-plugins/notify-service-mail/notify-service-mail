@@ -15,6 +15,7 @@ import sys
 from email.utils import make_msgid
 from socket import gethostname
 
+import lib.args
 import lib.base
 import lib.icinga
 import lib.mail
@@ -32,7 +33,11 @@ DEFAULT_MAIL_SERVER = 'localhost'
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__, section='notification-plugins'),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',

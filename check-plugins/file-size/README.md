@@ -85,6 +85,9 @@ options:
                         k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios
                         ranges. Example: `:1G` alerts if size is greater than
                         1 GiB. Default: 25M
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-size/
 ```
 
 

@@ -51,6 +51,9 @@ options:
   --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
   -p, --token TOKEN  NodeBB API bearer token.
   --url URL          NodeBB API URL. Default: http://localhost:4567/forum
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nodebb-version/
 ```
 
 

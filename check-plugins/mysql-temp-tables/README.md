@@ -70,6 +70,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
                         Default: 25
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-temp-tables/
 ```
 
 

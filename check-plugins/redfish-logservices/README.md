@@ -44,13 +44,13 @@ usage: redfish-logservices [-h] [-V] [--always-ok]
                            [--retries RETRIES] [--timeout TIMEOUT] --url URL
                            [--username USERNAME]
 
-Checks the event log entries exposed under the LogServices of a Redfish-
-compatible server via the Redfish API and alerts based on the severity of the
-log entries. By default it reads the System Event Log (SEL); `--log-type`
-selects the management controller log (MEL) or both. Entries can be filtered
-by regular expression (--match, --ignore), and entries older than --max-age
-days can be aged out so a long-since resolved event does not keep the check in
-a non-OK state forever.
+Checks the event log entries exposed under the LogServices of a
+Redfish-compatible server via the Redfish API and alerts based on the severity
+of the log entries. By default it reads the System Event Log (SEL);
+`--log-type` selects the management controller log (MEL) or both. Entries can
+be filtered by regular expression (--match, --ignore), and entries older than
+--max-age days can be aged out so a long-since resolved event does not keep
+the check in a non-OK state forever.
 
 options:
   -h, --help            show this help message and exit
@@ -94,6 +94,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             Redfish API URL.
   --username USERNAME   Redfish API username.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-logservices/
 ```
 
 

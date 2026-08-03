@@ -64,6 +64,9 @@ options:
                        `day`. Default: day
   --timeout TIMEOUT    Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL        Matomo URL. Default: https://demo.matomo.org
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/matomo-reporting/
 ```
 
 

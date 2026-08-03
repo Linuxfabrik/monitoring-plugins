@@ -68,6 +68,9 @@ options:
   --username USERNAME   Huawei OceanStor Pacific API username.
   -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
                         Default: 80
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-pacific-system-capacity/
 ```
 
 

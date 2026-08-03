@@ -49,12 +49,12 @@ compared against an expected count as a percentage, so a service that lost
 some but not all of its tasks can warn before it goes fully down. The expected
 count defaults to the service's own desired replica count, but can be pinned
 per service with --service, so scaling a service down by mistake is still
-caught against the count the service is supposed to run. With --check-
-distribution the check also warns when more tasks of a service sit on a single
-node than an even spread would place there, which surfaces a node that
-silently stopped taking work. Must be run on a swarm manager node, since only
-managers can list services. Podman does not support swarm mode, so there is no
-Podman counterpart to this check. Requires root or sudo.
+caught against the count the service is supposed to run. With
+--check-distribution the check also warns when more tasks of a service sit on
+a single node than an even spread would place there, which surfaces a node
+that silently stopped taking work. Must be run on a swarm manager node, since
+only managers can list services. Podman does not support swarm mode, so there
+is no Podman counterpart to this check. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -102,6 +102,9 @@ options:
                         100: (warn when fewer than 100% of the expected tasks
                         run). Example: `--warning=90:` tolerates losing up to
                         10% of the tasks before warning.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-service/
 ```
 
 

@@ -60,6 +60,9 @@ options:
                         dropped.
   --port PORT           Starface PBX monitoring port. Default: 6556
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/starface-account-stats/
 ```
 
 

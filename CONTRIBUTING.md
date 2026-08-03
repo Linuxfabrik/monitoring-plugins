@@ -274,8 +274,20 @@ There are a few Nagios-compatible reserved options that should not be used for o
 
 Every plugin must support at least `--help` and `--version`:
 
-* `--help` (`-h`): Print a short usage statement followed by a detailed description of all options with their defaults. Keep the output within 80 characters width. Exit with `STATE_UNKNOWN` (3).
+* `--help` (`-h`): Print a short usage statement followed by a detailed description of all options with their defaults, ending with a link to the plugin's online documentation. Keep the output within 80 characters width. Exit with `STATE_UNKNOWN` (3).
 * `--version` (`-V`): Print the plugin name and version (`__version__`). Exit with `STATE_UNKNOWN` (3).
+
+The documentation link comes from `lib.args`, so build the parser like this:
+
+```python
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+```
+
+`lib.args.epilog()` derives the URL from the plugin's file name, `lib.args.HelpFormatter` keeps that URL on one line instead of breaking it at its hyphens. Notification and event plugins name their family, for example `lib.args.epilog(__file__, section='notification-plugins')`.
 
 Positional arguments are not allowed. All parameters must be named options.
 
@@ -412,7 +424,11 @@ Hints:
 def parse_args():
     """Parse command line arguments using argparse.
     """
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '--my-old-and-deprecated-parameter',

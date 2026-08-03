@@ -59,6 +59,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --token TOKEN         Grassfish API token.
   -u, --url URL         Grassfish API URL. Default: /gv2/webservices/API
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/grassfish-licenses/
 ```
 
 

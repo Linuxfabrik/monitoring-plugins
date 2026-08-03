@@ -196,6 +196,9 @@ options:
                         left), or a duration with a unit (`14d`, `12h`, `2W`,
                         `1M`; WARN when less time than that is left).
                         Examples: `14:` `25%` `14d`. Default: 14:
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cert/
 ```
 
 

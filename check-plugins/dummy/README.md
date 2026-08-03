@@ -40,6 +40,9 @@ options:
                         guidelines. Default: None
   --state {ok,warn,crit,unk}
                         State to return (ok, warn, crit, unk). Default: ok
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dummy/
 ```
 
 

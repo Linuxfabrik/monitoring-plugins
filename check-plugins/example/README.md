@@ -73,6 +73,9 @@ options:
   --url URL             URL to the endpoint. Default: http://localhost
   -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
                         Default: 80
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/example/
 ```
 
 

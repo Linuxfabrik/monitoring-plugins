@@ -140,6 +140,9 @@ options:
   --v3-username V3_USERNAME
                         SNMPv3 security name (username). Example:
                         `--v3-username bert`.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/snmp/
 ```
 
 

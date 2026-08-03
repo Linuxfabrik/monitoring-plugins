@@ -32,16 +32,26 @@ Retrieves and displays information about an installed Nextcloud Enterprise subsc
 ## Help
 
 ```text
-Traceback (most recent call last):
-  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/nextcloud-enterprise/nextcloud-enterprise", line 193, in 'module'
-    main()
-    ~~~~^^
-  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/nextcloud-enterprise/nextcloud-enterprise", line 76, in main
-    args = parse_args()
-  File "/home/markusfrei/git/linuxfabrik/github/monitoring-plugins/check-plugins/nextcloud-enterprise/nextcloud-enterprise", line 45, in parse_args
-    help=lib.args.help('--always-ok'),
-         ^^^^^^^^
-AttributeError: module 'lib' has no attribute 'args'
+usage: nextcloud-enterprise [-h] [-V] [--always-ok] [--no-perfdata]
+                            [--path PATH]
+
+Retrieves and displays information about an installed Nextcloud Enterprise
+subscription, including license status, expiration date, and supported user
+count. Alerts when the subscription is expired or about to expire. Requires
+root or sudo.
+
+options:
+  -h, --help     show this help message and exit
+  -V, --version  show program's version number and exit
+  --always-ok    Always returns OK.
+  --no-perfdata  Suppress the performance data section from the output. The
+                 status message and the exit code are unaffected, so alerting
+                 keeps working while trending data is dropped.
+  --path PATH    Local path to the Nextcloud installation, typically the web
+                 server document root. Default: /var/www/html/nextcloud
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-enterprise/
 ```
 
 

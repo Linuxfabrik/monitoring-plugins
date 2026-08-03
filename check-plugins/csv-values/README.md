@@ -164,6 +164,9 @@ options:
                         `SELECT` statement. If its result contains more than
                         one column, the number of rows is checked against
                         `--warning`, otherwise the single value is used.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/csv-values/
 ```
 
 

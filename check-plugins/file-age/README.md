@@ -87,6 +87,9 @@ options:
   --warning-count WARN_COUNT
                         WARN threshold for the number of files exceeding the
                         warning age. Default: > 0.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-age/
 ```
 
 

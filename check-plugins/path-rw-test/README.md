@@ -48,6 +48,9 @@ options:
                         times. Default: ['/tmp']
   --severity {warn,crit}
                         Severity for alerting. Default: warn
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/path-rw-test/
 ```
 
 

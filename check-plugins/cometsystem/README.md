@@ -73,6 +73,9 @@ options:
   --timeout TIMEOUT    Network timeout in seconds. Default: 5 (seconds)
   -u, --url URL        Comet System URL pointing to the JSON endpoint.
                        Example: `http://example.com/values.json`.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cometsystem/
 ```
 
 

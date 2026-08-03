@@ -48,6 +48,9 @@ options:
                        alerting keeps working while trending data is dropped.
   -w, --warning WARN   WARN threshold for battery power left, in percent.
                        Default: 20
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/sensors-battery/
 ```
 
 

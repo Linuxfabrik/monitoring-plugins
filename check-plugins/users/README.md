@@ -56,6 +56,9 @@ options:
                        threshold for disconnected users in the format
                        "tty,pts,disc". Example: `--warning 1,5`. Default: [1,
                        20, 1]
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/users/
 ```
 
 

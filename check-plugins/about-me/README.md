@@ -71,6 +71,9 @@ options:
   --tags                Guess a list of tags to apply in Icinga Director
                         (Linuxfabrik Basket config).
   --timeout TIMEOUT     Network timeout in seconds. Default: 2 (seconds)
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/
 ```
 
 

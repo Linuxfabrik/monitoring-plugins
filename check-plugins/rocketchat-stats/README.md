@@ -57,6 +57,9 @@ options:
   --url URL             Rocket.Chat API URL. Default:
                         http://localhost:3000/api/v1
   --username USERNAME   Rocket.Chat API username. Default: rocket-stats
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rocketchat-stats/
 ```
 
 

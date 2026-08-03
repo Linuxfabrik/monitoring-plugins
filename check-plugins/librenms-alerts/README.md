@@ -79,6 +79,9 @@ options:
   --severity {warn,crit}
                         Severity for alerting. Default: crit
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/librenms-alerts/
 ```
 
 

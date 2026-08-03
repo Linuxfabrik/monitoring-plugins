@@ -51,6 +51,9 @@ options:
                      computer that is synchronised to a stratum 1 computer is
                      at stratum 2. A computer that is synchronised to a
                      stratum 2 computer is at stratum 3, and so on. Default: 6
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ntp-systemd-timesyncd/
 ```
 
 

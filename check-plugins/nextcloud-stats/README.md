@@ -58,6 +58,9 @@ options:
                        t/nextcloud/ocs/v2.php/apps/serverinfo/api/v1/info
   --username USERNAME  Username for authenticating against the Nextcloud API.
                        Default: admin
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-stats/
 ```
 
 

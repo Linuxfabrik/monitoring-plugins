@@ -181,6 +181,9 @@ options:
   --warning-slowreq WARN_SLOW_REQUESTS
                         WARN threshold for the number of NEW slow requests
                         seen since the previous check run. Default: >= 1
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-fpm-status/
 ```
 
 

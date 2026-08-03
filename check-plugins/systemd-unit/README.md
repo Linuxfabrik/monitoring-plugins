@@ -87,6 +87,9 @@ options:
                         checked.
   --user                Talk to the service manager of the calling user rather
                         than the service manager of the system.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-unit/
 ```
 
 

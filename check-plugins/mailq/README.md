@@ -71,6 +71,9 @@ options:
                         units). Example: `--warning=1h` to alert when the
                         oldest mail has been in the queue for an hour or more.
                         Default: 1h
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mailq/
 ```
 
 

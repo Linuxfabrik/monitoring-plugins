@@ -66,6 +66,9 @@ options:
                         first checks against the globally configured `memory-
                         use-threshold-green` on the appliance; this value is
                         only used if no global threshold exists. Default: 82
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fortios-memory-usage/
 ```
 
 

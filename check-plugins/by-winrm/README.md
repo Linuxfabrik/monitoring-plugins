@@ -163,6 +163,9 @@ options:
   --winrm-username WINRM_USERNAME
                         WinRM account name. Optional for Kerberos (uses
                         credential cache from kinit).
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/by-winrm/
 ```
 
 

@@ -102,6 +102,9 @@ options:
   --warning-fragmented-tables WARNING_FRAG
                         WARN threshold for the number of fragmented tables.
                         Supports Nagios ranges. Default: 0
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-storage-engines/
 ```
 
 

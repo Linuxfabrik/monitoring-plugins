@@ -95,6 +95,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             WHMCS API URL. Default: http://127.0.0.1:8080
   --username USERNAME   HTTP Basic Auth username.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/whmcs-status/
 ```
 
 

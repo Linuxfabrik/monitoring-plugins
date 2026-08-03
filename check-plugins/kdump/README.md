@@ -65,6 +65,9 @@ options:
                      from the distribution kdump configuration and falls back
                      to "/var/crash". Example: `--path=/var/crash`
   --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/kdump/
 ```
 
 

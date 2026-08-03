@@ -72,9 +72,9 @@ devices with a mounted filesystem by default; use `--include-unmounted` to
 also include raw, unmounted devices such as multipath SAN volumes. On Windows
 it uses psutil's disk counters. Optionally, `--top` lists the processes that
 generated the most I/O traffic (read/write totals) to help identify offenders.
-This check is cross-platform and works on Linux, Windows, and all psutil-
-supported systems. The check stores its short trend state locally in an SQLite
-DB to evaluate sustained load across runs.
+This check is cross-platform and works on Linux, Windows, and all
+psutil-supported systems. The check stores its short trend state locally in an
+SQLite DB to evaluate sustained load across runs.
 
 options:
   -h, --help            show this help message and exit
@@ -134,6 +134,9 @@ options:
   --warning WARN        WARN threshold for disk bandwidth saturation as a
                         percentage of the observed maximum, measured over the
                         last `--count` runs. Default: >= 80
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/
 ```
 
 

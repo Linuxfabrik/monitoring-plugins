@@ -53,6 +53,9 @@ options:
   --top TOP             Number of top processes consuming the most swap space
                         to list (not available on Windows). Default: 5
   -w, --warning WARN    Threshold for swap usage, in percent. Default: 70
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/swap-usage/
 ```
 
 

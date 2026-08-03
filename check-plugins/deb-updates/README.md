@@ -69,6 +69,9 @@ options:
   --timeout TIMEOUT   Network timeout in seconds. Default: 60 (seconds)
   -w, --warning WARN  Minimum number of pending packages to trigger a WARNING.
                       Default: 1
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/deb-updates/
 ```
 
 

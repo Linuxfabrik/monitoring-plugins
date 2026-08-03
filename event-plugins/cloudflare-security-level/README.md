@@ -45,6 +45,9 @@ options:
   --zone-id ZONE_ID     Cloudflare API zone identifier (from Cloudflare Portal
                         > Home > choose your site > Overview). Can be
                         specified multiple times.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/event-plugins/cloudflare-security-level/
 ```
 
 

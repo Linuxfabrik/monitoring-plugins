@@ -61,6 +61,9 @@ options:
                         Set the servicename ($service.name$).
   --token TOKEN         Set the Zoom verification token.
   --url URL             Set the URL of the Zoom Incoming Webhook API.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/notification-plugins/notify-service-zoom/
 ```
 
 

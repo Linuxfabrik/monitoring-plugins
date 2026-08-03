@@ -81,6 +81,9 @@ options:
   --token TOKEN         Infomaniak API token.
   -w, --warning WARN    WARN threshold for the expiration date, in days.
                         Default: 5
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/infomaniak-swiss-backup-products/
 ```
 
 

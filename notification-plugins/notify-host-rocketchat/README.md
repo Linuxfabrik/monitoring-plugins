@@ -53,6 +53,9 @@ options:
                         multiple times.
   --rocketchat-url ROCKETCHAT_URL
                         Set the Rocket.Chat Webhook API URL.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/notification-plugins/notify-host-rocketchat/
 ```
 
 

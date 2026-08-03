@@ -60,6 +60,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --url URL             Jitsi API URL. Default: http://localhost:8080
   --username USERNAME   Jitsi API username. Default: None
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/jitsi-videobridge-stats/
 ```
 
 

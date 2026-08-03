@@ -69,6 +69,9 @@ options:
   -w, --warning WARN    WARN threshold for link bandwidth saturation in bits
                         per second. Applied over the last `--count`
                         measurements. Default: 800000000
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fortios-network-io/
 ```
 
 
