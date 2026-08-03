@@ -36,6 +36,7 @@ def load_plugin_module():
     spec.loader.exec_module(module)
     return module
 
+
 # Absolute path to a device CSV outside the bundled `device-oids` directory,
 # used to exercise the `--device` absolute-path branch. The tests run from the
 # `unit-test` directory, so the fixture resolves relative to the cwd.
@@ -248,14 +249,10 @@ class TestBuildOidChunks(unittest.TestCase):
         chunks = self.plugin.build_oid_chunks(snmp_objects)
         flat = [oid for chunk in chunks for oid in chunk]
         self.assertNotIn('', flat)
-        self.assertEqual(
-            flat, ['IF-MIB::ifInOctets.1', 'IF-MIB::ifOutOctets.1']
-        )
+        self.assertEqual(flat, ['IF-MIB::ifInOctets.1', 'IF-MIB::ifOutOctets.1'])
 
     def test_real_oids_keep_their_order(self):
-        snmp_objects = [self._header()] + [
-            self._row(f'OID::x.{i}') for i in range(5)
-        ]
+        snmp_objects = [self._header()] + [self._row(f'OID::x.{i}') for i in range(5)]
         chunks = self.plugin.build_oid_chunks(snmp_objects)
         flat = [oid for chunk in chunks for oid in chunk]
         self.assertEqual(flat, [f'OID::x.{i}' for i in range(5)])
@@ -446,8 +443,12 @@ class TestMatchOid(unittest.TestCase):
     def test_trailing_space_guard_stops_prefix_collision(self):
         # `...ifName.1` must not swallow the `...ifName.10` line, and each still matches itself
         objs = self._objs('IF-MIB::ifName.1', 'IF-MIB::ifName.10')
-        self.assertEqual(self.plugin.match_oid(objs, 'IF-MIB::ifName.1 lo', 1), (1, 'lo'))
-        self.assertEqual(self.plugin.match_oid(objs, 'IF-MIB::ifName.10 eth0', 1), (2, 'eth0'))
+        self.assertEqual(
+            self.plugin.match_oid(objs, 'IF-MIB::ifName.1 lo', 1), (1, 'lo')
+        )
+        self.assertEqual(
+            self.plugin.match_oid(objs, 'IF-MIB::ifName.10 eth0', 1), (2, 'eth0')
+        )
 
     def test_forward_search_skips_computed_rows(self):
         # a computed row (empty OID) between two real OIDs must be stepped over
