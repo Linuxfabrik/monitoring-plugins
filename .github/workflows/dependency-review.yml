@@ -25,3 +25,13 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: 'Dependency Review'
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          # GHSA-h35f-9h28-mq5c against setuptools in lockfiles/py39. The only
+          # fixed release is 83.0.0, which requires Python 3.10 and therefore
+          # cannot go into the py39 lockfile that RHEL 8, RHEL 9 and Debian 11
+          # install from. The advisory covers MANIFEST.in exclusions being
+          # bypassed while building an sdist on a Unicode-normalizing
+          # filesystem (macOS APFS/HFS+); nothing builds an sdist from this
+          # lockfile, and ext4/xfs do not normalize. Drop this entry once the
+          # py39 lockfile is retired.
+          allow-ghsas: 'GHSA-h35f-9h28-mq5c'
