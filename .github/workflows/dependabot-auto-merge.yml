@@ -6,9 +6,10 @@ on:
 permissions: 'read-all'
 
 env:
-  # Lockfiles that have no `directory:` entry in `.github/dependabot.yml`
-  # because upstream packages keep raising their minimum Python. Dependabot
-  # security updates ignore that allowlist, so a bump can still show up here.
+  # Lockfile directories pinned to versions that still support an old
+  # interpreter. They have no `directory:` entry in `.github/dependabot.yml`,
+  # but Dependabot security updates ignore that allowlist, so a bump against
+  # one can still show up here. Empty in repositories without lockfiles.
   FROZEN_LOCKFILES: '["/lockfiles/py39", "/lockfiles/py310"]'
 
 jobs:
@@ -28,8 +29,8 @@ jobs:
       # drops the interpreter the lockfile exists for (py39 -> RHEL 8, RHEL 9,
       # Debian 11; py310 -> Ubuntu 22.04). It may equally propose a security
       # fix that still supports it. Only a human can tell the two apart, so
-      # the PR is neither merged nor closed. Regenerate the lockfile with
-      # `pip-compile` on a matching Python host once the bump is accepted.
+      # the pull request is neither merged nor closed. Regenerate the lockfile
+      # with `pip-compile` on a matching Python host once the bump is accepted.
       - if: >-
           contains(fromJSON(env.FROZEN_LOCKFILES), steps.meta.outputs.directory)
           && github.event.action == 'opened'
@@ -41,16 +42,16 @@ jobs:
           GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
           PR_URL: '${{ github.event.pull_request.html_url }}'
 
+      # `gh pr merge --auto` is refused while the pull request sits in clean or
+      # unstable state, which is exactly where a freshly opened Dependabot pull
+      # request lands once the required checks pass while the optional ones are
+      # still running. The direct merge is a safe fallback: branch protection
+      # keeps enforcing the required checks server-side, so a pull request that
+      # is not ready is still rejected.
       - if: >-
           !contains(fromJSON(env.FROZEN_LOCKFILES), steps.meta.outputs.directory)
           && (steps.meta.outputs.update-type == 'version-update:semver-patch'
               || steps.meta.outputs.update-type == 'version-update:semver-minor')
-        # `gh pr merge --auto` is refused while the pull request sits in clean or
-        # unstable state, which is exactly where a freshly opened Dependabot pull
-        # request lands once the required checks pass while the optional ones are
-        # still running. The direct merge is a safe fallback: branch protection
-        # keeps enforcing the required checks server-side, so a pull request that
-        # is not ready is still rejected.
         run: |
           gh pr merge --auto --squash "$PR_URL" || gh pr merge --squash "$PR_URL"
         env:
