@@ -45,7 +45,14 @@ jobs:
           !contains(fromJSON(env.FROZEN_LOCKFILES), steps.meta.outputs.directory)
           && (steps.meta.outputs.update-type == 'version-update:semver-patch'
               || steps.meta.outputs.update-type == 'version-update:semver-minor')
-        run: 'gh pr merge --auto --squash "$PR_URL"'
+        # `gh pr merge --auto` is refused while the pull request sits in clean or
+        # unstable state, which is exactly where a freshly opened Dependabot pull
+        # request lands once the required checks pass while the optional ones are
+        # still running. The direct merge is a safe fallback: branch protection
+        # keeps enforcing the required checks server-side, so a pull request that
+        # is not ready is still rejected.
+        run: |
+          gh pr merge --auto --squash "$PR_URL" || gh pr merge --squash "$PR_URL"
         env:
           GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
           PR_URL: '${{ github.event.pull_request.html_url }}'
