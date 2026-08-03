@@ -218,7 +218,9 @@ def main():
         if not success:
             table_data.append(
                 {
-                    'mountpoint': lib.disk.shorten_path(mount, max_len=DISPLAY_PATH_MAXLEN),
+                    'mountpoint': lib.disk.shorten_path(
+                        mount, max_len=DISPLAY_PATH_MAXLEN
+                    ),
                     'device': disk.get('dmd') or disk['bd'],
                     'iused': 'N/A',
                     'ifree': 'N/A',
@@ -284,9 +286,7 @@ def main():
         msg = f'{header} ({thresholds})\n\n{table}'
     else:
         # default: a compact single line, one item per mount point.
-        msg = ', '.join(
-            f'{row["mountpoint"]} {row["percent"]}' for row in table_data
-        )
+        msg = ', '.join(f'{row["mountpoint"]} {row["percent"]}' for row in table_data)
         if state != STATE_OK:
             msg += '. Have a look at the README on how to find where inodes are being used.'
 
