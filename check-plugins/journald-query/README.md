@@ -57,9 +57,9 @@ usage: journald-query [-h] [-V] [--always-ok] [--facility FACILITY]
                       [--identifier IDENTIFIER]
                       [--ignore-pattern IGNORE_PATTERN]
                       [--ignore-regex IGNORE_REGEX] [--insecure]
-                      [--no-perfdata] [--no-proxy] [--priority PRIORITY]
-                      [--severity {warn,crit}] [--since SINCE]
-                      [--timeout TIMEOUT] [--unit UNIT]
+                      [--no-insecure] [--no-perfdata] [--no-proxy]
+                      [--priority PRIORITY] [--severity {warn,crit}]
+                      [--since SINCE] [--timeout TIMEOUT] [--unit UNIT]
                       [--user-unit USER_UNIT]
 
 Queries the systemd journal using journalctl and alerts when matching entries
@@ -105,6 +105,11 @@ options:
                         times. Example: `--ignore-regex='(?i)linuxfabrik'`.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is

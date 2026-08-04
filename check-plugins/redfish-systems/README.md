@@ -39,9 +39,10 @@ Checks the overall system health reported by a Redfish-compatible server via the
 
 ```text
 usage: redfish-systems [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
-                       [--insecure] [--inventory] [--no-perfdata] [--no-proxy]
-                       [--password PASSWORD] [--retries RETRIES]
-                       [--timeout TIMEOUT] --url URL [--username USERNAME]
+                       [--insecure] [--inventory] [--no-insecure]
+                       [--no-perfdata] [--no-proxy] [--password PASSWORD]
+                       [--retries RETRIES] [--timeout TIMEOUT] --url URL
+                       [--username USERNAME]
 
 Checks the overall system health reported by a Redfish-compatible server via
 the Redfish API. Reports every enabled system member with its identification
@@ -65,6 +66,11 @@ options:
                         object keyed by component type, so the output of
                         several Redfish checks can be merged into one
                         inventory document with `jq --slurp`. Default: False
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is

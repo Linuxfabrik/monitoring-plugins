@@ -39,8 +39,8 @@ Checks the event log entries exposed under the LogServices of a Redfish-compatib
 usage: redfish-logservices [-h] [-V] [--always-ok]
                            [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
                            [--insecure] [--log-type {sel,mel,both}]
-                           [--match MATCH] [--max-age MAX_AGE] [--no-perfdata]
-                           [--no-proxy] [--password PASSWORD]
+                           [--match MATCH] [--max-age MAX_AGE] [--no-insecure]
+                           [--no-perfdata] [--no-proxy] [--password PASSWORD]
                            [--retries RETRIES] [--timeout TIMEOUT] --url URL
                            [--username USERNAME]
 
@@ -81,6 +81,11 @@ options:
                         so a long-since resolved event would otherwise keep
                         the check in a non-OK state forever. Default: 0 (0
                         disables aging).
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is

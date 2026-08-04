@@ -53,8 +53,8 @@ usage: dmesg [-h] [-V] [--always-ok] [--icinga-callback]
              [--icinga-password ICINGA_PASSWORD]
              [--icinga-service-name ICINGA_SERVICE_NAME]
              [--icinga-url ICINGA_URL] [--icinga-username ICINGA_USERNAME]
-             [--ignore IGNORE] [--insecure] [--no-perfdata] [--no-proxy]
-             [--timeout TIMEOUT]
+             [--ignore IGNORE] [--insecure] [--no-insecure] [--no-perfdata]
+             [--no-proxy] [--timeout TIMEOUT]
 
 Checks the kernel ring buffer (dmesg) for messages at severity levels emerg,
 alert, crit, and err. Known false positives and hardware-specific noise are
@@ -93,6 +93,11 @@ options:
                         (rd|wr)msr: "`.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is

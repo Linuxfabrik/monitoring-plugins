@@ -36,9 +36,9 @@ Lists active (unrecovered) alarms on a Huawei OceanStor Pacific storage system v
 ```text
 usage: huawei-pacific-alarm [-h] [-V] [--always-ok]
                             [--cache-expire CACHE_EXPIRE] [--insecure]
-                            [--no-perfdata] [--no-proxy] --password PASSWORD
-                            [--scope SCOPE] [--timeout TIMEOUT] -u URL
-                            --username USERNAME
+                            [--no-insecure] [--no-perfdata] [--no-proxy]
+                            --password PASSWORD [--scope SCOPE]
+                            [--timeout TIMEOUT] -u URL --username USERNAME
 
 Lists active (unrecovered) alarms on a Huawei OceanStor Pacific storage system
 via the REST API (/common/alarms endpoint). Alerts when unrecovered alarms are
@@ -54,6 +54,11 @@ options:
                         cache expires, in minutes. Default: 15
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is

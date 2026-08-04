@@ -581,6 +581,27 @@ Plugins have a limited runtime - typically 10 seconds max. Every plugin must han
 * **Symlinks**: If a plugin opens or reads files, ensure it does not follow symlinks to unintended locations.
 * **Credentials**: Never log or print passwords, tokens, or other secrets in plugin output - not even in verbose mode.
 * **Network communication**: Use HTTPS by default. Support `--insecure` to allow self-signed certificates where needed, but never make insecure the default.
+* **Internal management endpoints**: Checks that talk to an internal management endpoint are the one exception to the rule above. An Icinga API port, a BMC, a storage controller or a backup appliance practically always presents a certificate signed by its own CA, which no host trusts out of the box, so verifying by default would break every deployment of the check. Those plugins may set `DEFAULT_INSECURE = True`, and then must offer `--no-insecure` as the counterpart so an admin who added the CA to the system trust store can enforce verification:
+
+```python
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help=lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+```
+
+Both arguments share the `INSECURE` destination and repeat the same `default`, so the outcome does not depend on the order in which they are declared. Checks against public or customer-facing endpoints keep `DEFAULT_INSECURE = False` and offer `--insecure` only, where a `--no-insecure` counterpart would be a no-op.
 
 
 ### Plugin Output

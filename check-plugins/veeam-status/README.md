@@ -40,7 +40,7 @@ usage: veeam-status [-h] [-V] [--always-ok] [-c CRIT]
                     [--insecure]
                     [--max-backup-job-duration MAX_BACKUP_JOB_DURATION]
                     [--max-replica-job-duration MAX_REPLICA_JOB_DURATION]
-                    [--no-perfdata] [--no-proxy] -p PASSWORD
+                    [--no-insecure] [--no-perfdata] [--no-proxy] -p PASSWORD
                     [--timeout TIMEOUT] [--url URL] --username USERNAME
                     [-w WARN]
                     [--warning-vm-lastest-states WARNING_VM_LASTEST_STATES]
@@ -69,6 +69,11 @@ options:
   --max-replica-job-duration MAX_REPLICA_JOB_DURATION
                         Maximum allowed replica job duration in seconds.
                         Default: > 86400.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is

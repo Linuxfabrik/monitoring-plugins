@@ -42,7 +42,7 @@ Checks how full the quotas of a Huawei OceanStor Pacific storage system are via 
 usage: huawei-pacific-quota [-h] [-V] [--always-ok] [--brief]
                             [--cache-expire CACHE_EXPIRE] [-c CRIT]
                             [--ignore-regex IGNORE_REGEX] [--insecure]
-                            [--lengthy]
+                            [--lengthy] [--no-insecure]
                             [--no-match-severity {ok,warn,crit,unknown}]
                             [--no-perfdata] [--no-proxy] --password PASSWORD
                             [--quota-type {directory,user,user-group}]
@@ -77,6 +77,11 @@ options:
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --lengthy             Extended reporting.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok

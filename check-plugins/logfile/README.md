@@ -56,9 +56,9 @@ usage: logfile [-h] [-V] [--alarm-duration ALARM_DURATION] [--always-ok]
                [--icinga-service-name ICINGA_SERVICE_NAME]
                [--icinga-url ICINGA_URL] [--icinga-username ICINGA_USERNAME]
                [--ignore-pattern IGNORE_PATTERN] [--ignore-regex IGNORE_REGEX]
-               [--insecure] [--no-perfdata] [--no-proxy] [--suppress-lines]
-               [--timeout TIMEOUT] [-w WARN] [--warning-pattern WARN_PATTERN]
-               [--warning-regex WARN_REGEX]
+               [--insecure] [--no-insecure] [--no-perfdata] [--no-proxy]
+               [--suppress-lines] [--timeout TIMEOUT] [-w WARN]
+               [--warning-pattern WARN_PATTERN] [--warning-regex WARN_REGEX]
 
 Scans a logfile for matching patterns or regular expressions and alerts based
 on the number of matches found. Only the lines added since the previous run
@@ -119,6 +119,11 @@ options:
                         `(?i)linuxfabrik` for a case-insensitive match.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is

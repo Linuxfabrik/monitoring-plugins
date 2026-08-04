@@ -42,9 +42,9 @@ Checks hardware sensor readings (temperature, voltage, fan speed, power) from th
 usage: redfish-sensors [-h] [-V] [--always-ok] [--brief]
                        [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
                        [--insecure] [--inventory] [--match MATCH]
-                       [--no-perfdata] [--no-proxy] [--password PASSWORD]
-                       [--retries RETRIES] [--timeout TIMEOUT] --url URL
-                       [--username USERNAME]
+                       [--no-insecure] [--no-perfdata] [--no-proxy]
+                       [--password PASSWORD] [--retries RETRIES]
+                       [--timeout TIMEOUT] --url URL [--username USERNAME]
 
 Checks hardware sensor readings (temperature, voltage, fan speed, power) from
 the Redfish Chassis collection via the Redfish API. Reads the modern Sensors
@@ -78,6 +78,11 @@ options:
                         regular expression. Case-sensitive by default; use
                         `(?i)` for case-insensitive matching. Can be specified
                         multiple times.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is

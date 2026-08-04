@@ -35,9 +35,9 @@ Checks the health and running status of all cluster nodes on a Huawei OceanStor 
 ```text
 usage: huawei-pacific-node [-h] [-V] [--always-ok]
                            [--cache-expire CACHE_EXPIRE] [--insecure]
-                           [--no-perfdata] [--no-proxy] --password PASSWORD
-                           [--scope SCOPE] [--timeout TIMEOUT] -u URL
-                           --username USERNAME
+                           [--no-insecure] [--no-perfdata] [--no-proxy]
+                           --password PASSWORD [--scope SCOPE]
+                           [--timeout TIMEOUT] -u URL --username USERNAME
 
 Checks the health and running status of all cluster nodes on a Huawei
 OceanStor Pacific storage system via the REST API (/cluster/servers endpoint).
@@ -52,6 +52,11 @@ options:
                         cache expires, in minutes. Default: 15
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is

@@ -37,10 +37,10 @@ Checks overall system health, capacity and running status of a Huawei OceanStor 
 ```text
 usage: huawei-dorado-system [-h] [-V] [--always-ok]
                             [--cache-expire CACHE_EXPIRE] [-c CRIT]
-                            --device-id DEVICE_ID [--insecure] [--no-perfdata]
-                            [--no-proxy] --password PASSWORD [--scope SCOPE]
-                            [--timeout TIMEOUT] -u URL --username USERNAME
-                            [-w WARN]
+                            --device-id DEVICE_ID [--insecure] [--no-insecure]
+                            [--no-perfdata] [--no-proxy] --password PASSWORD
+                            [--scope SCOPE] [--timeout TIMEOUT] -u URL
+                            --username USERNAME [-w WARN]
 
 Checks overall system health, capacity, and performance of a Huawei OceanStor
 Dorado storage system via the REST API (/system endpoint). Reports health
@@ -59,6 +59,11 @@ options:
                         Huawei OceanStor Dorado API device ID.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is

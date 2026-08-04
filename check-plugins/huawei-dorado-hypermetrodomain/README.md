@@ -37,10 +37,10 @@ Checks the running status of all HyperMetro domains on a Huawei OceanStor Dorado
 usage: huawei-dorado-hypermetrodomain [-h] [-V] [--always-ok]
                                       [--cache-expire CACHE_EXPIRE]
                                       --device-id DEVICE_ID [--insecure]
-                                      [--no-perfdata] [--no-proxy]
-                                      --password PASSWORD [--scope SCOPE]
-                                      [--timeout TIMEOUT] -u URL
-                                      --username USERNAME
+                                      [--no-insecure] [--no-perfdata]
+                                      [--no-proxy] --password PASSWORD
+                                      [--scope SCOPE] [--timeout TIMEOUT]
+                                      -u URL --username USERNAME
 
 Checks the health and running status of all HyperMetro domains on a Huawei
 OceanStor Dorado storage system via the REST API (/hypermetrodomain endpoint).
@@ -57,6 +57,11 @@ options:
                         Huawei OceanStor Dorado API device ID.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is

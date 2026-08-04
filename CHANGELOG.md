@@ -21,6 +21,7 @@ Monitoring Plugins:
 * disk-io: reports per-disk I/O latency (await) and can alert on it with `--await-warning`/`--await-critical` (both off by default); a critical latency threshold catches a disk that is effectively hung
 * disk-smart: filter drives by regular expression with `--match`/`--ignore` ([#1388](https://github.com/Linuxfabrik/monitoring-plugins/issues/1388))
 * disk-usage: per-mountpoint warning and critical thresholds via `--mount` ([#1286](https://github.com/Linuxfabrik/monitoring-plugins/issues/1286))
+* dmesg, huawei-dorado-backup-power, huawei-dorado-controller, huawei-dorado-disk, huawei-dorado-enclosure, huawei-dorado-fan, huawei-dorado-host, huawei-dorado-hypermetrodomain, huawei-dorado-hypermetropair, huawei-dorado-interface, huawei-dorado-power, huawei-dorado-system, huawei-pacific-alarm, huawei-pacific-fan, huawei-pacific-node, huawei-pacific-power, huawei-pacific-quota, huawei-pacific-system-capacity, journald-query, logfile, redfish-ethernetinterfaces, redfish-firmwareinventory, redfish-logservices, redfish-managers, redfish-memory, redfish-processors, redfish-sensors, redfish-storage, redfish-systems, veeam-status: `--no-insecure` enforces TLS certificate verification on checks that skip it by default; the default stays unchanged, so nothing breaks on hosts with self-signed certificates
 * dmesg: `--icinga-callback` suppresses acknowledged kernel messages on following runs, so no manual `dmesg --clear` on the host ([#639](https://github.com/Linuxfabrik/monitoring-plugins/issues/639))
 * docker-container, podman-container: new checks alerting on unhealthy, unexpected-state, frequently restarting or too-young containers; `podman-container --user` covers a rootless user
 * docker-image, podman-image: new checks listing images and alerting on images older than a configurable age; `podman-image --user` covers a rootless user
@@ -76,6 +77,7 @@ Event Plugins:
 
 Build, CI/CD:
 
+* build-basket: switches that turn an option off (`--no-insecure`) end up in the Director basket instead of being dropped with an error
 * installer: `--source` on a host with too-old system Python now picks the newest installed Python and rebuilds cleanly
 
 Monitoring Plugins:
