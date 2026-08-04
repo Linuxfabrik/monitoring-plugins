@@ -21,6 +21,7 @@ Monitoring Plugins:
 * disk-io: reports per-disk I/O latency (await) and can alert on it with `--await-warning`/`--await-critical` (both off by default); a critical latency threshold catches a disk that is effectively hung
 * disk-smart: filter drives by regular expression with `--match`/`--ignore` ([#1388](https://github.com/Linuxfabrik/monitoring-plugins/issues/1388))
 * disk-usage: per-mountpoint warning and critical thresholds via `--mount` ([#1286](https://github.com/Linuxfabrik/monitoring-plugins/issues/1286))
+* dmesg: `--icinga-callback` suppresses acknowledged kernel messages on following runs, so no manual `dmesg --clear` on the host ([#639](https://github.com/Linuxfabrik/monitoring-plugins/issues/639))
 * docker-container, podman-container: new checks alerting on unhealthy, unexpected-state, frequently restarting or too-young containers; `podman-container --user` covers a rootless user
 * docker-image, podman-image: new checks listing images and alerting on images older than a configurable age; `podman-image --user` covers a rootless user
 * docker-service: new check alerting when a Docker Swarm service runs fewer tasks than expected

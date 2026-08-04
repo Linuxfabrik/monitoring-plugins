@@ -11,25 +11,40 @@
 """See the check's README for more details."""
 
 import argparse
+import datetime
+import hashlib
+import json
 import sys
 
 import lib.args
 import lib.base
+import lib.db_sqlite
+import lib.icinga
 import lib.lftest
 import lib.shell
+import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026080401'
 
 DESCRIPTION = """Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, alert,
 crit, and err. Known false positives and hardware-specific noise are filtered out by default; the
-filtered count is reported as the `errors` perfdata so trends can be graphed. To clear reported
-messages after resolving the underlying issue, run "dmesg --clear". Note: the kernel ring buffer is
-a fixed-size circular buffer, so older messages are overwritten over time, and timestamps may drift
-across SUSPEND/RESUME because the time source is not updated on resume.
+filtered count is reported as the `errors` perfdata so trends can be graphed. Optionally integrates
+with Icinga: when the service is acknowledged, the reported messages are suppressed on following
+runs so they don't re-alert, which makes a login and "dmesg --clear" on the host unnecessary.
+Note: the kernel ring buffer is a fixed-size circular buffer, so older messages are overwritten over
+time, and timestamps may drift across SUSPEND/RESUME because the time source is not updated on
+resume.
 Requires root or sudo."""
+
+ACK_RETENTION_DAYS = 30
+
+DEFAULT_ICINGA_CALLBACK = False
+DEFAULT_INSECURE = True
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 5
 
 # Ignore false positives, hardware-specific noise, and bugs without operational impact.
 # Patterns are Python regular expressions matched against each dmesg line; keep them
@@ -114,6 +129,43 @@ def parse_args():
         default=False,
     )
 
+    parser.add_argument(
+        '--icinga-callback',
+        help='Get the service acknowledgement from Icinga. When the service is '
+        'acknowledged, the currently reported kernel messages are persisted as '
+        '"already handled" so they no longer trigger alerts on following runs. '
+        'Default: %(default)s',
+        dest='ICINGA_CALLBACK',
+        action='store_true',
+        default=DEFAULT_ICINGA_CALLBACK,
+    )
+
+    parser.add_argument(
+        '--icinga-password',
+        help='Icinga API password.',
+        dest='ICINGA_PASSWORD',
+    )
+
+    parser.add_argument(
+        '--icinga-service-name',
+        help='Unique name of the service using this check within Icinga. '
+        'Take it from the `__name` service attribute. '
+        'Example: `icinga-server!my-service-name`.',
+        dest='ICINGA_SERVICE_NAME',
+    )
+
+    parser.add_argument(
+        '--icinga-url',
+        help='Icinga API URL. Example: `https://icinga-server:5665`.',
+        dest='ICINGA_URL',
+    )
+
+    parser.add_argument(
+        '--icinga-username',
+        help='Icinga API username.',
+        dest='ICINGA_USERNAME',
+    )
+
     # Append parameters use `default=None`; the actual default list (`DEFAULT_IGNORE`)
     # is assigned in main() if the user did not pass `--ignore`. Specifying `--ignore`
     # at least once therefore replaces the default list rather than extending it; this
@@ -130,10 +182,14 @@ def parse_args():
         default=None,
     )
 
-    # `--severity` is no longer exposed: kernel ring buffer messages on err level
-    # are not a meaningful "warning" in a server-hosting context, so the plugin
-    # always alerts as CRIT. Kept hidden via SUPPRESS for backwards compatibility
-    # with existing service templates.
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
     parser.add_argument(
         '--no-perfdata',
         help=lib.args.help('--no-perfdata'),
@@ -142,6 +198,18 @@ def parse_args():
         default=False,
     )
 
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    # `--severity` is no longer exposed: kernel ring buffer messages on err level
+    # are not a meaningful "warning" in a server-hosting context, so the plugin
+    # always alerts as CRIT. Kept hidden via SUPPRESS for backwards compatibility
+    # with existing service templates.
     parser.add_argument(
         '--severity',
         help=argparse.SUPPRESS,
@@ -155,8 +223,25 @@ def parse_args():
         type=lib.args.csv,
     )
 
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
     args, _ = parser.parse_known_args()
     return args
+
+
+def get_line_fingerprint(line):
+    """Return a stable fingerprint for a single kernel message.
+
+    Hashes the complete dmesg line including its timestamp, so the very same
+    message logged again later counts as a new event and alerts again.
+    """
+    return hashlib.sha256(line.strip().encode()).hexdigest()
 
 
 def main():
@@ -172,10 +257,69 @@ def main():
     if args.IGNORE is None:
         args.IGNORE = DEFAULT_IGNORE
 
+    if args.ICINGA_CALLBACK and not all(
+        (
+            args.ICINGA_URL,
+            args.ICINGA_PASSWORD,
+            args.ICINGA_USERNAME,
+            args.ICINGA_SERVICE_NAME,
+        )
+    ):
+        lib.base.cu(
+            '`--icinga-callback` requires `--icinga-url`, `--icinga-password`, `--icinga-username` and `--icinga-service-name`.'
+        )
+
     # compile ignore patterns (one coe per item so we get a per-pattern error message)
     ignore_patterns = [
         lib.base.coe(lib.txt.compile_regex(p, key='--ignore')) for p in args.IGNORE
     ]
+
+    # Persisted ack state is only needed when the Icinga callback is in use.
+    # When it is, each ignore list gets its own state DB so two Icinga services
+    # watching the ring buffer with different filters do not share ack state.
+    acked_fingerprints = set()
+    ack_conn = None
+    if args.ICINGA_CALLBACK:
+        instance_payload = json.dumps(
+            {
+                'ignore': sorted(args.IGNORE),
+            },
+            sort_keys=True,
+        ).encode('utf-8')
+        instance_hash = hashlib.sha256(instance_payload).hexdigest()[:10]
+        ack_db_filename = f'linuxfabrik-monitoring-plugins-dmesg-{instance_hash}.db'
+        ack_conn = lib.base.coe(lib.db_sqlite.connect(filename=ack_db_filename))
+        definition = """
+            line_hash TEXT NOT NULL PRIMARY KEY,
+            acknowledged_at TIMESTAMP NOT NULL
+        """
+        lib.base.coe(
+            lib.db_sqlite.create_table(ack_conn, definition, table='acknowledged_lines')
+        )
+        # Prune ack records that are older than ACK_RETENTION_DAYS to keep the
+        # DB bounded. By that age the message has been overwritten in the ring
+        # buffer and can no longer re-appear anyway.
+        retention_cutoff = lib.time.now(as_type='datetime') - datetime.timedelta(
+            days=ACK_RETENTION_DAYS
+        )
+        lib.base.coe(
+            lib.db_sqlite.delete(
+                ack_conn,
+                """
+                DELETE FROM acknowledged_lines
+                WHERE acknowledged_at <= :cutoff
+                """,
+                {'cutoff': retention_cutoff},
+            )
+        )
+        rows = lib.base.coe(
+            lib.db_sqlite.select(
+                ack_conn,
+                'SELECT line_hash FROM acknowledged_lines',
+                fetchone=False,
+            )
+        )
+        acked_fingerprints = {row['line_hash'] for row in rows}
 
     # fetch data
     if args.TEST is None:
@@ -197,21 +341,88 @@ def main():
     errors = [
         line for line in all_lines if not any(p.search(line) for p in ignore_patterns)
     ]
+    # drop the messages that were acknowledged on an earlier run
+    suppressed_cnt = 0
+    if acked_fingerprints:
+        remaining = [
+            line
+            for line in errors
+            if get_line_fingerprint(line) not in acked_fingerprints
+        ]
+        suppressed_cnt = len(errors) - len(remaining)
+        errors = remaining
     cnt = len(errors)
+    if cnt > 0:
+        state = STATE_CRIT
+
+    # Ask Icinga about the service acknowledgement. If acknowledged, persist the
+    # fingerprints of the messages that are currently being reported so they do
+    # not re-alert on following runs, and return OK to Icinga. See issue #639.
+    msg_addendum = ''
+    if args.ICINGA_CALLBACK and state != STATE_OK:
+        success, icinga = lib.icinga.get_service(
+            args.ICINGA_URL,
+            args.ICINGA_USERNAME,
+            args.ICINGA_PASSWORD,
+            servicename=args.ICINGA_SERVICE_NAME,
+            attrs='state,acknowledgement',
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        )
+        if success:
+            try:
+                if icinga['results'][0]['attrs']['acknowledgement']:
+                    now_dt = lib.time.now(as_type='datetime')
+                    for line in errors:
+                        lib.base.coe(
+                            lib.db_sqlite.replace(
+                                ack_conn,
+                                {
+                                    'line_hash': get_line_fingerprint(line),
+                                    'acknowledged_at': now_dt,
+                                },
+                                table='acknowledged_lines',
+                            )
+                        )
+                    state = STATE_OK
+                else:
+                    msg_addendum += (
+                        'Note: Acknowledge this service to reset the state to OK.'
+                    )
+            except IndexError:
+                msg_addendum += (
+                    'Note: Could not determine the acknowledgement from the '
+                    'Icinga API, this could be due to an incorrect service name.'
+                )
+        else:
+            msg_addendum += f'Note: Could not determine the acknowledgement from the Icinga API:\n{icinga}.'
+
+    if ack_conn is not None:
+        lib.base.coe(lib.db_sqlite.commit(ack_conn))
+        lib.db_sqlite.close(ack_conn)
 
     # build the message
+    suppressed_msg = ''
+    if suppressed_cnt > 0:
+        suppressed_msg = (
+            f' {suppressed_cnt} acknowledged'
+            f' {lib.txt.pluralize("message", suppressed_cnt)} suppressed.'
+        )
     if cnt > 0:
         # shorten the message to first 5 and last 5 lines if it gets large
         shown = [*errors[0:5], '...', *errors[-5:]] if cnt > 10 else errors
         msg += (
-            f'{cnt} {lib.txt.pluralize("error", cnt)} in Kernel Ring Buffer.\n\n'
+            f'{cnt} {lib.txt.pluralize("error", cnt)} in Kernel Ring Buffer.'
+            f'{suppressed_msg}\n\n'
             + '\n'.join(
                 shown,
             )
         )
-        state = STATE_CRIT
     else:
-        msg += 'Everything is ok.'
+        msg += f'Everything is ok.{suppressed_msg}'
+    if msg_addendum:
+        msg += '\n\n' + msg_addendum
 
     # build perfdata
     perfdata += lib.base.get_perfdata('errors', cnt, _min=0)
