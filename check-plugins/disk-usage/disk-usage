@@ -541,16 +541,21 @@ def main():
         # if it also matches --match. Matching is case-insensitive.
         # hint: we can't do `if not part or part.mountpoint in args.IGNORE:` because it is
         # impossible to specify a "Y:\" on the command line ('Y:\' or 'Y:\\' all don't work).
-        mountpoint = part.mountpoint.lower()
+        # The regexes are matched against the mountpoint as-is: they already carry
+        # re.IGNORECASE, and lowercasing the subject as well would defeat a
+        # `(?-i:...)` group that opts back into case-sensitive matching. Only the
+        # deprecated substring aliases lowercase both sides themselves.
+        mountpoint = part.mountpoint
+        mountpoint_lower = mountpoint.lower()
         if args.INCLUDE_PATTERN or args.INCLUDE_REGEX or args.MATCH:
             if not any(
-                include_pattern.lower() in mountpoint
+                include_pattern.lower() in mountpoint_lower
                 for include_pattern in args.INCLUDE_PATTERN
             ) and not any(item.search(mountpoint) for item in compiled_include_regex):
                 continue
         if args.EXCLUDE_PATTERN or args.EXCLUDE_REGEX or args.IGNORE:
             if any(
-                exclude_pattern.lower() in mountpoint
+                exclude_pattern.lower() in mountpoint_lower
                 for exclude_pattern in args.EXCLUDE_PATTERN
             ) or any(item.search(mountpoint) for item in compiled_exclude_regex):
                 continue

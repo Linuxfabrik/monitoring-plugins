@@ -93,6 +93,7 @@ Monitoring Plugins:
 * disk-smart: a failing drive is no longer downgraded from CRITICAL to WARNING by a second finding on the same drive
 * disk-smart: drives behind a hardware RAID controller and external USB drives are read correctly
 * disk-smart: reads the drives again on hosts that have `POSIXLY_CORRECT` set in the environment
+* disk-usage: `--match`/`--ignore` patterns that opt into case-sensitive matching with `(?-i:...)` match as documented
 * disk-usage: performance data carries the warning and critical thresholds again ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
 * disk-usage: the filesystem table is sorted by usage (fullest first) instead of raw mount order
 * fs-inodes: an unreadable mount point (for example a Kubernetes CSI volume that requires root) no longer aborts the whole check; the readable filesystems are still checked ([#1387](https://github.com/Linuxfabrik/monitoring-plugins/issues/1387))
