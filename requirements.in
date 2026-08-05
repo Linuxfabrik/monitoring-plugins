@@ -3,23 +3,38 @@
 # distro can pin against its native interpreter and pip can install
 # with `--require-hashes` without any version markers in the lockfile.
 # Each subdirectory under `lockfiles/` is a separate Dependabot
-# watchpoint, except `lockfiles/py39/` which is excluded from
-# Dependabot (most upstream packages dropped Python 3.9 over
-# 2025/2026; Dependabot does not honour `requires_python` when
-# proposing bumps, so every PR against py39 would break RHEL 8 /
-# Debian 11). The py39 lockfile is regenerated manually as needed.
+# watchpoint, except `lockfiles/py39/` and `lockfiles/py310/`.
+# Upstream packages keep raising their minimum Python and Dependabot
+# does not honour `requires_python`, so a version bump against those
+# two would break RHEL 8 / Debian 11 (py39) and Ubuntu 22.04 (py310).
+# Dropping the watchpoint stops version bumps only: Dependabot
+# security updates scan every manifest in the repository regardless,
+# so a security PR against a frozen lockfile still shows up.
+# `.github/workflows/dependabot-auto-merge.yml` leaves it open for a
+# human. Both frozen lockfiles are regenerated manually as needed.
 #
 # To regenerate all of them (run from a Linux host with all listed
 # Python versions installed):
 #
 #   for v in 3.9 3.10 3.11 3.12 3.13 3.14; do
 #     python${v} -m venv .venv-py${v//.}
-#     ./.venv-py${v//.}/bin/python -m pip install 'pip<25.1' pip-tools
+#     ./.venv-py${v//.}/bin/python -m pip install 'pip<25.1'
+#     ./.venv-py${v//.}/bin/python -m pip install pip-tools typing_extensions
 #     mkdir -p lockfiles/py${v//.}
 #     ./.venv-py${v//.}/bin/python -m piptools compile --generate-hashes \
 #         --strip-extras --allow-unsafe \
 #         --output-file=lockfiles/py${v//.}/requirements.txt requirements.in
 #   done
+#
+# The two `pip install` calls have to stay separate: pip replaces
+# itself mid-run, and pip-tools imports `typing_extensions` without
+# declaring it as a dependency.
+#
+# That `piptools compile` run only adds and removes packages.
+# pip-compile reads the existing lockfile as a constraint and never
+# raises a pin on its own. Append `--upgrade-package NAME` to bump a
+# single package, which is the usual case for a security fix on a
+# frozen lockfile, or `--upgrade` to raise every pin.
 #
 # Build pipeline picks the lockfile that matches the target distro's
 # Python (e.g. RHEL 8 / Debian 11 -> lockfiles/py39/requirements.txt;
