@@ -15,13 +15,12 @@ import sys
 
 import lib.args
 import lib.base
-import lib.disk
-import lib.time
 import lib.version
+import lib.wordpress
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026080601'
 
 DESCRIPTION = """Checks the installed WordPress version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -145,20 +144,6 @@ def parse_args():
     return args
 
 
-def get_installed_version(path):
-    try:
-        success, version = lib.disk.grep_file(
-            path + '/wp-includes/version.php', r'wp_version\s*=\s*\'(.*)\''
-        )
-    except Exception:
-        return (False, 'Unable to get WordPress version information.')
-    if not success:
-        return (success, version)
-    if version:
-        return (True, version)
-    return (True, False)
-
-
 def main():
     """The main function. This is where the magic happens."""
 
@@ -169,7 +154,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    installed_version = lib.base.coe(get_installed_version(args.PATH))
+    installed_version = lib.base.coe(lib.wordpress.get_version(args.PATH))
     if not installed_version:
         lib.base.cu('WordPress not found.')
     state, msg = lib.version.check_eol(
