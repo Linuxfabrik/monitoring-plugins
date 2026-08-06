@@ -92,8 +92,6 @@ UUID         ! Location ! Manufacturer ! Model            ! SerialNumber        
 10:134234112 ! DAE000.0 ! HUAWEI       ! HSSD-D7294DL7T6E ! 12345678             ! 67        ! 0         ! 4M 2W   ! 36   ! [OK]   ! [OK]    
 10:134234113 ! DAE000.1 ! HUAWEI       ! HSSD-D7294DL7T6E ! 12345679             ! 70        ! 0         ! 4M 2W   ! 37   ! [OK]   ! [OK]    
 10:0         ! CTE0.0   ! Seagate      ! ST2000NM0023     ! Z1X2F480000094381WYN ! 0         ! 0         ! 1Y 4M   ! 37   ! [OK]   ! [OK]    
-
-Fetched API 2 times
 ```
 
 

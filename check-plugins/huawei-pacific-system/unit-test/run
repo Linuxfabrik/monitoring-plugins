@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+COMMON = '--password=linuxfabrik --url=https://localhost --username=admin'
+
+# One fixture pair (42% used) drives three threshold combinations.
+TESTS = [
+    {
+        'id': 'ok-below-warn',
+        'test': 'stdout/system-42-percent,,0',
+        'params': f'{COMMON} --warning 80 --critical 90',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'OceanStor 100D (OceanStor Pacific) 8.2.0 SPH03, Cluster Name: cluster_01',
+            'Capacity: 42% used',
+        ],
+    },
+    {
+        'id': 'warn-above-warn',
+        'test': 'stdout/system-42-percent,,0',
+        'params': f'{COMMON} --warning 40 --critical 90',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'42% used.*\[WARNING\]',
+    },
+    {
+        'id': 'crit-above-crit',
+        'test': 'stdout/system-42-percent,,0',
+        'params': f'{COMMON} --warning 30 --critical 40',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'42% used.*\[CRITICAL\]',
+    },
+    {
+        # A cluster that reports no capacity yet still has a model and a version.
+        # The OEM name matches the model here, so it is not repeated in brackets.
+        'id': 'ok-without-capacity',
+        'test': 'stdout/system-without-capacity,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'OceanStor Pacific 8.2.0, Cluster Name: cluster_01',
+            'Capacity: no capacity data available yet',
+        ],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../huawei-pacific-system'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

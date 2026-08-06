@@ -89,8 +89,6 @@ Chassis SN            ! Name ! Status ! State
 ----------------------+------+--------+------
 2102355GLC10N9100002  ! Fan0 ! normal ! [OK]
 2102355GLC10N9100002  ! Fan1 ! normal ! [OK]
-
-Fetched API 2 times
 ```
 
 

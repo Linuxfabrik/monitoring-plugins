@@ -95,8 +95,6 @@ UUID   ! Location ! Model                               ! Role      ! Master ! C
 207:0B ! CTE0.B   ! V6R1C00 4U4C high-end control board ! Primary   ! x      ! 17      ! 87      ! 120  ! [OK]       ! [OK]    
 207:0C ! CTE0.C   ! V6R1C00 4U4C high-end control board ! Secondary ! -      ! 33      ! 86      ! 120  ! [OK]       ! [OK]    
 207:0D ! CTE0.D   ! V6R1C00 4U4C high-end control board ! Secondary ! -      ! 32      ! 92      ! 120  ! [OK]       ! [OK]
-
-Fetched API 2 times
 ```
 
 

@@ -21,13 +21,22 @@ TESTS = [
     {
         'id': 'crit-system-faulty-powering-off',
         'test': 'stdout/system-faulty-powering-off,,0',
-        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
         'assert-retc': STATE_CRIT,
         'assert-in': [
             'OceanStor Dorado 8000 V6 6.1.0.SPH12, UUID: 201:4711, Name: myname, '
             'Location: Zurich, Health Status: Faulty (2) [CRITICAL], '
             'Running Status: Powering off (47) [WARNING]',
         ],
+    },
+    {
+        # A firmware that omits 'productModeString' has to fall back to the numeric
+        # 'PRODUCTMODE' code instead of printing 'None'.
+        'id': 'crit-system-without-productmodestring',
+        'test': 'stdout/system-without-productmodestring,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Dorado 8000 V6 (NVMe) (816) 6.1.0.SPH12, UUID: 201:4711,'],
     },
 ]
 

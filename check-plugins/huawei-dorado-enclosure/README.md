@@ -95,8 +95,6 @@ UUID   ! Location ! Name   ! Model                                 ! SerialNumbe
 206:64 ! --       ! DAE000 ! 2 U 36-slot smart NVMe disk enclosure ! 4711                 ! Expansion Enclosure (Disk Enclosure) ! f4:b4:e1:ab:0f:33 ! On     ! 27   ! [OK]   ! [OK]    
 206:65 ! --       ! DAE010 ! 2 U 36-slot smart NVMe disk enclosure ! 4711                 ! Expansion Enclosure (Disk Enclosure) ! f4:b4:e1:7a:13:5d ! On     ! 27   ! [OK]   ! [OK]    
 206:66 ! --       ! DAE020 ! 2 U 36-slot smart NVMe disk enclosure ! 4711                 ! Expansion Enclosure (Disk Enclosure) ! f4:b4:e1:ab:14:a5 ! On     ! 28   ! [OK]   ! [OK] 
-
-Fetched API 2 times
 ```
 
 

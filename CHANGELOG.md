@@ -38,7 +38,9 @@ Monitoring Plugins:
 * docker-service: check alerting when a Docker Swarm service runs fewer tasks than expected
 * docker-swarm: check alerting on swarm membership, a down node, or lost manager quorum
 * fs-inodes: filter mount points with `--match`/`--ignore` and show a detailed table with `--lengthy` ([#1387](https://github.com/Linuxfabrik/monitoring-plugins/issues/1387))
+* huawei-pacific-disk: check alerting on a faulty disk of a Huawei OceanStor Pacific storage system, and on a disk whose remaining life is running out
 * huawei-pacific-quota: check alerting when a share on a Huawei OceanStor Pacific storage system fills up its quota
+* huawei-pacific-system: check reporting the product model, system version and cluster name of a Huawei OceanStor Pacific storage system, and alerting on its cluster capacity usage
 * kdump: check alerting when the kernel crash dump mechanism cannot capture a panic, or when a previous panic left a crash dump behind (with a first analysis of the panic reason)
 * network-errors: check alerting on interface receive and transmit errors ([#707](https://github.com/Linuxfabrik/monitoring-plugins/issues/707))
 * nextcloud-app-updates: check alerting when a Nextcloud app update has been pending longer than a grace period ([#62](https://github.com/Linuxfabrik/monitoring-plugins/issues/62))
@@ -48,6 +50,10 @@ Monitoring Plugins:
 * php-status: warns when `post_max_size` is not larger than `upload_max_filesize`, a misconfiguration that silently breaks file uploads ([#516](https://github.com/Linuxfabrik/monitoring-plugins/issues/516))
 * snmp: `--snmpconf-path` keeps the SNMP community and SNMPv3 passphrases out of the process list by reading them from a net-snmp config file
 * wildfly-version: check alerting when WildFly is behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))
+
+Icinga Director:
+
+* Huawei OceanStor Pacific service set, activating all seven Pacific checks on a host tagged `huawei-pacific`, the same way the Dorado set already works
 
 Grafana:
 
@@ -66,6 +72,7 @@ Monitoring Plugins:
 * disk-usage: mountpoints are filtered with `--match`/`--ignore`, and the old `--include-*`/`--exclude-*` options keep working
 * disk-usage: runs every minute instead of every 5 minutes, so a filling disk is noticed earlier
 * docker-stats, podman-stats: select or exclude containers by name with `--match`/`--ignore`, plus `--no-match-severity`
+* huawei-pacific-node: additionally reports the baseboard product line and the software version of every cluster node
 * keycloak-memory-usage, keycloak-stats, keycloak-version: verified against Keycloak 17 to 26, and the README states how to point `--url` at an instance that serves below a context path
 * mysql-innodb-log-waits: alerts only on real InnoDB log waits, no longer on a low write-log efficiency that raising `innodb_log_buffer_size` cannot fix
 * mysql-logfile: documents case-insensitive ignore matching and how to silence harmless idle-connection-timeout warnings
@@ -86,6 +93,7 @@ Tools:
 Monitoring Plugins:
 
 * six checks that aborted with a Python error on every run work again (borgbackup, file-ownership, getent, nextcloud-enterprise, rpm-lastactivity, scheduled-task)
+* the output no longer ends in a meaningless "Fetched API 0 times" line on 16 checks (huawei-dorado-\*, huawei-pacific-\*)
 * cert: a subnet scan needs far less memory, so it no longer risks an out-of-memory kill on small hosts
 * cert: a subnet scan that runs out of file descriptors reports UNKNOWN instead of OK for targets it never probed
 * csv-values, json-values, strongswan-connections: non-UTF-8 input no longer crashes the check ([#256](https://github.com/Linuxfabrik/lib/issues/256))
@@ -100,6 +108,7 @@ Monitoring Plugins:
 * disk-usage: performance data carries the warning and critical thresholds again ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
 * disk-usage: the filesystem table is sorted by usage (fullest first) instead of raw mount order
 * fs-inodes: an unreadable mount point such as a Kubernetes CSI volume that requires root no longer aborts the whole check ([#1387](https://github.com/Linuxfabrik/monitoring-plugins/issues/1387))
+* huawei-dorado-system: reports the storage system model even on a firmware that only sends its numeric code
 * journald-query: a relative `--since` such as `-8h` from the Icinga Director works again ([#1264](https://github.com/Linuxfabrik/monitoring-plugins/issues/1264))
 * logfile: detects a logfile that an application rewrites from the beginning instead of appending to, which until now hid every new line from the check ([#1330](https://github.com/Linuxfabrik/monitoring-plugins/issues/1330))
 * lynis: audits produce a report on Debian, Ubuntu and other distributions that keep lynis outside `/usr/share` ([#1262](https://github.com/Linuxfabrik/monitoring-plugins/issues/1262))

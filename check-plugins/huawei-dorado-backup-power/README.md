@@ -97,8 +97,6 @@ UUID       ! Location   ! Produced   ! ControllerID ! #Charged ! Remain ! Volt !
 210:0.0B.0 ! CTE0.B.BBU ! 2020-10-18 ! 0B           ! 1        ! -1     ! 15.8 ! [OK]   ! [OK]      
 210:0.0C.0 ! CTE0.C.BBU ! 2020-10-18 ! 0C           ! 1        ! -1     ! 15.8 ! [OK]   ! [OK]      
 210:0.0D.0 ! CTE0.D.BBU ! 2020-10-18 ! 0D           ! 1        ! -1     ! 16.0 ! [OK]   ! [OK] 
-
-Fetched API 2 times
 ```
 
 

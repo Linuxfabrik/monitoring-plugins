@@ -19,11 +19,10 @@ import lib.args
 import lib.base
 import lib.huawei_pacific
 import lib.lftest
-import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080401'
+__version__ = '2026080601'
 
 DESCRIPTION = """Checks the health and running status of all cluster nodes on a Huawei OceanStor
 Pacific storage system via the REST API (/cluster/servers endpoint). Alerts when any node is not
@@ -204,6 +203,9 @@ def main():
             _max=1,
         )
 
+        node['base_board'] = lib.huawei_pacific.get_base_board(
+            node.get('base_board'),
+        )
         node['oam_agent_status'] = lib.huawei_pacific.get_oam_agent_status(
             node.get('oam_agent_status'),
         )
@@ -217,6 +219,8 @@ def main():
             'name',
             'management_ip',
             'model',
+            'base_board',
+            'software_version',
             'running_status',
             'oam_agent_status',
             'running_state',
@@ -226,6 +230,8 @@ def main():
             'Name',
             'Management IP',
             'Model',
+            'Base Board',
+            'Software Version',
             'Running',
             'OAM Agent',
             'Running State',
@@ -235,8 +241,6 @@ def main():
         # build the message
         msg += lib.base.get_table(table_data, keys, header=headers)
 
-    counter = result.get('counter', 0)
-    msg += f'\nFetched API {counter} {lib.txt.pluralize("time", counter)}'
 
     if state == STATE_CRIT:
         msg = 'There are critical errors.\n\n' + msg

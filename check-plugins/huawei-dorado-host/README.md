@@ -104,8 +104,6 @@ UUID  ! Location ! Name      ! OS         ! Health    ! Running
 21:9  !          ! site02-04 ! VMware ESX ! [OK]      ! [OK]    
 21:10 !          ! site02-05 ! VMware ESX ! [OK]      ! [OK]    
 21:11 !          ! site02-06 ! VMware ESX ! [OK]      ! [OK] 
-
-Fetched API 2 times
 ```
 
 

@@ -90,8 +90,6 @@ Alarm ID    ! Time                ! Severity     ! Name                   ! Stat
 ------------+---------------------+--------------+------------------------+-----------
 0xF00F40003 ! 2023-08-31 16:23:43 ! Critical (6) ! License Has Expired    ! [CRITICAL]
 0xF00F40010 ! 2023-08-31 16:25:00 ! Major (5)    ! Disk Predicted To Fail ! [WARNING]
-
-Fetched API 1 time
 ```
 
 

@@ -94,8 +94,6 @@ UUID                                   ! Link ! Last Sync                       
 15361:2100f4b78d046ec60000000000000000 ! [OK] ! 2021-08-18 10:39:47 (3M 6D ago) ! 2m 1s    ! 100       ! LUN01-BLH ! [OK]      ! R/W    ! LUN01-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
 15361:2100f4b78d046ec60000000000000001 ! [OK] ! 2021-08-18 10:39:50 (3M 6D ago) ! 2m 3s    ! 100       ! LUN02-BLH ! [OK]      ! R/W    ! LUN02-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
 15361:2100f4b78d046ec60000000000000002 ! [OK] ! 2021-08-18 10:38:29 (3M 6D ago) ! 42s      ! 100       ! LUN03-BLH ! [OK]      ! R/W    ! LUN03-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-
-Fetched API 2 times
 ```
 
 

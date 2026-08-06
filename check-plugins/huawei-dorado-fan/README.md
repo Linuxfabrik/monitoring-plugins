@@ -94,8 +94,6 @@ UUID            ! Location      ! Runlevel   ! Health ! Running
 211:211.64.0.00 ! DAE000.A.FAN0 ! low (0)    ! [OK]   ! [OK]    
 211:211.64.0.01 ! DAE000.A.FAN1 ! low (0)    ! [OK]   ! [OK]    
 211:0.0B.0      ! CTE0.PSU 0    ! low (0)    ! [OK]   ! [OK]    
-
-Fetched API 2 times
 ```
 
 

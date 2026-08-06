@@ -84,12 +84,10 @@ Output:
 ```text
 Everything is ok.
 
-Name  ! Management IP ! Model             ! Running ! OAM Agent   ! Running State ! OAM State
-------+---------------+-------------------+---------+-------------+---------------+----------
-FSM01 ! 192.0.2.11    ! OceanStor Pacific ! online  ! healthy (0) ! [OK]          ! [OK]
-HN00  ! 192.0.2.12    ! OceanStor Pacific ! online  ! healthy (0) ! [OK]          ! [OK]
-
-Fetched API 1 time
+Name  ! Management IP ! Model             ! Base Board         ! Software Version ! Running ! OAM Agent   ! Running State ! OAM State
+------+---------------+-------------------+--------------------+------------------+---------+-------------+---------------+----------
+FSM01 ! 192.0.2.11    ! OceanStor Pacific ! Pacific (STL6SPCM) ! 8.2.0            ! online  ! healthy (0) ! [OK]          ! [OK]
+HN00  ! 192.0.2.12    ! OceanStor Pacific ! Pacific (STL6SPCM) ! 8.2.0            ! online  ! healthy (0) ! [OK]          ! [OK]
 ```
 
 

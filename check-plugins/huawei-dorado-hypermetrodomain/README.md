@@ -93,8 +93,6 @@ UUID                   ! Name               ! QuorumSrv ! QuorumType    ! Runnin
 -----------------------+--------------------+-----------+---------------+---------
 15362:f4b78d046ec60100 ! HyperMetroDomain01 ! xyz       ! Quorum Server ! [OK]    
 15362:8038bc14bd750100 ! test               !           ! None          ! [OK] 
-
-Fetched API 2 times
 ```
 
 

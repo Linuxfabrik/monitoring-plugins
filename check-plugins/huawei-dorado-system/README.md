@@ -92,8 +92,6 @@ Output:
 ```text
 OceanStor Dorado 8000 V6 6.1.0.SPH12, UUID: 201:4711, Name: myname, Location: Zurich, Health Status: Faulty (2) [CRITICAL], Running Status: Powering off (47) [WARNING]
 Sectors: Total 1.0% used (19.0G/1.6T), Storage Pool 1.0% used (19.0G/1.3T)
-
-Fetched API 2 times
 ```
 
 ```bash

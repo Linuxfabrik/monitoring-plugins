@@ -1,0 +1,142 @@
+# Check huawei-pacific-disk
+
+
+## Overview
+
+Checks every disk of a Huawei OceanStor Pacific storage system via the REST API (`/data_service/diskpool` and `/cluster/diskpool/queryNodeDiskInfo` endpoints). Alerts when a disk is not healthy, and when its remaining life falls below the warning or critical threshold.
+
+**Important Notes:**
+
+* Create a read-only API user that can perform queries only
+* Disks are only reachable per disk pool, so the check enumerates the disk pools first and then queries the disks of each one. On a system with many disk pools, raise `--timeout` accordingly
+* The disk listing lives below the appliance's older `/dsware/service/` endpoint generation, not below `/api/v2/`
+* The remaining life is reported by the appliance in hours, and only by media that wear out. A spinning disk reports zero, which the check shows as "not reported" and leaves out of the threshold comparison instead of treating it as a drive at its end of life
+* The vendor does not fill in the `diskModel` field, so the disk model is not available on this API
+
+**Data Collection:**
+
+* Queries the Huawei OceanStor Pacific REST API at `https://<ip>:<port>/api/v2/data_service/diskpool` for the disk pools, then at `https://<ip>:<port>/dsware/service/cluster/diskpool/queryNodeDiskInfo?diskPoolId=<id>` for the disks of each pool
+* Authenticates via a session token (`X-Auth-Token`), cached in a SQLite database to avoid repeated logins
+* If the appliance rejects a request (for example after a session reset or timeout), the check logs in again and retries
+
+
+## Fact Sheet
+
+| Fact | Value |
+|----|----|
+| Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/huawei-pacific-disk> |
+| Nagios/Icinga Check Name              | `check_huawei_pacific_disk` |
+| Check Interval Recommendation         | Every 5 minutes |
+| Can be called without parameters      | No (`--password`, `--url` and `--username` are required) |
+| Runs on                               | Cross-platform |
+| Compiled for Windows                  | No |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-pacific.db` |
+
+
+## Help
+
+```text
+usage: huawei-pacific-disk [-h] [-V] [--always-ok]
+                           [--cache-expire CACHE_EXPIRE] [-c CRIT]
+                           [--insecure] [--no-insecure] [--no-perfdata]
+                           [--no-proxy] --password PASSWORD [--scope SCOPE]
+                           [--timeout TIMEOUT] -u URL --username USERNAME
+                           [-w WARN]
+
+Checks every disk of a Huawei OceanStor Pacific storage system via the REST
+API (/data_service/diskpool and /cluster/diskpool/queryNodeDiskInfo
+endpoints). Alerts when a disk is not healthy, and when its remaining life
+falls below the warning or critical threshold.
+
+options:
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
+  --cache-expire CACHE_EXPIRE
+                        The amount of time after which the credential/data
+                        cache expires, in minutes. Default: 15
+  -c, --critical CRIT   CRIT threshold for the remaining life of a disk, as a
+                        Nagios range in days. Default: 30:
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
+  --no-proxy            Do not use a proxy.
+  --password PASSWORD   Huawei OceanStor Pacific API password.
+  --scope SCOPE         Huawei OceanStor Pacific API scope.
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+  -u, --url URL         Huawei OceanStor Pacific API URL.
+  --username USERNAME   Huawei OceanStor Pacific API username.
+  -w, --warning WARN    WARN threshold for the remaining life of a disk, as a
+                        Nagios range in days. Default: 180:
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-pacific-disk/
+```
+
+
+## Usage Examples
+
+```bash
+./huawei-pacific-disk --url=https://oceanstor:8088 --username=monitoring --password=linuxfabrik --warning=180: --critical=30:
+```
+
+Output:
+
+```text
+There are critical errors.
+
+Node  ! Pool ! Slot ! Type           ! Role                        ! Serial ! Capacity ! Remaining Life ! Status      ! State
+------+------+------+----------------+-----------------------------+--------+----------+----------------+-------------+-----------
+FSM01 ! 0    ! 0-1  ! SSD (SSD_DISK) ! main storage (MAIN_STORAGE) ! SN-A1  ! 1.7TiB   ! 10Y 1W         ! healthy (0) ! [OK]
+FSM01 ! 0    ! 0-2  ! SSD (SSD_DISK) ! main storage (MAIN_STORAGE) ! SN-A2  ! 1.7TiB   ! 3M 1W          ! healthy (0) ! [WARNING]
+FSM01 ! 0    ! 0-3  ! SSD (SSD_DISK) ! main storage (MAIN_STORAGE) ! SN-A3  ! 1.7TiB   ! 2W 6D          ! healthy (0) ! [CRITICAL]
+```
+
+The thresholds are Nagios ranges in days, so `180:` means "alert when less than 180 days are left". Set both to `1:` to keep the disk status alerting and switch the remaining-life alerting off in practice.
+
+
+## States
+
+* OK if every disk reports a healthy status and a remaining life above the warning threshold.
+* WARN if a disk reports a sub-healthy status, or if it has been removed from the storage pool.
+* WARN if a disk's remaining life falls below `--warning` (default: less than 180 days).
+* CRIT if a disk reports a faulty status.
+* CRIT if a disk's remaining life falls below `--critical` (default: less than 30 days).
+* OK with "No disk pool configured" if the appliance reports no disk pool.
+* UNKNOWN on invalid API responses or responses with error codes.
+* `--always-ok` suppresses all alerts and always returns OK.
+
+
+## Perfdata / Metrics
+
+| Name | Type | Description |
+|----|----|----|
+| \<node\>\_\<slot\>\_remaining_life | Seconds | Remaining life of the disk. Only reported for media that wear out. |
+| \<node\>\_\<slot\>\_status | Number | Status of the disk. 0: healthy, 1: faulty, 2: sub-healthy, 101: removed from the storage pool. |
+
+
+## Troubleshooting
+
+### Failed to query the disk pools
+
+`Failed to query the disk pools on https://...`
+
+Check the `--url`, `--username` and `--password` parameters. Verify that the API user has query permissions and that the storage system REST API is reachable.
+
+### A disk shows "not reported" as its remaining life
+
+The appliance only reports a remaining life for media that wear out, in practice SSDs and NVMe drives. A spinning disk answers with zero, which the check does not compare against the thresholds.
+
+
+## Credits, License
+
+* Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
+* License: The Unlicense, see [LICENSE file](https://unlicense.org/).

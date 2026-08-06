@@ -93,8 +93,6 @@ UUID       ! Location    ! Manufacturer ! Model         ! SerialNumber         !
 23:23.0.1  ! CTE0.PSU1   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0       ! 0        ! 0    ! [OK]      ! [OK]      
 23:23.64.0 ! DAE000.PSU0 ! Huawei       ! PAC2000S12-BG ! 12345678             ! 2020-12-02 ! 0       ! 0        ! 0    ! [OK]      ! [OK]      
 23:0.0B.0  ! CTE0.PSU 0  ! VAPEL        ! HSP960-D1205D ! 21022701328NE5000004 ! 2014-05-03 ! 0       ! 0        ! 0    ! [WARNING] ! [WARNING]   
-
-Fetched API 2 times
 ```
 
 

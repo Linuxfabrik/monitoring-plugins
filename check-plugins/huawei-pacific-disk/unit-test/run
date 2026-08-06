@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+COMMON = '--password=linuxfabrik --url=https://localhost --username=admin'
+
+TESTS = [
+    {
+        'id': 'ok-disks-healthy',
+        'test': 'stdout/disks-healthy,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            'FSM01 ! 0    ! 0-1  ! SSD (SSD_DISK)',
+            'HN00  ! 0    ! 0-2  ! SSD (SSD_DISK)',
+        ],
+    },
+    {
+        # A spinning disk has no wear-based life to report, so it must not be
+        # dragged below the threshold by the zero the appliance sends.
+        'id': 'ok-disk-without-remaining-life',
+        'test': 'stdout/disks-healthy,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ['SATA disk (SATA_DISK)', 'not reported'],
+    },
+    {
+        # The fourth slot of FSM01 is empty and must not show up as a disk.
+        'id': 'ok-empty-slot-is-not-listed',
+        'test': 'stdout/disks-healthy,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['0-4'],
+    },
+    {
+        'id': 'crit-faulty-disk',
+        'test': 'stdout/disks-one-faulty,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'faulty \(1\).*\[CRITICAL\]',
+    },
+    {
+        'id': 'warn-subhealthy-and-removed-disk',
+        'test': 'stdout/disks-one-faulty,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'removed from the storage pool (101)',
+            'sub-healthy (2)',
+        ],
+    },
+    {
+        'id': 'crit-remaining-life-below-thresholds',
+        'test': 'stdout/disks-worn,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'3M 1W.*\[WARNING\]',
+    },
+    {
+        'id': 'warn-remaining-life-only-below-warning',
+        'test': 'stdout/disks-worn,,0',
+        'params': f'{COMMON} --warning 180: --critical 1:',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'2W 6D.*\[WARNING\]',
+    },
+    {
+        'id': 'ok-remaining-life-thresholds-disabled',
+        'test': 'stdout/disks-worn,,0',
+        'params': f'{COMMON} --warning 1: --critical 1:',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+    },
+    {
+        'id': 'ok-no-disk-pool',
+        'test': 'stdout/disks-no-pool,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ['No disk pool configured'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../huawei-pacific-disk'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

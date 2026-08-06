@@ -1,0 +1,402 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.disk
+import lib.huawei_pacific
+import lib.human
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026080601'
+
+DESCRIPTION = """Checks every disk of a Huawei OceanStor Pacific storage system via the REST API
+(/data_service/diskpool and /cluster/diskpool/queryNodeDiskInfo endpoints). Alerts when a disk is
+not healthy, and when its remaining life falls below the warning or critical threshold."""
+
+DEFAULT_CACHE_EXPIRE = 15  # minutes
+DEFAULT_CRIT = '30:'
+DEFAULT_INSECURE = True
+DEFAULT_NO_PROXY = False
+DEFAULT_SCOPE = '0'
+DEFAULT_TIMEOUT = 3
+DEFAULT_WARN = '180:'
+
+# Disk states that are not a fault of the drive itself, but of its membership in the pool.
+DISK_STATE_MAP = {
+    0: STATE_OK,
+    1: STATE_CRIT,
+    2: STATE_WARN,
+    101: STATE_WARN,
+}
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help=lib.args.help('--cache-expire') + ' Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the remaining life of a disk, as a Nagios range in days. '
+        'Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help=lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='Huawei OceanStor Pacific API password.',
+        dest='PASSWORD',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--scope',
+        help='Huawei OceanStor Pacific API scope.',
+        dest='SCOPE',
+        default=DEFAULT_SCOPE,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-u',
+        '--url',
+        help='Huawei OceanStor Pacific API URL.',
+        dest='URL',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Huawei OceanStor Pacific API username.',
+        dest='USERNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the remaining life of a disk, as a Nagios range in days. '
+        'Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def load_test_fixture(test_args, path):
+    # Replace the first element of args.TEST with the endpoint-specific fixture
+    # path, read it via lib.lftest.test() and return the parsed JSON. On a missing
+    # file or malformed JSON, exit STATE_UNKNOWN with a helpful message instead of
+    # letting json.loads raise a traceback.
+    if not lib.disk.file_exists(path, allow_empty=True):
+        lib.base.cu(f'Test fixture not found: "{path}".')
+    test_args[0] = path
+    stdout, _, _ = lib.lftest.test(test_args)
+    try:
+        return json.loads(stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        lib.base.cu(f'Test fixture "{path}" does not contain valid JSON: {e}')
+
+
+def as_code(value):
+    """Return an appliance status code as an `int`, or `None` if it is unusable."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def assert_response_ok(result, args, what):
+    """Stop the check unless the appliance answered with a success code."""
+    # A refused query says nothing about the state of the disks, so it ends as UNKNOWN
+    # rather than as an alert someone gets woken up for. Reporting it beats carrying on
+    # with an empty list, which would report OK on an appliance nobody could read.
+    code = lib.huawei_pacific.get_result_code(result)
+    if not result or code not in (0, '0'):
+        res = result.get('result') if isinstance(result, dict) else None
+        description = res.get('description') if isinstance(res, dict) else None
+        lib.base.cu(
+            f'Failed to query {what} on {args.URL}: '
+            f'{description or "no description"} (code {code if result else "n/a"}).'
+        )
+
+
+def get_remaining_life_days(disk):
+    """Return a disk's remaining life in days, or `None` if it does not report one."""
+    # The appliance reports the remaining life in hours, and only for media that wear out.
+    # A spinning disk has nothing to report and answers with zero or a negative value, which
+    # must not be read as "this disk is at its end" - that would alert on every HDD forever.
+    try:
+        hours = int(disk.get('remainingLife'))
+    except (TypeError, ValueError):
+        return None
+    if hours <= 0:
+        return None
+    return hours / 24
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    # The disks are only reachable per disk pool, so the pools have to be enumerated
+    # first. The disk listing itself lives below the appliance's older endpoint
+    # generation, which is why it is queried with an explicit base path.
+    if args.TEST is None:
+        if not args.URL.startswith('http'):
+            lib.base.cu('--url parameter has to start with "http://" or https://".')
+        pools = lib.huawei_pacific.get_data('data_service/diskpool', args)
+        assert_response_ok(pools, args, 'the disk pools')
+        pool_ids = [pool.get('poolId') for pool in pools.get('diskPools', [])]
+        per_pool = {}
+        for pool_id in pool_ids:
+            per_pool[pool_id] = lib.huawei_pacific.get_data(
+                f'cluster/diskpool/queryNodeDiskInfo?diskPoolId={int(pool_id)}',
+                args,
+                base_path='dsware/service',
+            )
+    else:
+        # do not call the API, put in test data. Each API call has its own fixture
+        # suffix, so the fixture file names describe what they contain.
+        test_base = args.TEST[0]
+        pools = load_test_fixture(args.TEST, f'{test_base}-diskpools')
+        assert_response_ok(pools, args, 'the disk pools')
+        pool_ids = [pool.get('poolId') for pool in pools.get('diskPools', [])]
+        per_pool = {
+            pool_id: load_test_fixture(args.TEST, f'{test_base}-disks-{pool_id}')
+            for pool_id in pool_ids
+        }
+
+    # no valuable result?
+    if not pool_ids:
+        lib.base.oao('No disk pool configured, so there is no disk to check.', STATE_OK)
+    for pool_id, result in per_pool.items():
+        assert_response_ok(result, args, f'the disks of disk pool {pool_id}')
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # analyze data
+    table_data = []
+    seen = set()
+    for pool_id, result in per_pool.items():
+        for node in result.get('nodeInfo', []):
+            node_name = node.get('nodeName') or node.get('nodeMgrIp') or '--'
+            for disk in node.get('mediaInfo', []):
+                # An empty slot is not a disk. Reporting one would put a row without a
+                # serial number, a type and a state into every table. `diskExist` is
+                # 0 when a disk is present and 1 when the slot is empty.
+                if as_code(disk.get('diskExist')) == 1:
+                    continue
+                # A disk can be listed under more than one pool. Key on the node plus the
+                # serial number so it is reported once, with its first pool.
+                key = (node_name, disk.get('diskSn'))
+                if key in seen:
+                    continue
+                seen.add(key)
+
+                disk_state = DISK_STATE_MAP.get(
+                    as_code(disk.get('diskStatus')),
+                    STATE_WARN,
+                )
+                state = lib.base.get_worst(state, disk_state)
+
+                days = get_remaining_life_days(disk)
+                life_state = STATE_OK
+                if days is not None:
+                    life_state = lib.base.get_state(
+                        days, args.WARN, args.CRIT, _operator='range'
+                    )
+                    state = lib.base.get_worst(state, life_state)
+
+                label = re.sub(
+                    r'\W+', '_', f'{node_name}_{disk.get("slotDesc", "--")}'
+                ).strip('_')
+                perfdata += lib.base.get_perfdata(
+                    f'{label}_status',
+                    as_code(disk.get('diskStatus')),
+                    _min=0,
+                )
+                if days is not None:
+                    perfdata += lib.base.get_perfdata(
+                        f'{label}_remaining_life',
+                        int(days * 86400),
+                        uom='s',
+                        _min=0,
+                    )
+
+                table_data.append(
+                    {
+                        'capacity': lib.human.bytes2human(
+                            disk.get('mediaCapacityForByte', 0)
+                        ),
+                        'node': node_name,
+                        'pool': pool_id,
+                        'remaining_life': (
+                            lib.human.seconds2human(int(days * 86400))
+                            if days is not None
+                            else 'not reported'
+                        ),
+                        'role': lib.huawei_pacific.get_disk_role(disk.get('diskRole')),
+                        'serial': disk.get('diskSn', '--'),
+                        'slot': disk.get('slotDesc', '--'),
+                        'state': lib.base.state2str(
+                            lib.base.get_worst(disk_state, life_state),
+                            empty_ok=False,
+                        ),
+                        'status': lib.huawei_pacific.get_disk_status(
+                            disk.get('diskStatus')
+                        ),
+                        'type': lib.huawei_pacific.get_disk_type(disk.get('diskType')),
+                    }
+                )
+
+    # build the message
+    if table_data:
+        keys = [
+            'node',
+            'pool',
+            'slot',
+            'type',
+            'role',
+            'serial',
+            'capacity',
+            'remaining_life',
+            'status',
+            'state',
+        ]
+        headers = [
+            'Node',
+            'Pool',
+            'Slot',
+            'Type',
+            'Role',
+            'Serial',
+            'Capacity',
+            'Remaining Life',
+            'Status',
+            'State',
+        ]
+        msg += lib.base.get_table(table_data, keys, header=headers)
+    else:
+        msg += 'Nothing checked, no disk found.'
+
+    if state == STATE_CRIT:
+        msg = 'There are critical errors.\n\n' + msg
+    elif state == STATE_WARN:
+        msg = 'There are warnings.\n\n' + msg
+    else:
+        msg = 'Everything is ok.\n\n' + msg
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

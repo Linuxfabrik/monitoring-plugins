@@ -19,11 +19,10 @@ import lib.base
 import lib.huawei_dorado
 import lib.human
 import lib.lftest
-import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080401'
+__version__ = '2026080601'
 
 DESCRIPTION = """Checks overall system health, capacity, and performance of a Huawei OceanStor Dorado
 storage system via the REST API (/system endpoint). Reports health status, running
@@ -254,8 +253,14 @@ def main():
         prefix=' ',
         empty_ok=True,
     )
+    # 'productModeString' is the only human-readable form of the model in the response.
+    # Fall back to decoding the numeric code so the line never opens with a literal 'None'
+    # on a firmware that omits the string.
+    product_mode = data.get('productModeString') or lib.huawei_dorado.get_product_mode(
+        data.get('PRODUCTMODE'),
+    )
     msg += (
-        f'{data.get("productModeString")}'
+        f'{product_mode}'
         f' {data.get("pointRelease")},'
         f' UUID: {lib.huawei_dorado.get_uuid(data)},'
         f' Name: {data.get("NAME")},'
@@ -279,8 +284,6 @@ def main():
         f' Storage Pool {sp_used}% used'
         f' ({sp_used_cap}/{sp_total_cap}){sp_str}\n'
     )
-    counter = result.get('counter', 0)
-    msg += f'\nFetched API {counter} {lib.txt.pluralize("time", counter)}'
 
     perfdata += lib.base.get_perfdata(
         'sectors-capacity-percent',

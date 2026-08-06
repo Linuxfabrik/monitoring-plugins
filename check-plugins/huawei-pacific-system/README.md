@@ -1,19 +1,20 @@
-# Check huawei-pacific-system-capacity
+# Check huawei-pacific-system
 
 
 ## Overview
 
-Checks the overall cluster capacity usage of a Huawei OceanStor Pacific storage system via the REST API (`/system_capacity` endpoint). Alerts when the used capacity in percent reaches the warning or critical threshold.
+Reports the product model, system version and cluster name of a Huawei OceanStor Pacific storage system via the REST API (`/cluster/product` and `/system_capacity` endpoints). Alerts when the used cluster capacity in percent reaches the warning or critical threshold.
 
 **Important Notes:**
 
 * Create a read-only API user that can perform queries only
+* `product_model` is the model Huawei builds (for example `OceanStor 100D`), `oem_product_model` is the name the appliance is branded as (for example `OceanStor Pacific`). The branded name is shown in brackets behind the model whenever the two differ
 * The used capacity is the sum of the per-media (SSD, SATA, SAS) used capacities; the total is the cluster's total capacity. Both are reported by the API as a plain number and are interpreted as bytes
 * The credential/session token is cached in a local SQLite database between runs; `--cache-expire` controls how long it is reused before a fresh login
 
 **Data Collection:**
 
-* Queries the Huawei OceanStor Pacific REST API at `https://<ip>:<port>/api/v2/system_capacity`
+* Queries the Huawei OceanStor Pacific REST API at `https://<ip>:<port>/api/v2/cluster/product` and `https://<ip>:<port>/api/v2/system_capacity`
 * Authenticates via a session token (`X-Auth-Token`), cached in a SQLite database to avoid repeated logins
 * If the appliance rejects a request (for example after a session reset or timeout), the check logs in again and retries
 
@@ -22,8 +23,8 @@ Checks the overall cluster capacity usage of a Huawei OceanStor Pacific storage 
 
 | Fact | Value |
 |----|----|
-| Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/huawei-pacific-system-capacity> |
-| Nagios/Icinga Check Name              | `check_huawei_pacific_system_capacity` |
+| Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/huawei-pacific-system> |
+| Nagios/Icinga Check Name              | `check_huawei_pacific_system` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | No (`--password`, `--url` and `--username` are required) |
 | Runs on                               | Cross-platform |
@@ -34,17 +35,17 @@ Checks the overall cluster capacity usage of a Huawei OceanStor Pacific storage 
 ## Help
 
 ```text
-usage: huawei-pacific-system-capacity [-h] [-V] [--always-ok]
-                                      [--cache-expire CACHE_EXPIRE] [-c CRIT]
-                                      [--insecure] [--no-insecure]
-                                      [--no-perfdata] [--no-proxy]
-                                      --password PASSWORD [--scope SCOPE]
-                                      [--timeout TIMEOUT] -u URL
-                                      --username USERNAME [-w WARN]
+usage: huawei-pacific-system [-h] [-V] [--always-ok]
+                             [--cache-expire CACHE_EXPIRE] [-c CRIT]
+                             [--insecure] [--no-insecure] [--no-perfdata]
+                             [--no-proxy] --password PASSWORD [--scope SCOPE]
+                             [--timeout TIMEOUT] -u URL --username USERNAME
+                             [-w WARN]
 
-Checks the overall cluster capacity usage of a Huawei OceanStor Pacific
-storage system via the REST API (/system_capacity endpoint). Alerts when the
-used capacity in percent reaches the warning or critical threshold.
+Reports the product model, system version and cluster name of a Huawei
+OceanStor Pacific storage system via the REST API (/cluster/product and
+/system_capacity endpoints). Alerts when the used cluster capacity in percent
+reaches the warning or critical threshold.
 
 options:
   -h, --help            show this help message and exit
@@ -76,20 +77,21 @@ options:
                         Default: 80
 
 Documentation:
-https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-pacific-system-capacity/
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-pacific-system/
 ```
 
 
 ## Usage Examples
 
 ```bash
-./huawei-pacific-system-capacity --url=https://oceanstor:8088 --username=monitoring --password=mypass --warning=80 --critical=90
+./huawei-pacific-system --url=https://oceanstor:8088 --username=monitoring --password=linuxfabrik --warning=80 --critical=90
 ```
 
 Output:
 
 ```text
-42% used (391.2GiB/931.3GiB)|'usage_percent'=42%;80;90;0;100 [...]
+OceanStor 100D (OceanStor Pacific) 8.2.0 SPH03, Cluster Name: cluster_01
+Capacity: 42% used (391.2GiB/931.3GiB)
 ```
 
 
@@ -98,7 +100,7 @@ Output:
 * OK if the used capacity in percent is below the warning threshold.
 * WARN if the used capacity in percent is at or above `--warning` (default: 80).
 * CRIT if the used capacity in percent is at or above `--critical` (default: 90).
-* OK with "No capacity data available yet." if the API reports a total capacity of zero.
+* OK with "Capacity: no capacity data available yet" if the API reports a total capacity of zero. Model, version and cluster name are still reported.
 * UNKNOWN on invalid API responses or responses with error codes.
 * `--always-ok` suppresses all alerts and always returns OK.
 
