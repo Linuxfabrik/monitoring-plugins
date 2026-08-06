@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026080601'
 
 DESCRIPTION = """Runs a full security audit across the hosts of a subnet and reports each host's
 hardening posture. From a single management host it discovers the targets (the subnet of the
@@ -410,14 +410,6 @@ def parse_args():
     return args
 
 
-def verbose(args, msg):
-    """Print a progress message when --verbose is set, so the admin can see what
-    the plugin is doing during a long multi-host run. Only used for debugging.
-    """
-    if args.VERBOSE:
-        print(msg)
-
-
 def build_ssh_opts(args):
     """Assemble the common ssh/scp option string via lib.ssh, adding the
     non-interactive options this plugin needs (BatchMode, LogLevel,
@@ -474,7 +466,7 @@ def push_lynis(host, args, ssh_opts, base_dir, remote_dir):
     example when the target has no rsync). Returns (success, (out, err, retc)).
     """
     if lib.shell.which('rsync'):
-        verbose(args, f'{host}: pushing lynis via rsync...')
+        lib.base.verbose(args.VERBOSE, f'{host}: pushing lynis via rsync...')
         success, result = lib.ssh.rsync(
             host,
             base_dir,
@@ -488,8 +480,10 @@ def push_lynis(host, args, ssh_opts, base_dir, remote_dir):
         )
         if success and result[2] == 0:
             return (True, result)
-        verbose(args, f'{host}: rsync unavailable or failed, falling back to scp')
-    verbose(args, f'{host}: pushing lynis via scp...')
+        lib.base.verbose(
+            args.VERBOSE, f'{host}: rsync unavailable or failed, falling back to scp'
+        )
+    lib.base.verbose(args.VERBOSE, f'{host}: pushing lynis via scp...')
     return scp_push(host, args, ssh_opts, base_dir, remote_dir, recursive=True)
 
 
@@ -530,18 +524,19 @@ def probe_host(host, args, ssh_opts):
                `~/.ssh/config` host alias
     - 'down' : host did not answer (no SSH, filtered, or connect timeout)
     """
-    verbose(args, f'{host}: probing SSH connection...')
+    lib.base.verbose(args.VERBOSE, f'{host}: probing SSH connection...')
     success, result = ssh_exec(host, args, ssh_opts, 'true')
     if success and result[2] == 0:
-        verbose(args, f'{host}: reachable')
+        lib.base.verbose(args.VERBOSE, f'{host}: reachable')
         return 'ok'
     stderr = result[1] if success else str(result)
     if 'permission denied' in stderr.lower():
-        verbose(
-            args, f'{host}: SSH reachable but authentication failed, skipping audit'
+        lib.base.verbose(
+            args.VERBOSE,
+            f'{host}: SSH reachable but authentication failed, skipping audit',
         )
         return 'auth'
-    verbose(args, f'{host}: not reachable, skipping')
+    lib.base.verbose(args.VERBOSE, f'{host}: not reachable, skipping')
     return 'down'
 
 
@@ -722,7 +717,9 @@ def audit_host(host, args, ssh_opts, base_dir, lynis_cmd):
         ' && sudo --non-interactive chmod +x ./lynis'
         f' && sudo --non-interactive {lynis_cmd}'
     )
-    verbose(args, f'{host}: running audit (this can take a few minutes)...')
+    lib.base.verbose(
+        args.VERBOSE, f'{host}: running audit (this can take a few minutes)...'
+    )
     success, result = ssh_exec(
         host, args, ssh_opts, remote_audit, timeout=args.AUDIT_TIMEOUT
     )
@@ -732,7 +729,7 @@ def audit_host(host, args, ssh_opts, base_dir, lynis_cmd):
     audit_output = f'{result[0]}\n{result[1]}' if success else str(result)
 
     # fetch the report (root-owned, so cat it via sudo instead of scp)
-    verbose(args, f'{host}: fetching report...')
+    lib.base.verbose(args.VERBOSE, f'{host}: fetching report...')
     success, result = ssh_exec(
         host,
         args,
@@ -746,7 +743,7 @@ def audit_host(host, args, ssh_opts, base_dir, lynis_cmd):
     # validated above; the shell `case` guard repeats that check so a recursive
     # removal can only ever hit our own work directory, never an empty or
     # unexpected path. Report and log stay on the host for the admin.
-    verbose(args, f'{host}: cleaning up...')
+    lib.base.verbose(args.VERBOSE, f'{host}: cleaning up...')
     ssh_exec(
         host,
         args,
@@ -846,18 +843,20 @@ def main():
         if args.HOST is not None:
             targets = args.HOST
         elif args.NETWORK is not None:
-            verbose(args, f'Discovering hosts on {", ".join(args.NETWORK)}...')
+            lib.base.verbose(
+                args.VERBOSE, f'Discovering hosts on {", ".join(args.NETWORK)}...'
+            )
             targets = []
             for cidr in args.NETWORK:
                 targets.extend(lib.base.coe(lib.net.cidr_to_hosts(cidr)))
         else:
             scope = args.INTERFACE if args.INTERFACE else 'the default interface'
-            verbose(args, f'Discovering hosts on {scope}...')
+            lib.base.verbose(args.VERBOSE, f'Discovering hosts on {scope}...')
             targets = lib.base.coe(lib.net.get_subnet_hosts(args.INTERFACE))
-        verbose(args, f'{len(targets)} target(s) to check')
+        lib.base.verbose(args.VERBOSE, f'{len(targets)} target(s) to check')
         ssh_opts = build_ssh_opts(args)
 
-        verbose(args, 'Preparing local lynis copy...')
+        lib.base.verbose(args.VERBOSE, 'Preparing local lynis copy...')
         base_dir, tmp_dir = lib.base.coe(prepare_lynis_source(args.LYNIS_SOURCE))
         lynis_cmd = build_lynis_command(args, base_dir)
 
@@ -880,14 +879,15 @@ def main():
                 success, result = audit_host(host, args, ssh_opts, base_dir, lynis_cmd)
                 if success:
                     report = parse_report(result)
-                    verbose(
-                        args, f'{host}: hardening index {report["hardening_index"]}'
+                    lib.base.verbose(
+                        args.VERBOSE,
+                        f'{host}: hardening index {report["hardening_index"]}',
                     )
                 else:
-                    verbose(args, f'{host}: audit failed ({result})')
+                    lib.base.verbose(args.VERBOSE, f'{host}: audit failed ({result})')
                 return (host, success, result)
             except Exception as exc:  # isolate per-host failures from the scan
-                verbose(args, f'{host}: audit failed ({exc})')
+                lib.base.verbose(args.VERBOSE, f'{host}: audit failed ({exc})')
                 return (host, False, f'audit error: {exc}')
 
         try:

@@ -54,7 +54,7 @@ warnings.filterwarnings('ignore', category=CryptographyDeprecationWarning)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026080601'
 
 DESCRIPTION = """Inspects X.509 certificates and alerts on days remaining until expiry,
 hostname mismatch and chain verification failures. Sources via --source: `url` fetches the
@@ -474,14 +474,6 @@ def get_cert_from_url(args):
     }
 
 
-def verbose(args, msg):
-    """Print a progress message when --verbose is set, so the admin can see what the
-    plugin is doing during a long multi-host scan. Only used for debugging.
-    """
-    if args.VERBOSE:
-        print(msg)
-
-
 def parse_ports(specs):
     """Parse the --ports values into a sorted list of unique ints. Each value is either a
     single port (`443`) or an inclusive range (`8000-8100`). Returns (success, result).
@@ -515,7 +507,9 @@ def discover_hosts(args):
     if args.HOST is not None:
         hosts = list(args.HOST)
     elif args.NETWORK is not None:
-        verbose(args, f'Discovering hosts on {", ".join(args.NETWORK)}...')
+        lib.base.verbose(
+            args.VERBOSE, f'Discovering hosts on {", ".join(args.NETWORK)}...'
+        )
         hosts = []
         for cidr in args.NETWORK:
             ok, result = lib.net.cidr_to_hosts(cidr)
@@ -524,7 +518,7 @@ def discover_hosts(args):
             hosts.extend(result)
     else:
         scope = args.INTERFACE if args.INTERFACE else 'the default interface'
-        verbose(args, f'Discovering hosts on {scope}...')
+        lib.base.verbose(args.VERBOSE, f'Discovering hosts on {scope}...')
         ok, result = lib.net.get_subnet_hosts(args.INTERFACE)
         if not ok:
             return False, result
@@ -723,12 +717,14 @@ def scan_targets(args, hosts, ports, verify_ctx, insecure_ctx):
 
     def probe(target):
         host, port = target
-        verbose(args, f'{host}:{port}: probing TLS connection...')
+        lib.base.verbose(args.VERBOSE, f'{host}:{port}: probing TLS connection...')
         ok, info = get_cert_from_target(host, port, args, verify_ctx, insecure_ctx)
         if not ok:
-            verbose(args, f'{host}:{port}: not reachable, skipping')
+            lib.base.verbose(args.VERBOSE, f'{host}:{port}: not reachable, skipping')
             return None
-        verbose(args, f'{host}:{port}: reachable ({info["chain_verdict"]})')
+        lib.base.verbose(
+            args.VERBOSE, f'{host}:{port}: reachable ({info["chain_verdict"]})'
+        )
         return {
             'cert_der': info['cert_der'],
             'chain_verdict': info['chain_verdict'],
@@ -741,13 +737,15 @@ def scan_targets(args, hosts, ports, verify_ctx, insecure_ctx):
     fd_limit = raise_fd_soft_limit()
     allowed = get_max_workers(args.MAX_WORKERS, fd_limit)
     if args.MAX_WORKERS is not None and allowed < args.MAX_WORKERS:
-        verbose(
-            args,
+        lib.base.verbose(
+            args.VERBOSE,
             f'--max-workers={args.MAX_WORKERS} exceeds the file-descriptor budget '
             f'(limit {fd_limit}, {FD_RESERVE} reserved), using {allowed} instead',
         )
     workers = min(allowed, len(targets)) if targets else 1
-    verbose(args, f'probing {len(targets)} target(s) with {workers} worker(s)')
+    lib.base.verbose(
+        args.VERBOSE, f'probing {len(targets)} target(s) with {workers} worker(s)'
+    )
 
     items = []
     error = None
@@ -1118,7 +1116,9 @@ def main():
         # built once and shared by every worker; one context per target would load the
         # system trust store thousands of times over
         verify_ctx, insecure_ctx = lib.base.coe(build_scan_contexts(args))
-        verbose(args, f'{len(hosts)} host(s) x {len(ports)} port(s) to scan')
+        lib.base.verbose(
+            args.VERBOSE, f'{len(hosts)} host(s) x {len(ports)} port(s) to scan'
+        )
         items, workers = lib.base.coe(
             scan_targets(args, hosts, ports, verify_ctx, insecure_ctx)
         )
