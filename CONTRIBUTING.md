@@ -65,6 +65,51 @@ If there is a related issue, append `(fix #N)`:
 
 Document all changes in `CHANGELOG.md` following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sort entries within sections alphabetically.
 
+The audience is a Linux system engineer with 30 seconds to decide whether an update is worth it. Write for that reader:
+
+* **Lead with highlights.** Begin every release section with three to five sentences of running text, directly below the version heading and above the first `###` section. Cover what drives the update decision, including any manual step it requires. No bullet list, no issue links, no repetition of the individual entries. A release with only a handful of entries does not need one, since the entries themselves already fit on a screen.
+* **State the change before its scope.** Up to five affected components keep the `component: what changed` form. From six on, put the statement first and close it with either a collective name (`all *-version checks`) or the components in parentheses, so the entry is understood from its first line. These broad entries come first in their subsection, ahead of the alphabetically sorted per-component entries.
+* **One sentence per entry.** `Added`, `Changed` and `Fixed` say what an administrator notices. Root cause, reproduction steps and internal reasoning belong in the commit body and the issue.
+* **Migration instructions only under `Breaking Changes`.** Wording such as "rename x to y" or "set z to restore the previous behaviour" anywhere else means the entry sits in the wrong section. Entries under `Breaking Changes` may run longer than one sentence.
+* **Leave out contributor-only changes.** Lockfile and pin bumps, Dependabot and pre-commit configuration, GitHub Actions bumps and test infrastructure are covered by the git history and the pull request. Keep an entry only where an administrator sees the effect, for example when it changes the released artifact.
+
+A release section starts like this:
+
+```markdown
+## [v6.1.0] - 2026-09-15
+
+**Highlights:** Two long-standing sources of false alarms are gone, and container workloads are now covered. Cumulative counters are reported as rates instead of totals, so any dashboard built on them has to be re-imported.
+
+### Added
+```
+
+The scope rule, on an entry affecting 43 components. Instead of:
+
+```markdown
+* about-me, borgbackup, deb-lastactivity, file-ownership, fs-xfs-stats, getent, ...: `--always-ok` to force an OK result
+```
+
+write:
+
+```markdown
+* `--always-ok` forces an OK result on 43 further components (about-me, borgbackup, deb-lastactivity, ...)
+```
+
+
+### Changelog Groups
+
+Within a subsection, entries are grouped by the part of the project they belong to. Use a plain heading line ending in a colon, followed by a blank line and the entries. Group headings are, in this order:
+
+* `Monitoring Plugins:`
+* `Notification Plugins:`
+* `Event Plugins:`
+* `Icinga Director:`
+* `Grafana:`
+* `Assets:`
+* `Tools:`
+
+Omit a group that has no entries, and do not invent new ones.
+
 
 ### Language
 
