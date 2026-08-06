@@ -28,7 +28,7 @@ Checks the status of all power supplies on a Huawei OceanStor Pacific storage sy
 | Can be called without parameters      | No (`--password`, `--url` and `--username` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
-| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-pacific.db` |
 
 
 ## Help
@@ -95,7 +95,9 @@ Chassis SN            ! Name ! Status ! State
 ## States
 
 * OK if all power supplies report a status of "normal".
-* WARN if any power supply reports a status other than "normal".
+* WARN if any power supply reports a status this check does not know.
+* CRIT if any power supply reports a status of "fault".
+* UNKNOWN if the appliance lists no power supplies at all, which points at the query rather than at the hardware.
 * UNKNOWN on invalid API responses or responses with error codes.
 * `--always-ok` suppresses all alerts and always returns OK.
 

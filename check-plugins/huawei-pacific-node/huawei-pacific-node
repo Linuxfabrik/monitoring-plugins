@@ -176,6 +176,16 @@ def main():
             STATE_UNKNOWN,
         )
 
+    # A cluster always has cluster nodes, so an empty list is a query that
+    # never reached them rather than an inventory that is genuinely empty.
+    # Reporting OK here would hide the fault behind a green check.
+    if not result.get('data'):
+        lib.base.oao(
+            f'{args.URL} reported no cluster nodes.'
+            ' Verify that the API user is allowed to query them.',
+            STATE_UNKNOWN,
+        )
+
     # init some vars
     msg = ''
     state = STATE_OK
@@ -184,10 +194,10 @@ def main():
     # analyze data
     table_data = []
     for node in result.get('data', []):
-        running_state = STATE_OK
-        if node.get('running_status') != 'online':
-            running_state = STATE_WARN
-            state = lib.base.get_worst(state, running_state)
+        running_state = lib.huawei_pacific.get_node_running_status_state(
+            node.get('running_status')
+        )
+        state = lib.base.get_worst(state, running_state)
 
         oam_state = STATE_OK
         if int(node.get('oam_agent_status', -1)) != 0:

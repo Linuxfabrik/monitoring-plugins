@@ -16,7 +16,7 @@ Checks the health and running status of all hosts attached to a Huawei OceanStor
 
 * Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/host`
 * Authenticates via session tokens (iBaseToken + cookie), cached in a SQLite database to avoid repeated logins
-* On transient authorization errors, automatically retries up to 9 times with 1-second intervals
+* If the appliance rejects a request, the check logs in again and retries, up to three attempts one second apart
 
 
 ## Fact Sheet
@@ -29,7 +29,7 @@ Checks the health and running status of all hosts attached to a Huawei OceanStor
 | Can be called without parameters      | No (`--device-id`, `--password`, `--url` and `--username` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
-| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-dorado.db` |
 
 
 ## Help
@@ -37,9 +37,11 @@ Checks the health and running status of all hosts attached to a Huawei OceanStor
 ```text
 usage: huawei-dorado-host [-h] [-V] [--always-ok]
                           [--cache-expire CACHE_EXPIRE] --device-id DEVICE_ID
-                          [--insecure] [--no-insecure] [--no-perfdata]
-                          [--no-proxy] --password PASSWORD [--scope SCOPE]
-                          [--timeout TIMEOUT] -u URL --username USERNAME
+                          [--insecure] [--no-insecure] [--match MATCH]
+                          [--no-match-severity {ok,warn,crit,unknown}]
+                          [--no-perfdata] [--no-proxy] --password PASSWORD
+                          [--scope SCOPE] [--timeout TIMEOUT] -u URL
+                          --username USERNAME
 
 Checks the health and running status of all hosts attached to a Huawei
 OceanStor Dorado storage system via the REST API (/host endpoint). Alerts when
@@ -61,6 +63,18 @@ options:
                         Use it once the endpoint presents a publicly trusted
                         certificate, or once its CA has been added to the
                         system trust store.
+  --match MATCH         Filter by hosts. Filter by this Python regular
+                        expression. Case-sensitive by default; use `(?i)` for
+                        case-insensitive matching. Can be specified multiple
+                        times. Examples: `(?i)example` to match "example"
+                        regardless of case. `^(?!.*example).*$` to match any
+                        string except "example" (negative lookahead). The
+                        regex is anchored at the start of the string (Python
+                        `re.match`) and is matched against `UUID`, `NAME`, so
+                        prefix with `.*` to match anywhere. Default:
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -110,8 +124,11 @@ UUID  ! Location ! Name      ! OS         ! Health    ! Running
 ## States
 
 * OK if all hosts report normal health and running status.
-* WARN if any host's health status is not "Normal".
-* WARN if any host's running status is not "Normal".
+* WARN if any host reports a degraded health status, or one this check does not know.
+* WARN if any host's running status is not "Normal", unless it reports an outright failure.
+* CRIT if any host reports health status "Faulty", "Invalid" or "Offline".
+* CRIT if any host's running status reports a failure ("Offline", "Invalid", "Migration fault", "Error/Faulty", "Power-on failed", "Abnormal" or "Rollback failure").
+* `--match` limits the check to the hosts whose identifier, location or name matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).
 * UNKNOWN on invalid API responses or responses with error codes.
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -120,9 +137,9 @@ UUID  ! Location ! Name      ! OS         ! Health    ! Running
 
 | Name | Type | Description |
 |----|----|----|
-| \<UUID\>\_allocatedCapacity | Number | Used (allocated) capacity. |
-| \<UUID\>\_HEALTHSTATUS | Number | 1: normal, 17: no redundant link, 18: offline. |
-| \<UUID\>\_RUNNINGSTATUS | Number | 1: normal. |
+| \<UUID\>\_allocated_capacity | Number | Used (allocated) capacity. |
+| \<UUID\>\_health_status | Number | 1: normal, 17: no redundant link, 18: offline. |
+| \<UUID\>\_running_status | Number | 1: normal. |
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 
@@ -137,7 +154,7 @@ Check the `--url`, `--device-id`, `--username` and `--password` parameters. Veri
 
 ### `This operation fails to be performed because of the unauthorized REST.`
 
-This is a known transient issue with the Huawei REST API. The check retries automatically up to 9 times. If the error persists, verify the API credentials and session timeout settings.
+This is a known transient issue with the Huawei REST API. The check makes up to three attempts and forces a fresh login before the second one. If the error persists, verify the API credentials and session timeout settings.
 
 
 ## Credits, License

@@ -17,6 +17,12 @@
                 "--no-insecure": {
                     "set_if": "$huawei_dorado_host_no_insecure$"
                 },
+                "--match": {
+                    "value": "$huawei_dorado_host_match$"
+                },
+                "--no-match-severity": {
+                    "value": "$huawei_dorado_host_no_match_severity$"
+                },
                 "--no-perfdata": {
                     "set_if": "$huawei_dorado_host_no_perfdata$"
                 },
@@ -79,7 +85,7 @@
                 },
                 {
                     "datafield_id": 8,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -89,16 +95,26 @@
                 },
                 {
                     "datafield_id": 10,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 11,
                     "is_required": "y",
                     "var_filter": null
                 },
                 {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
                     "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
                     "is_required": "y",
                     "var_filter": null
                 }
@@ -158,6 +174,8 @@
                 "huawei_dorado_host_always_ok": false,
                 "huawei_dorado_host_cache_expire": 15,
                 "huawei_dorado_host_insecure": true,
+                "huawei_dorado_host_match": "",
+                "huawei_dorado_host_no_match_severity": "ok",
                 "huawei_dorado_host_no_perfdata": false,
                 "huawei_dorado_host_no_proxy": false,
                 "huawei_dorado_host_scope": 0,
@@ -166,6 +184,39 @@
             "volatile": null,
             "zone": null,
             "uuid": "fcf63d92-85c3-4da2-90d7-80d6a9263ce5"
+        }
+    },
+    "DataList": {
+        "huawei_dorado_host_no_match_severity_list": {
+            "list_name": "huawei_dorado_host_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "cb5283ff-b72c-46a7-933b-b483b2672d28"
         }
     },
     "Datafield": {
@@ -219,6 +270,30 @@
             "uuid": "fe9fac5a-3bea-4d85-bd31-c38442037b6e"
         },
         "6": {
+            "varname": "huawei_dorado_host_match",
+            "caption": "Huawei Dorado Host: Match",
+            "description": "Filter by hosts. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `NAME`, so prefix with `.*` to match anywhere.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "1ec911d6-37c4-43d5-8eee-0849b11da233"
+        },
+        "7": {
+            "varname": "huawei_dorado_host_no_match_severity",
+            "caption": "Huawei Dorado Host: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "huawei_dorado_host_no_match_severity_list"
+            },
+            "uuid": "b63a52e7-d25c-432a-be58-b7bf16859432"
+        },
+        "8": {
             "varname": "huawei_dorado_host_no_perfdata",
             "caption": "Huawei Dorado Host: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -227,7 +302,7 @@
             "settings": {},
             "uuid": "fb962b02-a19b-4cbe-aa14-252f0fd0a2a1"
         },
-        "7": {
+        "9": {
             "varname": "huawei_dorado_host_no_proxy",
             "caption": "Huawei Dorado Host: No Proxy?",
             "description": "Do not use a proxy.",
@@ -236,7 +311,7 @@
             "settings": {},
             "uuid": "ed343c8d-d9f5-490a-8738-dbc09ecde1e2"
         },
-        "8": {
+        "10": {
             "varname": "huawei_dorado_host_password",
             "caption": "Huawei Dorado Host: Password",
             "description": "Huawei OceanStor Dorado API password.",
@@ -247,7 +322,7 @@
             },
             "uuid": "224d1e6c-d8ac-4382-b3ea-1883b30c8078"
         },
-        "9": {
+        "11": {
             "varname": "huawei_dorado_host_scope",
             "caption": "Huawei Dorado Host: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -258,7 +333,7 @@
             },
             "uuid": "b0ba32b4-9431-407f-95fe-7a0ceb742dbb"
         },
-        "10": {
+        "12": {
             "varname": "huawei_dorado_host_timeout",
             "caption": "Huawei Dorado Host: Timeout",
             "description": "Network timeout in seconds.",
@@ -269,7 +344,7 @@
             },
             "uuid": "47913fc1-cfdf-4591-bdf4-df04cae77bcd"
         },
-        "11": {
+        "13": {
             "varname": "huawei_dorado_host_url",
             "caption": "Huawei Dorado Host: URL",
             "description": "Huawei OceanStor Dorado API URL.",
@@ -280,7 +355,7 @@
             },
             "uuid": "5cc1848c-e8e1-4abe-8394-faefbe76e889"
         },
-        "12": {
+        "14": {
             "varname": "huawei_dorado_host_username",
             "caption": "Huawei Dorado Host: Username",
             "description": "Huawei OceanStor Dorado API username.",

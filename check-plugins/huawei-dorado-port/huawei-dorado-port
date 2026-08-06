@@ -1,0 +1,362 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.huawei_dorado
+import lib.lftest
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026080601'
+
+DESCRIPTION = """Checks the health and link status of the front-end ports of a Huawei OceanStor
+Dorado storage system via the REST API (/fc_port, /eth_port and /sas_port endpoints). Alerts when a
+port reports a non-normal health status, and optionally when a link is down."""
+
+DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
+DEFAULT_INSECURE = True
+DEFAULT_LINK_DOWN_SEVERITY = 'ok'
+DEFAULT_MATCH = ''
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_NO_PROXY = False
+DEFAULT_SCOPE = 0
+DEFAULT_TIMEOUT = 3
+
+# RUNNINGSTATUS code of a port whose link is down. These endpoints use their own
+# enumeration: 0 unknown, 10 link up, 11 link down, and 33 to be recovered on
+# Ethernet ports.
+LINK_DOWN = 11
+
+# Fields `--match` is applied to.
+MATCH_FIELDS = ('UUID', 'LOCATION', 'NAME')
+
+# RUNNINGSTATUS code a healthy port reports: link up (10).
+OK_RUNNING_STATUS = (10,)
+
+# The three front-end port endpoints, in the order they are queried. They answer
+# with the same fields, so one walk covers all of them. Unlike the other list
+# endpoints they do not implement the `range` parameter, which is why they are read
+# in one request each.
+PORT_ENDPOINTS = (
+    ('fc_port', 'FC'),
+    ('eth_port', 'Ethernet'),
+    ('sas_port', 'SAS'),
+)
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help=lib.args.help('--cache-expire') + ' Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '--device-id',
+        help='Huawei OceanStor Dorado API device ID.',
+        dest='DEVICE_ID',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--link-down-severity',
+        help=lib.args.help('--link-down-severity') + ' Default: %(default)s',
+        dest='LINK_DOWN_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_LINK_DOWN_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Filter by ports. '
+        + lib.args.help('--match')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and '
+        'is matched against the port identifier, its location and its name, so prefix '
+        'with `.*` to match anywhere. Default: %(default)s',
+        dest='MATCH',
+        default=DEFAULT_MATCH,
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help=lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='Huawei OceanStor Dorado API password.',
+        dest='PASSWORD',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--scope',
+        help='Huawei OceanStor Dorado API scope.',
+        dest='SCOPE',
+        default=DEFAULT_SCOPE,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-u',
+        '--url',
+        help='Huawei OceanStor Dorado API URL.',
+        dest='URL',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Huawei OceanStor Dorado API username.',
+        dest='USERNAME',
+        required=True,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def as_code(value):
+    """Return an appliance status code as an `int`, or `None` if it is unusable."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def get_ports(args):
+    """
+    Read the three front-end port endpoints and return their ports as one list.
+
+    ### Parameters
+    - **args** (object): The argument namespace `lib.huawei_dorado.get_data()` reads.
+
+    ### Returns
+    - **list**: One entry per port, each carrying an extra `kind` field naming which of
+      the three endpoints it came from.
+
+    ### Notes
+    - An endpoint that is not implemented on a given appliance, or that carries no
+      port at all, contributes nothing rather than aborting the check. An array
+      without SAS ports is a normal array, not a broken query.
+    """
+    ports = []
+    for endpoint, kind in PORT_ENDPOINTS:
+        result = lib.huawei_dorado.get_data(endpoint, args)
+        if lib.huawei_dorado.get_error_code(result) not in (0, '0'):
+            continue
+        for port in result.get('data') or []:
+            port['kind'] = kind
+            ports.append(port)
+    return ports
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if not args.URL.startswith('http'):
+        lib.base.cu('--url parameter has to start with "http://" or https://".')
+
+    # fetch data
+    if args.TEST is None:
+        ports = get_ports(args)
+    else:
+        # do not call the command, put in test data
+        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
+        ports = json.loads(stdout).get('data') or []
+
+    # An array always has front-end ports, so an empty list is a query that never
+    # reached them rather than an inventory that is genuinely empty.
+    if not ports:
+        lib.base.oao(
+            f'{args.URL} reported no front-end ports.'
+            ' Verify that the API user is allowed to query them.',
+            STATE_UNKNOWN,
+        )
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    compiled_regex = lib.base.coe(lib.txt.compile_regex(args.MATCH))
+    link_down_state = lib.base.str2state(args.LINK_DOWN_SEVERITY)
+
+    # analyze data
+    table_data = []
+    for port in ports:
+        port['UUID'] = lib.huawei_dorado.get_uuid(port)
+        # Perfdata labels carry the object's own TYPE:ID, which stays the same when
+        # a port is re-cabled, unlike its location.
+        label = re.sub(r'\W+', '_', port['UUID'])
+
+        if args.MATCH and not any(
+            lib.base.coe(lib.txt.match_regex(compiled_regex, str(port.get(field, ''))))
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        health_state = lib.huawei_dorado.get_health_status_state(
+            port.get('HEALTHSTATUS')
+        )
+        state = lib.base.get_worst(state, health_state)
+
+        # A port whose link is down looks exactly like a port nobody cabled, so how loud
+        # that should be is the operator's call rather than this check's.
+        if as_code(port.get('RUNNINGSTATUS')) == LINK_DOWN:
+            running_state = link_down_state
+        else:
+            running_state = lib.huawei_dorado.get_running_status_state(
+                port.get('RUNNINGSTATUS'), OK_RUNNING_STATUS
+            )
+        state = lib.base.get_worst(state, running_state)
+
+        perfdata += lib.base.get_perfdata(
+            f'{label}_health_status',
+            port.get('HEALTHSTATUS'),
+            crit=2,
+            uom=None,
+            _min=0,
+            _max=2,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{label}_running_status',
+            port.get('RUNNINGSTATUS'),
+            uom=None,
+            _min=0,
+        )
+
+        port['health_state'] = lib.base.state2str(health_state, empty_ok=False)
+        port['link'] = lib.huawei_dorado.get_running_status(port.get('RUNNINGSTATUS'))
+        port['running_state'] = lib.base.state2str(running_state, empty_ok=False)
+
+        table_data.append(port)
+
+    # The appliance listed ports and the filter selected none of them.
+    if not table_data:
+        lib.base.oao(
+            f'No ports matched `{args.MATCH}`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
+        )
+
+    if table_data:
+        keys = ['UUID', 'kind', 'LOCATION', 'link', 'health_state', 'running_state']
+        headers = ['UUID', 'Type', 'Location', 'Link', 'Health', 'Link State']
+
+        # build the message
+        msg += lib.base.get_table(table_data, keys, header=headers)
+
+    if state == STATE_CRIT:
+        msg = 'There are critical errors.\n\n' + msg
+    elif state == STATE_WARN:
+        msg = 'There are warnings.\n\n' + msg
+    else:
+        msg = 'Everything is ok.\n\n' + msg
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

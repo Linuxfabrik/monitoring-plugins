@@ -15,7 +15,7 @@ Checks the health, running status, and synchronization state of all HyperMetro p
 
 * Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/hypermetropair`
 * Authenticates via session tokens (iBaseToken + cookie), cached in a SQLite database to avoid repeated logins
-* On transient authorization errors, automatically retries up to 9 times with 1-second intervals
+* If the appliance rejects a request, the check logs in again and retries, up to three attempts one second apart
 
 
 ## Fact Sheet
@@ -28,7 +28,7 @@ Checks the health, running status, and synchronization state of all HyperMetro p
 | Can be called without parameters      | No (`--device-id`, `--password`, `--url` and `--username` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
-| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-dorado.db` |
 
 
 ## Help
@@ -37,9 +37,11 @@ Checks the health, running status, and synchronization state of all HyperMetro p
 usage: huawei-dorado-hypermetropair [-h] [-V] [--always-ok]
                                     [--cache-expire CACHE_EXPIRE]
                                     --device-id DEVICE_ID [--insecure]
-                                    [--no-insecure] [--no-perfdata]
-                                    [--no-proxy] --password PASSWORD
-                                    [--scope SCOPE] [--timeout TIMEOUT] -u URL
+                                    [--no-insecure] [--match MATCH]
+                                    [--no-match-severity {ok,warn,crit,unknown}]
+                                    [--no-perfdata] [--no-proxy]
+                                    --password PASSWORD [--scope SCOPE]
+                                    [--timeout TIMEOUT] -u URL
                                     --username USERNAME
 
 Checks the health and running status of all HyperMetro pairs on a Huawei
@@ -62,6 +64,19 @@ options:
                         Use it once the endpoint presents a publicly trusted
                         certificate, or once its CA has been added to the
                         system trust store.
+  --match MATCH         Filter by HyperMetro pairs. Filter by this Python
+                        regular expression. Case-sensitive by default; use
+                        `(?i)` for case-insensitive matching. Can be specified
+                        multiple times. Examples: `(?i)example` to match
+                        "example" regardless of case. `^(?!.*example).*$` to
+                        match any string except "example" (negative
+                        lookahead). The regex is anchored at the start of the
+                        string (Python `re.match`) and is matched against
+                        `UUID`, `LOCALOBJNAME`, `REMOTEOBJNAME`, so prefix
+                        with `.*` to match anywhere. Default:
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -100,11 +115,14 @@ UUID                                   ! Link ! Last Sync                       
 ## States
 
 * OK if all HyperMetro pairs report normal health, running status, link status and data consistency.
-* WARN if any pair's health status is not "Normal".
-* WARN if any pair's running status is not "Normal" or "Synchronizing".
+* WARN if any pair reports a degraded health status, or one this check does not know.
+* WARN if any pair's running status is not "Normal" or "Synchronizing", unless it reports an outright failure.
+* CRIT if any pair reports health status "Faulty", "Invalid" or "Offline".
+* CRIT if any pair's running status reports a failure ("Offline", "Invalid", "Migration fault", "Error/Faulty", "Power-on failed", "Abnormal" or "Rollback failure").
 * WARN if any pair's link status is not "connected".
 * WARN if any pair's local data state is not "consistent".
 * WARN if any pair's remote data state is not "consistent".
+* `--match` limits the check to the HyperMetro pairs whose identifier, location or name matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).
 * UNKNOWN on invalid API responses or responses with error codes.
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -113,14 +131,14 @@ UUID                                   ! Link ! Last Sync                       
 
 | Name | Type | Description |
 |----|----|----|
-| \<UUID\>\_HEALTHSTATUS | Number | 0: unknown, 1: normal, 2: faulty. |
-| \<UUID\>\_LINKSTATUS | Number | 1: connected, 2: disconnected. |
-| \<UUID\>\_LOCALDATASTATE | Number | 1: consistent, 2: inconsistent. |
-| \<UUID\>\_LOCALHOSTACCESSSTATE | Number | 1: access forbidden, 2: read-only, 3: read/write. |
-| \<UUID\>\_REMOTEDATASTATE | Number | 1: consistent, 2: inconsistent. |
-| \<UUID\>\_REMOTEHOSTACCESSSTATE | Number | 1: access forbidden, 2: read-only, 3: read/write, 5: unknown. |
-| \<UUID\>\_RUNNINGSTATUS | Number | 1: normal, 23: synchronizing, 35: invalid, 41: paused, 93: forcibly started, 100: to be synchronized. |
-| \<UUID\>\_SYNCPROGRESS | Percentage | Synchronization progress. |
+| \<UUID\>\_health_status | Number | 0: unknown, 1: normal, 2: faulty. |
+| \<UUID\>\_link_status | Number | 1: connected, 2: disconnected. |
+| \<UUID\>\_local_data_state | Number | 1: consistent, 2: inconsistent. |
+| \<UUID\>\_local_host_access_state | Number | 1: access forbidden, 2: read-only, 3: read/write. |
+| \<UUID\>\_remote_data_state | Number | 1: consistent, 2: inconsistent. |
+| \<UUID\>\_remote_host_access_state | Number | 1: access forbidden, 2: read-only, 3: read/write, 5: unknown. |
+| \<UUID\>\_running_status | Number | 1: normal, 23: synchronizing, 35: invalid, 41: paused, 93: forcibly started, 100: to be synchronized. |
+| \<UUID\>\_sync_progress | Percentage | Synchronization progress. |
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 
@@ -135,7 +153,7 @@ Check the `--url`, `--device-id`, `--username` and `--password` parameters. Veri
 
 ### `This operation fails to be performed because of the unauthorized REST.`
 
-This is a known transient issue with the Huawei REST API. The check retries automatically up to 9 times. If the error persists, verify the API credentials and session timeout settings.
+This is a known transient issue with the Huawei REST API. The check makes up to three attempts and forces a fresh login before the second one. If the error persists, verify the API credentials and session timeout settings.
 
 
 ## Credits, License

@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 TESTS = [
     {
@@ -26,11 +26,22 @@ TESTS = [
         'assert-in': ['Everything is ok.', 'Fan0', 'normal'],
     },
     {
-        'id': 'warn-fan-faulty',
+        # A faulty fan leaves the chassis without the cooling it was sized for,
+        # so it has to reach CRITICAL.
+        'id': 'crit-fan-faulty',
         'test': 'stdout/fans-one-faulty,,0',
         'params': '--password=linuxfabrik --url=https://localhost --username=admin',
-        'assert-retc': STATE_WARN,
-        'assert-regex': r'fault.*\[WARNING\]',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'fault.*\[CRITICAL\]',
+    },
+    {
+        # An appliance always has fans. An empty list means the query
+        # never reached them, which must not read as a healthy inventory.
+        'id': 'unknown-no-fans',
+        'test': 'stdout/no-fans,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['reported no fans.'],
     },
 ]
 

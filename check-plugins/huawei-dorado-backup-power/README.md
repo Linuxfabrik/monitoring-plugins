@@ -8,6 +8,7 @@ Checks the health status of all backup power modules (BBU) on a Huawei OceanStor
 **Important Notes:**
 
 * Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
+* A part that reports no temperature or no remaining life answers with 0 or -1, which is left out of the check and out of the performance data
 * Create a read-only API user that can perform query only.
 * Sometimes the API returns "This operation fails to be performed because of the unauthorized REST. Before performing this operation, ensure that REST is authorized.", although everything is fine. In this case, the check retries the request, a maximum of 9 times within 9 seconds.
 * `--insecure` is enabled by default because Huawei OceanStor Dorado typically uses self-signed certificates.
@@ -29,19 +30,21 @@ Checks the health status of all backup power modules (BBU) on a Huawei OceanStor
 | Can be called without parameters      | No (`--device-id`, `--password`, `--url`, and `--username` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
-| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-dorado.db` |
 
 
 ## Help
 
 ```text
 usage: huawei-dorado-backup-power [-h] [-V] [--always-ok]
-                                  [--cache-expire CACHE_EXPIRE]
+                                  [--cache-expire CACHE_EXPIRE] [-c CRIT]
                                   --device-id DEVICE_ID [--insecure]
-                                  [--no-insecure] [--no-perfdata] [--no-proxy]
+                                  [--no-insecure] [--match MATCH]
+                                  [--no-match-severity {ok,warn,crit,unknown}]
+                                  [--no-perfdata] [--no-proxy]
                                   --password PASSWORD [--scope SCOPE]
                                   [--timeout TIMEOUT] -u URL
-                                  --username USERNAME
+                                  --username USERNAME [-w WARN]
 
 Checks the health status of all backup power modules (BBU) on a Huawei
 OceanStor Dorado storage system via the REST API (/backup_power endpoint).
@@ -54,6 +57,8 @@ options:
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15
+  -c, --critical CRIT   CRIT threshold for the remaining life of a backup
+                        power module, as a Nagios range in days. Default: 30:
   --device-id DEVICE_ID
                         Huawei OceanStor Dorado device ID.
   --insecure            This option explicitly allows insecure SSL
@@ -63,6 +68,19 @@ options:
                         Use it once the endpoint presents a publicly trusted
                         certificate, or once its CA has been added to the
                         system trust store.
+  --match MATCH         Filter by backup power modules. Filter by this Python
+                        regular expression. Case-sensitive by default; use
+                        `(?i)` for case-insensitive matching. Can be specified
+                        multiple times. Examples: `(?i)example` to match
+                        "example" regardless of case. `^(?!.*example).*$` to
+                        match any string except "example" (negative
+                        lookahead). The regex is anchored at the start of the
+                        string (Python `re.match`) and is matched against
+                        `UUID`, `LOCATION`, so prefix with `.*` to match
+                        anywhere. Default:
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -73,6 +91,8 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.
+  -w, --warning WARN    WARN threshold for the remaining life of a backup
+                        power module, as a Nagios range in days. Default: 180:
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-backup-power/
@@ -103,8 +123,14 @@ UUID       ! Location   ! Produced   ! ControllerID ! #Charged ! Remain ! Volt !
 ## States
 
 * OK if all BBU modules report normal health and running status.
-* WARN if any BBU health status is not "Normal".
-* WARN if any BBU running status is not "Normal", "Running", "Online", "Charging", or "Charging completed".
+* WARN if any backup power module reports a degraded health status, or one this check does not know.
+* WARN if any backup power module's running status is not "Normal", "Running", "Online", "Charging" or "Charging completed", unless it reports an outright failure.
+* CRIT if any backup power module reports health status "Faulty", "Invalid" or "Offline".
+* CRIT if any backup power module's running status reports a failure ("Offline", "Invalid", "Migration fault", "Error/Faulty", "Power-on failed", "Abnormal" or "Rollback failure").
+* WARN if a backup power module's remaining life falls below `--warning` (default: less than 180 days).
+* CRIT if a backup power module's remaining life falls below `--critical` (default: less than 30 days).
+* UNKNOWN if the appliance lists no backup power modules at all, which points at the query rather than at the hardware.
+* `--match` limits the check to the backup power modules whose identifier, location or name matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).
 * UNKNOWN on invalid API responses or responses with error codes.
 * `--always-ok` suppresses all alerts and always returns OK.
 

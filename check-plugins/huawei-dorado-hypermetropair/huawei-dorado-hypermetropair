@@ -12,6 +12,7 @@
 
 import argparse
 import json
+import re
 import sys
 
 import lib.args
@@ -20,6 +21,7 @@ import lib.huawei_dorado
 import lib.human
 import lib.lftest
 import lib.time
+import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -31,9 +33,18 @@ pair reports a non-normal state or synchronization issue."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_INSECURE = True
+DEFAULT_MATCH = ''
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = 0
 DEFAULT_TIMEOUT = 3
+
+# Fields `--match` is applied to.
+MATCH_FIELDS = ('UUID', 'LOCALOBJNAME', 'REMOTEOBJNAME')
+
+# RUNNINGSTATUS codes a healthy HyperMetro pair reports: normal (1) and
+# synchronizing (23). A pair that is still catching up is doing what it should.
+OK_RUNNING_STATUS = (1, 23)
 
 
 def parse_args():
@@ -88,6 +99,25 @@ def parse_args():
         dest='INSECURE',
         action='store_false',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Filter by HyperMetro pairs. '
+        + lib.args.help('--match')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against `UUID`, `LOCALOBJNAME`, `REMOTEOBJNAME`, so prefix with `.*` to match anywhere. '
+        'Default: %(default)s',
+        dest='MATCH',
+        default=DEFAULT_MATCH,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -188,29 +218,33 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
+    compiled_regex = lib.base.coe(lib.txt.compile_regex(args.MATCH))
 
     # analyze data
     table_data = []
     for hypermetropair in result.get('data'):
-        health_state = STATE_OK
-        if (
-            lib.huawei_dorado.get_health_status(hypermetropair.get('HEALTHSTATUS'))
-            != 'Normal (1)'
-        ):
-            health_state = STATE_WARN
-            state = lib.base.get_worst(state, health_state)
+        hypermetropair['UUID'] = lib.huawei_dorado.get_uuid(hypermetropair)
+        # Perfdata labels carry the object's own TYPE:ID, which stays the same
+        # when hardware is moved between slots, unlike its location.
+        label = re.sub(r'\W+', '_', hypermetropair['UUID'])
 
-        running_state = STATE_OK
-        if (
-            lib.huawei_dorado.get_running_status(hypermetropair.get('RUNNINGSTATUS'))
-            != 'Normal (1)'
-            and lib.huawei_dorado.get_running_status(
-                hypermetropair.get('RUNNINGSTATUS')
+        if args.MATCH and not any(
+            lib.base.coe(
+                lib.txt.match_regex(compiled_regex, str(hypermetropair.get(field, '')))
             )
-            != 'Synchronizing (23)'
+            for field in MATCH_FIELDS
         ):
-            running_state = STATE_WARN
-            state = lib.base.get_worst(state, running_state)
+            continue
+
+        health_state = lib.huawei_dorado.get_health_status_state(
+            hypermetropair.get('HEALTHSTATUS')
+        )
+        state = lib.base.get_worst(state, health_state)
+
+        running_state = lib.huawei_dorado.get_running_status_state(
+            hypermetropair.get('RUNNINGSTATUS'), OK_RUNNING_STATUS
+        )
+        state = lib.base.get_worst(state, running_state)
 
         linkstatus_state = STATE_OK
         if hypermetropair.get('LINKSTATUS') != '1':
@@ -227,58 +261,57 @@ def main():
             remotedata_state = STATE_WARN
             state = lib.base.get_worst(state, remotedata_state)
 
-        hypermetropair['UUID'] = lib.huawei_dorado.get_uuid(hypermetropair)
         hypermetropair['sync_duration'] = int(hypermetropair['ENDTIME']) - int(
             hypermetropair['STARTTIME']
         )
 
         perfdata += lib.base.get_perfdata(
-            f'{hypermetropair["UUID"]}_HEALTHSTATUS',
+            f'{label}_health_status',
             hypermetropair['HEALTHSTATUS'],
             crit=2,
             _min=0,
             _max=2,
         )
         perfdata += lib.base.get_perfdata(
-            f'{hypermetropair["UUID"]}_RUNNINGSTATUS',
+            f'{label}_running_status',
             hypermetropair['RUNNINGSTATUS'],
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
-            f'{hypermetropair["UUID"]}_LINKSTATUS',
+            f'{label}_link_status',
             hypermetropair['LINKSTATUS'],
             warn=2,
             _min=0,
             _max=2,
         )
         perfdata += lib.base.get_perfdata(
-            f'{hypermetropair["UUID"]}_LOCALDATASTATE',
+            f'{label}_local_data_state',
             hypermetropair['LOCALDATASTATE'],
             warn=2,
             _min=0,
             _max=2,
         )
         perfdata += lib.base.get_perfdata(
-            f'{hypermetropair["UUID"]}_LOCALHOSTACCESSSTATE',
+            f'{label}_local_host_access_state',
             hypermetropair['LOCALHOSTACCESSSTATE'],
             _min=0,
             _max=3,
         )
         perfdata += lib.base.get_perfdata(
-            f'{hypermetropair["UUID"]}_REMOTEDATASTATE',
+            f'{label}_remote_data_state',
             hypermetropair['REMOTEDATASTATE'],
             warn=2,
             _min=0,
             _max=2,
         )
         perfdata += lib.base.get_perfdata(
-            f'{hypermetropair["UUID"]}_REMOTEHOSTACCESSSTATE',
+            f'{label}_remote_host_access_state',
             hypermetropair['REMOTEHOSTACCESSSTATE'],
             _min=0,
             _max=5,
         )
         perfdata += lib.base.get_perfdata(
-            f'{hypermetropair["UUID"]}_SYNCPROGRESS',
+            f'{label}_sync_progress',
             hypermetropair['SYNCPROGRESS'],
             uom='%',
             _min=0,
@@ -320,6 +353,18 @@ def main():
         )
 
         table_data.append(hypermetropair)
+
+    # An appliance may legitimately have no HyperMetro pairs configured, which is not
+    # the same as a filter that selected none of the ones it does have.
+    if not table_data:
+        lib.base.oao(
+            f'No HyperMetro pairs matched `{args.MATCH}`.'
+            if args.MATCH
+            else 'No HyperMetro pairs configured.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY) if args.MATCH else STATE_OK,
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
+        )
 
     if table_data:
         keys = [

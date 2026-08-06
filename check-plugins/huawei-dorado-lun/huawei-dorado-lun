@@ -1,0 +1,552 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.huawei_dorado
+import lib.human
+import lib.lftest
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026080601'
+
+DESCRIPTION = """Checks the health and running status of the LUNs of a Huawei OceanStor Dorado
+storage system via the REST API (/lun endpoint). Alerts when a LUN reports a non-normal state, and
+optionally when a thin LUN fills up. Only LUNs mapped to a host are checked by default."""
+
+# Space allocation type of a thin LUN. A thick LUN has its whole capacity allocated by
+# definition, so its usage is always 100% and says nothing about how full it is.
+ALLOCTYPE_THIN = 1
+
+DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
+DEFAULT_CRIT = ''
+DEFAULT_INSECURE = True
+DEFAULT_MATCH = ''
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_NO_PROXY = False
+DEFAULT_SCOPE = 0
+DEFAULT_TIMEOUT = 3
+DEFAULT_WARN = ''
+
+# Fields `--match` is applied to.
+MATCH_FIELDS = ('UUID', 'NAME', 'PARENTNAME')
+
+# An array can hold thousands of LUNs, so the walk needs a higher page cap than
+# the checks that look at hardware. The endpoint allows up to 10000 objects per
+# request; 100 keeps a single response small enough to parse quickly.
+PAGE_SIZE = 100
+MAX_PAGES = 200
+
+# RUNNINGSTATUS code a healthy LUN reports: online (27). The enumeration knows
+# offline (28) as the only other value for this object.
+OK_RUNNING_STATUS = (27,)
+
+# The appliance counts every capacity in sectors, and its sector size is 512 bytes. The
+# per-LUN `SECTORSIZE` field is the block size the LUN exposes to the host, which is a
+# different thing and must not be used here.
+SECTOR_SIZE = 512
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help='Hide table rows for LUNs that are ok and show only those in WARN/CRIT '
+        'state. Perfdata and alerting are unaffected. Worth setting on an array with '
+        'many LUNs. Default: %(default)s',
+        dest='BRIEF',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help=lib.args.help('--cache-expire') + ' Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the used capacity of a thin LUN, as a Nagios range in '
+        'percent. Off by default, because a thin LUN that is full is doing what it was '
+        'created for; what runs out is the pool behind it. Example: `--critical=95`',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--device-id',
+        help='Huawei OceanStor Dorado API device ID.',
+        dest='DEVICE_ID',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--include-unmapped',
+        help='Also check LUNs that are not mapped to any host. Those are not serving '
+        'anything, so they are left out by default. Default: %(default)s',
+        dest='INCLUDE_UNMAPPED',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Filter by LUNs. '
+        + lib.args.help('--match')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and '
+        'is matched against the LUN identifier, the LUN name and the name of its '
+        'storage pool, so prefix with `.*` to match anywhere. Default: %(default)s',
+        dest='MATCH',
+        default=DEFAULT_MATCH,
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help=lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='Huawei OceanStor Dorado API password.',
+        dest='PASSWORD',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--scope',
+        help='Huawei OceanStor Dorado API scope.',
+        dest='SCOPE',
+        default=DEFAULT_SCOPE,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-u',
+        '--url',
+        help='Huawei OceanStor Dorado API URL.',
+        dest='URL',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Huawei OceanStor Dorado API username.',
+        dest='USERNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the used capacity of a thin LUN, as a Nagios range in '
+        'percent. Off by default, because a thin LUN that is full is doing what it was '
+        'created for; what runs out is the pool behind it. Example: `--warning=85`',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def as_code(value):
+    """Return an appliance status code as an `int`, or `None` if it is unusable."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def is_true(value):
+    """Return whether the appliance reported a boolean field as true."""
+    # The API sends its booleans as the strings 'true' and 'false', but a firmware that
+    # sends a real boolean must not be read as false.
+    return str(value).strip().lower() == 'true'
+
+
+def sectors2bytes(sectors):
+    """
+    Convert a sector count from the API into bytes.
+
+    ### Parameters
+    - **sectors** (`int`, `str` or `None`): The sector count as the API reported it.
+
+    ### Returns
+    - **int** or **None**: The value in bytes, or `None` if the field was missing,
+      malformed or negative.
+
+    ### Example
+    >>> sectors2bytes('209715200')
+    107374182400
+    """
+    value = as_code(sectors)
+    if value is None or value < 0:
+        return None
+    return value * SECTOR_SIZE
+
+
+def get_usage_percent(lun):
+    """
+    Return a thin LUN's used capacity in percent, or `None` if it has none to report.
+
+    ### Parameters
+    - **lun** (`dict`): One LUN as the API returned it.
+
+    ### Returns
+    - **float** or **None**: The used capacity in percent. `None` for a thick LUN, whose
+      capacity is fully allocated by definition, and for a LUN that is still being
+      created, which the appliance answers for without the usage field.
+
+    ### Example
+    >>> get_usage_percent({'ALLOCTYPE': '1', 'THINCAPACITYUSAGE': '42'})
+    42.0
+    """
+    if as_code(lun.get('ALLOCTYPE')) != ALLOCTYPE_THIN:
+        return None
+    # The appliance computes the ratio itself and leaves the field out while a LUN is
+    # being created, which is why it is read before falling back to the raw capacities.
+    reported = as_code(lun.get('THINCAPACITYUSAGE'))
+    if reported is not None:
+        return float(reported)
+    capacity = as_code(lun.get('CAPACITY'))
+    allocated = as_code(lun.get('ALLOCCAPACITY'))
+    if not capacity or allocated is None:
+        return None
+    return round(allocated / capacity * 100, 1)
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if not args.URL.startswith('http'):
+        lib.base.cu('--url parameter has to start with "http://" or https://".')
+
+    # fetch data
+    truncated = False
+    if args.TEST is None:
+        result, truncated = lib.huawei_dorado.get_all_data(
+            'lun', args, page_size=PAGE_SIZE, max_pages=MAX_PAGES
+        )
+    else:
+        # do not call the command, put in test data
+        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
+        result = json.loads(stdout)
+
+    # no valuable result?
+    if not result:
+        lib.base.cu(f'Got no valuable response from {args.URL}.')
+    if lib.huawei_dorado.get_error_code(result) not in (0, '0'):
+        lib.base.oao(
+            f'{result.get("error", {}).get("description")}'
+            f' {result.get("error", {}).get("suggestion")}',
+            STATE_UNKNOWN,
+        )
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    compiled_regex = lib.base.coe(lib.txt.compile_regex(args.MATCH))
+
+    # analyze data
+    table_data = []
+    for lun in result.get('data') or []:
+        lun['UUID'] = lib.huawei_dorado.get_uuid(lun)
+        # Perfdata labels carry the object's own TYPE:ID, which stays the same when
+        # a LUN is renamed, unlike its name.
+        label = re.sub(r'\W+', '_', lun['UUID'])
+
+        if not args.INCLUDE_UNMAPPED and not is_true(lun.get('EXPOSEDTOINITIATOR')):
+            continue
+
+        if args.MATCH and not any(
+            lib.base.coe(lib.txt.match_regex(compiled_regex, str(lun.get(field, ''))))
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        health_state = lib.huawei_dorado.get_health_status_state(
+            lun.get('HEALTHSTATUS')
+        )
+        state = lib.base.get_worst(state, health_state)
+
+        running_state = lib.huawei_dorado.get_running_status_state(
+            lun.get('RUNNINGSTATUS'), OK_RUNNING_STATUS
+        )
+        state = lib.base.get_worst(state, running_state)
+
+        usage_percent = get_usage_percent(lun)
+        usage_state = STATE_OK
+        if usage_percent is not None and (args.WARN or args.CRIT):
+            usage_state = lib.base.get_state(
+                usage_percent, args.WARN or None, args.CRIT or None, _operator='range'
+            )
+            state = lib.base.get_worst(state, usage_state)
+
+        capacity = sectors2bytes(lun.get('CAPACITY'))
+        allocated = sectors2bytes(lun.get('ALLOCCAPACITY'))
+
+        perfdata += lib.base.get_perfdata(
+            f'{label}_health_status',
+            lun.get('HEALTHSTATUS'),
+            crit=2,
+            uom=None,
+            _min=0,
+            _max=2,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{label}_running_status',
+            lun.get('RUNNINGSTATUS'),
+            uom=None,
+            _min=0,
+        )
+        if usage_percent is not None:
+            perfdata += lib.base.get_perfdata(
+                f'{label}_usage_percent',
+                usage_percent,
+                uom='%',
+                warn=args.WARN or None,
+                crit=args.CRIT or None,
+                _min=0,
+                _max=100,
+            )
+        for perf_label, value, maximum in (
+            ('capacity', capacity, None),
+            ('allocated_capacity', allocated, capacity),
+        ):
+            if value is None:
+                continue
+            perfdata += lib.base.get_perfdata(
+                f'{label}_{perf_label}',
+                value,
+                uom='B',
+                _min=0,
+                _max=maximum,
+            )
+
+        lun_state = lib.base.get_worst(
+            lib.base.get_worst(health_state, running_state), usage_state
+        )
+        lun['allocated'] = (
+            lib.human.bytes2human(allocated)
+            if allocated is not None
+            else 'not reported'
+        )
+        lun['capacity'] = (
+            lib.human.bytes2human(capacity) if capacity is not None else 'not reported'
+        )
+        lun['health_state'] = lib.base.state2str(health_state, empty_ok=False)
+        lun['lun_state'] = lun_state
+        lun['mapped'] = 'yes' if is_true(lun.get('EXPOSEDTOINITIATOR')) else 'no'
+        lun['running_state'] = lib.base.state2str(running_state, empty_ok=False)
+        lun['thin'] = (
+            'thin' if as_code(lun.get('ALLOCTYPE')) == ALLOCTYPE_THIN else 'thick'
+        )
+        lun['usage'] = (
+            f'{usage_percent:.0f}%' if usage_percent is not None else 'n/a'
+        )
+
+        table_data.append(lun)
+
+    if not table_data:
+        # Either the filter selected nothing, or the array has no mapped LUN at all. The
+        # second is unusual but legitimate, for example on an array being set up.
+        lib.base.oao(
+            f'No LUNs matched `{args.MATCH}`.'
+            if args.MATCH
+            else 'No mapped LUNs found.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY) if args.MATCH else STATE_OK,
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
+        )
+
+    # build the message
+    count = len(table_data)
+    if state == STATE_CRIT:
+        msg += 'There are critical errors.'
+    elif state == STATE_WARN:
+        msg += 'There are warnings.'
+    else:
+        msg += 'Everything is ok.'
+    msg += f' Checked {count} {lib.txt.pluralize("LUN", count)}.\n\n'
+
+    # build table output
+    display_rows = table_data
+    if args.BRIEF:
+        display_rows = [row for row in table_data if row['lun_state'] != STATE_OK]
+    if display_rows:
+        if args.LENGTHY:
+            keys = [
+                'UUID',
+                'NAME',
+                'PARENTNAME',
+                'thin',
+                'mapped',
+                'allocated',
+                'capacity',
+                'usage',
+                'WWN',
+                'OWNINGCONTROLLER',
+                'health_state',
+                'running_state',
+            ]
+            headers = [
+                'UUID',
+                'Name',
+                'Pool',
+                'Type',
+                'Mapped',
+                'Allocated',
+                'Capacity',
+                'Usage',
+                'WWN',
+                'Controller',
+                'Health',
+                'Running',
+            ]
+        else:
+            keys = [
+                'UUID',
+                'NAME',
+                'PARENTNAME',
+                'allocated',
+                'capacity',
+                'usage',
+                'health_state',
+                'running_state',
+            ]
+            headers = [
+                'UUID',
+                'Name',
+                'Pool',
+                'Allocated',
+                'Capacity',
+                'Usage',
+                'Health',
+                'Running',
+            ]
+        msg += lib.base.get_table(display_rows, keys, header=headers)
+
+    if truncated:
+        # The walk hit its page cap, so LUNs beyond it were never looked at.
+        msg = (
+            'The appliance reports more LUNs than this check reads in one run;'
+            ' the list below is incomplete.\n\n' + msg
+        )
+        state = lib.base.get_worst(state, STATE_WARN)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

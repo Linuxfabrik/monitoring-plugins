@@ -12,6 +12,7 @@
 
 import argparse
 import json
+import re
 import sys
 
 import lib.args
@@ -19,6 +20,7 @@ import lib.base
 import lib.huawei_dorado
 import lib.human
 import lib.lftest
+import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -29,10 +31,22 @@ via the REST API (/disk endpoint). Alerts when any disk reports a non-normal hea
 state."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
+DEFAULT_CRIT = '30:'
+DEFAULT_CRIT_TEMPERATURE = ''
 DEFAULT_INSECURE = True
+DEFAULT_MATCH = ''
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = 0
 DEFAULT_TIMEOUT = 3
+DEFAULT_WARN = '180:'
+DEFAULT_WARN_TEMPERATURE = ''
+
+# Fields `--match` is applied to.
+MATCH_FIELDS = ('UUID', 'LOCATION')
+
+# RUNNINGSTATUS codes a healthy disk reports: normal (1) and online (27).
+OK_RUNNING_STATUS = (1, 27)
 
 
 def parse_args():
@@ -67,6 +81,24 @@ def parse_args():
     )
 
     parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the remaining life of a disk, as a Nagios range in days. '
+        'Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--critical-temperature',
+        help=lib.args.help('--critical-temperature')
+        + ' Off by default, because a healthy operating temperature depends on the drive '
+        'model and on where the array stands. Example: `--critical-temperature=50`',
+        dest='CRIT_TEMPERATURE',
+        default=DEFAULT_CRIT_TEMPERATURE,
+    )
+
+    parser.add_argument(
         '--device-id',
         help='Huawei OceanStor Dorado API device ID.',
         dest='DEVICE_ID',
@@ -87,6 +119,25 @@ def parse_args():
         dest='INSECURE',
         action='store_false',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Filter by disks. '
+        + lib.args.help('--match')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere. '
+        'Default: %(default)s',
+        dest='MATCH',
+        default=DEFAULT_MATCH,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -149,8 +200,40 @@ def parse_args():
         required=True,
     )
 
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the remaining life of a disk, as a Nagios range in days. '
+        'Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-temperature',
+        help=lib.args.help('--warning-temperature')
+        + ' Off by default, because a healthy operating temperature depends on the drive '
+        'model and on where the array stands. Example: `--warning-temperature=45`',
+        dest='WARN_TEMPERATURE',
+        default=DEFAULT_WARN_TEMPERATURE,
+    )
+
     args, _ = parser.parse_known_args()
     return args
+
+
+def get_remaining_life_days(disk):
+    """Return a disk's remaining life in days, or `None` if it does not report one."""
+    # The appliance reports the remaining life only for media that wear out. A spinning
+    # disk has nothing to report and answers with zero, which must not be read as "this
+    # disk is at its end" - that would alert on every HDD forever.
+    try:
+        days = int(disk.get('REMAINLIFE'))
+    except (TypeError, ValueError):
+        return None
+    if days <= 0:
+        return None
+    return days
 
 
 def main():
@@ -183,90 +266,129 @@ def main():
             STATE_UNKNOWN,
         )
 
+    # An appliance always has disks, so an empty list is a query that
+    # never reached them rather than an inventory that is genuinely empty.
+    # Reporting OK here would hide the fault behind a green check.
+    if not result.get('data'):
+        lib.base.oao(
+            f'{args.URL} reported no disks.'
+            ' Verify that the API user is allowed to query them.',
+            STATE_UNKNOWN,
+        )
+
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
+    compiled_regex = lib.base.coe(lib.txt.compile_regex(args.MATCH))
 
     # analyze data
     table_data = []
     for disk in result.get('data'):
-        health_state = STATE_OK
-        if (
-            lib.huawei_dorado.get_health_status(disk.get('HEALTHSTATUS'))
-            != 'Normal (1)'
-        ):
-            health_state = STATE_WARN
-            state = lib.base.get_worst(state, health_state)
-
         disk['UUID'] = lib.huawei_dorado.get_uuid(disk)
+        # Perfdata labels carry the object's own TYPE:ID, which stays the same
+        # when hardware is moved between slots, unlike its location.
+        label = re.sub(r'\W+', '_', disk['UUID'])
 
-        running_state = STATE_OK
-        if (
-            lib.huawei_dorado.get_running_status(disk.get('RUNNINGSTATUS'))
-            != 'Normal (1)'
-            and lib.huawei_dorado.get_running_status(disk.get('RUNNINGSTATUS'))
-            != 'Online (27)'
+        if args.MATCH and not any(
+            lib.base.coe(
+                lib.txt.match_regex(compiled_regex, str(disk.get(field, '')))
+            )
+            for field in MATCH_FIELDS
         ):
-            running_state = STATE_WARN
-            state = lib.base.get_worst(state, running_state)
+            continue
 
-        disk['REMAINLIFE'] = int(disk['REMAINLIFE']) * 24 * 60 * 60
+        health_state = lib.huawei_dorado.get_health_status_state(
+            disk.get('HEALTHSTATUS')
+        )
+        state = lib.base.get_worst(state, health_state)
+
+        running_state = lib.huawei_dorado.get_running_status_state(
+            disk.get('RUNNINGSTATUS'), OK_RUNNING_STATUS
+        )
+        state = lib.base.get_worst(state, running_state)
+
+        remaining_life_days = get_remaining_life_days(disk)
+        life_state = STATE_OK
+        if remaining_life_days is not None:
+            life_state = lib.base.get_state(
+                remaining_life_days, args.WARN, args.CRIT, _operator='range'
+            )
+            state = lib.base.get_worst(state, life_state)
+
+        # Temperature thresholds are off unless the operator sets them: what counts as hot
+        # depends on the drive model and on where the array stands, so there is no default
+        # that would be right on every appliance.
+        temperature = int(disk['TEMPERATURE'])
+        temperature_state = STATE_OK
+        if args.WARN_TEMPERATURE or args.CRIT_TEMPERATURE:
+            temperature_state = lib.base.get_state(
+                temperature,
+                args.WARN_TEMPERATURE or None,
+                args.CRIT_TEMPERATURE or None,
+                _operator='range',
+            )
+            state = lib.base.get_worst(state, temperature_state)
+
         disk['RUNTIME'] = int(disk['RUNTIME']) * 24 * 60 * 60
 
         perfdata += lib.base.get_perfdata(
-            f'{disk["UUID"]}_HEALTHSTATUS',
+            f'{label}_health_status',
             disk['HEALTHSTATUS'],
             crit=2,
             _min=0,
             _max=2,
         )
         perfdata += lib.base.get_perfdata(
-            f'{disk["UUID"]}_RUNNINGSTATUS',
+            f'{label}_running_status',
             disk['RUNNINGSTATUS'],
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
-            f'{disk["UUID"]}_ABRASIONRATE',
+            f'{label}_abrasion_rate',
             disk['ABRASIONRATE'],
             uom='%',
             _min=0,
             _max=100,
         )
         perfdata += lib.base.get_perfdata(
-            f'{disk["UUID"]}_CAPACITYUSAGE',
+            f'{label}_capacity_usage',
             disk['CAPACITYUSAGE'],
             uom='%',
             _min=0,
             _max=100,
         )
         perfdata += lib.base.get_perfdata(
-            f'{disk["UUID"]}_HEALTHMARK',
+            f'{label}_health_mark',
             disk['HEALTHMARK'],
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
-            f'{disk["UUID"]}_PROGRESS',
+            f'{label}_progress',
             disk['PROGRESS'],
             uom='%',
             _min=0,
             _max=100,
         )
+        if remaining_life_days is not None:
+            perfdata += lib.base.get_perfdata(
+                f'{label}_remaining_life',
+                remaining_life_days * 24 * 60 * 60,
+                uom='s',
+                # No thresholds in the performance data: they are ranges in days and the
+                # value is in seconds. huawei-pacific-disk reports it the same way.
+                _min=0,
+            )
+        # No performance data for RUNTIME. It only ever counts up, and a cumulative
+        # counter aggregates wrong in every Grafana panel that touches it
+        # ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320)).
+        # The value stays in the table, where it reads as the age of the disk.
         perfdata += lib.base.get_perfdata(
-            f'{disk["UUID"]}_REMAINLIFE',
-            disk['REMAINLIFE'],
-            uom='s',
-            _min=0,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{disk["UUID"]}_RUNTIME',
-            disk['RUNTIME'],
-            uom='s',
-            _min=0,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{disk["UUID"]}_TEMPERATURE',
-            disk['TEMPERATURE'],
+            f'{label}_temperature',
+            temperature,
+            uom=None,
+            warn=args.WARN_TEMPERATURE or None,
+            crit=args.CRIT_TEMPERATURE or None,
             _min=0,
         )
 
@@ -275,6 +397,15 @@ def main():
         disk['RUNTIME'] = lib.human.seconds2human(disk['RUNTIME'])
 
         table_data.append(disk)
+
+    # The appliance listed disks and the filter selected none of them.
+    if not table_data:
+        lib.base.oao(
+            f'No disks matched `{args.MATCH}`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
+        )
 
     if table_data:
         keys = [

@@ -12,12 +12,14 @@
 
 import argparse
 import json
+import re
 import sys
 
 import lib.args
 import lib.base
 import lib.huawei_dorado
 import lib.lftest
+import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -28,10 +30,21 @@ storage system via the REST API (/power endpoint). Alerts when any module report
 non-normal state."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
+DEFAULT_CRIT_TEMPERATURE = ''
 DEFAULT_INSECURE = True
+DEFAULT_MATCH = ''
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = 0
 DEFAULT_TIMEOUT = 3
+DEFAULT_WARN_TEMPERATURE = ''
+
+# Fields `--match` is applied to.
+MATCH_FIELDS = ('UUID', 'LOCATION')
+
+# RUNNINGSTATUS codes a healthy power module reports: normal (1), running (2) and
+# online (27).
+OK_RUNNING_STATUS = (1, 2, 27)
 
 
 def parse_args():
@@ -66,6 +79,16 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--critical-temperature',
+        help=lib.args.help('--critical-temperature')
+        + ' Off by default, because a healthy operating temperature depends on the '
+        'power module model and on where the array stands. '
+        'Example: `--critical-temperature=55`',
+        dest='CRIT_TEMPERATURE',
+        default=DEFAULT_CRIT_TEMPERATURE,
+    )
+
+    parser.add_argument(
         '--device-id',
         help='Huawei OceanStor Dorado API device ID.',
         dest='DEVICE_ID',
@@ -86,6 +109,25 @@ def parse_args():
         dest='INSECURE',
         action='store_false',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Filter by power modules. '
+        + lib.args.help('--match')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere. '
+        'Default: %(default)s',
+        dest='MATCH',
+        default=DEFAULT_MATCH,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -148,6 +190,16 @@ def parse_args():
         required=True,
     )
 
+    parser.add_argument(
+        '--warning-temperature',
+        help=lib.args.help('--warning-temperature')
+        + ' Off by default, because a healthy operating temperature depends on the '
+        'power module model and on where the array stands. '
+        'Example: `--warning-temperature=45`',
+        dest='WARN_TEMPERATURE',
+        default=DEFAULT_WARN_TEMPERATURE,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -182,61 +234,91 @@ def main():
             STATE_UNKNOWN,
         )
 
+    # An appliance always has power modules, so an empty list is a query that
+    # never reached them rather than an inventory that is genuinely empty.
+    # Reporting OK here would hide the fault behind a green check.
+    if not result.get('data'):
+        lib.base.oao(
+            f'{args.URL} reported no power modules.'
+            ' Verify that the API user is allowed to query them.',
+            STATE_UNKNOWN,
+        )
+
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
+    compiled_regex = lib.base.coe(lib.txt.compile_regex(args.MATCH))
 
     # analyze data
     table_data = []
     for power in result.get('data'):
-        health_state = STATE_OK
-        if (
-            lib.huawei_dorado.get_health_status(power.get('HEALTHSTATUS'))
-            != 'Normal (1)'
-        ):
-            health_state = STATE_WARN
-            state = lib.base.get_worst(state, health_state)
-
         power['UUID'] = lib.huawei_dorado.get_uuid(power)
+        # Perfdata labels carry the object's own TYPE:ID, which stays the same
+        # when hardware is moved between slots, unlike its location.
+        label = re.sub(r'\W+', '_', power['UUID'])
 
-        running_state = STATE_OK
-        if (
-            lib.huawei_dorado.get_running_status(power.get('RUNNINGSTATUS'))
-            != 'Normal (1)'
-            and lib.huawei_dorado.get_running_status(power.get('RUNNINGSTATUS'))
-            != 'Running (2)'
-            and lib.huawei_dorado.get_running_status(power.get('RUNNINGSTATUS'))
-            != 'Online (27)'
+        if args.MATCH and not any(
+            lib.base.coe(
+                lib.txt.match_regex(compiled_regex, str(power.get(field, '')))
+            )
+            for field in MATCH_FIELDS
         ):
-            running_state = STATE_WARN
-            state = lib.base.get_worst(state, running_state)
+            continue
+
+        health_state = lib.huawei_dorado.get_health_status_state(
+            power.get('HEALTHSTATUS')
+        )
+        state = lib.base.get_worst(state, health_state)
+
+        # The temperature thresholds are off unless the operator sets them: what counts as
+        # hot depends on the model and on where the array stands. A part that reports no
+        # temperature answers with 0, which must not be compared as if it were a reading.
+        temperature = int(power['TEMPERATURE'])
+        if (args.WARN_TEMPERATURE or args.CRIT_TEMPERATURE) and temperature > 0:
+            state = lib.base.get_worst(
+                state,
+                lib.base.get_state(
+                    temperature,
+                    args.WARN_TEMPERATURE or None,
+                    args.CRIT_TEMPERATURE or None,
+                    _operator='range',
+                ),
+            )
+
+        running_state = lib.huawei_dorado.get_running_status_state(
+            power.get('RUNNINGSTATUS'), OK_RUNNING_STATUS
+        )
+        state = lib.base.get_worst(state, running_state)
 
         perfdata += lib.base.get_perfdata(
-            f'{power["UUID"]}_HEALTHSTATUS',
+            f'{label}_health_status',
             power['HEALTHSTATUS'],
             crit=2,
             _min=0,
             _max=2,
         )
         perfdata += lib.base.get_perfdata(
-            f'{power["UUID"]}_RUNNINGSTATUS',
+            f'{label}_running_status',
             power['RUNNINGSTATUS'],
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
-            f'{power["UUID"]}_INPUTVOLTAGE',
+            f'{label}_input_voltage',
             power['INPUTVOLTAGE'],
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
-            f'{power["UUID"]}_OUTPUTVOLTAGE',
+            f'{label}_output_voltage',
             power['OUTPUTVOLTAGE'],
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
-            f'{power["UUID"]}_TEMPERATURE',
-            power['TEMPERATURE'],
+            f'{label}_temperature',
+            temperature,
+            uom=None,
+            warn=args.WARN_TEMPERATURE or None,
+            crit=args.CRIT_TEMPERATURE or None,
             _min=0,
         )
 
@@ -244,6 +326,15 @@ def main():
         power['running_state'] = lib.base.state2str(running_state, empty_ok=False)
 
         table_data.append(power)
+
+    # The appliance listed power modules and the filter selected none of them.
+    if not table_data:
+        lib.base.oao(
+            f'No power modules matched `{args.MATCH}`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
+        )
 
     if table_data:
         keys = [

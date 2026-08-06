@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 TESTS = [
     {
@@ -38,6 +38,15 @@ TESTS = [
             '! 0815                 ! Controller Enclosure                 '
             '! f4:b7:8d:f4:fe:ff ! Off    ! 22   ! [OK]   ! [OK]',
         ],
+    },
+    {
+        # An appliance always has enclosures. An empty list means the query
+        # never reached them, which must not read as a healthy inventory.
+        'id': 'unknown-no-enclosures',
+        'test': 'stdout/no-enclosures,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['reported no enclosures.'],
     },
 ]
 

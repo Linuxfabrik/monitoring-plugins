@@ -19,7 +19,7 @@ import lib.base
 import lib.huawei_dorado
 import lib.human
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026080601'
@@ -36,6 +36,51 @@ DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = 0
 DEFAULT_TIMEOUT = 3
 DEFAULT_WARN = 90
+
+# Every capacity in this response is counted in sectors, and the appliance's sector size
+# is 512 bytes. Performance data is reported in bytes, so a dashboard does not have to know
+# the sector size to label an axis.
+SECTOR_SIZE = 512
+
+# RUNNINGSTATUS code a healthy system reports: normal (1). The array as a whole has no
+# running or online state of its own the way a hardware module does.
+OK_RUNNING_STATUS = (1,)
+
+
+def sectors2bytes(sectors):
+    """
+    Convert a sector count from the API into bytes.
+
+    Every capacity the appliance reports is counted in sectors. Performance data is reported
+    in bytes so a dashboard can label its axis without knowing the sector size.
+
+    ### Parameters
+    - **sectors** (`int`, `str` or `None`): The sector count as the API reported it.
+
+    ### Returns
+    - **int** or **None**: The value in bytes, or `None` if the field was missing, malformed
+      or negative. `None` keeps the field out of the performance data instead of aborting the
+      check over one value the appliance did not fill in.
+
+    ### Notes
+    - A capacity the appliance does not track is reported as `-1`, which its own documentation
+      shows in the response example while declaring the field unsigned. A negative capacity is
+      not a measurement, so it is dropped rather than graphed as a negative number of bytes.
+
+    ### Example
+    >>> sectors2bytes('2048')
+    1048576
+
+    >>> sectors2bytes('-1') is None
+    True
+    """
+    try:
+        value = int(sectors)
+    except (TypeError, ValueError):
+        return None
+    if value < 0:
+        return None
+    return value * SECTOR_SIZE
 
 
 def parse_args():
@@ -212,15 +257,13 @@ def main():
     data = result.get('data')
 
     # analyze data
-    health_state = STATE_OK
-    if lib.huawei_dorado.get_health_status(data.get('HEALTHSTATUS')) != 'Normal (1)':
-        health_state = STATE_CRIT
-        state = lib.base.get_worst(state, health_state)
+    health_state = lib.huawei_dorado.get_health_status_state(data.get('HEALTHSTATUS'))
+    state = lib.base.get_worst(state, health_state)
 
-    running_state = STATE_OK
-    if lib.huawei_dorado.get_running_status(data.get('RUNNINGSTATUS')) != 'Normal (1)':
-        running_state = STATE_WARN
-        state = lib.base.get_worst(state, running_state)
+    running_state = lib.huawei_dorado.get_running_status_state(
+        data.get('RUNNINGSTATUS'), OK_RUNNING_STATUS
+    )
+    state = lib.base.get_worst(state, running_state)
 
     sp_used = round(
         float(data.get('STORAGEPOOLUSEDCAPACITY'))
@@ -268,25 +311,25 @@ def main():
         f' Health Status: {health_status}{health_str},'
         f' Running Status: {running_status}{running_str}\n'
     )
-    used_cap = lib.human.number2human(data.get('USEDCAPACITY'))
-    total_cap = lib.human.number2human(data.get('TOTALCAPACITY'))
+    used_cap = lib.human.bytes2human(sectors2bytes(data.get('USEDCAPACITY')))
+    total_cap = lib.human.bytes2human(sectors2bytes(data.get('TOTALCAPACITY')))
     capa_str = lib.base.state2str(capa_state, prefix=' ')
-    sp_used_cap = lib.human.number2human(
-        data.get('STORAGEPOOLUSEDCAPACITY'),
+    sp_used_cap = lib.human.bytes2human(
+        sectors2bytes(data.get('STORAGEPOOLUSEDCAPACITY')),
     )
-    sp_total_cap = lib.human.number2human(
-        data.get('STORAGEPOOLCAPACITY'),
+    sp_total_cap = lib.human.bytes2human(
+        sectors2bytes(data.get('STORAGEPOOLCAPACITY')),
     )
     sp_str = lib.base.state2str(sp_state, prefix=' ')
     msg += (
-        f'Sectors: Total {capa_used}% used'
+        f'Capacity: Total {capa_used}% used'
         f' ({used_cap}/{total_cap}){capa_str},'
         f' Storage Pool {sp_used}% used'
         f' ({sp_used_cap}/{sp_total_cap}){sp_str}\n'
     )
 
     perfdata += lib.base.get_perfdata(
-        'sectors-capacity-percent',
+        'usage_percent',
         capa_used,
         uom='%',
         warn=args.WARN,
@@ -295,7 +338,7 @@ def main():
         _max=100,
     )
     perfdata += lib.base.get_perfdata(
-        'sectors-storagepool-percent',
+        'storage_pool_usage_percent',
         sp_used,
         uom='%',
         warn=args.WARN,
@@ -305,101 +348,64 @@ def main():
     )
 
     perfdata += lib.base.get_perfdata(
-        'HEALTHSTATUS',
+        'health_status',
         data.get('HEALTHSTATUS'),
         crit=2,
+        uom=None,
         _min=0,
         _max=2,
     )
     perfdata += lib.base.get_perfdata(
-        'RUNNINGSTATUS',
+        'running_status',
         data.get('RUNNINGSTATUS'),
+        uom=None,
         _min=0,
     )
-    perfdata += lib.base.get_perfdata(
-        'FREEDISKSCAPACITY',
-        data.get('FREEDISKSCAPACITY'),
-        _min=0,
-        _max=data.get('TOTALCAPACITY'),
-    )
-    perfdata += lib.base.get_perfdata(
-        'HOTSPAREDISKSCAPACITY',
-        data.get('HOTSPAREDISKSCAPACITY'),
-        _min=0,
-        _max=data.get('TOTALCAPACITY'),
-    )
-    perfdata += lib.base.get_perfdata(
-        'UNAVAILABLEDISKSCAPACITY',
-        data.get('UNAVAILABLEDISKSCAPACITY'),
-        _min=0,
-        _max=data.get('TOTALCAPACITY'),
-    )
-    perfdata += lib.base.get_perfdata(
-        'USEDCAPACITY',
-        data.get('USEDCAPACITY'),
-        _min=0,
-        _max=data.get('TOTALCAPACITY'),
-    )
-    perfdata += lib.base.get_perfdata(
-        'STORAGEPOOLFREECAPACITY',
-        data.get('STORAGEPOOLFREECAPACITY'),
-        _min=0,
-        _max=data.get('STORAGEPOOLCAPACITY'),
-    )
-    perfdata += lib.base.get_perfdata(
-        'STORAGEPOOLHOSTSPARECAPACITY',
-        data.get('STORAGEPOOLHOSTSPARECAPACITY'),
-        _min=0,
-        _max=data.get('STORAGEPOOLCAPACITY'),
-    )
-    perfdata += lib.base.get_perfdata(
-        'STORAGEPOOLRAWCAPACITY',
-        data.get('STORAGEPOOLRAWCAPACITY'),
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'STORAGEPOOLUSEDCAPACITY',
-        data.get('STORAGEPOOLUSEDCAPACITY'),
-        _min=0,
-        _max=data.get('STORAGEPOOLCAPACITY'),
-    )
-    perfdata += lib.base.get_perfdata(
-        'THICKLUNSALLOCATECAPACITY',
-        data.get('THICKLUNSALLOCATECAPACITY'),
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'THICKLUNSUSEDCAPACITY',
-        data.get('THICKLUNSUSEDCAPACITY'),
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'THINLUNSALLOCATECAPACITY',
-        data.get('THINLUNSALLOCATECAPACITY'),
-        _min=0,
-        _max=data.get('THINLUNSMAXCAPACITY'),
-    )
-    perfdata += lib.base.get_perfdata(
-        'THINLUNSUSEDCAPACITY',
-        data.get('THINLUNSUSEDCAPACITY'),
-        _min=0,
-        _max=data.get('THINLUNSMAXCAPACITY'),
-    )
-    perfdata += lib.base.get_perfdata(
-        'mappedLunsCountCapacity',
-        data.get('mappedLunsCountCapacity'),
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'unMappedLunsCountCapacity',
-        data.get('unMappedLunsCountCapacity'),
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'userFreeCapacity',
-        data.get('userFreeCapacity'),
-        _min=0,
-    )
+
+    # Every capacity below is a sector count in the response and goes out in bytes. The
+    # totals double as the maximum of the values they bound, so a dashboard can draw a
+    # usage bar without a second query.
+    total_capacity = sectors2bytes(data.get('TOTALCAPACITY'))
+    storage_pool_capacity = sectors2bytes(data.get('STORAGEPOOLCAPACITY'))
+    thin_luns_max_capacity = sectors2bytes(data.get('THINLUNSMAXCAPACITY'))
+
+    for label, field, maximum in (
+        ('total_capacity', 'TOTALCAPACITY', None),
+        ('used_capacity', 'USEDCAPACITY', total_capacity),
+        ('free_disks_capacity', 'FREEDISKSCAPACITY', total_capacity),
+        ('hot_spare_disks_capacity', 'HOTSPAREDISKSCAPACITY', total_capacity),
+        ('unavailable_disks_capacity', 'UNAVAILABLEDISKSCAPACITY', total_capacity),
+        # No maximum: this counts thin-provisioned space, which routinely exceeds the
+        # physical total the array actually has.
+        ('user_free_capacity', 'userFreeCapacity', None),
+        ('storage_pool_total_capacity', 'STORAGEPOOLCAPACITY', None),
+        ('storage_pool_used_capacity', 'STORAGEPOOLUSEDCAPACITY', storage_pool_capacity),
+        ('storage_pool_free_capacity', 'STORAGEPOOLFREECAPACITY', storage_pool_capacity),
+        (
+            'storage_pool_hot_spare_capacity',
+            'STORAGEPOOLHOSTSPARECAPACITY',
+            storage_pool_capacity,
+        ),
+        ('storage_pool_raw_capacity', 'STORAGEPOOLRAWCAPACITY', None),
+        ('thick_luns_allocated_capacity', 'THICKLUNSALLOCATECAPACITY', None),
+        ('thick_luns_used_capacity', 'THICKLUNSUSEDCAPACITY', None),
+        ('thin_luns_allocated_capacity', 'THINLUNSALLOCATECAPACITY', thin_luns_max_capacity),
+        ('thin_luns_used_capacity', 'THINLUNSUSEDCAPACITY', thin_luns_max_capacity),
+        ('mapped_luns_capacity', 'mappedLunsCountCapacity', None),
+        ('unmapped_luns_capacity', 'unMappedLunsCountCapacity', None),
+    ):
+        value = sectors2bytes(data.get(field))
+        if value is None:
+            # A firmware that does not report this capacity leaves the field out
+            # entirely. Emitting an empty value would break the perfdata line.
+            continue
+        perfdata += lib.base.get_perfdata(
+            label,
+            value,
+            uom='B',
+            _min=0,
+            _max=maximum,
+        )
 
     # over and out
     lib.base.oao(

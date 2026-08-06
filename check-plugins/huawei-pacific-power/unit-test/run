@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 TESTS = [
     {
@@ -26,11 +26,22 @@ TESTS = [
         'assert-in': ['Everything is ok.', 'PSU0', 'normal'],
     },
     {
-        'id': 'warn-power-supply-faulty',
+        # A faulty power supply has stopped doing its job, so it has to reach
+        # CRITICAL.
+        'id': 'crit-power-supply-faulty',
         'test': 'stdout/power-supplies-one-faulty,,0',
         'params': '--password=linuxfabrik --url=https://localhost --username=admin',
-        'assert-retc': STATE_WARN,
-        'assert-regex': r'fault.*\[WARNING\]',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'fault.*\[CRITICAL\]',
+    },
+    {
+        # An appliance always has power supplies. An empty list means the query
+        # never reached them, which must not read as a healthy inventory.
+        'id': 'unknown-no-power-supplies',
+        'test': 'stdout/no-power-supplies,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['reported no power supplies.'],
     },
 ]
 

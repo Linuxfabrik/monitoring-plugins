@@ -29,7 +29,7 @@ Reports the product model, system version and cluster name of a Huawei OceanStor
 | Can be called without parameters      | No (`--password`, `--url` and `--username` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
-| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-pacific.db` |
 
 
 ## Help

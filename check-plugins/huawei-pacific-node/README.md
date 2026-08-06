@@ -27,7 +27,7 @@ Checks the health and running status of all cluster nodes on a Huawei OceanStor 
 | Can be called without parameters      | No (`--password`, `--url` and `--username` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
-| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-pacific.db` |
 
 
 ## Help
@@ -94,8 +94,10 @@ HN00  ! 192.0.2.12    ! OceanStor Pacific ! Pacific (STL6SPCM) ! 8.2.0          
 ## States
 
 * OK if all nodes report a running status of "online" and an OAM agent status of "healthy".
-* WARN if any node's running status is not "online".
+* WARN if any node reports a running status this check does not know.
+* CRIT if any node's running status is "offline".
 * WARN if any node's OAM agent status is not "healthy".
+* UNKNOWN if the appliance lists no cluster nodes at all, which points at the query rather than at the hardware.
 * UNKNOWN on invalid API responses or responses with error codes.
 * `--always-ok` suppresses all alerts and always returns OK.
 

@@ -16,6 +16,7 @@ Monitoring Plugins:
 
 * Cumulative counters are reported as per-second rates (or plain values) instead of ever-growing totals, which fixes Grafana graphs and aggregations. Some performance-data metric names change, so re-import the affected Grafana dashboards after updating (cpu-usage, disk-io, fs-xfs-stats, jitsi-videobridge-stats, network-io, nginx-status, nodebb-cache, nodebb-errors, procs, redis-status, starface-database-stats, valkey-status, wildfly-gc-status) ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 * disk-io: is WARN-only (never CRITICAL) and no longer measures I/O wait, which is unreliable on multi-core hosts. `--critical`, `--iowait-warning` and `--iowait-critical` are deprecated and ignored, and the Grafana dashboard has to be re-imported
+* huawei-dorado-\*: performance data metric names are lower case with underscores, and huawei-dorado-system reports its capacities in bytes instead of raw 512-byte sectors. Re-import the affected Grafana dashboards after updating
 * redfish-\*: the Redfish API URL is a mandatory `--url`, replacing the misleading localhost default. Add `--url` to every Redfish command ([#1306](https://github.com/Linuxfabrik/monitoring-plugins/issues/1306))
 
 ### Added
@@ -29,6 +30,11 @@ Monitoring Plugins:
 * `--no-perfdata` drops the performance data from the output while keeping the status message and exit code, on all plugins that report performance data ([#1331](https://github.com/Linuxfabrik/monitoring-plugins/issues/1331))
 * `--unreachable-severity` can alert instead of silently reporting OK when endoflife.date is unreachable and the bundled offline data is used, on all `*-version` checks, with the default staying OK ([#750](https://github.com/Linuxfabrik/monitoring-plugins/issues/750))
 * apache-tomcat-version: check for an end-of-life or outdated Apache Tomcat, with an Icinga Director service set ([#126](https://github.com/Linuxfabrik/monitoring-plugins/issues/126))
+* `--match` and `--no-match-severity` limit the check to the objects whose identifier, location or name matches a regex, on all ten Huawei OceanStor Dorado hardware and replication checks (huawei-dorado-backup-power, huawei-dorado-controller, huawei-dorado-disk, huawei-dorado-enclosure, huawei-dorado-fan, huawei-dorado-host, huawei-dorado-hypermetrodomain, huawei-dorado-hypermetropair, huawei-dorado-interface, huawei-dorado-power)
+* huawei-dorado-backup-power: `--warning`/`--critical` alert on a backup power module running out of remaining life
+* huawei-dorado-controller: `--warning`/`--critical` alert on CPU and memory usage, and `--warning-temperature`/`--critical-temperature` on the controller temperature, all off by default
+* huawei-dorado-disk: `--warning`/`--critical` alert on a disk running out of remaining life, and `--warning-temperature`/`--critical-temperature` on a disk running hot
+* huawei-dorado-enclosure, huawei-dorado-power: `--warning-temperature`/`--critical-temperature` alert on an enclosure or power supply running hot, off by default
 * disk-io: reports per-disk I/O latency (await) and can alert on it with `--await-warning`/`--await-critical`, both off by default
 * disk-smart: filter drives by regular expression with `--match`/`--ignore` ([#1388](https://github.com/Linuxfabrik/monitoring-plugins/issues/1388))
 * disk-usage: per-mountpoint warning and critical thresholds via `--mount` ([#1286](https://github.com/Linuxfabrik/monitoring-plugins/issues/1286))
@@ -38,6 +44,10 @@ Monitoring Plugins:
 * docker-service: check alerting when a Docker Swarm service runs fewer tasks than expected
 * docker-swarm: check alerting on swarm membership, a down node, or lost manager quorum
 * fs-inodes: filter mount points with `--match`/`--ignore` and show a detailed table with `--lengthy` ([#1387](https://github.com/Linuxfabrik/monitoring-plugins/issues/1387))
+* huawei-dorado-alarm: check listing the current alarms of a Huawei OceanStor Dorado storage system, which surfaces the conditions the per-component checks cannot see
+* huawei-dorado-lun: check alerting on a faulty LUN of a Huawei OceanStor Dorado storage system, and optionally on a thin LUN filling up
+* huawei-dorado-port: check alerting on a faulty front-end port of a Huawei OceanStor Dorado storage system, with `--link-down-severity` deciding what a lost link reports
+* huawei-dorado-storagepool: check alerting on a faulty storage pool of a Huawei OceanStor Dorado storage system, and on a pool filling up
 * huawei-pacific-disk: check alerting on a faulty disk of a Huawei OceanStor Pacific storage system, and on a disk whose remaining life is running out
 * huawei-pacific-quota: check alerting when a share on a Huawei OceanStor Pacific storage system fills up its quota
 * huawei-pacific-system: check reporting the product model, system version and cluster name of a Huawei OceanStor Pacific storage system, and alerting on its cluster capacity usage
@@ -54,6 +64,7 @@ Monitoring Plugins:
 
 Icinga Director:
 
+* huawei-dorado-alarm, huawei-dorado-lun, huawei-dorado-port and huawei-dorado-storagepool join the Huawei OceanStor Dorado service set
 * Huawei OceanStor Pacific service set, activating all seven Pacific checks on a host tagged `huawei-pacific`, the same way the Dorado set already works
 
 Grafana:
@@ -73,6 +84,9 @@ Monitoring Plugins:
 * disk-usage: mountpoints are filtered with `--match`/`--ignore`, and the old `--include-*`/`--exclude-*` options keep working
 * disk-usage: runs every minute instead of every 5 minutes, so a filling disk is noticed earlier
 * docker-stats, podman-stats: select or exclude containers by name with `--match`/`--ignore`, plus `--no-match-severity`
+* huawei-dorado-\*, huawei-pacific-\*: a failed disk, power supply, fan, backup power module, interface module or cluster node is CRITICAL instead of WARNING, so a hardware failure is no longer indistinguishable from a component that is merely degraded
+* huawei-dorado-\*, huawei-pacific-fan, huawei-pacific-node, huawei-pacific-power: a response that lists no hardware at all reports UNKNOWN instead of "Everything is ok", because an appliance always has some
+* huawei-dorado-disk: no longer graphs the operating time, a counter that only ever grows; the value stays in the output
 * huawei-pacific-node: additionally reports the baseboard product line and the software version of every cluster node
 * keycloak-memory-usage, keycloak-stats, keycloak-version: verified against Keycloak 17 to 26, and the README states how to point `--url` at an instance that serves below a context path
 * mysql-innodb-log-waits: alerts only on real InnoDB log waits, no longer on a low write-log efficiency that raising `innodb_log_buffer_size` cannot fix
@@ -109,6 +123,10 @@ Monitoring Plugins:
 * disk-usage: performance data carries the warning and critical thresholds again ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
 * disk-usage: the filesystem table is sorted by usage (fullest first) instead of raw mount order
 * fs-inodes: an unreadable mount point such as a Kubernetes CSI volume that requires root no longer aborts the whole check ([#1387](https://github.com/Linuxfabrik/monitoring-plugins/issues/1387))
+* huawei-pacific-alarm: reads every active alarm instead of stopping after the first 100, decodes the HTML entities the appliance embeds in alarm names, and warns when the list it reads is still incomplete
+* huawei-pacific-disk: alerts on a faulty or stopped disk pool, which used to go unnoticed as long as its disks reported healthy
+* huawei-dorado-hypermetrodomain: a faulty HyperMetro domain is detected. It was read through the wrong status table, where a fault came out looking like normal operation
+* huawei-dorado-\*, huawei-pacific-\*: the READMEs state the real retry behaviour and the real state file each check uses
 * huawei-dorado-system: reports the storage system model even on a firmware that only sends its numeric code
 * journald-query: a relative `--since` such as `-8h` from the Icinga Director works again ([#1264](https://github.com/Linuxfabrik/monitoring-plugins/issues/1264))
 * logfile: detects a logfile that an application rewrites from the beginning instead of appending to, which until now hid every new line from the check ([#1330](https://github.com/Linuxfabrik/monitoring-plugins/issues/1330))

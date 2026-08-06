@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 TESTS = [
     {
@@ -44,6 +44,15 @@ TESTS = [
             '209:0.141  ! CTE0.IOM.H13 ! 2 ports FE 100 Gbit/s ETH I/O module  '
             '! Ethernet  ! Off ! [OK]   ! [OK]   ',
         ],
+    },
+    {
+        # An appliance always has interface modules. An empty list means the query
+        # never reached them, which must not read as a healthy inventory.
+        'id': 'unknown-no-interface-modules',
+        'test': 'stdout/no-interface-modules,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['reported no interface modules.'],
     },
 ]
 

@@ -17,6 +17,12 @@
                 "--no-insecure": {
                     "set_if": "$huawei_dorado_hypermetropair_no_insecure$"
                 },
+                "--match": {
+                    "value": "$huawei_dorado_hypermetropair_match$"
+                },
+                "--no-match-severity": {
+                    "value": "$huawei_dorado_hypermetropair_no_match_severity$"
+                },
                 "--no-perfdata": {
                     "set_if": "$huawei_dorado_hypermetropair_no_perfdata$"
                 },
@@ -79,7 +85,7 @@
                 },
                 {
                     "datafield_id": 8,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -89,16 +95,26 @@
                 },
                 {
                     "datafield_id": 10,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 11,
                     "is_required": "y",
                     "var_filter": null
                 },
                 {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
                     "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
                     "is_required": "y",
                     "var_filter": null
                 }
@@ -158,6 +174,8 @@
                 "huawei_dorado_hypermetropair_always_ok": false,
                 "huawei_dorado_hypermetropair_cache_expire": 15,
                 "huawei_dorado_hypermetropair_insecure": true,
+                "huawei_dorado_hypermetropair_match": "",
+                "huawei_dorado_hypermetropair_no_match_severity": "ok",
                 "huawei_dorado_hypermetropair_no_perfdata": false,
                 "huawei_dorado_hypermetropair_no_proxy": false,
                 "huawei_dorado_hypermetropair_scope": 0,
@@ -166,6 +184,39 @@
             "volatile": null,
             "zone": null,
             "uuid": "c5e4cc77-bafc-44ff-af6e-4ab7da4316d1"
+        }
+    },
+    "DataList": {
+        "huawei_dorado_hypermetropair_no_match_severity_list": {
+            "list_name": "huawei_dorado_hypermetropair_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "dd8c6edc-9db7-4945-9d9e-5edfa72363f8"
         }
     },
     "Datafield": {
@@ -219,6 +270,30 @@
             "uuid": "b04ab644-1a3f-420f-ae60-f85c719ad176"
         },
         "6": {
+            "varname": "huawei_dorado_hypermetropair_match",
+            "caption": "Huawei Dorado Hyper Metro Pair: Match",
+            "description": "Filter by HyperMetro pairs. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `LOCALOBJNAME`, `REMOTEOBJNAME`, so prefix with `.*` to match anywhere.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "adb1d5f4-5aae-468b-9fdf-02388d913b44"
+        },
+        "7": {
+            "varname": "huawei_dorado_hypermetropair_no_match_severity",
+            "caption": "Huawei Dorado Hyper Metro Pair: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "huawei_dorado_hypermetropair_no_match_severity_list"
+            },
+            "uuid": "5c5d013e-4b93-4a2f-be40-de1f898b3be7"
+        },
+        "8": {
             "varname": "huawei_dorado_hypermetropair_no_perfdata",
             "caption": "Huawei Dorado Hyper Metro Pair: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -227,7 +302,7 @@
             "settings": {},
             "uuid": "f80ea894-4602-4b0b-b4db-94a07159447a"
         },
-        "7": {
+        "9": {
             "varname": "huawei_dorado_hypermetropair_no_proxy",
             "caption": "Huawei Dorado Hyper Metro Pair: No Proxy?",
             "description": "Do not use a proxy.",
@@ -236,7 +311,7 @@
             "settings": {},
             "uuid": "74253f27-0a93-4309-aa88-78205c0139c3"
         },
-        "8": {
+        "10": {
             "varname": "huawei_dorado_hypermetropair_password",
             "caption": "Huawei Dorado Hyper Metro Pair: Password",
             "description": "Huawei OceanStor Dorado API password.",
@@ -247,7 +322,7 @@
             },
             "uuid": "ac1c3321-6488-4b9d-b780-33d0d191de92"
         },
-        "9": {
+        "11": {
             "varname": "huawei_dorado_hypermetropair_scope",
             "caption": "Huawei Dorado Hyper Metro Pair: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -258,7 +333,7 @@
             },
             "uuid": "a78859ad-9463-474c-b920-a12ba67ca18f"
         },
-        "10": {
+        "12": {
             "varname": "huawei_dorado_hypermetropair_timeout",
             "caption": "Huawei Dorado Hyper Metro Pair: Timeout",
             "description": "Network timeout in seconds.",
@@ -269,7 +344,7 @@
             },
             "uuid": "a91146f6-9f5c-49dc-8375-3573a777a12e"
         },
-        "11": {
+        "13": {
             "varname": "huawei_dorado_hypermetropair_url",
             "caption": "Huawei Dorado Hyper Metro Pair: URL",
             "description": "Huawei OceanStor Dorado API URL.",
@@ -280,7 +355,7 @@
             },
             "uuid": "59517d8b-f3e2-4a4c-8335-b382febf3d8b"
         },
-        "12": {
+        "14": {
             "varname": "huawei_dorado_hypermetropair_username",
             "caption": "Huawei Dorado Hyper Metro Pair: Username",
             "description": "Huawei OceanStor Dorado API username.",

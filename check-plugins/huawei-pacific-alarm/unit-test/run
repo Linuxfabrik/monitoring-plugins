@@ -39,6 +39,16 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-regex': r'Disk Predicted To Fail.*\[WARNING\]',
     },
+    {
+        # The appliance embeds HTML entities in the texts it generates, so an
+        # alarm name reaches the output with the bracket it stands for.
+        'id': 'crit-alarm-html-entities',
+        'test': 'stdout/alarms-html-entities,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Controller (CTE0.A) Is Offline'],
+        'assert-not-in': ['&#40;'],
+    },
 ]
 
 

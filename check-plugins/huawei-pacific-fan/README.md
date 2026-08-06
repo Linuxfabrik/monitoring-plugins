@@ -28,7 +28,7 @@ Checks the status of all fans on a Huawei OceanStor Pacific storage system via t
 | Can be called without parameters      | No (`--password`, `--url` and `--username` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
-| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-pacific.db` |
 
 
 ## Help
@@ -95,7 +95,9 @@ Chassis SN            ! Name ! Status ! State
 ## States
 
 * OK if all fans report a status of "normal".
-* WARN if any fan reports a status other than "normal" (for example "fault", "absent" or "unknown").
+* WARN if any fan reports a status this check does not know (for example "absent" or "unknown").
+* CRIT if any fan reports a status of "fault".
+* UNKNOWN if the appliance lists no fans at all, which points at the query rather than at the hardware.
 * UNKNOWN on invalid API responses or responses with error codes.
 * `--always-ok` suppresses all alerts and always returns OK.
 

@@ -12,12 +12,14 @@
 
 import argparse
 import json
+import re
 import sys
 
 import lib.args
 import lib.base
 import lib.huawei_dorado
 import lib.lftest
+import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -29,9 +31,18 @@ module reports a non-normal state."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_INSECURE = True
+DEFAULT_MATCH = ''
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = 0
 DEFAULT_TIMEOUT = 3
+
+# Fields `--match` is applied to.
+MATCH_FIELDS = ('UUID', 'LOCATION')
+
+# RUNNINGSTATUS codes a healthy interface module reports: normal (1), running (2),
+# powering on (12) and online (27).
+OK_RUNNING_STATUS = (1, 2, 12, 27)
 
 
 def parse_args():
@@ -86,6 +97,25 @@ def parse_args():
         dest='INSECURE',
         action='store_false',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Filter by interface modules. '
+        + lib.args.help('--match')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere. '
+        'Default: %(default)s',
+        dest='MATCH',
+        default=DEFAULT_MATCH,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -182,47 +212,57 @@ def main():
             STATE_UNKNOWN,
         )
 
+    # An appliance always has interface modules, so an empty list is a query that
+    # never reached them rather than an inventory that is genuinely empty.
+    # Reporting OK here would hide the fault behind a green check.
+    if not result.get('data'):
+        lib.base.oao(
+            f'{args.URL} reported no interface modules.'
+            ' Verify that the API user is allowed to query them.',
+            STATE_UNKNOWN,
+        )
+
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
+    compiled_regex = lib.base.coe(lib.txt.compile_regex(args.MATCH))
 
     # analyze data
     table_data = []
     for iface in result.get('data'):
-        health_state = STATE_OK
-        if (
-            lib.huawei_dorado.get_health_status(iface.get('HEALTHSTATUS'))
-            != 'Normal (1)'
-        ):
-            health_state = STATE_WARN
-            state = lib.base.get_worst(state, health_state)
-
-        running_state = STATE_OK
-        if (
-            lib.huawei_dorado.get_running_status(iface.get('RUNNINGSTATUS'))
-            != 'Normal (1)'
-            and lib.huawei_dorado.get_running_status(iface.get('RUNNINGSTATUS'))
-            != 'Running (2)'
-            and lib.huawei_dorado.get_running_status(iface.get('RUNNINGSTATUS'))
-            != 'Powering on (12)'
-            and lib.huawei_dorado.get_running_status(iface.get('RUNNINGSTATUS'))
-            != 'Online (27)'
-        ):
-            running_state = STATE_WARN
-            state = lib.base.get_worst(state, running_state)
-
         iface['UUID'] = lib.huawei_dorado.get_uuid(iface)
+        # Perfdata labels carry the object's own TYPE:ID, which stays the same
+        # when hardware is moved between slots, unlike its location.
+        label = re.sub(r'\W+', '_', iface['UUID'])
+
+        if args.MATCH and not any(
+            lib.base.coe(
+                lib.txt.match_regex(compiled_regex, str(iface.get(field, '')))
+            )
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        health_state = lib.huawei_dorado.get_health_status_state(
+            iface.get('HEALTHSTATUS')
+        )
+        state = lib.base.get_worst(state, health_state)
+
+        running_state = lib.huawei_dorado.get_running_status_state(
+            iface.get('RUNNINGSTATUS'), OK_RUNNING_STATUS
+        )
+        state = lib.base.get_worst(state, running_state)
 
         perfdata += lib.base.get_perfdata(
-            f'{iface["UUID"]}_HEALTHSTATUS',
+            f'{label}_health_status',
             iface['HEALTHSTATUS'],
             crit=2,
             _min=0,
             _max=2,
         )
         perfdata += lib.base.get_perfdata(
-            f'{iface["UUID"]}_RUNNINGSTATUS',
+            f'{label}_running_status',
             iface['RUNNINGSTATUS'],
             _min=0,
         )
@@ -234,6 +274,15 @@ def main():
         iface['LIGHTSTATUS'] = lib.huawei_dorado.get_led_status(iface['LIGHTSTATUS'])
 
         table_data.append(iface)
+
+    # The appliance listed interface modules and the filter selected none of them.
+    if not table_data:
+        lib.base.oao(
+            f'No interface modules matched `{args.MATCH}`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
+        )
 
     if table_data:
         keys = [

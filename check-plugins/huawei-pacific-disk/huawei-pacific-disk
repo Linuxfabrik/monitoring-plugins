@@ -38,14 +38,6 @@ DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
 DEFAULT_WARN = '180:'
 
-# Disk states that are not a fault of the drive itself, but of its membership in the pool.
-DISK_STATE_MAP = {
-    0: STATE_OK,
-    1: STATE_CRIT,
-    2: STATE_WARN,
-    101: STATE_WARN,
-}
-
 
 def parse_args():
     """Parse command line arguments using argparse."""
@@ -246,7 +238,10 @@ def main():
             lib.base.cu('--url parameter has to start with "http://" or https://".')
         pools = lib.huawei_pacific.get_data('data_service/diskpool', args)
         assert_response_ok(pools, args, 'the disk pools')
-        pool_ids = [pool.get('poolId') for pool in pools.get('diskPools', [])]
+        disk_pools = {
+            pool.get('poolId'): pool for pool in pools.get('diskPools', [])
+        }
+        pool_ids = list(disk_pools)
         per_pool = {}
         for pool_id in pool_ids:
             per_pool[pool_id] = lib.huawei_pacific.get_data(
@@ -260,7 +255,10 @@ def main():
         test_base = args.TEST[0]
         pools = load_test_fixture(args.TEST, f'{test_base}-diskpools')
         assert_response_ok(pools, args, 'the disk pools')
-        pool_ids = [pool.get('poolId') for pool in pools.get('diskPools', [])]
+        disk_pools = {
+            pool.get('poolId'): pool for pool in pools.get('diskPools', [])
+        }
+        pool_ids = list(disk_pools)
         per_pool = {
             pool_id: load_test_fixture(args.TEST, f'{test_base}-disks-{pool_id}')
             for pool_id in pool_ids
@@ -278,6 +276,21 @@ def main():
     perfdata = ''
 
     # analyze data
+    # A pool that is faulty or stopped is a finding of its own: its disks may all report
+    # healthy while the pool they belong to is not serving.
+    pool_rows = []
+    for pool_id, pool in disk_pools.items():
+        pool_state = lib.huawei_pacific.get_pool_status_state(pool.get('poolStatus'))
+        state = lib.base.get_worst(state, pool_state)
+        pool_rows.append(
+            {
+                'name': pool.get('poolName', pool_id),
+                'media': pool.get('mediaType', ''),
+                'status': lib.huawei_pacific.get_pool_status(pool.get('poolStatus')),
+                'state': lib.base.state2str(pool_state, empty_ok=False),
+            }
+        )
+
     table_data = []
     seen = set()
     for pool_id, result in per_pool.items():
@@ -296,9 +309,8 @@ def main():
                     continue
                 seen.add(key)
 
-                disk_state = DISK_STATE_MAP.get(
-                    as_code(disk.get('diskStatus')),
-                    STATE_WARN,
+                disk_state = lib.huawei_pacific.get_disk_status_state(
+                    disk.get('diskStatus')
                 )
                 state = lib.base.get_worst(state, disk_state)
 
@@ -353,6 +365,14 @@ def main():
                 )
 
     # build the message
+    if pool_rows:
+        msg += lib.base.get_table(
+            pool_rows,
+            ['name', 'media', 'status', 'state'],
+            header=['Pool', 'Media', 'Status', 'State'],
+        )
+        msg += '\n'
+
     if table_data:
         keys = [
             'node',

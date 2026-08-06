@@ -109,6 +109,8 @@ The thresholds are Nagios ranges in days, so `180:` means "alert when less than 
 * WARN if a disk reports a sub-healthy status, or if it has been removed from the storage pool.
 * WARN if a disk's remaining life falls below `--warning` (default: less than 180 days).
 * CRIT if a disk reports a faulty status.
+* WARN if a disk pool is write-protected, migrating, degraded or rebuilding, or reports a status this check does not know.
+* CRIT if a disk pool is faulty or stopped, even when all of its disks report healthy.
 * CRIT if a disk's remaining life falls below `--critical` (default: less than 30 days).
 * OK with "No disk pool configured" if the appliance reports no disk pool.
 * UNKNOWN on invalid API responses or responses with error codes.

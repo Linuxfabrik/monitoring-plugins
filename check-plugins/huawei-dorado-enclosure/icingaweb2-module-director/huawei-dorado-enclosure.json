@@ -8,6 +8,9 @@
                 "--cache-expire": {
                     "value": "$huawei_dorado_enclosure_cache_expire$"
                 },
+                "--critical-temperature": {
+                    "value": "$huawei_dorado_enclosure_critical_temperature$"
+                },
                 "--device-id": {
                     "value": "$huawei_dorado_enclosure_device_id$"
                 },
@@ -16,6 +19,12 @@
                 },
                 "--no-insecure": {
                     "set_if": "$huawei_dorado_enclosure_no_insecure$"
+                },
+                "--match": {
+                    "value": "$huawei_dorado_enclosure_match$"
+                },
+                "--no-match-severity": {
+                    "value": "$huawei_dorado_enclosure_no_match_severity$"
                 },
                 "--no-perfdata": {
                     "set_if": "$huawei_dorado_enclosure_no_perfdata$"
@@ -37,6 +46,9 @@
                 },
                 "--username": {
                     "value": "$huawei_dorado_enclosure_username$"
+                },
+                "--warning-temperature": {
+                    "value": "$huawei_dorado_enclosure_warning_temperature$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/huawei-dorado-enclosure",
@@ -54,12 +66,12 @@
                 },
                 {
                     "datafield_id": 3,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 4,
-                    "is_required": "n",
+                    "is_required": "y",
                     "var_filter": null
                 },
                 {
@@ -79,7 +91,7 @@
                 },
                 {
                     "datafield_id": 8,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -99,7 +111,27 @@
                 },
                 {
                     "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
                     "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
+                    "is_required": "n",
                     "var_filter": null
                 }
             ],
@@ -157,15 +189,52 @@
                 "criticality": "A",
                 "huawei_dorado_enclosure_always_ok": false,
                 "huawei_dorado_enclosure_cache_expire": 15,
+                "huawei_dorado_enclosure_critical_temperature": "",
                 "huawei_dorado_enclosure_insecure": true,
+                "huawei_dorado_enclosure_match": "",
+                "huawei_dorado_enclosure_no_match_severity": "ok",
                 "huawei_dorado_enclosure_no_perfdata": false,
                 "huawei_dorado_enclosure_no_proxy": false,
                 "huawei_dorado_enclosure_scope": 0,
-                "huawei_dorado_enclosure_timeout": 3
+                "huawei_dorado_enclosure_timeout": 3,
+                "huawei_dorado_enclosure_warning_temperature": ""
             },
             "volatile": null,
             "zone": null,
             "uuid": "751dddfe-5b65-46ca-8391-5c42e18f232c"
+        }
+    },
+    "DataList": {
+        "huawei_dorado_enclosure_no_match_severity_list": {
+            "list_name": "huawei_dorado_enclosure_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "4f051e24-f902-48a5-b8e0-dafda6af5873"
         }
     },
     "Datafield": {
@@ -190,6 +259,17 @@
             "uuid": "74c1acab-5e8a-4ce1-bf6a-fa27393abc81"
         },
         "3": {
+            "varname": "huawei_dorado_enclosure_critical_temperature",
+            "caption": "Huawei Dorado Enclosure: Critical Temperature",
+            "description": "CRIT threshold in degrees Celsius. Off by default, because a healthy operating temperature depends on the enclosure model and on where the array stands. Example: `--critical-temperature=50`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "efe1ca8a-4e4a-4aa6-852a-c69c869e9715"
+        },
+        "4": {
             "varname": "huawei_dorado_enclosure_device_id",
             "caption": "Huawei Dorado Enclosure: Device ID",
             "description": "Huawei OceanStor Dorado API device ID.",
@@ -200,7 +280,7 @@
             },
             "uuid": "89c717b1-7d66-4448-8e88-bf134ea29f46"
         },
-        "4": {
+        "5": {
             "varname": "huawei_dorado_enclosure_insecure",
             "caption": "Huawei Dorado Enclosure: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -209,7 +289,7 @@
             "settings": {},
             "uuid": "33075533-3c86-47ad-9979-2bdf6acc872f"
         },
-        "5": {
+        "6": {
             "varname": "huawei_dorado_enclosure_no_insecure",
             "caption": "Huawei Dorado Enclosure: No Insecure?",
             "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -218,7 +298,31 @@
             "settings": {},
             "uuid": "89200a9d-5db3-417a-a83e-add5f255a67c"
         },
-        "6": {
+        "7": {
+            "varname": "huawei_dorado_enclosure_match",
+            "caption": "Huawei Dorado Enclosure: Match",
+            "description": "Filter by enclosures. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `LOCATION`, `NAME`, so prefix with `.*` to match anywhere.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "4763654c-4514-42fc-97ad-6124bd902efa"
+        },
+        "8": {
+            "varname": "huawei_dorado_enclosure_no_match_severity",
+            "caption": "Huawei Dorado Enclosure: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "huawei_dorado_enclosure_no_match_severity_list"
+            },
+            "uuid": "00f2b3ce-23d3-4476-b910-9376b547f415"
+        },
+        "9": {
             "varname": "huawei_dorado_enclosure_no_perfdata",
             "caption": "Huawei Dorado Enclosure: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -227,7 +331,7 @@
             "settings": {},
             "uuid": "550b64d4-8c21-4f0b-8fd0-324830bca16c"
         },
-        "7": {
+        "10": {
             "varname": "huawei_dorado_enclosure_no_proxy",
             "caption": "Huawei Dorado Enclosure: No Proxy?",
             "description": "Do not use a proxy.",
@@ -236,7 +340,7 @@
             "settings": {},
             "uuid": "fcf3f2d5-2e77-41bf-8c7d-ef53a0f1dc2e"
         },
-        "8": {
+        "11": {
             "varname": "huawei_dorado_enclosure_password",
             "caption": "Huawei Dorado Enclosure: Password",
             "description": "Huawei OceanStor Dorado API password.",
@@ -247,7 +351,7 @@
             },
             "uuid": "48e73c5f-978d-43b0-b188-f7a9a43be0e1"
         },
-        "9": {
+        "12": {
             "varname": "huawei_dorado_enclosure_scope",
             "caption": "Huawei Dorado Enclosure: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -258,7 +362,7 @@
             },
             "uuid": "9f170a17-dfe1-4395-9695-287572b6e7c4"
         },
-        "10": {
+        "13": {
             "varname": "huawei_dorado_enclosure_timeout",
             "caption": "Huawei Dorado Enclosure: Timeout",
             "description": "Network timeout in seconds.",
@@ -269,7 +373,7 @@
             },
             "uuid": "2ad9709d-5e2c-4e8f-ac0b-cbff94cc1cce"
         },
-        "11": {
+        "14": {
             "varname": "huawei_dorado_enclosure_url",
             "caption": "Huawei Dorado Enclosure: URL",
             "description": "Huawei OceanStor Dorado API URL.",
@@ -280,7 +384,7 @@
             },
             "uuid": "106b6026-4202-477d-8215-83232748e953"
         },
-        "12": {
+        "15": {
             "varname": "huawei_dorado_enclosure_username",
             "caption": "Huawei Dorado Enclosure: Username",
             "description": "Huawei OceanStor Dorado API username.",
@@ -290,6 +394,17 @@
                 "visibility": "visible"
             },
             "uuid": "6edd6eb7-c0fb-4b5b-9377-9a46ed5f22d2"
+        },
+        "16": {
+            "varname": "huawei_dorado_enclosure_warning_temperature",
+            "caption": "Huawei Dorado Enclosure: Warning Temperature",
+            "description": "WARN threshold in degrees Celsius. Off by default, because a healthy operating temperature depends on the enclosure model and on where the array stands. Example: `--warning-temperature=40`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "462ad3a1-bad5-42b7-88a5-7800e5b687e9"
         }
     }
 }

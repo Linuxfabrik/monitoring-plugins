@@ -182,6 +182,16 @@ def main():
             STATE_UNKNOWN,
         )
 
+    # A cluster always has power supplies, so an empty list is a query that
+    # never reached them rather than an inventory that is genuinely empty.
+    # Reporting OK here would hide the fault behind a green check.
+    if not result.get('data'):
+        lib.base.oao(
+            f'{args.URL} reported no power supplies.'
+            ' Verify that the API user is allowed to query them.',
+            STATE_UNKNOWN,
+        )
+
     # init some vars
     msg = ''
     state = STATE_OK
@@ -190,17 +200,17 @@ def main():
     # analyze data
     table_data = []
     for power in result.get('data', []):
-        power_state = STATE_OK
-        if power.get('status') != 'normal':
-            power_state = STATE_WARN
-            state = lib.base.get_worst(state, power_state)
+        power_state = lib.huawei_pacific.get_component_status_state(
+            power.get('status')
+        )
+        state = lib.base.get_worst(state, power_state)
 
         frame_sn = power.get('frame_sn', '')
         label = re.sub(r'\W+', '_', f'{frame_sn}_{power.get("name", "")}')
         perfdata += lib.base.get_perfdata(
             f'{label}_status',
-            0 if power.get('status') == 'normal' else 1,
-            warn=1,
+            0 if power_state == STATE_OK else 1,
+            crit=1,
             _min=0,
             _max=1,
         )

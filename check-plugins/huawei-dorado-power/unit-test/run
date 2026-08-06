@@ -15,29 +15,46 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_WARN
+from lib.globals import STATE_CRIT, STATE_UNKNOWN
 
 TESTS = [
     {
-        'id': 'warn-power-supplies-warning',
+        # The last module reports no input (health 11) and offline (running 28).
+        # An offline power supply has stopped doing its job, so the check has to
+        # reach CRITICAL rather than the WARNING it used to report for every
+        # non-normal state alike.
+        'id': 'crit-power-supplies-offline',
         'test': 'stdout/power-supplies-warning,,0',
         'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
-        'assert-retc': STATE_WARN,
+        'assert-retc': STATE_CRIT,
         'assert-in': [
-            'There are warnings.',
+            'There are critical errors.',
             'UUID       ! Location    ! Manufacturer ! Model         ! SerialNumber         '
-            '! Produced   ! In (MV) ! Out (MV) ! Temp ! Health    ! Running  ',
+            '! Produced   ! In (MV) ! Out (MV) ! Temp ! Health    ! Running   ',
             '-----------+-------------+--------------+---------------+----------------------'
-            '+------------+---------+----------+------+-----------+----------',
+            '+------------+---------+----------+------+-----------+-----------',
             '23:23.0.0  ! CTE0.PSU0   ! HUAWEI       ! PAC2000S12-BG ! 12345678             '
-            '! 2020-08-20 ! 0       ! 0        ! 0    ! [OK]      ! [OK]     ',
+            '! 2020-08-20 ! 0       ! 0        ! 0    ! [OK]      ! [OK]      ',
             '23:23.0.1  ! CTE0.PSU1   ! HUAWEI       ! PAC2000S12-BG ! 12345678             '
-            '! 2020-08-20 ! 0       ! 0        ! 0    ! [OK]      ! [OK]     ',
+            '! 2020-08-20 ! 0       ! 0        ! 0    ! [OK]      ! [OK]      ',
             '23:23.0.2  ! CTE0.PSU2   ! HUAWEI       ! PAC2000S12-BG ! 12345678             '
-            '! 2020-08-21 ! 0       ! 0        ! 0    ! [OK]      ! [OK]     ',
+            '! 2020-08-21 ! 0       ! 0        ! 0    ! [OK]      ! [OK]      ',
             '23:23.0.3  ! CTE0.PSU3   ! HUAWEI       ! PAC2000S12-BG ! 12345678             '
-            '! 2020-08-20 ! 0       ! 0        ! 0    ! [OK]      ! [OK]     ',
+            '! 2020-08-20 ! 0       ! 0        ! 0    ! [OK]      ! [OK]      ',
+            # Last row of the table: the trailing padding is stripped, because
+            # the performance data is appended right behind it.
+            '23:0.0B.0  ! CTE0.PSU 0  ! VAPEL        ! HSP960-D1205D ! 21022701328NE5000004 '
+            '! 2014-05-03 ! 0       ! 0        ! 0    ! [WARNING] ! [CRITICAL]',
         ],
+    },
+    {
+        # An appliance always has power modules. An empty list means the query
+        # never reached them, which must not read as a healthy inventory.
+        'id': 'unknown-no-power-modules',
+        'test': 'stdout/no-power-modules,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['reported no power modules.'],
     },
 ]
 

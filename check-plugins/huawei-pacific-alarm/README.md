@@ -28,7 +28,7 @@ Lists active (unrecovered) alarms on a Huawei OceanStor Pacific storage system v
 | Can be called without parameters      | No (`--password`, `--url` and `--username` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
-| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-pacific.db` |
 
 
 ## Help
@@ -98,6 +98,7 @@ Alarm ID    ! Time                ! Severity     ! Name                   ! Stat
 * OK if there are no unrecovered alarms.
 * WARN if any unrecovered alarm has a "major" or "warning" severity.
 * CRIT if any unrecovered alarm has a "critical" severity.
+* WARN if the appliance reports more alarms than the check reads in one run, because the list is then incomplete.
 * UNKNOWN on invalid API responses or responses with error codes.
 * `--always-ok` suppresses all alerts and always returns OK.
 

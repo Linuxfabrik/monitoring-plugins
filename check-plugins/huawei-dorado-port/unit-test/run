@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+TESTS = [
+    {
+        # The last port of the fixture has its link down, which is what an
+        # uncabled port reports too, so it stays quiet unless asked otherwise.
+        'id': 'ok-ports-healthy',
+        'test': 'stdout/ports-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            '213:0A.3 ! Ethernet ! CTE0.A.IOM1.P1 ! Link down (11) ! [OK]   ! [OK]',
+        ],
+    },
+    {
+        # An operator who cables every port can turn the link state into an alert.
+        'id': 'warn-link-down-severity',
+        'test': 'stdout/ports-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        ' --link-down-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['There are warnings.'],
+    },
+    {
+        # A faulty port alerts on its health status regardless of the link state.
+        'id': 'crit-port-faulty',
+        'test': 'stdout/ports-one-faulty,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['There are critical errors.', '[CRITICAL]'],
+    },
+    {
+        'id': 'ok-match-filters-ports',
+        'test': 'stdout/ports-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='.*IOM0'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['CTE0.A.IOM0.P0'],
+        'assert-not-in': ['CTE0.A.IOM1.P0'],
+    },
+    {
+        'id': 'crit-no-match-severity',
+        'test': 'stdout/ports-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='nonexistent' --no-match-severity=crit",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['No ports matched `nonexistent`.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../huawei-dorado-port'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -11,6 +11,7 @@
 """See the check's README for more details."""
 
 import argparse
+import html
 import json
 import sys
 
@@ -167,11 +168,15 @@ def main():
         lib.base.cu('--url parameter has to start with "http://" or https://".')
 
     # fetch data
+    truncated = False
     if args.TEST is None:
-        # only unrecovered alarms (alarmStatus::1)
-        result = lib.huawei_pacific.get_data(
-            'common/alarms?range=[0-100]&filter=alarmStatus::1',
+        # Only unrecovered alarms (alarmStatus::1), walked page by page: an appliance hands
+        # out one page per request, and stopping after the first would hide every alarm
+        # beyond it behind a shorter, healthier-looking list.
+        result, truncated = lib.huawei_pacific.get_all_data(
+            'common/alarms?filter=alarmStatus::1',
             args,
+            range_style='bracket',
         )
     else:
         # do not call the command, put in test data
@@ -203,6 +208,10 @@ def main():
         state = lib.base.get_worst(state, alarm_state)
 
         alarm['severity'] = lib.huawei_pacific.get_alarm_severity(severity)
+        # The appliance embeds HTML entities in the texts it generates, so `&#40;` reaches
+        # the output as those five characters instead of the bracket it stands for.
+        alarm['alarm_name'] = html.unescape(str(alarm.get('alarm_name', '')))
+        # `create_time` is documented as UTC seconds, so it needs no timezone correction.
         alarm['create_time'] = lib.time.epoch2iso(alarm.get('create_time', 0))
         alarm['state'] = lib.base.state2str(alarm_state, empty_ok=False)
 
@@ -220,6 +229,14 @@ def main():
     perfdata += lib.base.get_perfdata('critical_alarms', counts[6], _min=0)
     perfdata += lib.base.get_perfdata('major_alarms', counts[5], _min=0)
     perfdata += lib.base.get_perfdata('warning_alarms', counts[3], _min=0)
+
+    if truncated:
+        # The walk hit its page cap, so this is a floor on the alarm count, not the count.
+        msg = (
+            'The appliance reports more alarms than this check reads in one run;'
+            ' the list below is incomplete.\n\n' + msg
+        )
+        state = lib.base.get_worst(state, STATE_WARN)
 
     if state == STATE_CRIT:
         msg = 'There are critical alarms.\n\n' + msg

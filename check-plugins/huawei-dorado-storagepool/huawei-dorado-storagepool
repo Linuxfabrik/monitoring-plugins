@@ -1,0 +1,487 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.huawei_dorado
+import lib.human
+import lib.lftest
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026080601'
+
+DESCRIPTION = """Checks the health, running status and capacity usage of all storage pools on a
+Huawei OceanStor Dorado storage system via the REST API (/storagepool endpoint). Alerts when a pool
+reports a non-normal state, and when its used capacity reaches the warning or critical threshold."""
+
+DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
+DEFAULT_CRIT = '90'
+DEFAULT_INSECURE = True
+DEFAULT_MATCH = ''
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_NO_PROXY = False
+DEFAULT_SCOPE = 0
+DEFAULT_TIMEOUT = 3
+DEFAULT_WARN = '80'
+
+# Fields `--match` is applied to.
+MATCH_FIELDS = ('UUID', 'NAME', 'PARENTNAME')
+
+# RUNNINGSTATUS code a healthy storage pool reports: online (27). The other codes
+# the pool enumeration knows are pre-copy (14), rebuilding (16), balancing (32),
+# initializing (53) and deleting (106), all of which describe a pool that is busy
+# rather than one that is serving normally, plus offline (28).
+OK_RUNNING_STATUS = (27,)
+
+# The appliance counts every capacity in sectors, and its sector size is 512 bytes.
+SECTOR_SIZE = 512
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help=lib.args.help('--cache-expire') + ' Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the used capacity of a pool, as a Nagios range in '
+        'percent. Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--device-id',
+        help='Huawei OceanStor Dorado API device ID.',
+        dest='DEVICE_ID',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Filter by storage pools. '
+        + lib.args.help('--match')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and '
+        'is matched against the pool identifier, the pool name and the name of its disk '
+        'domain, so prefix with `.*` to match anywhere. Default: %(default)s',
+        dest='MATCH',
+        default=DEFAULT_MATCH,
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help=lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='Huawei OceanStor Dorado API password.',
+        dest='PASSWORD',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--scope',
+        help='Huawei OceanStor Dorado API scope.',
+        dest='SCOPE',
+        default=DEFAULT_SCOPE,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-u',
+        '--url',
+        help='Huawei OceanStor Dorado API URL.',
+        dest='URL',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Huawei OceanStor Dorado API username.',
+        dest='USERNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the used capacity of a pool, as a Nagios range in '
+        'percent. Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def sectors2bytes(sectors):
+    """
+    Convert a sector count from the API into bytes.
+
+    ### Parameters
+    - **sectors** (`int`, `str` or `None`): The sector count as the API reported it.
+
+    ### Returns
+    - **int** or **None**: The value in bytes, or `None` if the field was missing,
+      malformed or negative. A capacity the appliance does not track is reported as
+      `-1`, which is not a measurement and is dropped rather than graphed.
+
+    ### Example
+    >>> sectors2bytes('2048')
+    1048576
+    """
+    try:
+        value = int(sectors)
+    except (TypeError, ValueError):
+        return None
+    if value < 0:
+        return None
+    return value * SECTOR_SIZE
+
+
+def get_reduction_ratio(pool):
+    """
+    Return a pool's data reduction ratio, or `None` if it does not report a usable one.
+
+    The appliance reports the ratio as a JSON document with a numerator and a
+    denominator rather than as a number, so it has to be parsed and divided out.
+
+    ### Parameters
+    - **pool** (`dict`): One storage pool as the API returned it.
+
+    ### Returns
+    - **float** or **None**: The ratio, for example `3.2` for 3.2:1. `None` if the
+      field is missing, is not the documented document, or carries a zero denominator.
+
+    ### Example
+    >>> rate = '{"numerator": "3200", "denominator": "1000"}'
+    >>> get_reduction_ratio({'SPACEREDUCTIONRATE': rate})
+    3.2
+    """
+    try:
+        rate = json.loads(pool.get('SPACEREDUCTIONRATE', ''))
+        numerator = float(rate['numerator'])
+        denominator = float(rate['denominator'])
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return None
+    if denominator == 0:
+        return None
+    return round(numerator / denominator, 2)
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if not args.URL.startswith('http'):
+        lib.base.cu('--url parameter has to start with "http://" or https://".')
+
+    # fetch data
+    truncated = False
+    if args.TEST is None:
+        result, truncated = lib.huawei_dorado.get_all_data('storagepool', args)
+    else:
+        # do not call the command, put in test data
+        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
+        result = json.loads(stdout)
+
+    # no valuable result?
+    if not result:
+        lib.base.cu(f'Got no valuable response from {args.URL}.')
+    if lib.huawei_dorado.get_error_code(result) not in (0, '0'):
+        lib.base.oao(
+            f'{result.get("error", {}).get("description")}'
+            f' {result.get("error", {}).get("suggestion")}',
+            STATE_UNKNOWN,
+        )
+
+    # An array that serves storage has at least one storage pool, so an empty list is a
+    # query that never reached them rather than an inventory that is genuinely empty.
+    # Reporting OK here would hide the fault behind a green check.
+    if not result.get('data'):
+        lib.base.oao(
+            f'{args.URL} reported no storage pools.'
+            ' Verify that the API user is allowed to query them.',
+            STATE_UNKNOWN,
+        )
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    compiled_regex = lib.base.coe(lib.txt.compile_regex(args.MATCH))
+
+    # analyze data
+    table_data = []
+    for pool in result.get('data'):
+        pool['UUID'] = lib.huawei_dorado.get_uuid(pool)
+        # Perfdata labels carry the object's own TYPE:ID, which stays the same when
+        # a pool is renamed, unlike its name.
+        label = re.sub(r'\W+', '_', pool['UUID'])
+
+        if args.MATCH and not any(
+            lib.base.coe(lib.txt.match_regex(compiled_regex, str(pool.get(field, ''))))
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        health_state = lib.huawei_dorado.get_health_status_state(
+            pool.get('HEALTHSTATUS')
+        )
+        state = lib.base.get_worst(state, health_state)
+
+        running_state = lib.huawei_dorado.get_running_status_state(
+            pool.get('RUNNINGSTATUS'), OK_RUNNING_STATUS
+        )
+        state = lib.base.get_worst(state, running_state)
+
+        # The appliance computes the usage percentage itself, so the check reports
+        # the same number the storage administrator sees in DeviceManager.
+        try:
+            usage_percent = float(pool.get('USERCONSUMEDCAPACITYPERCENTAGE'))
+        except (TypeError, ValueError):
+            usage_percent = None
+
+        usage_state = STATE_OK
+        if usage_percent is not None:
+            usage_state = lib.base.get_state(
+                usage_percent, args.WARN, args.CRIT, _operator='range'
+            )
+            state = lib.base.get_worst(state, usage_state)
+
+        total_capacity = sectors2bytes(pool.get('USERTOTALCAPACITY'))
+        used_capacity = sectors2bytes(pool.get('USERCONSUMEDCAPACITY'))
+        free_capacity = sectors2bytes(pool.get('USERFREECAPACITY'))
+        reduction_ratio = get_reduction_ratio(pool)
+
+        perfdata += lib.base.get_perfdata(
+            f'{label}_health_status',
+            pool.get('HEALTHSTATUS'),
+            crit=2,
+            uom=None,
+            _min=0,
+            _max=2,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{label}_running_status',
+            pool.get('RUNNINGSTATUS'),
+            uom=None,
+            _min=0,
+        )
+        if usage_percent is not None:
+            perfdata += lib.base.get_perfdata(
+                f'{label}_usage_percent',
+                usage_percent,
+                uom='%',
+                warn=args.WARN,
+                crit=args.CRIT,
+                _min=0,
+                _max=100,
+            )
+        for perf_label, value, maximum in (
+            ('total_capacity', total_capacity, None),
+            ('used_capacity', used_capacity, total_capacity),
+            ('free_capacity', free_capacity, total_capacity),
+        ):
+            if value is None:
+                continue
+            perfdata += lib.base.get_perfdata(
+                f'{label}_{perf_label}',
+                value,
+                uom='B',
+                _min=0,
+                _max=maximum,
+            )
+        if reduction_ratio is not None:
+            perfdata += lib.base.get_perfdata(
+                f'{label}_data_reduction_ratio',
+                reduction_ratio,
+                uom=None,
+                _min=0,
+            )
+
+        pool['health_state'] = lib.base.state2str(health_state, empty_ok=False)
+        pool['running_state'] = lib.base.state2str(running_state, empty_ok=False)
+        pool['usage'] = (
+            f'{usage_percent:.0f}%' if usage_percent is not None else 'not reported'
+        )
+        pool['usage_state'] = lib.base.state2str(usage_state, empty_ok=False)
+        pool['total'] = (
+            lib.human.bytes2human(total_capacity)
+            if total_capacity is not None
+            else 'not reported'
+        )
+        pool['used'] = (
+            lib.human.bytes2human(used_capacity)
+            if used_capacity is not None
+            else 'not reported'
+        )
+        pool['reduction'] = (
+            f'{reduction_ratio}:1' if reduction_ratio is not None else 'not reported'
+        )
+
+        table_data.append(pool)
+
+    # The appliance listed storage pools and the filter selected none of them.
+    if not table_data:
+        lib.base.oao(
+            f'No storage pools matched `{args.MATCH}`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
+        )
+
+    if table_data:
+        keys = [
+            'UUID',
+            'NAME',
+            'PARENTNAME',
+            'used',
+            'total',
+            'usage',
+            'usage_state',
+            'reduction',
+            'health_state',
+            'running_state',
+        ]
+        headers = [
+            'UUID',
+            'Name',
+            'Disk Domain',
+            'Used',
+            'Total',
+            'Usage',
+            'Usage State',
+            'Reduction',
+            'Health',
+            'Running',
+        ]
+
+        # build the message
+        msg += lib.base.get_table(table_data, keys, header=headers)
+
+    if truncated:
+        # The walk hit its page cap, so pools beyond it were never looked at.
+        msg = (
+            'The appliance reports more storage pools than this check reads in one run;'
+            ' the list below is incomplete.\n\n' + msg
+        )
+        state = lib.base.get_worst(state, STATE_WARN)
+
+    if state == STATE_CRIT:
+        msg = 'There are critical errors.\n\n' + msg
+    elif state == STATE_WARN:
+        msg = 'There are warnings.\n\n' + msg
+    else:
+        msg = 'Everything is ok.\n\n' + msg
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

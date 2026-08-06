@@ -12,6 +12,7 @@
 
 import argparse
 import json
+import re
 import sys
 
 import lib.args
@@ -19,6 +20,7 @@ import lib.base
 import lib.huawei_dorado
 import lib.human
 import lib.lftest
+import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -29,10 +31,22 @@ Dorado storage system via the REST API (/backup_power endpoint). Alerts when any
 module reports a non-normal health state."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
+DEFAULT_CRIT = '30:'
 DEFAULT_INSECURE = True
+DEFAULT_MATCH = ''
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = 0
 DEFAULT_TIMEOUT = 3
+DEFAULT_WARN = '180:'
+
+# Fields `--match` is applied to.
+MATCH_FIELDS = ('UUID', 'LOCATION')
+
+# RUNNINGSTATUS codes a healthy backup power module reports: normal (1), running (2),
+# online (27), charging (48) and charging completed (49). A module cycles through the
+# charging states in normal operation, so they are not a reason to alert.
+OK_RUNNING_STATUS = (1, 2, 27, 48, 49)
 
 
 def parse_args():
@@ -67,6 +81,15 @@ def parse_args():
     )
 
     parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the remaining life of a backup power module, as a Nagios '
+        'range in days. Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
         '--device-id',
         help='Huawei OceanStor Dorado device ID.',
         dest='DEVICE_ID',
@@ -87,6 +110,25 @@ def parse_args():
         dest='INSECURE',
         action='store_false',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Filter by backup power modules. '
+        + lib.args.help('--match')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere. '
+        'Default: %(default)s',
+        dest='MATCH',
+        default=DEFAULT_MATCH,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -149,8 +191,30 @@ def parse_args():
         required=True,
     )
 
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the remaining life of a backup power module, as a Nagios '
+        'range in days. Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
     args, _ = parser.parse_known_args()
     return args
+
+
+def get_remaining_life_days(power):
+    """Return a module's remaining life in days, or `None` if it does not report one."""
+    # A module that does not track its remaining life answers with zero or a negative
+    # value. Read as a measurement that would alert on every such module forever.
+    try:
+        days = int(power.get('REMAINLIFEDAYS'))
+    except (TypeError, ValueError):
+        return None
+    if days <= 0:
+        return None
+    return days
 
 
 def main():
@@ -183,65 +247,81 @@ def main():
             STATE_UNKNOWN,
         )
 
+    # An appliance always has backup power modules, so an empty list is a query that
+    # never reached them rather than an inventory that is genuinely empty.
+    # Reporting OK here would hide the fault behind a green check.
+    if not result.get('data'):
+        lib.base.oao(
+            f'{args.URL} reported no backup power modules.'
+            ' Verify that the API user is allowed to query them.',
+            STATE_UNKNOWN,
+        )
+
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
+    compiled_regex = lib.base.coe(lib.txt.compile_regex(args.MATCH))
 
     # analyze data
     table_data = []
     for power in result.get('data'):
-        health_state = STATE_OK
-        if (
-            lib.huawei_dorado.get_health_status(power.get('HEALTHSTATUS'))
-            != 'Normal (1)'
-        ):
-            health_state = STATE_WARN
-            state = lib.base.get_worst(state, health_state)
-
         power['UUID'] = lib.huawei_dorado.get_uuid(power)
+        # Perfdata labels carry the object's own TYPE:ID, which stays the same
+        # when hardware is moved between slots, unlike its location.
+        label = re.sub(r'\W+', '_', power['UUID'])
 
-        running_state = STATE_OK
-        if (
-            lib.huawei_dorado.get_running_status(power.get('RUNNINGSTATUS'))
-            != 'Normal (1)'
-            and lib.huawei_dorado.get_running_status(power.get('RUNNINGSTATUS'))
-            != 'Running (2)'
-            and lib.huawei_dorado.get_running_status(power.get('RUNNINGSTATUS'))
-            != 'Online (27)'
-            and lib.huawei_dorado.get_running_status(power.get('RUNNINGSTATUS'))
-            != 'Charging (48)'
-            and lib.huawei_dorado.get_running_status(power.get('RUNNINGSTATUS'))
-            != 'Charging completed (49)'
+        if args.MATCH and not any(
+            lib.base.coe(
+                lib.txt.match_regex(compiled_regex, str(power.get(field, '')))
+            )
+            for field in MATCH_FIELDS
         ):
-            running_state = STATE_WARN
-            state = lib.base.get_worst(state, running_state)
+            continue
 
-        power['REMAINLIFEDAYS'] = int(power['REMAINLIFEDAYS'])
-        if power['REMAINLIFEDAYS'] > 0:
-            power['REMAINLIFEDAYS'] = power['REMAINLIFEDAYS'] * 24 * 60 * 60
+        health_state = lib.huawei_dorado.get_health_status_state(
+            power.get('HEALTHSTATUS')
+        )
+        state = lib.base.get_worst(state, health_state)
+
+        running_state = lib.huawei_dorado.get_running_status_state(
+            power.get('RUNNINGSTATUS'), OK_RUNNING_STATUS
+        )
+        state = lib.base.get_worst(state, running_state)
+
+        remaining_life_days = get_remaining_life_days(power)
+        if remaining_life_days is not None:
+            state = lib.base.get_worst(
+                state,
+                lib.base.get_state(
+                    remaining_life_days, args.WARN, args.CRIT, _operator='range'
+                ),
+            )
+            power['REMAINLIFEDAYS'] = remaining_life_days * 24 * 60 * 60
+        else:
+            power['REMAINLIFEDAYS'] = 0
         power['VOLTAGE'] = float(power['VOLTAGE']) / 10
 
         perfdata += lib.base.get_perfdata(
-            f'{power["UUID"]}_HEALTHSTATUS',
+            f'{label}_health_status',
             power['HEALTHSTATUS'],
             crit=2,
             _min=0,
             _max=2,
         )
         perfdata += lib.base.get_perfdata(
-            f'{power["UUID"]}_RUNNINGSTATUS',
+            f'{label}_running_status',
             power['RUNNINGSTATUS'],
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
-            f'{power["UUID"]}_CHARGETIMES',
+            f'{label}_charge_times',
             power['CHARGETIMES'],
             _min=0,
         )
         perfdata += (
             lib.base.get_perfdata(
-                f'{power["UUID"]}_REMAINLIFEDAYS',
+                f'{label}_remaining_life',
                 power['REMAINLIFEDAYS'],
                 uom='s',
                 _min=0,
@@ -250,7 +330,7 @@ def main():
             else ''
         )
         perfdata += lib.base.get_perfdata(
-            f'{power["UUID"]}_VOLTAGE',
+            f'{label}_voltage',
             power['VOLTAGE'],
             _min=0,
         )
@@ -261,6 +341,15 @@ def main():
             power['REMAINLIFEDAYS'] = lib.human.seconds2human(power['REMAINLIFEDAYS'])
 
         table_data.append(power)
+
+    # The appliance listed backup power modules and the filter selected none of them.
+    if not table_data:
+        lib.base.oao(
+            f'No backup power modules matched `{args.MATCH}`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
+        )
 
     if table_data:
         keys = [
