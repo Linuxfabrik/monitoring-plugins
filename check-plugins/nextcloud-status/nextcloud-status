@@ -1,0 +1,277 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import sys
+
+import lib.args
+import lib.base
+import lib.lftest
+import lib.url
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026080601'
+
+DESCRIPTION = """Monitors the health of a Nextcloud instance via its status endpoint, reporting
+whether the instance is installed, whether a pending database upgrade blocks it, and whether
+maintenance mode is active. Also reports the running version, the product name and the extended
+support flag.
+The status endpoint bypasses the router and the maintenance gate, so it answers with HTTP 200
+even while the instance serves nobody. A plain HTTP check cannot see that. This check therefore
+reads the flags out of the response instead of trusting the status code."""
+
+DEFAULT_INSECURE = False
+DEFAULT_MAINTENANCE_SEVERITY = 'warn'
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 8
+DEFAULT_UPGRADE_SEVERITY = 'crit'
+DEFAULT_URL = 'http://localhost/nextcloud/status.php'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--maintenance-severity',
+        help='State to report while the instance is in maintenance mode. '
+        'Also caps the state of a pending database upgrade, because a running '
+        '`occ upgrade` turns maintenance mode on for its duration. '
+        'Default: %(default)s',
+        dest='MAINTENANCE_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_MAINTENANCE_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--upgrade-severity',
+        help='State to report when the instance needs a database upgrade while '
+        'maintenance mode is off. '
+        'The instance answers every request with the upgrade page until '
+        '`occ upgrade` has run, so it serves nobody. '
+        'Default: %(default)s',
+        dest='UPGRADE_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_UPGRADE_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='Nextcloud status URL endpoint. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def fetch_status(args):
+    """Fetch the status endpoint and return its decoded JSON document.
+
+    The response is requested in its extended form so that a failing request still
+    exposes the HTTP status code and the error body. That is what allows the trusted
+    domain misconfiguration to be reported as such instead of as a bare HTTP 400.
+    """
+    success, result = lib.url.fetch(
+        args.URL,
+        extended=True,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        response_on_error=True,
+        timeout=args.TIMEOUT,
+    )
+    if not success:
+        # A 4xx/5xx returns the extended dict (so the error body is available), while a
+        # transport error like a refused connection returns a plain message string.
+        if not isinstance(result, dict):
+            return False, result
+        status_code = result.get('status_code')
+        response = result.get('response', '')
+        if status_code == 400 and 'Trusted domain error' in response:
+            return False, (
+                f'HTTP 400 "Trusted domain error" from {args.URL}. '
+                f'Add the host name used in --url to the "trusted_domains" array in '
+                f'the Nextcloud config.php, or probe the instance under a name that is '
+                f'already listed there.'
+            )
+        return False, f'HTTP error "{status_code}" while fetching {args.URL}.'
+
+    try:
+        return True, json.loads(result['response'])
+    except Exception:
+        return False, f'No JSON object could be decoded from {args.URL}.'
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if not args.URL.startswith('http'):
+        lib.base.cu('--url parameter has to start with "http://" or "https://".')
+    if not args.URL.endswith('/status.php'):
+        args.URL = args.URL.rstrip('/') + '/status.php'
+
+    # fetch data
+    if args.TEST is None:
+        result = lib.base.coe(fetch_status(args))
+    else:
+        # do not call the command, put in test data
+        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
+        result = json.loads(stdout)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    issues = []
+
+    # analyze data
+    # `edition` is deliberately not evaluated: Nextcloud hardcodes it to an empty string
+    # since v11, so it carries no information.
+    extended_support = result.get('extendedSupport', False)
+    installed = result.get('installed', False)
+    maintenance = result.get('maintenance', False)
+    needs_db_upgrade = result.get('needsDbUpgrade', False)
+    productname = result.get('productname', 'Nextcloud')
+    version = result.get('version', 'n/a')
+    versionstring = result.get('versionstring', 'n/a')
+
+    if not installed:
+        # Not configurable: an instance that ever answered normally cannot legitimately
+        # report this. It means the setup never completed or config.php is gone.
+        state = lib.base.get_worst(state, STATE_CRIT)
+        issues.append(
+            lib.base.state2str(STATE_CRIT, suffix=' ') + 'Instance is not installed.'
+        )
+
+    if maintenance:
+        maintenance_state = lib.base.str2state(args.MAINTENANCE_SEVERITY)
+        state = lib.base.get_worst(state, maintenance_state)
+        issues.append(
+            lib.base.state2str(maintenance_state, suffix=' ')
+            + 'Maintenance mode is on.'
+        )
+
+    if needs_db_upgrade:
+        # `occ upgrade` turns maintenance mode on for its duration, so both flags being
+        # set means planned work is in progress. Report that at the maintenance severity
+        # instead of paging someone for an upgrade that is already running.
+        if maintenance:
+            upgrade_state = lib.base.str2state(args.MAINTENANCE_SEVERITY)
+        else:
+            upgrade_state = lib.base.str2state(args.UPGRADE_SEVERITY)
+        state = lib.base.get_worst(state, upgrade_state)
+        issues.append(
+            lib.base.state2str(upgrade_state, suffix=' ')
+            + 'Database upgrade pending, run `occ upgrade`.'
+        )
+
+    # build the message
+    if issues:
+        msg += ' '.join(issues)
+    else:
+        msg += f'{productname} v{versionstring} is up and does not need an upgrade.'
+    msg += (
+        f'\n\n'
+        f'* Product: {productname}\n'
+        f'* Version: {versionstring} ({version})\n'
+        f'* Installed: {"yes" if installed else "no"}\n'
+        f'* Maintenance mode: {"on" if maintenance else "off"}\n'
+        f'* Database upgrade: {"pending" if needs_db_upgrade else "not required"}\n'
+        f'* Extended support: {"yes" if extended_support else "no"}'
+    )
+
+    perfdata += lib.base.get_perfdata(
+        'nextcloud-status',
+        state,
+        uom=None,
+        _min=0,
+        _max=STATE_UNKNOWN,
+    )
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

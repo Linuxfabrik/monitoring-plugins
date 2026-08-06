@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+TESTS = [
+    {
+        'id': 'ok-healthy',
+        'test': 'stdout/healthy,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Nextcloud v31.0.14 is up and does not need an upgrade.',
+            '* Version: 31.0.14 (31.0.14.1)',
+            '* Installed: yes',
+            '* Maintenance mode: off',
+            '* Database upgrade: not required',
+            '* Extended support: no',
+            "'nextcloud-status'=0;;;0;3",
+        ],
+    },
+    {
+        'id': 'warn-maintenance-mode',
+        'test': 'stdout/maintenance-mode,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '[WARNING] Maintenance mode is on.',
+            '* Maintenance mode: on',
+            "'nextcloud-status'=1;;;0;3",
+        ],
+        'assert-not-in': ['Database upgrade pending'],
+    },
+    {
+        'id': 'ok-maintenance-mode-severity-ok',
+        'test': 'stdout/maintenance-mode,,0',
+        'params': '--maintenance-severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Maintenance mode is on'],
+        'assert-not-in': ['[WARNING]'],
+    },
+    {
+        'id': 'crit-needs-db-upgrade',
+        'test': 'stdout/needs-db-upgrade,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '[CRITICAL] Database upgrade pending, run `occ upgrade`.',
+            '* Database upgrade: pending',
+            "'nextcloud-status'=2;;;0;3",
+        ],
+        'assert-not-in': ['Maintenance mode is on'],
+    },
+    {
+        'id': 'warn-needs-db-upgrade-severity-warn',
+        'test': 'stdout/needs-db-upgrade,,0',
+        'params': '--upgrade-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['[WARNING] Database upgrade pending'],
+    },
+    {
+        # `occ upgrade` turns maintenance mode on for its duration, so both flags being
+        # set is planned work and must be capped at the maintenance severity instead of
+        # paging someone in the middle of the night.
+        'id': 'warn-upgrade-in-progress',
+        'test': 'stdout/upgrade-in-progress,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '[WARNING] Maintenance mode is on.',
+            '[WARNING] Database upgrade pending',
+        ],
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'crit-upgrade-in-progress-maintenance-severity-crit',
+        'test': 'stdout/upgrade-in-progress,,0',
+        'params': '--maintenance-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '[CRITICAL] Maintenance mode is on.',
+            '[CRITICAL] Database upgrade pending',
+        ],
+    },
+    {
+        'id': 'crit-not-installed',
+        'test': 'stdout/not-installed,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '[CRITICAL] Instance is not installed.',
+            '* Installed: no',
+        ],
+    },
+    {
+        'id': 'ok-extended-support-and-themed-productname',
+        'test': 'stdout/extended-support,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Linuxfabrik - Nextcloud v21.0.3 Enterprise is up',
+            '* Product: Linuxfabrik - Nextcloud',
+            '* Version: 21.0.3 Enterprise (21.0.3.2)',
+            '* Extended support: yes',
+        ],
+    },
+    {
+        # Nextcloud added `extendedSupport` in v17, so older instances omit the key.
+        'id': 'ok-nextcloud-16-without-extended-support-key',
+        'test': 'stdout/nextcloud-16,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Nextcloud v16.0.11 is up',
+            '* Extended support: no',
+        ],
+    },
+    {
+        # A body without any known key must not traceback. Everything defaults to
+        # false, and a missing `installed` is the alerting condition.
+        'id': 'crit-empty-json',
+        'test': 'stdout/empty-json,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '[CRITICAL] Instance is not installed.',
+            '* Version: n/a (n/a)',
+        ],
+        'assert-not-in': ['Traceback'],
+    },
+    {
+        'id': 'ok-always-ok-forces-ok',
+        'test': 'stdout/needs-db-upgrade,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Database upgrade pending'],
+    },
+    {
+        'id': 'ok-no-perfdata-drops-perfdata',
+        'test': 'stdout/healthy,,0',
+        'params': '--no-perfdata',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ["'nextcloud-status'="],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../nextcloud-status'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

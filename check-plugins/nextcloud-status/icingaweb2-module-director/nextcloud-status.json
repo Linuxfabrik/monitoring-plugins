@@ -1,0 +1,290 @@
+{
+    "Command": {
+        "cmd-check-nextcloud-status": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$nextcloud_status_always_ok$"
+                },
+                "--insecure": {
+                    "set_if": "$nextcloud_status_insecure$"
+                },
+                "--maintenance-severity": {
+                    "value": "$nextcloud_status_maintenance_severity$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$nextcloud_status_no_perfdata$"
+                },
+                "--no-proxy": {
+                    "set_if": "$nextcloud_status_no_proxy$"
+                },
+                "--timeout": {
+                    "value": "$nextcloud_status_timeout$"
+                },
+                "--upgrade-severity": {
+                    "value": "$nextcloud_status_upgrade_severity$"
+                },
+                "--url": {
+                    "value": "$nextcloud_status_url$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/nextcloud-status",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-nextcloud-status",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "26f6ff5a-480e-4b89-a8ab-e01d96453398"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-nextcloud-status": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-nextcloud-status",
+            "check_interval": 300,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "nextcloud-status.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Monitors the health of a Nextcloud instance via its status endpoint, reporting whether the instance is installed, whether a pending database upgrade blocks it, and whether maintenance mode is active. Also reports the running version, the product name and the extended support flag. The status endpoint bypasses the router and the maintenance gate, so it answers with HTTP 200 even while the instance serves nobody. A plain HTTP check cannot see that. This check therefore reads the flags out of the response instead of trusting the status code.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-status/",
+            "object_name": "tpl-service-nextcloud-status",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "nextcloud_status_always_ok": false,
+                "nextcloud_status_insecure": false,
+                "nextcloud_status_maintenance_severity": "warn",
+                "nextcloud_status_no_perfdata": false,
+                "nextcloud_status_no_proxy": false,
+                "nextcloud_status_timeout": 8,
+                "nextcloud_status_upgrade_severity": "crit",
+                "nextcloud_status_url": "http://localhost/nextcloud/status.php"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "6aa4b9a4-1369-4c59-a20c-0bcdcf47f45a"
+        }
+    },
+    "DataList": {
+        "nextcloud_status_maintenance_severity_list": {
+            "list_name": "nextcloud_status_maintenance_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "a8c288f8-2143-417f-9d28-5103c2c4ece5"
+        },
+        "nextcloud_status_upgrade_severity_list": {
+            "list_name": "nextcloud_status_upgrade_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "28827677-9d7f-4012-b6df-d83522ea92ee"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "nextcloud_status_always_ok",
+            "caption": "Nextcloud Status: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "9bb80594-964c-4358-8032-c97c06007874"
+        },
+        "2": {
+            "varname": "nextcloud_status_insecure",
+            "caption": "Nextcloud Status: Insecure?",
+            "description": "This option explicitly allows insecure SSL connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "ba4ddafd-f721-4f2a-8d08-fed61d4b18e6"
+        },
+        "3": {
+            "varname": "nextcloud_status_maintenance_severity",
+            "caption": "Nextcloud Status: Maintenance Severity",
+            "description": "State to report while the instance is in maintenance mode. Also caps the state of a pending database upgrade, because a running `occ upgrade` turns maintenance mode on for its duration.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "nextcloud_status_maintenance_severity_list"
+            },
+            "uuid": "535c2d0e-5007-4ce6-a7ec-e59684c2d97f"
+        },
+        "4": {
+            "varname": "nextcloud_status_no_perfdata",
+            "caption": "Nextcloud Status: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "a79df44c-7577-49e9-8b4b-3b5201f15c05"
+        },
+        "5": {
+            "varname": "nextcloud_status_no_proxy",
+            "caption": "Nextcloud Status: No Proxy?",
+            "description": "Do not use a proxy.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "3076a93c-fba6-446d-9038-2053f593e15a"
+        },
+        "6": {
+            "varname": "nextcloud_status_timeout",
+            "caption": "Nextcloud Status: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "4fe496dc-3453-4cfd-aca5-49e7b786c8e2"
+        },
+        "7": {
+            "varname": "nextcloud_status_upgrade_severity",
+            "caption": "Nextcloud Status: Upgrade Severity",
+            "description": "State to report when the instance needs a database upgrade while maintenance mode is off. The instance answers every request with the upgrade page until `occ upgrade` has run, so it serves nobody.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "nextcloud_status_upgrade_severity_list"
+            },
+            "uuid": "78bbcc95-498a-4ee6-8f87-d3e914595986"
+        },
+        "8": {
+            "varname": "nextcloud_status_url",
+            "caption": "Nextcloud Status: URL",
+            "description": "Nextcloud status URL endpoint.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ebdb822a-0246-4571-83ac-fa8cbe4870d7"
+        }
+    }
+}
