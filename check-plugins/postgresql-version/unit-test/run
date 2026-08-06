@@ -15,12 +15,11 @@ outputs captured from every officially-supported PostgreSQL major
 (13 through 18) using the `postgres:<tag>` images on Docker Hub. The
 plugin runs its regex parser against each one.
 
-Each testcase pins the expected Nagios state to whatever
-`lib.version.check_eol()` returned when these fixtures were saved
-against the live https://endoflife.date/api/postgresql.json data. The
-EOL table drifts over time (releases hit EOL, new majors appear), so
-the `assert-retc` and `assert-in` strings will need to be re-pinned
-every few months.
+The testcases assert the parsed version and nothing else. An end-of-life
+verdict is derived from live endoflife.date data and from today's date, so
+pinning one here breaks as soon as upstream re-dates a cycle or a date passes.
+`lib.version.check_eol()` is covered against synthetic cycles in the lib repo
+instead, where the expectation cannot age.
 """
 
 import sys
@@ -30,45 +29,39 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_UNKNOWN
 
 TESTS = [
     {
         # PostgreSQL 13 reached EOL 2025-11-13.
-        'id': 'warn-postgresql-13-eol',
+        'id': 'parses-postgresql-13',
         'test': 'stdout/select-version-13,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['PostgreSQL v13.23', 'EOL 2025-11-13', '[WARNING]'],
+        'assert-in': ['PostgreSQL v13.23'],
     },
     {
-        'id': 'ok-postgresql-14-supported',
+        'id': 'parses-postgresql-14',
         'test': 'stdout/select-version-14,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['PostgreSQL v14.22', 'EOL 2026-11-12'],
+        'assert-in': ['PostgreSQL v14.22'],
     },
     {
-        'id': 'ok-postgresql-15-supported',
+        'id': 'parses-postgresql-15',
         'test': 'stdout/select-version-15,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['PostgreSQL v15.17', 'EOL 2027-11-11'],
+        'assert-in': ['PostgreSQL v15.17'],
     },
     {
-        'id': 'ok-postgresql-16-supported',
+        'id': 'parses-postgresql-16',
         'test': 'stdout/select-version-16,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['PostgreSQL v16.10', 'EOL 2028-11-09'],
+        'assert-in': ['PostgreSQL v16.10'],
     },
     {
-        'id': 'ok-postgresql-17-supported',
+        'id': 'parses-postgresql-17',
         'test': 'stdout/select-version-17,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['PostgreSQL v17.9', 'EOL 2029-11-08'],
+        'assert-in': ['PostgreSQL v17.9'],
     },
     {
-        'id': 'ok-postgresql-18-supported',
+        'id': 'parses-postgresql-18',
         'test': 'stdout/select-version-18,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['PostgreSQL v18.3', 'EOL 2030-11-14'],
+        'assert-in': ['PostgreSQL v18.3'],
     },
     {
         # Parser edge case: psql cannot connect, output does not

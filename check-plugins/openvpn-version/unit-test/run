@@ -18,12 +18,11 @@ captured from the official Rocky Linux and Fedora container images
 plugin runs its `r'OpenVPN\\s+(\\d+\\.\\d+\\.\\d+)'` regex against
 each one.
 
-Each testcase pins the expected Nagios state to whatever
-`lib.version.check_eol()` returned when these fixtures were saved
-against the live https://endoflife.date/api/openvpn.json data. The
-EOL table drifts over time (releases hit EOL, new majors appear),
-so the `assert-retc` and `assert-in` strings will need to be
-re-pinned every few months.
+The testcases assert the parsed version and nothing else. An end-of-life
+verdict is derived from live endoflife.date data and from today's date, so
+pinning one here breaks as soon as upstream re-dates a cycle or a date passes.
+`lib.version.check_eol()` is covered against synthetic cycles in the lib repo
+instead, where the expectation cannot age.
 """
 
 import sys
@@ -33,32 +32,28 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_UNKNOWN
 
 TESTS = [
     {
-        'id': 'warn-rocky8-openvpn-2-4-12-eol',
+        'id': 'parses-rocky8-openvpn-2-4-12',
         'test': 'stdout/openvpn-version-rocky8,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['OpenVPN v2.4.12', 'EOL 2023-03-31', '[WARNING]'],
+        'assert-in': ['OpenVPN v2.4.12'],
     },
     {
-        'id': 'warn-rocky9-openvpn-2-5-11-eol',
+        'id': 'parses-rocky9-openvpn-2-5-11',
         'test': 'stdout/openvpn-version-rocky9,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['OpenVPN v2.5.11', 'EOL 2025-07-31', '[WARNING]'],
+        'assert-in': ['OpenVPN v2.5.11'],
     },
     {
-        'id': 'ok-fedora43-openvpn-2-6-19',
+        'id': 'parses-fedora43-openvpn-2-6-19',
         'test': 'stdout/openvpn-version-fedora43,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['OpenVPN v2.6.19', 'EOL 2028-08-31'],
+        'assert-in': ['OpenVPN v2.6.19'],
     },
     {
-        'id': 'ok-rocky10-openvpn-2-7-1',
+        'id': 'parses-rocky10-openvpn-2-7-1',
         'test': 'stdout/openvpn-version-rocky10,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['OpenVPN v2.7.1', 'EOL unknown'],
+        'assert-in': ['OpenVPN v2.7.1'],
     },
     {
         'id': 'unknown-garbage-output',

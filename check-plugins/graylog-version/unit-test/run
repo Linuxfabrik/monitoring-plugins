@@ -18,12 +18,11 @@ Linux 9 (`quay.io/rockylinux/rockylinux:9`) and Debian 12
 RedHat and Debian package-listing shapes the plugin parses with
 `r'graylog-server.*\\s+(\\d+\\.\\d+\\.\\d+)'`.
 
-Each testcase pins the expected Nagios state to whatever
-`lib.version.check_eol()` returned when these fixtures were saved
-against the live https://endoflife.date/api/graylog.json data.
-The EOL table drifts over time (releases hit EOL, new majors
-appear), so the `assert-retc` and `assert-in` strings will need
-to be re-pinned every few months.
+The testcases assert the parsed version and nothing else. An end-of-life
+verdict is derived from live endoflife.date data and from today's date, so
+pinning one here breaks as soon as upstream re-dates a cycle or a date passes.
+`lib.version.check_eol()` is covered against synthetic cycles in the lib repo
+instead, where the expectation cannot age.
 """
 
 import sys
@@ -33,32 +32,28 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_UNKNOWN
 
 TESTS = [
     {
-        'id': 'warn-debian-graylog-5-2-eol',
+        'id': 'parses-debian-graylog-5-2',
         'test': 'stdout/dpkg-list-graylog-5.2,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['Graylog v5.2.12', 'EOL 2024-11-01', '[WARNING]'],
+        'assert-in': ['Graylog v5.2.12'],
     },
     {
-        'id': 'warn-debian-graylog-6-3-approaching-eol',
+        'id': 'parses-debian-graylog-6-3-approaching',
         'test': 'stdout/dpkg-list-graylog-6.3,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['Graylog v6.3.11', 'EOL 2026-06-30', '[WARNING]'],
+        'assert-in': ['Graylog v6.3.11'],
     },
     {
-        'id': 'warn-rocky9-graylog-6-3-approaching-eol',
+        'id': 'parses-rocky9-graylog-6-3-approaching',
         'test': 'stdout/yum-list-installed-graylog-6.3,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['Graylog v6.3.11', 'EOL 2026-06-30', '[WARNING]'],
+        'assert-in': ['Graylog v6.3.11'],
     },
     {
-        'id': 'ok-debian-graylog-7-0',
+        'id': 'parses-debian-graylog-7-0',
         'test': 'stdout/dpkg-list-graylog-7.0,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['Graylog v7.0.6', 'EOL 2026-11-03'],
+        'assert-in': ['Graylog v7.0.6'],
     },
     {
         'id': 'unknown-garbage-output',

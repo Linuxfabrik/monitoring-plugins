@@ -17,12 +17,11 @@ outputs captured from official Red Hat family base images
 `dnf install postfix`. The plugin runs its `r'= ([\\d\\.]+)'`
 regex against each one.
 
-Each testcase pins the expected Nagios state to whatever
-`lib.version.check_eol()` returned when these fixtures were saved
-against the live https://endoflife.date/api/postfix.json data. The
-EOL table drifts over time (releases hit EOL, new majors appear),
-so the `assert-retc` and `assert-in` strings will need to be
-re-pinned every few months.
+The testcases assert the parsed version and nothing else. An end-of-life
+verdict is derived from live endoflife.date data and from today's date, so
+pinning one here breaks as soon as upstream re-dates a cycle or a date passes.
+`lib.version.check_eol()` is covered against synthetic cycles in the lib repo
+instead, where the expectation cannot age.
 """
 
 import sys
@@ -32,32 +31,28 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_UNKNOWN
 
 TESTS = [
     {
-        'id': 'warn-rhel8-postfix-3-5-8-eol',
+        'id': 'parses-rhel8-postfix-3-5-8',
         'test': 'stdout/postconf-mail-version-rhel8,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['Postfix v3.5.8', 'EOL 2024-03-06', '[WARNING]'],
+        'assert-in': ['Postfix v3.5.8'],
     },
     {
-        'id': 'warn-rhel9-postfix-3-5-25-eol',
+        'id': 'parses-rhel9-postfix-3-5-25',
         'test': 'stdout/postconf-mail-version-rhel9,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['Postfix v3.5.25', 'EOL 2024-03-06', '[WARNING]'],
+        'assert-in': ['Postfix v3.5.25'],
     },
     {
-        'id': 'ok-rhel10-postfix-3-8-5',
+        'id': 'parses-rhel10-postfix-3-8-5',
         'test': 'stdout/postconf-mail-version-rhel10,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['Postfix v3.8.5', 'EOL unknown'],
+        'assert-in': ['Postfix v3.8.5'],
     },
     {
-        'id': 'ok-fedora43-postfix-3-10-3',
+        'id': 'parses-fedora43-postfix-3-10-3',
         'test': 'stdout/postconf-mail-version-fedora43,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['Postfix v3.10.3', 'EOL unknown'],
+        'assert-in': ['Postfix v3.10.3'],
     },
     {
         'id': 'unknown-garbage-output',
