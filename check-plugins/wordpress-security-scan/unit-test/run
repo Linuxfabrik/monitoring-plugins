@@ -1,0 +1,333 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# The fixtures under stdout/ were captured from live wpscan runs against a WordPress
+# container and then narrowed down per scenario, so they carry the document structure
+# wpscan really emits. The scan exit code is part of the evaluation and therefore part
+# of every `test` value: 0 is a clean scan, 5 means wpscan considers the target
+# vulnerable, and anything else is a run that did not produce a result.
+#
+# `wordpress/` is a WordPress installation tree reduced to the files the check reads:
+# wp-includes/version.php plus the plugin and theme headers below wp-content/. It also
+# contains the index.php placeholders WordPress ships in every directory, so the
+# "a placeholder is not a plugin" case is covered by the real layout.
+BASE_PARAMS = '--url=https://www.example.com --path=wordpress'
+
+# Pointing --path at a directory that does not exist exercises the black box mode, in
+# which the check reports what the scan alone could see.
+NO_PATH_PARAMS = '--url=https://www.example.com --path=/nonexistent'
+
+TESTS = [
+    # A site that is fully patched and exposes nothing. The local inventory holds three
+    # plugins while the scan fingerprinted two of them, which is reported as context and
+    # must not influence the state.
+    {
+        'id': 'ok-no-findings',
+        'test': 'stdout/clean-site,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'No vulnerabilities found. No exposures found.',
+            'WordPress v7.0.2',
+            'Installed locally: 3 plugins, 3 themes.',
+            'Detected by the scan: 2 plugins, 3 themes.',
+            "'vulnerabilities'=0",
+            "'exposures'=0",
+            "'plugins_installed'=3",
+            "'plugins_detected'=2",
+        ],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        'id': 'ok-black-box-without-local-installation',
+        'test': 'stdout/clean-site,,0',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'No WordPress installation readable at "/nonexistent",',
+            "'plugins_installed'=0",
+        ],
+    },
+    # Findings that only describe how the site is set up. Alerting on a multisite
+    # install or an enabled XML-RPC endpoint would leave the check permanently non-OK
+    # on a default WordPress.
+    {
+        'id': 'ok-info-findings-do-not-alert',
+        'test': 'stdout/info-findings-only,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_OK,
+        'assert-in': ['No vulnerabilities found. No exposures found.'],
+        'assert-not-in': ['multisite', 'xmlrpc', 'robots', 'Must Use Plugins'],
+    },
+    # Known vulnerabilities, graded by their CVSS base score.
+    {
+        'id': 'crit-vuln-above-critical-cvss',
+        'test': 'stdout/vuln-high-cvss,,5',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '1 vulnerability (1 critical)',
+            'Unrestricted File Upload',
+            "'vulnerabilities'=1",
+            "'vulnerabilities_critical'=1",
+        ],
+        'assert-regex': r'contact-form-7.*Unrestricted File Upload.*\[CRITICAL\]',
+    },
+    {
+        'id': 'warn-vuln-below-critical-cvss',
+        'test': 'stdout/vuln-low-cvss,,5',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 vulnerability (0 critical)', "'vulnerabilities_critical'=0"],
+        'assert-regex': r'contact-form-7.*Cross-Site Scripting.*\[WARNING\]',
+    },
+    # Same fixture, threshold lowered below the score of the finding.
+    {
+        'id': 'crit-vuln-with-lowered-cvss-threshold',
+        'test': 'stdout/vuln-low-cvss,,5',
+        'params': f'{BASE_PARAMS} --critical-cvss=5.0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['1 vulnerability (1 critical)'],
+    },
+    # The vulnerability database carries no score for a large share of its entries.
+    {
+        'id': 'warn-unscored-vuln-default',
+        'test': 'stdout/vuln-no-cvss,,5',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Privilege Escalation'],
+    },
+    {
+        'id': 'crit-unscored-vuln-severity-crit',
+        'test': 'stdout/vuln-no-cvss,,5',
+        'params': f'{BASE_PARAMS} --unscored-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['1 vulnerability (1 critical)'],
+    },
+    {
+        'id': 'ok-unscored-vuln-severity-ok',
+        'test': 'stdout/vuln-no-cvss,,5',
+        'params': f'{BASE_PARAMS} --unscored-severity=ok',
+        'assert-retc': STATE_OK,
+    },
+    # Exposures: a single reachable file or directory that hands over credentials, the
+    # database or an account. Always critical, no threshold involved.
+    {
+        'id': 'crit-config-backup-and-db-export',
+        'test': 'stdout/full-site,,5',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Readable wp-config backup',
+            'Readable database export',
+            "'exposures'=3",
+        ],
+    },
+    {
+        'id': 'crit-backup-folder',
+        'test': 'stdout/backup-folder-exposed,,5',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Backup folder with directory listing', "'exposures'=1"],
+    },
+    {
+        'id': 'crit-debug-log',
+        'test': 'stdout/full-site,,5',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'debug\.log.*Debug Log found.*\[CRITICAL\]',
+    },
+    # A site still sitting on its installer: anyone can create the first admin account.
+    # wpscan reports this instead of a scan and exits 0, so the exit code alone would
+    # hide it.
+    {
+        'id': 'crit-site-in-install-mode',
+        'test': 'stdout/not-fully-configured,,0',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['site is in install mode, anyone can create the admin user'],
+    },
+    # Hardening findings.
+    {
+        'id': 'warn-outdated-plugin',
+        'test': 'stdout/full-site,,5',
+        'params': f'{BASE_PARAMS} --ignore=wp-config|wordpress.sql|debug.log',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'contact-form-7.*5\.0.*outdated, 6\.1\.6 is available',
+        'assert-in': ["'plugins_outdated'=1"],
+    },
+    {
+        'id': 'warn-core-flagged-insecure',
+        'test': 'stdout/core-insecure,,5',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['core version is flagged as insecure', "'vulnerabilities'=1"],
+    },
+    {
+        'id': 'warn-core-outdated',
+        'test': 'stdout/core-outdated,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['core version is outdated', "'hardening_findings'=1"],
+    },
+    # The scan seeing a different core version than the one installed means it did not
+    # look at this installation.
+    {
+        'id': 'warn-version-mismatch-local-vs-remote',
+        'test': 'stdout/version-mismatch,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['scan sees v6.4.1, installed is v7.0.2'],
+    },
+    {
+        'id': 'warn-users-enumerable',
+        'test': 'stdout/users-enumerated,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 usernames enumerable (admin, editor)', "'users'=2"],
+        # one row for the whole list, not one row per user
+        'assert-not-in': ['1 username enumerable'],
+    },
+    {
+        'id': 'warn-timthumb-reachable',
+        'test': 'stdout/timthumb-found,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['timthumb script reachable'],
+    },
+    # The active theme is reported in its own `main_theme` section rather than in
+    # `themes`, so it needs its own path.
+    {
+        'id': 'warn-main-theme-outdated',
+        'test': 'stdout/main-theme-outdated,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'twentytwentyfive.*1\.5.*outdated, 1\.6 is available',
+        'assert-in': ["'themes_outdated'=1"],
+    },
+    # Filters.
+    {
+        'id': 'ok-vuln-ignored',
+        'test': 'stdout/vuln-high-cvss,,5',
+        'params': f'{BASE_PARAMS} --ignore=^contact-form-7$',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['Unrestricted File Upload'],
+    },
+    {
+        'id': 'crit-match-narrows-to-one-component',
+        'test': 'stdout/full-site,,5',
+        'params': f'{BASE_PARAMS} --match=wp-config',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Readable wp-config backup', "'exposures'=1"],
+        'assert-not-in': ['Readable database export'],
+    },
+    {
+        'id': 'ok-no-match-severity-default',
+        'test': 'stdout/full-site,,5',
+        'params': f'{BASE_PARAMS} --match=does-not-exist',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    # A site without findings is clean, not unchecked. A filter that had nothing to
+    # remove must not turn the verdict into "Nothing checked.", which would otherwise
+    # let --no-match-severity alert on a perfectly healthy site.
+    {
+        'id': 'ok-clean-site-with-harmless-filter',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --ignore=^akismet$ --no-match-severity=crit',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No vulnerabilities found. No exposures found.'],
+        'assert-not-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'warn-no-match-severity-warn',
+        'test': 'stdout/full-site,,5',
+        'params': f'{BASE_PARAMS} --match=does-not-exist --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    # --lengthy adds columns, it does not change the state or the rows.
+    {
+        'id': 'crit-lengthy-adds-cvss-and-fix-columns',
+        'test': 'stdout/vuln-high-cvss,,5',
+        'params': f'{BASE_PARAMS} --lengthy',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['CVSS', 'Fixed in'],
+        'assert-regex': r'contact-form-7.*plugin.*9\.8.*5\.3\.2',
+    },
+    {
+        'id': 'ok-always-ok',
+        'test': 'stdout/vuln-high-cvss,,5',
+        'params': f'{BASE_PARAMS} --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 vulnerability (1 critical)'],
+    },
+    # Perfdata can be suppressed without touching the verdict.
+    {
+        'id': 'crit-no-perfdata',
+        'test': 'stdout/vuln-high-cvss,,5',
+        'params': f'{BASE_PARAMS} --no-perfdata',
+        'assert-retc': STATE_CRIT,
+        'assert-not-in': ["'vulnerabilities'="],
+    },
+    # wpscan running out of its own time budget is a timeout, not a broken run, so it
+    # ends in the same state as the hard subprocess timeout.
+    {
+        'id': 'warn-scan-timeout',
+        'test': 'stdout/scan-timeout,,4',
+        'params': f'{BASE_PARAMS} --scan-timeout=120',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Timeout after 120s while scanning https://www.example.com.'],
+    },
+    # Runs that produced no usable result.
+    {
+        'id': 'unknown-scan-aborted',
+        'test': 'stdout/scan-aborted,,4',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'The remote website is up, but does not seem to be running WordPress.'
+        ],
+    },
+    {
+        'id': 'unknown-malformed-json',
+        'test': 'stdout/malformed-json,,0',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Unable to parse the scan output'],
+    },
+    {
+        'id': 'unknown-empty-response',
+        'test': 'stdout/empty-response,,0',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['The scan returned no output.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../wordpress-security-scan'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

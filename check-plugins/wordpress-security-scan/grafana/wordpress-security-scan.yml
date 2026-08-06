@@ -1,0 +1,42 @@
+---
+apiVersion: v1
+kind: Dashboard
+metadata:
+  name: wordpress-security-scan
+spec:
+  title: WordPress Security Scan
+  uid: wordpress-security-scan
+  panels:
+    # Findings and inventory are kept apart on purpose: a findings count moves between
+    # 0 and a handful, an inventory count sits at a few dozen, and mixing the two makes
+    # the findings invisible.
+    - title: Findings
+      type: timeseries
+      targets:
+        - expr: vulnerabilities
+        - expr: vulnerabilities_critical
+        - expr: exposures
+        - expr: hardening_findings
+    - title: Plugins
+      type: timeseries
+      targets:
+        - expr: plugins_installed
+        - expr: plugins_detected
+        - expr: plugins_outdated
+    - title: Themes
+      type: timeseries
+      targets:
+        - expr: themes_installed
+        - expr: themes_detected
+        - expr: themes_outdated
+    - title: Enumerable Usernames
+      type: timeseries
+      targets:
+        - expr: users
+    - title: Scan Duration
+      type: timeseries
+      fieldConfig:
+        defaults:
+          unit: s
+      targets:
+        - expr: scan_duration

@@ -50,6 +50,7 @@ Monitoring Plugins:
 * php-status: warns when `post_max_size` is not larger than `upload_max_filesize`, a misconfiguration that silently breaks file uploads ([#516](https://github.com/Linuxfabrik/monitoring-plugins/issues/516))
 * snmp: `--snmpconf-path` keeps the SNMP community and SNMPv3 passphrases out of the process list by reading them from a net-snmp config file
 * wildfly-version: check alerting when WildFly is behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))
+* wordpress-security-scan: check scanning a WordPress site for known vulnerabilities and for files that expose credentials or the database, going CRITICAL only where the site can be taken over right now
 
 Icinga Director:
 
