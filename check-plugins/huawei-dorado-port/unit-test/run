@@ -27,8 +27,33 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok.',
-            '213:0A.3 ! Ethernet ! CTE0.A.IOM1.P1 ! Link down (11) ! [OK]   ! [OK]',
+            # Every port runs at the speed it is built for, so none is reported slow.
+            '212:0A.0 ! FC       ! CTE0.A.IOM0.P0 ! 32000',
+            '213:0A.3 ! Ethernet ! CTE0.A.IOM1.P1 ! --',
+            'Link down (11) ! [OK]   ! [OK]',
+            "'212_0A_0_speed'=32000;;;0;32000",
         ],
+        # A port with no link reports no rate, so it must not be graphed at zero.
+        'assert-not-in': ["'213_0A_3_speed'="],
+    },
+    {
+        # A 32 Gbit/s FC port that negotiated 8 Gbit/s still carries traffic, so
+        # nothing else in this check notices. It is what a dirty connector, the
+        # wrong transceiver or a mismatched switch port look like.
+        'id': 'warn-fc-port-negotiated-down',
+        'test': 'stdout/ports-fc-negotiated-down,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['There are warnings.', '8000/32000 [WARNING]'],
+    },
+    {
+        # The same fabric for an operator who does not want to hear about it.
+        'id': 'ok-slow-port-severity-off',
+        'test': 'stdout/ports-fc-negotiated-down,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        ' --slow-port-severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
     },
     {
         # An operator who cables every port can turn the link state into an alert.

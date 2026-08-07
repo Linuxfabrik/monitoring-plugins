@@ -31,7 +31,8 @@ Monitoring Plugins:
 * `--unreachable-severity` can alert instead of silently reporting OK when endoflife.date is unreachable and the bundled offline data is used, on all `*-version` checks, with the default staying OK ([#750](https://github.com/Linuxfabrik/monitoring-plugins/issues/750))
 * apache-tomcat-version: check for an end-of-life or outdated Apache Tomcat, with an Icinga Director service set ([#126](https://github.com/Linuxfabrik/monitoring-plugins/issues/126))
 * `--match` and `--no-match-severity` limit the check to the objects whose identifier, location or name matches a regex, on all ten Huawei OceanStor Dorado hardware and replication checks (huawei-dorado-backup-power, huawei-dorado-controller, huawei-dorado-disk, huawei-dorado-enclosure, huawei-dorado-fan, huawei-dorado-host, huawei-dorado-hypermetrodomain, huawei-dorado-hypermetropair, huawei-dorado-interface, huawei-dorado-power)
-* huawei-dorado-backup-power: `--warning`/`--critical` alert on a backup power module running out of remaining life
+* huawei-dorado-backup-power: `--warning`/`--critical` alert on a backup power module running out of remaining life, and `--warning-voltage`/`--critical-voltage` on one whose voltage leaves the range you expect, which is where a lost cell shows up long before the health status changes
+* huawei-dorado-disk: `--warning-health-mark`/`--critical-health-mark` alert on the health score the appliance keeps per disk, `--warning-wear`/`--critical-wear` on a disk that has worn through most of its service life, and `--unused-disk-severity` on a disk that belongs to no pool. All off by default
 * huawei-dorado-controller: `--warning`/`--critical` alert on CPU and memory usage, and `--warning-temperature`/`--critical-temperature` on the controller temperature, all off by default
 * huawei-dorado-disk: `--warning`/`--critical` alert on a disk running out of remaining life, and `--warning-temperature`/`--critical-temperature` on a disk running hot
 * huawei-dorado-enclosure, huawei-dorado-power: `--warning-temperature`/`--critical-temperature` alert on an enclosure or power supply running hot, off by default
@@ -48,6 +49,8 @@ Monitoring Plugins:
 * huawei-dorado-expboard: check alerting on a faulty expansion board, which connects a disk enclosure to the controllers
 * huawei-dorado-lun: check alerting on a faulty LUN of a Huawei OceanStor Dorado storage system, and optionally on a thin LUN filling up
 * huawei-dorado-port: check alerting on a faulty front-end port of a Huawei OceanStor Dorado storage system, covering FC, Ethernet, SAS and bond ports, with `--link-down-severity` deciding what a lost link reports
+* huawei-dorado-port: alerts when a port negotiated a speed below the one it is configured or built for, which is what a dirty connector, the wrong transceiver or a mismatched switch port look like long before the link drops. `--slow-port-severity` tunes it, and it defaults to WARNING
+* huawei-dorado-port: reports the link error counters of every FC, Ethernet and SAS port as per-second rates, so a fabric that starts erroring is visible in the graph. `--warning-errors`/`--critical-errors` alert on them, off by default. The first run after an update has no baseline yet and reports no rates
 * huawei-dorado-sfp: check alerting on a faulty optical module, reporting its vendor, model, mode and working speed
 * huawei-dorado-storagepool: check alerting on a faulty storage pool of a Huawei OceanStor Dorado storage system, and on a pool filling up
 * `--ignore` skips objects by regular expression on the 16 Huawei checks that already filter with `--match`, and both parameters can now be given several times

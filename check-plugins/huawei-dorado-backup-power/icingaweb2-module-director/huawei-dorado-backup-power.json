@@ -11,6 +11,9 @@
                 "--critical": {
                     "value": "$huawei_dorado_backup_power_critical$"
                 },
+                "--critical-voltage": {
+                    "value": "$huawei_dorado_backup_power_critical_voltage$"
+                },
                 "--device-id": {
                     "value": "$huawei_dorado_backup_power_device_id$"
                 },
@@ -57,6 +60,9 @@
                 },
                 "--warning": {
                     "value": "$huawei_dorado_backup_power_warning$"
+                },
+                "--warning-voltage": {
+                    "value": "$huawei_dorado_backup_power_warning_voltage$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/huawei-dorado-backup-power",
@@ -139,7 +145,7 @@
                 },
                 {
                     "datafield_id": 16,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -149,6 +155,16 @@
                 },
                 {
                     "datafield_id": 18,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 19,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 20,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -194,7 +210,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the health status of all backup power modules (BBU) on a Huawei OceanStor Dorado storage system via the REST API (/backup_power endpoint). Alerts when any module reports a non-normal health state.",
+            "notes": "Checks the health status of all backup power modules (BBU) on a Huawei OceanStor Dorado storage system via the REST API (/backup_power endpoint). Alerts when any module reports a non-normal health state, when it runs out of remaining service life, and optionally when its voltage leaves the range you expect.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-backup-power/",
             "object_name": "tpl-service-huawei-dorado-backup-power",
             "object_type": "template",
@@ -208,6 +224,7 @@
                 "huawei_dorado_backup_power_always_ok": false,
                 "huawei_dorado_backup_power_cache_expire": 15,
                 "huawei_dorado_backup_power_critical": "30:",
+                "huawei_dorado_backup_power_critical_voltage": "",
                 "huawei_dorado_backup_power_device_id": "",
                 "huawei_dorado_backup_power_ignore": [],
                 "huawei_dorado_backup_power_insecure": true,
@@ -217,7 +234,8 @@
                 "huawei_dorado_backup_power_no_proxy": false,
                 "huawei_dorado_backup_power_scope": "0",
                 "huawei_dorado_backup_power_timeout": 3,
-                "huawei_dorado_backup_power_warning": "180:"
+                "huawei_dorado_backup_power_warning": "180:",
+                "huawei_dorado_backup_power_warning_voltage": ""
             },
             "volatile": null,
             "zone": null,
@@ -290,6 +308,17 @@
             "uuid": "97c506e6-bb7a-4ac4-9d67-522bbef940f2"
         },
         "4": {
+            "varname": "huawei_dorado_backup_power_critical_voltage",
+            "caption": "Huawei Dorado Backup Power: Critical Voltage",
+            "description": "CRIT threshold for the voltage of a backup power module, as a Nagios range in volts. Off by default, because the healthy range depends on the module and on how many cells it has; read the label or watch the graph first. Example: `--critical-voltage=13.5:18.5`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "12565123-c4b7-4f61-beda-ce1e2266e050"
+        },
+        "5": {
             "varname": "huawei_dorado_backup_power_device_id",
             "caption": "Huawei Dorado Backup Power: Device ID",
             "description": "Huawei OceanStor Dorado API device ID. Optional: the appliance reports its own at login, so this is only needed to override that answer.",
@@ -300,7 +329,7 @@
             },
             "uuid": "38cf8427-b0c8-4cbc-a9d7-e8d8be238725"
         },
-        "5": {
+        "6": {
             "varname": "huawei_dorado_backup_power_ignore",
             "caption": "Huawei Dorado Backup Power: Ignore",
             "description": "Skip backup power modules. Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.",
@@ -311,7 +340,7 @@
             },
             "uuid": "9a14b786-c1f2-48a9-b716-82f8a7712cc7"
         },
-        "6": {
+        "7": {
             "varname": "huawei_dorado_backup_power_insecure",
             "caption": "Huawei Dorado Backup Power: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -320,7 +349,7 @@
             "settings": {},
             "uuid": "d84f11fa-e5e7-4111-a0de-1ec11fe2116e"
         },
-        "7": {
+        "8": {
             "varname": "huawei_dorado_backup_power_no_insecure",
             "caption": "Huawei Dorado Backup Power: No Insecure?",
             "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -329,7 +358,7 @@
             "settings": {},
             "uuid": "fd473963-3dd7-4ea5-adfe-4c128689a321"
         },
-        "8": {
+        "9": {
             "varname": "huawei_dorado_backup_power_match",
             "caption": "Huawei Dorado Backup Power: Match",
             "description": "Filter by backup power modules. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.",
@@ -340,7 +369,7 @@
             },
             "uuid": "a3dba72f-84d7-4101-a45c-d8b9ec082fcd"
         },
-        "9": {
+        "10": {
             "varname": "huawei_dorado_backup_power_no_match_severity",
             "caption": "Huawei Dorado Backup Power: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -353,7 +382,7 @@
             },
             "uuid": "32004b9c-d014-45c1-b46f-6864691ec157"
         },
-        "10": {
+        "11": {
             "varname": "huawei_dorado_backup_power_no_perfdata",
             "caption": "Huawei Dorado Backup Power: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -362,7 +391,7 @@
             "settings": {},
             "uuid": "aa6aaec5-ffc1-4cca-80d5-b0f213c5e7fd"
         },
-        "11": {
+        "12": {
             "varname": "huawei_dorado_backup_power_no_proxy",
             "caption": "Huawei Dorado Backup Power: No Proxy?",
             "description": "Do not use a proxy.",
@@ -371,7 +400,7 @@
             "settings": {},
             "uuid": "1a34b491-54ad-4046-82fc-641b264a59b8"
         },
-        "12": {
+        "13": {
             "varname": "huawei_dorado_backup_power_password",
             "caption": "Huawei Dorado Backup Power: Password",
             "description": "Huawei OceanStor Dorado API password. Password.",
@@ -382,7 +411,7 @@
             },
             "uuid": "b6c5c236-8d92-4a12-95d3-b94045e1ef04"
         },
-        "13": {
+        "14": {
             "varname": "huawei_dorado_backup_power_password_file",
             "caption": "Huawei Dorado Backup Power: Password File",
             "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
@@ -393,7 +422,7 @@
             },
             "uuid": "30914db1-049b-4a08-aac2-ac7e8c746d47"
         },
-        "14": {
+        "15": {
             "varname": "huawei_dorado_backup_power_scope",
             "caption": "Huawei Dorado Backup Power: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -404,7 +433,7 @@
             },
             "uuid": "3b9f3dc3-0b20-4861-ad24-ffec03a9f499"
         },
-        "15": {
+        "16": {
             "varname": "huawei_dorado_backup_power_timeout",
             "caption": "Huawei Dorado Backup Power: Timeout",
             "description": "Network timeout in seconds.",
@@ -415,7 +444,7 @@
             },
             "uuid": "ad95edc9-6c2e-44e2-a9ba-57263accd65f"
         },
-        "16": {
+        "17": {
             "varname": "huawei_dorado_backup_power_url",
             "caption": "Huawei Dorado Backup Power: URL",
             "description": "Huawei OceanStor Dorado API URL.",
@@ -426,7 +455,7 @@
             },
             "uuid": "794b850d-6e37-4940-bfb9-70c98762699e"
         },
-        "17": {
+        "18": {
             "varname": "huawei_dorado_backup_power_username",
             "caption": "Huawei Dorado Backup Power: Username",
             "description": "Huawei OceanStor Dorado API username.",
@@ -437,7 +466,7 @@
             },
             "uuid": "de3960a1-bab0-4427-8766-bdd44dffaa45"
         },
-        "18": {
+        "19": {
             "varname": "huawei_dorado_backup_power_warning",
             "caption": "Huawei Dorado Backup Power: Warning",
             "description": "WARN threshold for the remaining life of a backup power module, as a Nagios range in days.",
@@ -447,6 +476,17 @@
                 "visibility": "visible"
             },
             "uuid": "c58d3af0-2982-4fee-9df0-33907488be66"
+        },
+        "20": {
+            "varname": "huawei_dorado_backup_power_warning_voltage",
+            "caption": "Huawei Dorado Backup Power: Warning Voltage",
+            "description": "WARN threshold for the voltage of a backup power module, as a Nagios range in volts. Off by default, because the healthy range depends on the module and on how many cells it has; read the label or watch the graph first. Example: `--warning-voltage=15:17`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "b2e9bfa9-f130-4477-9e9f-ec6bc6cf7d1f"
         }
     }
 }

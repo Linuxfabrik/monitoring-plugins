@@ -38,6 +38,7 @@ Checks the health status of all backup power modules (BBU) on a Huawei OceanStor
 ```text
 usage: huawei-dorado-backup-power [-h] [-V] [--always-ok]
                                   [--cache-expire CACHE_EXPIRE] [-c CRIT]
+                                  [--critical-voltage CRIT_VOLTAGE]
                                   [--device-id DEVICE_ID] [--ignore IGNORE]
                                   [--insecure] [--no-insecure] [--match MATCH]
                                   [--no-match-severity {ok,warn,crit,unknown}]
@@ -46,10 +47,13 @@ usage: huawei-dorado-backup-power [-h] [-V] [--always-ok]
                                   [--password-file PASSWORD_FILE]
                                   [--scope SCOPE] [--timeout TIMEOUT] -u URL
                                   --username USERNAME [-w WARN]
+                                  [--warning-voltage WARN_VOLTAGE]
 
 Checks the health status of all backup power modules (BBU) on a Huawei
 OceanStor Dorado storage system via the REST API (/backup_power endpoint).
-Alerts when any module reports a non-normal health state.
+Alerts when any module reports a non-normal health state, when it runs out of
+remaining service life, and optionally when its voltage leaves the range you
+expect.
 
 options:
   -h, --help            show this help message and exit
@@ -60,6 +64,12 @@ options:
                         cache expires, in minutes. Default: 15
   -c, --critical CRIT   CRIT threshold for the remaining life of a backup
                         power module, as a Nagios range in days. Default: 30:
+  --critical-voltage CRIT_VOLTAGE
+                        CRIT threshold for the voltage of a backup power
+                        module, as a Nagios range in volts. Off by default,
+                        because the healthy range depends on the module and on
+                        how many cells it has; read the label or watch the
+                        graph first. Example: `--critical-voltage=13.5:18.5`
   --device-id DEVICE_ID
                         Huawei OceanStor Dorado API device ID. Optional: the
                         appliance reports its own at login, so this is only
@@ -111,6 +121,12 @@ options:
   --username USERNAME   Huawei OceanStor Dorado API username.
   -w, --warning WARN    WARN threshold for the remaining life of a backup
                         power module, as a Nagios range in days. Default: 180:
+  --warning-voltage WARN_VOLTAGE
+                        WARN threshold for the voltage of a backup power
+                        module, as a Nagios range in volts. Off by default,
+                        because the healthy range depends on the module and on
+                        how many cells it has; read the label or watch the
+                        graph first. Example: `--warning-voltage=15:17`
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-backup-power/
@@ -145,6 +161,7 @@ UUID       ! Location   ! Produced   ! ControllerID ! #Discharged ! Remain ! Vol
 * WARN if any backup power module's running status is not "Normal", "Running", "Online", "Charging" or "Charging completed", unless it reports an outright failure.
 * CRIT if any backup power module reports health status "Faulty", "No Input", "Invalid" or "Offline".
 * CRIT if any backup power module's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
+* WARN or CRIT if a backup power module's voltage reaches `--warning-voltage` or `--critical-voltage`. Both are off by default, because the healthy range depends on the module and on how many cells it has. A module that has lost a cell, or one being trickle-charged back up, leaves its normal band long before its health status changes.
 * WARN if a backup power module's remaining life falls below `--warning` (default: less than 180 days).
 * CRIT if a backup power module's remaining life falls below `--critical` (default: less than 30 days).
 * UNKNOWN if the appliance lists no backup power modules at all, which points at the query rather than at the hardware.
@@ -160,7 +177,7 @@ UUID       ! Location   ! Produced   ! ControllerID ! #Discharged ! Remain ! Vol
 | \<UUID\>_health_status | Number | 0: unknown, 1: normal, 2: faulty, 3: about to fail, 12: low battery. |
 | \<UUID\>_remaining_life | Seconds | Remaining service life. Only reported for a module that states one. |
 | \<UUID\>_running_status | Number | 0: unknown, 1: normal, 2: running, 27: online, 28: offline, 48: charging, 49: charging completed, 50: discharging. |
-| \<UUID\>_voltage | Number | Current voltage, in volts. |
+| \<UUID\>_voltage | Number | Current voltage, in volts. The appliance counts it in tenths of a volt. |
 
 The discharge count stays out of the performance data. It only ever counts up, and a cumulative counter aggregates wrong in every Grafana panel that touches it ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320)). It is in the table instead, where it reads as the wear of the module.
 

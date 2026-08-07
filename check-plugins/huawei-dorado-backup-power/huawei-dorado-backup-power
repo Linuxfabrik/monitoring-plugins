@@ -24,14 +24,16 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080703'
+__version__ = '2026080704'
 
 DESCRIPTION = """Checks the health status of all backup power modules (BBU) on a Huawei OceanStor
 Dorado storage system via the REST API (/backup_power endpoint). Alerts when any
-module reports a non-normal health state."""
+module reports a non-normal health state, when it runs out of remaining service life,
+and optionally when its voltage leaves the range you expect."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_CRIT = '30:'
+DEFAULT_CRIT_VOLTAGE = ''
 DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
 DEFAULT_INSECURE = True
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
@@ -39,6 +41,7 @@ DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
 DEFAULT_WARN = '180:'
+DEFAULT_WARN_VOLTAGE = ''
 
 # Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
 # bounds the metric so a graph scales to the whole enumeration; the thresholds stay
@@ -93,6 +96,17 @@ def parse_args():
         'range in days. Default: %(default)s',
         dest='CRIT',
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--critical-voltage',
+        help='CRIT threshold for the voltage of a backup power module, as a Nagios range '
+        'in volts. '
+        'Off by default, because the healthy range depends on the module and on how many '
+        'cells it has; read the label or watch the graph first. '
+        'Example: `--critical-voltage=13.5:18.5`',
+        dest='CRIT_VOLTAGE',
+        default=DEFAULT_CRIT_VOLTAGE,
     )
 
     parser.add_argument(
@@ -224,6 +238,17 @@ def parse_args():
         default=DEFAULT_WARN,
     )
 
+    parser.add_argument(
+        '--warning-voltage',
+        help='WARN threshold for the voltage of a backup power module, as a Nagios range '
+        'in volts. '
+        'Off by default, because the healthy range depends on the module and on how many '
+        'cells it has; read the label or watch the graph first. '
+        'Example: `--warning-voltage=15:17`',
+        dest='WARN_VOLTAGE',
+        default=DEFAULT_WARN_VOLTAGE,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -344,6 +369,19 @@ def main():
         # module reads as 16.1 rather than 161.
         voltage = lib.huawei_dorado.as_code(power.get('VOLTAGE'))
         power['VOLTAGE'] = None if voltage is None else round(voltage / 10, 1)
+        # A module that has lost a cell, or one being trickle-charged back up, sits
+        # outside its normal band long before its health status changes.
+        voltage_state = STATE_OK
+        if power['VOLTAGE'] is not None and (
+            args.WARN_VOLTAGE or args.CRIT_VOLTAGE
+        ):
+            voltage_state = lib.base.get_state(
+                power['VOLTAGE'],
+                args.WARN_VOLTAGE or None,
+                args.CRIT_VOLTAGE or None,
+                _operator='range',
+            )
+            state = lib.base.get_worst(state, voltage_state)
 
         perfdata += lib.base.get_perfdata(
             f'{label}_health_status',
@@ -381,6 +419,12 @@ def main():
 
         power['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         power['running_state'] = lib.base.state2str(running_state, empty_ok=False)
+        power['VOLTAGE'] = (
+            '--'
+            if power['VOLTAGE'] is None
+            else f'{power["VOLTAGE"]}'
+            f'{lib.base.state2str(voltage_state, prefix=" ")}'
+        )
         if power['REMAINLIFEDAYS'] > 0:
             power['REMAINLIFEDAYS'] = lib.human.seconds2human(power['REMAINLIFEDAYS'])
 

@@ -38,17 +38,24 @@ Checks the health and running status of all disks on a Huawei OceanStor Dorado s
 usage: huawei-dorado-disk [-h] [-V] [--always-ok]
                           [--cache-expire CACHE_EXPIRE] [-c CRIT]
                           [--critical-temperature CRIT_TEMPERATURE]
-                          [--device-id DEVICE_ID] [--ignore IGNORE]
-                          [--insecure] [--no-insecure] [--match MATCH]
+                          [--critical-health-mark CRIT_HEALTH_MARK]
+                          [--critical-wear CRIT_WEAR] [--device-id DEVICE_ID]
+                          [--ignore IGNORE] [--insecure] [--no-insecure]
+                          [--match MATCH]
                           [--no-match-severity {ok,warn,crit,unknown}]
                           [--no-perfdata] [--no-proxy] [--password PASSWORD]
                           [--password-file PASSWORD_FILE] [--scope SCOPE]
+                          [--unused-disk-severity {ok,warn,crit,unknown}]
                           [--timeout TIMEOUT] -u URL --username USERNAME
-                          [-w WARN] [--warning-temperature WARN_TEMPERATURE]
+                          [-w WARN] [--warning-health-mark WARN_HEALTH_MARK]
+                          [--warning-temperature WARN_TEMPERATURE]
+                          [--warning-wear WARN_WEAR]
 
 Checks the health status of all disks on a Huawei OceanStor Dorado storage
 system via the REST API (/disk endpoint). Alerts when any disk reports a
-non-normal health state.
+non-normal health state or runs out of remaining service life, and optionally
+when its health score drops, when it has worn through most of its service
+life, or when it is running hot.
 
 options:
   -h, --help            show this help message and exit
@@ -64,6 +71,20 @@ options:
                         because a healthy operating temperature depends on the
                         drive model and on where the array stands. Example:
                         `--critical-temperature=50`
+  --critical-health-mark CRIT_HEALTH_MARK
+                        CRIT threshold for the health score of a disk, as a
+                        Nagios range. The appliance scores a disk from 0 to
+                        100, where 100 is a disk with nothing wrong with it.
+                        Flash media report 255 instead, which is a "not
+                        applicable" marker and is never compared. Off by
+                        default, so an update cannot start alerting on a fleet
+                        nobody has looked at yet. 65: is what field practice
+                        suggests. Example: `--critical-health-mark=65:`
+  --critical-wear CRIT_WEAR
+                        CRIT threshold for the wear of a disk, as a Nagios
+                        range in percent of its service life used up. Spinning
+                        media report -1 instead and are never compared. Off by
+                        default. Example: `--critical-wear=90`
   --device-id DEVICE_ID
                         Huawei OceanStor Dorado API device ID. Optional: the
                         appliance reports its own at login, so this is only
@@ -108,16 +129,36 @@ options:
                         monitoring user. Example: `--password-
                         file=/etc/icinga2/secrets/storage`.
   --scope SCOPE         Huawei OceanStor Dorado API scope.
+  --unused-disk-severity {ok,warn,crit,unknown}
+                        State to report for a disk that sits in the chassis
+                        without belonging to a pool. Worth raising on an array
+                        where every disk is meant to be in use, so a disk that
+                        silently dropped out of its pool is noticed. Default:
+                        ok
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.
   -w, --warning WARN    WARN threshold for the remaining life of a disk, as a
                         Nagios range in days. Default: 180:
+  --warning-health-mark WARN_HEALTH_MARK
+                        WARN threshold for the health score of a disk, as a
+                        Nagios range. The appliance scores a disk from 0 to
+                        100, where 100 is a disk with nothing wrong with it.
+                        Flash media report 255 instead, which is a "not
+                        applicable" marker and is never compared. Off by
+                        default, so an update cannot start alerting on a fleet
+                        nobody has looked at yet. 75: is what field practice
+                        suggests. Example: `--warning-health-mark=75:`
   --warning-temperature WARN_TEMPERATURE
                         WARN threshold in degrees Celsius. Off by default,
                         because a healthy operating temperature depends on the
                         drive model and on where the array stands. Example:
                         `--warning-temperature=45`
+  --warning-wear WARN_WEAR
+                        WARN threshold for the wear of a disk, as a Nagios
+                        range in percent of its service life used up. Spinning
+                        media report -1 instead and are never compared. Off by
+                        default. Example: `--warning-wear=80`
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-disk/
@@ -150,6 +191,9 @@ UUID         ! Location ! Manufacturer ! Model            ! SerialNumber        
 * WARN if any disk's running status is not "Normal" or "Online", unless it reports an outright failure.
 * CRIT if any disk reports health status "Faulty", "No Input", "Invalid" or "Offline".
 * CRIT if any disk's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
+* WARN or CRIT if a disk's health score reaches `--warning-health-mark` or `--critical-health-mark`. Both are off by default, so an update cannot start alerting on a fleet nobody has looked at yet; `75:` and `65:` are what field practice suggests. Flash media report 255 instead of a score and are never compared.
+* WARN or CRIT if a disk's wear reaches `--warning-wear` or `--critical-wear`. Both are off by default. Spinning media report -1 instead of a wear level and are never compared.
+* `--unused-disk-severity` decides what a disk that belongs to no pool reports (default: OK). Worth raising on an array where every disk is meant to be in use, so a disk that dropped out of its pool is noticed.
 * WARN if a disk's remaining life falls below `--warning` (default: less than 180 days).
 * CRIT if a disk's remaining life falls below `--critical` (default: less than 30 days).
 * WARN or CRIT if a disk's temperature reaches `--warning-temperature` or `--critical-temperature`. Both are off by default.

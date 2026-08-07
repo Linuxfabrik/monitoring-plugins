@@ -24,23 +24,29 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080703'
+__version__ = '2026080704'
 
 DESCRIPTION = """Checks the health status of all disks on a Huawei OceanStor Dorado storage system
 via the REST API (/disk endpoint). Alerts when any disk reports a non-normal health
-state."""
+state or runs out of remaining service life, and optionally when its health score drops,
+when it has worn through most of its service life, or when it is running hot."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_CRIT = '30:'
+DEFAULT_CRIT_HEALTH_MARK = ''
 DEFAULT_CRIT_TEMPERATURE = ''
+DEFAULT_CRIT_WEAR = ''
 DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
 DEFAULT_INSECURE = True
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
+DEFAULT_UNUSED_DISK_SEVERITY = 'ok'
 DEFAULT_WARN = '180:'
+DEFAULT_WARN_HEALTH_MARK = ''
 DEFAULT_WARN_TEMPERATURE = ''
+DEFAULT_WARN_WEAR = ''
 
 # Highest health score a disk reports. A disk whose media does not report one answers
 # with 255, which is a "not applicable" marker rather than a score.
@@ -51,6 +57,11 @@ HEALTH_MARK_MAX = 100
 # out of the performance data, because whether a code is a fault depends on the
 # object and is decided in `lib.huawei_dorado.get_health_status_state()`.
 HEALTH_STATUS_MAX = 18
+
+# `LOGICTYPE` of a disk that is in the chassis but not in a pool. The rest of the
+# enumeration is 2 member disk, 3 hot spare disk and 4 cache disk, all of which are
+# disks doing a job.
+FREE_DISK = 1
 
 # Fields `--match` is applied to.
 MATCH_FIELDS = ('UUID', 'LOCATION')
@@ -106,6 +117,29 @@ def parse_args():
         'model and on where the array stands. Example: `--critical-temperature=50`',
         dest='CRIT_TEMPERATURE',
         default=DEFAULT_CRIT_TEMPERATURE,
+    )
+
+    parser.add_argument(
+        '--critical-health-mark',
+        help='CRIT threshold for the health score of a disk, as a Nagios range. '
+        'The appliance scores a disk from 0 to 100, where 100 is a disk with nothing '
+        'wrong with it. Flash media report 255 instead, which is a "not applicable" '
+        'marker and is never compared. '
+        'Off by default, so an update cannot start alerting on a fleet nobody has '
+        'looked at yet. 65: is what field practice suggests. '
+        'Example: `--critical-health-mark=65:`',
+        dest='CRIT_HEALTH_MARK',
+        default=DEFAULT_CRIT_HEALTH_MARK,
+    )
+
+    parser.add_argument(
+        '--critical-wear',
+        help='CRIT threshold for the wear of a disk, as a Nagios range in percent of its '
+        'service life used up. Spinning media report -1 instead and are never compared. '
+        'Off by default. '
+        'Example: `--critical-wear=90`',
+        dest='CRIT_WEAR',
+        default=DEFAULT_CRIT_WEAR,
     )
 
     parser.add_argument(
@@ -199,6 +233,17 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--unused-disk-severity',
+        help='State to report for a disk that sits in the chassis without belonging to a '
+        'pool. Worth raising on an array where every disk is meant to be in use, so a '
+        'disk that silently dropped out of its pool is noticed. '
+        'Default: %(default)s',
+        dest='UNUSED_DISK_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_UNUSED_DISK_SEVERITY,
+    )
+
+    parser.add_argument(
         '--test',
         help=lib.args.help('--test'),
         dest='TEST',
@@ -238,12 +283,35 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--warning-health-mark',
+        help='WARN threshold for the health score of a disk, as a Nagios range. '
+        'The appliance scores a disk from 0 to 100, where 100 is a disk with nothing '
+        'wrong with it. Flash media report 255 instead, which is a "not applicable" '
+        'marker and is never compared. '
+        'Off by default, so an update cannot start alerting on a fleet nobody has '
+        'looked at yet. 75: is what field practice suggests. '
+        'Example: `--warning-health-mark=75:`',
+        dest='WARN_HEALTH_MARK',
+        default=DEFAULT_WARN_HEALTH_MARK,
+    )
+
+    parser.add_argument(
         '--warning-temperature',
         help=lib.args.help('--warning-temperature')
         + ' Off by default, because a healthy operating temperature depends on the drive '
         'model and on where the array stands. Example: `--warning-temperature=45`',
         dest='WARN_TEMPERATURE',
         default=DEFAULT_WARN_TEMPERATURE,
+    )
+
+    parser.add_argument(
+        '--warning-wear',
+        help='WARN threshold for the wear of a disk, as a Nagios range in percent of its '
+        'service life used up. Spinning media report -1 instead and are never compared. '
+        'Off by default. '
+        'Example: `--warning-wear=80`',
+        dest='WARN_WEAR',
+        default=DEFAULT_WARN_WEAR,
     )
 
     args, _ = parser.parse_known_args()
@@ -319,6 +387,7 @@ def main():
         lib.base.coe(item)
         for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
     ]
+    unused_disk_state = lib.base.str2state(args.UNUSED_DISK_SEVERITY)
 
     # analyze data
     table_data = []
@@ -376,6 +445,47 @@ def main():
             )
             state = lib.base.get_worst(state, temperature_state)
 
+        # A spinning disk does not wear out the way flash does and reports -1, which
+        # is a "not applicable" marker rather than a negative wear level.
+        abrasion_rate = lib.huawei_dorado.as_code(disk.get('ABRASIONRATE'))
+        if abrasion_rate is not None and abrasion_rate < 0:
+            abrasion_rate = None
+        wear_state = STATE_OK
+        if abrasion_rate is not None and (args.WARN_WEAR or args.CRIT_WEAR):
+            wear_state = lib.base.get_state(
+                abrasion_rate,
+                args.WARN_WEAR or None,
+                args.CRIT_WEAR or None,
+                _operator='range',
+            )
+            state = lib.base.get_worst(state, wear_state)
+
+        # The health score runs from 0 to 100. A disk whose media does not report one
+        # answers with 255, which the vendor's own response example shows and which
+        # would otherwise be graphed as a perfect score two and a half times over.
+        health_mark = lib.huawei_dorado.as_code(disk.get('HEALTHMARK'))
+        if health_mark is not None and not 0 <= health_mark <= HEALTH_MARK_MAX:
+            health_mark = None
+        health_mark_state = STATE_OK
+        if health_mark is not None and (
+            args.WARN_HEALTH_MARK or args.CRIT_HEALTH_MARK
+        ):
+            health_mark_state = lib.base.get_state(
+                health_mark,
+                args.WARN_HEALTH_MARK or None,
+                args.CRIT_HEALTH_MARK or None,
+                _operator='range',
+            )
+            state = lib.base.get_worst(state, health_mark_state)
+
+        # A disk that belongs to no pool is not serving anything. On an array where every
+        # disk is meant to be in use that is a disk which dropped out of its pool, so how
+        # loud it should be is the operator's call.
+        unused_state = STATE_OK
+        if lib.huawei_dorado.as_code(disk.get('LOGICTYPE')) == FREE_DISK:
+            unused_state = unused_disk_state
+            state = lib.base.get_worst(state, unused_state)
+
         runtime_days = lib.huawei_dorado.as_code(disk.get('RUNTIME'))
         disk['RUNTIME'] = None if runtime_days is None else runtime_days * 24 * 60 * 60
 
@@ -391,15 +501,12 @@ def main():
             disk.get('RUNNINGSTATUS'),
             _min=0,
         )
-        # A spinning disk does not wear out the way flash does and reports -1, which
-        # is a "not applicable" marker rather than a negative wear level.
-        abrasion_rate = lib.huawei_dorado.as_code(disk.get('ABRASIONRATE'))
-        if abrasion_rate is not None and abrasion_rate < 0:
-            abrasion_rate = None
         perfdata += lib.base.get_perfdata(
             f'{label}_abrasion_rate',
             abrasion_rate,
             uom='%',
+            warn=args.WARN_WEAR or None,
+            crit=args.CRIT_WEAR or None,
             _min=0,
             _max=100,
         )
@@ -410,16 +517,12 @@ def main():
             _min=0,
             _max=100,
         )
-        # The health score runs from 0 to 100. A disk whose media does not report one
-        # answers with 255, which the vendor's own response example shows and which
-        # would otherwise be graphed as a perfect score two and a half times over.
-        health_mark = lib.huawei_dorado.as_code(disk.get('HEALTHMARK'))
-        if health_mark is not None and not 0 <= health_mark <= HEALTH_MARK_MAX:
-            health_mark = None
         perfdata += lib.base.get_perfdata(
             f'{label}_health_mark',
             health_mark,
             uom=None,
+            warn=args.WARN_HEALTH_MARK or None,
+            crit=args.CRIT_HEALTH_MARK or None,
             _min=0,
             _max=HEALTH_MARK_MAX,
         )
@@ -458,6 +561,22 @@ def main():
         # value. A drive without a temperature sensor prints the appliance's own
         # placeholder rather than the raw one it happens to use.
         disk['TEMPERATURE'] = '--' if temperature is None else temperature
+        disk['ABRASIONRATE'] = (
+            '--'
+            if abrasion_rate is None
+            else f'{abrasion_rate}{lib.base.state2str(wear_state, prefix=" ")}'
+        )
+        disk['health_mark'] = (
+            '--'
+            if health_mark is None
+            else f'{health_mark}'
+            f'{lib.base.state2str(health_mark_state, prefix=" ")}'
+        )
+        disk['LOGICTYPE'] = (
+            f'free{lib.base.state2str(unused_state, prefix=" ")}'
+            if lib.huawei_dorado.as_code(disk.get('LOGICTYPE')) == FREE_DISK
+            else 'in use'
+        )
         disk['RUNTIME'] = (
             '--'
             if disk['RUNTIME'] is None
@@ -492,7 +611,9 @@ def main():
             'MANUFACTURER',
             'MODEL',
             'SERIALNUMBER',
+            'LOGICTYPE',
             'ABRASIONRATE',
+            'health_mark',
             'PROGRESS',
             'RUNTIME',
             'TEMPERATURE',
@@ -505,7 +626,9 @@ def main():
             'Manufacturer',
             'Model',
             'SerialNumber',
-            'Abrasion%',
+            'Usage',
+            'Wear%',
+            'Health#',
             'Progress%',
             'Runtime',
             'Temp',
