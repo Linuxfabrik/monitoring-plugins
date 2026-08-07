@@ -8,7 +8,7 @@ Runs a WordPress security scan against a site and reports what an attacker can s
 
 * Requires the command-line tool `wpscan` in `PATH`. It is a Ruby gem: `gem install wpscan`. Version 4.0.0 or newer is recommended; on an older release the backup folder enumeration is skipped automatically.
 * A missing `wpscan` is reported as WARNING, not as UNKNOWN. WordPress is a preferred target, so the scanner belongs on a host serving it, and its absence is a state the administrator has to fix rather than an internal problem of this check.
-* A full scan takes minutes, not seconds. `--scan-timeout` therefore defaults to 600 seconds instead of the 8 seconds other checks use, and the shipped Director command raises its own timeout accordingly. Schedule the check once per day.
+* A full scan takes minutes, not seconds. `--scan-timeout` therefore defaults to 1800 seconds instead of the 8 seconds other checks use, and the shipped Director command raises its own timeout accordingly. Schedule the check once per day.
 * Without a WPScan API token there is no vulnerability data at all. Version detection, the outdated flags and every exposure still work, so the check remains useful, but the "known vulnerabilities" class stays empty. The check says so in its output instead of reporting a clean result, and `--no-vuln-data-severity` decides whether that alerts. See [API Token](#api-token).
 * The scan sends a large number of requests to the target and probes for backup files and admin endpoints. Run it against your own sites only, and expect it to show up in the access log and in any WAF or fail2ban rule set.
 * On a stock WordPress the check reports WARNING out of the box: `readme.html` is reachable, the external WP-Cron is enabled and at least one username is usually enumerable. These are genuine hardening findings, not false alarms. Address them, or accept them with `--ignore`.
@@ -151,7 +151,7 @@ options:
                         Seconds to wait for the scan to finish. A full scan of
                         a site with many plugins takes minutes, so this is
                         much higher than the network timeout of other checks.
-                        Default: 600 (seconds)
+                        Default: 1800 (seconds)
   --unscored-severity {ok,warn,crit}
                         State to report for a known vulnerability that carries
                         no CVSS score. The vulnerability database has no score
@@ -176,14 +176,23 @@ options:
                         far more requests and takes correspondingly longer, so
                         raise --scan-timeout with it. Default: mixed
   --wpscan-enumerate WPSCAN_ENUMERATE
-                        Enumeration options passed to wpscan (its
-                        `--enumerate`). Comma-separated. `vp`/`vt` (vulnerable
-                        plugins/themes) need vulnerability data and are
-                        downgraded to `p`/`t` automatically when none is
-                        available, because wpscan aborts otherwise. `bf`
-                        (backup folders) needs wpscan 4.0.0 or newer and is
-                        skipped automatically on older releases. Default:
-                        vp,vt,tt,cb,dbe,bf,u
+                        What the scan looks for, comma-separated. Plugins:
+                        `vp` only the ones with a known vulnerability, `p` the
+                        popular ones, `ap` every one known. Themes: `vt`, `t`
+                        and `at` in the same order. Further: `tt` timthumb
+                        scripts, `cb` wp-config backups, `dbe` database
+                        exports, `bf` backup folders, `u` user names, `m`
+                        media files. Only one choice per group: `vp`, `p` and
+                        `ap` rule each other out, as do `vt`, `t` and `at`.
+                        The wider the choice, the longer the scan takes, since
+                        each one probes for every location it knows: `ap` and
+                        `at` walk tens of thousands of them. `vp` and `vt`
+                        need vulnerability data and are downgraded to `p` and
+                        `t` when none is available. `bf` needs wpscan 4.0.0 or
+                        newer and is skipped on older releases. Example:
+                        `--wpscan-enumerate=cb,dbe,bf,u` looks only for
+                        exposed files and user names, which is the fastest
+                        useful scan. Default: vp,vt,tt,cb,dbe,bf,u
   --wpscan-follow-redirect
                         Scan the target the site redirects to, instead of
                         reporting the redirection and stopping. A site that
@@ -348,7 +357,7 @@ In detail:
 * OK for findings that only describe how the site is set up rather than a weakness, which are never reported: HTTP headers, a multisite install, must-use plugins, a disabled PHP, `robots.txt` and an enabled XML-RPC endpoint. All six are WordPress defaults or deliberate choices, so alerting on them would leave the check permanently non-OK on every installation.
 * OK with "Nothing checked." when `--match` or `--ignore` filtered every finding away. `--no-match-severity` changes that state.
 * WARN if the core version the scan sees differs from the one installed below `--path`. That means the scan did not look at this installation: a wrong virtual host, a stale cache, or a CDN in between.
-* WARN on a timeout, whether the scan ran past `--scan-timeout` or past its own internal budget.
+* WARN when the scan does not finish in time. The output then names how many requests it managed and how long they took, which distinguishes too small a budget from a target that answers slowly.
 * WARN if `wpscan` is not installed, so the missing scanner shows up as something to fix instead of being routed to the UNKNOWN pile.
 * WARN if the local vulnerability database has not been refreshed in more than a week. It then grades the site against what was known back then.
 * Per `--no-vuln-data-severity` (default `ok`) if the vulnerability database could not be queried at all: no API token, an unreachable database, or an exhausted request quota. The summary then reads "vulnerabilities not checked" rather than "no vulnerabilities found", the reason is named in the output, and `vuln_data_available=0` marks the run in the perfdata. Everything the scan could determine without that data still counts towards the state.
@@ -478,11 +487,18 @@ The scanner reached the target but could not confirm a WordPress installation be
 
 If the target really is WordPress but hidden behind an unusual layout, `--wpscan-option=--force` skips the check.
 
-### `Timeout after 600s while scanning ...`
+### The scan does not finish in time
 
-A full enumeration against a large site, a slow target, or an aggressive detection mode can exceed the budget. Raise `--scan-timeout` and the Director command timeout together, since the command timeout has to stay above the scan timeout or the monitoring agent kills the check first.
+```text
+Scan did not finish within 1770s, stopping at 214 requests in 29m 30s. Raise
+--scan-timeout, or narrow the scan with --wpscan-enumerate.
+```
 
-Alternatively narrow the scan. Dropping the plugin and theme enumeration is the biggest single saving:
+The request count and the time they took are in the message, so it shows how far the scan got before the budget ran out.
+
+Check first whether something between the monitoring host and the site is slowing the scan down. A burst of requests for files that do not exist is what fail2ban, CrowdSec, a WAF and provider-side rate limiting react to, and a target that answers the front page quickly can still answer the scan slowly. Allow-list the monitoring host there, and keep the check interval at once per day.
+
+Otherwise raise `--scan-timeout` and the Director command timeout together, since the command timeout has to stay above the scan timeout or the monitoring agent kills the check first. Or narrow the scan; dropping the plugin and theme enumeration is the biggest single saving:
 
 ```bash
 ./wordpress-security-scan --url=https://www.example.com --wpscan-enumerate=cb,dbe,bf,u
@@ -546,7 +562,7 @@ Check the environment the check actually runs in, not your login shell. `--wpsca
 
 ### The scan is visible in the access log or triggers fail2ban
 
-The scan probes for hundreds of known file locations, which produces a burst of 404s from the monitoring host. Whitelist the monitoring host in the WAF and in fail2ban, and keep the check interval at once per day. `--wpscan-throttle=200` slows the scan down to one request every 200 milliseconds if the target cannot take the load.
+The scan probes for hundreds of known file locations, which produces a burst of 404s from the monitoring host. Allow-list the monitoring host in the WAF, in fail2ban and in CrowdSec, and keep the check interval at once per day. Throttling also shows up as a scan that does not finish in time. `--wpscan-throttle=200` slows the scan down to one request every 200 milliseconds if the target cannot take the load.
 
 
 ## Credits, License

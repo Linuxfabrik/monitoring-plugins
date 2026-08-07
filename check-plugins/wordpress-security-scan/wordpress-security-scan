@@ -30,7 +30,7 @@ import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080704'
+__version__ = '2026080706'
 
 DESCRIPTION = """Runs a WordPress security scan against a site and reports what an attacker
 can see from the outside. Combines the black box scan with the inventory read from the local
@@ -55,7 +55,7 @@ DEFAULT_LENGTHY = False
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_VULN_DATA_SEVERITY = 'ok'
 DEFAULT_PATH = '/var/www/html/wordpress'
-DEFAULT_SCAN_TIMEOUT = 600
+DEFAULT_SCAN_TIMEOUT = 1800
 DEFAULT_UNSCORED_SEVERITY = 'warn'
 DEFAULT_VERBOSE = False
 DEFAULT_WPSCAN_DETECTION_MODE = 'mixed'
@@ -377,13 +377,21 @@ def parse_args():
 
     parser.add_argument(
         '--wpscan-enumerate',
-        help='Enumeration options passed to wpscan (its `--enumerate`). '
-        'Comma-separated. '
-        '`vp`/`vt` (vulnerable plugins/themes) need vulnerability data and are '
-        'downgraded to `p`/`t` automatically when none is available, because wpscan '
-        'aborts otherwise. '
-        '`bf` (backup folders) needs wpscan 4.0.0 or newer and is skipped automatically '
-        'on older releases. '
+        help='What the scan looks for, comma-separated. '
+        'Plugins: `vp` only the ones with a known vulnerability, `p` the popular ones, '
+        '`ap` every one known. '
+        'Themes: `vt`, `t` and `at` in the same order. '
+        'Further: `tt` timthumb scripts, `cb` wp-config backups, `dbe` database '
+        'exports, `bf` backup folders, `u` user names, `m` media files. '
+        'Only one choice per group: `vp`, `p` and `ap` rule each other out, as do '
+        '`vt`, `t` and `at`. '
+        'The wider the choice, the longer the scan takes, since each one probes for '
+        'every location it knows: `ap` and `at` walk tens of thousands of them. '
+        '`vp` and `vt` need vulnerability data and are downgraded to `p` and `t` when '
+        'none is available. '
+        '`bf` needs wpscan 4.0.0 or newer and is skipped on older releases. '
+        'Example: `--wpscan-enumerate=cb,dbe,bf,u` looks only for exposed files and '
+        'user names, which is the fastest useful scan. '
         'Default: %(default)s',
         dest='WPSCAN_ENUMERATE',
         default=DEFAULT_WPSCAN_ENUMERATE,
@@ -704,6 +712,14 @@ def get_vuln_data_status(data, has_enterprise):
     return (False, 'the scan did not report whether the vulnerability database was used')
 
 
+def get_scan_budget(args):
+    """Return the seconds granted to the scanner itself. It is asked to give up a little
+    before the hard subprocess timeout, so it still writes a result rather than being
+    killed with nothing to report.
+    """
+    return max(1, args.SCAN_TIMEOUT - SCAN_TIMEOUT_HEADROOM)
+
+
 def build_wpscan_command(args, enumerate_opts, http_auth=''):
     """Assemble the wpscan invocation as an argument list (argv). Every user supplied
     value sits in its own element and is bound to an option, so nothing can be picked up
@@ -718,7 +734,7 @@ def build_wpscan_command(args, enumerate_opts, http_auth=''):
         '--format=json',
         '--no-banner',
         f'--detection-mode={args.WPSCAN_DETECTION_MODE}',
-        f'--max-scan-duration={max(1, args.SCAN_TIMEOUT - SCAN_TIMEOUT_HEADROOM)}',
+        f'--max-scan-duration={get_scan_budget(args)}',
     ]
     if enumerate_opts:
         cmd.append(f'--enumerate={enumerate_opts}')
@@ -1188,9 +1204,19 @@ def main():
     if retc not in (0, 5):
         aborted = data.get('scan_aborted') or ''
         if SCAN_TIMEOUT_MARKER in aborted:
-            # ran out of the scan's own time budget: a timeout, not a broken run
+            # The scan gave up on its own time budget, which is a partial result rather
+            # than a broken run. Naming what it managed in that time separates the two
+            # causes an admin has to tell apart: too little budget for a large site, or
+            # a target that answers slowly. A site serving its 404s from PHP rather than
+            # from a cache is the usual reason, and every probe for a component that is
+            # not installed is such a 404.
+            done = data.get('requests_done') or 0
+            elapsed = data.get('elapsed') or 0
             lib.base.oao(
-                f'Timeout after {args.SCAN_TIMEOUT}s while scanning {args.URL}.',
+                f'Scan did not finish within {get_scan_budget(args)}s, stopping at '
+                f'{done} {lib.txt.pluralize("request", done)} in '
+                f'{lib.human.seconds2human(elapsed)}. Raise --scan-timeout, or narrow '
+                f'the scan with --wpscan-enumerate. Scanned {args.URL}.',
                 STATE_WARN,
                 always_ok=args.ALWAYS_OK,
             )
