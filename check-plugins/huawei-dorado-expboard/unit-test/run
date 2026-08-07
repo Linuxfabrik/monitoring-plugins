@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK
+
+TESTS = [
+    {
+        'id': 'ok-expboards-healthy',
+        'test': 'stdout/expboards-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            '208:0 ! DAE000.A ! EXP-12G-SAS ! [OK]   ! [OK]',
+        ],
+    },
+    {
+        'id': 'crit-expboard-faulty',
+        'test': 'stdout/expboards-one-faulty,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['There are critical errors.', '[CRITICAL]'],
+    },
+    {
+        # An array without expansion enclosures has no expansion board. Reading
+        # that as a failed query would alert on every such array forever.
+        'id': 'ok-no-expboards',
+        'test': 'stdout/no-expboards,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No expansion boards found.'],
+    },
+    {
+        'id': 'crit-no-match-severity',
+        'test': 'stdout/expboards-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='nonexistent' --no-match-severity=crit",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['No expansion boards matched `nonexistent`.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../huawei-dorado-expboard'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

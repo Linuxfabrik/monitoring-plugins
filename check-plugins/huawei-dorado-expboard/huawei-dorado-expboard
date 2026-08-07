@@ -25,44 +25,24 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026080601'
 
-DESCRIPTION = """Checks the health and link status of the front-end ports of a Huawei OceanStor
-Dorado storage system via the REST API (/fc_port, /eth_port, /sas_port and /bond_port endpoints).
-Alerts when a port reports a non-normal health status, and optionally when a link is down."""
+DESCRIPTION = """Checks the health and running status of all expansion boards on a Huawei OceanStor
+Dorado storage system via the REST API (/expboard endpoint). Alerts when any board reports a
+non-normal state."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_INSECURE = True
-DEFAULT_LINK_DOWN_SEVERITY = 'ok'
 DEFAULT_MATCH = ''
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = 0
 DEFAULT_TIMEOUT = 3
 
-# RUNNINGSTATUS code of a port whose link is down. These endpoints use their own
-# enumeration: 0 unknown, 10 link up, 11 link down, and 33 to be recovered on
-# Ethernet ports.
-LINK_DOWN = 11
-
 # Fields `--match` is applied to.
-MATCH_FIELDS = ('UUID', 'LOCATION', 'NAME')
+MATCH_FIELDS = ('UUID', 'LOCATION')
 
-# RUNNINGSTATUS code a healthy port reports: link up (10).
-OK_RUNNING_STATUS = (10,)
-
-# The three front-end port endpoints, in the order they are queried. They answer
-# with the same fields, so one walk covers all of them. Unlike the other list
-# endpoints they do not implement the `range` parameter, which is why they are read
-# in one request each.
-PORT_ENDPOINTS = (
-    ('fc_port', 'FC'),
-    ('eth_port', 'Ethernet'),
-    ('sas_port', 'SAS'),
-    ('bond_port', 'Bond'),
-)
-
-# Deliberately not queried: `fcoe_port` and `ib_port`. Neither REST Interface Reference
-# documents them; they come from a third-party implementation, and querying an endpoint
-# nothing documents would put behaviour into this check that nobody can look up.
+# RUNNINGSTATUS codes a healthy expansion board reports: normal (1), running (2) and
+# online (27). The enumeration also knows powering on (12) and powered off (13).
+OK_RUNNING_STATUS = (1, 2, 27)
 
 
 def parse_args():
@@ -112,30 +92,22 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--link-down-severity',
-        help=lib.args.help('--link-down-severity') + ' Default: %(default)s',
-        dest='LINK_DOWN_SEVERITY',
-        choices=['ok', 'warn', 'crit', 'unknown'],
-        default=DEFAULT_LINK_DOWN_SEVERITY,
-    )
-
-    parser.add_argument(
-        '--match',
-        help='Filter by ports. '
-        + lib.args.help('--match')
-        + ' The regex is anchored at the start of the string (Python `re.match`) and '
-        'is matched against the port identifier, its location and its name, so prefix '
-        'with `.*` to match anywhere. Default: %(default)s',
-        dest='MATCH',
-        default=DEFAULT_MATCH,
-    )
-
-    parser.add_argument(
         '--no-insecure',
         help=lib.args.help('--no-insecure'),
         dest='INSECURE',
         action='store_false',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Filter by expansion boards. '
+        + lib.args.help('--match')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and '
+        'is matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere. '
+        'Default: %(default)s',
+        dest='MATCH',
+        default=DEFAULT_MATCH,
     )
 
     parser.add_argument(
@@ -210,41 +182,6 @@ def parse_args():
     return args
 
 
-def as_code(value):
-    """Return an appliance status code as an `int`, or `None` if it is unusable."""
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def get_ports(args):
-    """
-    Read the three front-end port endpoints and return their ports as one list.
-
-    ### Parameters
-    - **args** (object): The argument namespace `lib.huawei_dorado.get_data()` reads.
-
-    ### Returns
-    - **list**: One entry per port, each carrying an extra `kind` field naming which of
-      the three endpoints it came from.
-
-    ### Notes
-    - An endpoint that is not implemented on a given appliance, or that carries no
-      port at all, contributes nothing rather than aborting the check. An array
-      without SAS ports is a normal array, not a broken query.
-    """
-    ports = []
-    for endpoint, kind in PORT_ENDPOINTS:
-        result = lib.huawei_dorado.get_data(endpoint, args)
-        if lib.huawei_dorado.get_error_code(result) not in (0, '0'):
-            continue
-        for port in result.get('data') or []:
-            port['kind'] = kind
-            ports.append(port)
-    return ports
-
-
 def main():
     """The main function. This is where the magic happens."""
 
@@ -259,19 +196,30 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        ports = get_ports(args)
+        result = lib.huawei_dorado.get_data('expboard', args)
     else:
         # do not call the command, put in test data
         stdout, _stderr, _retc = lib.lftest.test(args.TEST)
-        ports = json.loads(stdout).get('data') or []
+        result = json.loads(stdout)
 
-    # An array always has front-end ports, so an empty list is a query that never
-    # reached them rather than an inventory that is genuinely empty.
-    if not ports:
+    # no valuable result?
+    if not result:
+        lib.base.cu(f'Got no valuable response from {args.URL}.')
+    if result.get('error').get('code') != 0:
         lib.base.oao(
-            f'{args.URL} reported no front-end ports.'
-            ' Verify that the API user is allowed to query them.',
+            f'{result.get("error").get("description")}'
+            f' {result.get("error").get("suggestion")}',
             STATE_UNKNOWN,
+        )
+
+    # An array without expansion enclosures has no expansion board, which is a normal
+    # array rather than a failed query. Unlike the built-in hardware this check cannot
+    # tell an empty inventory from a query that never reached one, so it reports the
+    # harmless reading rather than alerting on every array without expansion shelves.
+    if not result.get('data'):
+        lib.base.oao(
+            'No expansion boards found. An array without expansion enclosures has none.',
+            STATE_OK,
         )
 
     # init some vars
@@ -279,70 +227,63 @@ def main():
     state = STATE_OK
     perfdata = ''
     compiled_regex = lib.base.coe(lib.txt.compile_regex(args.MATCH))
-    link_down_state = lib.base.str2state(args.LINK_DOWN_SEVERITY)
 
     # analyze data
     table_data = []
-    for port in ports:
-        port['UUID'] = lib.huawei_dorado.get_uuid(port)
-        # Perfdata labels carry the object's own TYPE:ID, which stays the same when
-        # a port is re-cabled, unlike its location.
-        label = re.sub(r'\W+', '_', port['UUID'])
+    for expboard in result.get('data'):
+        expboard['UUID'] = lib.huawei_dorado.get_uuid(expboard)
+        # Perfdata labels carry the object's own TYPE:ID, which stays the same
+        # when hardware is moved between slots, unlike its location.
+        label = re.sub(r'\W+', '_', expboard['UUID'])
 
         if args.MATCH and not any(
-            lib.base.coe(lib.txt.match_regex(compiled_regex, str(port.get(field, ''))))
+            lib.base.coe(
+                lib.txt.match_regex(compiled_regex, str(expboard.get(field, '')))
+            )
             for field in MATCH_FIELDS
         ):
             continue
 
         health_state = lib.huawei_dorado.get_health_status_state(
-            port.get('HEALTHSTATUS')
+            expboard.get('HEALTHSTATUS')
         )
         state = lib.base.get_worst(state, health_state)
 
-        # A port whose link is down looks exactly like a port nobody cabled, so how loud
-        # that should be is the operator's call rather than this check's.
-        if as_code(port.get('RUNNINGSTATUS')) == LINK_DOWN:
-            running_state = link_down_state
-        else:
-            running_state = lib.huawei_dorado.get_running_status_state(
-                port.get('RUNNINGSTATUS'), OK_RUNNING_STATUS
-            )
+        running_state = lib.huawei_dorado.get_running_status_state(
+            expboard.get('RUNNINGSTATUS'), OK_RUNNING_STATUS
+        )
         state = lib.base.get_worst(state, running_state)
 
         perfdata += lib.base.get_perfdata(
             f'{label}_health_status',
-            port.get('HEALTHSTATUS'),
+            expboard['HEALTHSTATUS'],
             crit=2,
-            uom=None,
             _min=0,
             _max=2,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_running_status',
-            port.get('RUNNINGSTATUS'),
-            uom=None,
+            expboard['RUNNINGSTATUS'],
             _min=0,
         )
 
-        port['health_state'] = lib.base.state2str(health_state, empty_ok=False)
-        port['link'] = lib.huawei_dorado.get_running_status(port.get('RUNNINGSTATUS'))
-        port['running_state'] = lib.base.state2str(running_state, empty_ok=False)
+        expboard['health_state'] = lib.base.state2str(health_state, empty_ok=False)
+        expboard['running_state'] = lib.base.state2str(running_state, empty_ok=False)
 
-        table_data.append(port)
+        table_data.append(expboard)
 
-    # The appliance listed ports and the filter selected none of them.
+    # The appliance listed expansion boards and the filter selected none of them.
     if not table_data:
         lib.base.oao(
-            f'No ports matched `{args.MATCH}`.',
+            f'No expansion boards matched `{args.MATCH}`.',
             lib.base.str2state(args.NO_MATCH_SEVERITY),
             always_ok=args.ALWAYS_OK,
             no_perfdata=args.NO_PERFDATA,
         )
 
     if table_data:
-        keys = ['UUID', 'kind', 'LOCATION', 'link', 'health_state', 'running_state']
-        headers = ['UUID', 'Type', 'Location', 'Link', 'Health', 'Link State']
+        keys = ['UUID', 'LOCATION', 'MODEL', 'health_state', 'running_state']
+        headers = ['UUID', 'Location', 'Model', 'Health', 'Running']
 
         # build the message
         msg += lib.base.get_table(table_data, keys, header=headers)

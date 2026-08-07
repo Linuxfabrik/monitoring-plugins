@@ -45,8 +45,9 @@ Monitoring Plugins:
 * docker-swarm: check alerting on swarm membership, a down node, or lost manager quorum
 * fs-inodes: filter mount points with `--match`/`--ignore` and show a detailed table with `--lengthy` ([#1387](https://github.com/Linuxfabrik/monitoring-plugins/issues/1387))
 * huawei-dorado-alarm: check listing the current alarms of a Huawei OceanStor Dorado storage system, which surfaces the conditions the per-component checks cannot see
+* huawei-dorado-expboard: check alerting on a faulty expansion board, which connects a disk enclosure to the controllers
 * huawei-dorado-lun: check alerting on a faulty LUN of a Huawei OceanStor Dorado storage system, and optionally on a thin LUN filling up
-* huawei-dorado-port: check alerting on a faulty front-end port of a Huawei OceanStor Dorado storage system, with `--link-down-severity` deciding what a lost link reports
+* huawei-dorado-port: check alerting on a faulty front-end port of a Huawei OceanStor Dorado storage system, covering FC, Ethernet, SAS and bond ports, with `--link-down-severity` deciding what a lost link reports
 * huawei-dorado-storagepool: check alerting on a faulty storage pool of a Huawei OceanStor Dorado storage system, and on a pool filling up
 * huawei-pacific-disk: check alerting on a faulty disk of a Huawei OceanStor Pacific storage system, and on a disk whose remaining life is running out
 * huawei-pacific-quota: check alerting when a share on a Huawei OceanStor Pacific storage system fills up its quota
@@ -64,7 +65,7 @@ Monitoring Plugins:
 
 Icinga Director:
 
-* huawei-dorado-alarm, huawei-dorado-lun, huawei-dorado-port and huawei-dorado-storagepool join the Huawei OceanStor Dorado service set
+* huawei-dorado-alarm, huawei-dorado-expboard, huawei-dorado-lun, huawei-dorado-port and huawei-dorado-storagepool join the Huawei OceanStor Dorado service set
 * Huawei OceanStor Pacific service set, activating all seven Pacific checks on a host tagged `huawei-pacific`, the same way the Dorado set already works
 
 Grafana:

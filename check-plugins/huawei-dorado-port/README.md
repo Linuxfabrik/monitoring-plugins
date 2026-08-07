@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the health and link status of the front-end ports of a Huawei OceanStor Dorado storage system via the REST API (`/fc_port`, `/eth_port` and `/sas_port` endpoints). Alerts when a port reports a non-normal health status, and optionally when a link is down. Reports the port type, its location and its link state.
+Checks the health and link status of the front-end ports of a Huawei OceanStor Dorado storage system via the REST API (`/fc_port`, `/eth_port`, `/sas_port` and `/bond_port` endpoints). Alerts when a port reports a non-normal health status, and optionally when a link is down. Reports the port type, its location and its link state.
 
 **Important Notes:**
 
@@ -11,12 +11,13 @@ Checks the health and link status of the front-end ports of a Huawei OceanStor D
 * A port whose link is down reports exactly what an uncabled port reports, so this does not alert by default. Set `--link-down-severity` on an array where every port is expected to be connected
 * These endpoints use their own running-status enumeration: 0 unknown, 10 link up, 11 link down, and 33 to be recovered on Ethernet ports. It has nothing in common with the codes the other objects use
 * An endpoint an appliance does not implement, or that carries no port, contributes nothing instead of failing the check. An array without SAS ports is a normal array
+* FCoE and InfiniBand ports are not queried. Neither REST Interface Reference documents an endpoint for them
 * Create a read-only API user that can perform queries only
 * The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
 
 **Data Collection:**
 
-* Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/{fc_port,eth_port,sas_port}`
+* Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/{fc_port,eth_port,sas_port,bond_port}`
 * Each endpoint is read in a single request, because unlike the other list endpoints these do not implement the `range` parameter
 * Authenticates via session tokens (iBaseToken + cookie), cached in a SQLite database to avoid repeated logins
 * If the appliance rejects a request, the check logs in again and retries, up to three attempts one second apart
@@ -49,9 +50,9 @@ usage: huawei-dorado-port [-h] [-V] [--always-ok]
                           --username USERNAME
 
 Checks the health and link status of the front-end ports of a Huawei OceanStor
-Dorado storage system via the REST API (/fc_port, /eth_port and /sas_port
-endpoints). Alerts when a port reports a non-normal health status, and
-optionally when a link is down.
+Dorado storage system via the REST API (/fc_port, /eth_port, /sas_port and
+/bond_port endpoints). Alerts when a port reports a non-normal health status,
+and optionally when a link is down.
 
 options:
   -h, --help            show this help message and exit
