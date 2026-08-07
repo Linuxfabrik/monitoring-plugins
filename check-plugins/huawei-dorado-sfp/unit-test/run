@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+TESTS = [
+    {
+        # The SFP endpoint reports its fields in camelCase and carries no TYPE,
+        # so the modules are identified by their location rather than by the
+        # TYPE:ID every other object on this appliance has.
+        'id': 'ok-sfps-healthy',
+        'test': 'stdout/sfps-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            'CTE0.A.IOM0.P0 ! interface module ! HUAWEI ! SFP-32G-FC ! single-mode '
+            '! 32000  ! Link up (10)   ! [OK]   ! [OK]',
+        ],
+    },
+    {
+        # The second module has its link down, which is what an uncabled one
+        # reports too, so it stays quiet unless asked otherwise.
+        'id': 'warn-link-down-severity',
+        'test': 'stdout/sfps-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        ' --link-down-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['There are warnings.'],
+    },
+    {
+        'id': 'crit-sfp-faulty',
+        'test': 'stdout/sfps-one-faulty,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['There are critical errors.', '[CRITICAL]'],
+    },
+    {
+        # A purely SAS-attached array has no optical module, and firmware older
+        # than V700R001C10 does not serve this endpoint at all.
+        'id': 'ok-no-sfps',
+        'test': 'stdout/no-sfps,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No optical modules found.'],
+    },
+    {
+        # The filter reaches the serial number, which is what a support case is
+        # opened with.
+        'id': 'ok-match-filters-on-serial',
+        'test': 'stdout/sfps-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='SN00000000$'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['CTE0.A.IOM0.P0'],
+        'assert-not-in': ['CTE0.A.IOM0.P1'],
+    },
+    {
+        'id': 'crit-no-match-severity',
+        'test': 'stdout/sfps-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='nonexistent' --no-match-severity=crit",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['No optical modules matched `nonexistent`.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../huawei-dorado-sfp'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
