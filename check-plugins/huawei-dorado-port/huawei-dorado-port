@@ -23,11 +23,12 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080701'
+__version__ = '2026080702'
 
 DESCRIPTION = """Checks the health and link status of the front-end ports of a Huawei OceanStor
 Dorado storage system via the REST API (/fc_port, /eth_port, /sas_port and /bond_port endpoints).
-Alerts when a port reports a non-normal health status, and optionally when a link is down."""
+Alerts when a port reports a non-normal health status, and optionally when a link is down.
+Supports reporting the I/O counters via --performance."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
@@ -48,6 +49,10 @@ HEALTH_STATUS_MAX = 18
 # enumeration: 0 unknown, 10 link up, 11 link down, and 33 to be recovered on
 # Ethernet ports.
 LINK_DOWN = 11
+
+# Performance indicators this object supports, from the vendor's performance
+# indicator tables. Read only when --performance is given.
+PERFORMANCE_INDICATORS = (18, 19, 21, 22, 23, 24, 25, 26, 27, 28)
 
 # Fields `--match` is applied to.
 MATCH_FIELDS = ('UUID', 'LOCATION', 'NAME')
@@ -181,6 +186,16 @@ def parse_args():
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--performance',
+        help='Additionally report the I/O counters of every front-end port. '
+        'Costs one API request per object, so a large appliance may need a '
+        'higher --timeout.',
+        dest='PERFORMANCE',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -367,6 +382,14 @@ def main():
             uom=None,
             _min=0,
         )
+
+        # The counters come from a second endpoint, which a fixture cannot stand
+        # in for. `lib.huawei_dorado.get_performance()` covers that path.
+        if args.PERFORMANCE and args.TEST is None:
+            samples = lib.huawei_dorado.get_performance(
+                port['UUID'], PERFORMANCE_INDICATORS, args
+            )
+            perfdata += lib.huawei_dorado.get_performance_perfdata(label, samples)
 
         port['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         port['link'] = lib.huawei_dorado.get_running_status(port.get('RUNNINGSTATUS'))

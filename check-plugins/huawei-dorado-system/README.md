@@ -46,8 +46,9 @@ usage: huawei-dorado-system [-h] [-V] [--always-ok]
 
 Checks overall system health, capacity, and performance of a Huawei OceanStor
 Dorado storage system via the REST API (/system endpoint). Reports health
-status, running status, storage capacity, and I/O performance metrics. Alerts
-when the system reports a non-normal health or running state.
+status, running status and the capacity of the array and of its storage pools.
+Alerts when the system reports a non-normal health or running state, and when
+a capacity reaches the warning or critical threshold.
 
 options:
   -h, --help            show this help message and exit

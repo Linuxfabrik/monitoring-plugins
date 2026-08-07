@@ -37,6 +37,9 @@
                 "--no-proxy": {
                     "set_if": "$huawei_dorado_storagepool_no_proxy$"
                 },
+                "--performance": {
+                    "set_if": "$huawei_dorado_storagepool_performance$"
+                },
                 "--password": {
                     "value": "$huawei_dorado_storagepool_password$"
                 },
@@ -139,7 +142,7 @@
                 },
                 {
                     "datafield_id": 16,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -149,6 +152,11 @@
                 },
                 {
                     "datafield_id": 18,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 19,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -194,7 +202,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the health, running status and capacity usage of all storage pools on a Huawei OceanStor Dorado storage system via the REST API (/storagepool endpoint). Alerts when a pool reports a non-normal state, and when its used capacity reaches the warning or critical threshold.",
+            "notes": "Checks the health, running status and capacity usage of all storage pools on a Huawei OceanStor Dorado storage system via the REST API (/storagepool endpoint). Alerts when a pool reports a non-normal state, and when its used capacity reaches the warning or critical threshold. Supports reporting the I/O counters via --performance.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-storagepool/",
             "object_name": "tpl-service-huawei-dorado-storagepool",
             "object_type": "template",
@@ -215,6 +223,7 @@
                 "huawei_dorado_storagepool_no_match_severity": "ok",
                 "huawei_dorado_storagepool_no_perfdata": false,
                 "huawei_dorado_storagepool_no_proxy": false,
+                "huawei_dorado_storagepool_performance": false,
                 "huawei_dorado_storagepool_scope": "0",
                 "huawei_dorado_storagepool_timeout": 3,
                 "huawei_dorado_storagepool_warning": "80"
@@ -372,6 +381,15 @@
             "uuid": "da63fd39-3951-4feb-818c-1f22fcb2489a"
         },
         "12": {
+            "varname": "huawei_dorado_storagepool_performance",
+            "caption": "Huawei Dorado Storagepool: Performance?",
+            "description": "Additionally report the I/O counters of every storage pool. Costs one API request per object, so a large appliance may need a higher --timeout.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "6a3968e4-48a3-41a2-9baa-e0b815556f70"
+        },
+        "13": {
             "varname": "huawei_dorado_storagepool_password",
             "caption": "Huawei Dorado Storagepool: Password",
             "description": "Huawei OceanStor Dorado API password. Password.",
@@ -382,7 +400,7 @@
             },
             "uuid": "4ff52cae-f899-40dd-a484-74eaf0528711"
         },
-        "13": {
+        "14": {
             "varname": "huawei_dorado_storagepool_password_file",
             "caption": "Huawei Dorado Storagepool: Password File",
             "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
@@ -393,7 +411,7 @@
             },
             "uuid": "270c09c0-d955-4183-bb3b-a54930ceda26"
         },
-        "14": {
+        "15": {
             "varname": "huawei_dorado_storagepool_scope",
             "caption": "Huawei Dorado Storagepool: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -404,7 +422,7 @@
             },
             "uuid": "7eb761f3-0e4f-4a3b-ae73-c55a4db2dc0a"
         },
-        "15": {
+        "16": {
             "varname": "huawei_dorado_storagepool_timeout",
             "caption": "Huawei Dorado Storagepool: Timeout",
             "description": "Network timeout in seconds.",
@@ -415,7 +433,7 @@
             },
             "uuid": "55bb8b00-ca08-451a-9436-30f1b97514a3"
         },
-        "16": {
+        "17": {
             "varname": "huawei_dorado_storagepool_url",
             "caption": "Huawei Dorado Storagepool: URL",
             "description": "Huawei OceanStor Dorado API URL.",
@@ -426,7 +444,7 @@
             },
             "uuid": "c7c914f9-4157-45ec-b13f-af60425d4e40"
         },
-        "17": {
+        "18": {
             "varname": "huawei_dorado_storagepool_username",
             "caption": "Huawei Dorado Storagepool: Username",
             "description": "Huawei OceanStor Dorado API username.",
@@ -437,7 +455,7 @@
             },
             "uuid": "94f72de3-5ec6-4a2e-9947-5bb9fb3cd369"
         },
-        "18": {
+        "19": {
             "varname": "huawei_dorado_storagepool_warning",
             "caption": "Huawei Dorado Storagepool: Warning",
             "description": "WARN threshold for the used capacity of a pool, as a Nagios range in percent.",

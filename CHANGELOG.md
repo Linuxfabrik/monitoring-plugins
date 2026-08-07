@@ -51,6 +51,7 @@ Monitoring Plugins:
 * huawei-dorado-sfp: check alerting on a faulty optical module, reporting its vendor, model, mode and working speed
 * huawei-dorado-storagepool: check alerting on a faulty storage pool of a Huawei OceanStor Dorado storage system, and on a pool filling up
 * `--ignore` skips objects by regular expression on the 16 Huawei checks that already filter with `--match`, and both parameters can now be given several times
+* `--performance` additionally reports the I/O counters the appliance keeps per object, off by default because it costs one API request per object (huawei-dorado-controller, huawei-dorado-lun, huawei-dorado-port, huawei-dorado-storagepool)
 * `--password-file` reads the API password from a file instead of the command line, so it no longer shows up in the process list, on all Huawei OceanStor Dorado and Pacific checks
 * huawei-pacific-alarm: counts minor and informational alarms as well, so a listing of them shows up in the graph instead of only in the exit code
 * huawei-pacific-disk: check alerting on a faulty disk of a Huawei OceanStor Pacific storage system, and on a disk whose remaining life is running out

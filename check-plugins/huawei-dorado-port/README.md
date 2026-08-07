@@ -46,14 +46,16 @@ usage: huawei-dorado-port [-h] [-V] [--always-ok]
                           [--link-down-severity {ok,warn,crit,unknown}]
                           [--match MATCH] [--no-insecure]
                           [--no-match-severity {ok,warn,crit,unknown}]
-                          [--no-perfdata] [--no-proxy] [--password PASSWORD]
+                          [--no-perfdata] [--no-proxy] [--performance]
+                          [--password PASSWORD]
                           [--password-file PASSWORD_FILE] [--scope SCOPE]
                           [--timeout TIMEOUT] -u URL --username USERNAME
 
 Checks the health and link status of the front-end ports of a Huawei OceanStor
 Dorado storage system via the REST API (/fc_port, /eth_port, /sas_port and
 /bond_port endpoints). Alerts when a port reports a non-normal health status,
-and optionally when a link is down.
+and optionally when a link is down. Supports reporting the I/O counters via
+--performance.
 
 options:
   -h, --help            show this help message and exit
@@ -103,6 +105,9 @@ options:
                         so alerting keeps working while trending data is
                         dropped.
   --no-proxy            Do not use a proxy.
+  --performance         Additionally report the I/O counters of every front-
+                        end port. Costs one API request per object, so a large
+                        appliance may need a higher --timeout.
   --password PASSWORD   Huawei OceanStor Dorado API password. Password.
   --password-file PASSWORD_FILE
                         Path to a file holding the password, read from its

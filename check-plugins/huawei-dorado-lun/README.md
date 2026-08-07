@@ -46,15 +46,16 @@ usage: huawei-dorado-lun [-h] [-V] [--always-ok] [--brief]
                          [--ignore IGNORE] [--insecure] [--lengthy]
                          [--match MATCH] [--no-insecure]
                          [--no-match-severity {ok,warn,crit,unknown}]
-                         [--no-perfdata] [--no-proxy] [--password PASSWORD]
-                         [--password-file PASSWORD_FILE] [--scope SCOPE]
-                         [--timeout TIMEOUT] -u URL --username USERNAME
-                         [-w WARN]
+                         [--no-perfdata] [--no-proxy] [--performance]
+                         [--password PASSWORD] [--password-file PASSWORD_FILE]
+                         [--scope SCOPE] [--timeout TIMEOUT] -u URL
+                         --username USERNAME [-w WARN]
 
 Checks the health and running status of the LUNs of a Huawei OceanStor Dorado
 storage system via the REST API (/lun endpoint). Alerts when a LUN reports a
 non-normal state, and optionally when a thin LUN fills up. Only LUNs mapped to
-a host are checked by default.
+a host are checked by default. Supports reporting the I/O counters via
+--performance.
 
 options:
   -h, --help            show this help message and exit
@@ -112,6 +113,9 @@ options:
                         so alerting keeps working while trending data is
                         dropped.
   --no-proxy            Do not use a proxy.
+  --performance         Additionally report the I/O counters of every LUN.
+                        Costs one API request per object, so a large appliance
+                        may need a higher --timeout.
   --password PASSWORD   Huawei OceanStor Dorado API password. Password.
   --password-file PASSWORD_FILE
                         Path to a file holding the password, read from its

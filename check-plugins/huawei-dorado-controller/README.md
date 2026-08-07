@@ -41,7 +41,7 @@ usage: huawei-dorado-controller [-h] [-V] [--always-ok]
                                 [--device-id DEVICE_ID] [--ignore IGNORE]
                                 [--insecure] [--no-insecure] [--match MATCH]
                                 [--no-match-severity {ok,warn,crit,unknown}]
-                                [--no-perfdata] [--no-proxy]
+                                [--no-perfdata] [--no-proxy] [--performance]
                                 [--password PASSWORD]
                                 [--password-file PASSWORD_FILE]
                                 [--scope SCOPE] [--timeout TIMEOUT] -u URL
@@ -50,7 +50,9 @@ usage: huawei-dorado-controller [-h] [-V] [--always-ok]
 
 Checks the health and running status of all controllers on a Huawei OceanStor
 Dorado storage system via the REST API (/controller endpoint). Alerts when any
-controller reports a non-normal health or running state.
+controller reports a non-normal health or running state, and optionally when
+its CPU, memory or temperature exceeds the configured thresholds. Supports
+reporting the I/O and cache counters via --performance.
 
 options:
   -h, --help            show this help message and exit
@@ -103,6 +105,9 @@ options:
                         so alerting keeps working while trending data is
                         dropped.
   --no-proxy            Do not use a proxy.
+  --performance         Additionally report the I/O counters of every
+                        controller. Costs one API request per object, so a
+                        large appliance may need a higher --timeout.
   --password PASSWORD   Huawei OceanStor Dorado API password. Password.
   --password-file PASSWORD_FILE
                         Path to a file holding the password, read from its

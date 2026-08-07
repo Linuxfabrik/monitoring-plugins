@@ -23,11 +23,13 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080701'
+__version__ = '2026080702'
 
 DESCRIPTION = """Checks the health and running status of all controllers on a Huawei OceanStor Dorado
 storage system via the REST API (/controller endpoint). Alerts when any controller
-reports a non-normal health or running state."""
+reports a non-normal health or running state, and optionally when its CPU, memory or
+temperature exceeds the configured thresholds.
+Supports reporting the I/O and cache counters via --performance."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_CRIT = ''
@@ -46,6 +48,10 @@ DEFAULT_WARN_TEMPERATURE = ''
 # out of the performance data, because whether a code is a fault depends on the
 # object and is decided in `lib.huawei_dorado.get_health_status_state()`.
 HEALTH_STATUS_MAX = 18
+
+# Performance indicators this object supports, from the vendor's performance
+# indicator tables. Read only when --performance is given.
+PERFORMANCE_INDICATORS = (19, 21, 22, 23, 25, 26, 28, 68, 69, 93, 95, 110, 120, 303, 370)
 
 # Fields `--match` is applied to.
 MATCH_FIELDS = ('UUID', 'LOCATION')
@@ -174,6 +180,16 @@ def parse_args():
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--performance',
+        help='Additionally report the I/O counters of every controller. '
+        'Costs one API request per object, so a large appliance may need a '
+        'higher --timeout.',
+        dest='PERFORMANCE',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -426,6 +442,14 @@ def main():
             controller['VOLTAGE'],
             _min=0,
         )
+
+        # The counters come from a second endpoint, which a fixture cannot stand
+        # in for. `lib.huawei_dorado.get_performance()` covers that path.
+        if args.PERFORMANCE and args.TEST is None:
+            samples = lib.huawei_dorado.get_performance(
+                controller['UUID'], PERFORMANCE_INDICATORS, args
+            )
+            perfdata += lib.huawei_dorado.get_performance_perfdata(label, samples)
 
         controller['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         controller['running_state'] = lib.base.state2str(running_state, empty_ok=False)

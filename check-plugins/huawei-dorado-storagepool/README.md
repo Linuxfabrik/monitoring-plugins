@@ -42,7 +42,7 @@ usage: huawei-dorado-storagepool [-h] [-V] [--always-ok]
                                  [--device-id DEVICE_ID] [--ignore IGNORE]
                                  [--insecure] [--match MATCH] [--no-insecure]
                                  [--no-match-severity {ok,warn,crit,unknown}]
-                                 [--no-perfdata] [--no-proxy]
+                                 [--no-perfdata] [--no-proxy] [--performance]
                                  [--password PASSWORD]
                                  [--password-file PASSWORD_FILE]
                                  [--scope SCOPE] [--timeout TIMEOUT] -u URL
@@ -51,7 +51,8 @@ usage: huawei-dorado-storagepool [-h] [-V] [--always-ok]
 Checks the health, running status and capacity usage of all storage pools on a
 Huawei OceanStor Dorado storage system via the REST API (/storagepool
 endpoint). Alerts when a pool reports a non-normal state, and when its used
-capacity reaches the warning or critical threshold.
+capacity reaches the warning or critical threshold. Supports reporting the I/O
+counters via --performance.
 
 options:
   -h, --help            show this help message and exit
@@ -100,6 +101,9 @@ options:
                         so alerting keeps working while trending data is
                         dropped.
   --no-proxy            Do not use a proxy.
+  --performance         Additionally report the I/O counters of every storage
+                        pool. Costs one API request per object, so a large
+                        appliance may need a higher --timeout.
   --password PASSWORD   Huawei OceanStor Dorado API password. Password.
   --password-file PASSWORD_FILE
                         Path to a file holding the password, read from its
