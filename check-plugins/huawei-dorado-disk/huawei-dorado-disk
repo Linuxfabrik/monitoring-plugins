@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080601'
+__version__ = '2026080701'
 
 DESCRIPTION = """Checks the health status of all disks on a Huawei OceanStor Dorado storage system
 via the REST API (/disk endpoint). Alerts when any disk reports a non-normal health
@@ -33,14 +33,24 @@ state."""
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_CRIT = '30:'
 DEFAULT_CRIT_TEMPERATURE = ''
+DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
 DEFAULT_INSECURE = True
-DEFAULT_MATCH = ''
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
-DEFAULT_SCOPE = 0
+DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
 DEFAULT_WARN = '180:'
 DEFAULT_WARN_TEMPERATURE = ''
+
+# Highest health score a disk reports. A disk whose media does not report one answers
+# with 255, which is a "not applicable" marker rather than a score.
+HEALTH_MARK_MAX = 100
+
+# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
+# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
+# out of the performance data, because whether a code is a fault depends on the
+# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
+HEALTH_STATUS_MAX = 18
 
 # Fields `--match` is applied to.
 MATCH_FIELDS = ('UUID', 'LOCATION')
@@ -100,9 +110,22 @@ def parse_args():
 
     parser.add_argument(
         '--device-id',
-        help='Huawei OceanStor Dorado API device ID.',
+        help='Huawei OceanStor Dorado API device ID. '
+        'Optional: the appliance reports its own at login, so this is only '
+        'needed to override that answer.',
         dest='DEVICE_ID',
-        required=True,
+        default=DEFAULT_DEVICE_ID,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Skip disks. '
+        + lib.args.help('--ignore-regex')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.',
+        dest='IGNORE',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -126,10 +149,10 @@ def parse_args():
         help='Filter by disks. '
         + lib.args.help('--match')
         + ' The regex is anchored at the start of the string (Python `re.match`) and is '
-        'matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere. '
-        'Default: %(default)s',
+        'matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.',
         dest='MATCH',
-        default=DEFAULT_MATCH,
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -158,9 +181,14 @@ def parse_args():
 
     parser.add_argument(
         '--password',
-        help='Huawei OceanStor Dorado API password.',
+        help='Huawei OceanStor Dorado API password. ' + lib.args.help('--password'),
         dest='PASSWORD',
-        required=True,
+    )
+
+    parser.add_argument(
+        '--password-file',
+        help=lib.args.help('--password-file'),
+        dest='PASSWORD_FILE',
     )
 
     parser.add_argument(
@@ -245,6 +273,17 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    if args.PASSWORD_FILE:
+        args.PASSWORD = lib.args.load_secret(args.PASSWORD_FILE)
+    if not args.PASSWORD:
+        lib.base.cu('Provide the API password via --password or --password-file.')
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
     if not args.URL.startswith('http'):
         lib.base.cu('--url parameter has to start with "http://" or https://".')
 
@@ -257,14 +296,7 @@ def main():
         result = json.loads(stdout)
 
     # no valuable result?
-    if not result:
-        lib.base.cu(f'Got no valuable response from {args.URL}.')
-    if result.get('error').get('code') != 0:
-        lib.base.oao(
-            f'{result.get("error").get("description")}'
-            f' {result.get("error").get("suggestion")}',
-            STATE_UNKNOWN,
-        )
+    lib.huawei_dorado.assert_ok(result, 'the disks')
 
     # An appliance always has disks, so an empty list is a query that
     # never reached them rather than an inventory that is genuinely empty.
@@ -280,20 +312,32 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
-    compiled_regex = lib.base.coe(lib.txt.compile_regex(args.MATCH))
+    compiled_match_regex = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore_regex = [
+        lib.base.coe(item)
+        for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
 
     # analyze data
     table_data = []
-    for disk in result.get('data'):
+    for disk in result.get('data') or []:
         disk['UUID'] = lib.huawei_dorado.get_uuid(disk)
         # Perfdata labels carry the object's own TYPE:ID, which stays the same
         # when hardware is moved between slots, unlike its location.
         label = re.sub(r'\W+', '_', disk['UUID'])
 
         if args.MATCH and not any(
-            lib.base.coe(
-                lib.txt.match_regex(compiled_regex, str(disk.get(field, '')))
-            )
+            lib.base.coe(lib.txt.match_regex(pattern, str(disk.get(field, ''))))
+            for pattern in compiled_match_regex
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        if args.IGNORE and any(
+            lib.base.coe(lib.txt.match_regex(pattern, str(disk.get(field, ''))))
+            for pattern in compiled_ignore_regex
             for field in MATCH_FIELDS
         ):
             continue
@@ -318,10 +362,12 @@ def main():
 
         # Temperature thresholds are off unless the operator sets them: what counts as hot
         # depends on the drive model and on where the array stands, so there is no default
-        # that would be right on every appliance.
-        temperature = int(disk['TEMPERATURE'])
+        # that would be right on every appliance. A drive that reports no temperature
+        # answers with 0 or leaves the field out; neither is a reading, so it is neither
+        # compared against a threshold nor graphed as a permanent 0 degrees.
+        temperature = lib.huawei_dorado.as_code(disk.get('TEMPERATURE')) or None
         temperature_state = STATE_OK
-        if args.WARN_TEMPERATURE or args.CRIT_TEMPERATURE:
+        if temperature and (args.WARN_TEMPERATURE or args.CRIT_TEMPERATURE):
             temperature_state = lib.base.get_state(
                 temperature,
                 args.WARN_TEMPERATURE or None,
@@ -330,23 +376,29 @@ def main():
             )
             state = lib.base.get_worst(state, temperature_state)
 
-        disk['RUNTIME'] = int(disk['RUNTIME']) * 24 * 60 * 60
+        runtime_days = lib.huawei_dorado.as_code(disk.get('RUNTIME'))
+        disk['RUNTIME'] = None if runtime_days is None else runtime_days * 24 * 60 * 60
 
         perfdata += lib.base.get_perfdata(
             f'{label}_health_status',
             disk['HEALTHSTATUS'],
-            crit=2,
+            uom=None,
             _min=0,
-            _max=2,
+            _max=HEALTH_STATUS_MAX,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_running_status',
             disk['RUNNINGSTATUS'],
             _min=0,
         )
+        # A spinning disk does not wear out the way flash does and reports -1, which
+        # is a "not applicable" marker rather than a negative wear level.
+        abrasion_rate = lib.huawei_dorado.as_code(disk.get('ABRASIONRATE'))
+        if abrasion_rate is not None and abrasion_rate < 0:
+            abrasion_rate = None
         perfdata += lib.base.get_perfdata(
             f'{label}_abrasion_rate',
-            disk['ABRASIONRATE'],
+            abrasion_rate,
             uom='%',
             _min=0,
             _max=100,
@@ -358,10 +410,18 @@ def main():
             _min=0,
             _max=100,
         )
+        # The health score runs from 0 to 100. A disk whose media does not report one
+        # answers with 255, which the vendor's own response example shows and which
+        # would otherwise be graphed as a perfect score two and a half times over.
+        health_mark = lib.huawei_dorado.as_code(disk.get('HEALTHMARK'))
+        if health_mark is not None and not 0 <= health_mark <= HEALTH_MARK_MAX:
+            health_mark = None
         perfdata += lib.base.get_perfdata(
             f'{label}_health_mark',
-            disk['HEALTHMARK'],
+            health_mark,
+            uom=None,
             _min=0,
+            _max=HEALTH_MARK_MAX,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_progress',
@@ -394,19 +454,33 @@ def main():
 
         disk['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         disk['running_state'] = lib.base.state2str(running_state, empty_ok=False)
-        disk['RUNTIME'] = lib.human.seconds2human(disk['RUNTIME'])
+        disk['RUNTIME'] = (
+            '--'
+            if disk['RUNTIME'] is None
+            else lib.human.seconds2human(disk['RUNTIME'])
+        )
 
         table_data.append(disk)
 
     # The appliance listed disks and the filter selected none of them.
     if not table_data:
         lib.base.oao(
-            f'No disks matched `{args.MATCH}`.',
+            f'No disks matched `{", ".join(args.MATCH)}`.',
             lib.base.str2state(args.NO_MATCH_SEVERITY),
             always_ok=args.ALWAYS_OK,
             no_perfdata=args.NO_PERFDATA,
         )
 
+    # build the message
+    if state == STATE_CRIT:
+        msg += 'There are critical errors.'
+    elif state == STATE_WARN:
+        msg += 'There are warnings.'
+    else:
+        msg += 'Everything is ok.'
+    msg += '\n\n'
+
+    # build table output
     if table_data:
         keys = [
             'UUID',
@@ -435,15 +509,7 @@ def main():
             'Running',
         ]
 
-        # build the message
         msg += lib.base.get_table(table_data, keys, header=headers)
-
-    if state == STATE_CRIT:
-        msg = 'There are critical errors.\n\n' + msg
-    elif state == STATE_WARN:
-        msg = 'There are warnings.\n\n' + msg
-    else:
-        msg = 'Everything is ok.\n\n' + msg
 
     # over and out
     lib.base.oao(

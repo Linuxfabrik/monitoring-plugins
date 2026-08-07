@@ -44,7 +44,8 @@ usage: huawei-pacific-quota [-h] [-V] [--always-ok] [--brief]
                             [--ignore-regex IGNORE_REGEX] [--insecure]
                             [--lengthy] [--no-insecure]
                             [--no-match-severity {ok,warn,crit,unknown}]
-                            [--no-perfdata] [--no-proxy] --password PASSWORD
+                            [--no-perfdata] [--no-proxy] [--password PASSWORD]
+                            [--password-file PASSWORD_FILE]
                             [--quota-type {directory,user,user-group}]
                             [--scope SCOPE] [--timeout TIMEOUT] -u URL
                             --username USERNAME [-w WARN]
@@ -90,7 +91,15 @@ options:
                         so alerting keeps working while trending data is
                         dropped.
   --no-proxy            Do not use a proxy.
-  --password PASSWORD   Huawei OceanStor Pacific API password.
+  --password PASSWORD   Huawei OceanStor Pacific API password. Password.
+  --password-file PASSWORD_FILE
+                        Path to a file holding the password, read from its
+                        first line. Keeps the password out of the process
+                        list, where a command-line argument is visible to
+                        every user on the host. Takes precedence over
+                        `--password`. Keep the file readable only by the
+                        monitoring user. Example: `--password-
+                        file=/etc/icinga2/secrets/storage`.
   --quota-type {directory,user,user-group}
                         Type of quota to check. Can be specified multiple
                         times. Example: `--quota-type=directory --quota-

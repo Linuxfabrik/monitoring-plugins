@@ -134,14 +134,27 @@ TESTS = [
         'test': 'stdout/no-hard-quota-configured,,0',
         'params': f'{COMMON} --warning 80 --critical 90',
         'assert-retc': STATE_OK,
-        'assert-in': ['Nothing checked.'],
+        'assert-in': ['No share carries a hard quota.'],
     },
     {
-        'id': 'unknown-no-hard-quota-with-no-match-severity',
+        # An appliance whose shares simply carry no hard quota is healthy, so
+        # --no-match-severity does not apply to it: without a filter there is
+        # nothing that could have excluded anything.
+        'id': 'ok-no-hard-quota-ignores-no-match-severity',
         'test': 'stdout/no-hard-quota-configured,,0',
         'params': f'{COMMON} --warning 80 --critical 90 --no-match-severity=unknown',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No share carries a hard quota.'],
+    },
+    {
+        # With a filter in place an empty result really is the filter's doing,
+        # and --no-match-severity decides how loud that is.
+        'id': 'unknown-filter-matched-nothing',
+        'test': 'stdout/directory-and-user-quotas,,0',
+        'params': f'{COMMON} --warning 80 --critical 90 --ignore-regex=.* '
+        '--no-match-severity=unknown',
         'assert-retc': STATE_UNKNOWN,
-        'assert-in': ['Nothing checked.'],
+        'assert-in': ['No quota matched the filters.'],
     },
     {
         # Only directory quotas by default: the user quota at 99% must not

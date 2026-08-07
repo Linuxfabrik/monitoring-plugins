@@ -16,7 +16,7 @@ Monitoring Plugins:
 
 * Cumulative counters are reported as per-second rates (or plain values) instead of ever-growing totals, which fixes Grafana graphs and aggregations. Some performance-data metric names change, so re-import the affected Grafana dashboards after updating (cpu-usage, disk-io, fs-xfs-stats, jitsi-videobridge-stats, network-io, nginx-status, nodebb-cache, nodebb-errors, procs, redis-status, starface-database-stats, valkey-status, wildfly-gc-status) ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 * disk-io: is WARN-only (never CRITICAL) and no longer measures I/O wait, which is unreliable on multi-core hosts. `--critical`, `--iowait-warning` and `--iowait-critical` are deprecated and ignored, and the Grafana dashboard has to be re-imported
-* huawei-dorado-\*: performance data metric names are lower case with underscores, and huawei-dorado-system reports its capacities in bytes instead of raw 512-byte sectors. Re-import the affected Grafana dashboards after updating
+* huawei-dorado-\*: performance data metric names are lower case with underscores, huawei-dorado-system and huawei-dorado-host report their capacities in bytes instead of raw 512-byte sectors, huawei-dorado-power reports its voltages in volts instead of millivolts, and huawei-dorado-backup-power no longer graphs the charge count, a counter that only ever grows. Re-import the affected Grafana dashboards after updating
 * redfish-\*: the Redfish API URL is a mandatory `--url`, replacing the misleading localhost default. Add `--url` to every Redfish command ([#1306](https://github.com/Linuxfabrik/monitoring-plugins/issues/1306))
 
 ### Added
@@ -50,7 +50,11 @@ Monitoring Plugins:
 * huawei-dorado-port: check alerting on a faulty front-end port of a Huawei OceanStor Dorado storage system, covering FC, Ethernet, SAS and bond ports, with `--link-down-severity` deciding what a lost link reports
 * huawei-dorado-sfp: check alerting on a faulty optical module, reporting its vendor, model, mode and working speed
 * huawei-dorado-storagepool: check alerting on a faulty storage pool of a Huawei OceanStor Dorado storage system, and on a pool filling up
+* `--ignore` skips objects by regular expression on the 16 Huawei checks that already filter with `--match`, and both parameters can now be given several times
+* `--password-file` reads the API password from a file instead of the command line, so it no longer shows up in the process list, on all Huawei OceanStor Dorado and Pacific checks
+* huawei-pacific-alarm: counts minor and informational alarms as well, so a listing of them shows up in the graph instead of only in the exit code
 * huawei-pacific-disk: check alerting on a faulty disk of a Huawei OceanStor Pacific storage system, and on a disk whose remaining life is running out
+* huawei-pacific-node: alerts when a cluster node reports an error code, a fault the node has already diagnosed itself
 * huawei-pacific-quota: check alerting when a share on a Huawei OceanStor Pacific storage system fills up its quota
 * huawei-pacific-system: check reporting the product model, system version and cluster name of a Huawei OceanStor Pacific storage system, and alerting on its cluster capacity usage
 * kdump: check alerting when the kernel crash dump mechanism cannot capture a panic, or when a previous panic left a crash dump behind (with a first analysis of the panic reason)
@@ -88,8 +92,12 @@ Monitoring Plugins:
 * docker-stats, podman-stats: select or exclude containers by name with `--match`/`--ignore`, plus `--no-match-severity`
 * huawei-dorado-\*, huawei-pacific-\*: a failed disk, power supply, fan, backup power module, interface module or cluster node is CRITICAL instead of WARNING, so a hardware failure is no longer indistinguishable from a component that is merely degraded
 * huawei-dorado-\*, huawei-pacific-fan, huawei-pacific-node, huawei-pacific-power: a response that lists no hardware at all reports UNKNOWN instead of "Everything is ok", because an appliance always has some
+* huawei-dorado-\*: the appliance device ID is optional. The appliance reports its own at login, so `--device-id` only has to be given to override that answer
 * huawei-dorado-disk: no longer graphs the operating time, a counter that only ever grows; the value stays in the output
+* huawei-dorado-hypermetropair: the table shows the appliance's own link and data state next to the check's verdict, so a disconnected pair is told apart from an invalid one
+* huawei-dorado-system: `--warning` and `--critical` accept Nagios ranges, like every other threshold in the plugin family
 * huawei-pacific-node: additionally reports the baseboard product line and the software version of every cluster node
+* huawei-pacific-quota: an appliance whose shares carry no hard quota reports OK. `--no-match-severity` now only applies when a filter really did exclude everything
 * keycloak-memory-usage, keycloak-stats, keycloak-version: verified against Keycloak 17 to 26, and the README states how to point `--url` at an instance that serves below a context path
 * mysql-innodb-log-waits: alerts only on real InnoDB log waits, no longer on a low write-log efficiency that raising `innodb_log_buffer_size` cannot fix
 * mysql-logfile: documents case-insensitive ignore matching and how to silence harmless idle-connection-timeout warnings
@@ -125,11 +133,19 @@ Monitoring Plugins:
 * disk-usage: performance data carries the warning and critical thresholds again ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
 * disk-usage: the filesystem table is sorted by usage (fullest first) instead of raw mount order
 * fs-inodes: an unreadable mount point such as a Kubernetes CSI volume that requires root no longer aborts the whole check ([#1387](https://github.com/Linuxfabrik/monitoring-plugins/issues/1387))
+* huawei-dorado-\*, huawei-pacific-\*: a firmware that reports success as a text `0` instead of a number no longer takes 18 of the checks to UNKNOWN on every run
+* huawei-dorado-\*, huawei-pacific-\*: a missing or non-numeric temperature, runtime, wear level, voltage, synchronization time, alarm severity or quota value no longer ends the check in a Python error
+* huawei-dorado-\*, huawei-pacific-\*: the READMEs state the real retry behaviour and the real state file each check uses
+* huawei-dorado-\*: a component that reports no temperature is left out of the graph instead of showing a permanent 0 degrees
+* huawei-dorado-disk: a spinning disk no longer graphs a wear level of -1, and a disk whose media reports no health score no longer graphs 255 out of 100
+* huawei-dorado-hypermetrodomain: a faulty HyperMetro domain is detected. It was read through the wrong status table, where a fault came out looking like normal operation
+* huawei-dorado-hypermetropair: a firmware that sends its status codes as numbers rather than as text no longer turns every healthy pair into a warning, and a pair that has never synchronized no longer ends the check in a Python error
+* huawei-dorado-lun, huawei-dorado-storagepool: an appliance with more objects than the check reads in one run no longer opens with "Everything is ok." while exiting WARNING
+* huawei-dorado-system: an appliance without a storage pool, and a firmware that leaves a capacity out, no longer end the check in a Python error
+* huawei-dorado-system: reports the storage system model even on a firmware that only sends its numeric code
 * huawei-pacific-alarm: reads every active alarm instead of stopping after the first 100, decodes the HTML entities the appliance embeds in alarm names, and warns when the list it reads is still incomplete
 * huawei-pacific-disk: alerts on a faulty or stopped disk pool, which used to go unnoticed as long as its disks reported healthy
-* huawei-dorado-hypermetrodomain: a faulty HyperMetro domain is detected. It was read through the wrong status table, where a fault came out looking like normal operation
-* huawei-dorado-\*, huawei-pacific-\*: the READMEs state the real retry behaviour and the real state file each check uses
-* huawei-dorado-system: reports the storage system model even on a firmware that only sends its numeric code
+* huawei-pacific-node: an OAM agent that is not being monitored no longer warns forever; it is a "nothing to report" marker, not a fault
 * journald-query: a relative `--since` such as `-8h` from the Icinga Director works again ([#1264](https://github.com/Linuxfabrik/monitoring-plugins/issues/1264))
 * logfile: detects a logfile that an application rewrites from the beginning instead of appending to, which until now hid every new line from the check ([#1330](https://github.com/Linuxfabrik/monitoring-plugins/issues/1330))
 * lynis: audits produce a report on Debian, Ubuntu and other distributions that keep lynis outside `/usr/share` ([#1262](https://github.com/Linuxfabrik/monitoring-plugins/issues/1262))

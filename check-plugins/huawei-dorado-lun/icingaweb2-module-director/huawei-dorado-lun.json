@@ -20,6 +20,10 @@
                 "--include-unmapped": {
                     "set_if": "$huawei_dorado_lun_include_unmapped$"
                 },
+                "--ignore": {
+                    "value": "$huawei_dorado_lun_ignore$",
+                    "repeat_key": true
+                },
                 "--insecure": {
                     "set_if": "$huawei_dorado_lun_insecure$"
                 },
@@ -27,7 +31,8 @@
                     "set_if": "$huawei_dorado_lun_lengthy$"
                 },
                 "--match": {
-                    "value": "$huawei_dorado_lun_match$"
+                    "value": "$huawei_dorado_lun_match$",
+                    "repeat_key": true
                 },
                 "--no-insecure": {
                     "set_if": "$huawei_dorado_lun_no_insecure$"
@@ -43,6 +48,9 @@
                 },
                 "--password": {
                     "value": "$huawei_dorado_lun_password$"
+                },
+                "--password-file": {
+                    "value": "$huawei_dorado_lun_password_file$"
                 },
                 "--scope": {
                     "value": "$huawei_dorado_lun_scope$"
@@ -85,7 +93,7 @@
                 },
                 {
                     "datafield_id": 5,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -130,7 +138,7 @@
                 },
                 {
                     "datafield_id": 14,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -145,16 +153,26 @@
                 },
                 {
                     "datafield_id": 17,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 18,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 19,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 20,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 21,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -215,14 +233,16 @@
                 "huawei_dorado_lun_brief": false,
                 "huawei_dorado_lun_cache_expire": 15,
                 "huawei_dorado_lun_critical": "",
+                "huawei_dorado_lun_device_id": "",
                 "huawei_dorado_lun_include_unmapped": false,
+                "huawei_dorado_lun_ignore": [],
                 "huawei_dorado_lun_insecure": true,
                 "huawei_dorado_lun_lengthy": false,
-                "huawei_dorado_lun_match": "",
+                "huawei_dorado_lun_match": [],
                 "huawei_dorado_lun_no_match_severity": "ok",
                 "huawei_dorado_lun_no_perfdata": false,
                 "huawei_dorado_lun_no_proxy": false,
-                "huawei_dorado_lun_scope": 0,
+                "huawei_dorado_lun_scope": "0",
                 "huawei_dorado_lun_timeout": 3,
                 "huawei_dorado_lun_warning": ""
             },
@@ -308,7 +328,7 @@
         "5": {
             "varname": "huawei_dorado_lun_device_id",
             "caption": "Huawei Dorado Lun: Device ID",
-            "description": "Huawei OceanStor Dorado API device ID.",
+            "description": "Huawei OceanStor Dorado API device ID. Optional: the appliance reports its own at login, so this is only needed to override that answer.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -326,6 +346,17 @@
             "uuid": "34f3ee32-4316-4d01-888b-193ad4eb5018"
         },
         "7": {
+            "varname": "huawei_dorado_lun_ignore",
+            "caption": "Huawei Dorado Lun: Ignore",
+            "description": "Skip LUNs. Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. The regex is anchored at the start of the string (Python `re.match`) and is matched against the LUN identifier, the LUN name and the name of its storage pool, so prefix with `.*` to match anywhere.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "9a686254-028c-495a-ae34-5302314d1858"
+        },
+        "8": {
             "varname": "huawei_dorado_lun_insecure",
             "caption": "Huawei Dorado Lun: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -334,7 +365,7 @@
             "settings": {},
             "uuid": "c027f0fe-cf45-404d-8ad2-f144354b9a2e"
         },
-        "8": {
+        "9": {
             "varname": "huawei_dorado_lun_lengthy",
             "caption": "Huawei Dorado Lun: Lengthy?",
             "description": "Extended reporting.",
@@ -343,18 +374,18 @@
             "settings": {},
             "uuid": "8ebec6f9-7eb7-4186-b95b-6f2d4ad41b2c"
         },
-        "9": {
+        "10": {
             "varname": "huawei_dorado_lun_match",
             "caption": "Huawei Dorado Lun: Match",
             "description": "Filter by LUNs. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against the LUN identifier, the LUN name and the name of its storage pool, so prefix with `.*` to match anywhere.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "3f8ab167-862a-4679-b72a-0a3ebc515c36"
         },
-        "10": {
+        "11": {
             "varname": "huawei_dorado_lun_no_insecure",
             "caption": "Huawei Dorado Lun: No Insecure?",
             "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -363,7 +394,7 @@
             "settings": {},
             "uuid": "0d545980-ce08-4229-ba2d-65ac16bee268"
         },
-        "11": {
+        "12": {
             "varname": "huawei_dorado_lun_no_match_severity",
             "caption": "Huawei Dorado Lun: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -376,7 +407,7 @@
             },
             "uuid": "de0af02a-dccb-4858-8254-a4805bfce2ef"
         },
-        "12": {
+        "13": {
             "varname": "huawei_dorado_lun_no_perfdata",
             "caption": "Huawei Dorado Lun: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -385,7 +416,7 @@
             "settings": {},
             "uuid": "11cbb6c3-e7b3-47e6-a919-ac0869bafef5"
         },
-        "13": {
+        "14": {
             "varname": "huawei_dorado_lun_no_proxy",
             "caption": "Huawei Dorado Lun: No Proxy?",
             "description": "Do not use a proxy.",
@@ -394,10 +425,10 @@
             "settings": {},
             "uuid": "8ea20955-7c39-4eac-ac1b-4dc137a43b78"
         },
-        "14": {
+        "15": {
             "varname": "huawei_dorado_lun_password",
             "caption": "Huawei Dorado Lun: Password",
-            "description": "Huawei OceanStor Dorado API password.",
+            "description": "Huawei OceanStor Dorado API password. Password.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -405,7 +436,18 @@
             },
             "uuid": "efd16e6e-b836-4f74-a092-e0b08db7e290"
         },
-        "15": {
+        "16": {
+            "varname": "huawei_dorado_lun_password_file",
+            "caption": "Huawei Dorado Lun: Password File",
+            "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "hidden"
+            },
+            "uuid": "011e38a5-557e-46a6-a9a2-a70d293bc59d"
+        },
+        "17": {
             "varname": "huawei_dorado_lun_scope",
             "caption": "Huawei Dorado Lun: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -416,7 +458,7 @@
             },
             "uuid": "e5a4ae8d-e177-48f2-9332-5c30822ea39d"
         },
-        "16": {
+        "18": {
             "varname": "huawei_dorado_lun_timeout",
             "caption": "Huawei Dorado Lun: Timeout",
             "description": "Network timeout in seconds.",
@@ -427,7 +469,7 @@
             },
             "uuid": "cc0dda20-aa07-4d37-8d9b-978240b42dbe"
         },
-        "17": {
+        "19": {
             "varname": "huawei_dorado_lun_url",
             "caption": "Huawei Dorado Lun: URL",
             "description": "Huawei OceanStor Dorado API URL.",
@@ -438,7 +480,7 @@
             },
             "uuid": "ff26a4ee-8b24-4848-ae53-e3d581d162ba"
         },
-        "18": {
+        "20": {
             "varname": "huawei_dorado_lun_username",
             "caption": "Huawei Dorado Lun: Username",
             "description": "Huawei OceanStor Dorado API username.",
@@ -449,7 +491,7 @@
             },
             "uuid": "d849d82b-2228-4f59-9a4a-b3af122c7258"
         },
-        "19": {
+        "21": {
             "varname": "huawei_dorado_lun_warning",
             "caption": "Huawei Dorado Lun: Warning",
             "description": "WARN threshold for the used capacity of a thin LUN, as a Nagios range in percent. Off by default, because a thin LUN that is full is doing what it was created for; what runs out is the pool behind it. Example: `--warning=85`",

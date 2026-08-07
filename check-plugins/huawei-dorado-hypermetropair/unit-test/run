@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
     {
@@ -25,22 +25,92 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok.',
-            # The "Last Sync" column renders a relative "(N ago)" age, so its
-            # width drifts over time. Assert the header and the separator as
-            # stable substrings on either side of that column instead of one
-            # fixed-width line.
-            'UUID                                   ! Link ! Last Sync',
-            '! Duration ! Progr (%) ! LocalJob  ! DataState ! Access     ! RemoteJob '
-            '! DataState ! Access     ! Health ! Running',
-            '---------------------------------------+------+',
-            '+----------+-----------+-----------+-----------+------------+-----------+'
-            '-----------+------------+--------+--------',
-            '15361:2100f4b78d046ec60000000000000000 ! [OK] ! 2021-08-18 10:39:47',
-            '15361:2100f4b78d046ec60000000000000001 ! [OK] ! 2021-08-18 10:39:50',
-            '15361:2100f4b78d046ec60000000000000002 ! [OK] ! 2021-08-18 10:38:29',
-            '15361:2100f4b78d046ec60000000000000003 ! [OK] ! 2021-08-18 10:39:03',
-            '15361:2100f4b78d046ec',
+            # Column widths follow the widest value, and the "Last Sync" column
+            # renders a relative "(N ago)" age that drifts over time, so the header
+            # is asserted per column rather than as one fixed-width line.
+            'UUID',
+            'Last Sync',
+            'Duration',
+            'LocalJob',
+            'RemoteJob',
+            'Link',
+            'Local Data',
+            'Remote Data',
+            'Health',
+            'Running',
+            '15361:2100f4b78d046ec60000000000000000 ! 2021-08-18 10:39:47',
+            '15361:2100f4b78d046ec60000000000000001 ! 2021-08-18 10:39:50',
+            # The appliance's own code stays readable next to the check's verdict.
+            'Connected (1)',
+            'Consistent (1)',
         ],
+    },
+    {
+        # A link the appliance reports as disconnected is a pair that no longer
+        # mirrors, so it warns - and the table still names the code, not just the
+        # verdict.
+        'id': 'warn-link-disconnected',
+        'test': 'stdout/pair-link-disconnected,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'There are warnings.',
+            'Disconnected (2)',
+            '[WARNING]',
+        ],
+    },
+    {
+        # Same code sent as a number instead of as a string. A firmware doing that
+        # used to turn every healthy pair into a warning.
+        'id': 'ok-numeric-status-codes',
+        'test': 'stdout/pair-numeric-codes,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            'Connected (1)',
+        ],
+    },
+    {
+        # A pair that has never finished a synchronization reports no end time.
+        # Subtracting it used to end the check in a traceback.
+        'id': 'ok-pair-never-synchronized',
+        'test': 'stdout/pair-never-synchronized,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'never',
+        ],
+    },
+    {
+        'id': 'ok-no-pairs-configured',
+        'test': 'stdout/no-pairs,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No HyperMetro pairs configured.'],
+    },
+    {
+        'id': 'warn-no-match',
+        'test': 'stdout/pairs-in-sync,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin '
+        '--match=NOSUCHLUN --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['No HyperMetro pairs matched `NOSUCHLUN`.'],
+    },
+    {
+        # The appliance reports success as the string '0' on some endpoints. Reading
+        # that as an error used to take the whole check to UNKNOWN.
+        'id': 'ok-success-code-as-string',
+        'test': 'stdout/pairs-success-code-as-string,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'unknown-api-error',
+        'test': 'stdout/api-error,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['the HyperMetro pairs', '-401'],
     },
 ]
 

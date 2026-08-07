@@ -14,6 +14,10 @@
                 "--device-id": {
                     "value": "$huawei_dorado_power_device_id$"
                 },
+                "--ignore": {
+                    "value": "$huawei_dorado_power_ignore$",
+                    "repeat_key": true
+                },
                 "--insecure": {
                     "set_if": "$huawei_dorado_power_insecure$"
                 },
@@ -21,7 +25,8 @@
                     "set_if": "$huawei_dorado_power_no_insecure$"
                 },
                 "--match": {
-                    "value": "$huawei_dorado_power_match$"
+                    "value": "$huawei_dorado_power_match$",
+                    "repeat_key": true
                 },
                 "--no-match-severity": {
                     "value": "$huawei_dorado_power_no_match_severity$"
@@ -34,6 +39,9 @@
                 },
                 "--password": {
                     "value": "$huawei_dorado_power_password$"
+                },
+                "--password-file": {
+                    "value": "$huawei_dorado_power_password_file$"
                 },
                 "--scope": {
                     "value": "$huawei_dorado_power_scope$"
@@ -71,7 +79,7 @@
                 },
                 {
                     "datafield_id": 4,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -106,7 +114,7 @@
                 },
                 {
                     "datafield_id": 11,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -121,16 +129,26 @@
                 },
                 {
                     "datafield_id": 14,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 15,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 16,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 18,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -190,12 +208,14 @@
                 "huawei_dorado_power_always_ok": false,
                 "huawei_dorado_power_cache_expire": 15,
                 "huawei_dorado_power_critical_temperature": "",
+                "huawei_dorado_power_device_id": "",
+                "huawei_dorado_power_ignore": [],
                 "huawei_dorado_power_insecure": true,
-                "huawei_dorado_power_match": "",
+                "huawei_dorado_power_match": [],
                 "huawei_dorado_power_no_match_severity": "ok",
                 "huawei_dorado_power_no_perfdata": false,
                 "huawei_dorado_power_no_proxy": false,
-                "huawei_dorado_power_scope": 0,
+                "huawei_dorado_power_scope": "0",
                 "huawei_dorado_power_timeout": 3,
                 "huawei_dorado_power_warning_temperature": ""
             },
@@ -272,7 +292,7 @@
         "4": {
             "varname": "huawei_dorado_power_device_id",
             "caption": "Huawei Dorado Power: Device ID",
-            "description": "Huawei OceanStor Dorado API device ID.",
+            "description": "Huawei OceanStor Dorado API device ID. Optional: the appliance reports its own at login, so this is only needed to override that answer.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -281,6 +301,17 @@
             "uuid": "d7bdbb44-746d-4943-953f-7bfc846babe2"
         },
         "5": {
+            "varname": "huawei_dorado_power_ignore",
+            "caption": "Huawei Dorado Power: Ignore",
+            "description": "Skip power modules. Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "4b20ce89-e172-4eae-8155-d3eed15419c0"
+        },
+        "6": {
             "varname": "huawei_dorado_power_insecure",
             "caption": "Huawei Dorado Power: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -289,7 +320,7 @@
             "settings": {},
             "uuid": "7d84abbc-95b0-44e8-ba2f-df7f1b14b1bd"
         },
-        "6": {
+        "7": {
             "varname": "huawei_dorado_power_no_insecure",
             "caption": "Huawei Dorado Power: No Insecure?",
             "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -298,18 +329,18 @@
             "settings": {},
             "uuid": "998ae686-07bf-4da5-9342-199dedc610d6"
         },
-        "7": {
+        "8": {
             "varname": "huawei_dorado_power_match",
             "caption": "Huawei Dorado Power: Match",
             "description": "Filter by power modules. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "f43eabd4-2d97-4033-b042-8dec4f0b1587"
         },
-        "8": {
+        "9": {
             "varname": "huawei_dorado_power_no_match_severity",
             "caption": "Huawei Dorado Power: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -322,7 +353,7 @@
             },
             "uuid": "66818576-3b15-4388-a6f7-d278250736a7"
         },
-        "9": {
+        "10": {
             "varname": "huawei_dorado_power_no_perfdata",
             "caption": "Huawei Dorado Power: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -331,7 +362,7 @@
             "settings": {},
             "uuid": "4669bd90-1bcd-4783-9fd3-9f954d00a772"
         },
-        "10": {
+        "11": {
             "varname": "huawei_dorado_power_no_proxy",
             "caption": "Huawei Dorado Power: No Proxy?",
             "description": "Do not use a proxy.",
@@ -340,10 +371,10 @@
             "settings": {},
             "uuid": "57dcd6dd-b72d-4cfc-bde1-4383a929553c"
         },
-        "11": {
+        "12": {
             "varname": "huawei_dorado_power_password",
             "caption": "Huawei Dorado Power: Password",
-            "description": "Huawei OceanStor Dorado API password.",
+            "description": "Huawei OceanStor Dorado API password. Password.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -351,7 +382,18 @@
             },
             "uuid": "7891bf22-9163-458c-bb6f-103608363bbb"
         },
-        "12": {
+        "13": {
+            "varname": "huawei_dorado_power_password_file",
+            "caption": "Huawei Dorado Power: Password File",
+            "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "hidden"
+            },
+            "uuid": "ab2d721e-e749-4222-afc7-1e4a30aa4e9c"
+        },
+        "14": {
             "varname": "huawei_dorado_power_scope",
             "caption": "Huawei Dorado Power: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -362,7 +404,7 @@
             },
             "uuid": "80f119fe-862b-449d-9d60-41fce00eecd7"
         },
-        "13": {
+        "15": {
             "varname": "huawei_dorado_power_timeout",
             "caption": "Huawei Dorado Power: Timeout",
             "description": "Network timeout in seconds.",
@@ -373,7 +415,7 @@
             },
             "uuid": "dcf0bf0f-e21e-4f1c-9b4a-ba09252f7f72"
         },
-        "14": {
+        "16": {
             "varname": "huawei_dorado_power_url",
             "caption": "Huawei Dorado Power: URL",
             "description": "Huawei OceanStor Dorado API URL.",
@@ -384,7 +426,7 @@
             },
             "uuid": "af70a190-3b06-4a18-ac0b-cffc27aaaf8c"
         },
-        "15": {
+        "17": {
             "varname": "huawei_dorado_power_username",
             "caption": "Huawei Dorado Power: Username",
             "description": "Huawei OceanStor Dorado API username.",
@@ -395,7 +437,7 @@
             },
             "uuid": "6075e02b-7542-43ca-ad0d-f0c7c5df36f5"
         },
-        "16": {
+        "18": {
             "varname": "huawei_dorado_power_warning_temperature",
             "caption": "Huawei Dorado Power: Warning Temperature",
             "description": "WARN threshold in degrees Celsius. Off by default, because a healthy operating temperature depends on the power module model and on where the array stands. Example: `--warning-temperature=45`",

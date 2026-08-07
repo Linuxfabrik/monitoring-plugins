@@ -14,11 +14,16 @@
                 "--device-id": {
                     "value": "$huawei_dorado_storagepool_device_id$"
                 },
+                "--ignore": {
+                    "value": "$huawei_dorado_storagepool_ignore$",
+                    "repeat_key": true
+                },
                 "--insecure": {
                     "set_if": "$huawei_dorado_storagepool_insecure$"
                 },
                 "--match": {
-                    "value": "$huawei_dorado_storagepool_match$"
+                    "value": "$huawei_dorado_storagepool_match$",
+                    "repeat_key": true
                 },
                 "--no-insecure": {
                     "set_if": "$huawei_dorado_storagepool_no_insecure$"
@@ -34,6 +39,9 @@
                 },
                 "--password": {
                     "value": "$huawei_dorado_storagepool_password$"
+                },
+                "--password-file": {
+                    "value": "$huawei_dorado_storagepool_password_file$"
                 },
                 "--scope": {
                     "value": "$huawei_dorado_storagepool_scope$"
@@ -71,7 +79,7 @@
                 },
                 {
                     "datafield_id": 4,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -106,7 +114,7 @@
                 },
                 {
                     "datafield_id": 11,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -121,16 +129,26 @@
                 },
                 {
                     "datafield_id": 14,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 15,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 16,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 18,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -190,12 +208,14 @@
                 "huawei_dorado_storagepool_always_ok": false,
                 "huawei_dorado_storagepool_cache_expire": 15,
                 "huawei_dorado_storagepool_critical": "90",
+                "huawei_dorado_storagepool_device_id": "",
+                "huawei_dorado_storagepool_ignore": [],
                 "huawei_dorado_storagepool_insecure": true,
-                "huawei_dorado_storagepool_match": "",
+                "huawei_dorado_storagepool_match": [],
                 "huawei_dorado_storagepool_no_match_severity": "ok",
                 "huawei_dorado_storagepool_no_perfdata": false,
                 "huawei_dorado_storagepool_no_proxy": false,
-                "huawei_dorado_storagepool_scope": 0,
+                "huawei_dorado_storagepool_scope": "0",
                 "huawei_dorado_storagepool_timeout": 3,
                 "huawei_dorado_storagepool_warning": "80"
             },
@@ -272,7 +292,7 @@
         "4": {
             "varname": "huawei_dorado_storagepool_device_id",
             "caption": "Huawei Dorado Storagepool: Device ID",
-            "description": "Huawei OceanStor Dorado API device ID.",
+            "description": "Huawei OceanStor Dorado API device ID. Optional: the appliance reports its own at login, so this is only needed to override that answer.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -281,6 +301,17 @@
             "uuid": "b96c98a7-2f73-4d2c-84c0-ceb628ab6fae"
         },
         "5": {
+            "varname": "huawei_dorado_storagepool_ignore",
+            "caption": "Huawei Dorado Storagepool: Ignore",
+            "description": "Skip storage pools. Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. The regex is anchored at the start of the string (Python `re.match`) and is matched against the pool identifier, the pool name and the name of its disk domain, so prefix with `.*` to match anywhere.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "9e4ad12e-a967-4d08-a724-ab7a898c801d"
+        },
+        "6": {
             "varname": "huawei_dorado_storagepool_insecure",
             "caption": "Huawei Dorado Storagepool: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -289,18 +320,18 @@
             "settings": {},
             "uuid": "4b03f7bf-ca2f-4dd8-ad4f-e5f85217dafd"
         },
-        "6": {
+        "7": {
             "varname": "huawei_dorado_storagepool_match",
             "caption": "Huawei Dorado Storagepool: Match",
             "description": "Filter by storage pools. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against the pool identifier, the pool name and the name of its disk domain, so prefix with `.*` to match anywhere.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "edc45071-c629-42d7-a3bc-4f5032271ab2"
         },
-        "7": {
+        "8": {
             "varname": "huawei_dorado_storagepool_no_insecure",
             "caption": "Huawei Dorado Storagepool: No Insecure?",
             "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -309,7 +340,7 @@
             "settings": {},
             "uuid": "27dcabdd-90ec-49ca-86ac-4bd79f96b25a"
         },
-        "8": {
+        "9": {
             "varname": "huawei_dorado_storagepool_no_match_severity",
             "caption": "Huawei Dorado Storagepool: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -322,7 +353,7 @@
             },
             "uuid": "78d8d48a-3a16-4779-af28-e209c38d0c4b"
         },
-        "9": {
+        "10": {
             "varname": "huawei_dorado_storagepool_no_perfdata",
             "caption": "Huawei Dorado Storagepool: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -331,7 +362,7 @@
             "settings": {},
             "uuid": "d81da56c-a931-4b14-b854-189f0caf45a8"
         },
-        "10": {
+        "11": {
             "varname": "huawei_dorado_storagepool_no_proxy",
             "caption": "Huawei Dorado Storagepool: No Proxy?",
             "description": "Do not use a proxy.",
@@ -340,10 +371,10 @@
             "settings": {},
             "uuid": "da63fd39-3951-4feb-818c-1f22fcb2489a"
         },
-        "11": {
+        "12": {
             "varname": "huawei_dorado_storagepool_password",
             "caption": "Huawei Dorado Storagepool: Password",
-            "description": "Huawei OceanStor Dorado API password.",
+            "description": "Huawei OceanStor Dorado API password. Password.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -351,7 +382,18 @@
             },
             "uuid": "4ff52cae-f899-40dd-a484-74eaf0528711"
         },
-        "12": {
+        "13": {
+            "varname": "huawei_dorado_storagepool_password_file",
+            "caption": "Huawei Dorado Storagepool: Password File",
+            "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "hidden"
+            },
+            "uuid": "270c09c0-d955-4183-bb3b-a54930ceda26"
+        },
+        "14": {
             "varname": "huawei_dorado_storagepool_scope",
             "caption": "Huawei Dorado Storagepool: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -362,7 +404,7 @@
             },
             "uuid": "7eb761f3-0e4f-4a3b-ae73-c55a4db2dc0a"
         },
-        "13": {
+        "15": {
             "varname": "huawei_dorado_storagepool_timeout",
             "caption": "Huawei Dorado Storagepool: Timeout",
             "description": "Network timeout in seconds.",
@@ -373,7 +415,7 @@
             },
             "uuid": "55bb8b00-ca08-451a-9436-30f1b97514a3"
         },
-        "14": {
+        "16": {
             "varname": "huawei_dorado_storagepool_url",
             "caption": "Huawei Dorado Storagepool: URL",
             "description": "Huawei OceanStor Dorado API URL.",
@@ -384,7 +426,7 @@
             },
             "uuid": "c7c914f9-4157-45ec-b13f-af60425d4e40"
         },
-        "15": {
+        "17": {
             "varname": "huawei_dorado_storagepool_username",
             "caption": "Huawei Dorado Storagepool: Username",
             "description": "Huawei OceanStor Dorado API username.",
@@ -395,7 +437,7 @@
             },
             "uuid": "94f72de3-5ec6-4a2e-9947-5bb9fb3cd369"
         },
-        "16": {
+        "18": {
             "varname": "huawei_dorado_storagepool_warning",
             "caption": "Huawei Dorado Storagepool: Warning",
             "description": "WARN threshold for the used capacity of a pool, as a Nagios range in percent.",

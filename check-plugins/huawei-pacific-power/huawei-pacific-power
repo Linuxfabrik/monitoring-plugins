@@ -22,7 +22,7 @@ import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080601'
+__version__ = '2026080701'
 
 DESCRIPTION = """Checks the status of all power supplies on a Huawei OceanStor Pacific storage system
 via the REST API (/hwm/power endpoint). Alerts when any power supply reports a non-normal status."""
@@ -99,9 +99,14 @@ def parse_args():
 
     parser.add_argument(
         '--password',
-        help='Huawei OceanStor Pacific API password.',
+        help='Huawei OceanStor Pacific API password. ' + lib.args.help('--password'),
         dest='PASSWORD',
-        required=True,
+    )
+
+    parser.add_argument(
+        '--password-file',
+        help=lib.args.help('--password-file'),
+        dest='PASSWORD_FILE',
     )
 
     parser.add_argument(
@@ -154,6 +159,11 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    if args.PASSWORD_FILE:
+        args.PASSWORD = lib.args.load_secret(args.PASSWORD_FILE)
+    if not args.PASSWORD:
+        lib.base.cu('Provide the API password via --password or --password-file.')
+
     if not args.URL.startswith('http'):
         lib.base.cu('--url parameter has to start with "http://" or https://".')
 
@@ -173,14 +183,7 @@ def main():
         result = json.loads(stdout)
 
     # no valuable result?
-    if not result:
-        lib.base.cu(f'Got no valuable response from {args.URL}.')
-    if result.get('result', {}).get('code') != 0:
-        lib.base.oao(
-            f'{result.get("result", {}).get("description")}'
-            f' {result.get("result", {}).get("suggestion", "")}'.strip(),
-            STATE_UNKNOWN,
-        )
+    lib.huawei_pacific.assert_ok(result, 'the power supplies')
 
     # A cluster always has power supplies, so an empty list is a query that
     # never reached them rather than an inventory that is genuinely empty.
@@ -199,7 +202,7 @@ def main():
 
     # analyze data
     table_data = []
-    for power in result.get('data', []):
+    for power in result.get('data') or []:
         power_state = lib.huawei_pacific.get_component_status_state(
             power.get('status')
         )
@@ -218,7 +221,7 @@ def main():
         power['state'] = lib.base.state2str(power_state, empty_ok=False)
         table_data.append(power)
 
-    # build the message
+    # build table output
     if table_data:
         keys = ['frame_sn', 'name', 'status', 'state']
         headers = ['Chassis SN', 'Name', 'Status', 'State']
@@ -226,7 +229,7 @@ def main():
     else:
         msg += 'Nothing checked.'
 
-
+    # build the message
     if state == STATE_CRIT:
         msg = 'There are critical errors.\n\n' + msg
     elif state == STATE_WARN:

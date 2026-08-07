@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080401'
+__version__ = '2026080701'
 
 DESCRIPTION = """Checks how full the quotas of a Huawei OceanStor Pacific storage system are via the
 REST API (/file_service/fs_quota endpoint). Walks all file systems and their dtrees and reports the
@@ -172,9 +172,14 @@ def parse_args():
 
     parser.add_argument(
         '--password',
-        help='Huawei OceanStor Pacific API password.',
+        help='Huawei OceanStor Pacific API password. ' + lib.args.help('--password'),
         dest='PASSWORD',
-        required=True,
+    )
+
+    parser.add_argument(
+        '--password-file',
+        help=lib.args.help('--password-file'),
+        dest='PASSWORD_FILE',
     )
 
     parser.add_argument(
@@ -241,42 +246,13 @@ def parse_args():
     return args
 
 
-def check_response(result, args):
+def check_response(result, what):
     """Return the API response, or abort the plugin if the API reported a
     problem. The plugin walks the API in several steps, so every response
     passes through here.
     """
-    if not result:
-        lib.base.cu(f'Got no valuable response from {args.URL}.')
-    if result.get('result', {}).get('code') != 0:
-        lib.base.oao(
-            f'{result.get("result", {}).get("description")}'
-            f' {result.get("result", {}).get("suggestion", "")}'.strip(),
-            STATE_UNKNOWN,
-        )
+    lib.huawei_pacific.assert_ok(result, what)
     return result
-
-
-def load_test_fixture(test_args, path):
-    """Read a single walk step from a test fixture and return the parsed JSON.
-    On a missing file or malformed JSON, exit STATE_UNKNOWN with a helpful
-    message instead of letting json.loads() raise a traceback.
-    """
-    # Copy, so that the caller's args.TEST keeps pointing at the fixture base
-    # path and stays readable for the next walk step.
-    test_args = list(test_args)
-    test_args[0] = path
-    stdout, _stderr, _retc = lib.lftest.test(test_args)
-    if stdout == path:
-        # lib.lftest.test() returns the value unchanged if it does not resolve
-        # to a fixture file. Do not test the path against the file system here:
-        # fixtures are anchored to the plugin's own unit-test directory, not to
-        # the current working directory.
-        lib.base.cu(f'Test fixture not found: "{path}".')
-    try:
-        return json.loads(stdout)
-    except (json.JSONDecodeError, ValueError) as e:
-        lib.base.cu(f'Test fixture "{path}" does not contain valid JSON: {e}')
 
 
 def get_file_systems(args, test_path=None):
@@ -288,8 +264,8 @@ def get_file_systems(args, test_path=None):
             method='GET',
         )
     else:
-        result = load_test_fixture(args.TEST, test_path)
-    return check_response(result, args).get('data', [])
+        result = lib.lftest.test_json(args.TEST, test_path)
+    return check_response(result, 'the file systems').get('data', [])
 
 
 def get_dtrees(args, file_system_id, test_path=None):
@@ -302,8 +278,10 @@ def get_dtrees(args, file_system_id, test_path=None):
             method='GET',
         )
     else:
-        result = load_test_fixture(args.TEST, test_path)
-    return check_response(result, args).get('data', [])
+        result = lib.lftest.test_json(args.TEST, test_path)
+    return check_response(
+        result, f'the dtrees of file system {file_system_id}'
+    ).get('data', [])
 
 
 def get_quotas(args, parent_type, parent_id, test_path=None):
@@ -312,8 +290,9 @@ def get_quotas(args, parent_type, parent_id, test_path=None):
     The API caps a single query at RANGE_LIMIT records, so the quotas are
     fetched page by page until a short page shows that the last one is reached.
     """
+    what = f'the quotas of {parent_id}'
     if test_path is not None:
-        return check_response(load_test_fixture(args.TEST, test_path), args).get(
+        return check_response(lib.lftest.test_json(args.TEST, test_path), what).get(
             'data', []
         )
 
@@ -332,7 +311,7 @@ def get_quotas(args, parent_type, parent_id, test_path=None):
                 payload=payload,
                 method='GET',
             ),
-            args,
+            what,
         )
         page = result.get('data', [])
         quotas += page
@@ -396,6 +375,11 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    if args.PASSWORD_FILE:
+        args.PASSWORD = lib.args.load_secret(args.PASSWORD_FILE)
+    if not args.PASSWORD:
+        lib.base.cu('Provide the API password via --password or --password-file.')
+
     if not args.URL.startswith('http'):
         lib.base.cu('--url parameter has to start with "http://" or https://".')
 
@@ -424,7 +408,7 @@ def main():
 
     # analyze data
     for quota in quotas:
-        quota_type = int(quota.get('quota_type', -1))
+        quota_type = lib.huawei_pacific.as_code(quota.get('quota_type'))
         if quota_type not in wanted_types:
             continue
 
@@ -437,9 +421,14 @@ def main():
         if any(item.search(share) for item in compiled_ignore_regex):
             continue
 
-        hard_quota = int(quota.get('space_hard_quota', INVALID_VALUE64))
-        used = int(quota.get('space_used', INVALID_VALUE64))
-        if hard_quota in (INVALID_VALUE64, 0) or used == INVALID_VALUE64:
+        # The API sends these as strings on some firmware and as numbers on others,
+        # and leaves them out entirely where there is nothing to report.
+        hard_quota = lib.huawei_pacific.as_code(quota.get('space_hard_quota'))
+        used = lib.huawei_pacific.as_code(quota.get('space_used'))
+        if hard_quota in (None, INVALID_VALUE64, 0) or used in (
+            None,
+            INVALID_VALUE64,
+        ):
             # no hard quota configured, or no usable measurement: there is
             # nothing to calculate a fill level from
             continue
@@ -467,9 +456,13 @@ def main():
         # The file quota is reported for context only and does not alert: the
         # check is about space.
         files = '-'
-        file_used = int(quota.get('file_used', INVALID_VALUE64))
-        file_hard_quota = int(quota.get('file_hard_quota', INVALID_VALUE64))
-        if INVALID_VALUE64 not in (file_used, file_hard_quota):
+        file_used = lib.huawei_pacific.as_code(quota.get('file_used'))
+        file_hard_quota = lib.huawei_pacific.as_code(quota.get('file_hard_quota'))
+        if (
+            file_used is not None
+            and file_hard_quota is not None
+            and INVALID_VALUE64 not in (file_used, file_hard_quota)
+        ):
             files = (
                 f'{lib.human.number2human(file_used)}'
                 f'/{lib.human.number2human(file_hard_quota)}'
@@ -491,9 +484,14 @@ def main():
     # build the message
     thresholds = f'warn={args.WARN} crit={args.CRIT}'
     if not table_data:
+        # An appliance whose shares simply carry no hard quota is a healthy appliance.
+        # Only a filter that excluded everything is worth the configured severity.
+        filtered = bool(args.IGNORE_REGEX) or args.QUOTA_TYPE != DEFAULT_QUOTA_TYPE
         lib.base.oao(
-            'Nothing checked.',
-            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            'No quota matched the filters.'
+            if filtered
+            else 'No share carries a hard quota.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY) if filtered else STATE_OK,
             perfdata,
             always_ok=args.ALWAYS_OK,
             no_perfdata=args.NO_PERFDATA,

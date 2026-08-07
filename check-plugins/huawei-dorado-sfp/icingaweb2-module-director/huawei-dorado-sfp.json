@@ -11,6 +11,10 @@
                 "--device-id": {
                     "value": "$huawei_dorado_sfp_device_id$"
                 },
+                "--ignore": {
+                    "value": "$huawei_dorado_sfp_ignore$",
+                    "repeat_key": true
+                },
                 "--insecure": {
                     "set_if": "$huawei_dorado_sfp_insecure$"
                 },
@@ -18,7 +22,8 @@
                     "value": "$huawei_dorado_sfp_link_down_severity$"
                 },
                 "--match": {
-                    "value": "$huawei_dorado_sfp_match$"
+                    "value": "$huawei_dorado_sfp_match$",
+                    "repeat_key": true
                 },
                 "--no-insecure": {
                     "set_if": "$huawei_dorado_sfp_no_insecure$"
@@ -34,6 +39,9 @@
                 },
                 "--password": {
                     "value": "$huawei_dorado_sfp_password$"
+                },
+                "--password-file": {
+                    "value": "$huawei_dorado_sfp_password_file$"
                 },
                 "--scope": {
                     "value": "$huawei_dorado_sfp_scope$"
@@ -63,7 +71,7 @@
                 },
                 {
                     "datafield_id": 3,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -103,7 +111,7 @@
                 },
                 {
                     "datafield_id": 11,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -118,11 +126,21 @@
                 },
                 {
                     "datafield_id": 14,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 15,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
                     "is_required": "y",
                     "var_filter": null
                 }
@@ -181,13 +199,15 @@
                 "criticality": "A",
                 "huawei_dorado_sfp_always_ok": false,
                 "huawei_dorado_sfp_cache_expire": 15,
+                "huawei_dorado_sfp_device_id": "",
+                "huawei_dorado_sfp_ignore": [],
                 "huawei_dorado_sfp_insecure": true,
                 "huawei_dorado_sfp_link_down_severity": "ok",
-                "huawei_dorado_sfp_match": "",
+                "huawei_dorado_sfp_match": [],
                 "huawei_dorado_sfp_no_match_severity": "ok",
                 "huawei_dorado_sfp_no_perfdata": false,
                 "huawei_dorado_sfp_no_proxy": false,
-                "huawei_dorado_sfp_scope": 0,
+                "huawei_dorado_sfp_scope": "0",
                 "huawei_dorado_sfp_timeout": 3
             },
             "volatile": null,
@@ -283,7 +303,7 @@
         "3": {
             "varname": "huawei_dorado_sfp_device_id",
             "caption": "Huawei Dorado Sfp: Device ID",
-            "description": "Huawei OceanStor Dorado API device ID.",
+            "description": "Huawei OceanStor Dorado API device ID. Optional: the appliance reports its own at login, so this is only needed to override that answer.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -292,6 +312,17 @@
             "uuid": "7ef3a9dc-2e36-4d1a-be5a-4ac22b0bce2e"
         },
         "4": {
+            "varname": "huawei_dorado_sfp_ignore",
+            "caption": "Huawei Dorado Sfp: Ignore",
+            "description": "Skip optical modules. Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. The regex is anchored at the start of the string (Python `re.match`) and is matched against the module identifier, its location, vendor, model and serial number, so prefix with `.*` to match anywhere.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "d0dd97e8-32bc-4373-8ed6-497cc59550b3"
+        },
+        "5": {
             "varname": "huawei_dorado_sfp_insecure",
             "caption": "Huawei Dorado Sfp: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -300,7 +331,7 @@
             "settings": {},
             "uuid": "f0663e90-f401-48f7-ac42-d50e7a331753"
         },
-        "5": {
+        "6": {
             "varname": "huawei_dorado_sfp_link_down_severity",
             "caption": "Huawei Dorado Sfp: Link Down Severity",
             "description": "State to report for a port whose link is down. A port that is simply not cabled reports the same thing, which is why this defaults to not alerting.",
@@ -313,18 +344,18 @@
             },
             "uuid": "c561692d-fefe-4d1a-a8a6-ab155a4ca12a"
         },
-        "6": {
+        "7": {
             "varname": "huawei_dorado_sfp_match",
             "caption": "Huawei Dorado Sfp: Match",
             "description": "Filter by optical modules. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against the module identifier, its location, vendor, model and serial number, so prefix with `.*` to match anywhere.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "e13fd3e5-3795-4b82-b80a-9b5272b320c6"
         },
-        "7": {
+        "8": {
             "varname": "huawei_dorado_sfp_no_insecure",
             "caption": "Huawei Dorado Sfp: No Insecure?",
             "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -333,7 +364,7 @@
             "settings": {},
             "uuid": "3e79dff6-38f2-4377-99c4-187b81646bda"
         },
-        "8": {
+        "9": {
             "varname": "huawei_dorado_sfp_no_match_severity",
             "caption": "Huawei Dorado Sfp: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -346,7 +377,7 @@
             },
             "uuid": "d76a76d3-407f-4d16-bd10-892875fde589"
         },
-        "9": {
+        "10": {
             "varname": "huawei_dorado_sfp_no_perfdata",
             "caption": "Huawei Dorado Sfp: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -355,7 +386,7 @@
             "settings": {},
             "uuid": "4d41c0d1-aa66-4b00-b686-a3f2611291b4"
         },
-        "10": {
+        "11": {
             "varname": "huawei_dorado_sfp_no_proxy",
             "caption": "Huawei Dorado Sfp: No Proxy?",
             "description": "Do not use a proxy.",
@@ -364,10 +395,10 @@
             "settings": {},
             "uuid": "2a67ba39-c483-491f-b6c6-9feaeba471d9"
         },
-        "11": {
+        "12": {
             "varname": "huawei_dorado_sfp_password",
             "caption": "Huawei Dorado Sfp: Password",
-            "description": "Huawei OceanStor Dorado API password.",
+            "description": "Huawei OceanStor Dorado API password. Password.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -375,7 +406,18 @@
             },
             "uuid": "1408db38-4083-4d69-a0d3-38294ec3f20b"
         },
-        "12": {
+        "13": {
+            "varname": "huawei_dorado_sfp_password_file",
+            "caption": "Huawei Dorado Sfp: Password File",
+            "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "hidden"
+            },
+            "uuid": "3c4b0d48-b318-453c-90c0-91c46b706be8"
+        },
+        "14": {
             "varname": "huawei_dorado_sfp_scope",
             "caption": "Huawei Dorado Sfp: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -386,7 +428,7 @@
             },
             "uuid": "6fdb16ae-50c8-4e74-a805-a77250d133f5"
         },
-        "13": {
+        "15": {
             "varname": "huawei_dorado_sfp_timeout",
             "caption": "Huawei Dorado Sfp: Timeout",
             "description": "Network timeout in seconds.",
@@ -397,7 +439,7 @@
             },
             "uuid": "067a9c8b-6930-4243-8c45-a8038ab021e9"
         },
-        "14": {
+        "16": {
             "varname": "huawei_dorado_sfp_url",
             "caption": "Huawei Dorado Sfp: URL",
             "description": "Huawei OceanStor Dorado API URL.",
@@ -408,7 +450,7 @@
             },
             "uuid": "d0dcab48-1d4f-47b2-8064-29f564e3fe5b"
         },
-        "15": {
+        "17": {
             "varname": "huawei_dorado_sfp_username",
             "caption": "Huawei Dorado Sfp: Username",
             "description": "Huawei OceanStor Dorado API username.",

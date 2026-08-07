@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080601'
+__version__ = '2026080701'
 
 DESCRIPTION = """Checks the health, running status and capacity usage of all storage pools on a
 Huawei OceanStor Dorado storage system via the REST API (/storagepool endpoint). Alerts when a pool
@@ -32,13 +32,19 @@ reports a non-normal state, and when its used capacity reaches the warning or cr
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_CRIT = '90'
+DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
 DEFAULT_INSECURE = True
-DEFAULT_MATCH = ''
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
-DEFAULT_SCOPE = 0
+DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
 DEFAULT_WARN = '80'
+
+# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
+# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
+# out of the performance data, because whether a code is a fault depends on the
+# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
+HEALTH_STATUS_MAX = 18
 
 # Fields `--match` is applied to.
 MATCH_FIELDS = ('UUID', 'NAME', 'PARENTNAME')
@@ -48,9 +54,6 @@ MATCH_FIELDS = ('UUID', 'NAME', 'PARENTNAME')
 # initializing (53) and deleting (106), all of which describe a pool that is busy
 # rather than one that is serving normally, plus offline (28).
 OK_RUNNING_STATUS = (27,)
-
-# The appliance counts every capacity in sectors, and its sector size is 512 bytes.
-SECTOR_SIZE = 512
 
 
 def parse_args():
@@ -95,9 +98,23 @@ def parse_args():
 
     parser.add_argument(
         '--device-id',
-        help='Huawei OceanStor Dorado API device ID.',
+        help='Huawei OceanStor Dorado API device ID. '
+        'Optional: the appliance reports its own at login, so this is only '
+        'needed to override that answer.',
         dest='DEVICE_ID',
-        required=True,
+        default=DEFAULT_DEVICE_ID,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Skip storage pools. '
+        + lib.args.help('--ignore-regex')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and '
+        'is matched against the pool identifier, the pool name and the name of its disk '
+        'domain, so prefix with `.*` to match anywhere. Default: %(default)s',
+        dest='IGNORE',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -116,7 +133,8 @@ def parse_args():
         'is matched against the pool identifier, the pool name and the name of its disk '
         'domain, so prefix with `.*` to match anywhere. Default: %(default)s',
         dest='MATCH',
-        default=DEFAULT_MATCH,
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -153,9 +171,14 @@ def parse_args():
 
     parser.add_argument(
         '--password',
-        help='Huawei OceanStor Dorado API password.',
+        help='Huawei OceanStor Dorado API password. ' + lib.args.help('--password'),
         dest='PASSWORD',
-        required=True,
+    )
+
+    parser.add_argument(
+        '--password-file',
+        help=lib.args.help('--password-file'),
+        dest='PASSWORD_FILE',
     )
 
     parser.add_argument(
@@ -208,31 +231,6 @@ def parse_args():
     return args
 
 
-def sectors2bytes(sectors):
-    """
-    Convert a sector count from the API into bytes.
-
-    ### Parameters
-    - **sectors** (`int`, `str` or `None`): The sector count as the API reported it.
-
-    ### Returns
-    - **int** or **None**: The value in bytes, or `None` if the field was missing,
-      malformed or negative. A capacity the appliance does not track is reported as
-      `-1`, which is not a measurement and is dropped rather than graphed.
-
-    ### Example
-    >>> sectors2bytes('2048')
-    1048576
-    """
-    try:
-        value = int(sectors)
-    except (TypeError, ValueError):
-        return None
-    if value < 0:
-        return None
-    return value * SECTOR_SIZE
-
-
 def get_reduction_ratio(pool):
     """
     Return a pool's data reduction ratio, or `None` if it does not report a usable one.
@@ -272,6 +270,17 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    if args.PASSWORD_FILE:
+        args.PASSWORD = lib.args.load_secret(args.PASSWORD_FILE)
+    if not args.PASSWORD:
+        lib.base.cu('Provide the API password via --password or --password-file.')
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
     if not args.URL.startswith('http'):
         lib.base.cu('--url parameter has to start with "http://" or https://".')
 
@@ -285,14 +294,7 @@ def main():
         result = json.loads(stdout)
 
     # no valuable result?
-    if not result:
-        lib.base.cu(f'Got no valuable response from {args.URL}.')
-    if lib.huawei_dorado.get_error_code(result) not in (0, '0'):
-        lib.base.oao(
-            f'{result.get("error", {}).get("description")}'
-            f' {result.get("error", {}).get("suggestion")}',
-            STATE_UNKNOWN,
-        )
+    lib.huawei_dorado.assert_ok(result, 'the storage pools')
 
     # An array that serves storage has at least one storage pool, so an empty list is a
     # query that never reached them rather than an inventory that is genuinely empty.
@@ -308,18 +310,32 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
-    compiled_regex = lib.base.coe(lib.txt.compile_regex(args.MATCH))
+    compiled_match_regex = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore_regex = [
+        lib.base.coe(item)
+        for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
 
     # analyze data
     table_data = []
-    for pool in result.get('data'):
+    for pool in result.get('data') or []:
         pool['UUID'] = lib.huawei_dorado.get_uuid(pool)
         # Perfdata labels carry the object's own TYPE:ID, which stays the same when
         # a pool is renamed, unlike its name.
         label = re.sub(r'\W+', '_', pool['UUID'])
 
         if args.MATCH and not any(
-            lib.base.coe(lib.txt.match_regex(compiled_regex, str(pool.get(field, ''))))
+            lib.base.coe(lib.txt.match_regex(pattern, str(pool.get(field, ''))))
+            for pattern in compiled_match_regex
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        if args.IGNORE and any(
+            lib.base.coe(lib.txt.match_regex(pattern, str(pool.get(field, ''))))
+            for pattern in compiled_ignore_regex
             for field in MATCH_FIELDS
         ):
             continue
@@ -348,18 +364,17 @@ def main():
             )
             state = lib.base.get_worst(state, usage_state)
 
-        total_capacity = sectors2bytes(pool.get('USERTOTALCAPACITY'))
-        used_capacity = sectors2bytes(pool.get('USERCONSUMEDCAPACITY'))
-        free_capacity = sectors2bytes(pool.get('USERFREECAPACITY'))
+        total_capacity = lib.huawei_dorado.sectors2bytes(pool.get('USERTOTALCAPACITY'))
+        used_capacity = lib.huawei_dorado.sectors2bytes(pool.get('USERCONSUMEDCAPACITY'))
+        free_capacity = lib.huawei_dorado.sectors2bytes(pool.get('USERFREECAPACITY'))
         reduction_ratio = get_reduction_ratio(pool)
 
         perfdata += lib.base.get_perfdata(
             f'{label}_health_status',
             pool.get('HEALTHSTATUS'),
-            crit=2,
             uom=None,
             _min=0,
-            _max=2,
+            _max=HEALTH_STATUS_MAX,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_running_status',
@@ -424,12 +439,28 @@ def main():
     # The appliance listed storage pools and the filter selected none of them.
     if not table_data:
         lib.base.oao(
-            f'No storage pools matched `{args.MATCH}`.',
+            f'No storage pools matched `{", ".join(args.MATCH)}`.',
             lib.base.str2state(args.NO_MATCH_SEVERITY),
             always_ok=args.ALWAYS_OK,
             no_perfdata=args.NO_PERFDATA,
         )
 
+    # The truncated walk raises the state before the summary is written, so a
+    # partially read appliance does not open with "Everything is ok." and then exit
+    # WARNING.
+    if truncated:
+        state = lib.base.get_worst(state, STATE_WARN)
+
+    # build the message
+    if state == STATE_CRIT:
+        msg += 'There are critical errors.'
+    elif state == STATE_WARN:
+        msg += 'There are warnings.'
+    else:
+        msg += 'Everything is ok.'
+    msg += '\n\n'
+
+    # build table output
     if table_data:
         keys = [
             'UUID',
@@ -456,7 +487,6 @@ def main():
             'Running',
         ]
 
-        # build the message
         msg += lib.base.get_table(table_data, keys, header=headers)
 
     if truncated:
@@ -465,14 +495,7 @@ def main():
             'The appliance reports more storage pools than this check reads in one run;'
             ' the list below is incomplete.\n\n' + msg
         )
-        state = lib.base.get_worst(state, STATE_WARN)
 
-    if state == STATE_CRIT:
-        msg = 'There are critical errors.\n\n' + msg
-    elif state == STATE_WARN:
-        msg = 'There are warnings.\n\n' + msg
-    else:
-        msg = 'Everything is ok.\n\n' + msg
 
     # over and out
     lib.base.oao(

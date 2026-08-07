@@ -22,7 +22,7 @@ import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080601'
+__version__ = '2026080701'
 
 DESCRIPTION = """Checks the health and running status of all cluster nodes on a Huawei OceanStor
 Pacific storage system via the REST API (/cluster/servers endpoint). Alerts when any node is not
@@ -33,6 +33,11 @@ DEFAULT_INSECURE = True
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
+
+# `oam_agent_status` codes. `-1` is the appliance's "not monitored" marker, which is the
+# lower bound of the metric rather than a state worth alerting on.
+OAM_AGENT_NOT_MONITORED = -1
+OAM_AGENT_FAULTY = 1
 
 
 def parse_args():
@@ -100,9 +105,14 @@ def parse_args():
 
     parser.add_argument(
         '--password',
-        help='Huawei OceanStor Pacific API password.',
+        help='Huawei OceanStor Pacific API password. ' + lib.args.help('--password'),
         dest='PASSWORD',
-        required=True,
+    )
+
+    parser.add_argument(
+        '--password-file',
+        help=lib.args.help('--password-file'),
+        dest='PASSWORD_FILE',
     )
 
     parser.add_argument(
@@ -155,6 +165,11 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    if args.PASSWORD_FILE:
+        args.PASSWORD = lib.args.load_secret(args.PASSWORD_FILE)
+    if not args.PASSWORD:
+        lib.base.cu('Provide the API password via --password or --password-file.')
+
     if not args.URL.startswith('http'):
         lib.base.cu('--url parameter has to start with "http://" or https://".')
 
@@ -167,14 +182,7 @@ def main():
         result = json.loads(stdout)
 
     # no valuable result?
-    if not result:
-        lib.base.cu(f'Got no valuable response from {args.URL}.')
-    if result.get('result', {}).get('code') != 0:
-        lib.base.oao(
-            f'{result.get("result", {}).get("description")}'
-            f' {result.get("result", {}).get("suggestion", "")}'.strip(),
-            STATE_UNKNOWN,
-        )
+    lib.huawei_pacific.assert_ok(result, 'the cluster nodes')
 
     # A cluster always has cluster nodes, so an empty list is a query that
     # never reached them rather than an inventory that is genuinely empty.
@@ -193,24 +201,36 @@ def main():
 
     # analyze data
     table_data = []
-    for node in result.get('data', []):
+    for node in result.get('data') or []:
         running_state = lib.huawei_pacific.get_node_running_status_state(
             node.get('running_status')
         )
         state = lib.base.get_worst(state, running_state)
 
+        # `-1` is the appliance's "not monitored" marker, not a fault: a node whose OAM
+        # agent is not being watched has nothing to report, and alerting on it would
+        # warn forever on every cluster that does not run the agent.
+        oam_agent_status = lib.huawei_pacific.as_code(node.get('oam_agent_status'))
         oam_state = STATE_OK
-        if int(node.get('oam_agent_status', -1)) != 0:
+        if oam_agent_status is not None and oam_agent_status > 0:
             oam_state = STATE_WARN
             state = lib.base.get_worst(state, oam_state)
+
+        # An error code the node reports is a fault it has already diagnosed itself.
+        error_code = node.get('error_code')
+        error_state = STATE_OK
+        if error_code not in (None, '', '0', 0):
+            error_state = STATE_CRIT
+            state = lib.base.get_worst(state, error_state)
 
         label = re.sub(r'\W+', '_', str(node.get('name', node.get('id'))))
         perfdata += lib.base.get_perfdata(
             f'{label}_oam_agent_status',
-            node.get('oam_agent_status'),
-            warn=1,
-            _min=-1,
-            _max=1,
+            oam_agent_status,
+            uom=None,
+            warn=OAM_AGENT_FAULTY,
+            _min=OAM_AGENT_NOT_MONITORED,
+            _max=OAM_AGENT_FAULTY,
         )
 
         node['base_board'] = lib.huawei_pacific.get_base_board(
@@ -219,11 +239,23 @@ def main():
         node['oam_agent_status'] = lib.huawei_pacific.get_oam_agent_status(
             node.get('oam_agent_status'),
         )
+        node['error_code'] = '--' if error_code in (None, '') else str(error_code)
         node['running_state'] = lib.base.state2str(running_state, empty_ok=False)
         node['oam_state'] = lib.base.state2str(oam_state, empty_ok=False)
+        node['error_state'] = lib.base.state2str(error_state, empty_ok=False)
 
         table_data.append(node)
 
+    # build the message
+    if state == STATE_CRIT:
+        msg += 'There are critical errors.'
+    elif state == STATE_WARN:
+        msg += 'There are warnings.'
+    else:
+        msg += 'Everything is ok.'
+    msg += '\n\n'
+
+    # build table output
     if table_data:
         keys = [
             'name',
@@ -233,8 +265,10 @@ def main():
             'software_version',
             'running_status',
             'oam_agent_status',
+            'error_code',
             'running_state',
             'oam_state',
+            'error_state',
         ]
         headers = [
             'Name',
@@ -244,20 +278,14 @@ def main():
             'Software Version',
             'Running',
             'OAM Agent',
+            'Error Code',
             'Running State',
             'OAM State',
+            'Error State',
         ]
 
-        # build the message
         msg += lib.base.get_table(table_data, keys, header=headers)
 
-
-    if state == STATE_CRIT:
-        msg = 'There are critical errors.\n\n' + msg
-    elif state == STATE_WARN:
-        msg = 'There are warnings.\n\n' + msg
-    else:
-        msg = 'Everything is ok.\n\n' + msg
 
     # over and out
     lib.base.oao(

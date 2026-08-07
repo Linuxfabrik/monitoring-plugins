@@ -11,6 +11,10 @@
                 "--device-id": {
                     "value": "$huawei_dorado_host_device_id$"
                 },
+                "--ignore": {
+                    "value": "$huawei_dorado_host_ignore$",
+                    "repeat_key": true
+                },
                 "--insecure": {
                     "set_if": "$huawei_dorado_host_insecure$"
                 },
@@ -18,7 +22,8 @@
                     "set_if": "$huawei_dorado_host_no_insecure$"
                 },
                 "--match": {
-                    "value": "$huawei_dorado_host_match$"
+                    "value": "$huawei_dorado_host_match$",
+                    "repeat_key": true
                 },
                 "--no-match-severity": {
                     "value": "$huawei_dorado_host_no_match_severity$"
@@ -31,6 +36,9 @@
                 },
                 "--password": {
                     "value": "$huawei_dorado_host_password$"
+                },
+                "--password-file": {
+                    "value": "$huawei_dorado_host_password_file$"
                 },
                 "--scope": {
                     "value": "$huawei_dorado_host_scope$"
@@ -60,7 +68,7 @@
                 },
                 {
                     "datafield_id": 3,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -95,7 +103,7 @@
                 },
                 {
                     "datafield_id": 10,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -110,11 +118,21 @@
                 },
                 {
                     "datafield_id": 13,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 14,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
                     "is_required": "y",
                     "var_filter": null
                 }
@@ -173,12 +191,14 @@
                 "criticality": "A",
                 "huawei_dorado_host_always_ok": false,
                 "huawei_dorado_host_cache_expire": 15,
+                "huawei_dorado_host_device_id": "",
+                "huawei_dorado_host_ignore": [],
                 "huawei_dorado_host_insecure": true,
-                "huawei_dorado_host_match": "",
+                "huawei_dorado_host_match": [],
                 "huawei_dorado_host_no_match_severity": "ok",
                 "huawei_dorado_host_no_perfdata": false,
                 "huawei_dorado_host_no_proxy": false,
-                "huawei_dorado_host_scope": 0,
+                "huawei_dorado_host_scope": "0",
                 "huawei_dorado_host_timeout": 3
             },
             "volatile": null,
@@ -243,7 +263,7 @@
         "3": {
             "varname": "huawei_dorado_host_device_id",
             "caption": "Huawei Dorado Host: Device ID",
-            "description": "Huawei OceanStor Dorado API device ID.",
+            "description": "Huawei OceanStor Dorado API device ID. Optional: the appliance reports its own at login, so this is only needed to override that answer.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -252,6 +272,17 @@
             "uuid": "d3e5e84d-315a-4e41-9e09-2724e71d4611"
         },
         "4": {
+            "varname": "huawei_dorado_host_ignore",
+            "caption": "Huawei Dorado Host: Ignore",
+            "description": "Skip hosts. Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `NAME`, so prefix with `.*` to match anywhere.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "b1eca47d-6121-40c4-a608-70b91abc15d4"
+        },
+        "5": {
             "varname": "huawei_dorado_host_insecure",
             "caption": "Huawei Dorado Host: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -260,7 +291,7 @@
             "settings": {},
             "uuid": "2c291265-29d8-4c61-a6be-bbd5ff90ffd0"
         },
-        "5": {
+        "6": {
             "varname": "huawei_dorado_host_no_insecure",
             "caption": "Huawei Dorado Host: No Insecure?",
             "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -269,18 +300,18 @@
             "settings": {},
             "uuid": "fe9fac5a-3bea-4d85-bd31-c38442037b6e"
         },
-        "6": {
+        "7": {
             "varname": "huawei_dorado_host_match",
             "caption": "Huawei Dorado Host: Match",
             "description": "Filter by hosts. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `NAME`, so prefix with `.*` to match anywhere.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "1ec911d6-37c4-43d5-8eee-0849b11da233"
         },
-        "7": {
+        "8": {
             "varname": "huawei_dorado_host_no_match_severity",
             "caption": "Huawei Dorado Host: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -293,7 +324,7 @@
             },
             "uuid": "b63a52e7-d25c-432a-be58-b7bf16859432"
         },
-        "8": {
+        "9": {
             "varname": "huawei_dorado_host_no_perfdata",
             "caption": "Huawei Dorado Host: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -302,7 +333,7 @@
             "settings": {},
             "uuid": "fb962b02-a19b-4cbe-aa14-252f0fd0a2a1"
         },
-        "9": {
+        "10": {
             "varname": "huawei_dorado_host_no_proxy",
             "caption": "Huawei Dorado Host: No Proxy?",
             "description": "Do not use a proxy.",
@@ -311,10 +342,10 @@
             "settings": {},
             "uuid": "ed343c8d-d9f5-490a-8738-dbc09ecde1e2"
         },
-        "10": {
+        "11": {
             "varname": "huawei_dorado_host_password",
             "caption": "Huawei Dorado Host: Password",
-            "description": "Huawei OceanStor Dorado API password.",
+            "description": "Huawei OceanStor Dorado API password. Password.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -322,7 +353,18 @@
             },
             "uuid": "224d1e6c-d8ac-4382-b3ea-1883b30c8078"
         },
-        "11": {
+        "12": {
+            "varname": "huawei_dorado_host_password_file",
+            "caption": "Huawei Dorado Host: Password File",
+            "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "hidden"
+            },
+            "uuid": "5c581b41-a3fe-498d-aec5-fcc991cf5858"
+        },
+        "13": {
             "varname": "huawei_dorado_host_scope",
             "caption": "Huawei Dorado Host: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -333,7 +375,7 @@
             },
             "uuid": "b0ba32b4-9431-407f-95fe-7a0ceb742dbb"
         },
-        "12": {
+        "14": {
             "varname": "huawei_dorado_host_timeout",
             "caption": "Huawei Dorado Host: Timeout",
             "description": "Network timeout in seconds.",
@@ -344,7 +386,7 @@
             },
             "uuid": "47913fc1-cfdf-4591-bdf4-df04cae77bcd"
         },
-        "13": {
+        "15": {
             "varname": "huawei_dorado_host_url",
             "caption": "Huawei Dorado Host: URL",
             "description": "Huawei OceanStor Dorado API URL.",
@@ -355,7 +397,7 @@
             },
             "uuid": "5cc1848c-e8e1-4abe-8394-faefbe76e889"
         },
-        "14": {
+        "16": {
             "varname": "huawei_dorado_host_username",
             "caption": "Huawei Dorado Host: Username",
             "description": "Huawei OceanStor Dorado API username.",

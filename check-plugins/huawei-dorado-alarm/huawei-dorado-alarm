@@ -24,18 +24,18 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080601'
+__version__ = '2026080701'
 
 DESCRIPTION = """Lists the current alarms of a Huawei OceanStor Dorado storage system via the REST
 API (/alarm/currentalarm endpoint). Alerts when alarms are present: critical if any critical alarm
 exists, warning for a major or a warning alarm."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
+DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
 DEFAULT_INSECURE = True
-DEFAULT_MATCH = ''
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
-DEFAULT_SCOPE = 0
+DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
 
 # Fields `--match` is applied to.
@@ -84,9 +84,23 @@ def parse_args():
 
     parser.add_argument(
         '--device-id',
-        help='Huawei OceanStor Dorado API device ID.',
+        help='Huawei OceanStor Dorado API device ID. '
+        'Optional: the appliance reports its own at login, so this is only '
+        'needed to override that answer.',
         dest='DEVICE_ID',
-        required=True,
+        default=DEFAULT_DEVICE_ID,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Skip alarms. '
+        + lib.args.help('--ignore-regex')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and '
+        'is matched against the alarm name, its description and the module it occurred '
+        'on, so prefix with `.*` to match anywhere. Default: %(default)s',
+        dest='IGNORE',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -105,7 +119,8 @@ def parse_args():
         'is matched against the alarm name, its description and the module it occurred '
         'on, so prefix with `.*` to match anywhere. Default: %(default)s',
         dest='MATCH',
-        default=DEFAULT_MATCH,
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -142,9 +157,14 @@ def parse_args():
 
     parser.add_argument(
         '--password',
-        help='Huawei OceanStor Dorado API password.',
+        help='Huawei OceanStor Dorado API password. ' + lib.args.help('--password'),
         dest='PASSWORD',
-        required=True,
+    )
+
+    parser.add_argument(
+        '--password-file',
+        help=lib.args.help('--password-file'),
+        dest='PASSWORD_FILE',
     )
 
     parser.add_argument(
@@ -188,14 +208,6 @@ def parse_args():
     return args
 
 
-def as_code(value):
-    """Return an appliance status code as an `int`, or `None` if it is unusable."""
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-
-
 def main():
     """The main function. This is where the magic happens."""
 
@@ -204,6 +216,17 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    if args.PASSWORD_FILE:
+        args.PASSWORD = lib.args.load_secret(args.PASSWORD_FILE)
+    if not args.PASSWORD:
+        lib.base.cu('Provide the API password via --password or --password-file.')
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
 
     if not args.URL.startswith('http'):
         lib.base.cu('--url parameter has to start with "http://" or https://".')
@@ -222,20 +245,19 @@ def main():
         result = json.loads(stdout)
 
     # no valuable result?
-    if not result:
-        lib.base.cu(f'Got no valuable response from {args.URL}.')
-    if lib.huawei_dorado.get_error_code(result) not in (0, '0'):
-        lib.base.oao(
-            f'{result.get("error", {}).get("description")}'
-            f' {result.get("error", {}).get("suggestion")}',
-            STATE_UNKNOWN,
-        )
+    lib.huawei_dorado.assert_ok(result, 'the current alarms')
 
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
-    compiled_regex = lib.base.coe(lib.txt.compile_regex(args.MATCH))
+    compiled_match_regex = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore_regex = [
+        lib.base.coe(item)
+        for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
     counts = {2: 0, 3: 0, 5: 0, 6: 0}
 
     # analyze data
@@ -248,12 +270,20 @@ def main():
             alarm[field] = html.unescape(str(alarm.get(field, '')))
 
         if args.MATCH and not any(
-            lib.base.coe(lib.txt.match_regex(compiled_regex, str(alarm.get(field, ''))))
+            lib.base.coe(lib.txt.match_regex(pattern, str(alarm.get(field, ''))))
+            for pattern in compiled_match_regex
             for field in MATCH_FIELDS
         ):
             continue
 
-        severity = as_code(alarm.get('level'))
+        if args.IGNORE and any(
+            lib.base.coe(lib.txt.match_regex(pattern, str(alarm.get(field, ''))))
+            for pattern in compiled_ignore_regex
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        severity = lib.huawei_dorado.as_code(alarm.get('level'))
         counts[severity] = counts.get(severity, 0) + 1
         alarm_state = lib.huawei_dorado.get_alarm_severity_state(alarm.get('level'))
         state = lib.base.get_worst(state, alarm_state)
@@ -264,7 +294,7 @@ def main():
 
         table_data.append(alarm)
 
-    # build the message
+    # build table output
     if table_data:
         keys = ['sequence', 'startTime', 'level', 'name', 'location', 'state']
         headers = ['Sequence', 'Time', 'Severity', 'Name', 'Location', 'State']
@@ -273,7 +303,7 @@ def main():
         # An appliance with no alarm at all is the normal case, and it is not the
         # same as a filter that selected none of the alarms it does have.
         lib.base.oao(
-            f'No alarms matched `{args.MATCH}`.',
+            f'No alarms matched `{", ".join(args.MATCH)}`.',
             lib.base.str2state(args.NO_MATCH_SEVERITY),
             always_ok=args.ALWAYS_OK,
             no_perfdata=args.NO_PERFDATA,
@@ -299,6 +329,7 @@ def main():
         )
         state = lib.base.get_worst(state, STATE_WARN)
 
+    # build the message
     if state == STATE_CRIT:
         msg = 'There are critical alarms.\n\n' + msg
     elif state == STATE_WARN:

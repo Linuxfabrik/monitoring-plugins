@@ -37,10 +37,12 @@ Checks overall system health, capacity and running status of a Huawei OceanStor 
 ```text
 usage: huawei-dorado-system [-h] [-V] [--always-ok]
                             [--cache-expire CACHE_EXPIRE] [-c CRIT]
-                            --device-id DEVICE_ID [--insecure] [--no-insecure]
-                            [--no-perfdata] [--no-proxy] --password PASSWORD
-                            [--scope SCOPE] [--timeout TIMEOUT] -u URL
-                            --username USERNAME [-w WARN]
+                            [--device-id DEVICE_ID] [--insecure]
+                            [--no-insecure] [--no-perfdata] [--no-proxy]
+                            [--password PASSWORD]
+                            [--password-file PASSWORD_FILE] [--scope SCOPE]
+                            [--timeout TIMEOUT] -u URL --username USERNAME
+                            [-w WARN]
 
 Checks overall system health, capacity, and performance of a Huawei OceanStor
 Dorado storage system via the REST API (/system endpoint). Reports health
@@ -54,9 +56,12 @@ options:
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15
-  -c, --critical CRIT   CRIT threshold in percent. Default: >= 95
+  -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
+                        Default: 95
   --device-id DEVICE_ID
-                        Huawei OceanStor Dorado API device ID.
+                        Huawei OceanStor Dorado API device ID. Optional: the
+                        appliance reports its own at login, so this is only
+                        needed to override that answer.
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --no-insecure         Verify the TLS certificate against the system trust
@@ -69,12 +74,21 @@ options:
                         so alerting keeps working while trending data is
                         dropped.
   --no-proxy            Do not use a proxy.
-  --password PASSWORD   Huawei OceanStor Dorado API password.
+  --password PASSWORD   Huawei OceanStor Dorado API password. Password.
+  --password-file PASSWORD_FILE
+                        Path to a file holding the password, read from its
+                        first line. Keeps the password out of the process
+                        list, where a command-line argument is visible to
+                        every user on the host. Takes precedence over
+                        `--password`. Keep the file readable only by the
+                        monitoring user. Example: `--password-
+                        file=/etc/icinga2/secrets/storage`.
   --scope SCOPE         Huawei OceanStor Dorado API scope.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.
-  -w, --warning WARN    WARN threshold in percent. Default: >= 90
+  -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
+                        Default: 90
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-system/

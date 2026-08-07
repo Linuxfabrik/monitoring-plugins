@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080601'
+__version__ = '2026080701'
 
 DESCRIPTION = """Checks the health and running status of the LUNs of a Huawei OceanStor Dorado
 storage system via the REST API (/lun endpoint). Alerts when a LUN reports a non-normal state, and
@@ -36,13 +36,19 @@ ALLOCTYPE_THIN = 1
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_CRIT = ''
+DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
 DEFAULT_INSECURE = True
-DEFAULT_MATCH = ''
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
-DEFAULT_SCOPE = 0
+DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
 DEFAULT_WARN = ''
+
+# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
+# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
+# out of the performance data, because whether a code is a fault depends on the
+# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
+HEALTH_STATUS_MAX = 18
 
 # Fields `--match` is applied to.
 MATCH_FIELDS = ('UUID', 'NAME', 'PARENTNAME')
@@ -56,11 +62,6 @@ MAX_PAGES = 200
 # RUNNINGSTATUS code a healthy LUN reports: online (27). The enumeration knows
 # offline (28) as the only other value for this object.
 OK_RUNNING_STATUS = (27,)
-
-# The appliance counts every capacity in sectors, and its sector size is 512 bytes. The
-# per-LUN `SECTORSIZE` field is the block size the LUN exposes to the host, which is a
-# different thing and must not be used here.
-SECTOR_SIZE = 512
 
 
 def parse_args():
@@ -116,9 +117,11 @@ def parse_args():
 
     parser.add_argument(
         '--device-id',
-        help='Huawei OceanStor Dorado API device ID.',
+        help='Huawei OceanStor Dorado API device ID. '
+        'Optional: the appliance reports its own at login, so this is only '
+        'needed to override that answer.',
         dest='DEVICE_ID',
-        required=True,
+        default=DEFAULT_DEVICE_ID,
     )
 
     parser.add_argument(
@@ -128,6 +131,18 @@ def parse_args():
         dest='INCLUDE_UNMAPPED',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Skip LUNs. '
+        + lib.args.help('--ignore-regex')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and '
+        'is matched against the LUN identifier, the LUN name and the name of its '
+        'storage pool, so prefix with `.*` to match anywhere. Default: %(default)s',
+        dest='IGNORE',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -154,7 +169,8 @@ def parse_args():
         'is matched against the LUN identifier, the LUN name and the name of its '
         'storage pool, so prefix with `.*` to match anywhere. Default: %(default)s',
         dest='MATCH',
-        default=DEFAULT_MATCH,
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -191,9 +207,14 @@ def parse_args():
 
     parser.add_argument(
         '--password',
-        help='Huawei OceanStor Dorado API password.',
+        help='Huawei OceanStor Dorado API password. ' + lib.args.help('--password'),
         dest='PASSWORD',
-        required=True,
+    )
+
+    parser.add_argument(
+        '--password-file',
+        help=lib.args.help('--password-file'),
+        dest='PASSWORD_FILE',
     )
 
     parser.add_argument(
@@ -247,40 +268,11 @@ def parse_args():
     return args
 
 
-def as_code(value):
-    """Return an appliance status code as an `int`, or `None` if it is unusable."""
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-
-
 def is_true(value):
     """Return whether the appliance reported a boolean field as true."""
     # The API sends its booleans as the strings 'true' and 'false', but a firmware that
     # sends a real boolean must not be read as false.
     return str(value).strip().lower() == 'true'
-
-
-def sectors2bytes(sectors):
-    """
-    Convert a sector count from the API into bytes.
-
-    ### Parameters
-    - **sectors** (`int`, `str` or `None`): The sector count as the API reported it.
-
-    ### Returns
-    - **int** or **None**: The value in bytes, or `None` if the field was missing,
-      malformed or negative.
-
-    ### Example
-    >>> sectors2bytes('209715200')
-    107374182400
-    """
-    value = as_code(sectors)
-    if value is None or value < 0:
-        return None
-    return value * SECTOR_SIZE
 
 
 def get_usage_percent(lun):
@@ -299,15 +291,15 @@ def get_usage_percent(lun):
     >>> get_usage_percent({'ALLOCTYPE': '1', 'THINCAPACITYUSAGE': '42'})
     42.0
     """
-    if as_code(lun.get('ALLOCTYPE')) != ALLOCTYPE_THIN:
+    if lib.huawei_dorado.as_code(lun.get('ALLOCTYPE')) != ALLOCTYPE_THIN:
         return None
     # The appliance computes the ratio itself and leaves the field out while a LUN is
     # being created, which is why it is read before falling back to the raw capacities.
-    reported = as_code(lun.get('THINCAPACITYUSAGE'))
+    reported = lib.huawei_dorado.as_code(lun.get('THINCAPACITYUSAGE'))
     if reported is not None:
         return float(reported)
-    capacity = as_code(lun.get('CAPACITY'))
-    allocated = as_code(lun.get('ALLOCCAPACITY'))
+    capacity = lib.huawei_dorado.as_code(lun.get('CAPACITY'))
+    allocated = lib.huawei_dorado.as_code(lun.get('ALLOCCAPACITY'))
     if not capacity or allocated is None:
         return None
     return round(allocated / capacity * 100, 1)
@@ -321,6 +313,17 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    if args.PASSWORD_FILE:
+        args.PASSWORD = lib.args.load_secret(args.PASSWORD_FILE)
+    if not args.PASSWORD:
+        lib.base.cu('Provide the API password via --password or --password-file.')
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
 
     if not args.URL.startswith('http'):
         lib.base.cu('--url parameter has to start with "http://" or https://".')
@@ -337,20 +340,19 @@ def main():
         result = json.loads(stdout)
 
     # no valuable result?
-    if not result:
-        lib.base.cu(f'Got no valuable response from {args.URL}.')
-    if lib.huawei_dorado.get_error_code(result) not in (0, '0'):
-        lib.base.oao(
-            f'{result.get("error", {}).get("description")}'
-            f' {result.get("error", {}).get("suggestion")}',
-            STATE_UNKNOWN,
-        )
+    lib.huawei_dorado.assert_ok(result, 'the LUNs')
 
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
-    compiled_regex = lib.base.coe(lib.txt.compile_regex(args.MATCH))
+    compiled_match_regex = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore_regex = [
+        lib.base.coe(item)
+        for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
 
     # analyze data
     table_data = []
@@ -364,7 +366,15 @@ def main():
             continue
 
         if args.MATCH and not any(
-            lib.base.coe(lib.txt.match_regex(compiled_regex, str(lun.get(field, ''))))
+            lib.base.coe(lib.txt.match_regex(pattern, str(lun.get(field, ''))))
+            for pattern in compiled_match_regex
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        if args.IGNORE and any(
+            lib.base.coe(lib.txt.match_regex(pattern, str(lun.get(field, ''))))
+            for pattern in compiled_ignore_regex
             for field in MATCH_FIELDS
         ):
             continue
@@ -387,16 +397,15 @@ def main():
             )
             state = lib.base.get_worst(state, usage_state)
 
-        capacity = sectors2bytes(lun.get('CAPACITY'))
-        allocated = sectors2bytes(lun.get('ALLOCCAPACITY'))
+        capacity = lib.huawei_dorado.sectors2bytes(lun.get('CAPACITY'))
+        allocated = lib.huawei_dorado.sectors2bytes(lun.get('ALLOCCAPACITY'))
 
         perfdata += lib.base.get_perfdata(
             f'{label}_health_status',
             lun.get('HEALTHSTATUS'),
-            crit=2,
             uom=None,
             _min=0,
-            _max=2,
+            _max=HEALTH_STATUS_MAX,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_running_status',
@@ -444,7 +453,7 @@ def main():
         lun['mapped'] = 'yes' if is_true(lun.get('EXPOSEDTOINITIATOR')) else 'no'
         lun['running_state'] = lib.base.state2str(running_state, empty_ok=False)
         lun['thin'] = (
-            'thin' if as_code(lun.get('ALLOCTYPE')) == ALLOCTYPE_THIN else 'thick'
+            'thin' if lib.huawei_dorado.as_code(lun.get('ALLOCTYPE')) == ALLOCTYPE_THIN else 'thick'
         )
         lun['usage'] = (
             f'{usage_percent:.0f}%' if usage_percent is not None else 'n/a'
@@ -456,7 +465,7 @@ def main():
         # Either the filter selected nothing, or the array has no mapped LUN at all. The
         # second is unusual but legitimate, for example on an array being set up.
         lib.base.oao(
-            f'No LUNs matched `{args.MATCH}`.'
+            f'No LUNs matched `{", ".join(args.MATCH)}`.'
             if args.MATCH
             else 'No mapped LUNs found.',
             lib.base.str2state(args.NO_MATCH_SEVERITY) if args.MATCH else STATE_OK,
@@ -465,6 +474,12 @@ def main():
         )
 
     # build the message
+    # The truncated walk raises the state before the summary is written, so a
+    # partially read appliance does not open with "Everything is ok." and then exit
+    # WARNING.
+    if truncated:
+        state = lib.base.get_worst(state, STATE_WARN)
+
     count = len(table_data)
     if state == STATE_CRIT:
         msg += 'There are critical errors.'
@@ -472,7 +487,14 @@ def main():
         msg += 'There are warnings.'
     else:
         msg += 'Everything is ok.'
-    msg += f' Checked {count} {lib.txt.pluralize("LUN", count)}.\n\n'
+    msg += f' Checked {count} {lib.txt.pluralize("LUN", count)}.\n'
+    if truncated:
+        # The walk hit its page cap, so LUNs beyond it were never looked at.
+        msg += (
+            'The appliance reports more LUNs than this check reads in one run;'
+            ' the list below is incomplete.\n'
+        )
+    msg += '\n'
 
     # build table output
     display_rows = table_data
@@ -530,14 +552,6 @@ def main():
                 'Running',
             ]
         msg += lib.base.get_table(display_rows, keys, header=headers)
-
-    if truncated:
-        # The walk hit its page cap, so LUNs beyond it were never looked at.
-        msg = (
-            'The appliance reports more LUNs than this check reads in one run;'
-            ' the list below is incomplete.\n\n' + msg
-        )
-        state = lib.base.get_worst(state, STATE_WARN)
 
     # over and out
     lib.base.oao(

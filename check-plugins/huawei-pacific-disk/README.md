@@ -39,7 +39,8 @@ Checks every disk of a Huawei OceanStor Pacific storage system via the REST API 
 usage: huawei-pacific-disk [-h] [-V] [--always-ok]
                            [--cache-expire CACHE_EXPIRE] [-c CRIT]
                            [--insecure] [--no-insecure] [--no-perfdata]
-                           [--no-proxy] --password PASSWORD [--scope SCOPE]
+                           [--no-proxy] [--password PASSWORD]
+                           [--password-file PASSWORD_FILE] [--scope SCOPE]
                            [--timeout TIMEOUT] -u URL --username USERNAME
                            [-w WARN]
 
@@ -69,7 +70,15 @@ options:
                         so alerting keeps working while trending data is
                         dropped.
   --no-proxy            Do not use a proxy.
-  --password PASSWORD   Huawei OceanStor Pacific API password.
+  --password PASSWORD   Huawei OceanStor Pacific API password. Password.
+  --password-file PASSWORD_FILE
+                        Path to a file holding the password, read from its
+                        first line. Keeps the password out of the process
+                        list, where a command-line argument is visible to
+                        every user on the host. Takes precedence over
+                        `--password`. Keep the file readable only by the
+                        monitoring user. Example: `--password-
+                        file=/etc/icinga2/secrets/storage`.
   --scope SCOPE         Huawei OceanStor Pacific API scope.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Pacific API URL.

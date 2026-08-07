@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080601'
+__version__ = '2026080701'
 
 DESCRIPTION = """Checks the health and running status of all power modules on a Huawei OceanStor Dorado
 storage system via the REST API (/power endpoint). Alerts when any module reports a
@@ -31,13 +31,19 @@ non-normal state."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_CRIT_TEMPERATURE = ''
+DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
 DEFAULT_INSECURE = True
-DEFAULT_MATCH = ''
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
-DEFAULT_SCOPE = 0
+DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
 DEFAULT_WARN_TEMPERATURE = ''
+
+# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
+# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
+# out of the performance data, because whether a code is a fault depends on the
+# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
+HEALTH_STATUS_MAX = 18
 
 # Fields `--match` is applied to.
 MATCH_FIELDS = ('UUID', 'LOCATION')
@@ -90,9 +96,22 @@ def parse_args():
 
     parser.add_argument(
         '--device-id',
-        help='Huawei OceanStor Dorado API device ID.',
+        help='Huawei OceanStor Dorado API device ID. '
+        'Optional: the appliance reports its own at login, so this is only '
+        'needed to override that answer.',
         dest='DEVICE_ID',
-        required=True,
+        default=DEFAULT_DEVICE_ID,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Skip power modules. '
+        + lib.args.help('--ignore-regex')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.',
+        dest='IGNORE',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -116,10 +135,10 @@ def parse_args():
         help='Filter by power modules. '
         + lib.args.help('--match')
         + ' The regex is anchored at the start of the string (Python `re.match`) and is '
-        'matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere. '
-        'Default: %(default)s',
+        'matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.',
         dest='MATCH',
-        default=DEFAULT_MATCH,
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -148,9 +167,14 @@ def parse_args():
 
     parser.add_argument(
         '--password',
-        help='Huawei OceanStor Dorado API password.',
+        help='Huawei OceanStor Dorado API password. ' + lib.args.help('--password'),
         dest='PASSWORD',
-        required=True,
+    )
+
+    parser.add_argument(
+        '--password-file',
+        help=lib.args.help('--password-file'),
+        dest='PASSWORD_FILE',
     )
 
     parser.add_argument(
@@ -204,6 +228,31 @@ def parse_args():
     return args
 
 
+def millivolts2volts(millivolts):
+    """
+    Convert a voltage the API reports in millivolts into volts.
+
+    ### Parameters
+    - **millivolts** (`int`, `str` or `None`): The voltage as the API reported it.
+
+    ### Returns
+    - **float** or **None**: The voltage in volts, or `None` for a value that cannot be
+      used.
+
+    ### Notes
+    - A power supply that is not powered reports `0`, which is a reading rather than a
+      missing value and stays as it is.
+
+    ### Example
+    >>> millivolts2volts('230000')
+    230.0
+    """
+    value = lib.huawei_dorado.as_code(millivolts)
+    if value is None or value < 0:
+        return None
+    return round(value / 1000, 2)
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -212,6 +261,17 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    if args.PASSWORD_FILE:
+        args.PASSWORD = lib.args.load_secret(args.PASSWORD_FILE)
+    if not args.PASSWORD:
+        lib.base.cu('Provide the API password via --password or --password-file.')
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
 
     if not args.URL.startswith('http'):
         lib.base.cu('--url parameter has to start with "http://" or https://".')
@@ -225,14 +285,7 @@ def main():
         result = json.loads(stdout)
 
     # no valuable result?
-    if not result:
-        lib.base.cu(f'Got no valuable response from {args.URL}.')
-    if result.get('error').get('code') != 0:
-        lib.base.oao(
-            f'{result.get("error").get("description")}'
-            f' {result.get("error").get("suggestion")}',
-            STATE_UNKNOWN,
-        )
+    lib.huawei_dorado.assert_ok(result, 'the power modules')
 
     # An appliance always has power modules, so an empty list is a query that
     # never reached them rather than an inventory that is genuinely empty.
@@ -248,20 +301,32 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
-    compiled_regex = lib.base.coe(lib.txt.compile_regex(args.MATCH))
+    compiled_match_regex = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore_regex = [
+        lib.base.coe(item)
+        for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
 
     # analyze data
     table_data = []
-    for power in result.get('data'):
+    for power in result.get('data') or []:
         power['UUID'] = lib.huawei_dorado.get_uuid(power)
         # Perfdata labels carry the object's own TYPE:ID, which stays the same
         # when hardware is moved between slots, unlike its location.
         label = re.sub(r'\W+', '_', power['UUID'])
 
         if args.MATCH and not any(
-            lib.base.coe(
-                lib.txt.match_regex(compiled_regex, str(power.get(field, '')))
-            )
+            lib.base.coe(lib.txt.match_regex(pattern, str(power.get(field, ''))))
+            for pattern in compiled_match_regex
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        if args.IGNORE and any(
+            lib.base.coe(lib.txt.match_regex(pattern, str(power.get(field, ''))))
+            for pattern in compiled_ignore_regex
             for field in MATCH_FIELDS
         ):
             continue
@@ -273,9 +338,10 @@ def main():
 
         # The temperature thresholds are off unless the operator sets them: what counts as
         # hot depends on the model and on where the array stands. A part that reports no
-        # temperature answers with 0, which must not be compared as if it were a reading.
-        temperature = int(power['TEMPERATURE'])
-        if (args.WARN_TEMPERATURE or args.CRIT_TEMPERATURE) and temperature > 0:
+        # temperature answers with 0 or leaves the field out; neither is a reading, so it
+        # is neither compared against a threshold nor graphed as a permanent 0 degrees.
+        temperature = lib.huawei_dorado.as_code(power.get('TEMPERATURE')) or None
+        if temperature and (args.WARN_TEMPERATURE or args.CRIT_TEMPERATURE):
             state = lib.base.get_worst(
                 state,
                 lib.base.get_state(
@@ -294,23 +360,30 @@ def main():
         perfdata += lib.base.get_perfdata(
             f'{label}_health_status',
             power['HEALTHSTATUS'],
-            crit=2,
+            uom=None,
             _min=0,
-            _max=2,
+            _max=HEALTH_STATUS_MAX,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_running_status',
             power['RUNNINGSTATUS'],
             _min=0,
         )
+        # The API counts both voltages in millivolts. They go out in volts, which is
+        # what an operator reads off the label of the power supply and what the backup
+        # power modules of the same appliance are reported in.
+        power['INPUTVOLTAGE'] = millivolts2volts(power.get('INPUTVOLTAGE'))
+        power['OUTPUTVOLTAGE'] = millivolts2volts(power.get('OUTPUTVOLTAGE'))
         perfdata += lib.base.get_perfdata(
             f'{label}_input_voltage',
             power['INPUTVOLTAGE'],
+            uom=None,
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_output_voltage',
             power['OUTPUTVOLTAGE'],
+            uom=None,
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
@@ -330,12 +403,22 @@ def main():
     # The appliance listed power modules and the filter selected none of them.
     if not table_data:
         lib.base.oao(
-            f'No power modules matched `{args.MATCH}`.',
+            f'No power modules matched `{", ".join(args.MATCH)}`.',
             lib.base.str2state(args.NO_MATCH_SEVERITY),
             always_ok=args.ALWAYS_OK,
             no_perfdata=args.NO_PERFDATA,
         )
 
+    # build the message
+    if state == STATE_CRIT:
+        msg += 'There are critical errors.'
+    elif state == STATE_WARN:
+        msg += 'There are warnings.'
+    else:
+        msg += 'Everything is ok.'
+    msg += '\n\n'
+
+    # build table output
     if table_data:
         keys = [
             'UUID',
@@ -357,23 +440,15 @@ def main():
             'Model',
             'SerialNumber',
             'Produced',
-            'In (MV)',
-            'Out (MV)',
+            'In (V)',
+            'Out (V)',
             'Temp',
             'Health',
             'Running',
         ]
 
-        # build the message
         msg += lib.base.get_table(table_data, keys, header=headers)
 
-
-    if state == STATE_CRIT:
-        msg = 'There are critical errors.\n\n' + msg
-    elif state == STATE_WARN:
-        msg = 'There are warnings.\n\n' + msg
-    else:
-        msg = 'Everything is ok.\n\n' + msg
 
     # over and out
     lib.base.oao(

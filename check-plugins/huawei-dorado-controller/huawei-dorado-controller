@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080601'
+__version__ = '2026080701'
 
 DESCRIPTION = """Checks the health and running status of all controllers on a Huawei OceanStor Dorado
 storage system via the REST API (/controller endpoint). Alerts when any controller
@@ -32,14 +32,20 @@ reports a non-normal health or running state."""
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_CRIT = ''
 DEFAULT_CRIT_TEMPERATURE = ''
+DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
 DEFAULT_INSECURE = True
-DEFAULT_MATCH = ''
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
-DEFAULT_SCOPE = 0
+DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
 DEFAULT_WARN = ''
 DEFAULT_WARN_TEMPERATURE = ''
+
+# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
+# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
+# out of the performance data, because whether a code is a fault depends on the
+# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
+HEALTH_STATUS_MAX = 18
 
 # Fields `--match` is applied to.
 MATCH_FIELDS = ('UUID', 'LOCATION')
@@ -101,9 +107,22 @@ def parse_args():
 
     parser.add_argument(
         '--device-id',
-        help='Huawei OceanStor Dorado API device ID.',
+        help='Huawei OceanStor Dorado API device ID. '
+        'Optional: the appliance reports its own at login, so this is only '
+        'needed to override that answer.',
         dest='DEVICE_ID',
-        required=True,
+        default=DEFAULT_DEVICE_ID,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Skip controllers. '
+        + lib.args.help('--ignore-regex')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.',
+        dest='IGNORE',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -127,10 +146,10 @@ def parse_args():
         help='Filter by controllers. '
         + lib.args.help('--match')
         + ' The regex is anchored at the start of the string (Python `re.match`) and is '
-        'matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere. '
-        'Default: %(default)s',
+        'matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.',
         dest='MATCH',
-        default=DEFAULT_MATCH,
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -159,9 +178,14 @@ def parse_args():
 
     parser.add_argument(
         '--password',
-        help='Huawei OceanStor Dorado API password.',
+        help='Huawei OceanStor Dorado API password. ' + lib.args.help('--password'),
         dest='PASSWORD',
-        required=True,
+    )
+
+    parser.add_argument(
+        '--password-file',
+        help=lib.args.help('--password-file'),
+        dest='PASSWORD_FILE',
     )
 
     parser.add_argument(
@@ -233,6 +257,17 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    if args.PASSWORD_FILE:
+        args.PASSWORD = lib.args.load_secret(args.PASSWORD_FILE)
+    if not args.PASSWORD:
+        lib.base.cu('Provide the API password via --password or --password-file.')
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
     if not args.URL.startswith('http'):
         lib.base.cu('--url parameter has to start with "http://" or https://".')
 
@@ -245,14 +280,7 @@ def main():
         result = json.loads(stdout)
 
     # no valuable result?
-    if not result:
-        lib.base.cu(f'Got no valuable response from {args.URL}.')
-    if result.get('error').get('code') != 0:
-        lib.base.oao(
-            f'{result.get("error").get("description")}'
-            f' {result.get("error").get("suggestion")}',
-            STATE_UNKNOWN,
-        )
+    lib.huawei_dorado.assert_ok(result, 'the controllers')
 
     # An appliance always has controllers, so an empty list is a query that
     # never reached them rather than an inventory that is genuinely empty.
@@ -268,20 +296,32 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
-    compiled_regex = lib.base.coe(lib.txt.compile_regex(args.MATCH))
+    compiled_match_regex = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore_regex = [
+        lib.base.coe(item)
+        for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
 
     # analyze data
     table_data = []
-    for controller in result.get('data'):
+    for controller in result.get('data') or []:
         controller['UUID'] = lib.huawei_dorado.get_uuid(controller)
         # Perfdata labels carry the object's own TYPE:ID, which stays the same
         # when hardware is moved between slots, unlike its location.
         label = re.sub(r'\W+', '_', controller['UUID'])
 
         if args.MATCH and not any(
-            lib.base.coe(
-                lib.txt.match_regex(compiled_regex, str(controller.get(field, '')))
-            )
+            lib.base.coe(lib.txt.match_regex(pattern, str(controller.get(field, ''))))
+            for pattern in compiled_match_regex
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        if args.IGNORE and any(
+            lib.base.coe(lib.txt.match_regex(pattern, str(controller.get(field, ''))))
+            for pattern in compiled_ignore_regex
             for field in MATCH_FIELDS
         ):
             continue
@@ -296,7 +336,12 @@ def main():
         )
         state = lib.base.get_worst(state, running_state)
 
-        controller['TEMPERATURE'] = int(controller['TEMPERATURE'])
+        # A controller that reports no temperature answers with 0 or leaves the field
+        # out; neither is a reading, so it is neither compared against a threshold nor
+        # graphed as a permanent 0 degrees.
+        controller['TEMPERATURE'] = (
+            lib.huawei_dorado.as_code(controller.get('TEMPERATURE')) or None
+        )
 
         # All three thresholds are off unless the operator sets them. A controller under
         # load is doing its job, and what counts as hot depends on the model and on where
@@ -312,11 +357,9 @@ def main():
                         _operator='range',
                     ),
                 )
-        # A controller that does not report a temperature answers with 0, which must not
-        # be compared against a threshold as if it were a reading.
-        if (args.WARN_TEMPERATURE or args.CRIT_TEMPERATURE) and controller[
-            'TEMPERATURE'
-        ] > 0:
+        if controller['TEMPERATURE'] and (
+            args.WARN_TEMPERATURE or args.CRIT_TEMPERATURE
+        ):
             state = lib.base.get_worst(
                 state,
                 lib.base.get_state(
@@ -330,9 +373,9 @@ def main():
         perfdata += lib.base.get_perfdata(
             f'{label}_health_status',
             controller['HEALTHSTATUS'],
-            crit=2,
+            uom=None,
             _min=0,
-            _max=2,
+            _max=HEALTH_STATUS_MAX,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_running_status',
@@ -370,17 +413,13 @@ def main():
             _min=0,
             _max=100,
         )
-        perfdata += (
-            lib.base.get_perfdata(
-                f'{label}_temperature',
-                controller['TEMPERATURE'],
-                uom=None,
-                warn=args.WARN_TEMPERATURE or None,
-                crit=args.CRIT_TEMPERATURE or None,
-                _min=0,
-            )
-            if controller['TEMPERATURE'] > 0
-            else ''
+        perfdata += lib.base.get_perfdata(
+            f'{label}_temperature',
+            controller['TEMPERATURE'],
+            uom=None,
+            warn=args.WARN_TEMPERATURE or None,
+            crit=args.CRIT_TEMPERATURE or None,
+            _min=0,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_voltage',
@@ -401,12 +440,22 @@ def main():
     # The appliance listed controllers and the filter selected none of them.
     if not table_data:
         lib.base.oao(
-            f'No controllers matched `{args.MATCH}`.',
+            f'No controllers matched `{", ".join(args.MATCH)}`.',
             lib.base.str2state(args.NO_MATCH_SEVERITY),
             always_ok=args.ALWAYS_OK,
             no_perfdata=args.NO_PERFDATA,
         )
 
+    # build the message
+    if state == STATE_CRIT:
+        msg += 'There are critical errors.'
+    elif state == STATE_WARN:
+        msg += 'There are warnings.'
+    else:
+        msg += 'Everything is ok.'
+    msg += '\n\n'
+
+    # build table output
     if table_data:
         keys = [
             'UUID',
@@ -433,15 +482,7 @@ def main():
             'Running',
         ]
 
-        # build the message
         msg += lib.base.get_table(table_data, keys, header=headers)
-
-    if state == STATE_CRIT:
-        msg = 'There are critical errors.\n\n' + msg
-    elif state == STATE_WARN:
-        msg = 'There are warnings.\n\n' + msg
-    else:
-        msg = 'Everything is ok.\n\n' + msg
 
     # over and out
     lib.base.oao(

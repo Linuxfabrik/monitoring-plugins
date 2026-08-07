@@ -11,7 +11,6 @@
 """See the check's README for more details."""
 
 import argparse
-import html
 import json
 import sys
 
@@ -20,10 +19,11 @@ import lib.base
 import lib.huawei_pacific
 import lib.lftest
 import lib.time
+import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080601'
+__version__ = '2026080701'
 
 DESCRIPTION = """Lists active (unrecovered) alarms on a Huawei OceanStor Pacific storage system via
 the REST API (/common/alarms endpoint). Alerts when unrecovered alarms are present: critical if any
@@ -34,14 +34,6 @@ DEFAULT_INSECURE = True
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
-
-# Map the alarm severity code to the state the plugin reports for it.
-SEVERITY_STATE = {
-    6: STATE_CRIT,  # critical
-    5: STATE_WARN,  # major
-    3: STATE_WARN,  # warning
-    2: STATE_OK,  # information
-}
 
 
 def parse_args():
@@ -109,9 +101,14 @@ def parse_args():
 
     parser.add_argument(
         '--password',
-        help='Huawei OceanStor Pacific API password.',
+        help='Huawei OceanStor Pacific API password. ' + lib.args.help('--password'),
         dest='PASSWORD',
-        required=True,
+    )
+
+    parser.add_argument(
+        '--password-file',
+        help=lib.args.help('--password-file'),
+        dest='PASSWORD_FILE',
     )
 
     parser.add_argument(
@@ -164,6 +161,11 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    if args.PASSWORD_FILE:
+        args.PASSWORD = lib.args.load_secret(args.PASSWORD_FILE)
+    if not args.PASSWORD:
+        lib.base.cu('Provide the API password via --password or --password-file.')
+
     if not args.URL.startswith('http'):
         lib.base.cu('--url parameter has to start with "http://" or https://".')
 
@@ -184,40 +186,35 @@ def main():
         result = json.loads(stdout)
 
     # no valuable result?
-    if not result:
-        lib.base.cu(f'Got no valuable response from {args.URL}.')
-    if result.get('result', {}).get('code') != 0:
-        lib.base.oao(
-            f'{result.get("result", {}).get("description")}'
-            f' {result.get("result", {}).get("suggestion", "")}'.strip(),
-            STATE_UNKNOWN,
-        )
+    lib.huawei_pacific.assert_ok(result, 'the current alarms')
 
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
-    counts = {6: 0, 5: 0, 3: 0, 2: 0}
+    # Every severity the API documents is counted, so a listing of minor alarms is
+    # visible in the graph instead of only in the exit code.
+    counts = {2: 0, 3: 0, 4: 0, 5: 0, 6: 0}
 
     # analyze data
     table_data = []
-    for alarm in result.get('data', []):
-        severity = int(alarm.get('severity', -1))
+    for alarm in result.get('data') or []:
+        severity = lib.huawei_pacific.as_code(alarm.get('severity'))
         counts[severity] = counts.get(severity, 0) + 1
-        alarm_state = SEVERITY_STATE.get(severity, STATE_WARN)
+        alarm_state = lib.huawei_pacific.get_alarm_severity_state(severity)
         state = lib.base.get_worst(state, alarm_state)
 
         alarm['severity'] = lib.huawei_pacific.get_alarm_severity(severity)
         # The appliance embeds HTML entities in the texts it generates, so `&#40;` reaches
         # the output as those five characters instead of the bracket it stands for.
-        alarm['alarm_name'] = html.unescape(str(alarm.get('alarm_name', '')))
+        alarm['alarm_name'] = lib.txt.unescape(str(alarm.get('alarm_name', '')))
         # `create_time` is documented as UTC seconds, so it needs no timezone correction.
         alarm['create_time'] = lib.time.epoch2iso(alarm.get('create_time', 0))
         alarm['state'] = lib.base.state2str(alarm_state, empty_ok=False)
 
         table_data.append(alarm)
 
-    # build the message
+    # build table output
     if table_data:
         keys = ['alarm_id', 'create_time', 'severity', 'alarm_name', 'state']
         headers = ['Alarm ID', 'Time', 'Severity', 'Name', 'State']
@@ -226,9 +223,15 @@ def main():
         msg += 'No active alarms.'
 
 
-    perfdata += lib.base.get_perfdata('critical_alarms', counts[6], _min=0)
-    perfdata += lib.base.get_perfdata('major_alarms', counts[5], _min=0)
-    perfdata += lib.base.get_perfdata('warning_alarms', counts[3], _min=0)
+    perfdata += lib.base.get_perfdata(
+        'critical_alarms', counts[6], uom=None, _min=0
+    )
+    perfdata += lib.base.get_perfdata('major_alarms', counts[5], uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('minor_alarms', counts[4], uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('warning_alarms', counts[3], uom=None, _min=0)
+    perfdata += lib.base.get_perfdata(
+        'informational_alarms', counts[2], uom=None, _min=0
+    )
 
     if truncated:
         # The walk hit its page cap, so this is a floor on the alarm count, not the count.
@@ -238,6 +241,7 @@ def main():
         )
         state = lib.base.get_worst(state, STATE_WARN)
 
+    # build the message
     if state == STATE_CRIT:
         msg = 'There are critical alarms.\n\n' + msg
     elif state == STATE_WARN:

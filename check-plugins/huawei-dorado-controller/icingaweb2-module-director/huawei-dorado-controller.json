@@ -17,6 +17,10 @@
                 "--device-id": {
                     "value": "$huawei_dorado_controller_device_id$"
                 },
+                "--ignore": {
+                    "value": "$huawei_dorado_controller_ignore$",
+                    "repeat_key": true
+                },
                 "--insecure": {
                     "set_if": "$huawei_dorado_controller_insecure$"
                 },
@@ -24,7 +28,8 @@
                     "set_if": "$huawei_dorado_controller_no_insecure$"
                 },
                 "--match": {
-                    "value": "$huawei_dorado_controller_match$"
+                    "value": "$huawei_dorado_controller_match$",
+                    "repeat_key": true
                 },
                 "--no-match-severity": {
                     "value": "$huawei_dorado_controller_no_match_severity$"
@@ -37,6 +42,9 @@
                 },
                 "--password": {
                     "value": "$huawei_dorado_controller_password$"
+                },
+                "--password-file": {
+                    "value": "$huawei_dorado_controller_password_file$"
                 },
                 "--scope": {
                     "value": "$huawei_dorado_controller_scope$"
@@ -82,7 +90,7 @@
                 },
                 {
                     "datafield_id": 5,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -117,7 +125,7 @@
                 },
                 {
                     "datafield_id": 12,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -132,21 +140,31 @@
                 },
                 {
                     "datafield_id": 15,
-                    "is_required": "y",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 16,
-                    "is_required": "y",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 17,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
+                    "datafield_id": 16,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
                     "datafield_id": 18,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 19,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 20,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -207,12 +225,14 @@
                 "huawei_dorado_controller_cache_expire": 15,
                 "huawei_dorado_controller_critical": "",
                 "huawei_dorado_controller_critical_temperature": "",
+                "huawei_dorado_controller_device_id": "",
+                "huawei_dorado_controller_ignore": [],
                 "huawei_dorado_controller_insecure": true,
-                "huawei_dorado_controller_match": "",
+                "huawei_dorado_controller_match": [],
                 "huawei_dorado_controller_no_match_severity": "ok",
                 "huawei_dorado_controller_no_perfdata": false,
                 "huawei_dorado_controller_no_proxy": false,
-                "huawei_dorado_controller_scope": 0,
+                "huawei_dorado_controller_scope": "0",
                 "huawei_dorado_controller_timeout": 3,
                 "huawei_dorado_controller_warning": "",
                 "huawei_dorado_controller_warning_temperature": ""
@@ -301,7 +321,7 @@
         "5": {
             "varname": "huawei_dorado_controller_device_id",
             "caption": "Huawei Dorado Controller: Device ID",
-            "description": "Huawei OceanStor Dorado API device ID.",
+            "description": "Huawei OceanStor Dorado API device ID. Optional: the appliance reports its own at login, so this is only needed to override that answer.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -310,6 +330,17 @@
             "uuid": "2c0a38c7-7571-4d6b-8e50-cd79eaa90069"
         },
         "6": {
+            "varname": "huawei_dorado_controller_ignore",
+            "caption": "Huawei Dorado Controller: Ignore",
+            "description": "Skip controllers. Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a8efd221-7eb6-4b78-8eb9-338d6bc8d7e9"
+        },
+        "7": {
             "varname": "huawei_dorado_controller_insecure",
             "caption": "Huawei Dorado Controller: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -318,7 +349,7 @@
             "settings": {},
             "uuid": "05439d02-6158-453e-bcde-4c4d479efa08"
         },
-        "7": {
+        "8": {
             "varname": "huawei_dorado_controller_no_insecure",
             "caption": "Huawei Dorado Controller: No Insecure?",
             "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -327,18 +358,18 @@
             "settings": {},
             "uuid": "3727f6b2-4e3b-4800-8aad-efcfad73a50b"
         },
-        "8": {
+        "9": {
             "varname": "huawei_dorado_controller_match",
             "caption": "Huawei Dorado Controller: Match",
             "description": "Filter by controllers. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "0ed2a991-b61c-420c-9ff4-4d8d97a41d64"
         },
-        "9": {
+        "10": {
             "varname": "huawei_dorado_controller_no_match_severity",
             "caption": "Huawei Dorado Controller: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -351,7 +382,7 @@
             },
             "uuid": "b4b3c9a3-6edc-41d3-a2e0-80f6fe505ac2"
         },
-        "10": {
+        "11": {
             "varname": "huawei_dorado_controller_no_perfdata",
             "caption": "Huawei Dorado Controller: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -360,7 +391,7 @@
             "settings": {},
             "uuid": "068bab9b-f4b2-499a-85e9-447a88178d26"
         },
-        "11": {
+        "12": {
             "varname": "huawei_dorado_controller_no_proxy",
             "caption": "Huawei Dorado Controller: No Proxy?",
             "description": "Do not use a proxy.",
@@ -369,10 +400,10 @@
             "settings": {},
             "uuid": "81be51d1-4f06-4858-8965-694cd5f424d7"
         },
-        "12": {
+        "13": {
             "varname": "huawei_dorado_controller_password",
             "caption": "Huawei Dorado Controller: Password",
-            "description": "Huawei OceanStor Dorado API password.",
+            "description": "Huawei OceanStor Dorado API password. Password.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -380,7 +411,18 @@
             },
             "uuid": "aa19a792-1fdb-4d35-adf3-9d68622567af"
         },
-        "13": {
+        "14": {
+            "varname": "huawei_dorado_controller_password_file",
+            "caption": "Huawei Dorado Controller: Password File",
+            "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "hidden"
+            },
+            "uuid": "1d926adb-cd4e-4457-b8b0-c1f0c14d2f0f"
+        },
+        "15": {
             "varname": "huawei_dorado_controller_scope",
             "caption": "Huawei Dorado Controller: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -391,7 +433,7 @@
             },
             "uuid": "4cef57e0-d4b1-4cea-8154-47ac75270ad9"
         },
-        "14": {
+        "16": {
             "varname": "huawei_dorado_controller_timeout",
             "caption": "Huawei Dorado Controller: Timeout",
             "description": "Network timeout in seconds.",
@@ -402,7 +444,7 @@
             },
             "uuid": "db35fea6-a368-4870-ad39-1095a61382db"
         },
-        "15": {
+        "17": {
             "varname": "huawei_dorado_controller_url",
             "caption": "Huawei Dorado Controller: URL",
             "description": "Huawei OceanStor Dorado API URL.",
@@ -413,7 +455,7 @@
             },
             "uuid": "c8f2bb6e-7065-4423-b6b8-df8c94b7e0dc"
         },
-        "16": {
+        "18": {
             "varname": "huawei_dorado_controller_username",
             "caption": "Huawei Dorado Controller: Username",
             "description": "Huawei OceanStor Dorado API username.",
@@ -424,7 +466,7 @@
             },
             "uuid": "8a2f9d9d-e405-4f53-a6b5-33e81573eebe"
         },
-        "17": {
+        "19": {
             "varname": "huawei_dorado_controller_warning",
             "caption": "Huawei Dorado Controller: Warning",
             "description": "WARN threshold for CPU and memory usage, as a Nagios range in percent. Off by default, because a controller under load is doing its job; set it once you know what your array normally sits at. Example: `--warning=80`",
@@ -435,7 +477,7 @@
             },
             "uuid": "eecfb901-aefb-47bd-b9d6-470a9b15fafd"
         },
-        "18": {
+        "20": {
             "varname": "huawei_dorado_controller_warning_temperature",
             "caption": "Huawei Dorado Controller: Warning Temperature",
             "description": "WARN threshold in degrees Celsius. Off by default, because a healthy operating temperature depends on the controller model and on where the array stands. Example: `--warning-temperature=45`",

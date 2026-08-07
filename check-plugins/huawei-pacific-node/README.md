@@ -36,7 +36,8 @@ Checks the health and running status of all cluster nodes on a Huawei OceanStor 
 usage: huawei-pacific-node [-h] [-V] [--always-ok]
                            [--cache-expire CACHE_EXPIRE] [--insecure]
                            [--no-insecure] [--no-perfdata] [--no-proxy]
-                           --password PASSWORD [--scope SCOPE]
+                           [--password PASSWORD]
+                           [--password-file PASSWORD_FILE] [--scope SCOPE]
                            [--timeout TIMEOUT] -u URL --username USERNAME
 
 Checks the health and running status of all cluster nodes on a Huawei
@@ -62,7 +63,15 @@ options:
                         so alerting keeps working while trending data is
                         dropped.
   --no-proxy            Do not use a proxy.
-  --password PASSWORD   Huawei OceanStor Pacific API password.
+  --password PASSWORD   Huawei OceanStor Pacific API password. Password.
+  --password-file PASSWORD_FILE
+                        Path to a file holding the password, read from its
+                        first line. Keeps the password out of the process
+                        list, where a command-line argument is visible to
+                        every user on the host. Takes precedence over
+                        `--password`. Keep the file readable only by the
+                        monitoring user. Example: `--password-
+                        file=/etc/icinga2/secrets/storage`.
   --scope SCOPE         Huawei OceanStor Pacific API scope.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Pacific API URL.

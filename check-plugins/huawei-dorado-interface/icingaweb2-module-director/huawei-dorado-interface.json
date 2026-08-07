@@ -11,6 +11,10 @@
                 "--device-id": {
                     "value": "$huawei_dorado_interface_device_id$"
                 },
+                "--ignore": {
+                    "value": "$huawei_dorado_interface_ignore$",
+                    "repeat_key": true
+                },
                 "--insecure": {
                     "set_if": "$huawei_dorado_interface_insecure$"
                 },
@@ -18,7 +22,8 @@
                     "set_if": "$huawei_dorado_interface_no_insecure$"
                 },
                 "--match": {
-                    "value": "$huawei_dorado_interface_match$"
+                    "value": "$huawei_dorado_interface_match$",
+                    "repeat_key": true
                 },
                 "--no-match-severity": {
                     "value": "$huawei_dorado_interface_no_match_severity$"
@@ -31,6 +36,9 @@
                 },
                 "--password": {
                     "value": "$huawei_dorado_interface_password$"
+                },
+                "--password-file": {
+                    "value": "$huawei_dorado_interface_password_file$"
                 },
                 "--scope": {
                     "value": "$huawei_dorado_interface_scope$"
@@ -60,7 +68,7 @@
                 },
                 {
                     "datafield_id": 3,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -95,7 +103,7 @@
                 },
                 {
                     "datafield_id": 10,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -110,11 +118,21 @@
                 },
                 {
                     "datafield_id": 13,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 14,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
                     "is_required": "y",
                     "var_filter": null
                 }
@@ -173,12 +191,14 @@
                 "criticality": "A",
                 "huawei_dorado_interface_always_ok": false,
                 "huawei_dorado_interface_cache_expire": 15,
+                "huawei_dorado_interface_device_id": "",
+                "huawei_dorado_interface_ignore": [],
                 "huawei_dorado_interface_insecure": true,
-                "huawei_dorado_interface_match": "",
+                "huawei_dorado_interface_match": [],
                 "huawei_dorado_interface_no_match_severity": "ok",
                 "huawei_dorado_interface_no_perfdata": false,
                 "huawei_dorado_interface_no_proxy": false,
-                "huawei_dorado_interface_scope": 0,
+                "huawei_dorado_interface_scope": "0",
                 "huawei_dorado_interface_timeout": 3
             },
             "volatile": null,
@@ -243,7 +263,7 @@
         "3": {
             "varname": "huawei_dorado_interface_device_id",
             "caption": "Huawei Dorado Interface: Device ID",
-            "description": "Huawei OceanStor Dorado API device ID.",
+            "description": "Huawei OceanStor Dorado API device ID. Optional: the appliance reports its own at login, so this is only needed to override that answer.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -252,6 +272,17 @@
             "uuid": "5e77e96b-d936-4d99-b7c4-71a866510b8b"
         },
         "4": {
+            "varname": "huawei_dorado_interface_ignore",
+            "caption": "Huawei Dorado Interface: Ignore",
+            "description": "Skip interface modules. Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "baea7721-9f1c-4781-ae9d-8c34689d2a60"
+        },
+        "5": {
             "varname": "huawei_dorado_interface_insecure",
             "caption": "Huawei Dorado Interface: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -260,7 +291,7 @@
             "settings": {},
             "uuid": "4217d09f-11de-439b-ba7d-1095da7c79e1"
         },
-        "5": {
+        "6": {
             "varname": "huawei_dorado_interface_no_insecure",
             "caption": "Huawei Dorado Interface: No Insecure?",
             "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -269,18 +300,18 @@
             "settings": {},
             "uuid": "f1258420-71c5-4ad3-9f24-9c8912e5844a"
         },
-        "6": {
+        "7": {
             "varname": "huawei_dorado_interface_match",
             "caption": "Huawei Dorado Interface: Match",
             "description": "Filter by interface modules. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "dff3a8db-d22c-4144-b6a7-104832d3a33e"
         },
-        "7": {
+        "8": {
             "varname": "huawei_dorado_interface_no_match_severity",
             "caption": "Huawei Dorado Interface: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -293,7 +324,7 @@
             },
             "uuid": "7f2f4973-72ed-4581-a05b-7fa072c49403"
         },
-        "8": {
+        "9": {
             "varname": "huawei_dorado_interface_no_perfdata",
             "caption": "Huawei Dorado Interface: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -302,7 +333,7 @@
             "settings": {},
             "uuid": "a37b322b-b922-40d2-ad55-a07536762088"
         },
-        "9": {
+        "10": {
             "varname": "huawei_dorado_interface_no_proxy",
             "caption": "Huawei Dorado Interface: No Proxy?",
             "description": "Do not use a proxy.",
@@ -311,10 +342,10 @@
             "settings": {},
             "uuid": "15a217a2-745c-42b0-a16c-52476ebbfb6e"
         },
-        "10": {
+        "11": {
             "varname": "huawei_dorado_interface_password",
             "caption": "Huawei Dorado Interface: Password",
-            "description": "Huawei OceanStor Dorado API password.",
+            "description": "Huawei OceanStor Dorado API password. Password.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -322,7 +353,18 @@
             },
             "uuid": "70b8cefe-35d4-42f8-acf5-4617160bbe87"
         },
-        "11": {
+        "12": {
+            "varname": "huawei_dorado_interface_password_file",
+            "caption": "Huawei Dorado Interface: Password File",
+            "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "hidden"
+            },
+            "uuid": "dbc9a493-b74e-49bd-b513-78a366eeb374"
+        },
+        "13": {
             "varname": "huawei_dorado_interface_scope",
             "caption": "Huawei Dorado Interface: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -333,7 +375,7 @@
             },
             "uuid": "beefd816-0440-4076-a07e-b8584ce83548"
         },
-        "12": {
+        "14": {
             "varname": "huawei_dorado_interface_timeout",
             "caption": "Huawei Dorado Interface: Timeout",
             "description": "Network timeout in seconds.",
@@ -344,7 +386,7 @@
             },
             "uuid": "0520b6f8-3b48-4523-9ffe-17c9105984ea"
         },
-        "13": {
+        "15": {
             "varname": "huawei_dorado_interface_url",
             "caption": "Huawei Dorado Interface: URL",
             "description": "Huawei OceanStor Dorado API URL.",
@@ -355,7 +397,7 @@
             },
             "uuid": "0252c4f4-5cc2-41d1-a233-fbb3437c0951"
         },
-        "14": {
+        "16": {
             "varname": "huawei_dorado_interface_username",
             "caption": "Huawei Dorado Interface: Username",
             "description": "Huawei OceanStor Dorado API username.",

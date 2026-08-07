@@ -17,6 +17,10 @@
                 "--device-id": {
                     "value": "$huawei_dorado_disk_device_id$"
                 },
+                "--ignore": {
+                    "value": "$huawei_dorado_disk_ignore$",
+                    "repeat_key": true
+                },
                 "--insecure": {
                     "set_if": "$huawei_dorado_disk_insecure$"
                 },
@@ -24,7 +28,8 @@
                     "set_if": "$huawei_dorado_disk_no_insecure$"
                 },
                 "--match": {
-                    "value": "$huawei_dorado_disk_match$"
+                    "value": "$huawei_dorado_disk_match$",
+                    "repeat_key": true
                 },
                 "--no-match-severity": {
                     "value": "$huawei_dorado_disk_no_match_severity$"
@@ -37,6 +42,9 @@
                 },
                 "--password": {
                     "value": "$huawei_dorado_disk_password$"
+                },
+                "--password-file": {
+                    "value": "$huawei_dorado_disk_password_file$"
                 },
                 "--scope": {
                     "value": "$huawei_dorado_disk_scope$"
@@ -82,7 +90,7 @@
                 },
                 {
                     "datafield_id": 5,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -117,7 +125,7 @@
                 },
                 {
                     "datafield_id": 12,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -132,21 +140,31 @@
                 },
                 {
                     "datafield_id": 15,
-                    "is_required": "y",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 16,
-                    "is_required": "y",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 17,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
+                    "datafield_id": 16,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
                     "datafield_id": 18,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 19,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 20,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -207,12 +225,14 @@
                 "huawei_dorado_disk_cache_expire": 15,
                 "huawei_dorado_disk_critical": "30:",
                 "huawei_dorado_disk_critical_temperature": "",
+                "huawei_dorado_disk_device_id": "",
+                "huawei_dorado_disk_ignore": [],
                 "huawei_dorado_disk_insecure": true,
-                "huawei_dorado_disk_match": "",
+                "huawei_dorado_disk_match": [],
                 "huawei_dorado_disk_no_match_severity": "ok",
                 "huawei_dorado_disk_no_perfdata": false,
                 "huawei_dorado_disk_no_proxy": false,
-                "huawei_dorado_disk_scope": 0,
+                "huawei_dorado_disk_scope": "0",
                 "huawei_dorado_disk_timeout": 3,
                 "huawei_dorado_disk_warning": "180:",
                 "huawei_dorado_disk_warning_temperature": ""
@@ -301,7 +321,7 @@
         "5": {
             "varname": "huawei_dorado_disk_device_id",
             "caption": "Huawei Dorado Disk: Device ID",
-            "description": "Huawei OceanStor Dorado API device ID.",
+            "description": "Huawei OceanStor Dorado API device ID. Optional: the appliance reports its own at login, so this is only needed to override that answer.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -310,6 +330,17 @@
             "uuid": "8f504620-1c41-416b-9a36-1d078292929a"
         },
         "6": {
+            "varname": "huawei_dorado_disk_ignore",
+            "caption": "Huawei Dorado Disk: Ignore",
+            "description": "Skip disks. Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "42cbc24d-346e-443a-80b4-88fdd7b90480"
+        },
+        "7": {
             "varname": "huawei_dorado_disk_insecure",
             "caption": "Huawei Dorado Disk: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -318,7 +349,7 @@
             "settings": {},
             "uuid": "8ac64528-1939-47e8-924b-edc93867751b"
         },
-        "7": {
+        "8": {
             "varname": "huawei_dorado_disk_no_insecure",
             "caption": "Huawei Dorado Disk: No Insecure?",
             "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -327,18 +358,18 @@
             "settings": {},
             "uuid": "ca5525a5-9182-4b7d-947e-9d3886f51cf0"
         },
-        "8": {
+        "9": {
             "varname": "huawei_dorado_disk_match",
             "caption": "Huawei Dorado Disk: Match",
             "description": "Filter by disks. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "d8aa7266-4982-4972-a64a-2940b5a673bf"
         },
-        "9": {
+        "10": {
             "varname": "huawei_dorado_disk_no_match_severity",
             "caption": "Huawei Dorado Disk: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -351,7 +382,7 @@
             },
             "uuid": "827ca8e0-ce74-44c3-98e0-0e92ac441927"
         },
-        "10": {
+        "11": {
             "varname": "huawei_dorado_disk_no_perfdata",
             "caption": "Huawei Dorado Disk: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -360,7 +391,7 @@
             "settings": {},
             "uuid": "575eaac1-ab3f-4699-8153-f7fa47571144"
         },
-        "11": {
+        "12": {
             "varname": "huawei_dorado_disk_no_proxy",
             "caption": "Huawei Dorado Disk: No Proxy?",
             "description": "Do not use a proxy.",
@@ -369,10 +400,10 @@
             "settings": {},
             "uuid": "a3afe705-a0fa-465c-8e2b-038759a210bb"
         },
-        "12": {
+        "13": {
             "varname": "huawei_dorado_disk_password",
             "caption": "Huawei Dorado Disk: Password",
-            "description": "Huawei OceanStor Dorado API password.",
+            "description": "Huawei OceanStor Dorado API password. Password.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -380,7 +411,18 @@
             },
             "uuid": "c670e7e0-164c-4be4-bcac-40e91975ef8f"
         },
-        "13": {
+        "14": {
+            "varname": "huawei_dorado_disk_password_file",
+            "caption": "Huawei Dorado Disk: Password File",
+            "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "hidden"
+            },
+            "uuid": "ec76968b-7735-44bd-89d1-0eea25194552"
+        },
+        "15": {
             "varname": "huawei_dorado_disk_scope",
             "caption": "Huawei Dorado Disk: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -391,7 +433,7 @@
             },
             "uuid": "c47efb1f-3a9b-4476-8c0e-2f1d5f530025"
         },
-        "14": {
+        "16": {
             "varname": "huawei_dorado_disk_timeout",
             "caption": "Huawei Dorado Disk: Timeout",
             "description": "Network timeout in seconds.",
@@ -402,7 +444,7 @@
             },
             "uuid": "e9ac5392-e663-4d9a-a639-ea404495949c"
         },
-        "15": {
+        "17": {
             "varname": "huawei_dorado_disk_url",
             "caption": "Huawei Dorado Disk: URL",
             "description": "Huawei OceanStor Dorado API URL.",
@@ -413,7 +455,7 @@
             },
             "uuid": "40e03e2b-643f-4200-aba2-89a9a6c3c58e"
         },
-        "16": {
+        "18": {
             "varname": "huawei_dorado_disk_username",
             "caption": "Huawei Dorado Disk: Username",
             "description": "Huawei OceanStor Dorado API username.",
@@ -424,7 +466,7 @@
             },
             "uuid": "a3779c31-1725-4b2b-a3bb-7db15a823c84"
         },
-        "17": {
+        "19": {
             "varname": "huawei_dorado_disk_warning",
             "caption": "Huawei Dorado Disk: Warning",
             "description": "WARN threshold for the remaining life of a disk, as a Nagios range in days.",
@@ -435,7 +477,7 @@
             },
             "uuid": "d637a045-6f99-4cdc-9924-fb94911d7d89"
         },
-        "18": {
+        "20": {
             "varname": "huawei_dorado_disk_warning_temperature",
             "caption": "Huawei Dorado Disk: Warning Temperature",
             "description": "WARN threshold in degrees Celsius. Off by default, because a healthy operating temperature depends on the drive model and on where the array stands. Example: `--warning-temperature=45`",

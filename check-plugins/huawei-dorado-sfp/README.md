@@ -38,13 +38,14 @@ Checks the health and link status of the optical modules (SFP) of a Huawei Ocean
 
 ```text
 usage: huawei-dorado-sfp [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
-                         --device-id DEVICE_ID [--insecure]
+                         [--device-id DEVICE_ID] [--ignore IGNORE]
+                         [--insecure]
                          [--link-down-severity {ok,warn,crit,unknown}]
                          [--match MATCH] [--no-insecure]
                          [--no-match-severity {ok,warn,crit,unknown}]
-                         [--no-perfdata] [--no-proxy] --password PASSWORD
-                         [--scope SCOPE] [--timeout TIMEOUT] -u URL
-                         --username USERNAME
+                         [--no-perfdata] [--no-proxy] [--password PASSWORD]
+                         [--password-file PASSWORD_FILE] [--scope SCOPE]
+                         [--timeout TIMEOUT] -u URL --username USERNAME
 
 Checks the health and link status of the optical modules (SFP) of a Huawei
 OceanStor Dorado storage system via the REST API (/sfp endpoint). Alerts when
@@ -59,7 +60,17 @@ options:
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15
   --device-id DEVICE_ID
-                        Huawei OceanStor Dorado API device ID.
+                        Huawei OceanStor Dorado API device ID. Optional: the
+                        appliance reports its own at login, so this is only
+                        needed to override that answer.
+  --ignore IGNORE       Skip optical modules. Any item matching this Python
+                        regex will be ignored. Can be specified multiple
+                        times. Example: `(?i)linuxfabrik` for a case-
+                        insensitive match. The regex is anchored at the start
+                        of the string (Python `re.match`) and is matched
+                        against the module identifier, its location, vendor,
+                        model and serial number, so prefix with `.*` to match
+                        anywhere. Default: None
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --link-down-severity {ok,warn,crit,unknown}
@@ -77,7 +88,7 @@ options:
                         string (Python `re.match`) and is matched against the
                         module identifier, its location, vendor, model and
                         serial number, so prefix with `.*` to match anywhere.
-                        Default:
+                        Default: None
   --no-insecure         Verify the TLS certificate against the system trust
                         store, overriding the insecure default of this check.
                         Use it once the endpoint presents a publicly trusted
@@ -91,7 +102,15 @@ options:
                         so alerting keeps working while trending data is
                         dropped.
   --no-proxy            Do not use a proxy.
-  --password PASSWORD   Huawei OceanStor Dorado API password.
+  --password PASSWORD   Huawei OceanStor Dorado API password. Password.
+  --password-file PASSWORD_FILE
+                        Path to a file holding the password, read from its
+                        first line. Keeps the password out of the process
+                        list, where a command-line argument is visible to
+                        every user on the host. Takes precedence over
+                        `--password`. Keep the file readable only by the
+                        monitoring user. Example: `--password-
+                        file=/etc/icinga2/secrets/storage`.
   --scope SCOPE         Huawei OceanStor Dorado API scope.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.

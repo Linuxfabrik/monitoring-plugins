@@ -42,13 +42,14 @@ Checks the health and running status of the LUNs of a Huawei OceanStor Dorado st
 ```text
 usage: huawei-dorado-lun [-h] [-V] [--always-ok] [--brief]
                          [--cache-expire CACHE_EXPIRE] [-c CRIT]
-                         --device-id DEVICE_ID [--include-unmapped]
-                         [--insecure] [--lengthy] [--match MATCH]
-                         [--no-insecure]
+                         [--device-id DEVICE_ID] [--include-unmapped]
+                         [--ignore IGNORE] [--insecure] [--lengthy]
+                         [--match MATCH] [--no-insecure]
                          [--no-match-severity {ok,warn,crit,unknown}]
-                         [--no-perfdata] [--no-proxy] --password PASSWORD
-                         [--scope SCOPE] [--timeout TIMEOUT] -u URL
-                         --username USERNAME [-w WARN]
+                         [--no-perfdata] [--no-proxy] [--password PASSWORD]
+                         [--password-file PASSWORD_FILE] [--scope SCOPE]
+                         [--timeout TIMEOUT] -u URL --username USERNAME
+                         [-w WARN]
 
 Checks the health and running status of the LUNs of a Huawei OceanStor Dorado
 storage system via the REST API (/lun endpoint). Alerts when a LUN reports a
@@ -72,10 +73,19 @@ options:
                         for; what runs out is the pool behind it. Example:
                         `--critical=95`
   --device-id DEVICE_ID
-                        Huawei OceanStor Dorado API device ID.
+                        Huawei OceanStor Dorado API device ID. Optional: the
+                        appliance reports its own at login, so this is only
+                        needed to override that answer.
   --include-unmapped    Also check LUNs that are not mapped to any host. Those
                         are not serving anything, so they are left out by
                         default. Default: False
+  --ignore IGNORE       Skip LUNs. Any item matching this Python regex will be
+                        ignored. Can be specified multiple times. Example:
+                        `(?i)linuxfabrik` for a case-insensitive match. The
+                        regex is anchored at the start of the string (Python
+                        `re.match`) and is matched against the LUN identifier,
+                        the LUN name and the name of its storage pool, so
+                        prefix with `.*` to match anywhere. Default: None
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --lengthy             Extended reporting.
@@ -88,7 +98,7 @@ options:
                         regex is anchored at the start of the string (Python
                         `re.match`) and is matched against the LUN identifier,
                         the LUN name and the name of its storage pool, so
-                        prefix with `.*` to match anywhere. Default:
+                        prefix with `.*` to match anywhere. Default: None
   --no-insecure         Verify the TLS certificate against the system trust
                         store, overriding the insecure default of this check.
                         Use it once the endpoint presents a publicly trusted
@@ -102,7 +112,15 @@ options:
                         so alerting keeps working while trending data is
                         dropped.
   --no-proxy            Do not use a proxy.
-  --password PASSWORD   Huawei OceanStor Dorado API password.
+  --password PASSWORD   Huawei OceanStor Dorado API password. Password.
+  --password-file PASSWORD_FILE
+                        Path to a file holding the password, read from its
+                        first line. Keeps the password out of the process
+                        list, where a command-line argument is visible to
+                        every user on the host. Takes precedence over
+                        `--password`. Keep the file readable only by the
+                        monitoring user. Example: `--password-
+                        file=/etc/icinga2/secrets/storage`.
   --scope SCOPE         Huawei OceanStor Dorado API scope.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
