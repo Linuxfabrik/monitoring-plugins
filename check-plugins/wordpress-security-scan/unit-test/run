@@ -12,6 +12,8 @@ import sys
 
 sys.path.insert(0, '..')
 
+import importlib.machinery
+import importlib.util
 import unittest
 
 import lib.lftest
@@ -310,7 +312,23 @@ TESTS = [
         'params': NO_PATH_PARAMS,
         'assert-retc': STATE_UNKNOWN,
         'assert-in': [
-            'The remote website is up, but does not seem to be running WordPress.'
+            'Output from wpscan: ',
+            'The remote website is up, but does not seem to be running WordPress.',
+        ],
+    },
+    # A site that does not serve itself under the address given in --url. The scanner
+    # names the two switches that resolve it, and both are parameters of this check, so
+    # the message has to reach the output verbatim and labelled as the scanner's.
+    {
+        'id': 'unknown-redirect-not-followed',
+        'test': 'stdout/redirect-not-followed,,4',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Output from wpscan: ',
+            'The URL supplied redirects to https://example.com/.',
+            '--wpscan-follow-redirect',
+            '--wpscan-ignore-main-redirect',
         ],
     },
     {
@@ -321,6 +339,7 @@ TESTS = [
         # wpscan reports a run it aborted before writing its document in plain text. That
         # text is the only explanation there is and must reach the output.
         'assert-in': [
+            'Output from wpscan: ',
             'The remote website is up, but does not seem to be running',
             'the scan output is not valid JSON',
         ],
@@ -340,7 +359,11 @@ TESTS = [
         'test': 'stdout/empty-response,stderr/ruby-crash,1',
         'params': NO_PATH_PARAMS,
         'assert-retc': STATE_UNKNOWN,
-        'assert-in': ['undefined method', 'the scan output is not valid JSON'],
+        'assert-in': [
+            'Output from wpscan: ',
+            'undefined method',
+            'the scan output is not valid JSON',
+        ],
         'assert-not-in': ['The scan returned no output.'],
     },
     # Without vulnerability data an empty vulnerability list says nothing about the site,
@@ -503,6 +526,40 @@ TESTS = [
             '--max-scan-duration=90',
         ],
     },
+    # A bare host is completed to HTTPS, not left to the scanner's HTTP default. That
+    # also keeps a www-to-apex redirect from changing the scheme at the same time, which
+    # the scanner does not follow even when asked to.
+    {
+        'id': 'ok-bare-host-becomes-https',
+        'test': 'stdout/clean-site,,0',
+        'params': '--url=www.example.com --path=wordpress --verbose',
+        'assert-retc': STATE_OK,
+        'assert-in': ['--url=https://www.example.com'],
+    },
+    {
+        'id': 'ok-explicit-scheme-is-kept',
+        'test': 'stdout/clean-site,,0',
+        'params': '--url=http://www.example.com --path=wordpress --verbose',
+        'assert-retc': STATE_OK,
+        'assert-in': ['--url=http://www.example.com'],
+    },
+    # The two redirect switches wpscan names in its own error message are parameters of
+    # this check, so an admin can copy them straight from that message.
+    {
+        'id': 'ok-verbose-shows-wpscan-follow-redirect',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --verbose --wpscan-follow-redirect',
+        'assert-retc': STATE_OK,
+        'assert-in': ['--follow-redirect'],
+        'assert-not-in': ['--ignore-main-redirect'],
+    },
+    {
+        'id': 'ok-verbose-shows-wpscan-ignore-main-redirect',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --verbose --wpscan-ignore-main-redirect',
+        'assert-retc': STATE_OK,
+        'assert-in': ['--ignore-main-redirect'],
+    },
     # An enterprise database supplies vulnerability data without an API token, so the
     # enumeration must keep its vulnerable-plugins and vulnerable-themes choices.
     {
@@ -552,6 +609,57 @@ TESTS = [
 
 class TestCheck(unittest.TestCase):
     check = '../wordpress-security-scan'
+
+
+def load_check():
+    """Import the check as a module, so the helpers can be exercised directly."""
+    loader = importlib.machinery.SourceFileLoader(
+        'wordpress_security_scan', '../wordpress-security-scan'
+    )
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+class TestRedirectTarget(unittest.TestCase):
+    """The redirect destination is read out of the scanner's own message, because the
+    scanner names it but will not go there itself. The fixture-driven tests above cannot
+    cover the retry, which by design only runs when a real scan is performed.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.check = load_check()
+
+    def test_reads_the_destination(self):
+        self.assertEqual(
+            self.check.get_redirect_target(
+                'The URL supplied redirects to https://example.com/. Use the '
+                '--follow-redirect option to automatically scan the redirected URL.'
+            ),
+            'https://example.com/',
+        )
+
+    def test_keeps_a_path(self):
+        self.assertEqual(
+            self.check.get_redirect_target(
+                'The URL supplied redirects to https://example.com/blog/. Use the '
+                '--follow-redirect option.'
+            ),
+            'https://example.com/blog/',
+        )
+
+    def test_ignores_an_unrelated_message(self):
+        self.assertEqual(
+            self.check.get_redirect_target(
+                'The remote website is up, but does not seem to be running WordPress.'
+            ),
+            '',
+        )
+
+    def test_ignores_an_empty_message(self):
+        self.assertEqual(self.check.get_redirect_target(''), '')
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)

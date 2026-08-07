@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080701'
+__version__ = '2026080704'
 
 DESCRIPTION = """Runs a WordPress security scan against a site and reports what an attacker
 can see from the outside. Combines the black box scan with the inventory read from the local
@@ -57,7 +57,17 @@ DEFAULT_PATH = '/var/www/html/wordpress'
 DEFAULT_SCAN_TIMEOUT = 600
 DEFAULT_UNSCORED_SEVERITY = 'warn'
 DEFAULT_VERBOSE = False
+DEFAULT_WPSCAN_DETECTION_MODE = 'mixed'
 DEFAULT_WPSCAN_ENUMERATE = 'vp,vt,tt,cb,dbe,bf,u'
+DEFAULT_WPSCAN_FOLLOW_REDIRECT = False
+DEFAULT_WPSCAN_IGNORE_MAIN_REDIRECT = False
+DEFAULT_WPSCAN_RANDOM_USER_AGENT = False
+
+# How the scan identifies itself. The scanner would otherwise announce itself by name
+# and version, which some web application firewalls block on sight. Naming the monitoring
+# instead matches every other check here, keeps the daily scan recognizable in the
+# target's access log, and gives the operator something stable to allow-list.
+DEFAULT_WPSCAN_USER_AGENT = 'Linuxfabrik Monitoring Plugins'
 
 # Name of the environment variable wpscan reads its API token from. The token is handed
 # over this way instead of on the command line so it never shows up in the process list.
@@ -80,6 +90,27 @@ ENUMERATE_MIN_VERSION = {
 # has not been refreshed in a week no longer says much about the current state of a site.
 VULNDB_MAX_AGE = 7 * 24 * 3600
 
+# Prefix for text that the scanner produced rather than this check. Without it an
+# admin reads a message like "The URL supplied redirects to ..." as coming from the
+# check and looks for a check parameter that does not exist.
+WPSCAN_OUTPUT_PREFIX = 'Output from wpscan: '
+
+# The scanner names its own options when it suggests a fix. This check offers them under
+# a `--wpscan-` prefix, so the names are rewritten on the way out; the advice would
+# otherwise point at parameters this check does not have. Options that are spelled the
+# same here, `--url` among them, are absent on purpose and stay untouched.
+WPSCAN_OPTION_ALIASES = {
+    '--detection-mode': '--wpscan-detection-mode',
+    '--enumerate': '--wpscan-enumerate',
+    '--follow-redirect': '--wpscan-follow-redirect',
+    '--http-auth': '--wpscan-http-auth',
+    '--ignore-main-redirect': '--wpscan-ignore-main-redirect',
+    '--proxy': '--wpscan-proxy',
+    '--random-user-agent': '--wpscan-random-user-agent',
+    '--throttle': '--wpscan-throttle',
+    '--user-agent': '--wpscan-user-agent',
+}
+
 # Seconds granted to the version probe. It prints a constant and exits, so anything
 # beyond this means the scanner is not going to answer, and the budget of --scan-timeout
 # has to stay with the scan itself rather than being spent waiting here.
@@ -89,6 +120,15 @@ VERSION_PROBE_TIMEOUT = 30
 # wpscan aborts itself and still writes a valid JSON document. Only if that fails does
 # the hard subprocess timeout hit, which leaves us without any output at all.
 SCAN_TIMEOUT_HEADROOM = 30
+
+# How wpscan opens the message it aborts with when the target redirects elsewhere. The
+# destination follows, which is what makes --wpscan-follow-redirect workable at all.
+REDIRECT_MARKER = 'The URL supplied redirects to '
+
+# How often the check re-runs against a redirect destination. One hop covers the layouts
+# that occur in practice, http to https and www to the bare domain, and keeps a site that
+# redirects in a circle from being scanned over and over.
+MAX_REDIRECT_HOPS = 1
 
 # What wpscan puts into `scan_aborted` when it runs out of its own time budget
 # (WPScan::Error::MaxScanDurationReached). Reported as a timeout rather than as a broken
@@ -304,6 +344,7 @@ def parse_args():
         '-u',
         '--url',
         help='URL of the WordPress site to scan. '
+        'A URL without a scheme is completed to `https://`. '
         'If not specified, it is taken from the `WP_HOME` or `WP_SITEURL` constant of '
         'the installation below --path, which only works where the installation pins '
         'them and the configuration file is readable. '
@@ -321,17 +362,77 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--wpscan-detection-mode',
+        help='How hard the scan looks for components. '
+        '`passive` only reads what the site shows on its own, `aggressive` requests '
+        'known file locations directly and finds the most, `mixed` does both. '
+        'Aggressive detection produces far more requests and takes correspondingly '
+        'longer, so raise --scan-timeout with it. '
+        'Default: %(default)s',
+        dest='WPSCAN_DETECTION_MODE',
+        choices=['aggressive', 'mixed', 'passive'],
+        default=DEFAULT_WPSCAN_DETECTION_MODE,
+    )
+
+    parser.add_argument(
         '--wpscan-enumerate',
         help='Enumeration options passed to wpscan (its `--enumerate`). '
         'Comma-separated. '
         '`vp`/`vt` (vulnerable plugins/themes) need vulnerability data and are '
         'downgraded to `p`/`t` automatically when none is available, because wpscan '
         'aborts otherwise. '
-        '`bf` (backup folders) needs wpscan 4.0.0 or newer and is dropped automatically '
-        'on older releases, which reject it as an unknown choice. '
+        '`bf` (backup folders) needs wpscan 4.0.0 or newer and is skipped automatically '
+        'on older releases. '
         'Default: %(default)s',
         dest='WPSCAN_ENUMERATE',
         default=DEFAULT_WPSCAN_ENUMERATE,
+    )
+
+    parser.add_argument(
+        '--wpscan-follow-redirect',
+        help='Scan the target the site redirects to, instead of reporting the '
+        'redirection and stopping. '
+        'A site that answers on `www.example.com` but serves itself under '
+        '`example.com` needs this, as does a plain HTTP URL redirecting to HTTPS. '
+        'Only one redirect is followed. '
+        'Pointing --url at the final address is still preferable, because the scan '
+        'then spends no request on the redirect at all.',
+        dest='WPSCAN_FOLLOW_REDIRECT',
+        action='store_true',
+        default=DEFAULT_WPSCAN_FOLLOW_REDIRECT,
+    )
+
+    parser.add_argument(
+        '--wpscan-http-auth',
+        help='Credentials for HTTP basic authentication in front of the site, as '
+        '`login:password`. '
+        'Unlike the API token, the scanner accepts these only on its command line, '
+        'where they are visible to every user on the scanning host while the scan '
+        'runs. Prefer --http-auth-file, which at least keeps them out of the '
+        'monitoring configuration. '
+        'Takes precedence over --http-auth-file.',
+        dest='WPSCAN_HTTP_AUTH',
+    )
+
+    parser.add_argument(
+        '--wpscan-http-auth-file',
+        help='Path to the file containing the HTTP basic authentication credentials, '
+        'as `login:password`. '
+        'Only the first line is read. '
+        'Keep the file readable only by the monitoring user.',
+        dest='WPSCAN_HTTP_AUTH_FILE',
+    )
+
+    parser.add_argument(
+        '--wpscan-ignore-main-redirect',
+        help='Scan the address given in --url even though it redirects elsewhere. '
+        'Use it where the redirect is the very thing to look behind, for example a '
+        'compromised site redirecting its visitors away. '
+        'Mutually exclusive with --follow-redirect in effect, since the two ask for '
+        'opposite behaviour.',
+        dest='WPSCAN_IGNORE_MAIN_REDIRECT',
+        action='store_true',
+        default=DEFAULT_WPSCAN_IGNORE_MAIN_REDIRECT,
     )
 
     parser.add_argument(
@@ -353,6 +454,49 @@ def parse_args():
         dest='WPSCAN_OPTION',
         action='append',
         default=None,
+    )
+
+    parser.add_argument(
+        '--wpscan-proxy',
+        help='Proxy the scan goes through, as `protocol://host:port`. '
+        'Example: `--proxy=http://192.0.2.1:3128`',
+        dest='WPSCAN_PROXY',
+    )
+
+    parser.add_argument(
+        '--wpscan-random-user-agent',
+        help='Use a random user agent for the scan instead of the one --user-agent '
+        'sets. '
+        'Only useful where a web application firewall blocks the scan outright, which '
+        'the scanner reports as a 403. It makes the scan harder to recognize in the '
+        "target's access log and impossible to allow-list, so the identifiable default "
+        'is the better choice on a site you run yourself.',
+        dest='WPSCAN_RANDOM_USER_AGENT',
+        action='store_true',
+        default=DEFAULT_WPSCAN_RANDOM_USER_AGENT,
+    )
+
+    parser.add_argument(
+        '--wpscan-throttle',
+        help='Milliseconds to wait between requests, to keep the scan from overwhelming '
+        'the target or tripping a rate limit. '
+        'Setting it makes the scanner use a single thread instead of five, so the scan '
+        'takes considerably longer; raise --scan-timeout with it. '
+        'Not throttled when unset. '
+        'Example: `--throttle=200`',
+        dest='WPSCAN_THROTTLE',
+        type=int,
+    )
+
+    parser.add_argument(
+        '--wpscan-user-agent',
+        help='How the scan identifies itself to the target. '
+        'The default names the monitoring rather than the scanner, so the daily scan '
+        "is recognizable in the target's access log and can be allow-listed in a web "
+        'application firewall or in fail2ban. '
+        'Default: %(default)s',
+        dest='WPSCAN_USER_AGENT',
+        default=DEFAULT_WPSCAN_USER_AGENT,
     )
 
     args, _ = parser.parse_known_args()
@@ -394,6 +538,51 @@ def resolve_api_token(args):
             return (False, f'The token file "{args.API_TOKEN_FILE}" is empty.')
         return (True, token)
     return (True, os.environ.get(API_TOKEN_ENV, '').strip())
+
+
+def get_redirect_target(aborted):
+    """Return the address the scanner says the target redirects to, or the empty string
+    when its message is about something else.
+
+    The scanner refuses to follow the redirect itself even when asked to: its scope check
+    calls a method that current releases of its own public_suffix dependency no longer
+    provide, and the resulting error is swallowed and read as "out of scope". It does
+    name the destination in the message, though, which is enough to run the scan against
+    it directly.
+    """
+    match = re.search(
+        rf'{re.escape(REDIRECT_MARKER)}(https?://[^\s]+?)\.?(?:\s|$)', aborted
+    )
+    return match.group(1) if match else ''
+
+
+def from_wpscan(text):
+    """Label a message as the scanner's own and rewrite the option names in it to the
+    ones this check offers, so the advice it gives can be followed as written.
+
+    Whole option tokens are matched, which keeps `--user-agent` from being rewritten
+    inside `--random-user-agent`.
+    """
+    rewritten = re.sub(
+        r'(?<![\w-])--[a-z][a-z-]*',
+        lambda m: WPSCAN_OPTION_ALIASES.get(m.group(0), m.group(0)),
+        text,
+    )
+    return f'{WPSCAN_OUTPUT_PREFIX}{rewritten}'
+
+
+def normalize_url(url):
+    """Return the URL with a scheme. A bare host is completed to HTTPS rather than left
+    to the scanner, which still defaults to HTTP.
+
+    Starting on HTTPS also saves the redirect that a plain HTTP address answers with on
+    any site worth scanning, and a redirect is where the scanner is fragile: its scope
+    check silently fails against current releases of its own public_suffix dependency,
+    so --follow-redirect does not help there either.
+    """
+    if not url or '://' in url:
+        return url
+    return f'https://{url}'
 
 
 def has_enterprise_db(args):
@@ -514,20 +703,39 @@ def get_vuln_data_status(data, has_enterprise):
     return (False, 'the scan did not report whether the vulnerability database was used')
 
 
-def build_wpscan_command(args, enumerate_opts):
+def build_wpscan_command(args, enumerate_opts, http_auth=''):
     """Assemble the wpscan invocation as an argument list (argv). Every user supplied
     value sits in its own element and is bound to an option, so nothing can be picked up
     as a separate option and no shell is ever involved.
+
+    `http_auth` is the only secret that ends up here. The scanner takes it on its command
+    line and nowhere else, unlike the API token, which goes through the environment.
     """
     cmd = [
         'wpscan',
         f'--url={args.URL}',
         '--format=json',
         '--no-banner',
+        f'--detection-mode={args.WPSCAN_DETECTION_MODE}',
         f'--max-scan-duration={max(1, args.SCAN_TIMEOUT - SCAN_TIMEOUT_HEADROOM)}',
     ]
     if enumerate_opts:
         cmd.append(f'--enumerate={enumerate_opts}')
+    # A random user agent overrides the identifiable one, so only one of them is passed.
+    if args.WPSCAN_RANDOM_USER_AGENT:
+        cmd.append('--random-user-agent')
+    elif args.WPSCAN_USER_AGENT:
+        cmd.append(f'--user-agent={args.WPSCAN_USER_AGENT}')
+    if http_auth:
+        cmd.append(f'--http-auth={http_auth}')
+    if args.WPSCAN_PROXY:
+        cmd.append(f'--proxy={args.WPSCAN_PROXY}')
+    if args.WPSCAN_THROTTLE is not None:
+        cmd.append(f'--throttle={args.WPSCAN_THROTTLE}')
+    if args.WPSCAN_FOLLOW_REDIRECT:
+        cmd.append('--follow-redirect')
+    if args.WPSCAN_IGNORE_MAIN_REDIRECT:
+        cmd.append('--ignore-main-redirect')
     if args.INSECURE:
         cmd.append('--disable-tls-checks')
     if args.WPSCAN_NO_UPDATE:
@@ -562,7 +770,7 @@ def parse_scan(stdout, stderr=''):
     output = '\n'.join((stdout, stderr))
     if not output.strip():
         return (False, 'The scan returned no output.')
-    return (False, f'{extract_error(output)} ({reason})')
+    return (False, f'{from_wpscan(extract_error(output))} ({reason})')
 
 
 def shorten_finding(text, url):
@@ -874,9 +1082,18 @@ def main():
                 '`WP_HOME` or `WP_SITEURL` is set in wp-config.php, and that file is '
                 'usually not readable for the monitoring user. Pass --url instead.'
             )
+    args.URL = normalize_url(args.URL)
 
     token = lib.base.coe(resolve_api_token(args))
     enterprise = has_enterprise_db(args)
+    # The scanner takes these on its command line and nowhere else, so reading them from
+    # a file only keeps them out of the monitoring configuration, not out of the process
+    # list. That is still worth having, since the configuration is the copy that persists.
+    http_auth = args.WPSCAN_HTTP_AUTH or ''
+    if not http_auth and args.WPSCAN_HTTP_AUTH_FILE:
+        http_auth = lib.args.load_secret(
+            args.WPSCAN_HTTP_AUTH_FILE, '--wpscan-http-auth-file'
+        )
     if args.TEST is None:
         lib.base.coe(lib.shell.safe_cli_value(args.URL, '--url'))
         if not lib.shell.which('wpscan'):
@@ -897,7 +1114,7 @@ def main():
         enumerate_opts, dropped = adjust_enumerate(
             args.WPSCAN_ENUMERATE, bool(token) or enterprise, wpscan_version
         )
-        cmd = build_wpscan_command(args, enumerate_opts)
+        cmd = build_wpscan_command(args, enumerate_opts, http_auth)
         for choice, minimum in dropped:
             lib.base.verbose(
                 args.VERBOSE,
@@ -930,13 +1147,43 @@ def main():
             bool(token) or enterprise,
             max(ENUMERATE_MIN_VERSION.values(), key=lib.version.version),
         )
-        cmd = build_wpscan_command(args, enumerate_opts)
+        cmd = build_wpscan_command(args, enumerate_opts, http_auth)
         stdout, stderr, retc = lib.lftest.test(args.TEST)
 
     # wpscan writes a valid JSON document even when it aborts, so parse first and only
     # then look at the exit code. 0 means a clean scan, 5 means at least one
     # vulnerability was found; both are results. Everything else is a broken run.
     data = lib.base.coe(parse_scan(stdout, stderr))
+
+    # Follow the redirect ourselves. The scanner names the destination but will not go
+    # there, so the scan is repeated against the address it named. The aborted run cost
+    # a single request, because it gives up before any enumeration.
+    hops = 0
+    while (
+        args.TEST is None
+        and retc not in (0, 5)
+        and args.WPSCAN_FOLLOW_REDIRECT
+        and hops < MAX_REDIRECT_HOPS
+    ):
+        target = get_redirect_target(data.get('scan_aborted') or '')
+        if not target or target == args.URL:
+            break
+        hops += 1
+        lib.base.verbose(args.VERBOSE, f'Following the redirect to {target}...')
+        args.URL = lib.base.coe(lib.shell.safe_cli_value(target, '--url'))
+        cmd = build_wpscan_command(args, enumerate_opts, http_auth)
+        success, result = run_wpscan(cmd, token, args.SCAN_TIMEOUT)
+        if not success:
+            if result.startswith('Timeout after'):
+                lib.base.oao(
+                    f'Timeout after {args.SCAN_TIMEOUT}s while scanning {args.URL}.',
+                    STATE_WARN,
+                    always_ok=args.ALWAYS_OK,
+                )
+            lib.base.cu(result)
+        stdout, stderr, retc = result
+        data = lib.base.coe(parse_scan(stdout, stderr))
+
     if retc not in (0, 5):
         aborted = data.get('scan_aborted') or ''
         if SCAN_TIMEOUT_MARKER in aborted:
@@ -946,7 +1193,10 @@ def main():
                 STATE_WARN,
                 always_ok=args.ALWAYS_OK,
             )
-        lib.base.cu(aborted if aborted else extract_error('\n'.join((stdout, stderr))))
+        # Everything reported here is the scanner's own wording, so it is labelled as
+        # such: an admin must not go looking for a parameter of this check to fix it.
+        reason = aborted if aborted else extract_error('\n'.join((stdout, stderr)))
+        lib.base.cu(from_wpscan(reason))
 
     # read the local installation. An unreadable path is not an error: the check then
     # falls back to what the remote scan alone could see.

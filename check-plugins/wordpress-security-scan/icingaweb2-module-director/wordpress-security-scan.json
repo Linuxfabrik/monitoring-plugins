@@ -52,8 +52,23 @@
                 "--verbose": {
                     "set_if": "$wordpress_security_scan_verbose$"
                 },
+                "--wpscan-detection-mode": {
+                    "value": "$wordpress_security_scan_wpscan_detection_mode$"
+                },
                 "--wpscan-enumerate": {
                     "value": "$wordpress_security_scan_wpscan_enumerate$"
+                },
+                "--wpscan-follow-redirect": {
+                    "set_if": "$wordpress_security_scan_wpscan_follow_redirect$"
+                },
+                "--wpscan-http-auth": {
+                    "value": "$wordpress_security_scan_wpscan_http_auth$"
+                },
+                "--wpscan-http-auth-file": {
+                    "value": "$wordpress_security_scan_wpscan_http_auth_file$"
+                },
+                "--wpscan-ignore-main-redirect": {
+                    "set_if": "$wordpress_security_scan_wpscan_ignore_main_redirect$"
                 },
                 "--wpscan-no-update": {
                     "set_if": "$wordpress_security_scan_wpscan_no_update$"
@@ -61,6 +76,18 @@
                 "--wpscan-option": {
                     "value": "$wordpress_security_scan_wpscan_option$",
                     "repeat_key": true
+                },
+                "--wpscan-proxy": {
+                    "value": "$wordpress_security_scan_wpscan_proxy$"
+                },
+                "--wpscan-random-user-agent": {
+                    "set_if": "$wordpress_security_scan_wpscan_random_user_agent$"
+                },
+                "--wpscan-throttle": {
+                    "value": "$wordpress_security_scan_wpscan_throttle$"
+                },
+                "--wpscan-user-agent": {
+                    "value": "$wordpress_security_scan_wpscan_user_agent$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/wordpress-security-scan",
@@ -160,6 +187,51 @@
                     "datafield_id": 19,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 20,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 21,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 22,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 23,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 24,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 25,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 26,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 27,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 28,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -227,9 +299,14 @@
                 "wordpress_security_scan_scan_timeout": 600,
                 "wordpress_security_scan_unscored_severity": "warn",
                 "wordpress_security_scan_verbose": false,
+                "wordpress_security_scan_wpscan_detection_mode": "mixed",
                 "wordpress_security_scan_wpscan_enumerate": "vp,vt,tt,cb,dbe,bf,u",
+                "wordpress_security_scan_wpscan_follow_redirect": false,
+                "wordpress_security_scan_wpscan_ignore_main_redirect": false,
                 "wordpress_security_scan_wpscan_no_update": false,
-                "wordpress_security_scan_wpscan_option": []
+                "wordpress_security_scan_wpscan_option": [],
+                "wordpress_security_scan_wpscan_random_user_agent": false,
+                "wordpress_security_scan_wpscan_user_agent": "Linuxfabrik Monitoring Plugins"
             },
             "volatile": null,
             "zone": null,
@@ -323,6 +400,31 @@
                 }
             ],
             "uuid": "1cd2b36d-3364-4ce0-bfb2-a5f94565ae05"
+        },
+        "wordpress_security_scan_wpscan_detection_mode_list": {
+            "list_name": "wordpress_security_scan_wpscan_detection_mode_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "aggressive",
+                    "entry_value": "Aggressive",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "mixed",
+                    "entry_value": "Mixed",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "passive",
+                    "entry_value": "Passive",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "093b953a-6e0e-4fc0-9078-506cba06eda3"
         }
     },
     "Datafield": {
@@ -481,7 +583,7 @@
         "15": {
             "varname": "wordpress_security_scan_url",
             "caption": "Wordpress Security Scan: URL",
-            "description": "URL of the WordPress site to scan. If not specified, it is taken from the `WP_HOME` or `WP_SITEURL` constant of the installation below --path, which only works where the installation pins them and the configuration file is readable. Example: `--url=https://www.example.com`",
+            "description": "URL of the WordPress site to scan. A URL without a scheme is completed to `https://`. If not specified, it is taken from the `WP_HOME` or `WP_SITEURL` constant of the installation below --path, which only works where the installation pins them and the configuration file is readable. Example: `--url=https://www.example.com`",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -499,9 +601,22 @@
             "uuid": "404345b3-f30f-406b-992f-1958a35d7e30"
         },
         "17": {
+            "varname": "wordpress_security_scan_wpscan_detection_mode",
+            "caption": "Wordpress Security Scan: Wpscan Detection Mode",
+            "description": "How hard the scan looks for components. `passive` only reads what the site shows on its own, `aggressive` requests known file locations directly and finds the most, `mixed` does both. Aggressive detection produces far more requests and takes correspondingly longer, so raise --scan-timeout with it.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "wordpress_security_scan_wpscan_detection_mode_list"
+            },
+            "uuid": "72017484-86d1-478a-9501-c951d5dafbbc"
+        },
+        "18": {
             "varname": "wordpress_security_scan_wpscan_enumerate",
             "caption": "Wordpress Security Scan: Wpscan Enumerate",
-            "description": "Enumeration options passed to wpscan (its `--enumerate`). Comma-separated. `vp`/`vt` (vulnerable plugins/themes) need vulnerability data and are downgraded to `p`/`t` automatically when none is available, because wpscan aborts otherwise. `bf` (backup folders) needs wpscan 4.0.0 or newer and is dropped automatically on older releases, which reject it as an unknown choice.",
+            "description": "Enumeration options passed to wpscan (its `--enumerate`). Comma-separated. `vp`/`vt` (vulnerable plugins/themes) need vulnerability data and are downgraded to `p`/`t` automatically when none is available, because wpscan aborts otherwise. `bf` (backup folders) needs wpscan 4.0.0 or newer and is skipped automatically on older releases.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -509,7 +624,47 @@
             },
             "uuid": "b034ccd0-3653-4ee5-aea9-d483969578cf"
         },
-        "18": {
+        "19": {
+            "varname": "wordpress_security_scan_wpscan_follow_redirect",
+            "caption": "Wordpress Security Scan: Wpscan Follow Redirect?",
+            "description": "Scan the target the site redirects to, instead of reporting the redirection and stopping. A site that answers on `www.example.com` but serves itself under `example.com` needs this, as does a plain HTTP URL redirecting to HTTPS. Only one redirect is followed. Pointing --url at the final address is still preferable, because the scan then spends no request on the redirect at all.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "f6d3d97c-c9a3-4cef-9175-ca1f33b428de"
+        },
+        "20": {
+            "varname": "wordpress_security_scan_wpscan_http_auth",
+            "caption": "Wordpress Security Scan: Wpscan Http Auth",
+            "description": "Credentials for HTTP basic authentication in front of the site, as `login:password`. Unlike the API token, the scanner accepts these only on its command line, where they are visible to every user on the scanning host while the scan runs. Prefer --http-auth-file, which at least keeps them out of the monitoring configuration. Takes precedence over --http-auth-file.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "0d396e5d-6e02-4df4-ad9b-0fcf76fd2109"
+        },
+        "21": {
+            "varname": "wordpress_security_scan_wpscan_http_auth_file",
+            "caption": "Wordpress Security Scan: Wpscan Http Auth File",
+            "description": "Path to the file containing the HTTP basic authentication credentials, as `login:password`. Only the first line is read. Keep the file readable only by the monitoring user.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "fbe90226-97ed-4951-aa81-465aac721b8c"
+        },
+        "22": {
+            "varname": "wordpress_security_scan_wpscan_ignore_main_redirect",
+            "caption": "Wordpress Security Scan: Wpscan Ignore Main Redirect?",
+            "description": "Scan the address given in --url even though it redirects elsewhere. Use it where the redirect is the very thing to look behind, for example a compromised site redirecting its visitors away. Mutually exclusive with --follow-redirect in effect, since the two ask for opposite behaviour.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "02847abe-eeb3-409d-b1f1-54a4d3b0a3e7"
+        },
+        "23": {
             "varname": "wordpress_security_scan_wpscan_no_update",
             "caption": "Wordpress Security Scan: Wpscan No Update?",
             "description": "Skip the update of the local vulnerability database before scanning. Speeds up the check, at the price of scanning against possibly stale vulnerability data.",
@@ -518,7 +673,7 @@
             "settings": {},
             "uuid": "35889eb8-6903-46ec-983b-98bb39f50033"
         },
-        "19": {
+        "24": {
             "varname": "wordpress_security_scan_wpscan_option",
             "caption": "Wordpress Security Scan: Wpscan Option",
             "description": "Additional raw option to pass to the wpscan call, for options that have no dedicated parameter here. Can be specified multiple times. Example: `--wpscan-option=--plugins-detection=aggressive`",
@@ -528,6 +683,48 @@
                 "visibility": "visible"
             },
             "uuid": "84ee7d12-7c4d-4fab-8b90-78e5e678baec"
+        },
+        "25": {
+            "varname": "wordpress_security_scan_wpscan_proxy",
+            "caption": "Wordpress Security Scan: Wpscan Proxy",
+            "description": "Proxy the scan goes through, as `protocol://host:port`. Example: `--proxy=http://192.0.2.1:3128`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2ec0bd47-cb12-4985-b9d2-c4fa59ceca77"
+        },
+        "26": {
+            "varname": "wordpress_security_scan_wpscan_random_user_agent",
+            "caption": "Wordpress Security Scan: Wpscan Random User Agent?",
+            "description": "Use a random user agent for the scan instead of the one --user-agent sets. Only useful where a web application firewall blocks the scan outright, which the scanner reports as a 403. It makes the scan harder to recognize in the target's access log and impossible to allow-list, so the identifiable default is the better choice on a site you run yourself.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "5d36ba3e-2518-41a8-b1eb-a4e07e1fb156"
+        },
+        "27": {
+            "varname": "wordpress_security_scan_wpscan_throttle",
+            "caption": "Wordpress Security Scan: Wpscan Throttle",
+            "description": "Milliseconds to wait between requests, to keep the scan from overwhelming the target or tripping a rate limit. Setting it makes the scanner use a single thread instead of five, so the scan takes considerably longer; raise --scan-timeout with it. Not throttled when unset. Example: `--throttle=200`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ac0314b0-e0b5-429e-a89a-3461783a354e"
+        },
+        "28": {
+            "varname": "wordpress_security_scan_wpscan_user_agent",
+            "caption": "Wordpress Security Scan: Wpscan User Agent",
+            "description": "How the scan identifies itself to the target. The default names the monitoring rather than the scanner, so the daily scan is recognizable in the target's access log and can be allow-listed in a web application firewall or in fail2ban.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "055930aa-d9c4-4144-855e-138c04156f85"
         }
     }
 }

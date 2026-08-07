@@ -6,7 +6,7 @@ Runs a WordPress security scan against a site and reports what an attacker can s
 
 **Important Notes:**
 
-* Requires the command-line tool `wpscan` in `PATH`. It is a Ruby gem: `gem install wpscan`. Version 4.0.0 or newer is recommended; on an older release the backup folder enumeration (`bf`) is dropped automatically, because those releases reject it as an unknown choice and would not scan at all.
+* Requires the command-line tool `wpscan` in `PATH`. It is a Ruby gem: `gem install wpscan`. Version 4.0.0 or newer is recommended; on an older release the backup folder enumeration is skipped automatically.
 * A missing `wpscan` is reported as WARNING, not as UNKNOWN. WordPress is a preferred target, so the scanner belongs on a host serving it, and its absence is a state the administrator has to fix rather than an internal problem of this check.
 * A full scan takes minutes, not seconds. `--scan-timeout` therefore defaults to 600 seconds instead of the 8 seconds other checks use, and the shipped Director command raises its own timeout accordingly. Schedule the check once per day.
 * Without a WPScan API token there is no vulnerability data at all. Version detection, the outdated flags and every exposure still work, so the check remains useful, but the "known vulnerabilities" class stays empty. The check says so in its output instead of reporting a clean result, and `--no-vuln-data-severity` decides whether that alerts. See [API Token](#api-token).
@@ -19,7 +19,7 @@ Runs a WordPress security scan against a site and reports what an attacker can s
 
 Two sources are merged:
 
-* The remote scan, run as `wpscan --url=<url> --format=json`. It contributes the known vulnerabilities including their CVSS scores, the exposures, the interesting findings and the enumerable usernames. `wpscan --version` is called first to find out which enumeration choices the installed release accepts and how old its vulnerability database is.
+* The remote scan, run as `wpscan --url=<url> --format=json`. It contributes the known vulnerabilities including their CVSS scores, the exposures, the interesting findings and the enumerable usernames. The installed `wpscan` version is determined first, so the scan is adapted to what that release supports.
 * The local installation below `--path`. The check reads `wp-includes/version.php` for the core version, the plugin and theme headers below `wp-content/` for the installed components and their versions, and `wp-config.php` for the site URL when `--url` is not given.
 
 The second source exists because a black box scan can only find plugins and themes it is able to fingerprint from the outside. On a site with seventeen plugins it may recognise four. The check therefore reports both numbers ("Installed locally: 17 plugins, 3 themes. Detected by the scan: 4 plugins, 3 themes.") so the coverage of the scan is visible instead of implied.
@@ -54,9 +54,19 @@ usage: wordpress-security-scan [-h] [-V] [--always-ok] [--api-token API_TOKEN]
                                [--no-vuln-data-severity {ok,warn,crit,unknown}]
                                [--path PATH] [--scan-timeout SCAN_TIMEOUT]
                                [--unscored-severity {ok,warn,crit}] [-u URL]
-                               [-v] [--wpscan-enumerate WPSCAN_ENUMERATE]
+                               [-v]
+                               [--wpscan-detection-mode {aggressive,mixed,passive}]
+                               [--wpscan-enumerate WPSCAN_ENUMERATE]
+                               [--wpscan-follow-redirect]
+                               [--wpscan-http-auth WPSCAN_HTTP_AUTH]
+                               [--wpscan-http-auth-file WPSCAN_HTTP_AUTH_FILE]
+                               [--wpscan-ignore-main-redirect]
                                [--wpscan-no-update]
                                [--wpscan-option WPSCAN_OPTION]
+                               [--wpscan-proxy WPSCAN_PROXY]
+                               [--wpscan-random-user-agent]
+                               [--wpscan-throttle WPSCAN_THROTTLE]
+                               [--wpscan-user-agent WPSCAN_USER_AGENT]
 
 Runs a WordPress security scan against a site and reports what an attacker can
 see from the outside. Combines the black box scan with the inventory read from
@@ -148,7 +158,8 @@ options:
                         for a large share of its entries, so treating them all
                         as critical would page for every one of them. Default:
                         warn
-  -u, --url URL         URL of the WordPress site to scan. If not specified,
+  -u, --url URL         URL of the WordPress site to scan. A URL without a
+                        scheme is completed to `https://`. If not specified,
                         it is taken from the `WP_HOME` or `WP_SITEURL`
                         constant of the installation below --path, which only
                         works where the installation pins them and the
@@ -157,6 +168,13 @@ options:
   -v, --verbose         Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
                         hood.
+  --wpscan-detection-mode {aggressive,mixed,passive}
+                        How hard the scan looks for components. `passive` only
+                        reads what the site shows on its own, `aggressive`
+                        requests known file locations directly and finds the
+                        most, `mixed` does both. Aggressive detection produces
+                        far more requests and takes correspondingly longer, so
+                        raise --scan-timeout with it. Default: mixed
   --wpscan-enumerate WPSCAN_ENUMERATE
                         Enumeration options passed to wpscan (its
                         `--enumerate`). Comma-separated. `vp`/`vt` (vulnerable
@@ -164,8 +182,37 @@ options:
                         downgraded to `p`/`t` automatically when none is
                         available, because wpscan aborts otherwise. `bf`
                         (backup folders) needs wpscan 4.0.0 or newer and is
-                        dropped automatically on older releases, which reject
-                        it as an unknown choice. Default: vp,vt,tt,cb,dbe,bf,u
+                        skipped automatically on older releases. Default:
+                        vp,vt,tt,cb,dbe,bf,u
+  --wpscan-follow-redirect
+                        Scan the target the site redirects to, instead of
+                        reporting the redirection and stopping. A site that
+                        answers on `www.example.com` but serves itself under
+                        `example.com` needs this, as does a plain HTTP URL
+                        redirecting to HTTPS. Only one redirect is followed.
+                        Pointing --url at the final address is still
+                        preferable, because the scan then spends no request on
+                        the redirect at all.
+  --wpscan-http-auth WPSCAN_HTTP_AUTH
+                        Credentials for HTTP basic authentication in front of
+                        the site, as `login:password`. Unlike the API token,
+                        the scanner accepts these only on its command line,
+                        where they are visible to every user on the scanning
+                        host while the scan runs. Prefer --http-auth-file,
+                        which at least keeps them out of the monitoring
+                        configuration. Takes precedence over --http-auth-file.
+  --wpscan-http-auth-file WPSCAN_HTTP_AUTH_FILE
+                        Path to the file containing the HTTP basic
+                        authentication credentials, as `login:password`. Only
+                        the first line is read. Keep the file readable only by
+                        the monitoring user.
+  --wpscan-ignore-main-redirect
+                        Scan the address given in --url even though it
+                        redirects elsewhere. Use it where the redirect is the
+                        very thing to look behind, for example a compromised
+                        site redirecting its visitors away. Mutually exclusive
+                        with --follow-redirect in effect, since the two ask
+                        for opposite behaviour.
   --wpscan-no-update    Skip the update of the local vulnerability database
                         before scanning. Speeds up the check, at the price of
                         scanning against possibly stale vulnerability data.
@@ -174,6 +221,32 @@ options:
                         options that have no dedicated parameter here. Can be
                         specified multiple times. Example: `--wpscan-
                         option=--plugins-detection=aggressive`
+  --wpscan-proxy WPSCAN_PROXY
+                        Proxy the scan goes through, as
+                        `protocol://host:port`. Example:
+                        `--proxy=http://192.0.2.1:3128`
+  --wpscan-random-user-agent
+                        Use a random user agent for the scan instead of the
+                        one --user-agent sets. Only useful where a web
+                        application firewall blocks the scan outright, which
+                        the scanner reports as a 403. It makes the scan harder
+                        to recognize in the target's access log and impossible
+                        to allow-list, so the identifiable default is the
+                        better choice on a site you run yourself.
+  --wpscan-throttle WPSCAN_THROTTLE
+                        Milliseconds to wait between requests, to keep the
+                        scan from overwhelming the target or tripping a rate
+                        limit. Setting it makes the scanner use a single
+                        thread instead of five, so the scan takes considerably
+                        longer; raise --scan-timeout with it. Not throttled
+                        when unset. Example: `--throttle=200`
+  --wpscan-user-agent WPSCAN_USER_AGENT
+                        How the scan identifies itself to the target. The
+                        default names the monitoring rather than the scanner,
+                        so the daily scan is recognizable in the target's
+                        access log and can be allow-listed in a web
+                        application firewall or in fail2ban. Default:
+                        Linuxfabrik Monitoring Plugins
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/wordpress-security-scan/
@@ -283,6 +356,8 @@ In detail:
 * UNKNOWN if the token file cannot be read, if `--url` is neither given nor derivable from `wp-config.php`, if the scan aborted (for example because the target does not run WordPress), or if the scan produced no parsable output. A scan that failed before writing its document reports in plain text; that text is carried into the message instead of being discarded.
 * `--always-ok` suppresses all alerts and always returns OK.
 
+A message beginning with `Output from wpscan:` is the scanner's own wording, passed through unchanged. The options such a message suggests are `wpscan` options: `--wpscan-follow-redirect` and `--wpscan-ignore-main-redirect` are parameters of this check as well, everything else reaches the scanner through `--wpscan-option`.
+
 The coverage numbers ("Detected by the scan: 4 plugins") never influence the state. A component the scanner cannot fingerprint is a limit of black box scanning, not something the administrator can fix on the monitored site.
 
 
@@ -360,9 +435,46 @@ zypper install ruby-devel gcc make   # SLES, openSUSE
 
 The half-built gem the failed run leaves behind does no harm; the next `gem install wpscan` replaces it. If the build still fails after installing the headers, the real compiler error is in the `gem_make.out` the message points to, not in the summary above.
 
+### `The URL supplied redirects to ...`
+
+```text
+Output from wpscan: The URL supplied redirects to https://example.com/. Use the
+--wpscan-follow-redirect option to automatically scan the redirected URL, the
+--wpscan-ignore-main-redirect option to ignore the redirection and scan the
+target, or change the --url option value to the redirected URL.
+```
+
+`wpscan` names its own options in such messages. They are rewritten to the ones this check offers, so the advice can be followed as written.
+
+The address in `--url` is not the one the site serves itself under. A redirect from `www.example.com` to `example.com`, or from HTTP to HTTPS, is the usual cause.
+
+Pointing `--url` at the final address is the cleanest fix, because the scan then spends no requests on the redirect:
+
+```bash
+./wordpress-security-scan --url=https://example.com
+```
+
+Both options named in the message are parameters of this check as well, so they can be copied straight from it:
+
+```bash
+./wordpress-security-scan --url=https://www.example.com --wpscan-follow-redirect
+```
+
+Note that `wpscan` does not act on its own `--follow-redirect` option; that is a bug in `wpscan`. This check therefore follows the redirect itself, so `--wpscan-follow-redirect` works as described. One redirect is followed, so a site redirecting in a circle is not scanned repeatedly.
+
+Passing the final address stays preferable, because the scan then spends no request on the redirect at all:
+
+```bash
+./wordpress-security-scan --url=https://example.com
+```
+
+`--url` without a scheme is completed to `https://` here rather than to the `http://` the scanner would use, which avoids the redirect a plain HTTP address answers with.
+
+Use `--wpscan-ignore-main-redirect` where the redirect is the thing to look behind, for example a compromised site sending its visitors elsewhere. It scans the address given, redirect and all.
+
 ### `The remote website is up, but does not seem to be running WordPress.`
 
-The scanner reached the target but could not confirm a WordPress installation behind it. In most cases `--url` points at a host name the site does not answer on under that name: the site's own `siteurl` is different, so all the links in the response point elsewhere and the fingerprint fails. Use the URL the site actually serves itself under. A reverse proxy or a redirect to a different host causes the same result; `--wpscan-option=--follow-redirect` makes the scanner follow it.
+The scanner reached the target but could not confirm a WordPress installation behind it. In most cases `--url` points at a host name the site does not answer on under that name: the site's own `siteurl` is different, so all the links in the response point elsewhere and the fingerprint fails. Use the URL the site actually serves itself under. A reverse proxy or a redirect to a different host causes the same result; `--wpscan-follow-redirect` makes the scanner follow it.
 
 If the target really is WordPress but hidden behind an unusual layout, `--wpscan-option=--force` skips the check.
 
@@ -422,9 +534,19 @@ Ignored findings are removed from the state, from the table and from the counter
 
 A migration typically leaves the artifacts this check treats as exposures: a `wp-config.php.bak` next to the real one, an SQL dump in the document root, a Duplicator installer log, a backup directory with directory listing enabled. These are exactly the files an attacker looks for first, so the CRITICAL is correct. Remove them from the document root rather than suppressing the finding, and keep backups outside the web root.
 
+### The scan goes somewhere unexpected, or reports the target as down
+
+`wpscan` honours `http_proxy`, `https_proxy` and `no_proxy` from the environment of the monitoring user on its own. A proxy exported there routes the whole scan through it silently, and a proxy that is no longer reachable makes every target look down:
+
+```text
+Output from wpscan: The url supplied 'https://www.example.com/' seems to be down (Could not connect to server)
+```
+
+Check the environment the check actually runs in, not your login shell. `--wpscan-proxy` sets a proxy but cannot unset one; to bypass an inherited proxy, add the target to `no_proxy` or clear the variables in the service definition.
+
 ### The scan is visible in the access log or triggers fail2ban
 
-The scan probes for hundreds of known file locations, which produces a burst of 404s from the monitoring host. Whitelist the monitoring host in the WAF and in fail2ban, and keep the check interval at once per day. `--wpscan-option=--throttle=200` slows the scan down to one request every 200 milliseconds if the target cannot take the load.
+The scan probes for hundreds of known file locations, which produces a burst of 404s from the monitoring host. Whitelist the monitoring host in the WAF and in fail2ban, and keep the check interval at once per day. `--wpscan-throttle=200` slows the scan down to one request every 200 milliseconds if the target cannot take the load.
 
 
 ## Credits, License
