@@ -94,6 +94,34 @@ TESTS = [
         'assert-in': ['No disk pool configured'],
     },
     {
+        # `--brief` is a display filter: the healthy disk disappears from the table
+        # while the ones that need attention stay.
+        'id': 'crit-brief-hides-the-healthy-disk',
+        'test': 'stdout/disks-one-faulty,,0',
+        'params': f'{COMMON} --brief',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['SN-A2', 'SN-B1', 'SN-B2'],
+        'assert-not-in': ['SN-A1 '],
+    },
+    {
+        # Perfdata is never filtered, so the disk `--brief` hides still trends.
+        'id': 'crit-brief-keeps-the-perfdata-complete',
+        'test': 'stdout/disks-one-faulty,,0',
+        'params': f'{COMMON} --brief',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ["'FSM01_0_1_status'=0", "'FSM01_0_2_status'=1"],
+    },
+    {
+        # Nothing to report on a healthy cluster, so `--brief` prints the summary
+        # and no table at all.
+        'id': 'ok-brief-prints-no-table',
+        'test': 'stdout/disks-healthy,,0',
+        'params': f'{COMMON} --brief',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+        'assert-not-in': ['Remaining Life', 'Nothing checked'],
+    },
+    {
         # A faulty pool with healthy disks: the disks alone say nothing about
         # whether the pool they belong to is still serving.
         'id': 'crit-faulty-pool',

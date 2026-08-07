@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080705'
+__version__ = '2026080706'
 
 DESCRIPTION = """Checks the health, link status and optical power of the optical modules (SFP) of a
 Huawei OceanStor Dorado storage system via the REST API (/sfp endpoint). Alerts when a module
@@ -534,8 +534,10 @@ def main():
             warn, crit = thresholds
             # Without an operator-supplied range, the module's own operating range is
             # what it is judged against: a data sheet per transceiver beats one number
-            # for the whole appliance.
-            if not crit and lower is not None and upper is not None:
+            # for the whole appliance. A module that reports its bounds the wrong way
+            # round is skipped rather than turned into an invalid Nagios range, which
+            # would end the whole check in UNKNOWN without naming the module.
+            if not crit and lower is not None and upper is not None and lower < upper:
                 crit = f'{lower}:{upper}'
 
             power_state = STATE_OK

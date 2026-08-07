@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080705'
+__version__ = '2026080706'
 
 DESCRIPTION = """Checks the health status of all backup power modules (BBU) on a Huawei OceanStor
 Dorado storage system via the REST API (/backup_power endpoint). Alerts when any
@@ -378,7 +378,7 @@ def main():
             )
             power['REMAINLIFEDAYS'] = remaining_life_days * 24 * 60 * 60
         else:
-            power['REMAINLIFEDAYS'] = 0
+            power['REMAINLIFEDAYS'] = None
         # The REST Interface References document this field as "Unit: V/10", so a healthy
         # module reads as 16.1 rather than 161.
         voltage = lib.huawei_dorado.as_code(power.get('VOLTAGE'))
@@ -421,7 +421,7 @@ def main():
                 uom='s',
                 _min=0,
             )
-            if power['REMAINLIFEDAYS'] > 0
+            if power['REMAINLIFEDAYS']
             else ''
         )
         perfdata += lib.base.get_perfdata(
@@ -439,8 +439,13 @@ def main():
             else f'{power["VOLTAGE"]}'
             f'{lib.base.state2str(voltage_state, prefix=" ")}'
         )
-        if power['REMAINLIFEDAYS'] > 0:
-            power['REMAINLIFEDAYS'] = lib.human.seconds2human(power['REMAINLIFEDAYS'])
+        # A module that does not track its remaining life gets a dash, as everywhere
+        # else in the family. A literal `0` would read as a dead battery.
+        power['REMAINLIFEDAYS'] = (
+            '--'
+            if not power['REMAINLIFEDAYS']
+            else lib.human.seconds2human(power['REMAINLIFEDAYS'])
+        )
 
         table_data.append(power)
 

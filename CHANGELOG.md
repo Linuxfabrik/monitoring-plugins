@@ -17,6 +17,7 @@ Monitoring Plugins:
 * Cumulative counters are reported as per-second rates (or plain values) instead of ever-growing totals, which fixes Grafana graphs and aggregations. Some performance-data metric names change, so re-import the affected Grafana dashboards after updating (cpu-usage, disk-io, fs-xfs-stats, jitsi-videobridge-stats, network-io, nginx-status, nodebb-cache, nodebb-errors, procs, redis-status, starface-database-stats, valkey-status, wildfly-gc-status) ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 * disk-io: is WARN-only (never CRITICAL) and no longer measures I/O wait, which is unreliable on multi-core hosts. `--critical`, `--iowait-warning` and `--iowait-critical` are deprecated and ignored, and the Grafana dashboard has to be re-imported
 * huawei-dorado-\*: performance data metric names are lower case with underscores, huawei-dorado-system and huawei-dorado-host report their capacities in bytes instead of raw 512-byte sectors, huawei-dorado-power and huawei-dorado-controller report their voltages in volts instead of the raw millivolts and tenths of a volt the appliance counts them in, and huawei-dorado-backup-power no longer graphs the discharge count, a counter that only ever grows. Re-import the affected Grafana dashboards after updating
+* huawei-pacific-quota: `--ignore-regex` is now `--ignore`, and it is joined by `--match`, so the check filters the way the rest of the family does. The old name keeps working, but the pattern is anchored at the start of the share name instead of matching anywhere: prefix an existing pattern with `.*` to keep it matching
 * redfish-\*: the Redfish API URL is a mandatory `--url`, replacing the misleading localhost default. Add `--url` to every Redfish command ([#1306](https://github.com/Linuxfabrik/monitoring-plugins/issues/1306))
 
 ### Added
@@ -34,7 +35,7 @@ Monitoring Plugins:
 * huawei-dorado-backup-power: `--warning`/`--critical` alert on a backup power module running out of remaining life, and `--warning-voltage`/`--critical-voltage` on one whose voltage leaves the range you expect, which is where a lost cell shows up long before the health status changes
 * `--brief` hides the rows that are within the thresholds on six further checks whose output grows with the size of the array, so a quiet system prints one line instead of hundreds. Perfdata and alerting are unaffected (huawei-dorado-disk, huawei-dorado-host, huawei-dorado-hypermetropair, huawei-dorado-port, huawei-dorado-sfp, huawei-pacific-disk)
 * huawei-pacific-node: `--warranty-severity` alerts on a node whose warranty has expired or is about to, which is what a hardware refresh gets planned from. Off by default, because a warranty is a commercial fact rather than a fault
-* `--match`, `--ignore` and `--no-match-severity` limit the check to the objects whose name, location or identifier matches a regex, on the five Huawei OceanStor Pacific checks that did not have them yet, so the Pacific family filters the same way the Dorado one already does (huawei-pacific-alarm, huawei-pacific-disk, huawei-pacific-fan, huawei-pacific-node, huawei-pacific-power)
+* `--match`, `--ignore` and `--no-match-severity` limit the check to the objects whose name, location or identifier matches a regex, on the six Huawei OceanStor Pacific checks that did not have them yet, so the Pacific family filters the same way the Dorado one already does (huawei-pacific-alarm, huawei-pacific-disk, huawei-pacific-fan, huawei-pacific-node, huawei-pacific-power, huawei-pacific-quota)
 * `--verbose` prints what every API request returned on all 24 Huawei checks, so the appliance's own answers can be read while working out how it reports something. Session tokens are redacted, and the output is as long as those answers are, so it is a debugging aid rather than something to leave switched on (huawei-dorado-\*, huawei-pacific-\*)
 * huawei-dorado-controller: `--performance` additionally reports the average read and write I/O size and the read and write response times, which the appliance keeps for a controller and the check did not ask for
 * huawei-dorado-lun, huawei-dorado-storagepool: the fill threshold the storage administrator configured on the appliance itself is honoured, so the check and the management GUI agree on when a LUN or a pool is full instead of each having their own opinion. `--device-threshold-severity` tunes it and defaults to WARNING
@@ -159,15 +160,25 @@ Monitoring Plugins:
 * huawei-dorado-backup-power: the README names the metrics the check actually emits, so a dashboard built from it no longer graphs nothing
 * huawei-dorado-\*: a component without a temperature sensor no longer reports CRITICAL as soon as a temperature threshold is set at all, and is left out of the graph instead of showing a permanent 0 degrees
 * huawei-dorado-\*: a firmware that leaves an optional field out no longer takes the check to UNKNOWN, and the columns it said nothing about print as "--" instead of replacing the whole table with an error line
+* huawei-dorado-backup-power: a module that does not track its remaining life prints a dash instead of a zero that read like a dead battery
 * huawei-dorado-disk: a spinning disk no longer graphs a wear level of -1, and a disk whose media reports no health score no longer graphs 255 out of 100
 * huawei-dorado-hypermetrodomain: a faulty HyperMetro domain is detected. It was read through the wrong status table, where a fault came out looking like normal operation
 * huawei-dorado-hypermetropair: a firmware that sends its status codes as numbers rather than as text no longer turns every healthy pair into a warning, and a pair that has never synchronized no longer ends the check in a Python error
+* huawei-dorado-hypermetropair: a pair that has never synchronized reports "never" instead of a synchronization dated 1970
+* huawei-dorado-lun: the fill level is marked in the row that breached the warning or critical threshold, which used to show as an exit code without a visible cause
 * huawei-dorado-lun, huawei-dorado-storagepool: an appliance with more objects than the check reads in one run no longer opens with "Everything is ok." while exiting WARNING
+* huawei-dorado-port: reports what the appliance said when it refused to list the ports, instead of always blaming the API user's permissions
+* huawei-dorado-sfp: an optical module reporting its operating range the wrong way round no longer takes the whole check to UNKNOWN
 * huawei-dorado-system: an appliance without a storage pool, and a firmware that leaves a capacity out, no longer end the check in a Python error
 * huawei-dorado-system: reports the storage system model even on a firmware that only sends its numeric code
+* huawei-dorado-system: reports the real capacity on an array that is not formatted with 512-byte sectors, where every capacity used to be understated
 * huawei-pacific-alarm: reads every active alarm instead of stopping after the first 100, decodes the HTML entities the appliance embeds in alarm names, and warns when the list it reads is still incomplete
 * huawei-pacific-disk: alerts on a faulty or stopped disk pool, which used to go unnoticed as long as its disks reported healthy
+* huawei-pacific-disk: `--brief` hides the healthy disks it promised to hide
 * huawei-pacific-node: an OAM agent that is not being monitored no longer warns forever; it is a "nothing to report" marker, not a fault
+* huawei-pacific-quota: a quota the appliance counts in KB, MB or GB is read in that unit, so the reported quota and fill level are no longer off by up to a factor of a billion
+* huawei-pacific-quota: a firmware that ignores the paging parameter can no longer keep the check running until its timeout
+* huawei-pacific-system: the cluster fill level is calculated from the raw cluster capacities, so it can reach a threshold at all, and a cluster reporting no capacity yet no longer ends the check in a Python error
 * journald-query: a relative `--since` such as `-8h` from the Icinga Director works again ([#1264](https://github.com/Linuxfabrik/monitoring-plugins/issues/1264))
 * logfile: detects a logfile that an application rewrites from the beginning instead of appending to, which until now hid every new line from the check ([#1330](https://github.com/Linuxfabrik/monitoring-plugins/issues/1330))
 * lynis: audits produce a report on Debian, Ubuntu and other distributions that keep lynis outside `/usr/share` ([#1262](https://github.com/Linuxfabrik/monitoring-plugins/issues/1262))

@@ -20,7 +20,7 @@ Checks how full the quotas of a Huawei OceanStor Pacific storage system are via 
 * Enumerates the file systems (`/file_service/file_systems`) and their dtrees (`/file_service/dtrees`), then queries the quotas of each of them (`/file_service/fs_quota`). The quota endpoint returns at most 100 records per query, so the results are fetched page by page
 * Authenticates via a session token (`X-Auth-Token`), cached in a SQLite database to avoid repeated logins
 * If the appliance rejects a request (for example after a session reset or timeout), the check logs in again and retries
-* Shares can be excluded by `--ignore-regex` (Python regular expression)
+* Shares can be limited with `--match` and excluded with `--ignore` (Python regular expressions, anchored at the start of the share name)
 
 
 ## Fact Sheet
@@ -41,8 +41,8 @@ Checks how full the quotas of a Huawei OceanStor Pacific storage system are via 
 ```text
 usage: huawei-pacific-quota [-h] [-V] [--always-ok] [--brief]
                             [--cache-expire CACHE_EXPIRE] [-c CRIT]
-                            [--ignore-regex IGNORE_REGEX] [--insecure]
-                            [--lengthy] [--no-insecure]
+                            [--ignore IGNORE] [--insecure] [--lengthy]
+                            [--match MATCH] [--no-insecure]
                             [--no-match-severity {ok,warn,crit,unknown}]
                             [--no-perfdata] [--no-proxy] [--password PASSWORD]
                             [--password-file PASSWORD_FILE]
@@ -71,13 +71,26 @@ options:
                         cache expires, in minutes. Default: 15
   -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
                         Default: 90
-  --ignore-regex IGNORE_REGEX
-                        Any item matching this Python regex will be ignored.
-                        Can be specified multiple times. Example:
-                        `(?i)linuxfabrik` for a case-insensitive match.
+  --ignore IGNORE       Skip quotas. Any item matching this Python regex will
+                        be ignored. Can be specified multiple times. Example:
+                        `(?i)linuxfabrik` for a case-insensitive match. The
+                        regex is anchored at the start of the string (Python
+                        `re.match`) and is matched against the share name,
+                        including the owner of a user or user group quota, so
+                        prefix with `.*` to match anywhere.
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --lengthy             Extended reporting.
+  --match MATCH         Filter by quotas. Filter by this Python regular
+                        expression. Case-sensitive by default; use `(?i)` for
+                        case-insensitive matching. Can be specified multiple
+                        times. Examples: `(?i)example` to match "example"
+                        regardless of case. `^(?!.*example).*$` to match any
+                        string except "example" (negative lookahead). The
+                        regex is anchored at the start of the string (Python
+                        `re.match`) and is matched against the share name,
+                        including the owner of a user or user group quota, so
+                        prefix with `.*` to match anywhere.
   --no-insecure         Verify the TLS certificate against the system trust
                         store, overriding the insecure default of this check.
                         Use it once the endpoint presents a publicly trusted
@@ -191,8 +204,8 @@ fs1/dt1 (alice) ! 1013.8MiB ! 1.0GiB ! 99%  ! [CRITICAL]
 * WARN if the used space of any checked quota is at or above `--warning` (default: 80).
 * CRIT if the used space of any checked quota is at or above `--critical` (default: 90).
 * The worst state of all checked quotas becomes the state of the check.
-* OK with "Nothing checked." if no quota matched, for example if no hard quota is configured anywhere or `--ignore-regex` excluded everything. Use `--no-match-severity` to report WARN, CRIT or UNKNOWN instead.
-* UNKNOWN on invalid API responses or responses with error codes, and on an invalid `--ignore-regex` pattern.
+* OK with "Nothing checked." if no quota matched, for example if no hard quota is configured anywhere or `--match`/`--ignore` excluded everything. Use `--no-match-severity` to report WARN, CRIT or UNKNOWN instead.
+* UNKNOWN on invalid API responses or responses with error codes, and on an invalid `--match` or `--ignore` pattern.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -215,7 +228,7 @@ Check the `--url`, `--username` and `--password` parameters. Verify that the API
 
 ### A share is missing from the output
 
-The check only reports quotas that have a hard quota configured, and by default only directory quotas. Verify on the appliance that the share has a hard quota (not just a soft or advisory quota), and run the check with `--quota-type=directory --quota-type=user --quota-type=user-group --lengthy` to see everything that is configured. Also check whether an `--ignore-regex` pattern excludes the share.
+The check only reports quotas that have a hard quota configured, and by default only directory quotas. Verify on the appliance that the share has a hard quota (not just a soft or advisory quota), and run the check with `--quota-type=directory --quota-type=user --quota-type=user-group --lengthy` to see everything that is configured. Also check whether a `--match` or `--ignore` pattern excludes the share. Both are anchored at the start of the share name, so prefix a pattern with `.*` to match anywhere.
 
 ### The check runs into its timeout
 

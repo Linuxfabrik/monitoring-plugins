@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080704'
+__version__ = '2026080705'
 
 DESCRIPTION = """Checks the health and running status of all cluster nodes on a Huawei OceanStor
 Pacific storage system via the REST API (/cluster/servers endpoint). Alerts when any node is not
@@ -338,7 +338,6 @@ def main():
             f'{label}_oam_agent_status',
             oam_agent_status,
             uom=None,
-            warn=OAM_AGENT_FAULTY,
             _min=OAM_AGENT_NOT_MONITORED,
             _max=OAM_AGENT_FAULTY,
         )
@@ -360,15 +359,6 @@ def main():
 
         table_data.append(node)
 
-    # build the message
-    if state == STATE_CRIT:
-        msg += 'There are critical errors.'
-    elif state == STATE_WARN:
-        msg += 'There are warnings.'
-    else:
-        msg += 'Everything is ok.'
-    msg += '\n\n'
-
     # The appliance listed cluster nodes and the filter selected none of them.
     if not table_data and args.MATCH:
         lib.base.oao(
@@ -377,6 +367,15 @@ def main():
             always_ok=args.ALWAYS_OK,
             no_perfdata=args.NO_PERFDATA,
         )
+
+    # build the message
+    if state == STATE_CRIT:
+        msg += 'There are critical errors.'
+    elif state == STATE_WARN:
+        msg += 'There are warnings.'
+    else:
+        msg += 'Everything is ok.'
+    msg += '\n\n'
 
     # build table output
     if table_data:
@@ -410,7 +409,6 @@ def main():
         ]
 
         msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
-
 
     if args.VERBOSE:
         msg += '\n\n' + lib.huawei_pacific.format_responses()

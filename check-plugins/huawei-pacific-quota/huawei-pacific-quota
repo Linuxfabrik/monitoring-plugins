@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080703'
+__version__ = '2026080704'
 
 DESCRIPTION = """Checks how full the quotas of a Huawei OceanStor Pacific storage system are via the
 REST API (/file_service/fs_quota endpoint). Walks all file systems and their dtrees and reports the
@@ -42,10 +42,11 @@ DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
 DEFAULT_WARN = '80'
 
-# The API does not return null for an unset or unavailable value. It returns
-# the maximum of the field's data type instead. Used as a number, that sentinel
-# would produce a nonsensical fill level, so every value is checked against it.
-INVALID_VALUE64 = 18446744073709551615
+# Hard stop on the number of requests per share. It bounds the runtime of a check
+# against an appliance with far more quotas than anyone expected, and it keeps a
+# firmware that ignores `range` from paging forever: such a firmware answers every
+# request with the same full page, so the loop's own short-page condition never fires.
+MAX_PAGES = 100
 
 # Type number of the object a quota belongs to.
 PARENT_TYPE_DTREE = 16445
@@ -115,8 +116,21 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore',
+        help='Skip quotas. '
+        + lib.args.help('--ignore-regex')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against the share name, including the owner of a user or user group '
+        'quota, so prefix with `.*` to match anywhere.',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    # Superseded by --ignore, which anchors the regex the way every sibling check does.
+    parser.add_argument(
         '--ignore-regex',
-        help=lib.args.help('--ignore-regex'),
+        help=argparse.SUPPRESS,
         action='append',
         default=None,
         dest='IGNORE_REGEX',
@@ -136,6 +150,18 @@ def parse_args():
         dest='LENGTHY',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Filter by quotas. '
+        + lib.args.help('--match')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against the share name, including the owner of a user or user group '
+        'quota, so prefix with `.*` to match anywhere.',
+        dest='MATCH',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -260,15 +286,6 @@ def parse_args():
     return args
 
 
-def check_response(result, what):
-    """Return the API response, or abort the plugin if the API reported a
-    problem. The plugin walks the API in several steps, so every response
-    passes through here.
-    """
-    lib.huawei_pacific.assert_ok(result, what)
-    return result
-
-
 def get_file_systems(args, test_path=None):
     """Return all file systems of the appliance."""
     if test_path is None:
@@ -279,7 +296,8 @@ def get_file_systems(args, test_path=None):
         )
     else:
         result = lib.lftest.test_json(args.TEST, test_path)
-    return check_response(result, 'the file systems').get('data', [])
+    lib.huawei_pacific.assert_ok(result, 'the file systems')
+    return result.get('data', [])
 
 
 def get_dtrees(args, file_system_id, test_path=None):
@@ -293,53 +311,55 @@ def get_dtrees(args, file_system_id, test_path=None):
         )
     else:
         result = lib.lftest.test_json(args.TEST, test_path)
-    return check_response(
-        result, f'the dtrees of file system {file_system_id}'
-    ).get('data', [])
+    lib.huawei_pacific.assert_ok(result, f'the dtrees of file system {file_system_id}')
+    return result.get('data', [])
 
 
 def get_quotas(args, parent_type, parent_id, test_path=None):
-    """Return all quotas of one file system or dtree.
+    """Return all quotas of one file system or dtree, and whether the walk was cut short.
 
     The API caps a single query at RANGE_LIMIT records, so the quotas are
     fetched page by page until a short page shows that the last one is reached.
+    This endpoint takes its parameters in the body of a GET, which is why it pages
+    here rather than through `lib.huawei_pacific.get_all_data()`.
     """
     what = f'the quotas of {parent_id}'
     if test_path is not None:
-        return check_response(lib.lftest.test_json(args.TEST, test_path), what).get(
-            'data', []
-        )
+        result = lib.lftest.test_json(args.TEST, test_path)
+        lib.huawei_pacific.assert_ok(result, what)
+        return result.get('data', []), False
 
     quotas = []
-    offset = 0
-    while True:
+    truncated = True
+    for page_number in range(MAX_PAGES):
         payload = {
             'parent_type': str(parent_type),
             'parent_id': str(parent_id),
-            'range': json.dumps({'offset': offset, 'limit': RANGE_LIMIT}),
-        }
-        result = check_response(
-            lib.huawei_pacific.get_data(
-                'file_service/fs_quota',
-                args,
-                payload=payload,
-                method='GET',
+            'range': json.dumps(
+                {'offset': page_number * RANGE_LIMIT, 'limit': RANGE_LIMIT}
             ),
-            what,
+        }
+        result = lib.huawei_pacific.get_data(
+            'file_service/fs_quota',
+            args,
+            payload=payload,
+            method='GET',
         )
+        lib.huawei_pacific.assert_ok(result, what)
         page = result.get('data', [])
         quotas += page
         if len(page) < RANGE_LIMIT:
+            truncated = False
             break
-        offset += len(page)
-    return quotas
+    return quotas, truncated
 
 
 def collect_quotas(args):
     """Walk the file systems and their dtrees and return every quota found,
-    tagged with the share it belongs to.
+    tagged with the share it belongs to, and whether any walk was cut short.
     """
     quotas = []
+    truncated = False
     test_base = args.TEST[0] if args.TEST else None
 
     file_systems = get_file_systems(
@@ -350,12 +370,14 @@ def collect_quotas(args):
         file_system_id = file_system.get('id')
         file_system_name = file_system.get('name') or str(file_system_id)
 
-        for quota in get_quotas(
+        fs_quotas, fs_truncated = get_quotas(
             args,
             PARENT_TYPE_FILESYSTEM,
             file_system_id,
             test_path=f'{test_base}-quota-fs-{i}' if test_base else None,
-        ):
+        )
+        truncated = truncated or fs_truncated
+        for quota in fs_quotas:
             quota['share'] = file_system_name
             quotas.append(quota)
 
@@ -368,16 +390,18 @@ def collect_quotas(args):
             # A dtree id already carries the "<file system id>@<dtree id>" form
             # the quota endpoint expects as its parent_id.
             dtree_name = dtree.get('name') or dtree.get('id')
-            for quota in get_quotas(
+            dtree_quotas, dtree_truncated = get_quotas(
                 args,
                 PARENT_TYPE_DTREE,
                 dtree.get('id'),
                 test_path=f'{test_base}-quota-dtree-{i}-{j}' if test_base else None,
-            ):
+            )
+            truncated = truncated or dtree_truncated
+            for quota in dtree_quotas:
                 quota['share'] = f'{file_system_name}/{dtree_name}'
                 quotas.append(quota)
 
-    return quotas
+    return quotas, truncated
 
 
 def main():
@@ -398,13 +422,19 @@ def main():
         lib.base.cu('--url parameter has to start with "http://" or https://".')
 
     # set default values for append parameters that were not specified
-    if args.IGNORE_REGEX is None:
-        args.IGNORE_REGEX = []
+    if args.IGNORE is None:
+        args.IGNORE = []
+    # `--ignore-regex` is the name this check used before the family settled on
+    # `--ignore`. Deployments still passing it keep working.
+    if args.IGNORE_REGEX:
+        args.IGNORE += args.IGNORE_REGEX
+    if args.MATCH is None:
+        args.MATCH = []
     if args.QUOTA_TYPE is None:
         args.QUOTA_TYPE = DEFAULT_QUOTA_TYPE
 
     # fetch data
-    quotas = collect_quotas(args)
+    quotas, truncated = collect_quotas(args)
 
     # init some vars
     msg = ''
@@ -413,10 +443,12 @@ def main():
     table_data = []
 
     # compile user-supplied regex patterns
-    try:
-        compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
-    except re.error:
-        lib.base.cu('Unable to compile regex.')
+    compiled_match_regex = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore_regex = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
 
     wanted_types = {QUOTA_TYPES[item] for item in args.QUOTA_TYPE}
 
@@ -432,22 +464,38 @@ def main():
             # user and user group quotas repeat per share, so the owner is what
             # tells them apart
             share = f'{share} ({owner})'
-        if any(item.search(share) for item in compiled_ignore_regex):
+        if args.MATCH and not any(
+            lib.base.coe(lib.txt.match_regex(pattern, share))
+            for pattern in compiled_match_regex
+        ):
+            continue
+
+        if args.IGNORE and any(
+            lib.base.coe(lib.txt.match_regex(pattern, share))
+            for pattern in compiled_ignore_regex
+        ):
             continue
 
         # The API sends these as strings on some firmware and as numbers on others,
-        # and leaves them out entirely where there is nothing to report.
-        hard_quota = lib.huawei_pacific.as_code(quota.get('space_hard_quota'))
-        used = lib.huawei_pacific.as_code(quota.get('space_used'))
-        if hard_quota in (None, INVALID_VALUE64, 0) or used in (
-            None,
-            INVALID_VALUE64,
-        ):
+        # and leaves them out entirely where there is nothing to report. The quota is
+        # counted in the unit the quota itself names, so the two values only compare
+        # once both are in bytes.
+        space_unit_type = quota.get('space_unit_type')
+        hard_quota = lib.huawei_pacific.get_quota_bytes(
+            quota.get('space_hard_quota'), space_unit_type
+        )
+        used = lib.huawei_pacific.get_quota_bytes(quota.get('space_used'), 0)
+        if not hard_quota or used is None:
             # no hard quota configured, or no usable measurement: there is
             # nothing to calculate a fill level from
             continue
 
-        used_percent = round(used / hard_quota * 100)
+        # The appliance computes the fill level itself and rounds it the way its own
+        # GUI shows it. Preferring it keeps the check and the GUI in agreement, and it
+        # is the only figure available where the two values are counted differently.
+        used_percent = lib.huawei_pacific.as_code(quota.get('space_used_rate'))
+        if used_percent is None or used_percent < 0 or used_percent > 100:
+            used_percent = round(used / hard_quota * 100)
         quota_state = lib.base.get_state(
             used_percent,
             args.WARN,
@@ -468,14 +516,15 @@ def main():
         )
 
         # The file quota is reported for context only and does not alert: the
-        # check is about space.
+        # check is about space. It counts files, so it carries no unit of its own.
         files = '-'
         file_used = lib.huawei_pacific.as_code(quota.get('file_used'))
         file_hard_quota = lib.huawei_pacific.as_code(quota.get('file_hard_quota'))
         if (
             file_used is not None
             and file_hard_quota is not None
-            and INVALID_VALUE64 not in (file_used, file_hard_quota)
+            and lib.huawei_pacific.QUOTA_INVALID_VALUE64
+            not in (file_used, file_hard_quota)
         ):
             files = (
                 f'{lib.human.number2human(file_used)}'
@@ -497,10 +546,21 @@ def main():
 
     # build the message
     thresholds = f'warn={args.WARN} crit={args.CRIT}'
+    if truncated:
+        # A walk hit its page cap, so this is a floor on the quota count, not the count.
+        msg += (
+            'A share reports more quotas than this check reads in one run;'
+            ' the list below is incomplete.\n\n'
+        )
+        state = lib.base.get_worst(state, STATE_WARN)
     if not table_data:
         # An appliance whose shares simply carry no hard quota is a healthy appliance.
         # Only a filter that excluded everything is worth the configured severity.
-        filtered = bool(args.IGNORE_REGEX) or args.QUOTA_TYPE != DEFAULT_QUOTA_TYPE
+        filtered = (
+            bool(args.MATCH)
+            or bool(args.IGNORE)
+            or args.QUOTA_TYPE != DEFAULT_QUOTA_TYPE
+        )
         lib.base.oao(
             'No quota matched the filters.'
             if filtered

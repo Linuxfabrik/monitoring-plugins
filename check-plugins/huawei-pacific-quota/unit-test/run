@@ -111,12 +111,31 @@ TESTS = [
         'assert-not-in': ['Share', 'fs1/dt1', 'fs1/dt2'],
     },
     {
-        'id': 'ok-ignore-regex-skips-share',
+        # The regex is anchored at the start of the share name, as in every sibling
+        # check, so matching anywhere needs a leading `.*`.
+        'id': 'ok-ignore-skips-share',
         'test': 'stdout/shares-42-and-95-percent,,0',
-        'params': f'{COMMON} --warning 80 --critical 90 --ignore-regex=dt2$',
+        'params': f'{COMMON} --warning 80 --critical 90 --ignore=.*dt2$',
         'assert-retc': STATE_OK,
         'assert-in': ['Checked 1 quota.', 'fs1/dt1'],
         'assert-not-in': ['fs1/dt2'],
+    },
+    {
+        # The deprecated name keeps working for deployments that still pass it.
+        'id': 'ok-deprecated-ignore-regex-still-works',
+        'test': 'stdout/shares-42-and-95-percent,,0',
+        'params': f'{COMMON} --warning 80 --critical 90 --ignore-regex=.*dt2$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 1 quota.', 'fs1/dt1'],
+        'assert-not-in': ['fs1/dt2'],
+    },
+    {
+        'id': 'crit-match-limits-to-one-share',
+        'test': 'stdout/shares-42-and-95-percent,,0',
+        'params': f'{COMMON} --warning 80 --critical 90 --match=.*dt2$',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Checked 1 quota.', 'fs1/dt2'],
+        'assert-not-in': ['fs1/dt1'],
     },
     {
         # The API declares the numeric quota fields as string(int64), so the
@@ -126,6 +145,26 @@ TESTS = [
         'params': f'{COMMON} --warning 80 --critical 90',
         'assert-retc': STATE_CRIT,
         'assert-in': ['42%', '95%', 'Checked 2 quotas.'],
+    },
+    {
+        # A quota counted in gibibytes, next to one counted in bytes on the same
+        # appliance. Reading the bare number as bytes made a 1 GiB quota read as 1 B
+        # and put the fill level nine orders of magnitude out.
+        'id': 'crit-quota-counted-in-gibibytes',
+        'test': 'stdout/quota-in-gibibytes,,0',
+        'params': f'{COMMON} --warning 80 --critical 90 --lengthy',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'fs1/dt1 ! directory ! 819.2MiB ! 1.0GiB ! 80%',
+            'fs1/dt2 ! directory ! 972.8MiB ! 1.0GiB ! 95%',
+        ],
+    },
+    {
+        'id': 'ok-quota-counted-in-gibibytes-below-thresholds',
+        'test': 'stdout/quota-in-gibibytes,,0',
+        'params': f'{COMMON} --warning 96 --critical 98',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
     },
     {
         # No hard quota configured: nothing to compare against, so the shares
@@ -185,9 +224,9 @@ TESTS = [
     {
         'id': 'unknown-invalid-ignore-regex',
         'test': 'stdout/shares-42-and-95-percent,,0',
-        'params': f'{COMMON} --ignore-regex=*broken',
+        'params': f'{COMMON} --ignore=*broken',
         'assert-retc': STATE_UNKNOWN,
-        'assert-in': ['Unable to compile regex.'],
+        'assert-in': ['(--ignore) contains one or more errors'],
     },
     {
         'id': 'unknown-missing-test-fixture',

@@ -46,6 +46,39 @@ TESTS = [
         'assert-regex': r'42% used.*\[CRITICAL\]',
     },
     {
+        # The vendor's own example: the per-media capacities are on a different scale
+        # than the cluster totals next to them. Summing those and dividing by the total
+        # reported a permanent 0% that could never reach a threshold.
+        'id': 'ok-capacity-from-the-raw-cluster-figures',
+        'test': 'stdout/system-mixed-units,,0',
+        'params': f'{COMMON} --warning 80 --critical 90',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Capacity: 50% used (4.3TiB/8.5TiB)'],
+    },
+    {
+        'id': 'crit-capacity-from-the-raw-cluster-figures',
+        'test': 'stdout/system-mixed-units,,0',
+        'params': f'{COMMON} --warning 30 --critical 40',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'50% used.*\[CRITICAL\]',
+    },
+    {
+        # A firmware with nothing to say answers with a JSON null instead of an object.
+        'id': 'ok-capacity-reported-as-null',
+        'test': 'stdout/system-null-capacity,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ['Capacity: no capacity data available yet'],
+    },
+    {
+        # ... and one answers with a dash where a number belongs.
+        'id': 'ok-capacity-reported-as-dash',
+        'test': 'stdout/system-dash-capacity,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ['Capacity: no capacity data available yet'],
+    },
+    {
         # A cluster that reports no capacity yet still has a model and a version.
         # The OEM name matches the model here, so it is not repeated in brackets.
         'id': 'ok-without-capacity',

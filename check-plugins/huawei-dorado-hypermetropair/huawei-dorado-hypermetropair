@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080704'
+__version__ = '2026080705'
 
 DESCRIPTION = """Checks the health and running status of all HyperMetro pairs on a Huawei OceanStor
 Dorado storage system via the REST API (/hypermetropair endpoint). Alerts when any
@@ -47,6 +47,7 @@ LINK_STATUS = {
     1: 'Connected (1)',
     2: 'Disconnected (2)',
 }
+LINK_STATUS_MAX = 2
 
 # `LOCALDATASTATE` and `REMOTEDATASTATE` of a side whose data matches the other one, and
 # the readable form of both documented codes.
@@ -55,6 +56,7 @@ DATA_STATE = {
     1: 'Consistent (1)',
     2: 'Inconsistent (2)',
 }
+DATA_STATE_MAX = 2
 
 # Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
 # bounds the metric so a graph scales to the whole enumeration; the thresholds stay
@@ -254,6 +256,19 @@ def parse_args():
     return args
 
 
+def as_timestamp(value):
+    """Return a synchronization timestamp, or `None` where the pair reports none.
+
+    The REST Interface Reference documents `-1` for a pair that has never
+    synchronized, and firmware in the field also answers with `0` or leaves the field
+    out entirely. All three mean the same thing and must not reach `epoch2iso()`.
+    """
+    code = lib.huawei_dorado.as_code(value)
+    if code is None or code <= 0:
+        return None
+    return code
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -353,10 +368,12 @@ def main():
             remotedata_state = STATE_WARN
             state = lib.base.get_worst(state, remotedata_state)
 
-        # A pair that has never finished a synchronization reports no end time, so there
-        # is no duration to compute and nothing to say about the last sync.
-        end_time = lib.huawei_dorado.as_code(hypermetropair.get('ENDTIME'))
-        start_time = lib.huawei_dorado.as_code(hypermetropair.get('STARTTIME'))
+        # A pair that has never finished a synchronization reports `-1` as its end time,
+        # and a firmware that leaves the field out or sends `0` means the same thing. Any
+        # of those has to stay `None`: read as an epoch, they render as 1970 and turn the
+        # duration into a large negative number.
+        end_time = as_timestamp(hypermetropair.get('ENDTIME'))
+        start_time = as_timestamp(hypermetropair.get('STARTTIME'))
         sync_duration = (
             None if end_time is None or start_time is None else end_time - start_time
         )
@@ -376,16 +393,16 @@ def main():
         perfdata += lib.base.get_perfdata(
             f'{label}_link_status',
             hypermetropair.get('LINKSTATUS'),
-            warn=2,
+            uom=None,
             _min=0,
-            _max=2,
+            _max=LINK_STATUS_MAX,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_local_data_state',
             hypermetropair.get('LOCALDATASTATE'),
-            warn=2,
+            uom=None,
             _min=0,
-            _max=2,
+            _max=DATA_STATE_MAX,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_local_host_access_state',
@@ -397,9 +414,9 @@ def main():
         perfdata += lib.base.get_perfdata(
             f'{label}_remote_data_state',
             hypermetropair.get('REMOTEDATASTATE'),
-            warn=2,
+            uom=None,
             _min=0,
-            _max=2,
+            _max=DATA_STATE_MAX,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_remote_host_access_state',
@@ -408,13 +425,17 @@ def main():
             _min=0,
             _max=HOST_ACCESS_STATE_MAX,
         )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_sync_progress',
-            hypermetropair.get('SYNCPROGRESS'),
-            uom='%',
-            _min=0,
-            _max=100,
-        )
+        # `-1` on a pair that has never synchronized. Graphing it would put a point
+        # below the metric's own minimum, so the pair simply reports no progress.
+        sync_progress = lib.huawei_dorado.as_code(hypermetropair.get('SYNCPROGRESS'))
+        if sync_progress is not None and sync_progress >= 0:
+            perfdata += lib.base.get_perfdata(
+                f'{label}_sync_progress',
+                sync_progress,
+                uom='%',
+                _min=0,
+                _max=100,
+            )
 
         hypermetropair['row_state'] = lib.base.get_worst(
             lib.base.get_worst(health_state, running_state),
@@ -432,6 +453,10 @@ def main():
         hypermetropair['sync_duration'] = (
             '--' if sync_duration is None else lib.human.seconds2human(sync_duration)
         )
+        if sync_progress is None or sync_progress < 0:
+            # `-1` in a percent column reads as a broken value rather than as
+            # "there is nothing to report yet".
+            hypermetropair['SYNCPROGRESS'] = '--'
         if end_time is None:
             hypermetropair['sync_last'] = 'never'
         else:

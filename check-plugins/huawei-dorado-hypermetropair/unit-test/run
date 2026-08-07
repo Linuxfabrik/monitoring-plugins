@@ -83,6 +83,25 @@ TESTS = [
         ],
     },
     {
+        # The REST Interface Reference documents `-1` for a pair that has never
+        # synchronized. Read as an epoch it renders as 1970 and a ~56-year age.
+        'id': 'ok-never-synchronized-reported-as-minus-one',
+        'test': 'stdout/pair-never-synchronized-minus-one,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': ['never'],
+        'assert-not-in': ['1970-01-01', 'sync_progress'],
+    },
+    {
+        # Firmware in the field also answers with a plain zero, which means the same.
+        'id': 'ok-never-synchronized-reported-as-zero',
+        'test': 'stdout/pair-never-synchronized-zero,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': ['never'],
+        'assert-not-in': ['1970-01-01'],
+    },
+    {
         'id': 'ok-no-pairs-configured',
         'test': 'stdout/no-pairs,,0',
         'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',

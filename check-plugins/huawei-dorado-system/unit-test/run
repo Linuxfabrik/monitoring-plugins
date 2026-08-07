@@ -15,9 +15,32 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT
+from lib.globals import STATE_CRIT, STATE_OK
 
 TESTS = [
+    {
+        # The capacities are sector counts, and this endpoint reports how large a
+        # sector is. On the common 512-byte array that is what the check assumed all
+        # along, so this pins the unchanged reading.
+        'id': 'crit-capacities-with-512-byte-sectors',
+        'test': 'stdout/system-faulty-powering-off,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['(8.8TiB/726.4TiB)', "'total_capacity'=798720000000000B"],
+    },
+    {
+        # The same sector counts on an array formatted with 4 KiB sectors: eight times
+        # the capacity, and an unchanged usage percentage.
+        'id': 'ok-capacities-with-4k-sectors',
+        'test': 'stdout/system-4k-sectors,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '(70.7TiB/5.7PiB)',
+            "'total_capacity'=6389760000000000B",
+            "'usage_percent'=1%",
+        ],
+    },
     {
         'id': 'crit-system-faulty-powering-off',
         'test': 'stdout/system-faulty-powering-off,,0',

@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080703'
+__version__ = '2026080704'
 
 DESCRIPTION = """Lists active (unrecovered) alarms on a Huawei OceanStor Pacific storage system via
 the REST API (/common/alarms endpoint). Alerts when unrecovered alarms are present: critical if any
@@ -260,6 +260,13 @@ def main():
     # analyze data
     table_data = []
     for alarm in result.get('data') or []:
+        # The appliance embeds HTML entities in the texts it generates, so `&#40;` would
+        # otherwise reach the output as those five characters instead of the bracket it
+        # stands for. Decoded before filtering, so `--match` sees what the reader sees.
+        for field in ('alarm_name', 'description'):
+            alarm[field] = str(alarm.get(field, ''))
+        alarm = lib.txt.unescape(alarm, keys=('alarm_name', 'description'))
+
         if args.MATCH and not any(
             lib.base.coe(lib.txt.match_regex(pattern, str(alarm.get(field, ''))))
             for pattern in compiled_match_regex
@@ -280,9 +287,6 @@ def main():
         state = lib.base.get_worst(state, alarm_state)
 
         alarm['severity'] = lib.huawei_pacific.get_alarm_severity(severity)
-        # The appliance embeds HTML entities in the texts it generates, so `&#40;` reaches
-        # the output as those five characters instead of the bracket it stands for.
-        alarm['alarm_name'] = lib.txt.unescape(str(alarm.get('alarm_name', '')))
         # `create_time` is documented as UTC seconds, so it needs no timezone correction.
         alarm['create_time'] = lib.time.epoch2iso(alarm.get('create_time', 0))
         alarm['state'] = lib.base.state2str(alarm_state, empty_ok=False)
@@ -298,15 +302,7 @@ def main():
             no_perfdata=args.NO_PERFDATA,
         )
 
-    # build table output
-    if table_data:
-        keys = ['alarm_id', 'create_time', 'severity', 'alarm_name', 'state']
-        headers = ['Alarm ID', 'Time', 'Severity', 'Name', 'State']
-        msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
-    else:
-        msg += 'No active alarms.'
-
-
+    # build the message
     perfdata += lib.base.get_perfdata(
         'critical_alarms', counts[6], uom=None, _min=0
     )
@@ -319,19 +315,28 @@ def main():
 
     if truncated:
         # The walk hit its page cap, so this is a floor on the alarm count, not the count.
-        msg = (
-            'The appliance reports more alarms than this check reads in one run;'
-            ' the list below is incomplete.\n\n' + msg
-        )
         state = lib.base.get_worst(state, STATE_WARN)
 
-    # build the message
     if state == STATE_CRIT:
-        msg = 'There are critical alarms.\n\n' + msg
+        msg += 'There are critical alarms.'
     elif state == STATE_WARN:
-        msg = 'There are alarms.\n\n' + msg
+        msg += 'There are alarms.'
     else:
-        msg = 'Everything is ok.\n\n' + msg
+        msg += 'Everything is ok.'
+    msg += '\n\n'
+    if truncated:
+        msg += (
+            'The appliance reports more alarms than this check reads in one run;'
+            ' the list below is incomplete.\n\n'
+        )
+
+    # build table output
+    if table_data:
+        keys = ['alarm_id', 'create_time', 'severity', 'alarm_name', 'state']
+        headers = ['Alarm ID', 'Time', 'Severity', 'Name', 'State']
+        msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
+    else:
+        msg += 'No active alarms.'
 
     if args.VERBOSE:
         msg += '\n\n' + lib.huawei_pacific.format_responses()

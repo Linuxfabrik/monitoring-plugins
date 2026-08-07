@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080703'
+__version__ = '2026080704'
 
 DESCRIPTION = """Checks the status of all power supplies on a Huawei OceanStor Pacific storage system
 via the REST API (/hwm/power endpoint). Alerts when any power supply reports a non-normal status."""
@@ -306,6 +306,15 @@ def main():
             no_perfdata=args.NO_PERFDATA,
         )
 
+    # build the message
+    if state == STATE_CRIT:
+        msg += 'There are critical errors.'
+    elif state == STATE_WARN:
+        msg += 'There are warnings.'
+    else:
+        msg += 'Everything is ok.'
+    msg += '\n\n'
+
     # build table output
     if table_data:
         keys = ['frame_sn', 'name', 'status', 'state']
@@ -313,14 +322,6 @@ def main():
         msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
     else:
         msg += 'Nothing checked.'
-
-    # build the message
-    if state == STATE_CRIT:
-        msg = 'There are critical errors.\n\n' + msg
-    elif state == STATE_WARN:
-        msg = 'There are warnings.\n\n' + msg
-    else:
-        msg = 'Everything is ok.\n\n' + msg
 
     if args.VERBOSE:
         msg += '\n\n' + lib.huawei_pacific.format_responses()

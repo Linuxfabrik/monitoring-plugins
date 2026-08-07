@@ -22,7 +22,7 @@ import lib.lftest
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080703'
+__version__ = '2026080704'
 
 DESCRIPTION = """Checks overall system health, capacity, and performance of a Huawei OceanStor Dorado
 storage system via the REST API (/system endpoint). Reports health status, running
@@ -240,6 +240,38 @@ def get_usage_percent(used, total):
     return round(used_sectors / total_sectors * 100)
 
 
+def get_sector_size(data):
+    """
+    Return the sector size the appliance reports, in bytes.
+
+    ### Parameters
+    - **data** (`dict`): The `system/` response as the API returned it.
+
+    ### Returns
+    - **int**: The reported sector size, or the 512 bytes that are the common case when
+      the appliance does not report a usable one.
+
+    ### Notes
+    - This is the only endpoint that reports `SECTORSIZE`, and all of its own capacities
+      are counted in those sectors. An array formatted with larger sectors reports the
+      same numbers for eight times the capacity, so taking 512 for granted understates
+      it by that factor.
+    - Not to be confused with the `SECTORSIZE` a LUN reports, which is the block size the
+      host sees rather than the unit its capacity is counted in.
+
+    ### Example
+    >>> get_sector_size({'SECTORSIZE': '4096'})
+    4096
+
+    >>> get_sector_size({})
+    512
+    """
+    sector_size = lib.huawei_dorado.as_code(data.get('SECTORSIZE'))
+    if not sector_size or sector_size <= 0:
+        return lib.huawei_dorado.DEFAULT_SECTOR_SIZE
+    return sector_size
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -276,6 +308,10 @@ def main():
     data = result.get('data')
     if not isinstance(data, dict):
         lib.base.cu(f'{args.URL} reported no system information.')
+    # Every capacity in this response is a sector count, and this is the one endpoint
+    # that says how large a sector is on this appliance. Anything else is guessing at
+    # the 512 bytes that are merely the common case.
+    sector_size = get_sector_size(data)
 
     # analyze data
     health_state = lib.huawei_dorado.get_health_status_state(data.get('HEALTHSTATUS'))
@@ -339,17 +375,19 @@ def main():
         f' Running Status: {running_status}{running_str}\n'
     )
     used_cap = lib.human.bytes2human(
-        lib.huawei_dorado.sectors2bytes(data.get('USEDCAPACITY')),
+        lib.huawei_dorado.sectors2bytes(data.get('USEDCAPACITY'), sector_size),
     )
     total_cap = lib.human.bytes2human(
-        lib.huawei_dorado.sectors2bytes(data.get('TOTALCAPACITY')),
+        lib.huawei_dorado.sectors2bytes(data.get('TOTALCAPACITY'), sector_size),
     )
     capa_str = lib.base.state2str(capa_state, prefix=' ')
     sp_used_cap = lib.human.bytes2human(
-        lib.huawei_dorado.sectors2bytes(data.get('STORAGEPOOLUSEDCAPACITY')),
+        lib.huawei_dorado.sectors2bytes(
+            data.get('STORAGEPOOLUSEDCAPACITY'), sector_size
+        ),
     )
     sp_total_cap = lib.human.bytes2human(
-        lib.huawei_dorado.sectors2bytes(data.get('STORAGEPOOLCAPACITY')),
+        lib.huawei_dorado.sectors2bytes(data.get('STORAGEPOOLCAPACITY'), sector_size),
     )
     sp_str = lib.base.state2str(sp_state, prefix=' ')
     # An appliance without a storage pool, and a firmware that leaves a capacity out,
@@ -398,9 +436,15 @@ def main():
     # Every capacity below is a sector count in the response and goes out in bytes. The
     # totals double as the maximum of the values they bound, so a dashboard can draw a
     # usage bar without a second query.
-    total_capacity = lib.huawei_dorado.sectors2bytes(data.get('TOTALCAPACITY'))
-    storage_pool_capacity = lib.huawei_dorado.sectors2bytes(data.get('STORAGEPOOLCAPACITY'))
-    thin_luns_max_capacity = lib.huawei_dorado.sectors2bytes(data.get('THINLUNSMAXCAPACITY'))
+    total_capacity = lib.huawei_dorado.sectors2bytes(
+        data.get('TOTALCAPACITY'), sector_size
+    )
+    storage_pool_capacity = lib.huawei_dorado.sectors2bytes(
+        data.get('STORAGEPOOLCAPACITY'), sector_size
+    )
+    thin_luns_max_capacity = lib.huawei_dorado.sectors2bytes(
+        data.get('THINLUNSMAXCAPACITY'), sector_size
+    )
 
     for label, field, maximum in (
         ('total_capacity', 'TOTALCAPACITY', None),
@@ -427,7 +471,7 @@ def main():
         ('mapped_luns_capacity', 'mappedLunsCountCapacity', None),
         ('unmapped_luns_capacity', 'unMappedLunsCountCapacity', None),
     ):
-        value = lib.huawei_dorado.sectors2bytes(data.get(field))
+        value = lib.huawei_dorado.sectors2bytes(data.get(field), sector_size)
         if value is None:
             # A firmware that does not report this capacity leaves the field out
             # entirely. Emitting an empty value would break the perfdata line.

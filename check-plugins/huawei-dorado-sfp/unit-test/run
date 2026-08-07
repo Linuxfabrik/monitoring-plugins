@@ -57,6 +57,23 @@ TESTS = [
         'assert-in': ['There are critical errors.', '-20.0', '[CRITICAL]'],
     },
     {
+        # A module reporting its bounds the wrong way round used to become an invalid
+        # Nagios range, which took the whole check to UNKNOWN without naming it.
+        'id': 'ok-module-reports-an-inverted-operating-range',
+        'test': 'stdout/sfp-power-range-inverted,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+    },
+    {
+        # The operator's own range still applies to such a module.
+        'id': 'crit-inverted-range-still-honours-an-explicit-range',
+        'test': 'stdout/sfp-power-range-inverted,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin '
+        '--rx-power-critical=1:6',
+        'assert-retc': STATE_CRIT,
+    },
+    {
         # An explicit critical range replaces the module's own, for an appliance whose
         # transceivers report a range nobody wants to be alerted on.
         'id': 'ok-optical-power-against-an-explicit-range',

@@ -11,7 +11,6 @@
 """See the check's README for more details."""
 
 import argparse
-import html
 import json
 import sys
 
@@ -24,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080702'
+__version__ = '2026080703'
 
 DESCRIPTION = """Lists the current alarms of a Huawei OceanStor Dorado storage system via the REST
 API (/alarm/currentalarm endpoint). Alerts when alarms are present: critical if any critical alarm
@@ -281,7 +280,8 @@ def main():
         # otherwise reach the output as those five characters instead of the bracket it
         # stands for. Decoded before filtering, so `--match` sees what the reader sees.
         for field in ('description', 'location', 'name'):
-            alarm[field] = html.unescape(str(alarm.get(field, '')))
+            alarm[field] = str(alarm.get(field, ''))
+        alarm = lib.txt.unescape(alarm, keys=('description', 'location', 'name'))
 
         if args.MATCH and not any(
             lib.base.coe(lib.txt.match_regex(pattern, str(alarm.get(field, ''))))
@@ -308,23 +308,17 @@ def main():
 
         table_data.append(alarm)
 
-    # build table output
-    if table_data:
-        keys = ['sequence', 'startTime', 'level', 'name', 'location', 'state']
-        headers = ['Sequence', 'Time', 'Severity', 'Name', 'Location', 'State']
-        msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
-    elif args.MATCH:
-        # An appliance with no alarm at all is the normal case, and it is not the
-        # same as a filter that selected none of the alarms it does have.
+    # An appliance with no alarm at all is the normal case, and it is not the
+    # same as a filter that selected none of the alarms it does have.
+    if not table_data and args.MATCH:
         lib.base.oao(
             f'No alarms matched `{", ".join(args.MATCH)}`.',
             lib.base.str2state(args.NO_MATCH_SEVERITY),
             always_ok=args.ALWAYS_OK,
             no_perfdata=args.NO_PERFDATA,
         )
-    else:
-        msg += 'No current alarms.'
 
+    # build the message
     perfdata += lib.base.get_perfdata(
         'critical_alarms', counts[6], uom=None, _min=0
     )
@@ -337,19 +331,28 @@ def main():
     if truncated:
         # The walk hit its page cap, so this is a floor on the alarm count, not
         # the count itself.
-        msg = (
-            'The appliance reports more alarms than this check reads in one run;'
-            ' the list below is incomplete.\n\n' + msg
-        )
         state = lib.base.get_worst(state, STATE_WARN)
 
-    # build the message
     if state == STATE_CRIT:
-        msg = 'There are critical alarms.\n\n' + msg
+        msg += 'There are critical alarms.'
     elif state == STATE_WARN:
-        msg = 'There are alarms.\n\n' + msg
+        msg += 'There are alarms.'
     else:
-        msg = 'Everything is ok.\n\n' + msg
+        msg += 'Everything is ok.'
+    msg += '\n\n'
+    if truncated:
+        msg += (
+            'The appliance reports more alarms than this check reads in one run;'
+            ' the list below is incomplete.\n\n'
+        )
+
+    # build table output
+    if table_data:
+        keys = ['sequence', 'startTime', 'level', 'name', 'location', 'state']
+        headers = ['Sequence', 'Time', 'Severity', 'Name', 'Location', 'State']
+        msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
+    else:
+        msg += 'No current alarms.'
 
     if args.VERBOSE:
         msg += '\n\n' + lib.huawei_dorado.format_responses()

@@ -21,7 +21,7 @@ import lib.lftest
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080703'
+__version__ = '2026080704'
 
 DESCRIPTION = """Reports the product model, system version and cluster name of a Huawei OceanStor
 Pacific storage system via the REST API (/cluster/product and /system_capacity endpoints).
@@ -34,9 +34,6 @@ DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
 DEFAULT_WARN = '80'
-
-# Top-level per-media capacity fields summed for the cluster-wide figures.
-MEDIA = ('ssd', 'sata', 'sas')
 
 
 def parse_args():
@@ -204,6 +201,36 @@ def get_product_string(data):
     return f'{model} {version}'
 
 
+def get_capacity(data, field):
+    """
+    Return one raw cluster capacity, or `None` where the appliance reports none.
+
+    ### Parameters
+    - **data** (`dict`): The `system_capacity` response as the API returned it.
+    - **field** (`str`): The field to read.
+
+    ### Returns
+    - **float** or **None**: The capacity, or `None` for a missing field and for the
+      placeholders a firmware sends in place of a number.
+
+    ### Notes
+    - A cluster that has not finished reporting its capacity answers with `null` or with
+      a dash rather than with a number. Converting either used to end the check in a
+      message-less UNKNOWN instead of in a reading it simply does not have.
+
+    ### Example
+    >>> get_capacity({'used_raw_capacity': '1048576'}, 'used_raw_capacity')
+    1048576.0
+
+    >>> get_capacity({'used_raw_capacity': '--'}, 'used_raw_capacity') is None
+    True
+    """
+    try:
+        return float(data.get(field))
+    except (TypeError, ValueError):
+        return None
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -218,10 +245,11 @@ def main():
     if not args.PASSWORD:
         lib.base.cu('Provide the API password via --password or --password-file.')
 
+    if not args.URL.startswith('http'):
+        lib.base.cu('--url parameter has to start with "http://" or https://".')
+
     # fetch data
     if args.TEST is None:
-        if not args.URL.startswith('http'):
-            lib.base.cu('--url parameter has to start with "http://" or https://".')
         product = lib.huawei_pacific.get_data('cluster/product', args)
         capacity = lib.huawei_pacific.get_data('system_capacity', args)
     else:
@@ -239,16 +267,21 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
-    capacity_data = capacity.get('data', {})
-    product_data = product.get('data', {})
+    # A firmware that has nothing to say sends a JSON null rather than an empty object.
+    capacity_data = capacity.get('data') or {}
+    product_data = product.get('data') or {}
 
     # analyze data
-    total = float(capacity_data.get('totalClusterCapacity', 0))
-    used = sum(float(capacity_data.get(f'{media}_used_capacity', 0)) for media in MEDIA)
+    # `used_raw_capacity` and `totalClusterCapacity` are the pair the vendor documents
+    # for the cluster as a whole: used raw disk capacity against the total capacity of
+    # all disk types. The per-media fields next to them are not in the same unit, so
+    # summing those and dividing by this total would compare two different scales.
+    total = get_capacity(capacity_data, 'totalClusterCapacity')
+    used = get_capacity(capacity_data, 'used_raw_capacity')
     # A cluster that has not reported its capacity yet still has a model and a
     # version worth printing, so this is not a reason to abort the check.
     used_percent = None
-    if total > 0:
+    if total and total > 0 and used is not None and used >= 0:
         used_percent = round(used / total * 100)
         state = lib.base.get_worst(
             state,

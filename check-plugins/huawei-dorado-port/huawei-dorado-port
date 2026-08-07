@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080705'
+__version__ = '2026080706'
 
 DESCRIPTION = """Checks the health and link status of the front-end ports of a Huawei OceanStor
 Dorado storage system via the REST API (/fc_port, /eth_port, /sas_port and /bond_port endpoints).
@@ -448,23 +448,30 @@ def get_ports(args):
     - **args** (object): The argument namespace `lib.huawei_dorado.get_data()` reads.
 
     ### Returns
-    - **list**: One entry per port, each carrying an extra `kind` field naming which of
-      the four endpoints it came from.
+    - **tuple** (`list`, `dict`): One entry per port, each carrying an extra `kind` field
+      naming which of the four endpoints it came from, and the envelope of the last
+      endpoint that refused the query so the caller can report the appliance's own words.
 
     ### Notes
     - An endpoint that is not implemented on a given appliance, or that carries no
       port at all, contributes nothing rather than aborting the check. An array
       without SAS ports is a normal array, not a broken query.
+    - A refused endpoint is retried once at most. The endpoints that are simply absent
+      on a given appliance answer with an error on every run, and the library's default
+      of three attempts plus a forced re-login would spend the check's whole time budget
+      learning what the first answer already said.
     """
     ports = []
+    failed = {}
     for endpoint, kind in PORT_ENDPOINTS:
-        result = lib.huawei_dorado.get_data(endpoint, args)
+        result = lib.huawei_dorado.get_data(endpoint, args, max_attempts=1)
         if lib.huawei_dorado.get_error_code(result) not in (0, '0'):
+            failed = result
             continue
         for port in result.get('data') or []:
             port['kind'] = kind
             ports.append(port)
-    return ports
+    return ports, failed
 
 
 def main():
@@ -491,8 +498,9 @@ def main():
         lib.base.cu('--url parameter has to start with "http://" or https://".')
 
     # fetch data
+    failed = {}
     if args.TEST is None:
-        ports = get_ports(args)
+        ports, failed = get_ports(args)
     else:
         # do not call the command, put in test data
         stdout, _stderr, _retc = lib.lftest.test(args.TEST)
@@ -500,7 +508,11 @@ def main():
 
     # no valuable result?
     # An array always has front-end ports, so an empty list is a query that never
-    # reached them rather than an inventory that is genuinely empty.
+    # reached them rather than an inventory that is genuinely empty. Where an endpoint
+    # said why it refused, that is what the operator needs to read - a guess at the
+    # permissions sends them looking in the wrong place.
+    if not ports and failed:
+        lib.huawei_dorado.assert_ok(failed, 'the front-end ports')
     if not ports:
         lib.base.oao(
             f'{args.URL} reported no front-end ports.'

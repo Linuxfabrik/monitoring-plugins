@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080704'
+__version__ = '2026080705'
 
 DESCRIPTION = """Checks every disk of a Huawei OceanStor Pacific storage system via the REST API
 (/data_service/diskpool and /cluster/diskpool/queryNodeDiskInfo endpoints). Alerts when a disk is
@@ -37,11 +37,11 @@ DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
+DEFAULT_WARN = '180:'
 
 # Fields `--match` is applied to. A disk has no identifier of its own that an
 # operator would recognise, so the filter runs on where it sits and what it is.
 MATCH_FIELDS = ('node', 'pool', 'serial', 'slot')
-DEFAULT_WARN = '180:'
 
 
 def parse_args():
@@ -195,14 +195,15 @@ def parse_args():
     parser.add_argument(
         '-u',
         '--url',
-        help='Huawei OceanStor Pacific API URL.',
+        help='Huawei OceanStor Pacific API URL. ' + lib.args.help('--url'),
         dest='URL',
         required=True,
     )
 
     parser.add_argument(
         '--username',
-        help='Huawei OceanStor Pacific API username.',
+        help='Huawei OceanStor Pacific API username. '
+        + lib.args.help('--username'),
         dest='USERNAME',
         required=True,
     )
@@ -219,13 +220,14 @@ def parse_args():
     parser.add_argument(
         '-v',
         '--verbose',
-        help='Print what every API request returned, so the appliance\'s own answers can '
-        'be read while working out how it reports something. The output is as long as '
-        'those answers are, and session tokens are redacted. '
-        'Meant for the command line, not for a service definition.',
+        help=lib.args.help('--verbose')
+        + ' Appends what every API request returned, so the appliance\'s own answers '
+        'can be read while working out how it reports something. Session tokens are '
+        'redacted. The output is as long as those answers are, so this is a debugging '
+        'aid rather than something to leave switched on.',
         dest='VERBOSE',
-        action='count',
-        default=0,
+        action='store_true',
+        default=False,
     )
 
     args, _ = parser.parse_known_args()
@@ -260,6 +262,9 @@ def main():
     if not args.PASSWORD:
         lib.base.cu('Provide the API password via --password or --password-file.')
 
+    if not args.URL.startswith('http'):
+        lib.base.cu('--url parameter has to start with "http://" or https://".')
+
     # set default values for append parameters that were not specified
     if args.IGNORE is None:
         args.IGNORE = []
@@ -271,8 +276,6 @@ def main():
     # first. The disk listing itself lives below the appliance's older endpoint
     # generation, which is why it is queried with an explicit base path.
     if args.TEST is None:
-        if not args.URL.startswith('http'):
-            lib.base.cu('--url parameter has to start with "http://" or https://".')
         pools = lib.huawei_pacific.get_data('data_service/diskpool', args)
         lib.huawei_pacific.assert_ok(pools, 'the disk pools')
         disk_pools = {
@@ -443,12 +446,22 @@ def main():
             no_perfdata=args.NO_PERFDATA,
         )
 
+    # build the message
+    if state == STATE_CRIT:
+        msg += 'There are critical errors.'
+    elif state == STATE_WARN:
+        msg += 'There are warnings.'
+    else:
+        msg += 'Everything is ok.'
+    msg += '\n\n'
+
     # build table output
     if pool_rows:
         msg += lib.base.get_table(
             pool_rows,
             ['name', 'media', 'status', 'state'],
             header=['Pool', 'Media', 'Status', 'State'],
+            missing='--',
         )
         msg += '\n'
 
@@ -480,17 +493,11 @@ def main():
             'Status',
             'State',
         ]
-        msg += lib.base.get_table(table_data, keys, header=headers)
-    else:
+        msg += lib.base.get_table(display_rows, keys, header=headers, missing='--')
+    elif not table_data:
+        # `--brief` on a healthy cluster leaves nothing to print, and that is the point
+        # of the switch. Only say something when the appliance really listed no disk.
         msg += 'Nothing checked, no disk found.'
-
-    # build the message
-    if state == STATE_CRIT:
-        msg = 'There are critical errors.\n\n' + msg
-    elif state == STATE_WARN:
-        msg = 'There are warnings.\n\n' + msg
-    else:
-        msg = 'Everything is ok.\n\n' + msg
 
     if args.VERBOSE:
         msg += '\n\n' + lib.huawei_pacific.format_responses()

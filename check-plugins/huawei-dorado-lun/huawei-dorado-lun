@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080705'
+__version__ = '2026080706'
 
 DESCRIPTION = """Checks the health and running status of the LUNs of a Huawei OceanStor Dorado
 storage system via the REST API (/lun endpoint). Alerts when a LUN reports a non-normal state, and
@@ -520,7 +520,7 @@ def main():
                 _max=maximum,
             )
 
-        lun_state = lib.base.get_worst(
+        row_state = lib.base.get_worst(
             lib.base.get_worst(health_state, running_state),
             lib.base.get_worst(
                 usage_state, lib.base.get_worst(device_state, unmapped_lun_state)
@@ -543,7 +543,7 @@ def main():
             perfdata += lib.huawei_dorado.get_performance_perfdata(label, samples)
 
         lun['health_state'] = lib.base.state2str(health_state, empty_ok=False)
-        lun['lun_state'] = lun_state
+        lun['row_state'] = row_state
         lun['mapped'] = (
             'yes'
             if mapped
@@ -553,8 +553,12 @@ def main():
         lun['thin'] = (
             'thin' if lib.huawei_dorado.as_code(lun.get('ALLOCTYPE')) == ALLOCTYPE_THIN else 'thick'
         )
+        # Both the operator's thresholds and the appliance's own limit judge this
+        # number, so the cell carries the worse of the two. Marking it with only one of
+        # them left a `--warning` breach invisible in the row that caused it.
+        fill_state = lib.base.get_worst(usage_state, device_state)
         lun['usage'] = (
-            f'{usage_percent:.0f}%{lib.base.state2str(device_state, prefix=" ")}'
+            f'{usage_percent:.0f}%{lib.base.state2str(fill_state, prefix=" ")}'
             if usage_percent is not None
             else 'n/a'
         )
@@ -599,7 +603,7 @@ def main():
     # build table output
     display_rows = table_data
     if args.BRIEF:
-        display_rows = [row for row in table_data if row['lun_state'] != STATE_OK]
+        display_rows = [row for row in table_data if row['row_state'] != STATE_OK]
     if display_rows:
         if args.LENGTHY:
             keys = [

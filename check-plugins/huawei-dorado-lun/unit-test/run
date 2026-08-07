@@ -32,6 +32,17 @@ TESTS = [
         'assert-not-in': ['LUN003-unmapped'],
     },
     {
+        # A LUN over the operator's own threshold has to be marked in the row that
+        # caused it, not only in the exit code. The cell used to carry the appliance's
+        # own limit alone, so a `--warning` breach was invisible in the table.
+        'id': 'warn-usage-over-the-operator-threshold-is-marked',
+        'test': 'stdout/luns-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        ' --warning=1 --critical=99',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['30% [WARNING]', '10% [WARNING]'],
+    },
+    {
         'id': 'ok-include-unmapped',
         'test': 'stdout/luns-healthy,,0',
         'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'

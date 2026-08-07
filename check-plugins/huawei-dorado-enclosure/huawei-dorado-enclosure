@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080704'
+__version__ = '2026080705'
 
 DESCRIPTION = """Checks the health and running status of all enclosures on a Huawei OceanStor Dorado
 storage system via the REST API (/enclosure endpoint). Alerts when any enclosure
@@ -47,6 +47,11 @@ HEALTH_STATUS_MAX = 18
 
 # Fields `--match` is applied to.
 MATCH_FIELDS = ('UUID', 'LOCATION', 'NAME')
+
+# Highest `SWITCHSTATUS` code the REST Interface References document: 1 on, 2 off. It
+# bounds the metric so a graph scales to the whole enumeration. The location indicator
+# is not a fault either way, so it carries no threshold.
+SWITCH_STATUS_MAX = 2
 
 # RUNNINGSTATUS codes a healthy enclosure reports: normal (1), running (2) and
 # online (27).
@@ -361,8 +366,9 @@ def main():
         perfdata += lib.base.get_perfdata(
             f'{label}_switch_status',
             enclosure.get('SWITCHSTATUS'),
-            warn=2,
+            uom=None,
             _min=0,
+            _max=SWITCH_STATUS_MAX,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_temperature',
