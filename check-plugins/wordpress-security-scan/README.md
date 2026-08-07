@@ -313,7 +313,7 @@ With `--lengthy`, which adds the finding type, the CVSS score and the release th
 
 ```text
 1 vulnerability (1 critical), 0 exposures, 0 hardening findings on https://www.example.com
-Vulnerability database queried (free plan, 22 requests left).
+Vulnerability database queried (free plan, 22 of the daily requests left).
 Installed locally: 3 plugins, 3 themes. Detected by the scan: 2 plugins, 3 themes.
 
 Component      ! Installed ! Type   ! CVSS ! Fixed in ! Finding                                           ! State
@@ -374,7 +374,7 @@ In detail:
 * WARN if `wpscan` is not installed, so the missing scanner shows up as something to fix instead of being routed to the UNKNOWN pile.
 * WARN if the vulnerability database could not be refreshed and the scan ran against the local copy instead. The reason the scanner gave is named in the output.
 * WARN if the local vulnerability database has not been refreshed in more than a week. It then grades the site against what was known back then.
-* Per `--no-vuln-data-severity` (default `ok`) if the vulnerability database could not be queried at all: no API token, an unreachable database, or an exhausted request quota. The summary then reads "vulnerabilities not checked" rather than "no vulnerabilities found", the reason is named in the output, and `vuln_data_available=0` marks the run in the perfdata. Everything the scan could determine without that data still counts towards the state.
+* Per `--no-vuln-data-severity` (default `ok`) if the vulnerability database could not be queried at all: no API token, a token that was rejected or has been rotated, an unreachable database, or an exhausted daily quota. The scan itself still runs and reports everything it found. The summary then reads "vulnerabilities not checked" rather than "no vulnerabilities found", the reason is named in the output, and `vuln_data_available=0` marks the run in the perfdata. Everything the scan could determine without that data still counts towards the state.
 * CRIT as described in the table above.
 * UNKNOWN if the token file cannot be read, if `--url` is neither given nor derivable from `wp-config.php`, if the scan aborted (for example because the target does not run WordPress), or if the scan produced no parsable output. A scan that failed before writing its document reports in plain text; that text is carried into the message instead of being discarded.
 * `--always-ok` suppresses all alerts and always returns OK.
@@ -594,9 +594,15 @@ Run `wpscan --update` once as the user the monitoring agent runs as.
 
 ### `Your API limit has been reached`
 
-The daily request quota of the token is used up. `wpscan` refuses to start at all in that state, so the whole check turns UNKNOWN rather than falling back to a scan without vulnerability data.
+The daily request quota of the token is used up. `wpscan` refuses to start at all in that state, so the check scans a second time without the token. The exposures and hardening findings are reported as usual, only the vulnerability lookup is missing, and `--no-vuln-data-severity` decides whether that alerts. The same applies to a token that was rejected or an API that could not be reached, for example after the token has been rotated:
 
-The free tier allows 25 requests per day, and one request is spent per plugin, per theme and per core version looked up. A site with two dozen plugins therefore exhausts it in a single scan. Keep the check interval at once per day, use one token per site, or move to a paid plan. The remaining quota is visible in the output under `--lengthy`.
+```text
+No vulnerability data. Output from wpscan: The API token provided is invalid
+```
+
+A stale token therefore costs the vulnerability class, not the whole result. It must not be able to hide a critical exposure.
+
+The free tier allows 25 requests per day, shown as the "Daily API request limit" on the wpscan.com profile page, and one request is spent per plugin, per theme and per core version looked up. A site with two dozen plugins therefore exhausts it in a single scan. The allowance refills daily, so this passes on its own; it is a reason to wait rather than to buy a plan, unless it happens every day. Keep the check interval at once per day, use one token per site, or move to a paid plan. The remaining quota is visible in the output under `--lengthy`, which names it as the daily one.
 
 `The API token provided is invalid` behaves the same way and means the token was rejected outright.
 

@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080713'
+__version__ = '2026080715'
 
 DESCRIPTION = """Runs a WordPress security scan against a site and reports what an
 attacker can see from the outside. Combines the black box scan with the inventory read
@@ -153,6 +153,17 @@ SCAN_TIMEOUT_MARKER = 'Max Scan Duration Reached'
 # it is refreshing its vulnerability database, so a check reading only `scan_aborted`
 # gets no explanation at all for the one failure it can recover from.
 ABORT_SECTIONS = ('scan_aborted', 'update_aborted')
+
+# How wpscan opens the messages it refuses to scan with when the vulnerability lookup
+# is the problem: a rejected token, an exhausted daily quota, an API that would not
+# answer. It gives up before it looks at the site at all, so none of them says anything
+# about the site, and all of them are worth repeating without the token: a rotated key
+# must not hide a critical exposure that the scan would have found anyway.
+VULN_API_ABORT_MARKERS = (
+    'The API token provided is invalid',
+    'Unable to connect to the WPScan API',
+    'Your API limit has been reached',
+)
 
 # Top level JSON sections whose mere presence is an exposure: each entry is a file or
 # directory reachable over HTTP that leaks credentials, the database, or both.
@@ -584,6 +595,13 @@ def get_abort_reason(data):
     return ''
 
 
+def is_vuln_api_failure(aborted):
+    """Return True if an aborted run failed over the vulnerability lookup rather than
+    over the site itself.
+    """
+    return any(marker in aborted for marker in VULN_API_ABORT_MARKERS)
+
+
 def get_redirect_target(aborted):
     """Return the address the scanner says the target redirects to, or the empty string
     when its message is about something else.
@@ -736,9 +754,19 @@ def get_vuln_data_status(data, has_enterprise):
         plan = vuln_api['plan']
         if remaining in (None, ''):
             return (True, f'vulnerability database queried ({plan} plan)')
+        # The quota is a daily allowance that refills, not a balance that runs out for
+        # good. Saying so is what tells an admin seeing "3 left" whether to buy a plan
+        # or simply to wait. A plan without a limit reports a word instead of a count,
+        # where "daily" would say nothing.
+        if str(remaining).strip().lower() == 'unlimited':
+            return (
+                True,
+                f'vulnerability database queried ({plan} plan, unlimited requests)',
+            )
         return (
             True,
-            f'vulnerability database queried ({plan} plan, {remaining} requests left)',
+            f'vulnerability database queried ({plan} plan, {remaining} of the daily '
+            'requests left)',
         )
     if has_enterprise:
         return (True, 'vulnerability database read from the local enterprise copy')
@@ -1206,6 +1234,9 @@ def main():
     # Why the vulnerability database was not refreshed, if it was not. Empty on every
     # run that either refreshed it or was told not to.
     vulndb_note = ''
+    # Why the vulnerability lookup was not used, when the scanner refused it outright
+    # rather than simply not being given a token.
+    vuln_api_note = ''
     # Seconds used up before the scan proper, which come off its budget.
     spent = 0
     if args.TEST is None:
@@ -1272,6 +1303,29 @@ def main():
         cmd, data, retc, output = run_scan(
             args, enumerate_opts, http_auth, token, spent=spent
         )
+        # A token the API rejected, an exhausted daily quota or an unreachable API stop
+        # the scanner before it looks at the site at all. Reporting that alone would
+        # throw away everything the scan would have found and let a rotated key hide a
+        # critical exposure, so the scan is repeated without the token. What is lost is
+        # the vulnerability lookup, which is exactly what --no-vuln-data-severity is
+        # for; the scanner's own reason is carried into the output.
+        if retc not in (0, 5) and is_vuln_api_failure(get_abort_reason(data)):
+            vuln_api_note = get_abort_reason(data)
+            lib.base.verbose(
+                args.VERBOSE,
+                f'The vulnerability database rejected the request ({vuln_api_note}), '
+                'scanning without it...',
+            )
+            token = ''  # nosec B105 - dropping the token, not setting one
+            # Without a token the vulnerable-plugins and vulnerable-themes choices are
+            # refused outright, so the enumeration has to be downgraded the same way a
+            # run that never had a token downgrades it.
+            enumerate_opts, _ = adjust_enumerate(
+                args.WPSCAN_ENUMERATE, enterprise, wpscan_version
+            )
+            cmd, data, retc, output = run_scan(
+                args, enumerate_opts, http_auth, token, spent=spent
+            )
     else:
         # do not call the command, put in test data. The version probe would be a second
         # subprocess, so assume a release that knows every choice the check adjusts for.
@@ -1464,7 +1518,12 @@ def main():
         )
 
     if not vuln_data_available:
-        msg += f'\nNo vulnerability data: {vuln_data_note}.'
+        # The scanner's own refusal beats the generic "no token" reading, which is what
+        # the second run looks like from the outside once the token has been dropped.
+        if vuln_api_note:
+            msg += f'\nNo vulnerability data. {from_wpscan(vuln_api_note)}'
+        else:
+            msg += f'\nNo vulnerability data: {vuln_data_note}.'
     elif args.LENGTHY:
         msg += f'\n{vuln_data_note.capitalize()}.'
 
@@ -1559,7 +1618,13 @@ def main():
         else:
             keys = ['component', 'installed', 'finding', 'state']
             headers = ['Component', 'Installed', 'Finding', 'State']
-        msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
+        # Only a finding about the core, a plugin, a theme or a timthumb carries a
+        # version and a vulnerability entry. A site whose findings are all exposures
+        # and hardening notes would otherwise get whole columns of "-", which push the
+        # text that matters off to the right for nothing.
+        msg += '\n\n' + lib.base.get_table(
+            table_data, keys, header=headers, hide_empty=True
+        )
 
     # --verbose: show the command the plugin runs to collect its data. The API token is
     # never part of it, it is handed over through the environment. The HTTP credentials

@@ -432,7 +432,9 @@ TESTS = [
         'params': f'{BASE_PARAMS} --lengthy',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Vulnerability database queried (free plan, 22 requests left)',
+            # "daily" matters: the quota refills, so a low number is a reason to wait
+            # rather than to buy a plan.
+            'Vulnerability database queried (free plan, 22 of the daily requests left)',
             "'vuln_data_available'=1",
         ],
     },
@@ -612,6 +614,37 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ['--proxy=http://admin:******@192.0.2.1:3128'],
         'assert-not-in': ['linuxfabrik'],
+    },
+    # A column nobody filled in is noise. Only a finding about the core, a plugin, a
+    # theme or a timthumb carries a version and a vulnerability entry, so a site whose
+    # findings are all exposures and hardening notes would print three columns of "-".
+    {
+        'id': 'warn-columns-nobody-filled-are-dropped',
+        'test': 'stdout/users-enumerated,,0',
+        'params': f'{NO_PATH_PARAMS} --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Component', 'Type', 'Finding', 'State'],
+        'assert-not-in': ['Installed', 'CVSS', 'Fixed in'],
+    },
+    # ... while a column that carries something stays, on the same run shape.
+    {
+        'id': 'crit-filled-columns-stay',
+        'test': 'stdout/full-site,,5',
+        'params': f'{NO_PATH_PARAMS} --lengthy',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Installed', '5.0'],
+    },
+    # A token the API rejects stops the scanner before it looks at the site. Against a
+    # live scanner the scan is repeated without the token, so the exposures still get
+    # reported; the fixture path cannot replay two runs, so what is asserted here is
+    # that the scanner's own reason survives instead of a generic parsing complaint.
+    {
+        'id': 'unknown-rejected-api-token-names-its-reason',
+        'test': 'stdout/vuln-api-rejected,,4',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Output from wpscan:', 'Unable to connect to the WPScan API'],
+        'assert-not-in': ['no usable output'],
     },
     # A run that fails while refreshing the vulnerability database reports under its own
     # JSON key, not under the one every other abort uses. Reading only the latter left
@@ -809,6 +842,29 @@ class TestAbortReason(unittest.TestCase):
 
     def test_no_abort_at_all(self):
         self.assertEqual(self.check.get_abort_reason({'version': {}}), '')
+
+    # Three refusals are about the vulnerability lookup and say nothing about the site,
+    # so the scan is worth repeating without the token. Everything else is about the
+    # target and repeating it would only scan a site that already refused once.
+    def test_recognises_a_rejected_lookup(self):
+        for reason in (
+            'The API token provided is invalid',
+            'Your API limit has been reached',
+            'Unable to connect to the WPScan API: HTTP Error: ... (status: 401). '
+            'Please check https://status.wpscan.com/ for service status.',
+        ):
+            with self.subTest(reason=reason):
+                self.assertTrue(self.check.is_vuln_api_failure(reason))
+
+    def test_a_target_problem_is_not_a_lookup_problem(self):
+        for reason in (
+            'The remote website is up, but does not seem to be running WordPress.',
+            'The URL supplied redirects to https://example.com/.',
+            'Max Scan Duration Reached',
+            '',
+        ):
+            with self.subTest(reason=reason):
+                self.assertFalse(self.check.is_vuln_api_failure(reason))
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
