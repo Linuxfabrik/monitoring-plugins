@@ -18,16 +18,22 @@
 #
 #   for v in 3.9 3.10 3.11 3.12 3.13 3.14; do
 #     python${v} -m venv .venv-py${v//.}
-#     ./.venv-py${v//.}/bin/python -m pip install 'pip<25.1'
-#     ./.venv-py${v//.}/bin/python -m pip install pip-tools typing_extensions
+#     ./.venv-py${v//.}/bin/python -m pip install 'pip<25.1' pip-tools \
+#         typing_extensions
 #     mkdir -p lockfiles/py${v//.}
 #     ./.venv-py${v//.}/bin/python -m piptools compile --generate-hashes \
 #         --strip-extras --allow-unsafe \
 #         --output-file=lockfiles/py${v//.}/requirements.txt requirements.in
 #   done
 #
-# The two `pip install` calls have to stay separate: pip replaces
-# itself mid-run, and pip-tools imports `typing_extensions` without
+# All three names have to go into one `pip install`. Splitting the pip
+# pin into its own call does not work: a fresh venv already ships a pip
+# that satisfies `pip<25.1`, so that call is a no-op, and installing
+# pip-tools afterwards pulls pip 26.x in as a dependency. `piptools`
+# then dies with `ImportError: cannot import name 'stdlib_pkgs' from
+# 'pip._internal.utils.compat'`, which pip 25.1 removed. One call lets
+# the resolver honour both constraints and lands on pip 25.0.x.
+# `typing_extensions` is listed because pip-tools imports it without
 # declaring it as a dependency.
 #
 # That `piptools compile` run only adds and removes packages.
