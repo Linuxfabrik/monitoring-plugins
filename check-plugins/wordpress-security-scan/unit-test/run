@@ -543,6 +543,16 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ['--url=http://www.example.com'],
     },
+    # The printed command is quoted the way a shell needs it, so it can be pasted into a
+    # terminal. The user agent carries spaces and would otherwise read as several
+    # arguments. The command itself never goes through a shell.
+    {
+        'id': 'ok-verbose-command-is-shell-safe',
+        'test': 'stdout/clean-site,,0',
+        'params': BASE_PARAMS + ' --verbose',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'--user-agent=Linuxfabrik Monitoring Plugins'"],
+    },
     # The two redirect switches wpscan names in its own error message are parameters of
     # this check, so an admin can copy them straight from that message.
     {

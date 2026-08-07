@@ -14,6 +14,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import sys
 
 import lib.args
@@ -1434,8 +1435,11 @@ def main():
 
     # --verbose: show the command the plugin runs to collect its data. The API token is
     # never part of it, it is handed over through the environment.
+    # Quoted the way a shell needs it, so the line can be pasted into a terminal as it
+    # stands. The command itself never goes through a shell; the user agent carries
+    # spaces and would otherwise be shown as several arguments.
     if args.VERBOSE:
-        msg += '\n\nExecuted command:\n  ' + ' '.join(cmd)
+        msg += '\nExecuted command:\n  ' + shlex.join(cmd)
 
     # over and out
     lib.base.oao(
