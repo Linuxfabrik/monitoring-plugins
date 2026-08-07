@@ -206,6 +206,10 @@ Grafana:
 
 * ping: the round-trip time and total-time graphs are scaled in milliseconds instead of seconds, so the values are no longer shown 1000x too large
 
+Icinga Director:
+
+* five services of the Huawei OceanStor Dorado service set carried the same UUID as a sixth, which the Director refuses to import and which stopped the combined basket from being built at all. Every service has its own UUID again (huawei-dorado-alarm, huawei-dorado-expboard, huawei-dorado-lun, huawei-dorado-port, huawei-dorado-sfp)
+
 Tools:
 
 * build-basket: switches that turn an option off, such as `--no-insecure`, end up in the Director basket instead of being dropped with an error
