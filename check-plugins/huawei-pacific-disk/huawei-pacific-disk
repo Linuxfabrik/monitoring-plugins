@@ -23,12 +23,13 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080703'
+__version__ = '2026080704'
 
 DESCRIPTION = """Checks every disk of a Huawei OceanStor Pacific storage system via the REST API
 (/data_service/diskpool and /cluster/diskpool/queryNodeDiskInfo endpoints). Alerts when a disk is
 not healthy, and when its remaining life falls below the warning or critical threshold."""
 
+DEFAULT_BRIEF = False
 DEFAULT_CACHE_EXPIRE = 15  # minutes
 DEFAULT_CRIT = '30:'
 DEFAULT_INSECURE = True
@@ -64,6 +65,16 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief')
+        + ' Worth setting on a cluster with many disks. '
+        'Default: %(default)s',
+        dest='BRIEF',
+        action='store_true',
+        default=DEFAULT_BRIEF,
     )
 
     parser.add_argument(
@@ -411,6 +422,7 @@ def main():
                         'role': lib.huawei_pacific.get_disk_role(disk.get('diskRole')),
                         'serial': disk.get('diskSn', '--'),
                         'slot': disk.get('slotDesc', '--'),
+                        'row_state': lib.base.get_worst(disk_state, life_state),
                         'state': lib.base.state2str(
                             lib.base.get_worst(disk_state, life_state),
                             empty_ok=False,
@@ -440,7 +452,10 @@ def main():
         )
         msg += '\n'
 
-    if table_data:
+    display_rows = table_data
+    if args.BRIEF:
+        display_rows = [row for row in table_data if row['row_state'] != STATE_OK]
+    if display_rows:
         keys = [
             'node',
             'pool',

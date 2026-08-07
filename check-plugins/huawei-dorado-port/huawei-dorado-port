@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080704'
+__version__ = '2026080705'
 
 DESCRIPTION = """Checks the health and link status of the front-end ports of a Huawei OceanStor
 Dorado storage system via the REST API (/fc_port, /eth_port, /sas_port and /bond_port endpoints).
@@ -33,6 +33,7 @@ it is configured or built for, and optionally when a link is down. Reports the l
 counters the appliance keeps as per-second rates.
 Supports reporting the I/O counters via --performance."""
 
+DEFAULT_BRIEF = False
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_CRIT_ERRORS = ''
 DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
@@ -156,6 +157,16 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief')
+        + ' Worth setting on an array with many ports. '
+        'Default: %(default)s',
+        dest='BRIEF',
+        action='store_true',
+        default=DEFAULT_BRIEF,
     )
 
     parser.add_argument(
@@ -610,6 +621,10 @@ def main():
             )
             perfdata += lib.huawei_dorado.get_performance_perfdata(label, samples)
 
+        port['row_state'] = lib.base.get_worst(
+            lib.base.get_worst(health_state, running_state),
+            lib.base.get_worst(speed_state, error_state),
+        )
         port['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         port['link'] = lib.huawei_dorado.get_running_status(port.get('RUNNINGSTATUS'))
         port['running_state'] = lib.base.state2str(running_state, empty_ok=False)
@@ -649,7 +664,10 @@ def main():
     msg += '\n\n'
 
     # build table output
-    if table_data:
+    display_rows = table_data
+    if args.BRIEF:
+        display_rows = [row for row in table_data if row['row_state'] != STATE_OK]
+    if display_rows:
         keys = [
             'UUID',
             'kind',
@@ -671,7 +689,7 @@ def main():
             'Link State',
         ]
 
-        msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
+        msg += lib.base.get_table(display_rows, keys, header=headers, missing='--')
 
     if args.VERBOSE:
         msg += '\n\n' + lib.huawei_dorado.format_responses()

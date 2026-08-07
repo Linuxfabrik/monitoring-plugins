@@ -24,12 +24,13 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080703'
+__version__ = '2026080704'
 
 DESCRIPTION = """Checks the health and running status of all hosts attached to a Huawei OceanStor
 Dorado storage system via the REST API (/host endpoint). Alerts when any host reports
 a non-normal state."""
 
+DEFAULT_BRIEF = False
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
 DEFAULT_INSECURE = True
@@ -74,6 +75,16 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief')
+        + ' Worth setting on an array with many hosts. '
+        'Default: %(default)s',
+        dest='BRIEF',
+        action='store_true',
+        default=DEFAULT_BRIEF,
     )
 
     parser.add_argument(
@@ -326,6 +337,7 @@ def main():
             _max=capacity,
         )
 
+        host['row_state'] = lib.base.get_worst(health_state, running_state)
         host['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         host['running_state'] = lib.base.state2str(running_state, empty_ok=False)
         host['OPERATIONSYSTEM'] = lib.huawei_dorado.get_os(host.get('OPERATIONSYSTEM'))
@@ -355,7 +367,10 @@ def main():
     msg += '\n\n'
 
     # build table output
-    if table_data:
+    display_rows = table_data
+    if args.BRIEF:
+        display_rows = [row for row in table_data if row['row_state'] != STATE_OK]
+    if display_rows:
         keys = [
             'UUID',
             'LOCATION',
@@ -375,7 +390,7 @@ def main():
             'Running',
         ]
 
-        msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
+        msg += lib.base.get_table(display_rows, keys, header=headers, missing='--')
 
     if args.VERBOSE:
         msg += '\n\n' + lib.huawei_dorado.format_responses()

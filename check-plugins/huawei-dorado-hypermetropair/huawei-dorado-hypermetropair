@@ -25,12 +25,13 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080703'
+__version__ = '2026080704'
 
 DESCRIPTION = """Checks the health and running status of all HyperMetro pairs on a Huawei OceanStor
 Dorado storage system via the REST API (/hypermetropair endpoint). Alerts when any
 pair reports a non-normal state or synchronization issue."""
 
+DEFAULT_BRIEF = False
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
 DEFAULT_INSECURE = True
@@ -95,6 +96,16 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief')
+        + ' Worth setting on an array with many HyperMetro pairs. '
+        'Default: %(default)s',
+        dest='BRIEF',
+        action='store_true',
+        default=DEFAULT_BRIEF,
     )
 
     parser.add_argument(
@@ -405,6 +416,13 @@ def main():
             _max=100,
         )
 
+        hypermetropair['row_state'] = lib.base.get_worst(
+            lib.base.get_worst(health_state, running_state),
+            lib.base.get_worst(
+                linkstatus_state,
+                lib.base.get_worst(localdata_state, remotedata_state),
+            ),
+        )
         hypermetropair['health_state'] = lib.base.state2str(
             health_state, empty_ok=False
         )
@@ -471,7 +489,10 @@ def main():
     msg += '\n\n'
 
     # build table output
-    if table_data:
+    display_rows = table_data
+    if args.BRIEF:
+        display_rows = [row for row in table_data if row['row_state'] != STATE_OK]
+    if display_rows:
         keys = [
             'UUID',
             'sync_last',
@@ -503,7 +524,7 @@ def main():
             'Running',
         ]
 
-        msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
+        msg += lib.base.get_table(display_rows, keys, header=headers, missing='--')
 
     if args.VERBOSE:
         msg += '\n\n' + lib.huawei_dorado.format_responses()

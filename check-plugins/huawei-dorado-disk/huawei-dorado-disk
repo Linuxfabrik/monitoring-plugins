@@ -24,13 +24,14 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080705'
+__version__ = '2026080706'
 
 DESCRIPTION = """Checks the health status of all disks on a Huawei OceanStor Dorado storage system
 via the REST API (/disk endpoint). Alerts when any disk reports a non-normal health
 state or runs out of remaining service life, and optionally when its health score drops,
 when it has worn through most of its service life, or when it is running hot."""
 
+DEFAULT_BRIEF = False
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_CRIT = '30:'
 DEFAULT_CRIT_HEALTH_MARK = ''
@@ -91,6 +92,16 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief')
+        + ' Worth setting on an array with many disks. '
+        'Default: %(default)s',
+        dest='BRIEF',
+        action='store_true',
+        default=DEFAULT_BRIEF,
     )
 
     parser.add_argument(
@@ -569,6 +580,15 @@ def main():
             _min=0,
         )
 
+        disk['row_state'] = lib.base.get_worst(
+            lib.base.get_worst(health_state, running_state),
+            lib.base.get_worst(
+                lib.base.get_worst(life_state, temperature_state),
+                lib.base.get_worst(
+                    lib.base.get_worst(wear_state, health_mark_state), unused_state
+                ),
+            ),
+        )
         disk['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         disk['running_state'] = lib.base.state2str(running_state, empty_ok=False)
         # The performance data is written above, so what is left here is the display
@@ -618,7 +638,10 @@ def main():
     msg += '\n\n'
 
     # build table output
-    if table_data:
+    display_rows = table_data
+    if args.BRIEF:
+        display_rows = [row for row in table_data if row['row_state'] != STATE_OK]
+    if display_rows:
         keys = [
             'UUID',
             'LOCATION',
@@ -650,7 +673,7 @@ def main():
             'Running',
         ]
 
-        msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
+        msg += lib.base.get_table(display_rows, keys, header=headers, missing='--')
 
     if args.VERBOSE:
         msg += '\n\n' + lib.huawei_dorado.format_responses()

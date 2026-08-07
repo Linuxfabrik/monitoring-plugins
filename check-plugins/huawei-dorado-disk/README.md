@@ -35,7 +35,7 @@ Checks the health and running status of all disks on a Huawei OceanStor Dorado s
 ## Help
 
 ```text
-usage: huawei-dorado-disk [-h] [-V] [--always-ok]
+usage: huawei-dorado-disk [-h] [-V] [--always-ok] [--brief]
                           [--cache-expire CACHE_EXPIRE] [-c CRIT]
                           [--critical-temperature CRIT_TEMPERATURE]
                           [--critical-health-mark CRIT_HEALTH_MARK]
@@ -61,6 +61,12 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --brief               Hide the rows that are within the thresholds and show
+                        only those in a WARN or CRIT state. Perfdata and
+                        alerting are unaffected: every item still emits
+                        performance data and still drives the overall check
+                        state, so this is safe to leave on. Worth setting on
+                        an array with many disks. Default: False
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15

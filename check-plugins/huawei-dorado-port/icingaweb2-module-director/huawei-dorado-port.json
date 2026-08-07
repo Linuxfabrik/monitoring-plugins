@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$huawei_dorado_port_always_ok$"
                 },
+                "--brief": {
+                    "set_if": "$huawei_dorado_port_brief$"
+                },
                 "--cache-expire": {
                     "value": "$huawei_dorado_port_cache_expire$"
                 },
@@ -166,7 +169,7 @@
                 },
                 {
                     "datafield_id": 19,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -176,11 +179,16 @@
                 },
                 {
                     "datafield_id": 21,
-                    "is_required": "n",
+                    "is_required": "y",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 22,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 23,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -238,6 +246,7 @@
             "vars": {
                 "criticality": "A",
                 "huawei_dorado_port_always_ok": false,
+                "huawei_dorado_port_brief": false,
                 "huawei_dorado_port_cache_expire": 15,
                 "huawei_dorado_port_critical_errors": "",
                 "huawei_dorado_port_device_id": "",
@@ -366,6 +375,15 @@
             "uuid": "80f876d2-b987-4f82-94d6-52bc599a63e3"
         },
         "2": {
+            "varname": "huawei_dorado_port_brief",
+            "caption": "Huawei Dorado Port: Brief?",
+            "description": "Hide the rows that are within the thresholds and show only those in a WARN or CRIT state. Perfdata and alerting are unaffected: every item still emits performance data and still drives the overall check state, so this is safe to leave on. Worth setting on an array with many ports.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "952056ac-4f62-47e9-a686-dcb334e7cfab"
+        },
+        "3": {
             "varname": "huawei_dorado_port_cache_expire",
             "caption": "Huawei Dorado Port: Cache Expire",
             "description": "The amount of time after which the credential/data cache expires, in minutes.",
@@ -376,7 +394,7 @@
             },
             "uuid": "1d3bb2b3-419e-4bc3-9dc4-8de18f7be85a"
         },
-        "3": {
+        "4": {
             "varname": "huawei_dorado_port_critical_errors",
             "caption": "Huawei Dorado Port: Critical Errors",
             "description": "CRIT threshold for the link errors of a port, as a Nagios range in errors per second, summed over every error counter that port keeps. Off by default, because a link that drops the occasional frame is not worth waking anyone; watch the graph first and set it once you know what your fabric normally sits at. A healthy link sits at 0. Example: `--critical-errors=10`",
@@ -387,7 +405,7 @@
             },
             "uuid": "751ef43b-4f56-4cbc-b5ae-2fc4d9b2734c"
         },
-        "4": {
+        "5": {
             "varname": "huawei_dorado_port_device_id",
             "caption": "Huawei Dorado Port: Device ID",
             "description": "Huawei OceanStor Dorado API device ID. Optional: the appliance reports its own at login, so this is only needed to override that answer.",
@@ -398,7 +416,7 @@
             },
             "uuid": "2f123f79-f48d-4e2d-acf6-09b1c213dd87"
         },
-        "5": {
+        "6": {
             "varname": "huawei_dorado_port_ignore",
             "caption": "Huawei Dorado Port: Ignore",
             "description": "Skip ports. Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. The regex is anchored at the start of the string (Python `re.match`) and is matched against the port identifier, its location and its name, so prefix with `.*` to match anywhere.",
@@ -409,7 +427,7 @@
             },
             "uuid": "e9276d5c-3695-465e-9924-d3c40ce6d2f1"
         },
-        "6": {
+        "7": {
             "varname": "huawei_dorado_port_insecure",
             "caption": "Huawei Dorado Port: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -418,7 +436,7 @@
             "settings": {},
             "uuid": "63036143-243a-4d3c-850e-cf5e0324f2d5"
         },
-        "7": {
+        "8": {
             "varname": "huawei_dorado_port_link_down_severity",
             "caption": "Huawei Dorado Port: Link Down Severity",
             "description": "State to report for a port whose link is down. A port that is simply not cabled reports the same thing, which is why this defaults to not alerting.",
@@ -431,7 +449,7 @@
             },
             "uuid": "1532a5d2-366b-4cc6-971f-44b547f8f3d6"
         },
-        "8": {
+        "9": {
             "varname": "huawei_dorado_port_match",
             "caption": "Huawei Dorado Port: Match",
             "description": "Filter by ports. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against the port identifier, its location and its name, so prefix with `.*` to match anywhere.",
@@ -442,7 +460,7 @@
             },
             "uuid": "9935b572-2bcf-45d2-8f16-a22b2ac5bf4e"
         },
-        "9": {
+        "10": {
             "varname": "huawei_dorado_port_no_insecure",
             "caption": "Huawei Dorado Port: No Insecure?",
             "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -451,7 +469,7 @@
             "settings": {},
             "uuid": "1776e8a1-7119-401a-b489-e68a8b6e6f65"
         },
-        "10": {
+        "11": {
             "varname": "huawei_dorado_port_no_match_severity",
             "caption": "Huawei Dorado Port: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -464,7 +482,7 @@
             },
             "uuid": "60f31447-ef67-4217-8e17-249de24cdf73"
         },
-        "11": {
+        "12": {
             "varname": "huawei_dorado_port_no_perfdata",
             "caption": "Huawei Dorado Port: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -473,7 +491,7 @@
             "settings": {},
             "uuid": "19e69a31-6e9b-41e1-9334-dc98dd1e770e"
         },
-        "12": {
+        "13": {
             "varname": "huawei_dorado_port_no_proxy",
             "caption": "Huawei Dorado Port: No Proxy?",
             "description": "Do not use a proxy.",
@@ -482,7 +500,7 @@
             "settings": {},
             "uuid": "5b7ab613-391c-43e0-896c-9d5d2df0b5cd"
         },
-        "13": {
+        "14": {
             "varname": "huawei_dorado_port_performance",
             "caption": "Huawei Dorado Port: Performance?",
             "description": "Additionally report the I/O counters of every front-end port. Costs one API request per object, so a large appliance may need a higher --timeout.",
@@ -491,7 +509,7 @@
             "settings": {},
             "uuid": "00f06a78-ed73-4ce2-89ea-f9f627c7f2a8"
         },
-        "14": {
+        "15": {
             "varname": "huawei_dorado_port_password",
             "caption": "Huawei Dorado Port: Password",
             "description": "Huawei OceanStor Dorado API password. Password.",
@@ -502,7 +520,7 @@
             },
             "uuid": "3607a77b-ed63-439e-b768-7196f64bf97a"
         },
-        "15": {
+        "16": {
             "varname": "huawei_dorado_port_password_file",
             "caption": "Huawei Dorado Port: Password File",
             "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
@@ -513,7 +531,7 @@
             },
             "uuid": "28dc5ce9-1b0c-4755-862f-80162c688e24"
         },
-        "16": {
+        "17": {
             "varname": "huawei_dorado_port_scope",
             "caption": "Huawei Dorado Port: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -524,7 +542,7 @@
             },
             "uuid": "c7c7ee70-01ce-4103-a643-c14f39e5da4c"
         },
-        "17": {
+        "18": {
             "varname": "huawei_dorado_port_slow_port_severity",
             "caption": "Huawei Dorado Port: Slow Port Severity",
             "description": "State to report for a port that negotiated a speed below the one it is configured for, or below the one it is built for where it is set to auto-negotiate. A dirty connector, the wrong transceiver or a mismatched switch port show up this way long before the link drops.",
@@ -537,7 +555,7 @@
             },
             "uuid": "001e1de0-6b5e-427a-b3fb-0c9a4201d314"
         },
-        "18": {
+        "19": {
             "varname": "huawei_dorado_port_timeout",
             "caption": "Huawei Dorado Port: Timeout",
             "description": "Network timeout in seconds.",
@@ -548,7 +566,7 @@
             },
             "uuid": "abfcaf46-e4e7-4c3f-ad8b-5eee63b91195"
         },
-        "19": {
+        "20": {
             "varname": "huawei_dorado_port_url",
             "caption": "Huawei Dorado Port: URL",
             "description": "Huawei OceanStor Dorado API URL. URL to the endpoint.",
@@ -559,7 +577,7 @@
             },
             "uuid": "24a15ae8-4f43-446b-ae96-839af802f826"
         },
-        "20": {
+        "21": {
             "varname": "huawei_dorado_port_username",
             "caption": "Huawei Dorado Port: Username",
             "description": "Huawei OceanStor Dorado API username. Username.",
@@ -570,7 +588,7 @@
             },
             "uuid": "eae9d5c0-b2e2-469d-8fea-7da0eff7fbe3"
         },
-        "21": {
+        "22": {
             "varname": "huawei_dorado_port_warning_errors",
             "caption": "Huawei Dorado Port: Warning Errors",
             "description": "WARN threshold for the link errors of a port, as a Nagios range in errors per second, summed over every error counter that port keeps. Off by default, because a link that drops the occasional frame is not worth alerting on; watch the graph first and set it once you know what your fabric normally sits at. A healthy link sits at 0. Example: `--warning-errors=1`",
@@ -581,7 +599,7 @@
             },
             "uuid": "8f680829-9400-4e00-840e-968b7a7f35c2"
         },
-        "22": {
+        "23": {
             "varname": "huawei_dorado_port_verbose",
             "caption": "Huawei Dorado Port: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. Appends what every API request returned, so the appliance's own answers can be read while working out how it reports something. Session tokens are redacted. The output is as long as those answers are, so this is a debugging aid rather than something to leave switched on.",

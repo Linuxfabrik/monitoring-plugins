@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080703'
+__version__ = '2026080704'
 
 DESCRIPTION = """Checks the health and running status of all cluster nodes on a Huawei OceanStor
 Pacific storage system via the REST API (/cluster/servers endpoint). Alerts when any node is not
@@ -35,9 +35,15 @@ DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
+DEFAULT_WARRANTY_SEVERITY = 'ok'
 
 # Fields `--match` is applied to.
 MATCH_FIELDS = ('name', 'management_ip')
+
+# `warranty_status` codes worth reporting on: about to expire (2) and expired (3).
+# `0` is a node that is not a storage node, `1` a warranty with more than six months to
+# run, and `4` a node whose lifecycle information the cluster does not have.
+WARRANTY_ENDING = (2, 3)
 
 # `oam_agent_status` codes. `-1` is the appliance's "not monitored" marker, which is the
 # lower bound of the metric rather than a state worth alerting on.
@@ -189,6 +195,18 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--warranty-severity',
+        help='State to report for a node whose warranty has expired or is about to. '
+        'This is a commercial fact rather than a fault, so it does not alert by default: '
+        'a node out of warranty runs exactly as well as one in warranty, right up to the '
+        'point where a part has to be replaced. '
+        'Default: %(default)s',
+        dest='WARRANTY_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_WARRANTY_SEVERITY,
+    )
+
+    parser.add_argument(
         '-v',
         '--verbose',
         help=lib.args.help('--verbose')
@@ -260,10 +278,18 @@ def main():
         lib.base.coe(item)
         for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
     ]
+    warranty_state = lib.base.str2state(args.WARRANTY_SEVERITY)
 
     # analyze data
     table_data = []
     for node in result.get('data') or []:
+        # `in_cluster` has three documented values: True (added), False (not added) and
+        # null (about to be added). A node that is not part of the cluster holds none of
+        # its storage, so judging it would report a fault the cluster does not have. A
+        # firmware that omits the field must not narrow the result, so absent means keep.
+        if 'in_cluster' in node and node['in_cluster'] is not True:
+            continue
+
         if args.MATCH and not any(
             lib.base.coe(lib.txt.match_regex(pattern, str(node.get(field, ''))))
             for pattern in compiled_match_regex
@@ -299,6 +325,14 @@ def main():
             error_state = STATE_CRIT
             state = lib.base.get_worst(state, error_state)
 
+        # A warranty running out is not a fault, so it stays quiet unless the operator
+        # asks. It is what an administrator plans a hardware refresh from.
+        warranty = lib.huawei_pacific.as_code(node.get('warranty_status'))
+        node_warranty_state = STATE_OK
+        if warranty in WARRANTY_ENDING:
+            node_warranty_state = warranty_state
+            state = lib.base.get_worst(state, node_warranty_state)
+
         label = re.sub(r'\W+', '_', str(node.get('name', node.get('id'))))
         perfdata += lib.base.get_perfdata(
             f'{label}_oam_agent_status',
@@ -319,6 +353,10 @@ def main():
         node['running_state'] = lib.base.state2str(running_state, empty_ok=False)
         node['oam_state'] = lib.base.state2str(oam_state, empty_ok=False)
         node['error_state'] = lib.base.state2str(error_state, empty_ok=False)
+        node['warranty'] = (
+            f'{lib.huawei_pacific.get_warranty_status(warranty)}'
+            f'{lib.base.state2str(node_warranty_state, prefix=" ")}'
+        )
 
         table_data.append(node)
 
@@ -351,6 +389,7 @@ def main():
             'running_status',
             'oam_agent_status',
             'error_code',
+            'warranty',
             'running_state',
             'oam_state',
             'error_state',
@@ -364,6 +403,7 @@ def main():
             'Running',
             'OAM Agent',
             'Error Code',
+            'Warranty',
             'Running State',
             'OAM State',
             'Error State',

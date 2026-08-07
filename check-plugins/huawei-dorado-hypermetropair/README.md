@@ -34,7 +34,7 @@ Checks the health, running status, and synchronization state of all HyperMetro p
 ## Help
 
 ```text
-usage: huawei-dorado-hypermetropair [-h] [-V] [--always-ok]
+usage: huawei-dorado-hypermetropair [-h] [-V] [--always-ok] [--brief]
                                     [--cache-expire CACHE_EXPIRE]
                                     [--device-id DEVICE_ID] [--ignore IGNORE]
                                     [--insecure] [--no-insecure]
@@ -54,6 +54,12 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --brief               Hide the rows that are within the thresholds and show
+                        only those in a WARN or CRIT state. Perfdata and
+                        alerting are unaffected: every item still emits
+                        performance data and still drives the overall check
+                        state, so this is safe to leave on. Worth setting on
+                        an array with many HyperMetro pairs. Default: False
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15

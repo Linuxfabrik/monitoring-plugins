@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080704'
+__version__ = '2026080705'
 
 DESCRIPTION = """Checks the health, link status and optical power of the optical modules (SFP) of a
 Huawei OceanStor Dorado storage system via the REST API (/sfp endpoint). Alerts when a module
@@ -32,6 +32,7 @@ reports a non-normal health status, when its receive or transmit power leaves th
 itself reports as its operating range, and optionally when its link is down. A degrading transceiver
 or a dirty connector shows up as falling receive power long before the link drops."""
 
+DEFAULT_BRIEF = False
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
 DEFAULT_INSECURE = True
@@ -122,6 +123,16 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief')
+        + ' Worth setting on an array with many optical modules. '
+        'Default: %(default)s',
+        dest='BRIEF',
+        action='store_true',
+        default=DEFAULT_BRIEF,
     )
 
     parser.add_argument(
@@ -511,6 +522,8 @@ def main():
             _min=0,
         )
 
+        module_state = lib.base.get_worst(health_state, running_state)
+
         # A degrading transceiver or a dirty connector shows up as falling receive
         # power long before the link drops, so this is the reading worth watching.
         for direction, thresholds in (
@@ -531,6 +544,7 @@ def main():
                     reading, warn or None, crit or None, _operator='range'
                 )
                 state = lib.base.get_worst(state, power_state)
+                module_state = lib.base.get_worst(module_state, power_state)
 
             perfdata += lib.base.get_perfdata(
                 f'{label}_{direction}_power',
@@ -545,6 +559,7 @@ def main():
                 else f'{reading}{lib.base.state2str(power_state, prefix=" ")}'
             )
 
+        module['row_state'] = module_state
         module['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         module['link'] = lib.huawei_dorado.get_running_status(
             module.get('runningStatus')
@@ -578,7 +593,10 @@ def main():
     msg += '\n\n'
 
     # build table output
-    if table_data:
+    display_rows = table_data
+    if args.BRIEF:
+        display_rows = [row for row in table_data if row['row_state'] != STATE_OK]
+    if display_rows:
         keys = [
             'location',
             'sits_in',
@@ -606,7 +624,7 @@ def main():
             'Link State',
         ]
 
-        msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
+        msg += lib.base.get_table(display_rows, keys, header=headers, missing='--')
 
     if args.VERBOSE:
         msg += '\n\n' + lib.huawei_dorado.format_responses()

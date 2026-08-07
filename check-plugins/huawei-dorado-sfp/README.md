@@ -37,9 +37,9 @@ Checks the health and link status of the optical modules (SFP) of a Huawei Ocean
 ## Help
 
 ```text
-usage: huawei-dorado-sfp [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
-                         [--device-id DEVICE_ID] [--ignore IGNORE]
-                         [--insecure]
+usage: huawei-dorado-sfp [-h] [-V] [--always-ok] [--brief]
+                         [--cache-expire CACHE_EXPIRE] [--device-id DEVICE_ID]
+                         [--ignore IGNORE] [--insecure]
                          [--link-down-severity {ok,warn,crit,unknown}]
                          [--match MATCH] [--no-insecure]
                          [--no-match-severity {ok,warn,crit,unknown}]
@@ -62,6 +62,12 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --brief               Hide the rows that are within the thresholds and show
+                        only those in a WARN or CRIT state. Perfdata and
+                        alerting are unaffected: every item still emits
+                        performance data and still drives the overall check
+                        state, so this is safe to leave on. Worth setting on
+                        an array with many optical modules. Default: False
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15

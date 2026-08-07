@@ -39,7 +39,8 @@ usage: huawei-pacific-node [-h] [-V] [--always-ok]
                            [--no-match-severity {ok,warn,crit,unknown}]
                            [--no-perfdata] [--no-proxy] [--password PASSWORD]
                            [--password-file PASSWORD_FILE] [--scope SCOPE]
-                           [--timeout TIMEOUT] -u URL --username USERNAME [-v]
+                           [--timeout TIMEOUT] -u URL --username USERNAME
+                           [--warranty-severity {ok,warn,crit,unknown}] [-v]
 
 Checks the health and running status of all cluster nodes on a Huawei
 OceanStor Pacific storage system via the REST API (/cluster/servers endpoint).
@@ -97,6 +98,13 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Pacific API URL. URL to the endpoint.
   --username USERNAME   Huawei OceanStor Pacific API username. Username.
+  --warranty-severity {ok,warn,crit,unknown}
+                        State to report for a node whose warranty has expired
+                        or is about to. This is a commercial fact rather than
+                        a fault, so it does not alert by default: a node out
+                        of warranty runs exactly as well as one in warranty,
+                        right up to the point where a part has to be replaced.
+                        Default: ok
   -v, --verbose         Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
                         hood. Appends what every API request returned, so the
