@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080701'
+__version__ = '2026080702'
 
 DESCRIPTION = """Checks the health and running status of all HyperMetro domains on a Huawei OceanStor
 Dorado storage system via the REST API (/hypermetrodomain endpoint). Alerts when any
@@ -275,7 +275,7 @@ def main():
 
         perfdata += lib.base.get_perfdata(
             f'{label}_running_status',
-            hypermetrodomain['RUNNINGSTATUS'],
+            hypermetrodomain.get('RUNNINGSTATUS'),
             _min=0,
         )
 
@@ -283,7 +283,7 @@ def main():
             running_state, empty_ok=False
         )
         hypermetrodomain['CPTYPE'] = lib.huawei_dorado.get_cp_type(
-            hypermetrodomain['CPTYPE']
+            hypermetrodomain.get('CPTYPE')
         )
 
         table_data.append(hypermetrodomain)
@@ -314,7 +314,7 @@ def main():
         keys = ['UUID', 'NAME', 'CPSNAME', 'CPTYPE', 'running_state']
         headers = ['UUID', 'Name', 'QuorumSrv', 'QuorumType', 'Running']
 
-        msg += lib.base.get_table(table_data, keys, header=headers)
+        msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
 
     # over and out
     lib.base.oao(

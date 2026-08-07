@@ -15,13 +15,13 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_UNKNOWN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 TESTS = [
     {
         'id': 'crit-controller-health-critical',
         'test': 'stdout/controller-health-critical,,0',
-        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
         'assert-retc': STATE_CRIT,
         'assert-in': [
             'There are critical errors.',
@@ -32,6 +32,28 @@ TESTS = [
             '207:0A ! CTE0.A   ! Unknown            ! Primary   ! -      ! 3       '
             '! 75      ! 120  ! [CRITICAL] ! [OK]   ',
         ],
+    },
+    {
+        # A controller board without a temperature sensor answers with -1. Read as a
+        # reading it sits below the implicit lower bound of every Nagios range, so a
+        # plain --critical-temperature=55 used to report CRITICAL on a healthy board.
+        'id': 'ok-controller-without-temperature-sensor',
+        'test': 'stdout/controller-without-temperature-sensor,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin '
+        '--warning-temperature=45 --critical-temperature=55',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['_temperature='],
+    },
+    {
+        # A firmware that reports only the mandatory fields used to end the check in a
+        # traceback. The state still has to be reported, and the columns the appliance
+        # said nothing about print as the placeholder it uses itself.
+        'id': 'ok-controller-without-optional-fields',
+        'test': 'stdout/controller-without-optional-fields,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': ['207:0E ! CTE0.E   ! Unknown ! Unknown ! -      ! --      ! --'],
+        'assert-not-in': ['Unknown column'],
     },
     {
         # An appliance always has controllers. An empty list means the query

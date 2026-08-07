@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080702'
+__version__ = '2026080703'
 
 DESCRIPTION = """Checks the health and running status of all controllers on a Huawei OceanStor Dorado
 storage system via the REST API (/controller endpoint). Alerts when any controller
@@ -352,11 +352,10 @@ def main():
         )
         state = lib.base.get_worst(state, running_state)
 
-        # A controller that reports no temperature answers with 0 or leaves the field
-        # out; neither is a reading, so it is neither compared against a threshold nor
-        # graphed as a permanent 0 degrees.
-        controller['TEMPERATURE'] = (
-            lib.huawei_dorado.as_code(controller.get('TEMPERATURE')) or None
+        # A controller board without a temperature sensor reports -1, which is not a
+        # reading: it is neither compared against a threshold nor graphed.
+        controller['TEMPERATURE'] = lib.huawei_dorado.as_temperature(
+            controller.get('TEMPERATURE')
         )
 
         # All three thresholds are off unless the operator sets them. A controller under
@@ -364,10 +363,15 @@ def main():
         # the array stands, so there is no default that would be right everywhere.
         if args.WARN or args.CRIT:
             for field in ('CPUUSAGE', 'MEMORYUSAGE'):
+                usage = lib.huawei_dorado.as_code(controller.get(field))
+                if usage is None:
+                    # A firmware that does not report this reading has nothing to
+                    # compare, and comparing the missing value would alert on it.
+                    continue
                 state = lib.base.get_worst(
                     state,
                     lib.base.get_state(
-                        controller[field],
+                        usage,
                         args.WARN or None,
                         args.CRIT or None,
                         _operator='range',
@@ -388,19 +392,19 @@ def main():
 
         perfdata += lib.base.get_perfdata(
             f'{label}_health_status',
-            controller['HEALTHSTATUS'],
+            controller.get('HEALTHSTATUS'),
             uom=None,
             _min=0,
             _max=HEALTH_STATUS_MAX,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_running_status',
-            controller['RUNNINGSTATUS'],
+            controller.get('RUNNINGSTATUS'),
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_cpu_usage',
-            controller['CPUUSAGE'],
+            controller.get('CPUUSAGE'),
             uom='%',
             warn=args.WARN or None,
             crit=args.CRIT or None,
@@ -409,20 +413,20 @@ def main():
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_dirty_data_rate',
-            controller['DIRTYDATARATE'],
+            controller.get('DIRTYDATARATE'),
             uom='%',
             _min=0,
             _max=100,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_light_status',
-            controller['LIGHT_STATUS'],
+            controller.get('LIGHT_STATUS'),
             _min=0,
             _max=2,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_memory_usage',
-            controller['MEMORYUSAGE'],
+            controller.get('MEMORYUSAGE'),
             uom='%',
             warn=args.WARN or None,
             crit=args.CRIT or None,
@@ -439,7 +443,7 @@ def main():
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_voltage',
-            controller['VOLTAGE'],
+            controller.get('VOLTAGE'),
             _min=0,
         )
 
@@ -453,11 +457,15 @@ def main():
 
         controller['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         controller['running_state'] = lib.base.state2str(running_state, empty_ok=False)
-        controller['ISMASTER'] = 'x' if controller['ISMASTER'] == 'true' else '-'
-        controller['MODEL'] = lib.huawei_dorado.get_controller_model(
-            controller['MODEL']
+        controller['ISMASTER'] = (
+            'x' if str(controller.get('ISMASTER')).strip().lower() == 'true' else '-'
         )
-        controller['ROLE'] = lib.huawei_dorado.get_controller_role(controller['ROLE'])
+        controller['MODEL'] = lib.huawei_dorado.get_controller_model(
+            controller.get('MODEL')
+        )
+        controller['ROLE'] = lib.huawei_dorado.get_controller_role(
+            controller.get('ROLE')
+        )
 
         table_data.append(controller)
 
@@ -506,7 +514,7 @@ def main():
             'Running',
         ]
 
-        msg += lib.base.get_table(table_data, keys, header=headers)
+        msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
 
     # over and out
     lib.base.oao(

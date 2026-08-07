@@ -95,6 +95,7 @@ Monitoring Plugins:
 * disk-usage: runs every minute instead of every 5 minutes, so a filling disk is noticed earlier
 * docker-stats, podman-stats: select or exclude containers by name with `--match`/`--ignore`, plus `--no-match-severity`
 * huawei-dorado-\*, huawei-pacific-\*: a failed disk, power supply, fan, backup power module, interface module or cluster node is CRITICAL instead of WARNING, so a hardware failure is no longer indistinguishable from a component that is merely degraded
+* huawei-dorado-\*: a power supply whose feed is dead, a component that is not running, a disk parked because it got too hot and a HyperMetro pair that is not mirroring are CRITICAL instead of WARNING, because all four describe a component that has stopped doing its job
 * huawei-dorado-\*, huawei-pacific-fan, huawei-pacific-node, huawei-pacific-power: a response that lists no hardware at all reports UNKNOWN instead of "Everything is ok", because an appliance always has some
 * huawei-dorado-\*: the appliance device ID is optional. The appliance reports its own at login, so `--device-id` only has to be given to override that answer
 * huawei-dorado-disk: no longer graphs the operating time, a counter that only ever grows; the value stays in the output
@@ -141,7 +142,8 @@ Monitoring Plugins:
 * huawei-dorado-\*, huawei-pacific-\*: a firmware that reports success as a text `0` instead of a number no longer takes 18 of the checks to UNKNOWN on every run
 * huawei-dorado-\*, huawei-pacific-\*: a missing or non-numeric temperature, runtime, wear level, voltage, synchronization time, alarm severity or quota value no longer ends the check in a Python error
 * huawei-dorado-\*, huawei-pacific-\*: the READMEs state the real retry behaviour and the real state file each check uses
-* huawei-dorado-\*: a component that reports no temperature is left out of the graph instead of showing a permanent 0 degrees
+* huawei-dorado-\*: a component without a temperature sensor no longer reports CRITICAL as soon as a temperature threshold is set at all, and is left out of the graph instead of showing a permanent 0 degrees
+* huawei-dorado-\*: a firmware that leaves an optional field out no longer takes the check to UNKNOWN, and the columns it said nothing about print as "--" instead of replacing the whole table with an error line
 * huawei-dorado-disk: a spinning disk no longer graphs a wear level of -1, and a disk whose media reports no health score no longer graphs 255 out of 100
 * huawei-dorado-hypermetrodomain: a faulty HyperMetro domain is detected. It was read through the wrong status table, where a fault came out looking like normal operation
 * huawei-dorado-hypermetropair: a firmware that sends its status codes as numbers rather than as text no longer turns every healthy pair into a warning, and a pair that has never synchronized no longer ends the check in a Python error

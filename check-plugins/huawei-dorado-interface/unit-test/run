@@ -21,7 +21,7 @@ TESTS = [
     {
         'id': 'ok-interfaces-healthy',
         'test': 'stdout/interfaces-healthy,,0',
-        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok.',
@@ -44,6 +44,17 @@ TESTS = [
             '209:0.141  ! CTE0.IOM.H13 ! 2 ports FE 100 Gbit/s ETH I/O module  '
             '! Ethernet  ! Off ! [OK]   ! [OK]   ',
         ],
+    },
+    {
+        # LIGHTSTATUS and RUNMODE are optional fields. A firmware that leaves them out
+        # used to end the whole check in a traceback instead of reporting the state of
+        # every module it did describe.
+        'id': 'ok-interface-without-optional-fields',
+        'test': 'stdout/interface-without-optional-fields,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', 'Unknown'],
+        'assert-not-in': ['Unknown column', 'Traceback'],
     },
     {
         # An appliance always has interface modules. An empty list means the query

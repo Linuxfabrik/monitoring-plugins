@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080701'
+__version__ = '2026080702'
 
 DESCRIPTION = """Checks the health and running status of all HyperMetro pairs on a Huawei OceanStor
 Dorado storage system via the REST API (/hypermetropair endpoint). Alerts when any
@@ -338,54 +338,54 @@ def main():
 
         perfdata += lib.base.get_perfdata(
             f'{label}_health_status',
-            hypermetropair['HEALTHSTATUS'],
+            hypermetropair.get('HEALTHSTATUS'),
             uom=None,
             _min=0,
             _max=HEALTH_STATUS_MAX,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_running_status',
-            hypermetropair['RUNNINGSTATUS'],
+            hypermetropair.get('RUNNINGSTATUS'),
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_link_status',
-            hypermetropair['LINKSTATUS'],
+            hypermetropair.get('LINKSTATUS'),
             warn=2,
             _min=0,
             _max=2,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_local_data_state',
-            hypermetropair['LOCALDATASTATE'],
+            hypermetropair.get('LOCALDATASTATE'),
             warn=2,
             _min=0,
             _max=2,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_local_host_access_state',
-            hypermetropair['LOCALHOSTACCESSSTATE'],
+            hypermetropair.get('LOCALHOSTACCESSSTATE'),
             uom=None,
             _min=0,
             _max=HOST_ACCESS_STATE_MAX,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_remote_data_state',
-            hypermetropair['REMOTEDATASTATE'],
+            hypermetropair.get('REMOTEDATASTATE'),
             warn=2,
             _min=0,
             _max=2,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_remote_host_access_state',
-            hypermetropair['REMOTEHOSTACCESSSTATE'],
+            hypermetropair.get('REMOTEHOSTACCESSSTATE'),
             uom=None,
             _min=0,
             _max=HOST_ACCESS_STATE_MAX,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_sync_progress',
-            hypermetropair['SYNCPROGRESS'],
+            hypermetropair.get('SYNCPROGRESS'),
             uom='%',
             _min=0,
             _max=100,
@@ -424,12 +424,12 @@ def main():
         )
         hypermetropair['LOCALHOSTACCESSSTATE'] = (
             lib.huawei_dorado.get_host_access_state(
-                hypermetropair['LOCALHOSTACCESSSTATE']
+                hypermetropair.get('LOCALHOSTACCESSSTATE')
             )
         )
         hypermetropair['REMOTEHOSTACCESSSTATE'] = (
             lib.huawei_dorado.get_host_access_state(
-                hypermetropair['REMOTEHOSTACCESSSTATE']
+                hypermetropair.get('REMOTEHOSTACCESSSTATE')
             )
         )
 
@@ -489,7 +489,7 @@ def main():
             'Running',
         ]
 
-        msg += lib.base.get_table(table_data, keys, header=headers)
+        msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
 
     # over and out
     lib.base.oao(

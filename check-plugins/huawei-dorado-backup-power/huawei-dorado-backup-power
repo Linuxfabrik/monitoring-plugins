@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080701'
+__version__ = '2026080702'
 
 DESCRIPTION = """Checks the health status of all backup power modules (BBU) on a Huawei OceanStor
 Dorado storage system via the REST API (/backup_power endpoint). Alerts when any
@@ -347,14 +347,14 @@ def main():
 
         perfdata += lib.base.get_perfdata(
             f'{label}_health_status',
-            power['HEALTHSTATUS'],
+            power.get('HEALTHSTATUS'),
             uom=None,
             _min=0,
             _max=HEALTH_STATUS_MAX,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_running_status',
-            power['RUNNINGSTATUS'],
+            power.get('RUNNINGSTATUS'),
             _min=0,
         )
         # No performance data for CHARGETIMES. It only ever counts up, and a cumulative
@@ -373,7 +373,7 @@ def main():
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_voltage',
-            power['VOLTAGE'],
+            power.get('VOLTAGE'),
             uom=None,
             _min=0,
         )
@@ -428,7 +428,7 @@ def main():
             'Running',
         ]
 
-        msg += lib.base.get_table(table_data, keys, header=headers)
+        msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
 
     # over and out
     lib.base.oao(

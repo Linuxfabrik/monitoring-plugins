@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080701'
+__version__ = '2026080702'
 
 DESCRIPTION = """Checks the health and running status of all fans on a Huawei OceanStor Dorado storage
 system via the REST API (/fan endpoint). Alerts when any fan reports a non-normal
@@ -295,19 +295,19 @@ def main():
 
         perfdata += lib.base.get_perfdata(
             f'{label}_health_status',
-            fan['HEALTHSTATUS'],
+            fan.get('HEALTHSTATUS'),
             uom=None,
             _min=0,
             _max=HEALTH_STATUS_MAX,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_running_status',
-            fan['RUNNINGSTATUS'],
+            fan.get('RUNNINGSTATUS'),
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_run_level',
-            fan['RUNLEVEL'],
+            fan.get('RUNLEVEL'),
             warn=2,
             _min=0,
             _max=2,
@@ -315,7 +315,7 @@ def main():
 
         fan['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         fan['running_state'] = lib.base.state2str(running_state, empty_ok=False)
-        fan['RUNLEVEL'] = lib.huawei_dorado.get_runlevel(fan['RUNLEVEL'])
+        fan['RUNLEVEL'] = lib.huawei_dorado.get_runlevel(fan.get('RUNLEVEL'))
 
         table_data.append(fan)
 
@@ -342,7 +342,7 @@ def main():
         keys = ['UUID', 'LOCATION', 'RUNLEVEL', 'health_state', 'running_state']
         headers = ['UUID', 'Location', 'Runlevel', 'Health', 'Running']
 
-        msg += lib.base.get_table(table_data, keys, header=headers)
+        msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
 
     # over and out
     lib.base.oao(

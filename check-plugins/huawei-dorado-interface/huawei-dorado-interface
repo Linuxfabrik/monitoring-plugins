@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080701'
+__version__ = '2026080702'
 
 DESCRIPTION = """Checks the health and running status of all interface modules on a Huawei OceanStor
 Dorado storage system via the REST API (/intf_module endpoint). Alerts when any
@@ -296,22 +296,22 @@ def main():
 
         perfdata += lib.base.get_perfdata(
             f'{label}_health_status',
-            iface['HEALTHSTATUS'],
+            iface.get('HEALTHSTATUS'),
             uom=None,
             _min=0,
             _max=HEALTH_STATUS_MAX,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_running_status',
-            iface['RUNNINGSTATUS'],
+            iface.get('RUNNINGSTATUS'),
             _min=0,
         )
 
         iface['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         iface['running_state'] = lib.base.state2str(running_state, empty_ok=False)
-        iface['MODEL'] = lib.huawei_dorado.get_interface_model(iface['MODEL'])
-        iface['RUNMODE'] = lib.huawei_dorado.get_interface_runmode(iface['RUNMODE'])
-        iface['LIGHTSTATUS'] = lib.huawei_dorado.get_led_status(iface['LIGHTSTATUS'])
+        iface['MODEL'] = lib.huawei_dorado.get_interface_model(iface.get('MODEL'))
+        iface['RUNMODE'] = lib.huawei_dorado.get_interface_runmode(iface.get('RUNMODE'))
+        iface['LIGHTSTATUS'] = lib.huawei_dorado.get_led_status(iface.get('LIGHTSTATUS'))
 
         table_data.append(iface)
 
@@ -346,7 +346,7 @@ def main():
         ]
         headers = ['UUID', 'Location', 'Model', 'RunMode', 'LED', 'Health', 'Running']
 
-        msg += lib.base.get_table(table_data, keys, header=headers)
+        msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
 
 
     # over and out

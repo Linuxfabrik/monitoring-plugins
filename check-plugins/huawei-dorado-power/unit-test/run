@@ -25,7 +25,7 @@ TESTS = [
         # non-normal state alike.
         'id': 'crit-power-supplies-offline',
         'test': 'stdout/power-supplies-warning,,0',
-        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
         'assert-retc': STATE_CRIT,
         'assert-in': [
             'There are critical errors.',
@@ -40,8 +40,20 @@ TESTS = [
             '23:23.0.0  ! CTE0.PSU0   ! HUAWEI       ! PAC2000S12-BG ! 12345678',
             '23:23.0.3  ! CTE0.PSU3   ! HUAWEI       ! PAC2000S12-BG ! 12345678',
             '23:0.0B.0  ! CTE0.PSU 0  ! VAPEL        ! HSP960-D1205D ! 21022701328NE5000004',
-            '[WARNING] ! [CRITICAL]',
+            '[CRITICAL] ! [CRITICAL]',
         ],
+    },
+    {
+        # A power supply whose feed is dead answers with health 11 (no input). That is
+        # not a reduced state the array keeps serving in, so it has to reach CRITICAL.
+        # A second supply failing the same way takes the array with it.
+        'id': 'crit-power-supply-without-input',
+        'test': 'stdout/power-supply-without-input,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['There are critical errors.'],
+        # A supply reporting no temperature must not be graphed at 0 degrees.
+        'assert-not-in': ['_temperature='],
     },
     {
         # An appliance always has power modules. An empty list means the query

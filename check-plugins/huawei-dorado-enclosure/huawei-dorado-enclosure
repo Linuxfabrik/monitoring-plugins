@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080701'
+__version__ = '2026080702'
 
 DESCRIPTION = """Checks the health and running status of all enclosures on a Huawei OceanStor Dorado
 storage system via the REST API (/enclosure endpoint). Alerts when any enclosure
@@ -317,10 +317,10 @@ def main():
         state = lib.base.get_worst(state, running_state)
 
         # The temperature thresholds are off unless the operator sets them: what counts as
-        # hot depends on the model and on where the array stands. A part that reports no
-        # temperature answers with 0 or leaves the field out; neither is a reading, so it
-        # is neither compared against a threshold nor graphed as a permanent 0 degrees.
-        temperature = lib.huawei_dorado.as_code(enclosure.get('TEMPERATURE')) or None
+        # hot depends on the model and on where the array stands. A part without a
+        # temperature sensor reports a placeholder rather than a reading, which is neither
+        # compared against a threshold nor graphed.
+        temperature = lib.huawei_dorado.as_temperature(enclosure.get('TEMPERATURE'))
         if temperature and (args.WARN_TEMPERATURE or args.CRIT_TEMPERATURE):
             state = lib.base.get_worst(
                 state,
@@ -334,19 +334,19 @@ def main():
 
         perfdata += lib.base.get_perfdata(
             f'{label}_health_status',
-            enclosure['HEALTHSTATUS'],
+            enclosure.get('HEALTHSTATUS'),
             uom=None,
             _min=0,
             _max=HEALTH_STATUS_MAX,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_running_status',
-            enclosure['RUNNINGSTATUS'],
+            enclosure.get('RUNNINGSTATUS'),
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_switch_status',
-            enclosure['SWITCHSTATUS'],
+            enclosure.get('SWITCHSTATUS'),
             warn=2,
             _min=0,
         )
@@ -362,11 +362,13 @@ def main():
         enclosure['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         enclosure['running_state'] = lib.base.state2str(running_state, empty_ok=False)
         enclosure['LOGICTYPE'] = lib.huawei_dorado.get_enclosure_logic_type(
-            enclosure['LOGICTYPE']
+            enclosure.get('LOGICTYPE')
         )
-        enclosure['MODEL'] = lib.huawei_dorado.get_enclosure_model(enclosure['MODEL'])
+        enclosure['MODEL'] = lib.huawei_dorado.get_enclosure_model(
+            enclosure.get('MODEL')
+        )
         enclosure['SWITCHSTATUS'] = lib.huawei_dorado.get_switch_status(
-            enclosure['SWITCHSTATUS']
+            enclosure.get('SWITCHSTATUS')
         )
 
         table_data.append(enclosure)
@@ -418,7 +420,7 @@ def main():
             'Running',
         ]
 
-        msg += lib.base.get_table(table_data, keys, header=headers)
+        msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
 
     # over and out
     lib.base.oao(

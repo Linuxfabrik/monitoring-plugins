@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080701'
+__version__ = '2026080702'
 
 DESCRIPTION = """Checks the health and running status of all hosts attached to a Huawei OceanStor
 Dorado storage system via the REST API (/host endpoint). Alerts when any host reports
@@ -288,14 +288,14 @@ def main():
 
         perfdata += lib.base.get_perfdata(
             f'{label}_health_status',
-            host['HEALTHSTATUS'],
+            host.get('HEALTHSTATUS'),
             uom=None,
             _min=0,
             _max=HEALTH_STATUS_MAX,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_running_status',
-            host['RUNNINGSTATUS'],
+            host.get('RUNNINGSTATUS'),
             _min=0,
         )
         # Both capacities are sector counts in the response and go out in bytes, the
@@ -314,7 +314,7 @@ def main():
 
         host['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         host['running_state'] = lib.base.state2str(running_state, empty_ok=False)
-        host['OPERATIONSYSTEM'] = lib.huawei_dorado.get_os(host['OPERATIONSYSTEM'])
+        host['OPERATIONSYSTEM'] = lib.huawei_dorado.get_os(host.get('OPERATIONSYSTEM'))
         host['allocated'] = lib.human.bytes2human(allocated_capacity)
 
         table_data.append(host)
@@ -361,7 +361,7 @@ def main():
             'Running',
         ]
 
-        msg += lib.base.get_table(table_data, keys, header=headers)
+        msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
 
     # over and out
     lib.base.oao(
