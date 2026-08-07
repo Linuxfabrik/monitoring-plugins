@@ -158,7 +158,7 @@ On an array where every front-end port is cabled, alert on a lost link, and look
 * OK if all ports report normal health.
 * WARN if a port reports a degraded health status, or one this check does not know.
 * WARN if a port reports a link state this check does not know.
-* CRIT if a port reports health status "Faulty", "Invalid" or "Offline".
+* CRIT if a port reports health status "Faulty", "No Input", "Invalid" or "Offline".
 * `--link-down-severity` decides what a port whose link is down reports (default: OK).
 * UNKNOWN if the appliance lists no front-end ports at all, which points at the query rather than at the array.
 * UNKNOWN on invalid API responses or responses with error codes.

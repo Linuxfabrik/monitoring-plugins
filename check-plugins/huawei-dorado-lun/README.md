@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the health and running status of the LUNs of a Huawei OceanStor Dorado storage system via the REST API (`/lun` endpoint). Alerts when a LUN reports a non-normal state, and optionally when a thin LUN fills up. Reports the allocated and the configured capacity, the usage of a thin LUN and the storage pool each LUN lives in.
+Checks the health and running status of the LUNs of a Huawei OceanStor Dorado storage system via the REST API (`/lun` endpoint). Alerts when a LUN reports a non-normal state, and optionally when a thin LUN fills up. Reports the allocated and the configured capacity, the usage of a thin LUN and the storage pool each LUN lives in. Supports extended reporting via `--lengthy`, and reporting the I/O counters via `--performance`.
 
 **Important Notes:**
 
@@ -54,8 +54,8 @@ usage: huawei-dorado-lun [-h] [-V] [--always-ok] [--brief]
 Checks the health and running status of the LUNs of a Huawei OceanStor Dorado
 storage system via the REST API (/lun endpoint). Alerts when a LUN reports a
 non-normal state, and optionally when a thin LUN fills up. Only LUNs mapped to
-a host are checked by default. Supports reporting the I/O counters via
---performance.
+a host are checked by default. Supports extended reporting via --lengthy, and
+reporting the I/O counters via --performance.
 
 options:
   -h, --help            show this help message and exit
@@ -169,7 +169,7 @@ On an array with many LUNs, list only the ones that alert, and watch how full th
 * OK if all checked LUNs report normal health and are online.
 * WARN if a LUN reports a degraded health status, or one this check does not know.
 * WARN if a LUN's running status is one this check does not know.
-* CRIT if a LUN reports health status "Faulty", "Invalid" or "Offline".
+* CRIT if a LUN reports health status "Faulty", "No Input", "Invalid" or "Offline".
 * CRIT if a LUN's running status is "Offline".
 * WARN or CRIT if a thin LUN's used capacity reaches `--warning` or `--critical`. Both are off by default.
 * WARN if the appliance reports more LUNs than the check reads in one run, because the list is then incomplete.

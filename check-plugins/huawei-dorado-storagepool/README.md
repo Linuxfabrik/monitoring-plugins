@@ -155,7 +155,7 @@ Alert earlier than the defaults, and only on the pools of one disk domain:
 * WARN if a pool reports a degraded health status, or one this check does not know.
 * WARN if a pool is busy rather than online (pre-copy, rebuilding, balancing, initializing or deleting).
 * WARN if a pool's used capacity reaches `--warning` (default: 80%).
-* CRIT if a pool reports health status "Faulty", "Invalid" or "Offline".
+* CRIT if a pool reports health status "Faulty", "No Input", "Invalid" or "Offline".
 * CRIT if a pool's running status is "Offline".
 * CRIT if a pool's used capacity reaches `--critical` (default: 90%).
 * WARN if the appliance reports more storage pools than the check reads in one run, because the list is then incomplete.

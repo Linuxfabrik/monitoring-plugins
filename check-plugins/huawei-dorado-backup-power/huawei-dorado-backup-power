@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080702'
+__version__ = '2026080703'
 
 DESCRIPTION = """Checks the health status of all backup power modules (BBU) on a Huawei OceanStor
 Dorado storage system via the REST API (/backup_power endpoint). Alerts when any
@@ -340,8 +340,8 @@ def main():
             power['REMAINLIFEDAYS'] = remaining_life_days * 24 * 60 * 60
         else:
             power['REMAINLIFEDAYS'] = 0
-        # The REST Interface References give no unit for this field. Appliances report
-        # it in tenths of a volt, so a healthy module reads as 12.3 rather than 123.
+        # The REST Interface References document this field as "Unit: V/10", so a healthy
+        # module reads as 16.1 rather than 161.
         voltage = lib.huawei_dorado.as_code(power.get('VOLTAGE'))
         power['VOLTAGE'] = None if voltage is None else round(voltage / 10, 1)
 
@@ -357,10 +357,11 @@ def main():
             power.get('RUNNINGSTATUS'),
             _min=0,
         )
-        # No performance data for CHARGETIMES. It only ever counts up, and a cumulative
-        # counter aggregates wrong in every Grafana panel that touches it
+        # No performance data for CHARGETIMES, the number of discharge cycles the module
+        # has been through. It only ever counts up, and a cumulative counter aggregates
+        # wrong in every Grafana panel that touches it
         # ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320)).
-        # The value stays in the table, where it reads as the age of the module.
+        # The value stays in the table, where it reads as the wear of the module.
         perfdata += (
             lib.base.get_perfdata(
                 f'{label}_remaining_life',
@@ -421,7 +422,7 @@ def main():
             'Location',
             'Produced',
             'ControllerID',
-            '#Charged',
+            '#Discharged',
             'Remain',
             'Volt',
             'Health',

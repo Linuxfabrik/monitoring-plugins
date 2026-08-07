@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080702'
+__version__ = '2026080703'
 
 DESCRIPTION = """Checks the health status of all disks on a Huawei OceanStor Dorado storage system
 via the REST API (/disk endpoint). Alerts when any disk reports a non-normal health
@@ -454,6 +454,10 @@ def main():
 
         disk['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         disk['running_state'] = lib.base.state2str(running_state, empty_ok=False)
+        # The performance data is written above, so what is left here is the display
+        # value. A drive without a temperature sensor prints the appliance's own
+        # placeholder rather than the raw one it happens to use.
+        disk['TEMPERATURE'] = '--' if temperature is None else temperature
         disk['RUNTIME'] = (
             '--'
             if disk['RUNTIME'] is None

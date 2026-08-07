@@ -87,7 +87,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-pacific-al
 ## Usage Examples
 
 ```bash
-./huawei-pacific-alarm --url=https://oceanstor:8088 --username=monitoring --password=mypass
+./huawei-pacific-alarm --url=https://oceanstor:8088 --username=monitoring --password=linuxfabrik
 ```
 
 Output:

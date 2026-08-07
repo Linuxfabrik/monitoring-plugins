@@ -125,7 +125,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-enc
 ## Usage Examples
 
 ```bash
-./huawei-dorado-enclosure --url https://oceanstor:8088 --device-id 123456789 --username monitoring --password mypass
+./huawei-dorado-enclosure --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik
 ```
 
 Output:
@@ -148,8 +148,8 @@ UUID   ! Location ! Name   ! Model                                 ! SerialNumbe
 * OK if all enclosures report normal health and running status.
 * WARN if any enclosure reports a degraded health status, or one this check does not know.
 * WARN if any enclosure's running status is not "Normal", "Running" or "Online", unless it reports an outright failure.
-* CRIT if any enclosure reports health status "Faulty", "Invalid" or "Offline".
-* CRIT if any enclosure's running status reports a failure ("Offline", "Invalid", "Migration fault", "Error/Faulty", "Power-on failed", "Abnormal" or "Rollback failure").
+* CRIT if any enclosure reports health status "Faulty", "No Input", "Invalid" or "Offline".
+* CRIT if any enclosure's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
 * WARN or CRIT if an enclosure's temperature reaches `--warning-temperature` or `--critical-temperature`. Both are off by default.
 * UNKNOWN if the appliance lists no enclosures at all, which points at the query rather than at the hardware.
 * `--match` limits the check to the enclosures whose identifier, location or name matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).

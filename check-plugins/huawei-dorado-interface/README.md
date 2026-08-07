@@ -113,7 +113,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-int
 ## Usage Examples
 
 ```bash
-./huawei-dorado-interface --url https://oceanstor:8088 --device-id 123456789 --username monitoring --password mypass
+./huawei-dorado-interface --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik
 ```
 
 Output:
@@ -139,8 +139,8 @@ UUID       ! Location     ! Model                                 ! RunMode  ! L
 * OK if all interface modules report normal health and running status.
 * WARN if any interface module reports a degraded health status, or one this check does not know.
 * WARN if any interface module's running status is not "Normal", "Running", "Powering on" or "Online", unless it reports an outright failure.
-* CRIT if any interface module reports health status "Faulty", "Invalid" or "Offline".
-* CRIT if any interface module's running status reports a failure ("Offline", "Invalid", "Migration fault", "Error/Faulty", "Power-on failed", "Abnormal" or "Rollback failure").
+* CRIT if any interface module reports health status "Faulty", "No Input", "Invalid" or "Offline".
+* CRIT if any interface module's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
 * UNKNOWN if the appliance lists no interface modules at all, which points at the query rather than at the hardware.
 * `--match` limits the check to the interface modules whose identifier, location or name matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).
 * UNKNOWN on invalid API responses or responses with error codes.

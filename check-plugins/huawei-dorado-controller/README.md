@@ -139,7 +139,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-con
 ## Usage Examples
 
 ```bash
-./huawei-dorado-controller --url https://oceanstor:8088 --device-id 123456789 --username monitoring --password mypass
+./huawei-dorado-controller --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik
 ```
 
 Output:
@@ -147,13 +147,13 @@ Output:
 ```text
 There are critical errors.
 
-UUID   ! Location ! Model                               ! Role      ! Master ! CPU (%) ! Mem (%) ! Volt ! Health     ! Running 
--------+----------+-------------------------------------+-----------+--------+---------+---------+------+------------+---------
-207:0A ! CTE0.A   ! Unknown                             ! Primary   ! -      ! 3       ! 75      ! 120  ! [CRITICAL] ! [OK]    
-207:0A ! CTE0.A   ! V6R1C00 4U4C high-end control board ! Secondary ! -      ! 33      ! 87      ! 120  ! [OK]       ! [OK]    
-207:0B ! CTE0.B   ! V6R1C00 4U4C high-end control board ! Primary   ! x      ! 17      ! 87      ! 120  ! [OK]       ! [OK]    
-207:0C ! CTE0.C   ! V6R1C00 4U4C high-end control board ! Secondary ! -      ! 33      ! 86      ! 120  ! [OK]       ! [OK]    
-207:0D ! CTE0.D   ! V6R1C00 4U4C high-end control board ! Secondary ! -      ! 32      ! 92      ! 120  ! [OK]       ! [OK]
+UUID   ! Location ! Model                               ! Role      ! Master ! CPU (%) ! Mem (%) ! Volt ! Temp ! Health     ! Running
+-------+----------+-------------------------------------+-----------+--------+---------+---------+------+------+------------+--------
+207:0A ! CTE0.A   ! Unknown                             ! Primary   ! -      ! 3       ! 75      ! 12.0 ! --   ! [CRITICAL] ! [OK]   
+207:0A ! CTE0.A   ! V6R1C00 4U4C high-end control board ! Secondary ! -      ! 33      ! 87      ! 12.0 ! --   ! [OK]       ! [OK]   
+207:0B ! CTE0.B   ! V6R1C00 4U4C high-end control board ! Primary   ! x      ! 17      ! 87      ! 12.0 ! 41   ! [OK]       ! [OK]   
+207:0C ! CTE0.C   ! V6R1C00 4U4C high-end control board ! Secondary ! -      ! 33      ! 86      ! 12.0 ! 42   ! [OK]       ! [OK]   
+207:0D ! CTE0.D   ! V6R1C00 4U4C high-end control board ! Secondary ! -      ! 32      ! 92      ! 12.0 ! 40   ! [OK]       ! [OK]
 ```
 
 
@@ -162,8 +162,8 @@ UUID   ! Location ! Model                               ! Role      ! Master ! C
 * OK if all controllers report normal health and running status.
 * WARN if any controller reports a degraded health status, or one this check does not know.
 * WARN if any controller's running status is not "Normal", "Running" or "Online", unless it reports an outright failure.
-* CRIT if any controller reports health status "Faulty", "Invalid" or "Offline".
-* CRIT if any controller's running status reports a failure ("Offline", "Invalid", "Migration fault", "Error/Faulty", "Power-on failed", "Abnormal" or "Rollback failure").
+* CRIT if any controller reports health status "Faulty", "No Input", "Invalid" or "Offline".
+* CRIT if any controller's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
 * WARN or CRIT if a controller's CPU or memory usage reaches `--warning` or `--critical`. Both are off by default.
 * WARN or CRIT if a controller's temperature reaches `--warning-temperature` or `--critical-temperature`. Both are off by default.
 * UNKNOWN if the appliance lists no controllers at all, which points at the query rather than at the hardware.
@@ -179,11 +179,11 @@ UUID   ! Location ! Model                               ! Role      ! Master ! C
 | \<UUID\>\_cpu_usage | Percentage | CPU utilization. |
 | \<UUID\>\_dirty_data_rate | Percentage | Dirty page usage. |
 | \<UUID\>\_health_status | Number | 0: unknown, 1: normal, 2: faulty. |
-| \<UUID\>\_light_status | Number | 1: off, 2: on. |
+| \<UUID\>\_light_status | Number | Location indicator, as the bare code the appliance sends. The vendor documents it both ways round for the same field, so it cannot be translated into on/off reliably. |
 | \<UUID\>\_memory_usage | Percentage | Memory utilization. |
 | \<UUID\>\_running_status | Number | 0: unknown, 1: normal, 2: running, 5: sleep in high temperature, 27: online, 28: offline, 105: abnormal. |
-| \<UUID\>\_temperature | Number | Temperature (only reported if > 0). |
-| \<UUID\>\_voltage | Number | Voltage. |
+| \<UUID\>\_temperature | Number | Temperature in degrees Celsius. A board without a sensor reports -1 and is left out. |
+| \<UUID\>\_voltage | Number | Board voltage in volts. The appliance counts it in tenths of a volt. |
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 

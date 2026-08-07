@@ -127,7 +127,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-dis
 ## Usage Examples
 
 ```bash
-./huawei-dorado-disk --url https://oceanstor:8088 --device-id 123456789 --username monitoring --password mypass
+./huawei-dorado-disk --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik
 ```
 
 Output:
@@ -148,8 +148,8 @@ UUID         ! Location ! Manufacturer ! Model            ! SerialNumber        
 * OK if all disks report normal health and running status.
 * WARN if any disk reports a degraded health status, or one this check does not know.
 * WARN if any disk's running status is not "Normal" or "Online", unless it reports an outright failure.
-* CRIT if any disk reports health status "Faulty", "Invalid" or "Offline".
-* CRIT if any disk's running status reports a failure ("Offline", "Invalid", "Migration fault", "Error/Faulty", "Power-on failed", "Abnormal" or "Rollback failure").
+* CRIT if any disk reports health status "Faulty", "No Input", "Invalid" or "Offline".
+* CRIT if any disk's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
 * WARN if a disk's remaining life falls below `--warning` (default: less than 180 days).
 * CRIT if a disk's remaining life falls below `--critical` (default: less than 30 days).
 * WARN or CRIT if a disk's temperature reaches `--warning-temperature` or `--critical-temperature`. Both are off by default.

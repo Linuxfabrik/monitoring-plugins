@@ -99,7 +99,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-sys
 ## Usage Examples
 
 ```bash
-./huawei-dorado-system --url https://oceanstor:8088 --device-id 123456789 --username monitoring --password mypass
+./huawei-dorado-system --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik
 ```
 
 Output:
@@ -110,7 +110,7 @@ Capacity: Total 1% used (8.8TiB/726.4TiB), Storage Pool 1% used (8.8TiB/612.2TiB
 ```
 
 ```bash
-./huawei-dorado-system --url https://oceanstor:8088 --device-id 123456789 --username monitoring --password mypass --warning 80 --critical 90
+./huawei-dorado-system --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik --warning=80 --critical=90
 ```
 
 
@@ -121,8 +121,8 @@ Capacity: Total 1% used (8.8TiB/726.4TiB), Storage Pool 1% used (8.8TiB/612.2TiB
 * WARN if the system's running status is not "Normal", unless it reports an outright failure.
 * WARN if total capacity usage is >= `--warning` (default: 90%).
 * WARN if storage pool capacity usage is >= `--warning` (default: 90%).
-* CRIT if the system reports health status "Faulty", "Invalid" or "Offline".
-* CRIT if the system's running status reports a failure ("Offline", "Invalid", "Migration fault", "Error/Faulty", "Power-on failed", "Abnormal" or "Rollback failure").
+* CRIT if the system reports health status "Faulty", "No Input", "Invalid" or "Offline".
+* CRIT if the system's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
 * CRIT if total capacity usage is >= `--critical` (default: 95%).
 * CRIT if storage pool capacity usage is >= `--critical` (default: 95%).
 * UNKNOWN on invalid API responses or responses with error codes.

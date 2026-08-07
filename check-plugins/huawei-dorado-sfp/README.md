@@ -177,7 +177,7 @@ Alert on a module that lost its link, and look at one vendor's modules only:
 * OK with "No optical modules found." if the array has no optical connectivity, or if its firmware does not serve this endpoint.
 * WARN if a module reports a degraded health status, or one this check does not know.
 * WARN if a module reports a link state this check does not know.
-* CRIT if a module reports health status "Faulty", "Invalid" or "Offline".
+* CRIT if a module reports health status "Faulty", "No Input", "Invalid" or "Offline".
 * `--link-down-severity` decides what a module whose link is down reports (default: OK).
 * UNKNOWN on invalid API responses or responses with error codes.
 * `--match` limits the check to the modules whose identifier, location, vendor, model or serial number matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).

@@ -114,7 +114,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-exp
 ## Usage Examples
 
 ```bash
-./huawei-dorado-expboard --url https://oceanstor:8088 --device-id 123456789 --username monitoring --password mypass
+./huawei-dorado-expboard --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik
 ```
 
 Output:
@@ -135,8 +135,8 @@ UUID  ! Location ! Model       ! Health ! Running
 * OK with "No expansion boards found." if the array has no expansion enclosure.
 * WARN if any board reports a degraded health status, or one this check does not know.
 * WARN if any board's running status is not "Normal", "Running" or "Online", unless it reports an outright failure.
-* CRIT if any board reports health status "Faulty", "Invalid" or "Offline".
-* CRIT if any board's running status reports a failure ("Offline", "Invalid", "Migration fault", "Error/Faulty", "Power-on failed", "Abnormal" or "Rollback failure").
+* CRIT if any board reports health status "Faulty", "No Input", "Invalid" or "Offline".
+* CRIT if any board's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
 * `--match` limits the check to the boards whose identifier, location or name matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).
 * UNKNOWN on invalid API responses or responses with error codes.
 * `--always-ok` suppresses all alerts and always returns OK.

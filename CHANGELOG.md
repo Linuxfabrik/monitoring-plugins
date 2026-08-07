@@ -16,7 +16,7 @@ Monitoring Plugins:
 
 * Cumulative counters are reported as per-second rates (or plain values) instead of ever-growing totals, which fixes Grafana graphs and aggregations. Some performance-data metric names change, so re-import the affected Grafana dashboards after updating (cpu-usage, disk-io, fs-xfs-stats, jitsi-videobridge-stats, network-io, nginx-status, nodebb-cache, nodebb-errors, procs, redis-status, starface-database-stats, valkey-status, wildfly-gc-status) ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 * disk-io: is WARN-only (never CRITICAL) and no longer measures I/O wait, which is unreliable on multi-core hosts. `--critical`, `--iowait-warning` and `--iowait-critical` are deprecated and ignored, and the Grafana dashboard has to be re-imported
-* huawei-dorado-\*: performance data metric names are lower case with underscores, huawei-dorado-system and huawei-dorado-host report their capacities in bytes instead of raw 512-byte sectors, huawei-dorado-power reports its voltages in volts instead of millivolts, and huawei-dorado-backup-power no longer graphs the charge count, a counter that only ever grows. Re-import the affected Grafana dashboards after updating
+* huawei-dorado-\*: performance data metric names are lower case with underscores, huawei-dorado-system and huawei-dorado-host report their capacities in bytes instead of raw 512-byte sectors, huawei-dorado-power and huawei-dorado-controller report their voltages in volts instead of the raw millivolts and tenths of a volt the appliance counts them in, and huawei-dorado-backup-power no longer graphs the discharge count, a counter that only ever grows. Re-import the affected Grafana dashboards after updating
 * redfish-\*: the Redfish API URL is a mandatory `--url`, replacing the misleading localhost default. Add `--url` to every Redfish command ([#1306](https://github.com/Linuxfabrik/monitoring-plugins/issues/1306))
 
 ### Added
@@ -98,6 +98,9 @@ Monitoring Plugins:
 * huawei-dorado-\*: a power supply whose feed is dead, a component that is not running, a disk parked because it got too hot and a HyperMetro pair that is not mirroring are CRITICAL instead of WARNING, because all four describe a component that has stopped doing its job
 * huawei-dorado-\*, huawei-pacific-fan, huawei-pacific-node, huawei-pacific-power: a response that lists no hardware at all reports UNKNOWN instead of "Everything is ok", because an appliance always has some
 * huawei-dorado-\*: the appliance device ID is optional. The appliance reports its own at login, so `--device-id` only has to be given to override that answer
+* huawei-dorado-\*: a component without a temperature sensor prints "--" in the table instead of the raw placeholder the appliance happens to use for it
+* huawei-dorado-backup-power: the discharge count is labelled as such. It used to be headed "#Charged", which reads as the opposite of what the appliance counts
+* huawei-dorado-controller: the table shows the controller temperature, which the check could already alert on but never printed
 * huawei-dorado-disk: no longer graphs the operating time, a counter that only ever grows; the value stays in the output
 * huawei-dorado-hypermetropair: the table shows the appliance's own link and data state next to the check's verdict, so a disconnected pair is told apart from an invalid one
 * huawei-dorado-system: `--warning` and `--critical` accept Nagios ranges, like every other threshold in the plugin family
@@ -142,6 +145,7 @@ Monitoring Plugins:
 * huawei-dorado-\*, huawei-pacific-\*: a firmware that reports success as a text `0` instead of a number no longer takes 18 of the checks to UNKNOWN on every run
 * huawei-dorado-\*, huawei-pacific-\*: a missing or non-numeric temperature, runtime, wear level, voltage, synchronization time, alarm severity or quota value no longer ends the check in a Python error
 * huawei-dorado-\*, huawei-pacific-\*: the READMEs state the real retry behaviour and the real state file each check uses
+* huawei-dorado-backup-power: the README names the metrics the check actually emits, so a dashboard built from it no longer graphs nothing
 * huawei-dorado-\*: a component without a temperature sensor no longer reports CRITICAL as soon as a temperature threshold is set at all, and is left out of the graph instead of showing a permanent 0 degrees
 * huawei-dorado-\*: a firmware that leaves an optional field out no longer takes the check to UNKNOWN, and the columns it said nothing about print as "--" instead of replacing the whole table with an error line
 * huawei-dorado-disk: a spinning disk no longer graphs a wear level of -1, and a disk whose media reports no health score no longer graphs 255 out of 100

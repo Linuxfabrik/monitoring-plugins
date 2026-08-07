@@ -115,7 +115,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-hyp
 ## Usage Examples
 
 ```bash
-./huawei-dorado-hypermetropair --url https://oceanstor:8088 --device-id 123456789 --username monitoring --password mypass
+./huawei-dorado-hypermetropair --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik
 ```
 
 Output:
@@ -136,8 +136,8 @@ UUID                                   ! Link ! Last Sync                       
 * OK if all HyperMetro pairs report normal health, running status, link status and data consistency.
 * WARN if any pair reports a degraded health status, or one this check does not know.
 * WARN if any pair's running status is not "Normal" or "Synchronizing", unless it reports an outright failure.
-* CRIT if any pair reports health status "Faulty", "Invalid" or "Offline".
-* CRIT if any pair's running status reports a failure ("Offline", "Invalid", "Migration fault", "Error/Faulty", "Power-on failed", "Abnormal" or "Rollback failure").
+* CRIT if any pair reports health status "Faulty", "No Input", "Invalid" or "Offline".
+* CRIT if any pair's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
 * WARN if any pair's link status is not "connected".
 * WARN if any pair's local data state is not "consistent".
 * WARN if any pair's remote data state is not "consistent".

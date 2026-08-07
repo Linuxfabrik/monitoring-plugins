@@ -111,7 +111,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-hos
 ## Usage Examples
 
 ```bash
-./huawei-dorado-host --url https://oceanstor:8088 --device-id 123456789 --username monitoring --password mypass
+./huawei-dorado-host --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik
 ```
 
 Output:
@@ -143,8 +143,8 @@ UUID  ! Location ! Name      ! OS         ! Health    ! Running
 * OK if all hosts report normal health and running status.
 * WARN if any host reports a degraded health status, or one this check does not know.
 * WARN if any host's running status is not "Normal", unless it reports an outright failure.
-* CRIT if any host reports health status "Faulty", "Invalid" or "Offline".
-* CRIT if any host's running status reports a failure ("Offline", "Invalid", "Migration fault", "Error/Faulty", "Power-on failed", "Abnormal" or "Rollback failure").
+* CRIT if any host reports health status "Faulty", "No Input", "Invalid" or "Offline".
+* CRIT if any host's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
 * `--match` limits the check to the hosts whose identifier, location or name matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).
 * UNKNOWN on invalid API responses or responses with error codes.
 * `--always-ok` suppresses all alerts and always returns OK.

@@ -114,7 +114,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-hyp
 ## Usage Examples
 
 ```bash
-./huawei-dorado-hypermetrodomain --url https://oceanstor:8088 --device-id 123456789 --username monitoring --password mypass
+./huawei-dorado-hypermetrodomain --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik
 ```
 
 Output:

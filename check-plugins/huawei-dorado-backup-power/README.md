@@ -16,7 +16,7 @@ Checks the health status of all backup power modules (BBU) on a Huawei OceanStor
 **Data Collection:**
 
 * Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/backup_power` to retrieve all BBU module data
-* Reports health status, running status, charge count, remaining service life, and voltage for each BBU
+* Reports health status, running status, discharge count, remaining service life, and voltage for each BBU
 * Cookies and iBaseTokens are cached and re-used (the session timeout period is usually 20 minutes, configurable via `--cache-expire`)
 
 
@@ -120,7 +120,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-bac
 ## Usage Examples
 
 ```bash
-./huawei-dorado-backup-power --url https://oceanstor:8088 --device-id 123456789 --username monitoring --password mypass
+./huawei-dorado-backup-power --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik
 ```
 
 Output:
@@ -128,13 +128,13 @@ Output:
 ```text
 There are warnings.
 
-UUID       ! Location   ! Produced   ! ControllerID ! #Charged ! Remain ! Volt ! Health ! Running   
------------+------------+------------+--------------+----------+--------+------+--------+-----------
-210:0.0A.0 ! CTE0.PSU 0 ! 2014-3-25  ! 0A           ! 7        ! 5Y 4M  ! 16.1 ! [OK]   ! [WARNING] 
-210:0.0A.0 ! CTE0.A.BBU ! 2020-10-18 ! 0A           ! 1        ! -1     ! 15.9 ! [OK]   ! [OK]      
-210:0.0B.0 ! CTE0.B.BBU ! 2020-10-18 ! 0B           ! 1        ! -1     ! 15.8 ! [OK]   ! [OK]      
-210:0.0C.0 ! CTE0.C.BBU ! 2020-10-18 ! 0C           ! 1        ! -1     ! 15.8 ! [OK]   ! [OK]      
-210:0.0D.0 ! CTE0.D.BBU ! 2020-10-18 ! 0D           ! 1        ! -1     ! 16.0 ! [OK]   ! [OK] 
+UUID       ! Location   ! Produced   ! ControllerID ! #Discharged ! Remain ! Volt ! Health ! Running  
+-----------+------------+------------+--------------+-------------+--------+------+--------+----------
+210:0.0A.0 ! CTE0.PSU 0 ! 2014-3-25  ! 0A           ! 7           ! 5Y 4M  ! 16.1 ! [OK]   ! [WARNING]
+210:0.0A.0 ! CTE0.A.BBU ! 2020-10-18 ! 0A           ! 1           ! 0      ! 15.9 ! [OK]   ! [OK]     
+210:0.0B.0 ! CTE0.B.BBU ! 2020-10-18 ! 0B           ! 1           ! 0      ! 15.8 ! [OK]   ! [OK]     
+210:0.0C.0 ! CTE0.C.BBU ! 2020-10-18 ! 0C           ! 1           ! 0      ! 15.8 ! [OK]   ! [OK]     
+210:0.0D.0 ! CTE0.D.BBU ! 2020-10-18 ! 0D           ! 1           ! 0      ! 16.0 ! [OK]   ! [OK]
 ```
 
 
@@ -143,8 +143,8 @@ UUID       ! Location   ! Produced   ! ControllerID ! #Charged ! Remain ! Volt !
 * OK if all BBU modules report normal health and running status.
 * WARN if any backup power module reports a degraded health status, or one this check does not know.
 * WARN if any backup power module's running status is not "Normal", "Running", "Online", "Charging" or "Charging completed", unless it reports an outright failure.
-* CRIT if any backup power module reports health status "Faulty", "Invalid" or "Offline".
-* CRIT if any backup power module's running status reports a failure ("Offline", "Invalid", "Migration fault", "Error/Faulty", "Power-on failed", "Abnormal" or "Rollback failure").
+* CRIT if any backup power module reports health status "Faulty", "No Input", "Invalid" or "Offline".
+* CRIT if any backup power module's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
 * WARN if a backup power module's remaining life falls below `--warning` (default: less than 180 days).
 * CRIT if a backup power module's remaining life falls below `--critical` (default: less than 30 days).
 * UNKNOWN if the appliance lists no backup power modules at all, which points at the query rather than at the hardware.
@@ -157,11 +157,12 @@ UUID       ! Location   ! Produced   ! ControllerID ! #Charged ! Remain ! Volt !
 
 | Name | Type | Description |
 |----|----|----|
-| \<UUID\>_CHARGETIMES | Number | Discharge count. |
-| \<UUID\>_HEALTHSTATUS | Number | 0: unknown, 1: normal, 2: faulty, 3: about to fail, 12: low battery. |
-| \<UUID\>_REMAINLIFEDAYS | Seconds | Remaining service life. |
-| \<UUID\>_RUNNINGSTATUS | Number | 0: unknown, 1: normal, 2: running, 27: online, 28: offline, 48: charging, 49: charging completed, 50: discharging. |
-| \<UUID\>_VOLTAGE | Number | Current voltage. |
+| \<UUID\>_health_status | Number | 0: unknown, 1: normal, 2: faulty, 3: about to fail, 12: low battery. |
+| \<UUID\>_remaining_life | Seconds | Remaining service life. Only reported for a module that states one. |
+| \<UUID\>_running_status | Number | 0: unknown, 1: normal, 2: running, 27: online, 28: offline, 48: charging, 49: charging completed, 50: discharging. |
+| \<UUID\>_voltage | Number | Current voltage, in volts. |
+
+The discharge count stays out of the performance data. It only ever counts up, and a cumulative counter aggregates wrong in every Grafana panel that touches it ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320)). It is in the table instead, where it reads as the wear of the module.
 
 See the [Huawei OceanStor Dorado API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 

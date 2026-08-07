@@ -124,7 +124,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-pow
 ## Usage Examples
 
 ```bash
-./huawei-dorado-power --url https://oceanstor:8088 --device-id 123456789 --username monitoring --password mypass
+./huawei-dorado-power --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik
 ```
 
 Output:
@@ -146,8 +146,8 @@ UUID       ! Location    ! Manufacturer ! Model         ! SerialNumber         !
 * OK if all PSUs report normal health and running status.
 * WARN if any PSU reports a degraded health status, or one this check does not know.
 * WARN if any PSU's running status is not "Normal", "Running" or "Online", unless it reports an outright failure.
-* CRIT if any PSU reports health status "Faulty", "Invalid" or "Offline".
-* CRIT if any PSU's running status reports a failure ("Offline", "Invalid", "Migration fault", "Error/Faulty", "Power-on failed", "Abnormal" or "Rollback failure").
+* CRIT if any PSU reports health status "Faulty", "No Input", "Invalid" or "Offline".
+* CRIT if any PSU's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
 * WARN or CRIT if a PSU's temperature reaches `--warning-temperature` or `--critical-temperature`. Both are off by default.
 * UNKNOWN if the appliance lists no power supplies at all, which points at the query rather than at the hardware.
 * `--match` limits the check to the power modules whose identifier, location or name matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).

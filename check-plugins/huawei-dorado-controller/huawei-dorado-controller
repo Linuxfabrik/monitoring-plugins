@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080703'
+__version__ = '2026080704'
 
 DESCRIPTION = """Checks the health and running status of all controllers on a Huawei OceanStor Dorado
 storage system via the REST API (/controller endpoint). Alerts when any controller
@@ -358,6 +358,13 @@ def main():
             controller.get('TEMPERATURE')
         )
 
+        # The REST Interface References give no unit for the board voltage, but their own
+        # response examples show 120 and 160 next to a backup power module reading 161,
+        # which they do document as tenths of a volt. A controller board runs on 12 V, so
+        # the raw value is read the same way rather than as 120 volts.
+        voltage = lib.huawei_dorado.as_code(controller.get('VOLTAGE'))
+        controller['VOLTAGE'] = None if voltage is None else round(voltage / 10, 1)
+
         # All three thresholds are off unless the operator sets them. A controller under
         # load is doing its job, and what counts as hot depends on the model and on where
         # the array stands, so there is no default that would be right everywhere.
@@ -418,6 +425,11 @@ def main():
             _min=0,
             _max=100,
         )
+        # The bare code, not a label. The vendor documents this field both ways round in
+        # the same document (the batch query as `1: off, 2: on`, the single-object query
+        # as `1: on, 2: off`), and appliances additionally send a 0 that neither table
+        # lists, so a readable state cannot be derived from it. See
+        # `lib.huawei_dorado.get_led_status()`, which covers the other spelling.
         perfdata += lib.base.get_perfdata(
             f'{label}_light_status',
             controller.get('LIGHT_STATUS'),
@@ -466,6 +478,13 @@ def main():
         controller['ROLE'] = lib.huawei_dorado.get_controller_role(
             controller.get('ROLE')
         )
+        # The performance data is written above, so what is left here is the display
+        # value. A board that reports neither reading prints the appliance's own
+        # placeholder rather than a literal "None".
+        if controller['TEMPERATURE'] is None:
+            controller['TEMPERATURE'] = '--'
+        if controller['VOLTAGE'] is None:
+            controller['VOLTAGE'] = '--'
 
         table_data.append(controller)
 
@@ -498,6 +517,7 @@ def main():
             'CPUUSAGE',
             'MEMORYUSAGE',
             'VOLTAGE',
+            'TEMPERATURE',
             'health_state',
             'running_state',
         ]
@@ -510,6 +530,7 @@ def main():
             'CPU (%)',
             'Mem (%)',
             'Volt',
+            'Temp',
             'Health',
             'Running',
         ]

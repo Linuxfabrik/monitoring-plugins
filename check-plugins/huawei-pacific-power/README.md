@@ -86,7 +86,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-pacific-po
 ## Usage Examples
 
 ```bash
-./huawei-pacific-power --url=https://oceanstor:8088 --username=monitoring --password=mypass
+./huawei-pacific-power --url=https://oceanstor:8088 --username=monitoring --password=linuxfabrik
 ```
 
 Output:

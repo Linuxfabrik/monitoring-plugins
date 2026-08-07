@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080702'
+__version__ = '2026080703'
 
 DESCRIPTION = """Checks the health and running status of all power modules on a Huawei OceanStor Dorado
 storage system via the REST API (/power endpoint). Alerts when any module reports a
@@ -397,6 +397,13 @@ def main():
 
         power['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         power['running_state'] = lib.base.state2str(running_state, empty_ok=False)
+        # The performance data is written above, so what is left here is the display
+        # value. A supply that reports neither reading prints the appliance's own
+        # placeholder rather than a literal "None".
+        power['TEMPERATURE'] = '--' if temperature is None else temperature
+        for field in ('INPUTVOLTAGE', 'OUTPUTVOLTAGE'):
+            if power[field] is None:
+                power[field] = '--'
 
         table_data.append(power)
 
