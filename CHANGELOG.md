@@ -176,6 +176,7 @@ Notification Plugins:
 Tools:
 
 * installer: a source install no longer makes the monitoring user own the plugins, the bundled library and the dependency venv; they stay owned by root, closing a local root code-execution path
+* installer: a source install on Ubuntu 22.04 no longer bundles an `h2` with a known request smuggling issue; on RHEL 8, RHEL 9 and Debian 11 no fixed release exists that still supports their Python 3.9
 * installer: the Python dependencies bundled with a source install no longer carry known vulnerabilities in `cryptography` (a padding oracle in PKCS#7 decryption) and `soupsieve` (two denial-of-service issues in CSS selector parsing)
 
 
