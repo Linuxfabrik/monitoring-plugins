@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080703'
+__version__ = '2026080704'
 
 DESCRIPTION = """Checks the health and link status of the front-end ports of a Huawei OceanStor
 Dorado storage system via the REST API (/fc_port, /eth_port, /sas_port and /bond_port endpoints).
@@ -340,6 +340,18 @@ def parse_args():
         'Example: `--warning-errors=1`',
         dest='WARN_ERRORS',
         default=DEFAULT_WARN_ERRORS,
+    )
+
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        help='Print what every API request returned, so the appliance\'s own answers can '
+        'be read while working out how it reports something. The output is as long as '
+        'those answers are, and session tokens are redacted. '
+        'Meant for the command line, not for a service definition.',
+        dest='VERBOSE',
+        action='count',
+        default=0,
     )
 
     args, _ = parser.parse_known_args()
@@ -658,6 +670,9 @@ def main():
         ]
 
         msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
+
+    if args.VERBOSE:
+        msg += '\n\n' + lib.huawei_dorado.format_responses()
 
     # over and out
     lib.base.oao(

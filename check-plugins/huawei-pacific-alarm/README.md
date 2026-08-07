@@ -40,6 +40,7 @@ usage: huawei-pacific-alarm [-h] [-V] [--always-ok]
                             [--password PASSWORD]
                             [--password-file PASSWORD_FILE] [--scope SCOPE]
                             [--timeout TIMEOUT] -u URL --username USERNAME
+                            [-v]
 
 Lists active (unrecovered) alarms on a Huawei OceanStor Pacific storage system
 via the REST API (/common/alarms endpoint). Alerts when unrecovered alarms are
@@ -78,6 +79,12 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Pacific API URL.
   --username USERNAME   Huawei OceanStor Pacific API username.
+  -v, --verbose         Print what every API request returned, so the
+                        appliance's own answers can be read while working out
+                        how it reports something. The output is as long as
+                        those answers are, and session tokens are redacted.
+                        Meant for the command line, not for a service
+                        definition.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-pacific-alarm/

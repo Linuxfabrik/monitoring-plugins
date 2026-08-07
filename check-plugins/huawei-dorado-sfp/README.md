@@ -49,7 +49,7 @@ usage: huawei-dorado-sfp [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
                          [--rx-power-warning RX_POWER_WARN] [--scope SCOPE]
                          [--tx-power-critical TX_POWER_CRIT]
                          [--tx-power-warning TX_POWER_WARN]
-                         [--timeout TIMEOUT] -u URL --username USERNAME
+                         [--timeout TIMEOUT] -u URL --username USERNAME [-v]
 
 Checks the health, link status and optical power of the optical modules (SFP)
 of a Huawei OceanStor Dorado storage system via the REST API (/sfp endpoint).
@@ -141,6 +141,12 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.
+  -v, --verbose         Print what every API request returned, so the
+                        appliance's own answers can be read while working out
+                        how it reports something. The output is as long as
+                        those answers are, and session tokens are redacted.
+                        Meant for the command line, not for a service
+                        definition.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-sfp/

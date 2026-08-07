@@ -42,7 +42,7 @@ usage: huawei-dorado-system [-h] [-V] [--always-ok]
                             [--password PASSWORD]
                             [--password-file PASSWORD_FILE] [--scope SCOPE]
                             [--timeout TIMEOUT] -u URL --username USERNAME
-                            [-w WARN]
+                            [-w WARN] [-v]
 
 Checks overall system health, capacity, and performance of a Huawei OceanStor
 Dorado storage system via the REST API (/system endpoint). Reports health
@@ -90,6 +90,12 @@ options:
   --username USERNAME   Huawei OceanStor Dorado API username.
   -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
                         Default: 90
+  -v, --verbose         Print what every API request returned, so the
+                        appliance's own answers can be read while working out
+                        how it reports something. The output is as long as
+                        those answers are, and session tokens are redacted.
+                        Meant for the command line, not for a service
+                        definition.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-system/

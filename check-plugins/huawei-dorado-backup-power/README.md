@@ -47,7 +47,7 @@ usage: huawei-dorado-backup-power [-h] [-V] [--always-ok]
                                   [--password-file PASSWORD_FILE]
                                   [--scope SCOPE] [--timeout TIMEOUT] -u URL
                                   --username USERNAME [-w WARN]
-                                  [--warning-voltage WARN_VOLTAGE]
+                                  [--warning-voltage WARN_VOLTAGE] [-v]
 
 Checks the health status of all backup power modules (BBU) on a Huawei
 OceanStor Dorado storage system via the REST API (/backup_power endpoint).
@@ -127,6 +127,12 @@ options:
                         because the healthy range depends on the module and on
                         how many cells it has; read the label or watch the
                         graph first. Example: `--warning-voltage=15:17`
+  -v, --verbose         Print what every API request returned, so the
+                        appliance's own answers can be read while working out
+                        how it reports something. The output is as long as
+                        those answers are, and session tokens are redacted.
+                        Meant for the command line, not for a service
+                        definition.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-backup-power/

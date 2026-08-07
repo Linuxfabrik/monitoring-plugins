@@ -38,7 +38,7 @@ usage: huawei-pacific-node [-h] [-V] [--always-ok]
                            [--no-insecure] [--no-perfdata] [--no-proxy]
                            [--password PASSWORD]
                            [--password-file PASSWORD_FILE] [--scope SCOPE]
-                           [--timeout TIMEOUT] -u URL --username USERNAME
+                           [--timeout TIMEOUT] -u URL --username USERNAME [-v]
 
 Checks the health and running status of all cluster nodes on a Huawei
 OceanStor Pacific storage system via the REST API (/cluster/servers endpoint).
@@ -76,6 +76,12 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Pacific API URL.
   --username USERNAME   Huawei OceanStor Pacific API username.
+  -v, --verbose         Print what every API request returned, so the
+                        appliance's own answers can be read while working out
+                        how it reports something. The output is as long as
+                        those answers are, and session tokens are redacted.
+                        Meant for the command line, not for a service
+                        definition.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-pacific-node/

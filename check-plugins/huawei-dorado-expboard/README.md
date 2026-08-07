@@ -44,6 +44,7 @@ usage: huawei-dorado-expboard [-h] [-V] [--always-ok]
                               [--password PASSWORD]
                               [--password-file PASSWORD_FILE] [--scope SCOPE]
                               [--timeout TIMEOUT] -u URL --username USERNAME
+                              [-v]
 
 Checks the health and running status of all expansion boards on a Huawei
 OceanStor Dorado storage system via the REST API (/expboard endpoint). Alerts
@@ -105,6 +106,12 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.
+  -v, --verbose         Print what every API request returned, so the
+                        appliance's own answers can be read while working out
+                        how it reports something. The output is as long as
+                        those answers are, and session tokens are redacted.
+                        Meant for the command line, not for a service
+                        definition.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-expboard/

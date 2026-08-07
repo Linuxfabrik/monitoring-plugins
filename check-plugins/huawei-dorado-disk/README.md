@@ -49,7 +49,7 @@ usage: huawei-dorado-disk [-h] [-V] [--always-ok]
                           [--timeout TIMEOUT] -u URL --username USERNAME
                           [-w WARN] [--warning-health-mark WARN_HEALTH_MARK]
                           [--warning-temperature WARN_TEMPERATURE]
-                          [--warning-wear WARN_WEAR]
+                          [--warning-wear WARN_WEAR] [-v]
 
 Checks the health status of all disks on a Huawei OceanStor Dorado storage
 system via the REST API (/disk endpoint). Alerts when any disk reports a
@@ -159,6 +159,12 @@ options:
                         range in percent of its service life used up. Spinning
                         media report -1 instead and are never compared. Off by
                         default. Example: `--warning-wear=80`
+  -v, --verbose         Print what every API request returned, so the
+                        appliance's own answers can be read while working out
+                        how it reports something. The output is as long as
+                        those answers are, and session tokens are redacted.
+                        Meant for the command line, not for a service
+                        definition.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-disk/

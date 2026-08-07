@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080704'
+__version__ = '2026080706'
 
 DESCRIPTION = """Checks the health and running status of all controllers on a Huawei OceanStor Dorado
 storage system via the REST API (/controller endpoint). Alerts when any controller
@@ -51,7 +51,32 @@ HEALTH_STATUS_MAX = 18
 
 # Performance indicators this object supports, from the vendor's performance
 # indicator tables. Read only when --performance is given.
-PERFORMANCE_INDICATORS = (19, 21, 22, 23, 25, 26, 28, 68, 69, 93, 95, 110, 120, 303, 370)
+#
+# Cache page, chunk and page unit utilisation (1055 to 1057) are deliberately absent.
+# A third-party implementation reads them, but neither REST Interface Reference lists
+# them among the indicators a controller supports, and asking for a number nothing
+# documents would put behaviour into this check that nobody can look up.
+PERFORMANCE_INDICATORS = (
+    19,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    68,
+    69,
+    93,
+    95,
+    110,
+    120,
+    303,
+    370,
+    384,
+    385,
+)
 
 # Fields `--match` is applied to.
 MATCH_FIELDS = ('UUID', 'LOCATION')
@@ -258,6 +283,18 @@ def parse_args():
         'controller model and on where the array stands. Example: `--warning-temperature=45`',
         dest='WARN_TEMPERATURE',
         default=DEFAULT_WARN_TEMPERATURE,
+    )
+
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        help='Print what every API request returned, so the appliance\'s own answers can '
+        'be read while working out how it reports something. The output is as long as '
+        'those answers are, and session tokens are redacted. '
+        'Meant for the command line, not for a service definition.',
+        dest='VERBOSE',
+        action='count',
+        default=0,
     )
 
     args, _ = parser.parse_known_args()
@@ -536,6 +573,9 @@ def main():
         ]
 
         msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
+
+    if args.VERBOSE:
+        msg += '\n\n' + lib.huawei_dorado.format_responses()
 
     # over and out
     lib.base.oao(

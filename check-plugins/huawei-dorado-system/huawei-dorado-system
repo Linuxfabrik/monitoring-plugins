@@ -22,7 +22,7 @@ import lib.lftest
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080702'
+__version__ = '2026080703'
 
 DESCRIPTION = """Checks overall system health, capacity, and performance of a Huawei OceanStor Dorado
 storage system via the REST API (/system endpoint). Reports health status, running
@@ -188,6 +188,18 @@ def parse_args():
         + ' Supports Nagios ranges. Default: %(default)s',
         dest='WARN',
         default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        help='Print what every API request returned, so the appliance\'s own answers can '
+        'be read while working out how it reports something. The output is as long as '
+        'those answers are, and session tokens are redacted. '
+        'Meant for the command line, not for a service definition.',
+        dest='VERBOSE',
+        action='count',
+        default=0,
     )
 
     args, _ = parser.parse_known_args()
@@ -425,6 +437,9 @@ def main():
             _min=0,
             _max=maximum,
         )
+
+    if args.VERBOSE:
+        msg += '\n\n' + lib.huawei_dorado.format_responses()
 
     # over and out
     lib.base.oao(

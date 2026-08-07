@@ -57,7 +57,7 @@ usage: huawei-dorado-port [-h] [-V] [--always-ok]
                           [--password-file PASSWORD_FILE] [--scope SCOPE]
                           [--slow-port-severity {ok,warn,crit,unknown}]
                           [--timeout TIMEOUT] -u URL --username USERNAME
-                          [--warning-errors WARN_ERRORS]
+                          [--warning-errors WARN_ERRORS] [-v]
 
 Checks the health and link status of the front-end ports of a Huawei OceanStor
 Dorado storage system via the REST API (/fc_port, /eth_port, /sas_port and
@@ -154,6 +154,12 @@ options:
                         alerting on; watch the graph first and set it once you
                         know what your fabric normally sits at. A healthy link
                         sits at 0. Example: `--warning-errors=1`
+  -v, --verbose         Print what every API request returned, so the
+                        appliance's own answers can be read while working out
+                        how it reports something. The output is as long as
+                        those answers are, and session tokens are redacted.
+                        Meant for the command line, not for a service
+                        definition.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-port/

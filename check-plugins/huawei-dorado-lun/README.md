@@ -52,7 +52,7 @@ usage: huawei-dorado-lun [-h] [-V] [--always-ok] [--brief]
                          [--password PASSWORD] [--password-file PASSWORD_FILE]
                          [--scope SCOPE] [--timeout TIMEOUT]
                          [--unmapped-severity {ok,warn,crit,unknown}] -u URL
-                         --username USERNAME [-w WARN]
+                         --username USERNAME [-w WARN] [-v]
 
 Checks the health and running status of the LUNs of a Huawei OceanStor Dorado
 storage system via the REST API (/lun endpoint). Alerts when a LUN reports a
@@ -153,6 +153,12 @@ options:
                         thin LUN that is full is doing what it was created
                         for; what runs out is the pool behind it. Example:
                         `--warning=85`
+  -v, --verbose         Print what every API request returned, so the
+                        appliance's own answers can be read while working out
+                        how it reports something. The output is as long as
+                        those answers are, and session tokens are redacted.
+                        Meant for the command line, not for a service
+                        definition.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-lun/

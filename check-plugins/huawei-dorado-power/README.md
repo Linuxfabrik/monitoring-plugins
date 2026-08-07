@@ -44,7 +44,7 @@ usage: huawei-dorado-power [-h] [-V] [--always-ok]
                            [--no-perfdata] [--no-proxy] [--password PASSWORD]
                            [--password-file PASSWORD_FILE] [--scope SCOPE]
                            [--timeout TIMEOUT] -u URL --username USERNAME
-                           [--warning-temperature WARN_TEMPERATURE]
+                           [--warning-temperature WARN_TEMPERATURE] [-v]
 
 Checks the health and running status of all power modules on a Huawei
 OceanStor Dorado storage system via the REST API (/power endpoint). Alerts
@@ -115,6 +115,12 @@ options:
                         because a healthy operating temperature depends on the
                         power module model and on where the array stands.
                         Example: `--warning-temperature=45`
+  -v, --verbose         Print what every API request returned, so the
+                        appliance's own answers can be read while working out
+                        how it reports something. The output is as long as
+                        those answers are, and session tokens are redacted.
+                        Meant for the command line, not for a service
+                        definition.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-power/

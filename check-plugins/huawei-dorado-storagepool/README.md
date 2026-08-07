@@ -51,6 +51,7 @@ usage: huawei-dorado-storagepool [-h] [-V] [--always-ok]
                                  [--scope SCOPE] [--timeout TIMEOUT] -u URL
                                  --username USERNAME [-w WARN]
                                  [--warning-overprovisioning WARN_OVERPROVISIONING]
+                                 [-v]
 
 Checks the health, running status and capacity usage of all storage pools on a
 Huawei OceanStor Dorado storage system via the REST API (/storagepool
@@ -148,6 +149,12 @@ options:
                         for; what matters is how far the promise exceeds the
                         disks behind it. Off by default. Example: `--warning-
                         overprovisioning=200`
+  -v, --verbose         Print what every API request returned, so the
+                        appliance's own answers can be read while working out
+                        how it reports something. The output is as long as
+                        those answers are, and session tokens are redacted.
+                        Meant for the command line, not for a service
+                        definition.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-storagepool/
